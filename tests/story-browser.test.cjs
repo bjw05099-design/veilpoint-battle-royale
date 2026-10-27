@@ -199,3 +199,41 @@ test('CH01 timed clearance is persisted by browser clock and survives reload wit
   const reloaded=boot(shared);reloaded.element('continue').click();
   assert.match(reloaded.element('objective').textContent,/추가 확인 경로/);
 });
+
+test('CH01 focus loss pauses hostile time, persists progress and resumes without a time jump',()=>{
+  const app=boot();
+  app.element('continue').click();app.moveForward(0,300);app.interact();
+  app.frame(301*1000/60);
+  app.emit('blur');
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  assert.match(app.element('menuText').textContent,/자동 일시정지/);
+  const paused=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  for(let i=302;i<=800;i++)app.frame(i*1000/60);
+  app.element('continue').click();
+  app.frame(801*1000/60);
+  app.element('pauseButton').click();
+  const resumed=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.ok(resumed.elapsed-paused.elapsed<0.05,'hidden frames cannot advance enemy attacks or timers');
+  assert.equal(resumed.player.health,paused.player.health);
+  app.element('continue').click();
+  app.context.document.hidden=true;app.emit('visibilitychange');
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  const hidden=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  for(let i=802;i<=1000;i++)app.frame(i*1000/60);
+  assert.equal(app.store.get('veilpoint.story.ch01'),JSON.stringify(hidden));
+});
+
+test('CH01 automatically checkpoints actual hostile damage before browser refresh',()=>{
+  const app=boot();
+  app.element('continue').click();app.moveForward(0,300);app.interact();
+  const before=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(before.player.health,100);
+  for(let i=301;i<=540;i++)app.frame(i*1000/60);
+  const after=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(after.phase,'engagement');
+  assert.ok(after.player.health<before.player.health,'hostile damage must persist without manual pause');
+  assert.ok(after.combat.drones.some(hostile=>hostile.shots>0));
+  const refreshed=boot(app.store);refreshed.element('continue').click();
+  refreshed.element('pauseButton').click();
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.health,after.player.health);
+});
