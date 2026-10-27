@@ -70,3 +70,26 @@ test('CH01 default carbine and its checkpoint format remain unchanged',()=>{
  assert.equal(restored.world.player.weaponId,'carbine');
  assert.equal(Story.serialize(restored),Story.serialize(s));
 });
+
+test('BR pickups reject incompatible class ammunition without consumption or resource creation',()=>{
+ for(const id of ids){
+  const g=Sim.newMatch(222,0,id);g.status='playing';
+  g.loot.forEach(item=>{item.x=100;item.z=100;});
+  const incompatible=g.loot.find(item=>item.weaponId!==id);
+  const compatible=g.loot.find(item=>item.weaponId===id);
+  const before=g.player.charges;
+  incompatible.x=0;incompatible.z=0;
+  assert.equal(Sim.pickup(g),null);
+  assert.equal(incompatible.picked,false);
+  assert.equal(g.player.charges,before);
+  assert.match(g.message,/INCOMPATIBLE/);
+  incompatible.x=100;incompatible.z=100;
+  compatible.x=0;compatible.z=0;
+  assert.equal(Sim.pickup(g),compatible.kind);
+  assert.equal(compatible.picked,true);
+  assert.ok(g.player.charges>before&&g.player.charges<=g.player.maxCharges);
+  const after=g.player.charges;
+  assert.equal(Sim.pickup(g),null);
+  assert.equal(g.player.charges,after);
+ }
+});

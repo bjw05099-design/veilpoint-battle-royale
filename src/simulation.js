@@ -82,7 +82,7 @@
       const pos = safeSpot(36);
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
+    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%3],picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,alive:true},
@@ -267,6 +267,9 @@
     const p=game.player;
     // Physical ammunition supply only; no pickup provides instant medical recovery or protection.
     if(closest.kind!=='ammo'&&closest.kind!=='magazine')return null;
+    if(closest.weaponId&&closest.weaponId!==p.weaponId){
+      game.message='INCOMPATIBLE AMMUNITION';game.messageTime=1.5;return null;
+    }
     if(p.charges>=p.maxCharges)return null;
     p.charges=Math.min(p.maxCharges,p.charges+(closest.kind==='ammo'?12:24));
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;

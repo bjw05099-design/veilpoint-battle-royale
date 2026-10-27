@@ -38,7 +38,7 @@ test('all battle royale pickups are finite ammunition and cannot instantly resto
  assert.equal(S.pickup(a),'ammo');assert.equal(a.player.charges,37);
  assert.equal(a.player.health,35);assert.equal(a.player.shield,0);
  assert.equal(S.pickup(a),null);
- const magazine=a.loot.find(x=>x.kind==='magazine');magazine.x=0;magazine.z=0;
+ const magazine=a.loot.find(x=>x.kind==='magazine'&&x.weaponId===a.player.weaponId);magazine.x=0;magazine.z=0;
  assert.equal(S.pickup(a),'magazine');assert.equal(a.player.charges,60);
  assert.equal(a.player.health,35);assert.equal(a.player.shield,0);
  const next=a.loot.find(x=>!x.picked);next.x=0;next.z=0;
