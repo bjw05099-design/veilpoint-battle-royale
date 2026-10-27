@@ -58,7 +58,7 @@ test('offline BR map keeps opponents undisclosed by the minimap UI',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
  assert.doesNotMatch(app,/for\(const bot of simulation\.bots\)/);
  assert.doesNotMatch(html,/id="shieldNum"|id="shieldBar"/);
- assert.match(html,/AVAILABLE AMMUNITION/);
+ assert.match(html,/MAGAZINE \/ RESERVE/);
 });
 
 test('opponents cannot track or chase the player through solid buildings',()=>{
