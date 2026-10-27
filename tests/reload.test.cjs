@@ -39,6 +39,7 @@ test('CH01 partial reload survives checkpoint and finishes at 60Hz',()=>{
 test('older v2 checkpoint cannot restore magical shield or extra rounds',()=>{
  const old=JSON.parse(Story.serialize(Story.createState()));
  delete old.player.loaded;delete old.player.reloadRemaining;
+ delete old.player.stress;delete old.player.reloadAssist;delete old.player.reloadHesitation;
  old.player.charges=5;old.player.shield=90;
  const loaded=Story.restore(JSON.stringify(old));
  assert.equal(loaded.world.player.loaded,5);assert.equal(loaded.world.player.charges,5);
