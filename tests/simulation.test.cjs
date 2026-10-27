@@ -232,7 +232,7 @@ test('stress reload hesitation is recoverable and conserves rounds',()=>{
  assert.equal(assisted.hesitation,false);assert.equal(p.charges,31);
 });
 test('sprint and injury raise deterministic stress while rest lowers it',()=>{
- const a=S.newMatch(701,0),b=S.newMatch(701,0);
+ const a=S.newMatch(701,1),b=S.newMatch(701,1);
  a.status=b.status='playing';
  for(let i=0;i<180;i++){S.tick(a,1/60,{forward:true,sprint:true});S.tick(b,1/60,{forward:true,sprint:true});}
  assert.equal(a.player.stress,b.player.stress);assert.ok(a.player.stress>0);
