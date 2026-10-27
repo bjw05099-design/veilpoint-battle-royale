@@ -132,7 +132,8 @@
         if(!hostile.alive)continue;
         const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
         if(distance<.001||distance>HOSTILE_ALERT_RANGE||
-          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
         const bearing=Math.atan2(dx,-dz);
         const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         if(Math.abs(delta)>1.1)continue;
@@ -160,7 +161,8 @@
       for(const hostile of state.world.bots){
         if(!hostile.alive||hostile.shots>=HOSTILE_ROUNDS)continue;
         const distance=Math.hypot(hostile.x-p.x,hostile.z-p.z);
-        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
         const bearing=Math.atan2(p.x-hostile.x,-(p.z-hostile.z));
         const facing=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
@@ -280,7 +282,13 @@
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
-      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중'
+      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
+      civilianConsequence:state.choice==='evacuation'
+        ?'유수프 구조단: 남쪽 대피 인원 확인 우선 · 동쪽 기록 확인 보류'
+        :state.choice==='verification'
+          ?(gateOpen(state)?'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속'
+            :'유수프 구조단: 남쪽 대피 유지 · 동쪽 통제물 해제 대기')
+          :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
   }
   function objective(state) {
@@ -374,7 +382,10 @@
     if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
-      (data.choice==='verification'&&data.found.length!==2))
+      (data.choice==='verification'&&data.found.length!==2)||
+      // A saved verified completion must follow actual clearance, not precede it.
+      (data.phase==='complete'&&data.choice==='verification'&&hasOwn(data,'gateReadyAt')&&
+        data.elapsed+1e-6<data.gateReadyAt))
       throw new RangeError('Invalid checkpoint mission state');
     return true;
   }
