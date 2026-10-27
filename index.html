@@ -33,7 +33,7 @@
 <canvas id="scene" aria-label="Three-dimensional battle royale arena"></canvas>
 <div id="damage" class="damage"></div>
 <div id="topbar">
- <div class="brand"><div class="brand-logo"></div><span>VEILPOINT</span><span class="micro">/ BUILD 1.4</span></div>
+ <div class="brand"><div class="brand-logo"></div><span>VEILPOINT</span><span class="micro">/ BUILD 1.6</span></div>
  <div class="metrics"><div class="metric"><div class="micro">SURVIVORS</div><strong id="alive">19</strong></div><div class="metric"><div class="micro">CIRCLE PHASE</div><strong id="phase">01 <span class="unit">/ 06</span></strong></div><div class="metric"><div class="micro">CONTRACTION</div><strong id="time">01:30</strong></div></div>
  <div class="graphics-setting"><button id="graphicsOpen" type="button" aria-controls="graphicsPanel">그래픽 설정 ⚙</button><output id="fpsMeter" aria-live="off">-- / 165 FPS</output></div>
 </div>
@@ -63,7 +63,7 @@
 <div id="mobileControls"><div id="stick"><div id="nub"></div></div><div id="actionBtns"><button id="tagButton">TAG</button><button id="lootButton">LOOT</button><button id="sprintButton">SPRINT</button></div></div>
 <div class="overlay" id="overlay"><div class="landing"><div class="eyebrow">PROJECT NIGHTFALL / PROTOTYPE 1.0</div><h1>VEIL<span>POINT.</span></h1><p class="tagline">마지막 신호가 사라질 때까지. 광활한 전장에서 생존자를 찾아내고, 좁아지는 경계 안에서 끝까지 살아남으세요.</p><div class="line"></div><div class="cta"><button class="primary" id="play">시뮬레이션 시작</button><div class="note">PC: 마우스 시점 및 WASD 이동. 모바일: 가상 조이스틱, 드래그와 액션 버튼 지원. 인터넷 없이 실행 가능합니다.</div></div><p class="note-strong">실사 지향 게임플레이 기술 데모입니다. 실제 Bodycam 수준의 고품질 에셋·글로벌 일루미네이션은 아직 구현되지 않았습니다.</p><div class="specs"><div><b>01 / WORLD</b>PROCEDURAL 3D TERRAIN</div><div><b>02 / COMBAT</b>NON-LETHAL TAG SYSTEM</div><div><b>03 / SURVIVAL</b>SHRINKING ZONE + AI RIVALS</div><div><b>04 / ENGINE</b>ZERO EXTERNAL DEPENDENCIES</div></div></div></div>
 </main>
-<script src="src/simulation.js"></script><script src="src/renderer.js"></script><script src="src/clock.js"></script><script src="src/fps.js"></script><script src="src/graphics.js"></script>
+<script src="src/simulation.js"></script><script src="src/visibility.js"></script><script src="src/renderer.js"></script><script src="src/clock.js"></script><script src="src/fps.js"></script><script src="src/graphics.js"></script>
 <script src="src/performance.js"></script><script src="src/app.js"></script>
 </body>
 </html>
