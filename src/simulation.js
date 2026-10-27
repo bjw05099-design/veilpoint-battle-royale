@@ -69,10 +69,10 @@
       const pos = safeSpot(36);
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, tags:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%3===0?'med':i%3===1?'shield':'charge',picked:false}));
+    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:80,charges:48,maxCharges:60,stamina:100,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,stamina:100,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -97,9 +97,9 @@
   }
   function receiveDamage(game, damage) {
     if (!game.player.alive || damage<=0) return;
-    const shieldAbsorb=Math.min(game.player.shield,damage);
-    game.player.shield-=shieldAbsorb;
-    game.player.health=Math.max(0, game.player.health - (damage-shieldAbsorb));
+    // Legacy shield state is inert: received damage always affects health.
+    game.player.shield=0;
+    game.player.health=Math.max(0, game.player.health-damage);
     game.damageFlash=0.45;
     if(game.player.health===0){game.player.alive=false;game.status='lost';game.message='SIGNAL LOST';}
   }
@@ -170,9 +170,10 @@
     for(const item of game.loot){if(item.picked) continue; const d=dist(item,game.player);if(d<nearest){nearest=d;closest=item;}}
     if(!closest) return null;
     const p=game.player;
-    if(closest.kind==='med')p.health=Math.min(100,p.health+45);
-    if(closest.kind==='shield')p.shield=Math.min(100,p.shield+55);
-    if(closest.kind==='charge')p.charges=Math.min(p.maxCharges,p.charges+24);
+    // Physical ammunition supply only; no pickup provides instant medical recovery or protection.
+    if(closest.kind!=='ammo'&&closest.kind!=='magazine')return null;
+    if(p.charges>=p.maxCharges)return null;
+    p.charges=Math.min(p.maxCharges,p.charges+(closest.kind==='ammo'?12:24));
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
