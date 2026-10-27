@@ -1,4 +1,4 @@
-# VEILPOINT v1.0 — survival battle royale development prototype
+# VEILPOINT v1.1 — survival battle royale development prototype
 
 > **Status (2026-10-27): playable browser prototype + uncompiled UE5.8 source scaffold.**
 > No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
@@ -56,3 +56,7 @@ node --check src/app.js
 ## License
 
 Copyright 2026 project owner. All rights reserved unless the owner chooses and publishes a license. The prototype uses only original code and procedural placeholder assets.
+
+## v1.1 timing update
+
+`src/clock.js` decouples gameplay updates from render frame rate at 60 Hz, with bounded stall catch-up. Run `npm run verify` to execute simulation and timing regression tests. An identical deterministic state is asserted under 30/60/144 FPS. The WebGL2 presentation and Unreal Engine components remain unverified on shipping GPU / engine hardware.
