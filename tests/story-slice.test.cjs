@@ -71,6 +71,7 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'decision');assert.equal(story.interact(state).ok,true);
   assert.equal(story.choose(state,'verification').ok,true);
   assert.equal(story.markers(state)[0].id,'exitVerify');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(state,1/60,{});
   go(state,'exitVerify');assert.equal(story.interact(state).ok,true);
   assert.equal(state.phase,'complete');
   assert.equal(state.world.status,'won');
@@ -404,6 +405,9 @@ test('CH01 physical east checkpoint is evidence-gated and reconstructs from old 
   assert.equal(story.choose(verified,'verification').reason,'missing_evidence');
   go(verified,'recordB');story.interact(verified);
   assert.equal(story.choose(verified,'verification').ok,true);
+  assert.equal(story.situation(verified).eastGateOpen,false);
+  assert.equal(Sim.blocked(27,-53,.85,verified.world.obstacles),true);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verified,1/60,{});
   assert.equal(story.situation(verified).eastGateOpen,true);
   assert.equal(Sim.blocked(27,-53,.85,verified.world.obstacles),false);
   const restored=story.restore(story.serialize(verified));
@@ -448,8 +452,34 @@ test('legacy v2 checkpoint inside newly authored east barrier relocates safely w
   go(verified,'recordA');story.interact(verified);
   go(verified,'recordB');story.interact(verified);
   story.choose(verified,'verification');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verified,1/60,{});
   verified.world.player.x=27;verified.world.player.z=-53;
   const open=story.restore(story.serialize(verified));
   assert.equal(open.world.player.z,-53);
   assert.equal(Sim.blocked(27,-53,.85,open.world.obstacles),false);
+});
+
+test('CH01 clearance waits, blocks early exit and persists through checkpoint',()=>{
+  const s=reachDecision();go(s,'recordA');story.interact(s);go(s,'recordB');story.interact(s);
+  const at=s.world.elapsed;assert.equal(story.choose(s,'verification').ok,true);
+  assert.equal(s.gateReadyAt,at+story.GATE_CLEARANCE_SECONDS);
+  assert.equal(story.situation(s).eastGateOpen,false);
+  assert.match(story.objective(s),/개방 작업 중/);
+  go(s,'exitVerify');assert.equal(story.interact(s).reason,'awaiting_clearance');
+  const loaded=story.restore(story.serialize(s));
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60-1;i++)story.step(loaded,1/60,{});
+  assert.equal(story.situation(loaded).eastGateOpen,false);
+  assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),true);
+  story.step(loaded,1/60,{});story.step(loaded,1/60,{});
+  assert.equal(story.situation(loaded).eastGateOpen,true);
+  assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),false);
+  assert.equal(story.interact(loaded).ok,true);assert.equal(loaded.phase,'complete');
+});
+test('CH01 clearance rejects invalid timing and retains legacy open-route saves',()=>{
+  const s=reachDecision();go(s,'recordA');story.interact(s);go(s,'recordB');story.interact(s);
+  story.choose(s,'verification');const data=JSON.parse(story.serialize(s));
+  data.gateReadyAt=data.elapsed+1000;assert.throws(()=>story.restore(JSON.stringify(data)),RangeError);
+  delete data.gateReadyAt;const legacy=story.restore(JSON.stringify(data));
+  assert.equal(story.situation(legacy).eastGateOpen,true);
+  assert.equal(Sim.blocked(27,-53,.85,legacy.world.obstacles),false);
 });

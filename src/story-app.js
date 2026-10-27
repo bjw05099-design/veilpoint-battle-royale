@@ -260,7 +260,7 @@
     const dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
     if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
     if(running&&state.phase==='failed'){
-      persist();menuOpen('교란 신호에 의해 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
+      persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
     }
     if(renderer&&limiter.shouldRender(now))renderer.draw(state.world);
     if(now-lastHud>180){lastHud=now;updateHud();}

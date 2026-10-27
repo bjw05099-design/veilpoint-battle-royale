@@ -12,7 +12,8 @@
   const VERSION = 2;
   const SAVE_LIMIT = 8192;
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
-  const HOSTILE_ROUNDS = 12; // Finite fictional encounter supply; no auto-replenishment.
+  const HOSTILE_ROUNDS = 12;
+  const GATE_CLEARANCE_SECONDS = 8; // Finite fictional encounter supply; no auto-replenishment.
   // Fictional local checkpoint obstacle; open only after responders authorize the route.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:3,h:2.5,type:'container',routeId:'east-checkpoint'});
   function makeHostiles(disabled=false) {
@@ -45,24 +46,27 @@
     world.player.shield=0;
     return world;
   }
+  function gateOpen(state) {
+    return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
+  }
   function syncRoute(state) {
     // Reconstruct physical access from the decision on every load; no drifting save flag.
     state.world.obstacles=state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint');
-    if(state.choice!=='verification')state.world.obstacles.push({...EAST_CHECKPOINT});
+    if(!gateOpen(state))state.world.obstacles.push({...EAST_CHECKPOINT});
     return state;
   }
   function recoverGateOverlap(state) {
     // Older v2 saves predate the authored barrier and can place the player inside it.
     // Relocate only those overlapping the new checkpoint, never rewrite valid positions.
     const p=state.world.player;
-    if(state.choice==='verification'||!Sim.blocked(p.x,p.z,.85,[EAST_CHECKPOINT]))return false;
+    if(gateOpen(state)||!Sim.blocked(p.x,p.z,.85,[EAST_CHECKPOINT]))return false;
     const north=EAST_CHECKPOINT.z+EAST_CHECKPOINT.d/2+1;
     const south=EAST_CHECKPOINT.z-EAST_CHECKPOINT.d/2-1;
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
     return true;
   }
   function createState() {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,world:createWorld(),
       combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 민간 통로만 확인하고, 기록의 진위는 단정하지 마세요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
@@ -93,6 +97,7 @@
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
     const t=clamp(Number.isFinite(dt)?dt:0,0,.05),p=state.world.player;
+    const wasGateOpen=gateOpen(state);
     let ix=Number(!!input.right)-Number(!!input.left);
     let iz=Number(!!input.forward)-Number(!!input.back);
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
@@ -104,6 +109,11 @@
     Sim.updateStress(p,t,sprint);
     state.world.elapsed+=t;
     Sim.advanceReload(state.world,t);
+    if(state.phase==='exit'&&state.choice==='verification'&&!wasGateOpen&&gateOpen(state)){
+      syncRoute(state);
+      state.subtitle='마라(기술자): 현지 구조단이 동쪽 차단물을 치웠다고 확인했어. 이제 통과할 수 있어.';
+      state.message='현지 구조단 확인 · 동쪽 통로 개방';
+    }
     if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
       // Legacy checkpoint key nextPulseAt now schedules a grounded, finite hostile volley.
       state.combat.nextPulseAt=state.world.elapsed+3;
@@ -191,6 +201,7 @@
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
+      if(marker.id==='exitVerify'&&!gateOpen(state))return {ok:false,reason:'awaiting_clearance'};
       state.phase='complete';state.world.status='won';
       state.subtitle=state.choice==='verification'
         ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
@@ -205,10 +216,11 @@
     if(choice!=='evacuation'&&choice!=='verification')return {ok:false,reason:'invalid_choice'};
     if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
     state.choice=choice;state.phase='exit';
+    state.gateReadyAt=choice==='verification'?state.world.elapsed+GATE_CLEARANCE_SECONDS:0;
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 두 기록을 전달했어. 유수프 구조단이 동쪽 통제물을 치우고 통로를 개방했대. 원인은 아직 미확정이야.'
+      ?'마라(기술자): 두 기록을 전달했어. 유수프 구조단이 동쪽 통제물을 치우는 동안 기다려야 해. 원인은 아직 미확정이야.'
       :'마라(기술자): 현지 구조단이 확인한 남쪽 대피 통로로 가자. 동쪽 통제소는 계속 닫혀 있어.';
-    state.message=choice==='verification'?'현지 구조단 승인 · 동쪽 통로 개방':'남쪽 대피 통로 유지 · 동쪽 통제소 차단';
+    state.message=choice==='verification'?'현지 구조단 요청 수락 · 동쪽 통로 개방 작업 중':'남쪽 대피 통로 유지 · 동쪽 통제소 차단';
     syncRoute(state);syncMarkers(state);
     return {ok:true,event:'choice',choice};
   }
@@ -226,8 +238,8 @@
       mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
-      eastGateOpen:state.choice==='verification',
-      route:state.choice==='verification'?'동쪽 통로: 현지 구조단 개방 승인':'동쪽 통로: 현지 구조단 확인 전 통제 중'
+      eastGateOpen:gateOpen(state),
+      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중'
     });
   }
   function objective(state) {
@@ -240,14 +252,14 @@
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
-        ?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.';
       default:return 'CH01 완료. 캠페인 전체 12시간은 아직 제작 중입니다.';
     }
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,shield:0,charges:p.charges,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -262,8 +274,11 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length!==expectedKeys.length||
-      Object.keys(data).some(k=>!expectedKeys.includes(k)))
+    if(![expectedKeys.length,expectedKeys.length+1].includes(Object.keys(data).length)||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt').includes(k))||
+      (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
+        data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
+        (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
       throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
@@ -339,6 +354,8 @@
     const data=upgradeLegacy(JSON.parse(json));validateSnapshot(data);
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
+    // Older verification saves already had an open route.
+    state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
     for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
     state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.MAGAZINE_SIZE,data.player.charges);
@@ -359,7 +376,7 @@
     return syncMarkers(state);
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,createState,step,markers,nearest,interact,fire,support,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,fire,support,choose,
     objective,situation,backToRecords,serialize,restore,validateSnapshot
   });
 });
