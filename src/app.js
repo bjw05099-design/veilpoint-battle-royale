@@ -42,6 +42,13 @@ autoResolutionCheckbox.addEventListener('change',()=>{autoResolution=autoResolut
 $('graphicsOpen').addEventListener('click',()=>{$('graphicsPanel').classList.toggle('hidden');});
 $('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');});
 
+const loadoutSelect=$('weaponClass');
+try{const saved=global.localStorage.getItem('veilpoint.weaponClass');loadoutSelect.value=Object.prototype.hasOwnProperty.call(Game.FIREARMS,saved)?saved:'carbine';}
+catch(_){loadoutSelect.value='carbine';}
+loadoutSelect.addEventListener('change',()=>{
+ if(!Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value))loadoutSelect.value='carbine';
+ try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
+});
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
 try { renderer=new global.VeilpointRenderer(canvas);
@@ -52,8 +59,9 @@ try { renderer=new global.VeilpointRenderer(canvas);
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18);simulation.status='playing';running=true;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
- $('mobileControls').classList.toggle('active',isTouch);last=performance.now();
+ const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
+ simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
+ $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
 $('play').addEventListener('click',start);
@@ -75,7 +83,7 @@ addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
 let audio=null;
 function tone(freq=560,duration=.08){try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){const result=Game.tag(simulation);if(!result.ok)return;tone(420,.09);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
+function fire(){const result=Game.tag(simulation);if(!result.ok)return;const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};
@@ -102,12 +110,17 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
 function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.getAliveCount(s);$('phase').innerHTML=String(s.zone.phase+1).padStart(2,'0')+' <span class="unit">/ 06</span>';
  let tt=Math.max(0,Math.ceil(s.zone.phaseRemaining));$('time').textContent=String((tt/60)|0).padStart(2,'0')+':'+String(tt%60).padStart(2,'0');
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
+ $('weaponName').textContent=Game.FIREARMS[p.weaponId].label;
  $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · HESITATION':' · RELOADING'):'')+' · STRESS '+Math.round(p.stress||0)+' · ASSIST '+(p.reloadAssist?'ON':'OFF')+'</span>';
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  $('message').textContent=s.messageTime>0?s.message:'';
- const near=s.loot.some(l=>!l.picked&&Math.hypot(l.x-p.x,l.z-p.z)<3.7);$('pickupPrompt').style.display=near?'block':'none';
+ const nearby=s.loot.filter(l=>!l.picked&&Math.hypot(l.x-p.x,l.z-p.z)<3.7)
+  .sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
+ $('pickupPrompt').style.display=nearby?'block':'none';
+ if(nearby)$('pickupPrompt').textContent=nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
+  :p.charges>=p.maxCharges?'AMMUNITION FULL':'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO';
  minimap();
 }
 function end(){running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';

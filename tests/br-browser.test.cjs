@@ -163,3 +163,46 @@ test('graphics presets persist across BR UI restarts without changing the 60Hz s
   next.frame(1000 / 60);
   assert.equal(next.game.status, 'playing');
 });
+
+test('BR loadout selection persists across restarts and changes gameplay class',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('weaponClass').value='compact';
+ app.node('weaponClass').dispatch('change');
+ assert.equal(store.get('veilpoint.weaponClass'),'compact');
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.player.weaponId,'compact');
+ assert.equal(app.game.player.loaded,18);
+ assert.equal(app.node('weaponName').textContent,'COMPACT');
+ app.context.VeilpointSim.receiveDamage(app.game,100);app.frame(2000/60);
+ app.node('weaponClass').value='marksman';
+ app.node('weaponClass').dispatch('change');
+ app.node('play').click();app.frame(3000/60);
+ assert.equal(app.game.player.weaponId,'marksman');
+ assert.equal(app.game.player.loaded,8);
+ const next=boot({store});
+ assert.equal(next.node('weaponClass').value,'marksman');
+ next.node('weaponClass').value='invalid';
+ next.node('weaponClass').dispatch('change');
+ assert.equal(next.node('weaponClass').value,'carbine');
+});
+
+test('BR proximity prompt distinguishes compatible ammo from incompatible supplies',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const g=app.game;
+ g.loot.forEach(item=>{item.x=100;item.z=100;});
+ const wrong=g.loot.find(item=>item.weaponId!=='carbine');
+ wrong.x=0;wrong.z=0;
+ app.frame(300);
+ assert.match(app.node('pickupPrompt').textContent,/INCOMPATIBLE/);
+ const ammo=g.player.charges;
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(g.player.charges,ammo);
+ wrong.x=100;wrong.z=100;
+ const right=g.loot.find(item=>item.weaponId==='carbine');
+ right.x=0;right.z=0;
+ app.frame(600);
+ assert.match(app.node('pickupPrompt').textContent,/CARBINE/);
+ app.emit('keydown',{code:'KeyE'});
+ assert.ok(g.player.charges>=ammo);
+ assert.equal(right.picked,true);
+});

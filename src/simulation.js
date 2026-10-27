@@ -9,6 +9,16 @@
   'use strict';
   const WORLD = 175, MAX_BOTS = 20, MAGAZINE_SIZE = 12, RELOAD_SECONDS = 1.8;
   const RELOAD_HESITATION_SECONDS = 0.6, STRESS_THRESHOLD = 60;
+  // Original fictional class profiles; gameplay approximations, not real firearm instructions.
+  // 'charges' remains the total carried rounds, including those in the current magazine.
+  const FIREARMS = Object.freeze({
+    carbine: Object.freeze({id:'carbine',label:'CARBINE',magazine:12,initialRounds:48,maxRounds:60,
+      reloadSeconds:1.8,fireInterval:0.19,damage:45,aimTolerance:1,mobility:1,cueHz:420,cueSeconds:0.09}),
+    compact: Object.freeze({id:'compact',label:'COMPACT',magazine:18,initialRounds:54,maxRounds:72,
+      reloadSeconds:1.55,fireInterval:0.12,damage:26,aimTolerance:1.12,mobility:1.06,cueHz:550,cueSeconds:0.065}),
+    marksman: Object.freeze({id:'marksman',label:'MARKSMAN',magazine:8,initialRounds:32,maxRounds:40,
+      reloadSeconds:2.15,fireInterval:0.55,damage:68,aimTolerance:0.75,mobility:0.90,cueHz:320,cueSeconds:0.14})
+  });
   const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const normalizeAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -56,7 +66,9 @@
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
     { duration: 70, radius: 12 }, { duration: 999, radius: 1.5 }
   ];
-  function newMatch(seed = Date.now(), botCount = 18) {
+  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine') {
+    const firearm=Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)?FIREARMS[weaponId]:null;
+    if(!firearm)throw new RangeError('Unknown firearm class');
     const random = rngFromSeed(seed);
     const obstacles = makeObstacles();
     const safeSpot = (minRadius = 30) => {
@@ -70,10 +82,10 @@
       const pos = safeSpot(36);
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
+    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%3],picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,loaded:12,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -119,23 +131,23 @@
   }
   // Reloading transfers finite carried rounds to a magazine, without generating ammo.
   function advanceReload(game, dt) {
-    const p=game.player;
+    const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.reloadRemaining<=0)return;
     p.reloadRemaining=Math.max(0,p.reloadRemaining-clamp(dt,0,.05));
     if(p.reloadRemaining===0){
       p.reloadHesitation=false;
-      p.loaded=Math.min(MAGAZINE_SIZE,p.charges);
+      p.loaded=Math.min(firearm.magazine,p.charges);
       game.message='MAGAZINE READY';game.messageTime=1.4;
     }
   }
   function reload(game) {
     if(game.status!=='playing')return {ok:false,reason:'not_playing'};
-    const p=game.player;
+    const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.reloadRemaining>0)return {ok:false,reason:'already_reloading'};
-    if(p.loaded>=MAGAZINE_SIZE)return {ok:false,reason:'magazine_full'};
+    if(p.loaded>=firearm.magazine)return {ok:false,reason:'magazine_full'};
     if(p.charges<=p.loaded)return {ok:false,reason:'no_reserve'};
     const hesitation=(p.stress||0)>=STRESS_THRESHOLD&&!p.reloadAssist;
-    const duration=RELOAD_SECONDS+(hesitation?RELOAD_HESITATION_SECONDS:0);
+    const duration=firearm.reloadSeconds+(hesitation?RELOAD_HESITATION_SECONDS:0);
     p.reloadRemaining=duration;
     p.reloadHesitation=hesitation;
     game.message=hesitation?'RELOAD HESITATION · RECOVERING':'RELOADING';
@@ -153,7 +165,7 @@
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
     const wantsSprint=!!input.sprint&&iz>0&&p.stamina>1;
-    const speed=input.crouch?3.1:wantsSprint?9.5:6.1;
+    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,obstacles);
     p.stamina=clamp(p.stamina+(wantsSprint?-20:13)*dt,0,100);
@@ -228,11 +240,11 @@
   }
   function tag(game) {
     if(game.status!=='playing') return {ok:false,reason:'not_playing'};
-    const p=game.player;
+    const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.charges<=0) return {ok:false,reason:'empty'};
     if(p.reloadRemaining>0) return {ok:false,reason:'reloading'};
     if(p.loaded<=0) return {ok:false,reason:'reload_required'};
-    if(game.elapsed-game.lastTagAt<0.19) return {ok:false,reason:'cooldown'};
+    if(game.elapsed-game.lastTagAt<firearm.fireInterval) return {ok:false,reason:'cooldown'};
     game.lastTagAt=game.elapsed;p.charges--;p.loaded--;
     let target=null, best=85;
     const dx=Math.sin(p.yaw)*Math.cos(p.pitch), dz=-Math.cos(p.yaw)*Math.cos(p.pitch);
@@ -241,10 +253,10 @@
       const vx=b.x-p.x,vz=b.z-p.z, d=Math.hypot(vx,vz);
       const forward=vx*dx+vz*dz;
       const lateral=Math.abs(vx*dz-vz*dx);
-      if(forward>0 && d<85 && lateral<0.85+d*0.012 && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)) {target=b;best=d;}
+      if(forward>0 && d<85 && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)) {target=b;best=d;}
     }
     game.effects.push({x:p.x+dx*Math.min(best,22),z:p.z+dz*Math.min(best,22),t:0.2,type:target?'hit':'tag'});
-    if(target){target.health-=45;if(target.health<=0){target.alive=false;game.kills++;game.message='OPPONENT ELIMINATED';game.messageTime=2.2;}}
+    if(target){target.health=Math.max(0,target.health-firearm.damage);if(target.health===0){target.alive=false;game.kills++;game.message='OPPONENT ELIMINATED';game.messageTime=2.2;}}
     return {ok:true,hit:!!target,elimination:!!target&&!target.alive};
   }
   function pickup(game) {
@@ -255,10 +267,13 @@
     const p=game.player;
     // Physical ammunition supply only; no pickup provides instant medical recovery or protection.
     if(closest.kind!=='ammo'&&closest.kind!=='magazine')return null;
+    if(closest.weaponId&&closest.weaponId!==p.weaponId){
+      game.message='INCOMPATIBLE AMMUNITION';game.messageTime=1.5;return null;
+    }
     if(p.charges>=p.maxCharges)return null;
     p.charges=Math.min(p.maxCharges,p.charges+(closest.kind==='ammo'?12:24));
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });
