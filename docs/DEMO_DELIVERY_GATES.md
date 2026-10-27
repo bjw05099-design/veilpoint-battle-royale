@@ -43,3 +43,7 @@ A cinematic first-person single-player campaign set in the fictional Sahir Coast
 5. If Unreal hardware/build tools are unavailable, keep improving A and specify exact steps the solo human must perform.
 
 The scheduler runs once per hour; there is no guarantee of extra runtime or a 10x productivity improvement merely because it was requested.
+
+## 2026-10-27 CH01 integration checkpoint
+
+The existing offline BR demo now links to a **separate** `story.html` CH01 browser preview with first-person movement, a relay interaction, optional two-record Signal Echo clue, an evidence-gated alternate exit, readable subtitles, pause/restart and local checkpoint serialization. The original BR loop was not altered. Tests were added, but the release acceptance checklist above remains **unchecked** until full `npm run verify`, GitHub CI, actual browser launch/playthrough and distribution package have been verified. The story preview is intentionally much shorter than the eventual 12h campaign.
