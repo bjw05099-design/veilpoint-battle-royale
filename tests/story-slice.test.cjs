@@ -287,3 +287,43 @@ test('CH01 shows only real objective categories and does not reveal unseen oppon
   const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
   assert.match(html,/Q 상황 보고/);
 });
+
+
+test('CH01 armed hostiles cannot fire through cover, behind their facing, or without finite rounds',()=>{
+  const s=story.createState();
+  go(s,'terminal');story.interact(s);
+  const [b,...others]=s.world.bots;
+  for(const other of others){other.alive=false;other.health=0;}
+  s.world.player.x=0;s.world.player.z=-18;
+  b.angle=0; // Opponent facing away from the player.
+  for(let i=0;i<190;i++)story.step(s,1/60);
+  assert.equal(s.world.player.health,100);
+  assert.equal(b.shots,0);
+  b.angle=Math.PI;
+  s.world.obstacles.push({x:0,z:-23,w:3,d:3,h:3,type:'cover'});
+  for(let i=0;i<190;i++)story.step(s,1/60);
+  assert.equal(s.world.player.health,100);
+  assert.equal(b.shots,0);
+  s.world.obstacles.pop();
+  for(let i=0;i<190;i++)story.step(s,1/60);
+  assert.equal(s.world.player.health,96);
+  assert.equal(b.shots,1);
+  b.shots=12;
+  for(let i=0;i<190;i++)story.step(s,1/60);
+  assert.equal(s.world.player.health,96);
+  assert.equal(b.shots,12);
+  const saved=story.serialize(s),restored=story.restore(saved);
+  assert.equal(restored.world.bots[0].shots,12);
+  assert.equal(story.serialize(restored),saved);
+});
+test('older v2 CH01 combat checkpoints migrate with finite hostile ammunition and no shield',()=>{
+  const s=story.createState();
+  go(s,'terminal');story.interact(s);
+  const old=JSON.parse(story.serialize(s));
+  for(const b of old.combat.drones)delete b.shots;
+  old.player.shield=70;
+  const loaded=story.restore(JSON.stringify(old));
+  assert.equal(loaded.world.player.shield,0);
+  assert.ok(loaded.world.bots.every(b=>b.shots===0));
+  assert.ok(JSON.parse(story.serialize(loaded)).combat.drones.every(b=>b.shots===0));
+});
