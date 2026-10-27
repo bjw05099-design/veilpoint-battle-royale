@@ -25,6 +25,7 @@
   const INTERACT_RADIUS = 4;
   const POINTS = Object.freeze({
     terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'objective', label:'시민 중계기'}),
+    supply: Object.freeze({id:'supply', x:5, z:-20, kind:'ammo', label:'현지 구조단 유한 보급 상자'}),
     recordA: Object.freeze({id:'recordA', x:17, z:-30, kind:'evidence', label:'항구 기록'}),
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
@@ -68,13 +69,14 @@
   }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,world:createWorld(),
-      combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
+      combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
     return state;
   }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
+    if (state.phase==='engagement') return state.combat.supplyUsed?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision
@@ -132,7 +134,8 @@
         if(!hostile.alive)continue;
         const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
         if(distance<.001||distance>HOSTILE_ALERT_RANGE||
-          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
         const bearing=Math.atan2(dx,-dz);
         const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         if(Math.abs(delta)>1.1)continue;
@@ -160,7 +163,8 @@
       for(const hostile of state.world.bots){
         if(!hostile.alive||hostile.shots>=HOSTILE_ROUNDS)continue;
         const distance=Math.hypot(hostile.x-p.x,hostile.z-p.z);
-        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
         const bearing=Math.atan2(p.x-hostile.x,-(p.z-hostile.z));
         const facing=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
@@ -228,6 +232,15 @@
       state.world.bots=makeHostiles();
       state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
+    }else if(marker.id==='supply'&&state.phase==='engagement'){
+      // One physical, marked cache: twelve carried rounds maximum, never regenerated.
+      const p=state.world.player;
+      if(state.combat.supplyUsed)return {ok:false,reason:'already_used'};
+      if(p.charges>=p.maxCharges)return {ok:false,reason:'inventory_full'};
+      p.charges=Math.min(p.maxCharges,p.charges+12);
+      state.combat.supplyUsed=true;
+      state.subtitle='유수프(현지 구조단): 표시해 둔 유한 보급 상자를 확보했어. 남은 장비로 안전을 확보해 줘.';
+      state.message='현지 구조단 보급 확보 · 추가 보급 없음';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -280,13 +293,19 @@
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
-      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중'
+      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
+      civilianConsequence:state.choice==='evacuation'
+        ?'유수프 구조단: 남쪽 대피 인원 확인 우선 · 동쪽 기록 확인 보류'
+        :state.choice==='verification'
+          ?(gateOpen(state)?'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속'
+            :'유수프 구조단: 남쪽 대피 유지 · 동쪽 통제물 해제 대기')
+          :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
   }
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '무장 대치자 3명을 제압해 안전을 확보하세요. 클릭/SPACE 발사, R 재장전, Q 동료 상황 보고(1회).';
+      case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고. 표시된 유한 보급 상자는 E로 확보할 수 있습니다.';
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -346,10 +365,11 @@
       throw new RangeError('Invalid checkpoint world state');
     const c=data.combat;
     if(!c||typeof c!=='object'||Array.isArray(c)||
-      ![5,6].includes(Object.keys(c).length)||
-      Object.keys(c).some(k=>!['started','cleared','supportUsed','nextPulseAt','drones','lastShotAt'].includes(k))||
+      ![5,6,7].includes(Object.keys(c).length)||
+      Object.keys(c).some(k=>!['started','cleared','supportUsed','supplyUsed','nextPulseAt','drones','lastShotAt'].includes(k))||
       ['started','cleared','supportUsed','nextPulseAt','drones'].some(k=>!hasOwn(c,k))||
       ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
+      (hasOwn(c,'supplyUsed')&&typeof c.supplyUsed!=='boolean')||
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
       (hasOwn(c,'lastShotAt')&&(!Number.isFinite(c.lastShotAt)||c.lastShotAt< -2||c.lastShotAt>data.elapsed))||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
@@ -363,7 +383,7 @@
           (['x','z','angle'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
            Math.hypot(b.x-HOSTILE_POSITIONS[i].x,b.z-HOSTILE_POSITIONS[i].z)>HOSTILE_CHASE_RADIUS+1e-6||
            Math.abs(b.angle)>Math.PI+1e-6)))||
-      (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.nextPulseAt!==0))||
+      (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.supplyUsed===true||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
       (['records','decision','exit','complete'].includes(data.phase)&&!c.cleared)||
@@ -374,7 +394,10 @@
     if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
-      (data.choice==='verification'&&data.found.length!==2))
+      (data.choice==='verification'&&data.found.length!==2)||
+      // A saved verified completion must follow actual clearance, not precede it.
+      (data.phase==='complete'&&data.choice==='verification'&&hasOwn(data,'gateReadyAt')&&
+        data.elapsed+1e-6<data.gateReadyAt))
       throw new RangeError('Invalid checkpoint mission state');
     return true;
   }
@@ -411,7 +434,8 @@
     state.world.player.reloadAssist=hasOwn(data.player,'reloadAssist')?data.player.reloadAssist:false;
     state.world.player.reloadHesitation=hasOwn(data.player,'reloadHesitation')?data.player.reloadHesitation:false;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
-      supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
+      supportUsed:data.combat.supportUsed,supplyUsed:hasOwn(data.combat,'supplyUsed')?data.combat.supplyUsed:false,
+      nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
       ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{})}));
     // Older v2 checkpoints omitted the previous shot time. For an active encounter,

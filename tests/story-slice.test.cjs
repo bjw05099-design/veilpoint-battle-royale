@@ -540,3 +540,86 @@ test('CH01 60Hz loop expires shot visuals, damage flash and messages without tou
   assert.equal(a.world.player.charges,47);
   assert.equal(story.serialize(a),story.serialize(b));
 });
+
+test('CH01 hostiles cannot shoot through another standing actor; clearing line of sight changes result',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  const [front,rear,unused]=s.world.bots;
+  unused.alive=false;unused.health=0;
+  // The front actor lies between the rear actor and the player, with no static cover.
+  s.world.player.x=-15;s.world.player.z=-22;
+  rear.angle=Math.atan2(s.world.player.x-rear.x,-(s.world.player.z-rear.z));
+  s.combat.nextPulseAt=0;
+  story.step(s,1/60,{});
+  assert.equal(rear.shots,0);
+  assert.equal(front.alive,true);
+  front.alive=false;front.health=0;
+  s.combat.nextPulseAt=s.world.elapsed;
+  story.step(s,1/60,{});
+  assert.equal(rear.shots,1);
+});
+
+test('CH01 verified completion cannot be restored before local clearance has elapsed',()=>{
+  const s=reachDecision();go(s,'recordA');story.interact(s);go(s,'recordB');story.interact(s);
+  story.choose(s,'verification');
+  const forged=JSON.parse(story.serialize(s));forged.phase='complete';
+  assert.throws(()=>story.restore(JSON.stringify(forged)),RangeError);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(s,1/60,{});
+  go(s,'exitVerify');assert.equal(story.interact(s).ok,true);
+  assert.equal(story.restore(story.serialize(s)).phase,'complete');
+});
+
+test('CH01 civilian route consequences persist across both choices and are shown in HUD',()=>{
+  const evacuation=reachDecision();story.choose(evacuation,'evacuation');
+  assert.match(story.situation(evacuation).civilianConsequence,/남쪽 대피 인원 확인 우선/);
+  assert.equal(story.situation(story.restore(story.serialize(evacuation))).civilianConsequence,
+    story.situation(evacuation).civilianConsequence);
+  const verified=reachDecision();go(verified,'recordA');story.interact(verified);
+  go(verified,'recordB');story.interact(verified);story.choose(verified,'verification');
+  assert.match(story.situation(verified).civilianConsequence,/동쪽 통제물 해제 대기/);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verified,1/60,{});
+  assert.match(story.situation(verified).civilianConsequence,/시각 차이 원인 조사 계속/);
+  assert.match(story.situation(story.restore(story.serialize(verified))).civilianConsequence,/원인 조사 계속/);
+  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  assert.match(app,/situation\.civilianConsequence/);
+});
+
+test('CH01 finite visible supply cache can recover an exhausted encounter without creating infinite ammunition',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  assert.equal(story.markers(s).length,1);
+  assert.equal(story.markers(s)[0].kind,'ammo');
+  s.world.player.charges=0;s.world.player.loaded=0;
+  assert.equal(story.fire(s).reason,'empty');
+  go(s,'supply');assert.deepEqual(story.interact(s),{ok:true,event:'supply',phase:'engagement'});
+  assert.equal(s.world.player.charges,12);
+  assert.equal(s.world.player.loaded,0);
+  assert.equal(story.markers(s).length,0);
+  assert.equal(story.interact(s).reason,'too_far');
+  assert.equal(Sim.reload(s.world).ok,true);
+  for(let i=0;i<150;i++)story.step(s,1/60,{});
+  assert.equal(s.world.player.loaded,12);
+  assert.equal(s.world.player.charges,12);
+  const restored=story.restore(story.serialize(s));
+  assert.equal(restored.combat.supplyUsed,true);
+  assert.equal(story.markers(restored).length,0);
+  assert.equal(restored.world.player.charges,12);
+});
+
+test('CH01 finite cache respects capacity, saves before collection and rejects forged consumption',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  s.world.player.charges=s.world.player.maxCharges;
+  go(s,'supply');assert.equal(story.interact(s).reason,'inventory_full');
+  assert.equal(s.combat.supplyUsed,false);
+  s.world.player.charges=48;
+  const resumed=story.restore(story.serialize(s));
+  assert.equal(story.markers(resumed).length,1);
+  assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.world.player.charges,60);
+  assert.equal(resumed.combat.supplyUsed,true);
+  const bad=JSON.parse(story.serialize(resumed));bad.combat.supplyUsed='yes';
+  assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
+  const legacy=JSON.parse(story.serialize(s));delete legacy.combat.supplyUsed;
+  const migrated=story.restore(JSON.stringify(legacy));
+  assert.equal(migrated.combat.supplyUsed,false);
+  assert.equal(story.markers(migrated).length,1);
+  assert.match(fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8'),/nearby.kind==='ammo'/);
+});
