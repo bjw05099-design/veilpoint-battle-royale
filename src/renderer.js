@@ -5,6 +5,7 @@
 (function(global){
 'use strict';
 const V3=(x,y,z)=>[x,y,z];
+const Visibility=global.VeilpointVisibility;
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
 const safeNorm=(a)=>{const d=Math.hypot(...a)||1;return a.map(v=>v/d);};
 function m4Perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),a=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*a,-1,0,0,2*far*near*a,0]);}
@@ -65,6 +66,7 @@ class SoftwareRenderer {
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
+ const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#536b70');sky.addColorStop(.65,'#89948a');sky.addColorStop(1,'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
  const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,'#5b6551');ground.addColorStop(1,'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
  const focal=Math.min(w,h)*.98,yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
@@ -72,8 +74,8 @@ class SoftwareRenderer {
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,type:'building'});
- for(const b of state.bots)if(b.alive)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
- for(const l of state.loot)if(!l.picked)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
+ for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
+ for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
  for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
  for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);if(d>145)continue;
@@ -110,19 +112,33 @@ class Renderer {
  for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
  this.static.upload(this.gl);this.static.data=[];
  }
- buildDynamic(state){const mesh=this.dynamic,t=state.elapsed,p=state.player;mesh.data=[];
- for(const b of state.bots){if(!b.alive)continue;const c=[.24,.29,.26],x=b.x,z=b.z;
- mesh.box(x,0.06,z,.7,1.3,.45,c);mesh.box(x,1.37,z,.48,.45,.46,[.24,.20,.17]);mesh.box(x-.18,0,z,.24,.65,.27,[.19,.20,.19]);mesh.box(x+.18,0,z,.24,.65,.27,[.19,.20,.19]);mesh.box(x,1.03,z-.25,.7,.13,.15,[.18,.21,.23]);
- mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
+ buildDynamic(state){
+ const mesh=this.dynamic,t=state.elapsed;mesh.data=[];
+ const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
+ this.lastVisibilityStats=plan.stats;
+ for(const {entity:b,lod} of plan.bots){
+  const c=[.24,.29,.26],x=b.x,z=b.z;
+  mesh.box(x,0.06,z,.7,1.3,.45,c);
+  if(lod==='low')continue;
+  mesh.box(x,1.37,z,.48,.45,.46,[.24,.20,.17]);
+  mesh.box(x-.18,0,z,.24,.65,.27,[.19,.20,.19]);
+  if(lod==='medium')continue;
+  mesh.box(x+.18,0,z,.24,.65,.27,[.19,.20,.19]);
+  mesh.box(x,1.03,z-.25,.7,.13,.15,[.18,.21,.23]);
+  mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
  }
- for(const item of state.loot){if(item.picked)continue;const f=1.2+Math.sin(t*2.4+item.id)*.19;const c=item.kind==='med'?[.25,.85,.58]:item.kind==='shield'?[.32,.56,.96]:[.98,.69,.30];mesh.box(item.x,f,item.z,.75,.75,.75,c);mesh.box(item.x,0,item.z,1.0,.1,1.0,[.18,.23,.23]);}
- const {zone}=state;
- // Vertical perimeter pylons form a legible ring in-world.
- const segments=128;for(let i=0;i<segments;i++){
- const theta=i/segments*Math.PI*2,x=zone.x+Math.cos(theta)*zone.radius,z=zone.z+Math.sin(theta)*zone.radius;
- if(zone.radius<170)mesh.box(x,0,z,.19,2.5,.19,[.24,.52,.82]);
+ for(const {entity:item,lod} of plan.loot){
+  const f=1.2+Math.sin(t*2.4+item.id)*.19;
+  const c=item.kind==='med'?[.25,.85,.58]:item.kind==='shield'?[.32,.56,.96]:[.98,.69,.30];
+  mesh.box(item.x,f,item.z,.75,.75,.75,c);
+  if(lod==='high')mesh.box(item.x,0,item.z,1.0,.1,1.0,[.18,.23,.23]);
  }
- for(const e of state.effects){const c=e.type==='hit'?[1,.6,.22]:e.type==='hostile'?[.89,.20,.19]:[.67,.80,1];mesh.box(e.x,.8,e.z,.34,.34,.34,c);}
+ // Keep full geometry near the camera; remove only off-camera or distant pylons.
+ for(const point of plan.zone)mesh.box(point.x,0,point.z,.19,2.5,.19,[.24,.52,.82]);
+ for(const e of plan.effects){
+  const c=e.type==='hit'?[1,.6,.22]:e.type==='hostile'?[.89,.20,.19]:[.67,.80,1];
+  mesh.box(e.x,.8,e.z,.34,.34,.34,c);
+ }
  mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data=[];
  }
  setAdaptiveResolution(scale){
