@@ -119,6 +119,14 @@
     syncMarkers(state);
     return {ok:true,event:'choice',choice};
   }
+  function backToRecords(state) {
+    if(state.phase!=='decision')return {ok:false,reason:'not_choosing'};
+    state.phase='records';
+    state.subtitle='마라: 기록을 조금 더 살펴보자. 바로 대피하는 선택도 남아 있어.';
+    state.message='기록 조사로 돌아왔습니다.';
+    syncMarkers(state);
+    return {ok:true,event:'back'};
+  }
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
@@ -174,6 +182,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,createState,step,markers,nearest,interact,choose,
-    objective,serialize,restore,validateSnapshot
+    objective,backToRecords,serialize,restore,validateSnapshot
   });
 });
