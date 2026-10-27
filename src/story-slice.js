@@ -191,7 +191,7 @@
       state.subtitle=cacheAvailable
         ?'유수프(현지 구조단): 표시된 유한 보급 상자에 남은 장비가 있어. 가까이 가서 E로 확보해.'
         :'마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
-      state.message=cacheAvailable?'자원 소진 · 표시된 보급 상자 E 확보 가능':'자원 소진 · 임무 재시작 가능';
+      state.message=cacheAvailable?'자원 소진 · 보급 상자 E 확보 또는 임무 재시작 가능':'자원 소진 · 임무 재시작 가능';
       return {ok:false,reason:'empty'};
     }
     const result=Sim.tag(state.world);
