@@ -353,3 +353,19 @@ test('legacy v2 checkpoint migrates and rejects invalid stress metadata',()=>{
  const bad=JSON.parse(story.serialize(s));bad.player.stress=200;
  assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
 });
+
+test('CH01 hostile pressure raises stress deterministically without phantom ammunition',()=>{
+ const make=()=>{const s=story.createState();go(s,'terminal');story.interact(s);return s;};
+ const a=make(),b=make();
+ for(let i=0;i<181;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
+ assert.equal(a.phase,'engagement');
+ assert.equal(a.world.player.health,b.world.player.health);
+ assert.ok(a.world.player.health<100);
+ assert.ok(a.world.player.stress>0);
+ assert.equal(a.world.player.charges,48);
+ assert.equal(a.world.player.shield,0);
+ assert.equal(story.serialize(a),story.serialize(b));
+ const resumed=story.restore(story.serialize(a));
+ assert.equal(resumed.world.player.stress,a.world.player.stress);
+ assert.equal(resumed.world.bots[0].shots,1);
+});
