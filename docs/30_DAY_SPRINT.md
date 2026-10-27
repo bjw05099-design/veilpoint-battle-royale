@@ -48,3 +48,9 @@ The target 165FPS corresponds to 6.06ms per frame, but successful implementation
 ## Expanded campaign + multiplayer scope (2026-10-27)
 
 First-month delivery is still an **actually runnable and tested offline browser battle-royale demo**. Prepare original campaign CH01 intro systems (evidence interaction/objective flow, checkpoint, subtitle-friendly UI) if doing so doesn't destabilize the release candidate. For the final game, a fictional Middle Eastern-region war/civil-conflict single-player campaign and real server-authoritative team multiplayer join BR as **required separate pillars**. First native story vertical slice and network client/server prototypes must be objectively tested before any completeness claims. Full roadmap: [Final Release](FINAL_RELEASE_ROADMAP.md); design: [Bible](GAME_DESIGN_BIBLE.md), [Campaign](STORY_CAMPAIGN.md), [Multiplayer](MULTIPLAYER_MODES.md), [Requirements](REQUIREMENTS_MATRIX.md).
+
+## Story-mode scope clarification (2026-10-27)
+
+VEILPOINT is now a three-mode project: **Story Campaign** (~12 authored first-play hours across 12 planned chapters), **Operations Multiplayer**, and **Battle Royale**. See [Campaign Design](CAMPAIGN_DESIGN.md) and [Multiplayer Design](MULTIPLAYER_DESIGN.md). The user's desired experience prioritizes cinematic variation, surprising twists, consequential decisions and meaningful action without monotony. Do not mistake scripted metadata for actual twelve playable hours.
+
+**The Nov 27 offline-demo gate remains first priority.** A playable first campaign mission slice is stretch-only while the original battle-royale demo is stabilised. Native photorealism, tested online matches and the remaining authored story chapters are longer-term work under [Final Release Roadmap](FINAL_RELEASE_ROADMAP.md). Avoid drawing developer effort from demo blockers into untestable cinematic placeholders.
