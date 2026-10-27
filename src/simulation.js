@@ -149,10 +149,13 @@
       if(b.moveTime<=0){b.moveTime=1+game.random()*3; b.angle+= (game.random()-0.5)*2.8;}
       const outsideBot=dist(b,game.zone)>game.zone.radius;
       // Sight lines are opaque to AI too; no omniscient orientation or pursuit.
-      const seesPlayer=dd<55&&p.alive&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles);
+      // Opaque geometry and a finite field of view prevent all-direction awareness.
+      const targetAngle=Math.atan2(p.x-b.x,-(p.z-b.z));
+      const seesPlayer=dd<55&&p.alive&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles)&&
+        Math.abs(normalizeAngle(targetAngle-b.angle))<=1.4;
       let aim=b.angle;
       if(outsideBot) aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
-      else if(seesPlayer) aim=Math.atan2(p.x-b.x,-(p.z-b.z));
+      else if(seesPlayer) aim=targetAngle;
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=outsideBot?5.3:seesPlayer&&dd>18?3.2:1.0;
@@ -166,7 +169,10 @@
         if(b.reloadRemaining===0)b.loaded=Math.min(MAGAZINE_SIZE,b.charges);
       }
       b.actionTime-=dt;
-      if(!wasReloading&&dd<47&&p.alive&&b.actionTime<=0&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles)){
+      // Shots require an actual sight line and the muzzle direction to face the target.
+      // An opponent turning toward a newly seen player cannot hit them immediately.
+      const aimedAtPlayer=seesPlayer&&Math.abs(normalizeAngle(targetAngle-b.angle))<=0.2;
+      if(!wasReloading&&dd<47&&b.actionTime<=0&&aimedAtPlayer){
         if(b.loaded===0){
           if(b.charges>0)b.reloadRemaining=RELOAD_SECONDS;
           b.actionTime=b.charges>0?0.15:0.5;

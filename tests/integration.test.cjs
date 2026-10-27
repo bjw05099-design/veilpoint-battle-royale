@@ -26,3 +26,31 @@ test('visibility planner loads before renderer and remains render-only',()=>{
  assert.ok(app.includes('clock.advance(dt'));
  assert.ok(!app.includes('Visibility.planVisible'));
 });
+
+const Sim=require('../src/simulation.js');
+test('offline BR simulated session reaches win and restarts with fresh finite resources',()=>{
+ const game=Sim.newMatch(712,1),bot=game.bots[0];game.status='playing';
+ bot.x=0;bot.z=-18;bot.angle=0;bot.moveTime=999;bot.actionTime=999;
+ for(let i=0;i<3;i++){
+  const result=Sim.tag(game);assert.equal(result.ok,true);assert.equal(result.hit,true);
+  for(let frame=0;frame<12;frame++)Sim.tick(game,1/60,{});
+ }
+ assert.equal(game.status,'won');assert.equal(game.kills,1);
+ assert.equal(game.player.charges,45);assert.equal(game.player.loaded,9);
+ const restart=Sim.newMatch(712,1);
+ assert.equal(restart.status,'ready');assert.equal(restart.kills,0);
+ assert.equal(restart.player.charges,48);assert.equal(restart.player.loaded,12);
+ assert.equal(restart.bots[0].alive,true);
+});
+test('offline BR simulated loss cannot continue or consume resources after restart boundary',()=>{
+ const game=Sim.newMatch(713,1);game.status='playing';
+ Sim.receiveDamage(game,100);
+ assert.equal(game.status,'lost');assert.equal(game.player.alive,false);
+ const before=game.player.charges;
+ assert.equal(Sim.tag(game).reason,'not_playing');
+ Sim.tick(game,1/60,{forward:true});
+ assert.equal(game.player.charges,before);
+ assert.equal(game.status,'lost');
+ const restart=Sim.newMatch(713,1);
+ assert.equal(restart.status,'ready');assert.equal(restart.player.alive,true);
+});
