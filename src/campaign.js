@@ -8,6 +8,26 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const VERSION = 1;
+  // Canonical cast is fictional. ROK/NIS affiliations are narrative, not real operations.
+  const LEAD = Object.freeze({
+    id: 'captain-seo-jinhyeok', nameKo: '서진혁', rankKo: '대위',
+    affiliationKo: '대한민국 특수부대', isPlayer: true
+  });
+  const SUPPORT_CAST = Object.freeze([
+    Object.freeze({id:'nis-yoon-seoha',nameKo:'윤서하',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
+    Object.freeze({id:'nis-kang-minjae',nameKo:'강민재',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
+    Object.freeze({id:'mara-dahan',nameKo:'마라 다한',roleKo:'나흐린 시민 통신기술자',affiliationKo:'나흐린 시민 공동체'}),
+    Object.freeze({id:'yusuf-rahal',nameKo:'유수프 라할',roleKo:'현지 구조 책임자',affiliationKo:'시민 구조단'})
+  ]);
+  // Ratios are authored pacing targets; never presented as measured playtime.
+  const COMBAT_FOCUS = Object.freeze({targetShareMin:0.60,targetShareMax:0.65,
+    fullyImplemented:false,measuredCombatShare:null});
+  const MISSION_COMBAT_THEMES = Object.freeze([
+    'urban-first-engagement', 'mobile-escort', 'desert-settlement',
+    'vertical-district', 'harbor-conflict', 'mountain-relay',
+    'district-crisis', 'multi-objective-city', 'separated-squad',
+    'moving-transit', 'final-passage', 'multi-stage-finale'
+  ]);
   const MISSION_DEFS = [
     ['M01', '정전의 새벽', 'The Last Broadcast', 50, 'night-arrival', 'route', ['evacuation', 'verification']],
     ['M02', '두 개의 지도', 'Two Maps', 55, 'dynamic-travel', 'map', ['fast', 'verified']],
@@ -25,6 +45,7 @@
   const MISSIONS = Object.freeze(MISSION_DEFS.map((m, i) => Object.freeze({
     id: m[0], order: i + 1, titleKo: m[1], titleEn: m[2],
     targetMinutes: m[3], signature: m[4],
+    protagonistId: LEAD.id, combatTheme: MISSION_COMBAT_THEMES[i],
     decisionKey: m[5], options: Object.freeze(m[6].slice())
   })));
   const TARGET_MINUTES = MISSIONS.reduce((sum, m) => sum + m.targetMinutes, 0);
@@ -108,7 +129,8 @@
     };
   }
   return Object.freeze({
-    VERSION, MISSIONS, TARGET_MINUTES, freshProgress, validate,
+    VERSION, MISSIONS, TARGET_MINUTES, LEAD, SUPPORT_CAST, COMBAT_FOCUS,
+    freshProgress, validate,
     nextMission, completeMission, plannedRemainingMinutes,
     serialize, deserialize, campaignStatus
   });
