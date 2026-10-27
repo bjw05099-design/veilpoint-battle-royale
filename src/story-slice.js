@@ -51,6 +51,16 @@
     if(state.choice!=='verification')state.world.obstacles.push({...EAST_CHECKPOINT});
     return state;
   }
+  function recoverGateOverlap(state) {
+    // Older v2 saves predate the authored barrier and can place the player inside it.
+    // Relocate only those overlapping the new checkpoint, never rewrite valid positions.
+    const p=state.world.player;
+    if(state.choice==='verification'||!Sim.blocked(p.x,p.z,.85,[EAST_CHECKPOINT]))return false;
+    const north=EAST_CHECKPOINT.z+EAST_CHECKPOINT.d/2+1;
+    const south=EAST_CHECKPOINT.z-EAST_CHECKPOINT.d/2-1;
+    p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
+    return true;
+  }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
       combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
@@ -345,6 +355,7 @@
     state.subtitle='체크포인트를 불러왔습니다. '+objective(state);
     state.message='CH01 / 이어하기';
     syncRoute(state);
+    if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
     return syncMarkers(state);
   }
   return Object.freeze({

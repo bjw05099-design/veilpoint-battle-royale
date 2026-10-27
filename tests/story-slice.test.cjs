@@ -428,3 +428,28 @@ test('CH01 route consequence appears in browser HUD without changing checkpoint 
   assert.equal(story.situation(state).eastGateOpen,false);
   assert.equal(story.situation(story.restore(story.serialize(state))).eastGateOpen,false);
 });
+
+
+test('legacy v2 checkpoint inside newly authored east barrier relocates safely without losing mission choice',()=>{
+  const old=reachDecision();
+  assert.equal(story.choose(old,'evacuation').ok,true);
+  old.world.player.x=27;old.world.player.z=-53;
+  const raw=story.serialize(old);
+  const loaded=story.restore(raw);
+  assert.equal(loaded.phase,'exit');
+  assert.equal(loaded.choice,'evacuation');
+  assert.equal(Sim.blocked(loaded.world.player.x,loaded.world.player.z,.85,loaded.world.obstacles),false);
+  assert.notEqual(loaded.world.player.z,-53);
+  assert.match(loaded.message,/안전하게 복구/);
+  const saved=story.restore(story.serialize(loaded));
+  assert.equal(saved.world.player.z,loaded.world.player.z);
+  assert.equal(saved.choice,'evacuation');
+  const verified=reachDecision();
+  go(verified,'recordA');story.interact(verified);
+  go(verified,'recordB');story.interact(verified);
+  story.choose(verified,'verification');
+  verified.world.player.x=27;verified.world.player.z=-53;
+  const open=story.restore(story.serialize(verified));
+  assert.equal(open.world.player.z,-53);
+  assert.equal(Sim.blocked(27,-53,.85,open.world.obstacles),false);
+});
