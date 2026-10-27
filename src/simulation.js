@@ -7,7 +7,7 @@
   root.VeilpointSim = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const WORLD = 175, MAX_BOTS = 20;
+  const WORLD = 175, MAX_BOTS = 20, MAGAZINE_SIZE = 12, RELOAD_SECONDS = 1.8;
   const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const normalizeAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -72,7 +72,7 @@
     const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,stamina:100,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,loaded:12,reloadRemaining:0,stamina:100,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -103,10 +103,31 @@
     game.damageFlash=0.45;
     if(game.player.health===0){game.player.alive=false;game.status='lost';game.message='SIGNAL LOST';}
   }
+  // Reloading transfers finite carried rounds to a magazine, without generating ammo.
+  function advanceReload(game, dt) {
+    const p=game.player;
+    if(p.reloadRemaining<=0)return;
+    p.reloadRemaining=Math.max(0,p.reloadRemaining-clamp(dt,0,.05));
+    if(p.reloadRemaining===0){
+      p.loaded=Math.min(MAGAZINE_SIZE,p.charges);
+      game.message='MAGAZINE READY';game.messageTime=1.4;
+    }
+  }
+  function reload(game) {
+    if(game.status!=='playing')return {ok:false,reason:'not_playing'};
+    const p=game.player;
+    if(p.reloadRemaining>0)return {ok:false,reason:'already_reloading'};
+    if(p.loaded>=MAGAZINE_SIZE)return {ok:false,reason:'magazine_full'};
+    if(p.charges<=p.loaded)return {ok:false,reason:'no_reserve'};
+    p.reloadRemaining=RELOAD_SECONDS;
+    game.message='RELOADING';game.messageTime=RELOAD_SECONDS;
+    return {ok:true,duration:RELOAD_SECONDS};
+  }
   function tick(game, dt, input={}) {
     if(game.status!=='playing') return game;
     dt=clamp(dt,0,0.05);
     game.elapsed+=dt;
+    advanceReload(game,dt);
     game.damageFlash=Math.max(0,game.damageFlash-dt*2.4);
     game.messageTime=Math.max(0,game.messageTime-dt);
     const {player:p,obstacles} = game;
@@ -151,8 +172,10 @@
     if(game.status!=='playing') return {ok:false,reason:'not_playing'};
     const p=game.player;
     if(p.charges<=0) return {ok:false,reason:'empty'};
+    if(p.reloadRemaining>0) return {ok:false,reason:'reloading'};
+    if(p.loaded<=0) return {ok:false,reason:'reload_required'};
     if(game.elapsed-game.lastTagAt<0.19) return {ok:false,reason:'cooldown'};
-    game.lastTagAt=game.elapsed;p.charges--;
+    game.lastTagAt=game.elapsed;p.charges--;p.loaded--;
     let target=null, best=85;
     const dx=Math.sin(p.yaw)*Math.cos(p.pitch), dz=-Math.cos(p.yaw)*Math.cos(p.pitch);
     for(const b of game.bots){
@@ -179,5 +202,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,newMatch,tick,tag,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,MAGAZINE_SIZE,RELOAD_SECONDS,newMatch,tick,tag,reload,advanceReload,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });

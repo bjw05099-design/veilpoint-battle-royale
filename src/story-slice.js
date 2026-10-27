@@ -82,6 +82,7 @@
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles);
     p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
     state.world.elapsed+=t;
+    Sim.advanceReload(state.world,t);
     if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
       state.combat.nextPulseAt=state.world.elapsed+3;
       const threats=state.world.bots.filter(b=>b.alive&&
@@ -110,7 +111,13 @@
       return {ok:false,reason:'empty'};
     }
     const result=Sim.tag(state.world);
-    if(!result.ok)return result;
+    if(!result.ok){
+      if(result.reason==='reload_required'){
+        state.subtitle='이수혁 대위: 탄창이 비었습니다. R키 또는 재장전 버튼을 누르세요.';
+        state.message='탄창 비움 · R 재장전';
+      }
+      return result;
+    }
     if(result.elimination){
       const remaining=state.world.bots.filter(b=>b.alive).length;
       state.subtitle='조현지(국정원): 교란 신호 '+(3-remaining)+'/3 차단. 경로를 확보하고 있어요.';
@@ -189,7 +196,7 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 상황 보고(1회).';
+      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, R 재장전, Q 동료 상황 보고(1회).';
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -205,7 +212,8 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
-        health:p.health,shield:0,charges:p.charges},elapsed:state.world.elapsed,
+        health:p.health,shield:0,charges:p.charges,
+         loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining},elapsed:state.world.elapsed,
       combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive}))}};
   }
   function validateSnapshot(data) {
@@ -221,14 +229,19 @@
       throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
-    if(Object.keys(p).length!==playerKeys.length||
-      Object.keys(p).some(k=>!playerKeys.includes(k)))
+    const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
+    const keys=Object.keys(p),extended=keys.length===extendedKeys.length;
+    if((!extended&&keys.length!==playerKeys.length)||
+       keys.some(k=>!(extended?extendedKeys:playerKeys).includes(k)))
       throw new RangeError('Unknown player checkpoint fields');
-    for(const k of playerKeys)
+    for(const k of extended?extendedKeys:playerKeys)
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
       p.stamina<0||p.stamina>100||p.health<0||p.health>100||
       p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>60||
+      (extended&&(!Number.isInteger(p.loaded)||p.loaded<0||p.loaded>Sim.MAGAZINE_SIZE||
+        p.loaded>p.charges||p.reloadRemaining<0||p.reloadRemaining>Sim.RELOAD_SECONDS||
+        (p.reloadRemaining>0&&(p.charges<=p.loaded||p.loaded===Sim.MAGAZINE_SIZE))))||
       p.pitch<-.34||p.pitch>.36||
       Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,Sim.newMatch(20261027,0).obstacles))
       throw new RangeError('Invalid checkpoint world state');
@@ -281,6 +294,9 @@
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
+    // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
+    state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.MAGAZINE_SIZE,data.player.charges);
+    state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeDrones()[i],health:b.health,alive:b.alive}));
