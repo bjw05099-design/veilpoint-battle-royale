@@ -252,7 +252,7 @@
     if(combatActive){
       const p=state.world.player;
       $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
-      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
+      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyUsed?'사용 완료':'E 1회 가능');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
@@ -260,7 +260,7 @@
       :'기록 0/2 · 조사하지 않아도 대피할 수 있습니다.';
     const nearby=running?Story.nearest(state):null;
     $('interaction').classList.toggle('hidden',!nearby);
-    if(nearby)$('interaction').textContent='[E] '+nearby.label+' 조사';
+    if(nearby)$('interaction').textContent='[E] '+nearby.label+(nearby.kind==='ammo'?' 보급':' 조사');
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
     minimap();
