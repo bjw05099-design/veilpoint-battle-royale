@@ -99,7 +99,11 @@
     let candidate=null,best=INTERACT_RADIUS;
     for(const marker of markers(state)){
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
-      if(d<best){best=d;candidate=marker;}
+      // A nearby objective is not reachable through solid cover, a closed gate,
+      // or a building wall. The same test governs the HUD prompt and E/touch input.
+      if(d<best&&!Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
+        best=d;candidate=marker;
+      }
     }
     return candidate;
   }
@@ -305,6 +309,25 @@
           :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
   }
+  // A completed *preview* produces a factual, bounded handoff for future authored
+  // scenes. No unseen motive, chapter unlock, or resolved clock discrepancy is invented.
+  function debrief(state) {
+    if(state.phase!=='complete')return null;
+    const verified=state.choice==='verification';
+    const records=Object.freeze(state.found.slice().sort());
+    const conflict=records.length===2;
+    return Object.freeze({
+      version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
+      protagonist:'이수혁',route:state.choice,records,
+      eastCheckpointCleared:verified&&gateOpen(state),
+      mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
+      clockDiscrepancy:conflict?'unresolved':'not-cross-checked',
+      civilianOutcome:verified?'east-clearance-confirmed':'south-evacuation-prioritized',
+      summary:verified
+        ?'유수프 구조단의 동쪽 통로 개방을 확인했습니다. 두 기록의 5분 차이는 여전히 원인 미확정입니다.'
+        :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.'
+    });
+  }
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
@@ -457,6 +480,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,fire,support,choose,
-    objective,situation,backToRecords,serialize,restore,validateSnapshot
+    objective,situation,debrief,backToRecords,serialize,restore,validateSnapshot
   });
 });
