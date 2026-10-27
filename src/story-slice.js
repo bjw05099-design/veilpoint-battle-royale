@@ -187,8 +187,11 @@
     // Finite carried supply: no spontaneous ammunition or charge generation.
     // Starting a fresh mission is always available through the menu.
     if(state.world.player.charges===0){
-      state.subtitle='마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
-      state.message='자원 소진 · 임무 재시작 가능';
+      const cacheAvailable=!state.combat.supplyUsed;
+      state.subtitle=cacheAvailable
+        ?'유수프(현지 구조단): 표시된 유한 보급 상자에 남은 장비가 있어. 가까이 가서 E로 확보해.'
+        :'마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
+      state.message=cacheAvailable?'자원 소진 · 표시된 보급 상자 E 확보 가능':'자원 소진 · 임무 재시작 가능';
       return {ok:false,reason:'empty'};
     }
     const result=Sim.tag(state.world);
@@ -305,7 +308,8 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고. 표시된 유한 보급 상자는 E로 확보할 수 있습니다.';
+      case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
+        (state.combat.supplyUsed?' 유한 보급은 이미 사용했습니다.':' 표시된 유한 보급 상자는 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
