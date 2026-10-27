@@ -209,13 +209,10 @@
       ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
     }
     for(const m of Story.markers(state)){
-      ctx.fillStyle=m.kind==='med'?'#91f0ad':m.kind==='shield'?'#8ec6ff':'#ffcb7c';
+      ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
       ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
     }
-    for(const drone of state.world.bots){
-      if(!drone.alive)continue;
-      ctx.fillStyle='#f1a69a';ctx.beginPath();ctx.arc(tx(drone.x),tz(drone.z),3.5,0,Math.PI*2);ctx.fill();
-    }
+    // Map depicts accessible objectives and the player's location, not unseen opponents.
     const p=state.world.player;
     ctx.fillStyle='#faffd4';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#faffd4';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));
@@ -229,7 +226,7 @@
     $('combatStatus').classList.toggle('hidden',!combatActive);
     if(combatActive){
       const p=state.world.player;
-      $('combatStatus').textContent='교란 드론 '+state.world.bots.filter(b=>b.alive).length+'/3 · 신호 '+p.charges+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
+      $('combatStatus').textContent='교란 드론 '+state.world.bots.filter(b=>b.alive).length+'/3 · 잔여 발사 '+p.charges+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
