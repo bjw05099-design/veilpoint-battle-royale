@@ -81,7 +81,7 @@ function boot(sharedStore=new Map()){
         aim(next);
         for(let shot=0;shot<2;shot++){
           this.emit('keydown',{code:'Space'});
-          frame+=15;this.frame(frame*1000/60);
+          for(let tick=0;tick<15;tick++){frame++;this.frame(frame*1000/60);}
         }
       }
       aim(0);
