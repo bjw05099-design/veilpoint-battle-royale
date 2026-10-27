@@ -125,10 +125,10 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
 
 test('CH01 accurately frames the captain as protagonist and Mara as ally without claiming combat is implemented', () => {
   const opening = story.createState();
-  assert.match(opening.subtitle, /서 대위님/);
+  assert.match(opening.subtitle, /이 대위님/);
   assert.match(opening.subtitle, /마라\(기술자\)/);
   const html = fs.readFileSync(path.resolve(__dirname, '../story.html'), 'utf8');
-  assert.match(html, /서진혁 대위/);
+  assert.match(html, /이수혁 대위/);
   assert.match(html, /국정원/);
   assert.match(html, /전투 중심 임무는 개발 중/);
 });
