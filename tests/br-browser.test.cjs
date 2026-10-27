@@ -206,3 +206,22 @@ test('BR proximity prompt distinguishes compatible ammo from incompatible suppli
  assert.ok(g.player.charges>=ammo);
  assert.equal(right.picked,true);
 });
+
+test('offline BR freezes hostile simulation while backgrounded and resumes at 60Hz without catch-up',()=>{
+  const app=boot();app.node('play').click();
+  app.frame(1000/60);app.frame(2000/60);
+  const game=app.game,before=game.elapsed;
+  app.emit('blur');
+  assert.match(app.node('message').textContent,/일시중지/);
+  for(let i=3;i<=240;i++)app.frame(i*1000/60);
+  assert.equal(game.elapsed,before,'background frames must not simulate bots or zone damage');
+  app.emit('focus');app.frame(241*1000/60);
+  assert.ok(game.elapsed>before&&game.elapsed-before<0.05);
+  app.context.document.hidden=true;app.emit('visibilitychange');
+  const hidden=game.elapsed;
+  for(let i=242;i<=360;i++)app.frame(i*1000/60);
+  assert.equal(game.elapsed,hidden);
+  app.context.document.hidden=false;app.emit('visibilitychange');
+  app.frame(361*1000/60);
+  assert.ok(game.elapsed>hidden&&game.elapsed-hidden<0.05);
+});
