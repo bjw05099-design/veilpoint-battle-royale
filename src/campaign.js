@@ -9,7 +9,7 @@
   'use strict';
   const VERSION = 1;
   const MISSION_DEFS = [
-    ['M01', '정전의 새벽', 'The First Blackout', 50, 'night-arrival', 'route', ['evacuation', 'verification']],
+    ['M01', '정전의 새벽', 'The Last Broadcast', 50, 'night-arrival', 'route', ['evacuation', 'verification']],
     ['M02', '두 개의 지도', 'Two Maps', 55, 'dynamic-travel', 'map', ['fast', 'verified']],
     ['M03', '소금바람', 'Salt Wind', 60, 'settlement-hub', 'witness', ['listen', 'move']],
     ['M04', '유리 회랑', 'Glass Corridor', 55, 'vertical-interiors', 'relay', ['reroute', 'restore']],
