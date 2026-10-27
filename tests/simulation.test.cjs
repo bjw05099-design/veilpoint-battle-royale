@@ -74,11 +74,11 @@ test('opponents cannot track or chase the player through solid buildings',()=>{
 test('visible nearby players can still influence opponent orientation',()=>{
  const a=S.newMatch(301,1),b=a.bots[0],p=a.player;
  a.status='playing';
- b.x=0;b.z=-25;b.angle=Math.PI/2;b.moveTime=999;b.actionTime=999;
+ b.x=0;b.z=-25;b.angle=2;b.moveTime=999;b.actionTime=999;
  p.x=0;p.z=0;
  assert.equal(S.lineBlocked(b.x,b.z,p.x,p.z,a.obstacles),false);
  S.tick(a,1/60,{});
- assert.ok(b.angle>Math.PI/2);
+ assert.ok(b.angle>2);
 });
 test('browser firing feedback never reveals hidden hit confirmation',()=>{
  const fs=require('node:fs'),path=require('node:path');
@@ -92,7 +92,7 @@ test('browser firing feedback never reveals hidden hit confirmation',()=>{
 test('opponents use finite magazines and cannot attack after exhausting carried rounds',()=>{
  const g=S.newMatch(314,1),b=g.bots[0],p=g.player;g.status='playing';
  p.x=0;p.z=0;b.x=0;b.z=-20;b.moveTime=999;b.actionTime=0;b.skill=1;
- b.loaded=1;b.charges=1;
+ b.angle=Math.PI;b.loaded=1;b.charges=1;
  S.tick(g,1/60,{});
  assert.equal(b.loaded,0);assert.equal(b.charges,0);
  assert.ok(p.health<100);
@@ -106,7 +106,7 @@ test('opponents use finite magazines and cannot attack after exhausting carried 
 test('opponent reload blocks shots for a fixed 60Hz interval without creating ammo',()=>{
  const g=S.newMatch(315,1),b=g.bots[0],p=g.player;g.status='playing';
  p.x=0;p.z=0;b.x=0;b.z=-20;b.moveTime=999;b.actionTime=0;b.skill=1;
- b.loaded=0;b.charges=2;
+ b.angle=Math.PI;b.loaded=0;b.charges=2;
  S.tick(g,1/60,{});
  assert.equal(b.reloadRemaining,S.RELOAD_SECONDS);
  for(let i=0;i<100;i++)S.tick(g,1/60,{});
@@ -123,11 +123,30 @@ test('opponent reload blocks shots for a fixed 60Hz interval without creating am
 test('opponent finite-ammunition simulation is reproducible at fixed 60Hz',()=>{
  const make=()=>{const g=S.newMatch(316,1),b=g.bots[0];g.status='playing';
    g.player.x=0;g.player.z=0;b.x=0;b.z=-20;b.moveTime=999;b.actionTime=0;
-   b.loaded=2;b.charges=4;return g;};
+   b.angle=Math.PI;b.loaded=2;b.charges=4;return g;};
  const a=make(),b=make();
  for(let i=0;i<300;i++){S.tick(a,1/60,{});S.tick(b,1/60,{});}
  const snapshot=g=>({health:g.player.health,bot:{loaded:g.bots[0].loaded,charges:g.bots[0].charges,
    reloadRemaining:g.bots[0].reloadRemaining,actionTime:g.bots[0].actionTime,x:g.bots[0].x,z:g.bots[0].z},elapsed:g.elapsed});
  assert.deepEqual(snapshot(a),snapshot(b));
  assert.ok(a.bots[0].charges<=4);
+});
+
+test('opponents do not detect or damage a player behind their field of view',()=>{
+ const g=S.newMatch(401,1),b=g.bots[0],p=g.player;g.status='playing';
+ p.x=0;p.z=0;b.x=0;b.z=-20;b.angle=0;b.moveTime=999;b.actionTime=0;b.skill=1;
+ for(let i=0;i<60;i++)S.tick(g,1/60,{});
+ assert.equal(p.health,100);assert.equal(b.charges,36);assert.equal(b.loaded,12);
+ b.angle=Math.PI;
+ S.tick(g,1/60,{});
+ assert.ok(p.health<100);assert.equal(b.charges,35);
+});
+test('opponents cannot fire during their gradual turn into alignment',()=>{
+ const g=S.newMatch(402,1),b=g.bots[0],p=g.player;g.status='playing';
+ p.x=0;p.z=0;b.x=0;b.z=-20;b.angle=2;b.moveTime=999;b.actionTime=0;b.skill=1;
+ S.tick(g,1/60,{});
+ assert.equal(p.health,100);assert.equal(b.charges,36);
+ for(let i=0;i<120;i++)S.tick(g,1/60,{});
+ assert.ok(b.charges<36,'aligned opponent should eventually be able to fire');
+ assert.ok(p.health<100);
 });
