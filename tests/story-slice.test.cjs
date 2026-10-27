@@ -8,9 +8,25 @@ const story=require('../src/story-slice.js');
 const Sim=require('../src/simulation.js');
 
 const go=(state,id)=>{const p=story.POINTS[id];state.world.player.x=p.x;state.world.player.z=p.z;};
+function clearEncounter(state){
+  assert.equal(state.phase,'engagement');
+  for(const bot of state.world.bots){
+    for(let i=0;i<2;i++){
+      state.world.player.yaw=Math.atan2(bot.x-state.world.player.x,-(bot.z-state.world.player.z));
+      state.world.player.pitch=0;
+      state.world.elapsed+=.21;
+      const shot=story.fire(state);
+      assert.equal(shot.ok,true);
+      assert.equal(shot.hit,true);
+    }
+  }
+  assert.equal(state.phase,'records');
+  assert.equal(state.world.bots.filter(b=>b.alive).length,0);
+}
 function reachDecision(){
   const state=story.createState();
   go(state,'terminal');assert.equal(story.interact(state).ok,true);
+  clearEncounter(state);
   go(state,'decision');assert.equal(story.interact(state).ok,true);
   return state;
 }
@@ -18,7 +34,7 @@ test('story browser module loads without dependencies when simulation global is 
   const code=fs.readFileSync(path.resolve(__dirname,'../src/story-slice.js'),'utf8');
   const context=vm.createContext({VeilpointSim:Sim});
   vm.runInContext(code,context);
-  assert.equal(context.VeilpointStorySlice.VERSION,1);
+  assert.equal(context.VeilpointStorySlice.VERSION,2);
   assert.equal(context.VeilpointStorySlice.createState().phase,'terminal');
 });
 test('initial chapter has a real 3D-renderable world and objective markers',()=>{
@@ -45,7 +61,8 @@ test('60Hz player movement is deterministic and uses existing world collision',(
 test('mission flow: relay, optional records, decision, verified exit and completed state',()=>{
   const state=story.createState();
   go(state,'terminal');
-  assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'records'});
+  assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
+  clearEncounter(state);
   assert.equal(story.markers(state).length,3);
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
@@ -73,7 +90,7 @@ test('invalid order, unknown choice and out-of-range interaction cannot change p
   go(state,'decision');
   assert.equal(story.interact(state).reason,'too_far');
   assert.equal(story.choose(state,'evacuation').reason,'not_choosing');
-  go(state,'terminal');story.interact(state);
+  go(state,'terminal');story.interact(state);clearEncounter(state);
   go(state,'decision');story.interact(state);
   assert.equal(story.choose(state,'madeup').reason,'invalid_choice');
   assert.equal(state.phase,'decision');
@@ -113,7 +130,12 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
     {...valid,player:{...valid.player,x:1e9}},
     {...valid,player:{...valid.player,yaw:Infinity}},
     {...valid,player:{...valid.player,stamina:101}},
-    {...valid,elapsed:-1}
+    {...valid,elapsed:-1},
+    {...valid,combat:{...valid.combat,started:true}},
+    {...valid,combat:{...valid.combat,drones:[{id:0,health:90,alive:true}]}},
+    {...valid,combat:{...valid.combat,nextPulseAt:Infinity}},
+    {...valid,player:{...valid.player,charges:999}},
+    {...valid,player:{...valid.player,health:0}}
   ];
   for(const b of bad)assert.throws(()=>story.restore(JSON.stringify(b)),RangeError);
   assert.throws(()=>story.restore(JSON.stringify({...valid,unknown:true})),RangeError);
@@ -131,4 +153,93 @@ test('CH01 accurately frames the captain as protagonist and Mara as ally without
   assert.match(html, /이수혁 대위/);
   assert.match(html, /국정원/);
   assert.match(html, /전투 중심 임무는 개발 중/);
+});
+
+test('CH01 encounter: cannot fire early; ray tags disable three drones before records unlock',()=>{
+  const state=story.createState();
+  assert.equal(story.fire(state).reason,'not_in_encounter');
+  go(state,'terminal');story.interact(state);
+  assert.equal(state.world.bots.length,3);
+  assert.equal(story.interact(state).reason,'too_far');
+  state.world.player.yaw=Math.PI;
+  const miss=story.fire(state);
+  assert.equal(miss.ok,true);
+  assert.equal(miss.hit,false);
+  assert.equal(state.world.player.charges,47);
+  assert.equal(story.fire(state).reason,'cooldown');
+  clearEncounter(state);
+  assert.equal(story.fire(state).reason,'not_in_encounter');
+  assert.equal(story.markers(state).length,3);
+});
+
+test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals completion',()=>{
+  const state=story.createState();
+  go(state,'terminal');story.interact(state);
+  state.world.player.shield=10;
+  assert.deepEqual(story.support(state),{ok:true,event:'support',shield:50});
+  assert.match(state.subtitle,/김지윤/);
+  assert.equal(story.support(state).reason,'already_used');
+  clearEncounter(state);
+  assert.match(state.subtitle,/조현지/);
+  assert.equal(story.support(state).reason,'not_in_encounter');
+});
+
+test('encounter pulse is fixed-step deterministic, can fail, and preserves retry path',()=>{
+  const a=story.createState(),b=story.createState();
+  go(a,'terminal');go(b,'terminal');story.interact(a);story.interact(b);
+  for(let i=0;i<180;i++){story.step(a,1/60);story.step(b,1/60);}
+  assert.equal(a.world.player.shield,b.world.player.shield);
+  assert.ok(a.world.player.shield<80);
+  a.world.player.health=1;a.world.player.shield=0;
+  for(let i=0;i<240&&a.phase!=='failed';i++)story.step(a,1/60);
+  assert.equal(a.phase,'failed');
+  assert.equal(a.world.status,'lost');
+  assert.equal(story.fire(a).reason,'not_in_encounter');
+  const loaded=story.restore(story.serialize(a));
+  assert.equal(loaded.phase,'failed');
+  assert.equal(loaded.world.player.alive,false);
+  assert.equal(story.createState().phase,'terminal');
+});
+
+test('mid-encounter checkpoint preserves charges, shield, drone health and ally usage',()=>{
+  const state=story.createState();
+  go(state,'terminal');story.interact(state);
+  state.world.player.yaw=0;
+  state.world.elapsed+=.2;
+  assert.equal(story.fire(state).hit,true);
+  assert.equal(story.support(state).ok,true);
+  const raw=story.serialize(state),loaded=story.restore(raw);
+  assert.equal(loaded.phase,'engagement');
+  assert.equal(loaded.world.bots[0].health,45);
+  assert.equal(loaded.world.player.charges,47);
+  assert.equal(loaded.combat.supportUsed,true);
+  assert.equal(story.support(loaded).reason,'already_used');
+  assert.equal(story.serialize(loaded),raw);
+  const malformed=JSON.parse(raw);
+  malformed.combat.drones[0].alive=false;
+  assert.throws(()=>story.restore(JSON.stringify(malformed)),RangeError);
+});
+
+test('v1 CH01 saves migrate without replaying combat and preserve prior player choice',()=>{
+  const legacy={version:1,phase:'exit',found:[],choice:'evacuation',
+    player:{x:0,z:-61,yaw:0,pitch:0,stamina:100},elapsed:12};
+  const state=story.restore(JSON.stringify(legacy));
+  assert.equal(state.version,2);
+  assert.equal(state.phase,'exit');
+  assert.equal(state.combat.cleared,true);
+  assert.equal(state.world.bots.filter(b=>b.alive).length,0);
+  assert.equal(state.choice,'evacuation');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(state.phase,'complete');
+  assert.throws(()=>story.restore(JSON.stringify({...legacy,extra:1})),RangeError);
+});
+
+test('browser integration exposes encounter controls and never treats preview as full M01',()=>{
+  const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
+  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  for(const id of ['combatStatus','touchFire','touchSupport'])assert.match(html,new RegExp('id="'+id+'"'));
+  assert.match(app,/Story\.fire\(state\)/);
+  assert.match(app,/Story\.support\(state\)/);
+  assert.doesNotMatch(app,/Campaign\.completeMission/);
+  assert.match(app,/veilpoint\.story\.ch01PreviewCompleted/);
 });
