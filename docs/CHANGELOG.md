@@ -1,3 +1,8 @@
+## v1.2 — 165 Hz monitor target (2026-10-27)
+- Configurable render cap up to 165 FPS, FPS HUD, persisted browser settings, fixed 60 Hz simulation.
+- Unreal Engine default game user settings and render smoothing upper frame cap at 165 FPS.
+- Added deterministic synthetic pacing tests and clarified that monitor 165 Hz is controlled by OS / GPU driver.
+
 # VEILPOINT Changelog
 
 ## 1.1.0 — 2026-10-27
