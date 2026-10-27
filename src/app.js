@@ -98,6 +98,9 @@ function suspendMatch(){
 }
 function resetInactiveClock(){
  for(const k in input)input[k]=false;
+ // A lost touch pointer may never emit pointerup; discard held stick and camera
+ // gestures so resuming cannot move or rotate the player without fresh input.
+ joyId=null;lookId=null;previousLook=null;thumb.x=0;thumb.y=0;nub.style.transform='';
  clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();
  updateHud();
 }

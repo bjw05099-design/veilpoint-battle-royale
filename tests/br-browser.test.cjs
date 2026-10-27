@@ -233,3 +233,19 @@ test('offline BR freezes hostile simulation while backgrounded and resumes at 60
   app.node('play').click();app.frame(362*1000/60);
   assert.ok(game.elapsed>hidden&&game.elapsed-hidden<0.05);
 });
+
+test('BR clears held touch stick on focus loss so explicit resume cannot drift',()=>{
+  const app=boot({touch:true});
+  app.node('play').click();app.frame(1000/60);
+  const game=app.game;
+  app.node('stick').dispatch('pointerdown',{pointerId:5,clientX:80,clientY:44});
+  app.frame(2000/60);
+  const position=game.player.x;
+  app.emit('blur');
+  app.node('play').click();
+  for(let i=3;i<=30;i++)app.frame(i*1000/60);
+  assert.equal(game.player.x,position,'orphaned joystick must not keep moving after resume');
+  app.node('stick').dispatch('pointerdown',{pointerId:6,clientX:80,clientY:44});
+  app.frame(31000/60);
+  assert.ok(game.player.x>position,'fresh touch input remains functional');
+});

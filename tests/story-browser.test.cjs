@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function boot(sharedStore=new Map()){
+function boot(sharedStore=new Map(),touch=false){
   const listeners=new Map(),nodes=new Map();
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
   const makeClassList=hidden=>{
@@ -49,7 +49,7 @@ function boot(sharedStore=new Map()){
   const context={
     document,localStorage:store,
     performance:{now:()=>now},
-    matchMedia:()=>({matches:false}),
+    matchMedia:()=>({matches:touch}),
     requestAnimationFrame:fn=>{frameCallback=fn;},
     addEventListener:(name,fn)=>{const list=listeners.get(name)||[];list.push(fn);listeners.set(name,list);},
     console,
@@ -236,4 +236,25 @@ test('CH01 automatically checkpoints actual hostile damage before browser refres
   const refreshed=boot(app.store);refreshed.element('continue').click();
   refreshed.element('pauseButton').click();
   assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.health,after.player.health);
+});
+
+test('CH01 discards stale touch-look pointer after pausing without blocking fresh gestures',()=>{
+  const app=boot(new Map(),true);
+  app.element('continue').click();
+  const scene=app.element('scene');
+  scene.dispatch('pointerdown',{pointerId:7,clientX:100,clientY:100});
+  scene.dispatch('pointermove',{pointerId:7,clientX:120,clientY:100});
+  app.emit('blur');
+  const paused=JSON.parse(app.store.get('veilpoint.story.ch01')).player.yaw;
+  app.element('continue').click();
+  scene.dispatch('pointermove',{pointerId:7,clientX:500,clientY:100});
+  app.element('pauseButton').click();
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.yaw,paused,
+    'stale pointer movement after resume cannot rotate the camera');
+  app.element('continue').click();
+  scene.dispatch('pointerdown',{pointerId:8,clientX:100,clientY:100});
+  scene.dispatch('pointermove',{pointerId:8,clientX:130,clientY:100});
+  app.element('pauseButton').click();
+  assert.notEqual(JSON.parse(app.store.get('veilpoint.story.ch01')).player.yaw,paused,
+    'a new gesture must still control the camera');
 });
