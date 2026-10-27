@@ -1,0 +1,32 @@
+# VEILPOINT — 30-day accelerated production plan
+
+Start: 2026-10-27 11:00 Asia/Seoul. The existing automation is configured for **744 hourly attempts**. Work happens at individual scheduled executions, not continuously in between; tool or compute limits can cause an iteration to be blocked.
+
+## Throughput policy
+
+For each execution: (1) inspect repository HEAD and latest test results, (2) choose the largest independently testable user-facing improvement feasible, (3) implement complete related modules and any needed tests/integration, (4) run available verification and document limitations, (5) commit the real files and report exact URL and test status. Prefer one coherent working feature with relevant tests over many disconnected lines of code. Do not misrepresent hardware benchmarks, Unreal compilation or finished visual quality.
+
+## Allocation priorities
+
+- Visual realism: 35% (environment, physically plausible lighting and materials, geometry, animation, atmosphere, visual captures).
+- Performance and 165Hz readiness: 25% (frame pacing, GPU profiling, upscaling, scene density, resolution policies).
+- Player movement, interactions, accessibility and interface: 15%.
+- Real-time synchronization, world state integrity and robustness: 15%.
+- Automated tests, build pipelines and QA: 10%.
+
+## Milestones
+
+| Phase | Engineering deliverable |
+| --- | --- |
+| Days 1–3 | Graphics profile settings, test infrastructure, reproducible runtime and engine compilation checklist |
+| Days 4–7 | Small high-detail environment, first rendered visual capture, rendering quality baseline |
+| Days 8–14 | Natural movement, soundscape, environment interaction, coherent vertical slice |
+| Days 15–21 | Online architecture validation, state synchronization, latency resilience and automated tests |
+| Days 22–27 | 165Hz frametime instrumentation and selective GPU/CPU optimization, foliage/LOD, accessibility |
+| Days 28–31 | Stabilization, packaging attempts, performance evidence, limitations and release notes |
+
+## Measurable quality gates
+
+The target 165FPS corresponds to 6.06ms per frame, but successful implementation must be demonstrated on 165Hz hardware and identified GPU/CPU. Report measured P50/P95/P99 frame times, stutter and actual visual output when available. Browser prototype tests never substitute for a native Unreal Engine build test.
+
+**One-month stretch outcome:** a documented, playable, photorealism-oriented vertical slice with reproducible metrics. This is not a guarantee of a finished best-in-world commercial product.
