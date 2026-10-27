@@ -4,7 +4,7 @@
 ## Modes
 | Mode | Target launch configuration | Primary player experience | Implementation truth |
 |---|---|---|---|
-| **DISTRICT CONTROL** | 6v6 objective teams, smaller 2v2 test server first | Cooperate to secure publicly signaled district services; readable scoring and respawns | Planned; backend and authoritative match loop not yet implemented |
+| **DISTRICT CONTROL** | 6v6 objective teams, smaller 2v2 test server first | Cooperate to secure publicly signaled district services; readable scoring and respawns | Partial localhost-only Node 2-client objective proof (not native FPS or public online multiplayer); production backend and network QA still planned |
 | **LAST SIGNAL / Battle Royale** | 24 players after network tests; larger matches only if measured viable | Drop, explore, collect, survive changing boundaries, place/win/return to lobby | Browser currently has **offline simulation vs bots**, not internet multiplayer |
 | **RELAY RUN** | 4v4 or 6v6 rotating relay objectives | Relays briefly change environment state; emphasis on awareness and fairness | Planned original objective mode |
 | **CIVIC RELAY Co-op** | 2–4 player story-linked session, post-core optional | Short joint PvE narrative chapter for cooperative players | Future stretch; do not block basic story + multiplayer + BR delivery |
@@ -57,3 +57,7 @@ Narrative chapters give emotional context to neighborhoods and services. Multipl
 3. Connect first 2-player network test in UE when engine and host/client environment are available.
 4. Build a reliable small competitive mode; then adapt tested primitives to real battle royale.
 5. Add public matching, region scaling, moderation and online services only after stability and security review.
+
+## 2026-10-27 isolated localhost authority proof
+
+`npm run team:server` serves a separate two-browser-tab 2D objective arena on `http://127.0.0.1:8765/`. The Node server owns ready/start, movement capped by fixed 60Hz simulation, physical objective presence/contesting, scoring, result and replay. Commands use unpredictable session tokens and monotonic sequence IDs; clients cannot award score or teleport. Tests use two independent HTTP clients and a complete objective round. The prototype is **not** a networked FPS, a secure public deployment, production matchmaking, reconnection, measured packet-loss resilience or a UE server. Its 2D map is a temporary rules test UI, not final game art or an omniscient tactical display.
