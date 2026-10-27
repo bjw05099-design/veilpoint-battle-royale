@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEILPOINT / DISTRICT CONTROL — local network prototype</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#10171b;color:#e8eceb}
+body{max-width:940px;margin:24px auto;padding:0 16px}h1{font-size:1.5rem;letter-spacing:.08em}p{line-height:1.5}
+main{display:grid;grid-template-columns:1fr 270px;gap:20px}canvas{width:100%;background:#19272c;border:1px solid #647778;aspect-ratio:1}
+.panel{border:1px solid #526367;border-radius:8px;padding:16px;background:#1c282e}button,input{font:inherit;padding:10px;border-radius:6px}
+button{background:#28565d;border:1px solid #81a5a9;color:white;cursor:pointer;margin:4px 2px}button:disabled{opacity:.4}
+input{max-width:90%;background:#111c21;color:white;border:1px solid #829498}
+#status{min-height:3em}#touch{display:grid;grid-template-columns:repeat(3,1fr)}#touch button{min-height:46px}
+small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
+@media(max-width:680px){main{grid-template-columns:1fr}}
+</style></head><body>
+<h1>VEILPOINT / DISTRICT CONTROL</h1>
+<p>로컬 2인 서버 권한형 목표 점령 실험. 최종 1인칭 팀 대전이 아닌 <strong>네트워크 규칙 검증용 2D 테스트 화면</strong>입니다. 서버가 위치와 점수를 결정하며, 현실적인 이동 거리 제한을 적용합니다.</p>
+<main><section><canvas id="arena" width="500" height="500" aria-label="팀 목표 구역 및 가시 범위 지도"></canvas>
+<p id="status" role="status" aria-live="polite">서버 연결 대기</p><p><small>WASD/방향키 이동 · E 점령 유지 · 버튼은 터치 입력 지원. 원형 목표에서 적이 함께 있으면 점령 불가. 두 탭에서 서로 다른 이름으로 접속하세요.</small></p></section>
+<section class="panel"><label for="name">플레이어 이름</label><p><input id="name" maxlength="24" value="Player" autocomplete="off"></p>
+<button id="join">서버 입장</button><button id="ready" disabled>준비 / 재대전</button>
+<p>상태: <strong id="phase">LOBBY</strong></p><p>팀: <strong id="team">—</strong></p>
+<p>점수: <strong id="score">0 : 0</strong></p><p>서버 틱: <strong id="tick">0</strong></p>
+<div id="touch" aria-label="터치 조작"><span></span><button data-dir="up">↑</button><span></span>
+<button data-dir="left">←</button><button id="capture">E 점령</button><button data-dir="right">→</button>
+<span></span><button data-dir="down">↓</button><span></span></div></section></main>
+<script src="/team-client.js" defer></script></body></html>

@@ -94,3 +94,9 @@ The browser prototype adds **opt-in GPU-timer-driven adaptive resolution** (when
 ## v1.6 dynamic visibility/LOD (2026-10-27)
 
 The browser renderer now conservatively skips off-camera dynamic geometry and reduces distant bot/loot mesh detail. This is **render-only**: the 60Hz simulation, AI, zone and collision are unchanged. The graphics panel shows visible bots and planned dynamic vertex counts. Run `npm run verify` and `npm run bench:visibility` for deterministic tests and a CPU-only microbenchmark. See [render culling design and limitations](docs/RENDER_CULLING.md). No GPU/165Hz benchmark or native UE compile is claimed.
+
+## Local two-client team-objective prototype (development-only)
+
+Run `npm run team:server` from the repository root using Node.js 18+. Open **http://127.0.0.1:8765/** in two browser tabs, enter different names, press **Join**, then **Ready** in both tabs. Move with WASD/arrows or touch buttons; hold E/the capture button while inside the center objective. The local server alone advances movement and scores; the first team to 3 uncontested captures wins. Both players can press Ready to replay. Run `npm run verify` for syntax, deterministic 60Hz rules, and two-client HTTP regression tests.
+
+This is a **separate 2D networking foundation**, not a completed online FPS, campaign or battle royale service. It binds to loopback only and must **not** be forwarded onto the public internet. Session reconnect, real-world browser/touch tests, packet-loss testing, latency/anti-cheat hardening, accessibility audit and native Unreal integration remain open. Do not confuse the server's 60Hz simulation with a measured 165FPS renderer or a real 165Hz display test.
