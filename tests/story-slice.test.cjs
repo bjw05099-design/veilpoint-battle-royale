@@ -642,3 +642,59 @@ test('CH01 empty-fire instructions respect whether the finite cache remains avai
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
  assert.match(app,/situation.route\+' · '\+situation.civilianConsequence/);
 });
+
+
+test('CH01 interaction prompt and input cannot reach an objective through physical cover',()=>{
+  const s=story.createState();
+  s.world.player.x=0;s.world.player.z=-15;
+  const cover={x:0,z:-16.5,w:2,d:.5,h:2,type:'wall'};
+  s.world.obstacles.push(cover);
+  assert.equal(story.nearest(s),null);
+  assert.equal(story.interact(s).reason,'too_far');
+  assert.equal(s.phase,'terminal');
+  s.world.obstacles.pop();
+  assert.equal(story.nearest(s).id,'terminal');
+  assert.equal(story.interact(s).ok,true);
+  // A visible, finite ammunition cache is also inaccessible through a wall.
+  s.world.player.x=5;s.world.player.z=-17;
+  s.world.player.charges=36;
+  s.world.obstacles.push({x:5,z:-18.5,w:2,d:.5,h:2,type:'wall'});
+  assert.equal(story.nearest(s),null);
+  assert.equal(story.interact(s).reason,'too_far');
+  assert.equal(s.combat.supplyUsed,false);
+  s.world.obstacles.pop();
+  assert.equal(story.interact(s).event,'supply');
+  assert.equal(s.combat.supplyUsed,true);
+  assert.equal(s.world.player.charges,48);
+});
+
+test('CH01 completed debrief preserves causal choice, local authority and uncertainty without unlocks',()=>{
+  assert.equal(story.debrief(story.createState()),null);
+  const evac=reachDecision();
+  assert.equal(story.choose(evac,'evacuation').ok,true);
+  go(evac,'exitEvac');assert.equal(story.interact(evac).ok,true);
+  const e=story.debrief(story.restore(story.serialize(evac)));
+  assert.equal(e.previewOnly,true);
+  assert.equal(e.campaignUnlocked,false);
+  assert.equal(e.route,'evacuation');
+  assert.equal(e.eastCheckpointCleared,false);
+  assert.equal(e.clockDiscrepancy,'not-cross-checked');
+  assert.equal(e.civilianOutcome,'south-evacuation-prioritized');
+  assert.deepEqual(e.records,[]);
+  const verify=reachDecision();
+  go(verify,'recordB');story.interact(verify);
+  go(verify,'recordA');story.interact(verify);
+  assert.equal(story.choose(verify,'verification').ok,true);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verify,1/60,{});
+  go(verify,'exitVerify');assert.equal(story.interact(verify).ok,true);
+  const v=story.debrief(story.restore(story.serialize(verify)));
+  assert.deepEqual(v.records,['recordA','recordB']);
+  assert.equal(v.route,'verification');
+  assert.equal(v.eastCheckpointCleared,true);
+  assert.equal(v.clockDiscrepancy,'unresolved');
+  assert.equal(v.civilianOutcome,'east-clearance-confirmed');
+  assert.match(v.summary,/원인 미확정/);
+  assert.equal(v.intelligenceRole,'advisory-only');
+  assert.equal(v.campaignUnlocked,false);
+  assert.notDeepEqual(e,v);
+});

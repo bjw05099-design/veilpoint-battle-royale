@@ -34,8 +34,11 @@
     return storage.set(SAVE_KEY,raw);
   }
   function recordCompletion(){
-    // The CH01 preview is NOT the authored 50-minute M01; never unlock the next campaign chapter.
-    storage.set(PREVIEW_KEY,JSON.stringify({version:1,choice:state.choice}));
+    // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
+    // This separate preview key must never unlock competitive or campaign content.
+    const report=Story.debrief(state);
+    if(report)storage.set(PREVIEW_KEY,JSON.stringify(report));
+    return report;
   }
   let settings=Graphics.fromPreset('balanced');
   try{const raw=storage.get('veilpoint.graphics');if(raw)settings=Graphics.deserialize(raw);}catch(_){}
@@ -117,8 +120,8 @@
     persist();
     if(state.phase==='decision'){showChoices();return;}
     if(state.phase==='complete'){
-      recordCompletion();
-      menuOpen('CH01 완료 — '+state.subtitle+' 현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
+      const report=recordCompletion();
+      menuOpen('CH01 완료 — '+state.subtitle+' '+(report?report.summary+' ':'')+'현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
     }
     updateHud();
   }

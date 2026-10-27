@@ -121,7 +121,12 @@ test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and sa
   assert.equal(save.phase,'complete');
   assert.equal(save.choice,'evacuation');
   assert.equal(app.store.has('veilpoint.campaignProgress'),false);
-  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01PreviewCompleted')).choice,'evacuation');
+  const report=JSON.parse(app.store.get('veilpoint.story.ch01PreviewCompleted'));
+  assert.equal(report.route,'evacuation');
+  assert.equal(report.previewOnly,true);
+  assert.equal(report.campaignUnlocked,false);
+  assert.equal(report.civilianOutcome,'south-evacuation-prioritized');
+  assert.match(app.element('menuText').textContent,/남쪽 대피/);
 });
 test('story checkpoint survives new browser context and does not modify BR settings',()=>{
   const shared=new Map();

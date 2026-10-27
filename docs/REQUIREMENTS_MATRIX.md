@@ -56,6 +56,11 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 - **R-28 — partial.** The opening subtitle and situation contract distinguish the captain's limited fictional authorization, local aid coordinator Yusuf's independent route-control decision, and NIS intelligence advice from field command. The existing evidence-dependent physical east gate remains the playable consequence. This is a small CH01 continuity increment, **not** proof of a believable 12-chapter story or independent narrative QA.
 - **Verification boundary:** Node tests and GitHub CI must pass on the proposed commit; human browser, Unreal, QHD 165Hz and comparative narrative/realism playtests remain unverified.
 
+## 2026-10-28 CH01 line-of-sight interactions and causal preview handoff candidate
+
+- **R-13 / R-23 — partial:** CH01 E/touch interactions and proximity HUD prompts now require an unobstructed line between the player and a marker, so physical cover prevents through-wall terminal and finite-cache access. Node tests cover blocking, safe access after obstruction removal and resource conservation. Full browser/device playtest remains outstanding.
+- **R-22 / R-28 — partial:** CH01 completion now records a structured, replay-safe preview-only debrief with the actual evidence count, chosen route, local aid authority's outcome and unresolved timestamp discrepancy. The debrief explicitly does **not** unlock the unbuilt M02 or confer online advantages. Tests cover both branches, save/restore and browser completion display; no 12-chapter causal continuity or independent narrative QA is claimed.
+
 ## Completion rules
 - **No obvious unrealistic mechanics in any mode is a hard release gate** (issue #15). The goal is physically and causally convincing simulation, not false claims of perfect real-world physics. Track incompatible prototypes as blocking work, not completed functionality.
 - **Full release means all major modes work**, not just a designed menu or documentation.
