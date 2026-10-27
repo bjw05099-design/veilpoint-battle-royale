@@ -1,6 +1,6 @@
 # VEILPOINT — Game Design Bible (GDB)
 
-> **2026-10-27 authoritative casting/gameplay update:** Story campaign is **combat-first** and played from the POV of fictional **대한민국 특수부대 서진혁 대위**. Fictional **국정원 요원 윤서하·강민재** are central supporting characters. The setting remains fictional Sahir Coast/Nahrin, with the **12-chapter/12-hour** target. See [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md) and [Campaign Design](CAMPAIGN_DESIGN.md). Earlier descriptions of an investigation-led playable cast below are superseded; no actual native battle system is claimed.
+> **2026-10-27 authoritative casting/gameplay update:** Story campaign is **combat-first** and played from the POV of fictional **대한민국 특수부대 이수혁 대위**. Fictional **국정원 요원 김지윤·조현지** are central supporting characters. The setting remains fictional Sahir Coast/Nahrin, with the **12-chapter/12-hour** target. See [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md) and [Campaign Design](CAMPAIGN_DESIGN.md). Earlier descriptions of an investigation-led playable cast below are superseded; no actual native battle system is claimed.
 
 **Version:** Design 0.1 · 2026-10-27 · **Status: proposal / NOT implemented**
 
