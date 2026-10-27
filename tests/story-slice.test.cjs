@@ -633,7 +633,7 @@ test('CH01 empty-fire instructions respect whether the finite cache remains avai
  go(s,'supply');assert.equal(story.interact(s).ok,true);
  s.world.player.charges=0;s.world.player.loaded=0;
  assert.equal(story.fire(s).reason,'empty');
- assert.match(s.subtitle,/재시작/);
+ assert.match(s.subtitle,/다시 시작/);
  assert.doesNotMatch(story.objective(s),/확보할 수 있습니다/);
  assert.match(story.objective(s),/이미 사용/);
  const loaded=story.restore(story.serialize(s));
