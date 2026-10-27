@@ -33,7 +33,7 @@ Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on th
 - Full offline match loop and replay/restart, 18 seeded bot opponents, final-survivor result screen.
 - Large procedural environment with terrain, buildings, vegetation, collision, and supply pickups.
 - Six-stage shrinking safe-zone logic, survival outside-zone damage, match timer and minimap.
-- Health, rechargeable armor via supplies, stamina and sprint, resource charges, pickup inventory.
+- Health without automatic recovery or shields, stamina and sprint, finite firearm ammunition, pickup inventory.
 - Third-party-free browser rendering: WebGL2 atmosphere/filmic tone mapping/fog + CPU Canvas2D fallback.
 - Mouse + touchscreen controls, adaptive UI, synthesized local UI sound, no remote calls.
 - Core simulation unit tests and GitHub Actions CI recipe.
@@ -97,7 +97,7 @@ The browser renderer now conservatively skips off-camera dynamic geometry and re
 
 ## Local two-client team-objective prototype (development-only)
 
-Run `npm run team:server` from the repository root using Node.js 18+. Open **http://127.0.0.1:8765/** in two browser tabs, enter different names, press **Join**, then **Ready** in both tabs. Move with WASD/arrows or touch buttons; hold E/the capture button while inside the center objective. The local server alone advances movement and scores; the first team to 3 uncontested captures wins. Both players can press Ready to replay. Run `npm run verify` for syntax, deterministic 60Hz rules, and two-client HTTP regression tests.
+Run `npm run team:server` from the repository root using Node.js 18+. Open **http://127.0.0.1:8765/** in two browser tabs, enter different names, press **Join**, then **Ready** in both tabs. Move with WASD/arrows or touch buttons; hold E/the capture button while inside the center objective. The 2D test client also supports **F/SPACE** to fire, **R** to reload, and touch buttons. The server determines sight/cover, shot cadence, finite ammunition (12 loaded + 24 carried), 90-tick reload and health; incapacitating the other player ends that round. No automatic healing, infinite ammo or client-authored hit/damage is permitted. The local server alone advances movement and scores; the first team to 3 uncontested captures wins. Both players can press Ready to replay. Run `npm run verify` for syntax, deterministic 60Hz rules, and two-client HTTP regression tests.
 
 This is a **separate 2D networking foundation**, not a completed online FPS, campaign or battle royale service. It binds to loopback only and must **not** be forwarded onto the public internet. Session reconnect, real-world browser/touch tests, packet-loss testing, latency/anti-cheat hardening, accessibility audit and native Unreal integration remain open. Do not confuse the server's 60Hz simulation with a measured 165FPS renderer or a real 165Hz display test.
 
