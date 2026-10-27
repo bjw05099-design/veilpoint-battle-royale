@@ -86,6 +86,12 @@
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
+  function actorBlockers(state,except=null) {
+    // Temporary AABB proxies keep the first-person controller from passing through
+    // standing opponents. Ignore already-overlapping actors so legacy saves can escape.
+    return state.world.bots.filter(b=>b.alive&&b!==except)
+      .map(b=>({x:b.x,z:b.z,w:1.2,d:1.2}));
+  }
   function nearest(state) {
     const p=state.world.player;
     let candidate=null,best=INTERACT_RADIUS;
@@ -104,8 +110,9 @@
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
     const sprint=!!input.sprint&&iz>0&&p.stamina>1;
     const speed=input.crouch?3.1:sprint?9.5:6.1;
+    const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
-      (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles);
+      (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
     p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprint);
     state.world.elapsed+=t;
@@ -129,7 +136,8 @@
           const move=Math.min(1.6*t,remaining);
           const vx=Math.sin(hostile.angle)*move/t,vz=-Math.cos(hostile.angle)*move/t;
           if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8)
-            Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles,.75);
+            Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles.concat(actorBlockers(state,hostile),
+              [{x:p.x,z:p.z,w:1.2,d:1.2}]),.75);
         }
       }
     }

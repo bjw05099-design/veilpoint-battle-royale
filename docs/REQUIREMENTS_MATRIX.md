@@ -35,6 +35,10 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 
 | R-28 | **Causally coherent 12-chapter narrative:** credible fictional deployment mandate and inter-agency limits, character motives, dated evidence and uncertainty, travel/injury/equipment continuity, foreshadowing/payoff, consequential player choices and independent narrative QA | P0 story | Playable scene consequences, checkpoint/route consistency tests, chapter timeline and independent plausibility reviews | **Partial CH01 candidate (2026-10-28):** fictional civilian evacuation authorization and distinct NIS information roles appear in browser briefing; 04:07/04:12 records remain explicitly uncertain; evidence-verified branch removes an east checkpoint obstacle, reconstructed from saved choice. Remaining 12 chapters, timeline, human narrative QA and native cinematic playtest are unimplemented/unverified. |
 
+## 2026-10-28 CH01 physical actor collision candidate
+
+- **R-13 / R-23 — partial.** The CH01 first-person controller now treats living opponents as finite collision bodies; defeated actors no longer obstruct traversal. Enemy short-range motion also avoids other live bodies and the player. Existing overlapping checkpoints can move out rather than becoming trapped. Fixed-step, saved-pose and overlap-recovery tests are required; this is not a full character capsule, animation or Unreal physics verification.
+
 ## 2026-10-28 CH01 opponent perception / checkpoint candidate
 
 - **R-21 / R-23 / R-28 — partial, not release-approved.** Visible CH01 opponents now turn at a bounded rate and can approach the player within a six-unit authored patrol area, without reacting through walls or to targets behind their view. The opponent position/facing is checkpointed with validation; older v2 saves retain compatible fixed starting positions. Deterministic 60Hz, cover, migration and malformed-pose tests are required. This remains a simplified browser behavior, not independently playtested human AI or Unreal combat.
