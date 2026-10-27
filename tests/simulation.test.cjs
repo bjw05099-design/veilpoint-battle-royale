@@ -60,3 +60,31 @@ test('offline BR map keeps opponents undisclosed by the minimap UI',()=>{
  assert.doesNotMatch(html,/id="shieldNum"|id="shieldBar"/);
  assert.match(html,/AVAILABLE AMMUNITION/);
 });
+
+test('opponents cannot track or chase the player through solid buildings',()=>{
+ const a=S.newMatch(301,1),b=a.bots[0],p=a.player;
+ a.status='playing';
+ b.x=-85;b.z=-100;b.angle=0;b.moveTime=999;b.actionTime=0;
+ p.x=-85;p.z=-52;p.health=100;
+ assert.equal(S.lineBlocked(b.x,b.z,p.x,p.z,a.obstacles),true);
+ S.tick(a,1/60,{});
+ assert.equal(b.angle,0);
+ assert.equal(p.health,100);
+});
+test('visible nearby players can still influence opponent orientation',()=>{
+ const a=S.newMatch(301,1),b=a.bots[0],p=a.player;
+ a.status='playing';
+ b.x=0;b.z=-25;b.angle=Math.PI/2;b.moveTime=999;b.actionTime=999;
+ p.x=0;p.z=0;
+ assert.equal(S.lineBlocked(b.x,b.z,p.x,p.z,a.obstacles),false);
+ S.tick(a,1/60,{});
+ assert.ok(b.angle>Math.PI/2);
+});
+test('browser firing feedback never reveals hidden hit confirmation',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
+ const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+ assert.doesNotMatch(app,/TARGET TAGGED|SCANNING \/ CLEAR|result\.hit\?710/);
+ assert.match(app,/SHOT FIRED/);
+ assert.match(html,/CLICK — FIRE/);
+});

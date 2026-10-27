@@ -73,7 +73,7 @@ addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
 let audio=null;
 function tone(freq=560,duration=.08){try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){const result=Game.tag(simulation);if(!result.ok)return;tone(result.hit?710:370,.09);shake=.55;$('hitText').textContent=result.hit?'TARGET TAGGED':'SCANNING / CLEAR';setTimeout(()=>$('hitText').textContent='OPTICAL LINK / ACTIVE',300);}
+function fire(){const result=Game.tag(simulation);if(!result.ok)return;tone(420,.09);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};
