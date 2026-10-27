@@ -300,5 +300,5 @@ test('BR E/touch pickup and HUD visibility reject supplies behind solid cover',(
  assert.equal(S.pickup(g),'ammo');
  assert.equal(g.player.charges,36);
  const app=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../src/app.js'),'utf8');
- assert.match(app,/Game\\.canReachPickup\\(s,l\\)/);
+ assert.ok(app.includes('Game.canReachPickup(s,l)'));
 });
