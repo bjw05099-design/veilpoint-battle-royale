@@ -35,6 +35,12 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 
 | R-28 | **Causally coherent 12-chapter narrative:** credible fictional deployment mandate and inter-agency limits, character motives, dated evidence and uncertainty, travel/injury/equipment continuity, foreshadowing/payoff, consequential player choices and independent narrative QA | P0 story | Playable scene consequences, checkpoint/route consistency tests, chapter timeline and independent plausibility reviews | **Partial CH01 candidate (2026-10-28):** fictional civilian evacuation authorization and distinct NIS information roles appear in browser briefing; 04:07/04:12 records remain explicitly uncertain; evidence-verified branch removes an east checkpoint obstacle, reconstructed from saved choice. Remaining 12 chapters, timeline, human narrative QA and native cinematic playtest are unimplemented/unverified. |
 
+## 2026-10-28 candidate: inactive-session safety and combat checkpoint durability
+
+- **R-04 / R-13 / R-14 / R-23 — partial implementation, not release-approved.** BR browser controller now suspends its fixed-60Hz simulation on window blur or hidden document and resumes without accumulated catch-up ticks; CH01 instead opens its existing pause menu and saves the active mission state. Both clear movement input and reset timing so unfocused players cannot be attacked by an active simulation.
+- **R-02 / R-13 / R-14 — partial implementation.** CH01 now persists actual hostile-damage consequences immediately (at a hit event, not every frame), while continuing to persist the timed east-route transition and user-initiated pause. DOM/VM regression candidates cover background freeze, resume, combat damage save and refresh.
+- **Validation limits:** source/DOM simulation tests and GitHub CI are distinct from human browser/device playtests. No real browser, GPU/RTX 3070, QHD 165Hz, UE compile/packaging, licensed PBR art or production online network result is claimed. Strict realism, all three full modes, 12 chapters and ~12h remain release-blocking open gates.
+
 ## Completion rules
 - **No obvious unrealistic mechanics in any mode is a hard release gate** (issue #15). The goal is physically and causally convincing simulation, not false claims of perfect real-world physics. Track incompatible prototypes as blocking work, not completed functionality.
 - **Full release means all major modes work**, not just a designed menu or documentation.
