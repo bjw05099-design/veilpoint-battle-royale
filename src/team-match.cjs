@@ -18,6 +18,14 @@ const PLAYER_RADIUS = 0.55;
 // A local, movement-facing 120-degree view, not a radar of nearby opponents.
 const VISION_RANGE = 14;
 const VISION_COS = 0.5;
+// Original game abstractions: bounded, server-owned combat, not real weapon instruction.
+const FIRE_RANGE = 12;
+const FIRE_COS = Math.cos(Math.PI / 12);
+const FIRE_DAMAGE = 34;
+const FIRE_INTERVAL_TICKS = 18;
+const MAGAZINE_ROUNDS = 12;
+const SPARE_ROUNDS = 24;
+const RELOAD_TICKS = 90;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
@@ -46,7 +54,8 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      capturing: false, seq: 0, lastSeen: this.now()};
+      capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now()};
     this.players.set(token, player);
     return {id: player.id, team};
   }
@@ -59,7 +68,7 @@ class TeamMatch {
     const keys = Object.keys(data);
     const expected = data.type === 'move' ? ['seq', 'type', 'direction'] :
       data.type === 'capture' ? ['seq', 'type', 'active'] :
-      data.type === 'ready' || data.type === 'leave' || data.type === 'heartbeat' ? ['seq', 'type'] : null;
+      ['ready', 'leave', 'heartbeat', 'fire', 'reload'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
     if (data.type === 'move' && !validDirection(data.direction)) throw new RangeError('invalid_direction');
@@ -81,6 +90,38 @@ class TeamMatch {
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
       }
       return {ok: true};
+    }
+    if (data.type === 'fire') {
+      if (p.reloadTicks > 0) return {ok: false, reason: 'reloading'};
+      if (p.ammo === 0) return {ok: false, reason: 'empty_magazine'};
+      if (this.ticks - p.lastShotTick < FIRE_INTERVAL_TICKS) return {ok: false, reason: 'cooldown'};
+      p.lastShotTick = this.ticks;
+      p.ammo--;
+      p.capturing = false;
+      // No client-provided target, damage, aim or position. Server validates facing and cover.
+      const opponent = [...this.players.values()].find(other => other !== p);
+      let hit = false;
+      if (opponent && opponent.health > 0) {
+        const dx = opponent.x - p.x, dz = opponent.z - p.z;
+        const distance = Math.hypot(dx, dz);
+        hit = distance > 0 && distance <= FIRE_RANGE &&
+          dx * p.facing.x + dz * p.facing.z >= distance * FIRE_COS &&
+          !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
+        if (hit) {
+          opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
+          opponent.capturing = false;
+          if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
+        }
+      }
+      return {ok: true, hit, ammo: p.ammo};
+    }
+    if (data.type === 'reload') {
+      if (p.reloadTicks > 0) return {ok: false, reason: 'already_reloading'};
+      if (p.ammo === MAGAZINE_ROUNDS) return {ok: false, reason: 'magazine_full'};
+      if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
+      p.reloadTicks = RELOAD_TICKS;
+      p.capturing = false;
+      return {ok: true, reloadTicks: p.reloadTicks};
     }
     if (data.type === 'move') {
       const {x, z} = data.direction, len = Math.hypot(x, z);
@@ -104,6 +145,11 @@ class TeamMatch {
       p.direction = {x: 0, z: 0};
       p.facing = {x: p.team === 'red' ? 1 : -1, z: 0};
       p.capturing = false;
+      p.health = 100;
+      p.ammo = MAGAZINE_ROUNDS;
+      p.reserve = SPARE_ROUNDS;
+      p.reloadTicks = 0;
+      p.lastShotTick = -FIRE_INTERVAL_TICKS;
     }
   }
   finish(winner, reason) {
@@ -123,6 +169,14 @@ class TeamMatch {
       if (this.now() - p.lastSeen > this.timeoutMs) {
         this.finish(p.team === 'red' ? 'blue' : 'red', 'connection_timeout');
         return;
+      }
+      if (p.reloadTicks > 0) {
+        p.reloadTicks--;
+        if (p.reloadTicks === 0) {
+          const transferred = Math.min(MAGAZINE_ROUNDS - p.ammo, p.reserve);
+          p.ammo += transferred;
+          p.reserve -= transferred;
+        }
       }
       moveEntity(p, p.direction.x * SPEED, p.direction.z * SPEED, STEP, COVER, PLAYER_RADIUS);
       p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
@@ -158,8 +212,11 @@ class TeamMatch {
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER,
-      self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing}, ready: me.ready, seq: me.seq},
+      self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing},
+        health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
+        ready: me.ready, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
   }
 }
-module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER};
+module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
+  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS};
