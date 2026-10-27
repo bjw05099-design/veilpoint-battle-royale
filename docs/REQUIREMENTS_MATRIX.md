@@ -132,3 +132,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - Story browser pause now saves all active phases, not only combat. The 60Hz browser clock persists a completed local-responder gate-clearance transition exactly once when it occurs, preventing a refresh from silently replaying the wait. New DOM/browser-controller regressions exercise pause after combat, elapsed-time persistence, timed gate completion and reloading into the already-open route.
 - **R-02/R-14/R-22 remain partial:** mocked DOM and Node tests do not replace human browser QA, device testing, a fully playable 12-chapter campaign, UE build or native performance measurements.
+
+## 2026-10-28 CH01 causal route / actor occlusion candidate
+
+- **R-21 / R-23 (partial):** CH01 hostile visibility and finite firing checks now include other standing opponents as physical sight/shot blockers, not only map obstacles. A deterministic fixed-step regression covers a blocked rear actor and the restored line of fire after the front actor is disabled. This is simplified AABB occlusion, not native character physics or verified human tactics.
+- **R-28 (partial):** CH01's existing physically gated east route now surfaces distinct, locally controlled civilian consequences in the playable HUD; checkpoint restoration recomputes these from the saved choice and elapsed clearance. A forged verified-complete checkpoint with an unexpired authored gate timer is rejected. The five-minute record discrepancy remains unproven, not magically resolved. Tests and CI are required; independent narrative plausibility review and all later chapters remain outstanding.
