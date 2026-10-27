@@ -1,5 +1,7 @@
 # VEILPOINT — STORY / The Broken Signal
-**Narrative blueprint 0.1 · Planned, not yet implemented**
+**Narrative blueprint 0.1 · earlier 8-chapter outline, now superseded by 12-chapter production target**
+> **Scope update (2026-10-27):** This document preserves the earlier **8-chapter concept** as historical narrative brainstorming. The owner's newer requirement is **12 fully playable chapters / approximately 12 hours**, with canonical 12-chapter scope and current CH01 code described in [Campaign Design](CAMPAIGN_DESIGN.md). The eight entries below are **not** eight implemented chapters, and are **not** the current release count. The fictional canon remains **Sahir Coast / Nahrin**, Mara Dahan, Yusuf Rahal, Samir Qadir and Nadia Faris. `story.html` now contains a short interactive browser CH01 slice (relay → optional records → route choice → exit); this is not a cinematic 50-minute mission or native UE build.
+
 
 ## Logline
 In the fictional Sahir Coast city of **Nahrin**, an emergency archive called VEILPOINT survives the failure of the city's communications network. As a regional war destabilizes an already divided state and the internal conflict deepens, three people following different leads discover that the same crucial night has been recorded three incompatible ways. Players experience a grounded first-person campaign in which decisive action and careful attention to evidence change which truths can be reconstructed.
