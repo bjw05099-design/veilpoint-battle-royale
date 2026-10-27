@@ -1,4 +1,4 @@
-# VEILPOINT v1.1 — survival battle royale development prototype
+# VEILPOINT v1.2 — survival battle royale development prototype
 
 > **Status (2026-10-27): playable browser prototype + uncompiled UE5.8 source scaffold.**
 > No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
@@ -60,3 +60,11 @@ Copyright 2026 project owner. All rights reserved unless the owner chooses and p
 ## v1.1 timing update
 
 `src/clock.js` decouples gameplay updates from render frame rate at 60 Hz, with bounded stall catch-up. Run `npm run verify` to execute simulation and timing regression tests. An identical deterministic state is asserted under 30/60/144 FPS. The WebGL2 presentation and Unreal Engine components remain unverified on shipping GPU / engine hardware.
+
+## v1.2 — 165 Hz display support and render pacing
+
+- Browser: choose render caps 30 / 60 / 90 / 120 / 144 / **165 FPS** via the in-game settings dropdown. The setting is persisted locally when storage is available. Render callbacks follow `requestAnimationFrame` so the browser and operating system still determine the actual display refresh rate. **An FPS cap is not a monitor refresh-rate setting.**
+- To use a **165 Hz monitor**, set the desktop display to 165 Hz in operating system and graphics driver settings. A browser cannot force a monitor to 165 Hz; the refresh rate, CPU/GPU workload, compositor, V-Sync and power settings determine actual delivered frames.
+- Render pacing is independent from the **60 Hz fixed gameplay simulation**: increasing visual frame rate must not speed up game logic. The FPS meter shows measured *rendered* FPS versus the cap, not detected physical Hz.
+- Unreal configuration supplies a default 165 FPS frame limit for a 165 Hz target display. In the future, provide real engine video settings for enumerating supported display modes (Windows fullscreen), V-Sync and FPS limits. The current Unreal source has not been compiled or benchmarked.
+- Quality gate: no claim of stable 165 FPS on real hardware until frame times and stutter are measured with a representative 165 Hz device.
