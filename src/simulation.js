@@ -144,44 +144,61 @@
     // Opponent behavior is intentionally simple and deterministic for a zero-asset offline prototype.
     for(const b of game.bots) {
       if(!b.alive) continue;
-      const dd=dist(p,b);
       b.moveTime-=dt;
-      if(b.moveTime<=0){b.moveTime=1+game.random()*3; b.angle+= (game.random()-0.5)*2.8;}
+      if(b.moveTime<=0){b.moveTime=1+game.random()*3; b.angle+=(game.random()-0.5)*2.8;}
       const outsideBot=dist(b,game.zone)>game.zone.radius;
-      // Sight lines are opaque to AI too; no omniscient orientation or pursuit.
-      // Opaque geometry and a finite field of view prevent all-direction awareness.
-      const targetAngle=Math.atan2(p.x-b.x,-(p.z-b.z));
-      const seesPlayer=dd<55&&p.alive&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles)&&
-        Math.abs(normalizeAngle(targetAngle-b.angle))<=1.4;
+      // Opponents notice only visible, nearby actors within their current view cone.
+      // The nearest observed actor is selected without reading hidden player positions.
+      let target=null, targetDistance=Infinity, targetAngle=0;
+      const consider=(other)=>{
+        if(other===b||!other.alive)return;
+        const d=dist(b,other);
+        if(d>=55||d>=targetDistance||lineBlocked(b.x,b.z,other.x,other.z,obstacles))return;
+        const bearing=Math.atan2(other.x-b.x,-(other.z-b.z));
+        if(Math.abs(normalizeAngle(bearing-b.angle))>1.4)return;
+        target=other;targetDistance=d;targetAngle=bearing;
+      };
+      consider(p);
+      for(const other of game.bots)consider(other);
       let aim=b.angle;
-      if(outsideBot) aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
-      else if(seesPlayer) aim=targetAngle;
+      if(outsideBot)aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
+      else if(target)aim=targetAngle;
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
-      const botSpeed=outsideBot?5.3:seesPlayer&&dd>18?3.2:1.0;
+      const botSpeed=outsideBot?5.3:target&&targetDistance>18?3.2:1.0;
       moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,obstacles);
-      if(outsideBot){b.health-=(2.3+game.zone.phase)*dt; if(b.health<=0) b.alive=false;}
-      // Opponents also have finite carried ammunition. A reload cannot create rounds,
-      // and the reload completion frame cannot simultaneously produce a shot.
+      if(outsideBot){
+        b.health-=(2.3+game.zone.phase)*dt;
+        if(b.health<=0){b.health=0;b.alive=false;continue;}
+      }
+      // Both player and rival encounters consume finite ammunition. Reload completion
+      // cannot fire on the same frame, and a missed shot still spends one round.
       const wasReloading=b.reloadRemaining>0;
       if(wasReloading){
         b.reloadRemaining=Math.max(0,b.reloadRemaining-dt);
         if(b.reloadRemaining===0)b.loaded=Math.min(MAGAZINE_SIZE,b.charges);
       }
       b.actionTime-=dt;
-      // Shots require an actual sight line and the muzzle direction to face the target.
-      // An opponent turning toward a newly seen player cannot hit them immediately.
-      const aimedAtPlayer=seesPlayer&&Math.abs(normalizeAngle(targetAngle-b.angle))<=0.2;
-      if(!wasReloading&&dd<47&&b.actionTime<=0&&aimedAtPlayer){
+      const bearingNow=target?Math.atan2(target.x-b.x,-(target.z-b.z)):0;
+      const aimedAtTarget=target&&target.alive&&!outsideBot&&dist(b,target)<47&&
+        Math.abs(normalizeAngle(bearingNow-b.angle))<=0.2&&
+        !lineBlocked(b.x,b.z,target.x,target.z,obstacles);
+      if(!wasReloading&&b.actionTime<=0&&aimedAtTarget){
         if(b.loaded===0){
           if(b.charges>0)b.reloadRemaining=RELOAD_SECONDS;
           b.actionTime=b.charges>0?0.15:0.5;
         }else{
           b.actionTime=1.15+game.random()*2;
           b.loaded--;b.charges--;
-          // A missed shot still uses ammunition and produces visible shot feedback.
           game.effects.push({x:b.x,z:b.z,t:0.28,type:'hostile'});
-          if(game.random()<b.skill)receiveDamage(game,6+game.random()*8);
+          if(game.random()<b.skill){
+            const damage=6+game.random()*8;
+            if(target===p)receiveDamage(game,damage);
+            else{
+              target.health=Math.max(0,target.health-damage);
+              if(target.health===0)target.alive=false;
+            }
+          }
         }
       }
     }
