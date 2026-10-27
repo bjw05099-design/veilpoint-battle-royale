@@ -369,3 +369,62 @@ test('CH01 hostile pressure raises stress deterministically without phantom ammu
  assert.equal(resumed.world.player.stress,a.world.player.stress);
  assert.equal(resumed.world.bots[0].shots,1);
 });
+
+
+test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=>{
+  const s=story.createState();
+  assert.match(s.subtitle,/대피 지원 요청/);
+  const opening=story.situation(s);
+  assert.match(opening.mandate,/제한적 민간 대피 지원 승인/);
+  assert.match(opening.liaison,/김지윤.*조현지/);
+  assert.equal(opening.eastGateOpen,false);
+  assert.match(opening.evidence,/결론 보류/);
+  go(s,'terminal');story.interact(s);
+  assert.equal(story.support(s).ok,true);
+  assert.match(s.subtitle,/현지 구조단.*04:07.*현장 확인 전/);
+  clearEncounter(s);
+  go(s,'recordA');story.interact(s);
+  assert.ok(story.situation(s).evidence.includes('1/2'));
+  go(s,'recordB');story.interact(s);
+  assert.match(story.situation(s).evidence,/04:07.*04:12.*미확정/);
+  assert.match(s.message,/원인|오차|미확정/);
+});
+
+test('CH01 physical east checkpoint is evidence-gated and reconstructs from old save schema',()=>{
+  const initial=story.createState();
+  assert.equal(Sim.blocked(27,-53,.85,initial.world.obstacles),true);
+  const evacuation=reachDecision();
+  assert.equal(story.choose(evacuation,'evacuation').ok,true);
+  assert.equal(story.situation(evacuation).eastGateOpen,false);
+  assert.equal(Sim.blocked(27,-53,.85,evacuation.world.obstacles),true);
+  const eSaved=story.restore(story.serialize(evacuation));
+  assert.equal(Sim.blocked(27,-53,.85,eSaved.world.obstacles),true);
+  const verified=reachDecision();
+  go(verified,'recordA');story.interact(verified);
+  assert.equal(story.choose(verified,'verification').reason,'missing_evidence');
+  go(verified,'recordB');story.interact(verified);
+  assert.equal(story.choose(verified,'verification').ok,true);
+  assert.equal(story.situation(verified).eastGateOpen,true);
+  assert.equal(Sim.blocked(27,-53,.85,verified.world.obstacles),false);
+  const restored=story.restore(story.serialize(verified));
+  assert.equal(Sim.blocked(27,-53,.85,restored.world.obstacles),false);
+  assert.equal(story.serialize(restored),story.serialize(verified));
+  const blocked={x:27,z:-48};Sim.moveEntity(blocked,0,-6,1,evacuation.world.obstacles);
+  assert.equal(blocked.z,-48);
+  const open={x:27,z:-48};Sim.moveEntity(open,0,-6,1,restored.world.obstacles);
+  assert.equal(open.z,-54);
+  go(restored,'exitVerify');assert.equal(story.interact(restored).ok,true);
+  assert.equal(restored.phase,'complete');
+});
+
+test('CH01 route consequence appears in browser HUD without changing checkpoint fields',()=>{
+  const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
+  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  assert.match(html,/id="routeStatus"/);
+  assert.match(html,/임시행정부.*제한적/);
+  assert.ok(app.includes('Story.situation(state)'));
+  assert.ok(app.includes('situation.route'));
+  const state=reachDecision();
+  assert.equal(story.situation(state).eastGateOpen,false);
+  assert.equal(story.situation(story.restore(story.serialize(state))).eastGateOpen,false);
+});

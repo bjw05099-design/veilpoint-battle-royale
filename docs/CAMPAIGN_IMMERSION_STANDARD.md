@@ -82,3 +82,12 @@ Track reviewer count, median scores, hardware and capture artifacts. Target **me
 ### 2026-10-27 finite CH01 opponent-fire candidate
 
 A code-level CH01 iteration replaces the previous fictional signal-drone pulse damage with non-graphic human-opponent fire gated by proximity, facing and obstacle sight lines, with finite shots and saved expenditure. This improves causal consistency in the short preview but does **not** prove cinematic immersion, believable companion AI, real firearm animation/audio, independent playtest ratings or complete campaign runtime. Keep the corresponding acceptance checkboxes open pending actual gameplay evidence.
+
+
+## Narrative causality and continuity QA — mandatory P0 (2026-10-28)
+
+For each playable chapter review **cause → motive → player decision → immediate physical/world-state result → later consequence**. Track fictional authorization/chain of responsibility, each ally's information source and limits, timestamped evidence with uncertainty, travel time, injuries, equipment, civilian agency, foreshadowing and payoff. Fictional ROK/NIS cast does not imply real institutional cooperation or reveal real procedures. A timestamp mismatch alone does not prove deception: clock drift or transmission delay may explain it.
+
+**Current CH01 code candidate:** a locally requested, limited civilian evacuation mandate and bounded NIS roles appear in playable briefing. Two dated records permit requesting east checkpoint clearance from local responders; verified route choice removes a physical barrier, evacuation leaves it closed. Checkpoint reload reconstructs this from the saved choice. Automated tests cover cause, collision and persistence. **Still unverified:** real browser play, physical barrier-opening animation, voice acting, independent narrative review, all 12 authored chapters and real-world operational credibility. Instant barrier removal is a temporary prototype abstraction, not realistic final animation.
+
+**Per-chapter QA:** mandate/limits; sourced knowledge; chronology/travel; decisions with consequences; injury/equipment and motivation continuity; scene-to-gameplay transitions; local civilian agency; foreshadowing/payoff; independent reviewers' reports of implausible decisions, coincidence, contradictions and unresolved setup. Planned minutes are not measured playtime.

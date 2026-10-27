@@ -13,6 +13,8 @@
   const SAVE_LIMIT = 8192;
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
   const HOSTILE_ROUNDS = 12; // Finite fictional encounter supply; no auto-replenishment.
+  // Fictional local checkpoint obstacle; open only after responders authorize the route.
+  const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:3,h:2.5,type:'container',routeId:'east-checkpoint'});
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -43,11 +45,17 @@
     world.player.shield=0;
     return world;
   }
+  function syncRoute(state) {
+    // Reconstruct physical access from the decision on every load; no drifting save flag.
+    state.world.obstacles=state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint');
+    if(state.choice!=='verification')state.world.obstacles.push({...EAST_CHECKPOINT});
+    return state;
+  }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
       combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 나흐린의 중계망이 멈췄어요. 끊어진 신호를 함께 확인해요.',message:'CH01 / 마지막 방송'};
-    syncMarkers(state);
+      subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 민간 통로만 확인하고, 기록의 진위는 단정하지 마세요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+    syncRoute(state);syncMarkers(state);
     return state;
   }
   function markers(state) {
@@ -145,8 +153,8 @@
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
     state.world.player.shield=0;
-    state.subtitle='김지윤(국정원): 중계 경로의 이상 징후를 확인했습니다.';
-    state.message='상황 보고 수신';
+    state.subtitle='김지윤(국정원): 현지 구조단이 공유한 대피소 수신 시각은 04:07입니다. 제 정보는 현장 확인 전이니 기록과 대조해 주세요.';
+    state.message='출처 명시된 무선 보고 · 현장 검증 필요';
     return {ok:true,event:'support',report:true};
   }
   function interact(state) {
@@ -166,17 +174,17 @@
       const record=RECORDS[marker.id];
       state.subtitle=record.title+' / '+record.time+' — '+record.text;
       state.message=state.found.length===2
-        ?'SIGNAL ECHO: 같은 사건의 시각이 5분 다릅니다. 추가 확인 경로가 열렸습니다.'
+        ?'SIGNAL ECHO: 04:07과 04:12 기록은 5분 차이입니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
-      state.subtitle='마라(기술자): 지금 바로 사람들을 안내할까, 두 기록을 대조해 추가 경로를 열까?';
+      state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
       state.phase='complete';state.world.status='won';
       state.subtitle=state.choice==='verification'
-        ?'나디아: 두 기록의 시각이 달랐다는 사실을 공개했어. 다음 지역의 접근 경로가 바뀔 거야.'
-        :'유수프: 사람들을 안전한 안뜰로 인도했어. 기록의 진실은 아직 남아 있어.';
+        ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
+        :'유수프: 남쪽 안뜰의 대피 인원을 확인했어. 동쪽 통제소는 아직 닫혀 있어.';
       state.message='CH01 완료 · 첫 번째 신호가 복구되었습니다.';
     }else return {ok:false,reason:'unavailable'};
     syncMarkers(state);
@@ -188,10 +196,10 @@
     if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
     state.choice=choice;state.phase='exit';
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 불일치를 확인했어. 동쪽 중계 경로를 통해 안뜰로 가자.'
-      :'마라(기술자): 먼저 사람들을 안내하자. 남쪽 안뜰로 향해.';
-    state.message=choice==='verification'?'추가 확인 경로 개방':'대피 경로 개방';
-    syncMarkers(state);
+      ?'마라(기술자): 두 기록을 전달했어. 유수프 구조단이 동쪽 통제물을 치우고 통로를 개방했대. 원인은 아직 미확정이야.'
+      :'마라(기술자): 현지 구조단이 확인한 남쪽 대피 통로로 가자. 동쪽 통제소는 계속 닫혀 있어.';
+    state.message=choice==='verification'?'현지 구조단 승인 · 동쪽 통로 개방':'남쪽 대피 통로 유지 · 동쪽 통제소 차단';
+    syncRoute(state);syncMarkers(state);
     return {ok:true,event:'choice',choice};
   }
   function backToRecords(state) {
@@ -201,6 +209,16 @@
     state.message='기록 조사로 돌아왔습니다.';
     syncMarkers(state);
     return {ok:true,event:'back'};
+  }
+  function situation(state) {
+    const count=state.found.length;
+    return Object.freeze({
+      mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
+      liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
+      evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
+      eastGateOpen:state.choice==='verification',
+      route:state.choice==='verification'?'동쪽 통로: 현지 구조단 개방 승인':'동쪽 통로: 현지 구조단 확인 전 통제 중'
+    });
   }
   function objective(state) {
     switch(state.phase){
@@ -326,10 +344,11 @@
     if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
     state.subtitle='체크포인트를 불러왔습니다. '+objective(state);
     state.message='CH01 / 이어하기';
+    syncRoute(state);
     return syncMarkers(state);
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,createState,step,markers,nearest,interact,fire,support,choose,
-    objective,backToRecords,serialize,restore,validateSnapshot
+    objective,situation,backToRecords,serialize,restore,validateSnapshot
   });
 });
