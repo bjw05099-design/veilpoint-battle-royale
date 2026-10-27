@@ -12,3 +12,10 @@
 - [ ] Tested at several scalability presets and minimum hardware
 
 **Do not equate** a high-resolution screenshot, renderer toggle, or engine version with superior realism. All comparisons require the same camera composition, physical lighting assumptions, similar scene complexity, specified settings, and evidence.
+
+## v1.1 fixed-step quality results
+
+- Node regression tests verify an identical 120-step game state at 30, 60 and 144 render FPS.
+- 60 Hz fixed simulation with bounded catch-up (8 steps and 250 ms frame clamp).
+- Tab hiding and window blurring reset fractional accumulation.
+- The browser WebGL2 rendering path and Unreal C++ have **not** been evaluated by this test suite.
