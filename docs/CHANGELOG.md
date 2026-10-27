@@ -25,3 +25,11 @@
 - Add opt-in, GPU-gated adaptive resolution with quality-preserving bounds, hysteresis, cooldown and settings-panel diagnostics.
 - Add unit and fake-WebGL integration tests for timer-query cleanup/disjoint results, statistics, governor behavior and buffer reuse.
 - Native UE5 compilation and hardware 165Hz benchmarks remain unverified.
+
+
+## v1.5 — native graphics presets and CPU-bound quality protection (2026-10-27)
+
+- Added UE5 `UVPGameUserSettings` class exposing six graphics presets and Custom FPS, resolution percentage and V-Sync via Blueprint functions; registered class in `DefaultEngine.ini` and persisted defaults in `DefaultGameUserSettings.ini`.
+- Added native integration guide and offline structural tests (not a UE C++ compile test).
+- Corrected the browser adaptive resolution governor to avoid downscaling during CPU-dominated frame stalls; added four regression tests.
+- Native UE compile, visual fidelity and real 165Hz performance remain unverified.

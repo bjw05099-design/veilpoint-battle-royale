@@ -73,3 +73,10 @@ Copyright 2026 project owner. All rights reserved unless the owner chooses and p
 ## v1.4 browser performance integrity
 
 The browser prototype adds **opt-in GPU-timer-driven adaptive resolution** (when `EXT_disjoint_timer_query_webgl2` is supported), measured CPU/GPU P95 diagnostics and a reused dynamic WebGL buffer to prevent per-frame GPU buffer allocation. It preserves the six graphics profiles and independent 60 Hz simulation. GPU timer measurements are not end-to-end input latency, and **neither real 165 Hz output nor sustained 165 FPS is verified**. Run `npm run verify` for the offline test suite. See `docs/GRAPHICS_PROFILES.md` for limitations.
+
+
+## v1.5 graphics development status
+
+- **Browser:** adaptive resolution now preserves selected quality during CPU-bound stalls (see `tests/performance-cpubound.test.cjs`).
+- **Unreal source scaffold:** `UVPGameUserSettings` exposes six Blueprint-callable native graphics presets, including HyperReal 165Hz (Cinematic scalability + 165FPS cap), and Custom FPS/resolution/V-Sync. Configuration and source-only tests are in `docs/UNREAL_GRAPHICS_SETTINGS.md`.
+- **Not yet available:** a native settings menu, a compiled UE build, and hardware-verified photorealism or sustained 165FPS.

@@ -66,11 +66,15 @@ function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxSca
   if(!Number.isFinite(nowMs)||gpuSamples<30||cpuSamples<30||!Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0)return scale;
   const budget=1000/targetFps;
   if(nowMs-lastChange<cooldownMs)return scale;
-  const p95=Math.max(gpuP95,cpuP95),index=RESOLUTIONS.indexOf(scale);
-  if(p95>budget*.93){
+  const index=RESOLUTIONS.indexOf(scale);
+  // Lowering pixel count cannot solve a CPU bottleneck. Preserve image quality
+  // unless GPU time is above budget and is a meaningful contributor to the stall.
+  const gpuOverBudget=gpuP95>budget*.93;
+  const cpuDominated=cpuP95>gpuP95*1.15;
+  if(gpuOverBudget&&!cpuDominated){
    goodWindows=0;
    for(let i=index-1;i>=0;i--){if(RESOLUTIONS[i]>=minScale){scale=RESOLUTIONS[i];lastChange=nowMs;break;}}
-  }else if(p95<budget*.62){
+  }else if(gpuP95<budget*.62&&cpuP95<budget*.62){
    if(++goodWindows>=3){for(let i=index+1;i<RESOLUTIONS.length;i++){if(RESOLUTIONS[i]<=maxScale){scale=RESOLUTIONS[i];lastChange=nowMs;break;}}goodWindows=0;}
   }else goodWindows=0;
   return scale;
