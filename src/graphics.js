@@ -6,7 +6,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 const PRESETS=Object.freeze({
- hyperreal165:Object.freeze({label:'HyperReal 165Hz',fpsCap:165,resolutionScale:1,vegetationDensity:1,effects:1}),
+ hyperreal165:Object.freeze({label:'HyperReal 165Hz',fpsCap:165,resolutionScale:1.25,vegetationDensity:1,effects:1}),
  cinematic:Object.freeze({label:'Cinematic Maximum',fpsCap:60,resolutionScale:1.25,vegetationDensity:1,effects:1}),
  ultra:Object.freeze({label:'Ultra Photoreal',fpsCap:144,resolutionScale:1.1,vegetationDensity:1,effects:1}),
  balanced:Object.freeze({label:'Balanced Quality',fpsCap:120,resolutionScale:.9,vegetationDensity:.75,effects:.7}),
