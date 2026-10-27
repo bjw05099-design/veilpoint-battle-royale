@@ -18,12 +18,12 @@
   }
   const INTERACT_RADIUS = 4;
   const POINTS = Object.freeze({
-    terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'charge', label:'시민 중계기'}),
-    recordA: Object.freeze({id:'recordA', x:17, z:-30, kind:'shield', label:'항구 기록'}),
-    recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'med', label:'대피소 기록'}),
-    decision: Object.freeze({id:'decision', x:0, z:-41, kind:'charge', label:'교차 확인 콘솔'}),
-    exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'med', label:'안전한 안뜰'}),
-    exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'shield', label:'추가 확인 경로'})
+    terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'objective', label:'시민 중계기'}),
+    recordA: Object.freeze({id:'recordA', x:17, z:-30, kind:'evidence', label:'항구 기록'}),
+    recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
+    decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
+    exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'evac', label:'안전한 안뜰'}),
+    exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'})
   });
   const RECORDS = Object.freeze({
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
@@ -102,12 +102,12 @@
   // Fictional, non-graphic arcade encounter using the same tested ray-tag rules as offline BR.
   function fire(state) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
-    // A missed shot cannot permanently soft-lock the single-player preview.
+    // Finite carried supply: no spontaneous ammunition or charge generation.
+    // Starting a fresh mission is always available through the menu.
     if(state.world.player.charges===0){
-      state.world.player.charges=12;
-      state.subtitle='마라(기술자): 신호 발사기가 자동으로 재충전됐어요. 다시 시도하세요.';
-      state.message='신호 12회 재충전 완료';
-      return {ok:true,recharged:true,hit:false,remaining:state.world.bots.filter(b=>b.alive).length};
+      state.subtitle='마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
+      state.message='자원 소진 · 임무 재시작 가능';
+      return {ok:false,reason:'empty'};
     }
     const result=Sim.tag(state.world);
     if(!result.ok)return result;
