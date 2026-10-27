@@ -71,6 +71,7 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'decision');assert.equal(story.interact(state).ok,true);
   assert.equal(story.choose(state,'verification').ok,true);
   assert.equal(story.markers(state)[0].id,'exitVerify');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(state,1/60,{});
   go(state,'exitVerify');assert.equal(story.interact(state).ok,true);
   assert.equal(state.phase,'complete');
   assert.equal(state.world.status,'won');
