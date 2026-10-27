@@ -21,6 +21,9 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 | R-16 | Continue hourly development after target if quality gates unmet | Process | Enabled recurrence, GitHub iteration results, periodic milestone review | Recurring automation configured; platform limits apply |
 | R-17 | High hourly productivity without regression or fictitious claims | Process | PR/commit, changed files, passed tests, CI, measured metrics and honest blockers | Workflow requirement |
 | R-18 | One-person project + AI, only veilpoint repository modified | Process | Audit commit location and realistic workload | Constraint active |
+| R-19 | Story POV: fictional 대한민국 특수부대 **서진혁 대위** throughout the campaign | P0 | Actual mission/cutscene playtest confirms a continuous captain POV for all chapters | Story/metadata/CH01 narrative text partly updated; full-game unverified |
+| R-20 | Major fictional **국가정보원 요원 윤서하·강민재** supporting characters | P0 | Written scenes, original VO/subtitles and interactions in playable campaign; no presentation as real NIS operations | Character metadata and planned narrative only |
+| R-21 | Story campaign is combat-first, about **60–65% active playable runtime** as an authored design target | P0 | Real playable action encounters, differentiated missions, playtest-derived share; non-graphic story depiction | Design and data target only; existing CH01 browser slice still non-combat |
 
 ## Completion rules
 - **Full release means all major modes work**, not just a designed menu or documentation.
@@ -36,3 +39,5 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 ## Evidence update — 2026-10-27 CH01 browser vertical slice
 
 New implementation: `story.html`, `src/story-slice.js`, `src/story-app.js`, `tests/story-slice.test.cjs`; linked from the existing `index.html`. Reuses the procedural first-person renderer, movement/collision and graphics presets. Mission-01 relay → optional records → meaningful route choice → destination → completion, with checkpoint serialization and local-only save. **This is a short prototype, not 50 minutes of M01 or 12 hours of authored campaign.** Browser launch, visual quality, GPU/165Hz and CI verification are not established by source tests. The planned online modes and native UE build remain unverified.
+
+**Latest binding campaign cast/gameplay specification:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md). Earlier investigation-led and other-lead drafts are historical. The current CH01 browser prototype has *no playable combat*; requirement R-21 is **not yet met**.
