@@ -35,7 +35,7 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime;
+uniform float uExposure,uTime,uEffects;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
@@ -43,7 +43,7 @@ void main(){vec3 N=normalize(vNormal),L=normalize(uSun);float lambert=max(dot(N,
 vec3 diffuse=vColor*(.18+.47*sky+.68*lambert);
 float highlight=pow(max(dot(reflect(-L,N),vec3(0.,.72, .69)),0.),26.);
 diffuse+=vec3(1.,.87,.63)*highlight*.10;
-float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035;
+float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
 float fogFactor=1.-exp(-pow(vDistance*.009,1.7));
 vec3 linear=mix(diffuse,uFog,clamp(fogFactor,0.,.97));
@@ -53,7 +53,7 @@ outColor=vec4(graded,1.);}`;
 // Canvas2D software fallback: slow but playable on devices without GPU WebGL2.
 class SoftwareRenderer {
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
- resize(){const c=this.canvas;const w=Math.max(1,Math.floor(c.clientWidth)),h=Math.max(1,Math.floor(c.clientHeight));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
+ resize(){const c=this.canvas;const ratio=this.quality?this.quality.resolutionScale:1;const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#536b70');sky.addColorStop(.65,'#89948a');sky.addColorStop(1,'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
  const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,'#5b6551');ground.addColorStop(1,'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
@@ -82,7 +82,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -96,8 +96,8 @@ class Renderer {
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
  // Individual forest pockets, break up skyline without blocking roads.
- for(let i=0;i<330;i++){const x=(r()-.5)*340,z=(r()-.5)*340;if(Math.abs(x)<15||Math.abs(z)<14)continue;if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];m.tree(x,z,h,leaf);}
- for(let i=0;i<500;i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
+ for(let i=0;i<Math.round(330*this.vegetationDensity);i++){const x=(r()-.5)*340,z=(r()-.5)*340;if(Math.abs(x)<15||Math.abs(z)<14)continue;if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];m.tree(x,z,h,leaf);}
+ for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
  this.static.upload(this.gl);this.static.data=[];
  }
  buildDynamic(state){const mesh=new Mesh(),t=state.elapsed,p=state.player;
@@ -115,14 +115,26 @@ class Renderer {
  for(const e of state.effects){const c=e.type==='hit'?[1,.6,.22]:e.type==='hostile'?[.89,.20,.19]:[.67,.80,1];mesh.box(e.x,.8,e.z,.34,.34,.34,c);}
  this.dynamic=mesh;this.dynamic.upload(this.gl);
  }
- resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4);const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
+ setGraphicsQuality(settings){
+ const quality=global.VeilpointGraphics.validate(settings);
+ if(this.fallback){this.fallback.quality=quality;return;}
+ this.resolutionScale=quality.resolutionScale;
+ this.effects=quality.effects;
+ this.lastWidth=0;this.lastHeight=0;
+ if(this.vegetationDensity!==quality.vegetationDensity){
+  this.vegetationDensity=quality.vegetationDensity;
+  if(this.static.buffer)this.gl.deleteBuffer(this.static.buffer);
+  this.static=new Mesh();this.generate();
+ }
+ }
+ resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4)*this.resolutionScale;const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
  draw(state){if(this.fallback){this.fallback.draw(state);return;}this.resize();const g=this.gl,l=this.loc,p=state.player;
  g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);
  g.useProgram(this.prog);const eye=[p.x,1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0),p.z];
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
  const look=[eye[0]+dir[0],eye[1]+dir[1],eye[2]+dir[2]];
  g.uniformMatrix4fv(l.projection,false,m4Perspective(Math.PI/3.25,this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
- g.uniform3f(l.sun,-.50,.88,.20);g.uniform3f(l.fog,.34,.40,.39);g.uniform1f(l.exposure,1.35);g.uniform1f(l.time,state.elapsed);
+ g.uniform3f(l.sun,-.50,.88,.20);g.uniform3f(l.fog,.34,.40,.39);g.uniform1f(l.exposure,1.35);g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
  this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);
  }
 }
