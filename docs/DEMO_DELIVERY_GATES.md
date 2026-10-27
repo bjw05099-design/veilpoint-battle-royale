@@ -8,6 +8,10 @@ This is a **delivery target**, not a claim that a playable or photoreal Unreal b
 
 **B / Stretch: high-fidelity Unreal demo.** One carefully scoped playable environment with original/licensed PBR assets, lighting, traversal and coherent interactions. Only call this playable when it compiles, packages and runs on a real installed Unreal machine. The current repository UE source scaffold is **not** verified. If B is blocked, keep shipping A.
 
+## Story-mode preview stretch (added requirement)
+
+A cinematic first-person single-player campaign set in the fictional Sahir Coast / Nahrin civil conflict is required in the final product. The first-month demo may include **CH01 / The Last Broadcast** narrative introduction, evidence examination, subtitles and a checkpoint if available within the release-critical work budget; this is *not* a substitute for completing all planned story chapters. The first-month browser survival demo remains the primary P0, and public internet multiplayer is not falsely claimed complete. See [campaign](STORY_CAMPAIGN.md) and [multiplayer modes](MULTIPLAYER_MODES.md).
+
 ## Release acceptance checklist
 
 - [ ] End-to-end playable session can start, complete and restart without soft-lock.
