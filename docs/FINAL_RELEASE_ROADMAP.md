@@ -9,7 +9,7 @@
 
 ## Mission
 
-Create an original, highly believable first-person battle-royale game with industry-leading aspirations for visual realism, cohesive playability, stability, responsiveness, accessibility and online integrity. Preserve the full six named graphics presets plus Custom. HyperReal 165Hz aims to maximize both perceived quality and high-refresh responsiveness *on capable hardware*; do not pretend 165 Hz means sustained 165 FPS.
+Create an original, highly believable first-person game combining a Middle East-inspired fictional civil-war story campaign, team multiplayer and battle royale with industry-leading aspirations for visual realism, cohesive playability, stability, responsiveness, accessibility and online integrity. Preserve the full six named graphics presets plus Custom. HyperReal 165Hz aims to maximize both perceived quality and high-refresh responsiveness *on capable hardware*; do not pretend 165 Hz means sustained 165 FPS.
 
 ## Timeboxes and evidence of completion
 
@@ -30,7 +30,7 @@ Dates are ambitious planning targets, not promises of completion. Unreal build s
 1. **Playable and stable:** game launches, plays start-to-finish, supports repeated sessions, safe recovery and no known major release-blocking defects. Record actual native executable evidence.
 2. **Native photoreal rendering:** UE app fully compiled and packaged; original/licensed PBR materials/assets, plausible lighting, exposure, shadows, reflections, vegetation, model quality, animation and audiovisual coherence. Capture moving-video samples across multiple scenes.
 3. **Real performance:** measurements on specified CPU/GPU/resolution/monitor in genuine 165 Hz OS mode with display/cap/V-Sync/VRR states distinguished. 165FPS is ~6.06 ms/frame; publish P50/P95/P99 CPU/GPU frame timings and representative low-percentile FPS. No universal 165 FPS claim.
-4. **Gameplay depth and balance:** polished first-person movement, interactions, credible AI, zone phase behavior, match lifecycle, menus and configurable control/audio/graphics options.
+4. **Gameplay depth and balance:** completed single-player campaign chapters and branching evidence-driven narrative, polished first-person movement, interactions, credible AI, zone phase behavior, match lifecycle, menus and configurable control/audio/graphics options.
 5. **Online integrity:** if marketed as multiplayer, dedicated-server authoritative simulation, validation, predictable state synchronization, packet loss/latency recovery, session operations, adversarial tests and security/privacy review are required.
 6. **Accessibility and compatibility:** remappable control or practical alternatives, reduce-motion options, readable HUD, settings persistence, documented supported hardware, crash/soak tests and test matrix.
 7. **Comparative quality:** independent playtesters and blind assessment of comparable captured footage from current leading realistic FPS games, using equal recording conditions and disclosed methodology. Different 'best' dimensions must be judged separately (graphics, performance, gameplay, stability). No single unverified subjective 'world-best' certification.
@@ -48,3 +48,16 @@ Dates are ambitious planning targets, not promises of completion. Unreal build s
 ## Current status at inception
 
 Browser-based functional prototype and CI-oriented source exist. Unreal source is a scaffold without verified native compilation; an installed UE build environment and reproducible graphics benchmark remain prerequisites. A first-month demo is **the primary immediate gate**, while six-month commercial completion is a stretch target.
+
+
+## Expanded scope decision — story, multiplayer and original identity
+
+Required full-version experiences are **STORY / The Broken Signal**, **MULTIPLAYER / District Control / Relay Run**, and **BATTLE ROYALE / Last Signal**. The previous single-mode battle-royale definition has been superseded; however, existing browser BR work must not be discarded. See [Game Design Bible](GAME_DESIGN_BIBLE.md), [Story Campaign](STORY_CAMPAIGN.md), [Multiplayer Modes](MULTIPLAYER_MODES.md) and [Requirements Matrix](REQUIREMENTS_MATRIX.md).
+
+- **By 2026-11-27:** first priority remains a working, packaged *offline* BR browser demo; stretch: a first small story mission. Do not block demo shipment on unimplemented internet multiplayer or the full story.
+- **Nov–Jan:** build and test the native UE vertical slice; create CH01 story mission with dialogue/subtitles, signal evidence and stable checkpoints, introducing Nahrin and protagonists. Produce original/licensed assets.
+- **Jan–Feb:** stand up a real authoritative small-session multiplayer test (first 2 clients, then objective mode), then scale BR rules using identical trustworthy lifecycle primitives. Written mode rules alone are not evidence of networking.
+- **Feb–Apr:** expand story chapters according to achievable capacity, stabilize modes, tune native visual fidelity and 165Hz metrics, prepare release packaging and multiplayer security/operations.
+- **After 2027-04-27, if incomplete:** continue improvements until all P0 requirements and evidence gates pass; do not call a partial one-chapter game the *final* complete multi-mode game.
+
+**Additional final release tests:** campaign start/finish/reload and accessibility, branching record state and complete intended chapter set; two real network clients per mode with dedicated-server authority and fault tests; complete BR session; original design/cultural review; real performance/visual comparison. This more expansive scope substantially increases schedule and staffing risks for one human developer, and no six-month delivery guarantee is made.
