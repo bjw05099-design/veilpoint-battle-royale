@@ -4,20 +4,39 @@ const $=id=>document.getElementById(id);
 const Game=global.VeilpointSim;
 const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:0.25,maxSteps:8});
 const fpsLimiter=global.VeilpointFPS.createFrameLimiter(60);
+const graphics=global.VeilpointGraphics;
+let graphicsSettings=graphics.fromPreset('hyperreal165');
+try{const saved=global.localStorage.getItem('veilpoint.graphics');if(saved)graphicsSettings=graphics.deserialize(saved);}catch(_){}
 const fpsSelect=$('fpsLimit');
-try { const saved=Number(global.localStorage.getItem('veilpoint.fpsCap')); if(global.VeilpointFPS.FPS_OPTIONS.includes(saved))fpsLimiter.setLimit(saved); } catch(_) {}
-fpsSelect.value=String(fpsLimiter.stats().cap);
-fpsSelect.addEventListener('change',()=>{
- const selected=Number(fpsSelect.value);
- if(!global.VeilpointFPS.FPS_OPTIONS.includes(selected))return;
- fpsLimiter.setLimit(selected);
- try {global.localStorage.setItem('veilpoint.fpsCap',String(selected));}catch(_){}
- $('fpsMeter').textContent='-- / '+selected+' FPS';
-});
+const profileSelect=$('graphicsPreset');
+const resolutionSelect=$('renderScale');
+const vegetationSelect=$('vegetation');
+const effectsSelect=$('effects');
+function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
+function applyGraphicsSettings(){
+ fpsLimiter.setLimit(graphicsSettings.fpsCap);
+ if(renderer&&renderer.setGraphicsQuality)renderer.setGraphicsQuality(graphicsSettings);
+ profileSelect.value=graphicsSettings.preset;
+ fpsSelect.value=String(graphicsSettings.fpsCap);
+ resolutionSelect.value=String(graphicsSettings.resolutionScale);
+ vegetationSelect.value=String(graphicsSettings.vegetationDensity);
+ effectsSelect.value=String(graphicsSettings.effects);
+ $('fpsMeter').textContent='-- / '+graphicsSettings.fpsCap+' FPS';
+ $('qualityInfo').textContent=graphicsSettings.preset==='hyperreal165'
+  ?'화질과 165Hz 대응을 함께 최우선합니다. 실제 165FPS 달성은 GPU/모니터에 따라 달라집니다.'
+  :'성능은 사용 중인 장치에서 실제 측정해야 합니다.';
+ saveGraphics();
+}
+profileSelect.addEventListener('change',()=>{if(profileSelect.value==='custom')return;graphicsSettings=graphics.fromPreset(profileSelect.value);applyGraphicsSettings();});
+for(const [node,field] of [[fpsSelect,'fpsCap'],[resolutionSelect,'resolutionScale'],[vegetationSelect,'vegetationDensity'],[effectsSelect,'effects']]){
+ node.addEventListener('change',()=>{try{graphicsSettings=graphics.customize(graphicsSettings,field,Number(node.value));applyGraphicsSettings();}catch(_){applyGraphicsSettings();}});
+}
+$('graphicsOpen').addEventListener('click',()=>{$('graphicsPanel').classList.toggle('hidden');});
+$('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');});
 
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
-try { renderer=new global.VeilpointRenderer(canvas); }
+try { renderer=new global.VeilpointRenderer(canvas);applyGraphicsSettings(); }
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
@@ -29,6 +48,7 @@ $('play').addEventListener('click',start);
 const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
  if(commands[e.code]){e.preventDefault();input[commands[e.code]]=true;}
+ if(e.code==='KeyG'){ $('graphicsPanel').classList.toggle('hidden');if(!$('graphicsPanel').classList.contains('hidden')&&document.pointerLockElement===canvas)document.exitPointerLock();}
  if(e.code==='KeyE')Game.pickup(simulation);
  if(e.code==='Space'&&simulation.status==='playing'){e.preventDefault();fire();}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
