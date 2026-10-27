@@ -6,6 +6,7 @@
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let pending = Promise.resolve();
   let previousPhase = null;
+  let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
   const keys = new Set();
   const request = async (path, body) => {
@@ -20,7 +21,18 @@
   const send = (type, payload = {}) => {
     if (!token) return Promise.resolve();
     const command = {seq: ++seq, type, ...payload};
-    pending = pending.then(() => request('/command', command)).catch(err => {status(`명령 실패: ${err.message}`);});
+    pending = pending.then(() => request('/command', command)).then(result => {
+      if (type === 'fire' || type === 'reload') {
+        const messages = {cooldown: '발사 간격 유지', reloading: '재장전 중',
+          empty_magazine: '탄창 비움 · R 재장전', already_reloading: '이미 재장전 중',
+          magazine_full: '탄창 가득 참', no_reserve: '예비 탄약 없음'};
+        actionFeedback = result.ok
+          ? (type === 'fire' ? (result.hit ? '명중 확인' : '명중 미확인') : '재장전 시작')
+          : (messages[result.reason] || '명령을 처리하지 못했습니다');
+        feedbackUntil = (state?.tick || 0) + 90;
+      }
+      return result;
+    }).catch(err => {status(`명령 실패: ${err.message}`);});
     return pending;
   };
   const direction = () => {
@@ -78,10 +90,16 @@
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
     el('tick').textContent = String(state.tick);
+    el('health').textContent = String(state.self.health);
+    el('ammo').textContent = `${state.self.ammo} / ${state.self.reserve}`;
+    el('reloadState').textContent = state.self.reloadTicks > 0 ? '재장전 중' : '준비';
     el('ready').disabled = state.phase === 'playing';
     if (state.phase === 'ended') status(`종료 · 승리 팀 ${state.winner} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
-    else status('목표 원 안에서 E를 누르고 유지해 점령하세요. 점수는 서버에서만 증가합니다.');
+    else {
+      const hint = '목표 원에서 E 점령 · F/SPACE 발사 · R 재장전. 위치·피해·탄약은 서버에서 검증합니다.';
+      status(actionFeedback && state.tick <= feedbackUntil ? hint + ' · ' + actionFeedback : hint);
+    }
     draw();
   };
   el('join').addEventListener('click', async () => {
@@ -93,10 +111,18 @@
     } catch (err) {status(`입장 실패: ${err.message}`);}
   });
   el('ready').addEventListener('click', () => void send('ready'));
+  el('fire').addEventListener('click', () => {if (state?.phase === 'playing') void send('fire');});
+  el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   document.addEventListener('keydown', e => {
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     if (e.target === el('name')) return;
-    keys.add(e.code);if (e.code === 'KeyE') setCapture(true);updateInput();
+    keys.add(e.code);
+    if (!e.repeat && state?.phase === 'playing') {
+      if (e.code === 'KeyF' || e.code === 'Space') void send('fire');
+      if (e.code === 'KeyR') void send('reload');
+    }
+    if (e.code === 'KeyE') setCapture(true);
+    updateInput();
   });
   document.addEventListener('keyup', e => {keys.delete(e.code);if (e.code === 'KeyE') setCapture(false);updateInput();});
   window.addEventListener('blur', () => {keys.clear();setCapture(false);updateInput();});
