@@ -74,3 +74,7 @@ The percentage ranges are design targets, not exact chapter quotas; preserve sho
 ## Binding immersion requirement (2026-10-27)
 
 The user requires a story experience aspiring to **greater felt immersion than merely watching a movie**. This is not a graphics-only directive. Captain Lee must remain in player control during consequential cinematic action whenever practical; NPC dialogue, sound, environment, mission events and follow-on chapters react coherently. Preserve a believable first-person camera and original character arcs, varied combat-forward encounters, meaningful short quiet intervals, subtitles, accessibility/reduced camera motion and smooth checkpoint/replay. See the authoritative [Campaign Immersion Standard](CAMPAIGN_IMMERSION_STANDARD.md) for interactive-scene rules, seven quality pillars and player-test gates. **This remains a target, not a claim of current 12-hour or beyond-film quality.**
+
+## Realism correction (2026-10-27)
+
+CH01 story-only combat must not grant a shield or magical protection. Kim Ji-yun's one-use Q interaction is an informational radio report, not health restoration. Story combat damage bypasses the separate BR prototype's shield mechanic. Existing v2 saves may contain a shield field for backward compatibility, but restored CH01 shield is zero. This is a limited browser prototype change, **not** proof of realistic full-body injury, weapon ballistics, native UE performance, or completed campaign combat.
