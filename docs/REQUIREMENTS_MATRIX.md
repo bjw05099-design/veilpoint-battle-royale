@@ -101,3 +101,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - Verification now retains the east barrier for an authored eight-second local responder clearance interval, with pending/confirmed objective/HUD status; premature exit is rejected. A saved `gateReadyAt` timestamp preserves deterministic checkpoint progress and old v2 verification saves retain their previously open route. Tests cover timing, collision, save migration and malformed timestamps. The encounter failure menu no longer attributes the failure to supernatural signal interference.
 - **R-02/R-22/R-23 remain partial; issue #15 open:** timer is a prototype abstraction without physical gate animation, measured responder travel, real-browser QA, independent narrative review, 12 completed chapters, UE build or QHD 165Hz measurement.
+
+## 2026-10-28 local team HTTP DNS-rebinding protection candidate
+
+- Local proof now rejects non-loopback bind hosts and HTTP requests whose Host is not an explicit loopback authority at the actual bound port, even if a forged Origin matches it. JSON media-type validation rejects lookalike prefixes. Two new HTTP regressions exercise forged Host/Origin, wrong port, allowed loopback and invalid media type.
+- **R-03/R-12 remain partial:** this is defense-in-depth for a local two-client testbed, not public multiplayer security certification, real-browser or network-loss testing, or a production authentication/transport solution.

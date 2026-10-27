@@ -7,6 +7,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const {TeamMatch, STEP} = require('../src/team-match.cjs');
 function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now} = {}) {
+  // This proof must never silently bind to a publicly reachable interface.
+  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
   const match = new TeamMatch({now});
   const send = (res, status, value) => {
     res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8',
@@ -33,6 +35,11 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
   const server = http.createServer(async (req, res) => {
     try {
       const origin = req.headers.origin;
+      // Reject DNS-rebinding/Host-spoofing requests even when Origin matches forged Host.
+      const authority = String(req.headers.host || '');
+      if (!/^(?:127\.0\.0\.1|localhost|\[::1\]):[0-9]{1,5}$/.test(authority) ||
+          Number(authority.slice(authority.lastIndexOf(':') + 1)) !== server.address().port)
+        return send(res, 403, {error: 'invalid_host'});
       // Scheme, host and port must match; malformed/opaque origins fail closed.
       if (origin) {
         try {
@@ -58,7 +65,7 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       if (req.method === 'GET' && url.pathname === '/state')
         return send(res, 200, match.snapshot(req.headers['x-player-token']));
       if (req.method === 'POST' && ['/join', '/command'].includes(url.pathname)) {
-        if (!String(req.headers['content-type'] || '').startsWith('application/json'))
+        if (!/^application\/json(?:\s*;\s*charset=utf-8)?\s*$/i.test(String(req.headers['content-type'] || '')))
           return send(res, 415, {error: 'json_required'});
         const body = await readJson(req);
         if (url.pathname === '/join') {
