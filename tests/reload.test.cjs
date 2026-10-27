@@ -62,3 +62,13 @@ test('BR and CH01 desktop and mobile reload UI are connected',()=>{
  assert.match(story,/KeyR/);assert.match(story,/Sim\.reload\(state\.world\)/);
  assert.match(html,/id="reloadButton"/);assert.match(sh,/id="touchReload"/);
 });
+
+test('stress assist is exposed on desktop and touch in both offline modes',()=>{
+ const br=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
+ const story=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+ const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+ const sh=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
+ assert.match(br,/KeyH/);assert.match(br,/Game\.setReloadAssist\(simulation/);
+ assert.match(story,/KeyH/);assert.match(story,/Sim\.setReloadAssist\(state\.world/);
+ assert.match(html,/id="assistButton"/);assert.match(sh,/id="touchAssist"/);
+});
