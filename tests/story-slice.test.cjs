@@ -525,3 +525,18 @@ test('CH01 legacy v2 shot time migrates conservatively and tampered timing is re
   assert.match(story.situation(s).command,/이수혁.*지휘관.*유수프.*국정원/);
   assert.match(story.createState().subtitle,/유수프 구조단.*국정원 보고/);
 });
+
+test('CH01 60Hz loop expires shot visuals, damage flash and messages without touching ammunition',()=>{
+  const make=()=>{const s=story.createState();go(s,'terminal');story.interact(s);
+    assert.equal(story.fire(s).ok,true);
+    s.world.damageFlash=.45;s.world.messageTime=1;
+    return s;};
+  const a=make(),b=make();
+  assert.ok(a.world.effects.length>0);
+  for(let i=0;i<80;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
+  assert.equal(a.world.effects.length,0);
+  assert.equal(a.world.damageFlash,0);
+  assert.equal(a.world.messageTime,0);
+  assert.equal(a.world.player.charges,47);
+  assert.equal(story.serialize(a),story.serialize(b));
+});
