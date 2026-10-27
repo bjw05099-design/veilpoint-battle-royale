@@ -483,3 +483,41 @@ test('CH01 clearance rejects invalid timing and retains legacy open-route saves'
   assert.equal(story.situation(legacy).eastGateOpen,true);
   assert.equal(Sim.blocked(27,-53,.85,legacy.world.obstacles),false);
 });
+
+test('CH01 checkpoint retains shot cadence across refresh at fixed 60Hz without extra ammunition',()=>{
+  const s=story.createState();
+  go(s,'terminal');story.interact(s);
+  assert.equal(story.fire(s).hit,true);
+  const saved=story.serialize(s),resumed=story.restore(saved);
+  assert.equal(story.serialize(resumed),saved);
+  assert.equal(story.fire(resumed).reason,'cooldown');
+  assert.equal(resumed.world.player.charges,47);
+  for(let i=0;i<11;i++)story.step(resumed,1/60,{});
+  assert.equal(story.fire(resumed).reason,'cooldown');
+  story.step(resumed,1/60,{});
+  assert.equal(story.fire(resumed).hit,true);
+  assert.equal(resumed.world.player.charges,46);
+  assert.equal(resumed.world.bots[0].alive,false);
+  const again=story.restore(story.serialize(resumed));
+  assert.equal(story.fire(again).reason,'cooldown');
+  assert.equal(again.world.player.charges,46);
+});
+
+test('CH01 legacy v2 shot time migrates conservatively and tampered timing is rejected',()=>{
+  const s=story.createState();
+  go(s,'terminal');story.interact(s);
+  const legacy=JSON.parse(story.serialize(s));
+  delete legacy.combat.lastShotAt;
+  const loaded=story.restore(JSON.stringify(legacy));
+  assert.equal(story.fire(loaded).reason,'cooldown');
+  assert.equal(loaded.world.player.charges,48);
+  for(let i=0;i<12;i++)story.step(loaded,1/60,{});
+  assert.equal(story.fire(loaded).ok,true);
+  for(const badTime of [-3,legacy.elapsed+1,Infinity]){
+    const bad=JSON.parse(story.serialize(s));
+    bad.combat.lastShotAt=badTime;
+    assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
+  }
+  assert.match(story.situation(s).command,/이수혁.*지휘관.*유수프.*국정원/);
+  assert.match(s.subtitle,/유수프 구조단.*국정원 보고/);
+});
