@@ -92,6 +92,8 @@ test('server-owned cover blocks movement and prevents enemy location disclosure 
   for (let i = 0; i < 120; i++) m.step();
   assert.ok(a.x > -4 && a.x <= -2.05 + 1e-8, 'player radius cannot cross cover');
   b.x = -4; b.z = 0;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red'], 'rear contact is not magically visible');
+  m.command('a', {seq: 3, type: 'move', direction: {x: 0, z: -1}});
   assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
 });
 
@@ -131,4 +133,42 @@ test('read-only state polling does not renew a dead session; validated heartbeat
   live.setNow(35000);
   live.m.step();
   assert.equal(live.m.phase, 'playing');
+});
+
+
+test('opponent visibility requires server-owned facing, range and clear cover, including after stopping', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = -5; b.z = 0;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red'], 'rear is hidden');
+  assert.throws(() => m.command('a', {seq: 2, type: 'move',
+    direction: {x: -1, z: 0}, facing: {x: 1, z: 0}}), /invalid_command/);
+  m.command('a', {seq: 2, type: 'move', direction: {x: -1, z: 0}});
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+  m.command('a', {seq: 3, type: 'move', direction: {x: 0, z: 0}});
+  assert.deepEqual(m.snapshot('a').self.facing, {x: -1, z: 0});
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+  b.x = 0; b.z = 5;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red'], 'side is hidden');
+  m.command('a', {seq: 4, type: 'move', direction: {x: 0, z: 1}});
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+  b.z = 15;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red'], 'far contact is hidden');
+});
+
+test('facing and visibility replay deterministically and reset at the next round', () => {
+  const play = () => {
+    const {m} = setup();
+    m.command('a', {seq: 2, type: 'move', direction: {x: 0, z: 1}});
+    for (let i = 0; i < 60; i++) m.step();
+    m.command('a', {seq: 3, type: 'move', direction: {x: 0, z: 0}});
+    const first = m.snapshot('a');
+    m.finish('red', 'test');
+    m.command('a', {seq: 4, type: 'ready'});
+    m.command('b', {seq: 2, type: 'ready'});
+    const second = m.snapshot('a');
+    assert.deepEqual(second.self.facing, {x: 1, z: 0});
+    return {first, second};
+  };
+  assert.deepEqual(play(), play());
 });
