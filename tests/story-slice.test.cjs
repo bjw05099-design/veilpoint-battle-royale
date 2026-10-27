@@ -247,18 +247,23 @@ test('browser integration exposes encounter controls and never treats preview as
   assert.match(app,/veilpoint\.story\.ch01PreviewCompleted/);
 });
 
-test('running out of signal charges cannot permanently soft-lock the encounter',()=>{
+test('finite CH01 firing resources never recharge automatically and restart remains available',()=>{
   const state=story.createState();
   go(state,'terminal');story.interact(state);
   state.world.player.charges=0;
-  const reload=story.fire(state);
-  assert.equal(reload.ok,true);
-  assert.equal(reload.recharged,true);
-  assert.equal(state.world.player.charges,12);
+  const exhausted=story.fire(state);
+  assert.deepEqual(exhausted,{ok:false,reason:'empty'});
+  assert.equal(state.world.player.charges,0);
   state.world.elapsed+=.2;
-  assert.equal(story.fire(state).hit,true);
+  assert.equal(story.fire(state).reason,'empty');
+  assert.equal(state.world.player.charges,0);
+  assert.match(state.message,/재시작/);
   const resumed=story.restore(story.serialize(state));
-  assert.equal(resumed.world.player.charges,11);
+  assert.equal(resumed.world.player.charges,0);
+  assert.equal(story.fire(resumed).reason,'empty');
+  const retry=story.createState();
+  assert.equal(retry.phase,'terminal');
+  assert.equal(retry.world.player.charges,48);
 });
 
 test('CH01 never restores arcade shield from a legacy v2 save',()=>{
@@ -267,4 +272,18 @@ test('CH01 never restores arcade shield from a legacy v2 save',()=>{
   const loaded=story.restore(JSON.stringify(old));
   assert.equal(loaded.world.player.shield,0);
   assert.equal(JSON.parse(story.serialize(loaded)).player.shield,0);
+});
+
+
+test('CH01 shows only real objective categories and does not reveal unseen opponents',()=>{
+  const state=story.createState();
+  assert.equal(story.POINTS.terminal.kind,'objective');
+  for(const [id,marker] of Object.entries(story.POINTS)){
+    assert.doesNotMatch(marker.kind,/shield|charge|med/);
+  }
+  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  assert.doesNotMatch(app,/for\(const drone of state\.world\.bots\)/);
+  assert.doesNotMatch(app,/m\.kind==='shield'/);
+  const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
+  assert.match(html,/Q 상황 보고/);
 });

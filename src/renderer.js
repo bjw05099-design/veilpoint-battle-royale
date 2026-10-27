@@ -129,7 +129,7 @@ class Renderer {
  }
  for(const {entity:item,lod} of plan.loot){
   const f=1.2+Math.sin(t*2.4+item.id)*.19;
-  const c=item.kind==='med'?[.25,.85,.58]:item.kind==='shield'?[.32,.56,.96]:[.98,.69,.30];
+  const c=item.kind==='evac'?[.25,.85,.58]:(item.kind==='evidence'||item.kind==='verify')?[.32,.56,.96]:[.98,.69,.30];
   mesh.box(item.x,f,item.z,.75,.75,.75,c);
   if(lod==='high')mesh.box(item.x,0,item.z,1.0,.1,1.0,[.18,.23,.23]);
  }
