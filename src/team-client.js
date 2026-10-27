@@ -1,10 +1,11 @@
-/* VEILPOINT local two-client rules prototype UI; no persisted tokens or external requests. */
+/* VEILPOINT local two-client rules prototype UI; tab-scoped resume only, no external requests. */
 (() => {
   'use strict';
   const el = id => document.getElementById(id);
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let pending = Promise.resolve();
+  const SESSION_KEY = 'veilpoint.team.tabSession';
   const keys = new Set();
   const request = async (path, body) => {
     const response = await fetch(path, {method: body ? 'POST' : 'GET',
@@ -47,6 +48,12 @@
     const point = (x,z) => ({x:250+x*9.5,y:250+z*9.5});
     ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;ctx.beginPath();ctx.arc(250,250,25,0,Math.PI*2);ctx.stroke();
     if (!state) return;
+    // Server-authored cover is shown in both views; opponents behind it stay hidden.
+    ctx.fillStyle = '#677b79';
+    for (const wall of state.cover || []) {
+      const topLeft = point(wall.x - wall.w / 2, wall.z - wall.d / 2);
+      ctx.fillRect(topLeft.x, topLeft.y, wall.w * 9.5, wall.d * 9.5);
+    }
     for (const p of state.visible) {
       const pos = point(p.x,p.z);
       ctx.fillStyle = p.team === 'red' ? '#e58b84' : '#8abcf2';
@@ -70,6 +77,7 @@
     try {
       const result = await request('/join', {name: el('name').value});
       token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;
+      try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
     } catch (err) {status(`입장 실패: ${err.message}`);}
   });
@@ -88,6 +96,35 @@
   }
   el('capture').addEventListener('pointerdown', e => {e.preventDefault();setCapture(true);});
   for (const event of ['pointerup','pointercancel','pointerleave']) el('capture').addEventListener(event, () => setCapture(false));
+  // A reload can resume the same guest identity within the server lease window.
+  // Clear old held movement/capture on resume so a refresh cannot ghost-capture.
+  const restoreTabSession = async () => {
+    let saved = null;
+    try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
+    if (!saved || !/^[a-f0-9]{48}$/.test(saved)) return;
+    token = saved;
+    try {
+      state = await request('/state');
+      seq = state.self.seq;
+      el('join').disabled = true;el('name').disabled = true;
+      el('ready').disabled = state.phase === 'playing';
+      if (state.phase === 'playing') {
+        await send('move', {direction: {x: 0, z: 0}});
+        await send('capture', {active: false});
+      }
+      state = await request('/state');
+      render();
+    } catch (_) {
+      token = null;seq = 0;state = null;
+      try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
+      el('join').disabled = false;el('name').disabled = false;
+      el('ready').disabled = true;
+      status('이전 세션이 만료되었습니다. 다시 입장하세요.');
+    }
+  };
+  void restoreTabSession();
+  // A genuine connected client renews its server lease independently of read-only polling.
+  setInterval(() => {if (token) void send('heartbeat');}, 10000);
   setInterval(async () => {
     if (!token) return;
     try {state = await request('/state');render();updateInput();}

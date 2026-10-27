@@ -78,3 +78,9 @@ The CH01 browser encounter now uses three fictional **human opponents** in place
 
 ### 2026-10-27 reload-stress implementation candidate
 Shared offline BR/CH01 logic adds deterministic sprint/injury stress and a single 0.6s reload hesitation above threshold 60. H/touch assist bypasses the hesitation on subsequent reloads; ammunition remains finite. CH01 v1/older v2 checkpoint migration and strict bounds are preserved. Node tests and CI passed on merge commit `fceca5f` (128/128); **actual browser/touch playtest pending**. This is a partial R-27/R-23 implementation only, not proof of realistic weapon handling, native UE or team server integration.
+
+## 2026-10-27 local two-client fairness / lifecycle candidate (pending CI and real browser QA)
+
+- **R-03/R-12/R-23 — partial, not complete:** server-owned low cover geometry now uses the BR simulation's existing collision and line-of-sight routines. The local team map renders the same cover and only transmits nearby opponents when not occluded. Movement and proximity remain 60Hz server-owned; this is a 2D network-rules prototype, not UE or a first-person firefight.
+- Continuous capture now resets progress on contest, absence or button release, avoiding a stored partial-score exploit. Read-only polling no longer renews the connection lease; a sequenced heartbeat is sent by active browser clients. Deterministic and two-client HTTP tests exercise collision, cover visibility, interrupted scoring, stale timeouts and valid heartbeats.
+- **Still unverified:** real two-tab browser play, public-network packet loss/latency/reconnection, accessibility, production security, realistic gunplay, native rendering, RTX 3070 QHD 165Hz and complete three-mode integration. These remain open release gates.
