@@ -82,7 +82,7 @@ These are **design tuning targets, not estimated hardware benchmarks**; no compi
 
 ### Hardware details not yet supplied
 
-CPU model; RTX 3070 desktop versus mobile/TGP and GPU video memory; Windows version, drivers; monitor VRR/G-Sync/FreeSync support and connection type. Record these when the owner runs the first playable benchmark. The owner's **8GB system RAM** and **QHD 2560×1440 165Hz** display have been stated; the GPU's VRAM is separate from system memory.
+Exact laptop CPU SKU (owner describes it as AMD mobile '9-series', possibly Ryzen 9); RTX 3070 desktop versus mobile/TGP and GPU video memory; Windows version, drivers; monitor VRR/G-Sync/FreeSync support and connection type. Record these when the owner runs the first playable benchmark. The owner's **8GB system RAM** and **QHD 2560×1440 165Hz** display have been stated; the GPU's VRAM is separate from system memory.
 
 
 ## Owner update: 8 GB **system RAM** (2026-10-27)
@@ -99,3 +99,10 @@ CPU model; RTX 3070 desktop versus mobile/TGP and GPU video memory; Windows vers
 4. Avoid excessive simultaneous UE editor, digital content tools, shader compilation and multiple network clients on the 8GB box. Use CI/cloud compute where connected/available, and maintain source tests independently of the user's local machine. Prepare a small packaged build and repeatable benchmark rather than claiming direct access to their hardware.
 5. **Upgrade guidance (not a condition of development):** 16GB system RAM is a practical near-term minimum target for smoother packaged games and lighter editor workflows; **32GB is the sensible UE5 development target**, consistent with Epic's recommended memory. Validate motherboard slots, supported RAM type, module compatibility and existing configuration before selecting any upgrade. Upgrading RAM alone cannot guarantee 165FPS on QHD.
 6. On a measured memory-bound failure, report which mode/scene causes it and improve caching/streaming first. Mark QHD high-fidelity 165FPS with 8GB system RAM as an **aggressive, unverified stretch**, not an expected result.
+
+
+## Owner CPU note: AMD laptop '9-series' (model not confirmed)
+
+Owner self-report (2026-10-27): "노트북용 amd9시리즈" (AMD 9-series for laptop; user thinks middle-tier). **Do not convert this into a verified exact SKU or CPU performance tier.** Working assumption: an AMD mobile processor that the owner may mean to call Ryzen 9; it could mean an AMD mobile generation/series instead. Confirm via Windows Task Manager > Performance > CPU or Windows Settings > System > About. Examples such as AMD Ryzen 9 7940HS vs 7940HX differ significantly in core count and configured power, and are **examples only**, not an identification of this PC: https://www.amd.com/en/products/processors/laptop/ryzen/7000-series/amd-ryzen-9-7940hs.html and https://www.amd.com/ko/products/processors/laptop/ryzen/7000-series/amd-ryzen-9-7940hx.html.
+
+**Portable-workstation benchmark controls:** When this is a laptop, verify whether the RTX 3070 is the **laptop GPU variant** and measure its configured GPU power limit/TGP, CPU processor class and power limit, device cooling/temperature, sustained clock rate, actual iGPU/dGPU renderer selection, AC power vs battery, Windows power policy and throttling during sustained gameplay. RTX 3070 desktop and RTX 3070 laptop must not be treated as interchangeable benchmarks. Do not estimate QHD 165Hz photoreal performance without the exact CPU/GPU variant and reproducible measurements. Use the 8GB RAM compatibility gate and report measured memory/VRAM limitations independently from CPU thermal or GPU power bottlenecks. Keep all 165FPS goals labeled as ambitious and unverified.
