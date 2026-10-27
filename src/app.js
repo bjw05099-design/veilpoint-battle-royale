@@ -3,13 +3,25 @@
 const $=id=>document.getElementById(id);
 const Game=global.VeilpointSim;
 const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:0.25,maxSteps:8});
+const fpsLimiter=global.VeilpointFPS.createFrameLimiter(60);
+const fpsSelect=$('fpsLimit');
+try { const saved=Number(global.localStorage.getItem('veilpoint.fpsCap')); if(global.VeilpointFPS.FPS_OPTIONS.includes(saved))fpsLimiter.setLimit(saved); } catch(_) {}
+fpsSelect.value=String(fpsLimiter.stats().cap);
+fpsSelect.addEventListener('change',()=>{
+ const selected=Number(fpsSelect.value);
+ if(!global.VeilpointFPS.FPS_OPTIONS.includes(selected))return;
+ fpsLimiter.setLimit(selected);
+ try {global.localStorage.setItem('veilpoint.fpsCap',String(selected));}catch(_){}
+ $('fpsMeter').textContent='-- / '+selected+' FPS';
+});
+
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
 try { renderer=new global.VeilpointRenderer(canvas); }
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18);simulation.status='playing';running=true;clock.reset();$('overlay').classList.add('hidden');
+ simulation=Game.newMatch(20261027+(Math.random()*10000|0),18);simulation.status='playing';running=true;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);last=performance.now();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
@@ -22,8 +34,8 @@ addEventListener('keydown',e=>{
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
-addEventListener('blur',()=>{for(const k in input)input[k]=false;clock.reset();last=performance.now();});
-document.addEventListener('visibilitychange',()=>{clock.reset();last=performance.now();});
+addEventListener('blur',()=>{for(const k in input)input[k]=false;clock.reset();fpsLimiter.reset();last=performance.now();});
+document.addEventListener('visibilitychange',()=>{clock.reset();fpsLimiter.reset();last=performance.now();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
@@ -73,8 +85,8 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});if(simulation.status!=='playing')end();
  }
- renderer.draw(simulation);}
- if(now-lastHud>110){updateHud();lastHud=now;}
+ if(fpsLimiter.shouldRender(now))renderer.draw(simulation);}
+ if(now-lastHud>250){updateHud();const f=fpsLimiter.stats();$('fpsMeter').textContent=(f.actualFps||'--')+' / '+f.cap+' FPS';lastHud=now;}
 }
 requestAnimationFrame(frame);
 })(globalThis);
