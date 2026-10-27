@@ -127,12 +127,14 @@
       b.moveTime-=dt;
       if(b.moveTime<=0){b.moveTime=1+game.random()*3; b.angle+= (game.random()-0.5)*2.8;}
       const outsideBot=dist(b,game.zone)>game.zone.radius;
+      // Sight lines are opaque to AI too; no omniscient orientation or pursuit.
+      const seesPlayer=dd<55&&p.alive&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles);
       let aim=b.angle;
       if(outsideBot) aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
-      else if(dd<55&&p.alive) aim=Math.atan2(p.x-b.x,-(p.z-b.z));
+      else if(seesPlayer) aim=Math.atan2(p.x-b.x,-(p.z-b.z));
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
-      const botSpeed=outsideBot?5.3:dd>18&&dd<65?3.2:1.0;
+      const botSpeed=outsideBot?5.3:seesPlayer&&dd>18?3.2:1.0;
       moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,obstacles);
       if(outsideBot){b.health-=(2.3+game.zone.phase)*dt; if(b.health<=0) b.alive=false;}
       b.actionTime-=dt;
