@@ -582,3 +582,44 @@ test('CH01 civilian route consequences persist across both choices and are shown
   const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
   assert.match(app,/situation\.civilianConsequence/);
 });
+
+test('CH01 finite visible supply cache can recover an exhausted encounter without creating infinite ammunition',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  assert.equal(story.markers(s).length,1);
+  assert.equal(story.markers(s)[0].kind,'ammo');
+  s.world.player.charges=0;s.world.player.loaded=0;
+  assert.equal(story.fire(s).reason,'empty');
+  go(s,'supply');assert.deepEqual(story.interact(s),{ok:true,event:'supply',phase:'engagement'});
+  assert.equal(s.world.player.charges,12);
+  assert.equal(s.world.player.loaded,0);
+  assert.equal(story.markers(s).length,0);
+  assert.equal(story.interact(s).reason,'too_far');
+  assert.equal(Sim.reload(s.world).ok,true);
+  for(let i=0;i<150;i++)story.step(s,1/60,{});
+  assert.equal(s.world.player.loaded,12);
+  assert.equal(s.world.player.charges,12);
+  const restored=story.restore(story.serialize(s));
+  assert.equal(restored.combat.supplyUsed,true);
+  assert.equal(story.markers(restored).length,0);
+  assert.equal(restored.world.player.charges,12);
+});
+
+test('CH01 finite cache respects capacity, saves before collection and rejects forged consumption',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  s.world.player.charges=s.world.player.maxCharges;
+  go(s,'supply');assert.equal(story.interact(s).reason,'inventory_full');
+  assert.equal(s.combat.supplyUsed,false);
+  s.world.player.charges=48;
+  const resumed=story.restore(story.serialize(s));
+  assert.equal(story.markers(resumed).length,1);
+  assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.world.player.charges,60);
+  assert.equal(resumed.combat.supplyUsed,true);
+  const bad=JSON.parse(story.serialize(resumed));bad.combat.supplyUsed='yes';
+  assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
+  const legacy=JSON.parse(story.serialize(s));delete legacy.combat.supplyUsed;
+  const migrated=story.restore(JSON.stringify(legacy));
+  assert.equal(migrated.combat.supplyUsed,false);
+  assert.equal(story.markers(migrated).length,1);
+  assert.match(fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8'),/nearby.kind==='ammo'/);
+});
