@@ -232,7 +232,7 @@
     $('combatStatus').classList.toggle('hidden',!combatActive);
     if(combatActive){
       const p=state.world.player;
-      $('combatStatus').textContent='교란 드론 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?' · 재장전 중':'')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
+      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?' · 재장전 중':'')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
