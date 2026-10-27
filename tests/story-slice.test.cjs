@@ -155,7 +155,7 @@ test('CH01 accurately frames the captain as protagonist and Mara as ally without
   assert.match(html, /전투 중심 임무는 개발 중/);
 });
 
-test('CH01 encounter: cannot fire early; ray tags disable three drones before records unlock',()=>{
+test('CH01 encounter: cannot fire early; finite rounds disable three grounded hostile actors before records unlock',()=>{
   const state=story.createState();
   assert.equal(story.fire(state).reason,'not_in_encounter');
   go(state,'terminal');story.interact(state);
@@ -186,7 +186,7 @@ test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals comp
   assert.equal(story.support(state).reason,'not_in_encounter');
 });
 
-test('encounter pulse is fixed-step deterministic, can fail, and preserves retry path',()=>{
+test('encounter sight-gated hostile shots are fixed-step deterministic, can fail, and preserves retry path',()=>{
   const a=story.createState(),b=story.createState();
   go(a,'terminal');go(b,'terminal');story.interact(a);story.interact(b);
   for(let i=0;i<190;i++){story.step(a,1/60);story.step(b,1/60);}
@@ -204,7 +204,7 @@ test('encounter pulse is fixed-step deterministic, can fail, and preserves retry
   assert.equal(story.createState().phase,'terminal');
 });
 
-test('mid-encounter checkpoint preserves charges, shield, drone health and ally usage',()=>{
+test('mid-encounter checkpoint preserves charges, shield, hostile health, finite rounds and ally usage',()=>{
   const state=story.createState();
   go(state,'terminal');story.interact(state);
   state.world.player.yaw=0;
