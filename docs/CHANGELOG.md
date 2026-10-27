@@ -16,3 +16,12 @@
 ## 1.0.0
 
 - Original offline browser battle royale demo and Unreal project scaffold.
+
+
+## v1.4 — performance integrity (2026-10-27)
+
+- Reuse WebGL dynamic mesh buffer instead of allocating a new GPU buffer every rendered frame; grow backing storage only as needed.
+- Add asynchronous WebGL2 GPU timer-query sampler (when extension is supported) and CPU/callback P50/P95/P99 telemetry.
+- Add opt-in, GPU-gated adaptive resolution with quality-preserving bounds, hysteresis, cooldown and settings-panel diagnostics.
+- Add unit and fake-WebGL integration tests for timer-query cleanup/disjoint results, statistics, governor behavior and buffer reuse.
+- Native UE5 compilation and hardware 165Hz benchmarks remain unverified.

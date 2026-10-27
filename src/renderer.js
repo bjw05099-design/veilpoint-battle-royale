@@ -12,7 +12,7 @@ function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safe
 function shader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
 function program(gl,vs,fs){const p=gl.createProgram();gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
 class Mesh {
- constructor(){this.data=[];this.buffer=null;this.count=0;}
+ constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;}
  vertex(p,n,c){this.data.push(...p,...n,...c);}
  tri(a,b,c,color){const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];const n=safeNorm([u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]]);this.vertex(a,n,color);this.vertex(b,n,color);this.vertex(c,n,color);}
  quad(a,b,c,d,color){this.tri(a,b,c,color);this.tri(a,c,d,color);}
@@ -20,7 +20,17 @@ class Mesh {
  // Vertical low-poly plant silhouette, dark at the roots and glossy on leaves.
  tree(x,z,h,green){const r=h*0.13;this.box(x,0,z,r*0.9,h*0.45,r*0.9,[0.17,0.16,0.12]);for(let n=0;n<3;n++){const hh=h*(0.37+n*0.21),rr=h*(0.19-n*0.045);this.cone(x,hh*0.15,z,rr,hh,7,green.map(c=>c*(0.95+n*0.05)));}}
  cone(x,y,z,r,h,s,col){for(let i=0;i<s;i++){const a=i/s*Math.PI*2,b=(i+1)/s*Math.PI*2;this.tri([x+r*Math.cos(a),y,z+r*Math.sin(a)],[x+r*Math.cos(b),y,z+r*Math.sin(b)],[x,y+h,z],col);}}
- upload(gl){if(!this.buffer)this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(this.data),gl.STATIC_DRAW);this.count=this.data.length/9;}
+ upload(gl,usage=gl.STATIC_DRAW){
+  if(!this.buffer)this.buffer=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
+  const vertices=new Float32Array(this.data);
+  if(vertices.byteLength>this.capacityBytes){
+   this.capacityBytes=Math.max(1024,2**Math.ceil(Math.log2(vertices.byteLength)));
+   gl.bufferData(gl.ARRAY_BUFFER,this.capacityBytes,usage);
+  }
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,vertices);
+  this.count=this.data.length/9;
+ }
  draw(gl,p){if(!this.buffer)return;gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.vertexAttribPointer(p.pos,3,gl.FLOAT,false,36,0);gl.vertexAttribPointer(p.normal,3,gl.FLOAT,false,36,12);gl.vertexAttribPointer(p.color,3,gl.FLOAT,false,36,24);gl.drawArrays(gl.TRIANGLES,0,this.count);}
 }
 const VS=`#version 300 es
@@ -53,7 +63,7 @@ outColor=vec4(graded,1.);}`;
 // Canvas2D software fallback: slow but playable on devices without GPU WebGL2.
 class SoftwareRenderer {
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
- resize(){const c=this.canvas;const ratio=this.quality?this.quality.resolutionScale:1;const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
+ resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#536b70');sky.addColorStop(.65,'#89948a');sky.addColorStop(1,'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
  const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,'#5b6551');ground.addColorStop(1,'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
@@ -82,7 +92,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,ms=>{if(this.onGpuTime)this.onGpuTime(ms);});this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -100,7 +110,7 @@ class Renderer {
  for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
  this.static.upload(this.gl);this.static.data=[];
  }
- buildDynamic(state){const mesh=new Mesh(),t=state.elapsed,p=state.player;
+ buildDynamic(state){const mesh=this.dynamic,t=state.elapsed,p=state.player;mesh.data=[];
  for(const b of state.bots){if(!b.alive)continue;const c=[.24,.29,.26],x=b.x,z=b.z;
  mesh.box(x,0.06,z,.7,1.3,.45,c);mesh.box(x,1.37,z,.48,.45,.46,[.24,.20,.17]);mesh.box(x-.18,0,z,.24,.65,.27,[.19,.20,.19]);mesh.box(x+.18,0,z,.24,.65,.27,[.19,.20,.19]);mesh.box(x,1.03,z-.25,.7,.13,.15,[.18,.21,.23]);
  mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
@@ -113,12 +123,17 @@ class Renderer {
  if(zone.radius<170)mesh.box(x,0,z,.19,2.5,.19,[.24,.52,.82]);
  }
  for(const e of state.effects){const c=e.type==='hit'?[1,.6,.22]:e.type==='hostile'?[.89,.20,.19]:[.67,.80,1];mesh.box(e.x,.8,e.z,.34,.34,.34,c);}
- this.dynamic=mesh;this.dynamic.upload(this.gl);
+ mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data=[];
+ }
+ setAdaptiveResolution(scale){
+  if(!Number.isFinite(scale)||scale<.5||scale>1.25)throw new RangeError('Invalid adaptive resolution');
+  if(this.fallback){this.fallback.adaptiveScale=scale;return;}
+  this.adaptiveScale=scale;
  }
  setGraphicsQuality(settings){
  const quality=global.VeilpointGraphics.validate(settings);
- if(this.fallback){this.fallback.quality=quality;return;}
- this.resolutionScale=quality.resolutionScale;
+ if(this.fallback){this.fallback.quality=quality;this.fallback.adaptiveScale=quality.resolutionScale;return;}
+ this.resolutionScale=quality.resolutionScale;this.adaptiveScale=quality.resolutionScale;
  this.effects=quality.effects;
  this.lastWidth=0;this.lastHeight=0;
  if(this.vegetationDensity!==quality.vegetationDensity){
@@ -127,15 +142,15 @@ class Renderer {
   this.static=new Mesh();this.generate();
  }
  }
- resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4)*this.resolutionScale;const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
- draw(state){if(this.fallback){this.fallback.draw(state);return;}this.resize();const g=this.gl,l=this.loc,p=state.player;
+ resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4)*(this.adaptiveScale||this.resolutionScale);const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
+ draw(state){if(this.fallback){this.fallback.draw(state);return;}this.gpuTimer.poll();const timerStarted=this.gpuTimer.begin();this.resize();const g=this.gl,l=this.loc,p=state.player;
  g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);
  g.useProgram(this.prog);const eye=[p.x,1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0),p.z];
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
  const look=[eye[0]+dir[0],eye[1]+dir[1],eye[2]+dir[2]];
  g.uniformMatrix4fv(l.projection,false,m4Perspective(Math.PI/3.25,this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
  g.uniform3f(l.sun,-.50,.88,.20);g.uniform3f(l.fog,.34,.40,.39);g.uniform1f(l.exposure,1.35);g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
- this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);
+ this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
 global.VeilpointRenderer=Renderer;
