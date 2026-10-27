@@ -327,3 +327,29 @@ test('older v2 CH01 combat checkpoints migrate with finite hostile ammunition an
   assert.ok(loaded.world.bots.every(b=>b.shots===0));
   assert.ok(JSON.parse(story.serialize(loaded)).combat.drones.every(b=>b.shots===0));
 });
+
+test('CH01 stressed reload and assist persist across checkpoints without ammo creation',()=>{
+ const s=story.createState();go(s,'terminal');story.interact(s);
+ const p=s.world.player;p.charges=27;p.loaded=3;p.stress=85;
+ assert.equal(Sim.reload(s.world).hesitation,true);
+ const raw=story.serialize(s),restored=story.restore(raw);
+ assert.equal(story.serialize(restored),raw);
+ assert.equal(restored.world.player.stress,85);
+ for(let i=0;i<150;i++)story.step(restored,1/60,{});
+ assert.equal(restored.world.player.loaded,12);
+ assert.equal(restored.world.player.charges,27);
+ Sim.setReloadAssist(restored.world,true);restored.world.player.loaded=4;
+ assert.equal(Sim.reload(restored.world).hesitation,false);
+ const resumed=story.restore(story.serialize(restored));
+ assert.equal(resumed.world.player.reloadAssist,true);
+ assert.equal(resumed.world.player.charges,27);
+});
+test('legacy v2 checkpoint migrates and rejects invalid stress metadata',()=>{
+ const s=story.createState(),old=JSON.parse(story.serialize(s));
+ delete old.player.stress;delete old.player.reloadAssist;delete old.player.reloadHesitation;
+ const loaded=story.restore(JSON.stringify(old));
+ assert.equal(loaded.world.player.stress,0);
+ assert.equal(loaded.world.player.reloadAssist,false);
+ const bad=JSON.parse(story.serialize(s));bad.player.stress=200;
+ assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
+});

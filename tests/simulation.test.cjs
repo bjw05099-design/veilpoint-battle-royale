@@ -215,3 +215,29 @@ test('an opponent eliminated by the zone cannot fire on its death frame',()=>{
  assert.equal(b.alive,false);assert.equal(b.health,0);
  assert.equal(p.health,100);assert.equal(b.charges,36);
 });
+
+test('stress reload hesitation is recoverable and conserves rounds',()=>{
+ const g=S.newMatch(700,0);g.status='playing';const p=g.player;
+ p.charges=31;p.loaded=4;p.stress=80;
+ const result=S.reload(g);
+ assert.equal(result.hesitation,true);
+ assert.equal(result.duration,S.RELOAD_SECONDS+S.RELOAD_HESITATION_SECONDS);
+ assert.equal(S.tag(g).reason,'reloading');
+ for(let i=0;i<150;i++)S.advanceReload(g,1/60);
+ assert.equal(p.reloadRemaining,0);assert.equal(p.reloadHesitation,false);
+ assert.equal(p.loaded,12);assert.equal(p.charges,31);
+ p.loaded=5;S.setReloadAssist(g,true);
+ const assisted=S.reload(g);
+ assert.equal(assisted.duration,S.RELOAD_SECONDS);
+ assert.equal(assisted.hesitation,false);assert.equal(p.charges,31);
+});
+test('sprint and injury raise deterministic stress while rest lowers it',()=>{
+ const a=S.newMatch(701,0),b=S.newMatch(701,0);
+ a.status=b.status='playing';
+ for(let i=0;i<180;i++){S.tick(a,1/60,{forward:true,sprint:true});S.tick(b,1/60,{forward:true,sprint:true});}
+ assert.equal(a.player.stress,b.player.stress);assert.ok(a.player.stress>0);
+ const before=a.player.stress;
+ for(let i=0;i<60;i++)S.tick(a,1/60,{});
+ assert.ok(a.player.stress<before);
+ S.receiveDamage(a,20);assert.ok(a.player.stress>before);
+});

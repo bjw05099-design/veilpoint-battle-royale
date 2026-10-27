@@ -63,6 +63,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyG'){ $('graphicsPanel').classList.toggle('hidden');if(!$('graphicsPanel').classList.contains('hidden')&&document.pointerLockElement===canvas)document.exitPointerLock();}
  if(e.code==='KeyE')Game.pickup(simulation);
  if(e.code==='KeyR'&&simulation.status==='playing'){e.preventDefault();Game.reload(simulation);updateHud();}
+  if(e.code==='KeyH'&&simulation.status==='playing'){e.preventDefault();Game.setReloadAssist(simulation,!simulation.player.reloadAssist);updateHud();}
  if(e.code==='Space'&&simulation.status==='playing'){e.preventDefault();fire();}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
 });
@@ -87,6 +88,7 @@ canvas.addEventListener('pointerdown',e=>{if(!isTouch||!running)return;lookId=e.
 canvas.addEventListener('pointermove',e=>{if(lookId!==e.pointerId||!previousLook)return;look(e.clientX-previousLook.x,e.clientY-previousLook.y);previousLook={x:e.clientX,y:e.clientY};});
 for(const event of ['pointerup','pointercancel'])canvas.addEventListener(event,e=>{if(e.pointerId===lookId){lookId=null;previousLook=null;}});
 $('tagButton').addEventListener('pointerdown',e=>{e.preventDefault();fire();});$('reloadButton').addEventListener('pointerdown',e=>{e.preventDefault();Game.reload(simulation);updateHud();});$('lootButton').addEventListener('pointerdown',e=>{e.preventDefault();Game.pickup(simulation);});
+$('assistButton').addEventListener('pointerdown',e=>{e.preventDefault();Game.setReloadAssist(simulation,!simulation.player.reloadAssist);updateHud();});
 $('sprintButton').addEventListener('pointerdown',e=>{e.preventDefault();input.sprint=true;});
 for(const e of ['pointerup','pointercancel'])$('sprintButton').addEventListener(e,()=>input.sprint=false);
 function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.height,z=Game.WORLD,tx=x=>(x+z)/(2*z)*w,tz=v=>(v+z)/(2*z)*h;
@@ -100,7 +102,8 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
 function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.getAliveCount(s);$('phase').innerHTML=String(s.zone.phase+1).padStart(2,'0')+' <span class="unit">/ 06</span>';
  let tt=Math.max(0,Math.ceil(s.zone.phaseRemaining));$('time').textContent=String((tt/60)|0).padStart(2,'0')+':'+String(tt%60).padStart(2,'0');
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
- $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+(p.reloadRemaining>0?' · RELOADING':'')+'</span>';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
+ $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · HESITATION':' · RELOADING'):'')+' · STRESS '+Math.round(p.stress||0)+' · ASSIST '+(p.reloadAssist?'ON':'OFF')+'</span>';
+  $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  $('message').textContent=s.messageTime>0?s.message:'';

@@ -130,6 +130,11 @@
     if(!running||state.phase!=='engagement')return;
     if(Sim.reload(state.world).ok){persist();updateHud();}
   }
+  function toggleReloadAssist(){
+    if(!running)return;
+    Sim.setReloadAssist(state.world,!state.world.player.reloadAssist);
+    persist();updateHud();
+  }
   function support(){
     if(!running)return;
     const result=Story.support(state);
@@ -160,6 +165,7 @@
     if(e.code==='Space'){e.preventDefault();fire();}
     if(e.code==='KeyQ'){e.preventDefault();support();}
     if(e.code==='KeyR'){e.preventDefault();reload();}
+    if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
   });
   global.addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
   global.addEventListener('blur',()=>{clearInput();clock.reset();limiter.reset();last=performance.now();});
@@ -200,6 +206,7 @@
   $('touchInteract').addEventListener('click',interact);
   $('touchFire').addEventListener('click',fire);
   $('touchReload').addEventListener('click',reload);
+  $('touchAssist').addEventListener('click',toggleReloadAssist);
   $('touchSupport').addEventListener('click',support);
   $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])
@@ -232,7 +239,8 @@
     $('combatStatus').classList.toggle('hidden',!combatActive);
     if(combatActive){
       const p=state.world.player;
-      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?' · 재장전 중':'')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
+      $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
+      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length

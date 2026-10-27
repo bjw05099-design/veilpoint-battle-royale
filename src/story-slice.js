@@ -83,6 +83,7 @@
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles);
     p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
+    Sim.updateStress(p,t,sprint);
     state.world.elapsed+=t;
     Sim.advanceReload(state.world,t);
     if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
@@ -97,10 +98,8 @@
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
         hostile.shots++;
         state.world.effects.push({x:hostile.x,z:hostile.z,t:0.28,type:'hostile'});
-        p.health=clamp(p.health-4,0,100);
-        if(p.health===0){
-          p.alive=false;state.world.status='lost';break;
-        }
+        Sim.receiveDamage(state.world,4);
+        if(p.health===0)break;
       }
       if(state.world.status==='lost'){
         state.phase='failed';
@@ -223,7 +222,8 @@
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,shield:0,charges:p.charges,
-         loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining},elapsed:state.world.elapsed,
+         loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
+         stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation},elapsed:state.world.elapsed,
       combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots}))}};
   }
   function validateSnapshot(data) {
@@ -240,17 +240,22 @@
     const p=data.player;
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
-    const keys=Object.keys(p),extended=keys.length===extendedKeys.length;
-    if((!extended&&keys.length!==playerKeys.length)||
-       keys.some(k=>!(extended?extendedKeys:playerKeys).includes(k)))
+    const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
+    const keys=Object.keys(p),modern=keys.length===modernKeys.length;
+    const extended=keys.length===extendedKeys.length;
+    const expected=modern?modernKeys:extended?extendedKeys:playerKeys;
+    if(keys.length!==expected.length||keys.some(k=>!expected.includes(k)))
       throw new RangeError('Unknown player checkpoint fields');
-    for(const k of extended?extendedKeys:playerKeys)
+    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'))
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
+    if(modern&&(p.stress<0||p.stress>100||typeof p.reloadAssist!=='boolean'||
+       typeof p.reloadHesitation!=='boolean'))throw new RangeError('Invalid reload stress state');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
       p.stamina<0||p.stamina>100||p.health<0||p.health>100||
       p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>60||
       (extended&&(!Number.isInteger(p.loaded)||p.loaded<0||p.loaded>Sim.MAGAZINE_SIZE||
-        p.loaded>p.charges||p.reloadRemaining<0||p.reloadRemaining>Sim.RELOAD_SECONDS||
+        p.loaded>p.charges||p.reloadRemaining<0||
+         p.reloadRemaining>Sim.RELOAD_SECONDS+(modern?Sim.RELOAD_HESITATION_SECONDS:0)||
         (p.reloadRemaining>0&&(p.charges<=p.loaded||p.loaded===Sim.MAGAZINE_SIZE))))||
       p.pitch<-.34||p.pitch>.36||
       Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,Sim.newMatch(20261027,0).obstacles))
@@ -310,6 +315,9 @@
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
     state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.MAGAZINE_SIZE,data.player.charges);
     state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
+    state.world.player.stress=hasOwn(data.player,'stress')?data.player.stress:0;
+    state.world.player.reloadAssist=hasOwn(data.player,'reloadAssist')?data.player.reloadAssist:false;
+    state.world.player.reloadHesitation=hasOwn(data.player,'reloadHesitation')?data.player.reloadHesitation:false;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0}));

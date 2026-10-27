@@ -8,6 +8,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const WORLD = 175, MAX_BOTS = 20, MAGAZINE_SIZE = 12, RELOAD_SECONDS = 1.8;
+  const RELOAD_HESITATION_SECONDS = 0.6, STRESS_THRESHOLD = 60;
   const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const normalizeAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -72,7 +73,7 @@
     const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,loaded:12,reloadRemaining:0,stamina:100,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,charges:48,maxCharges:60,loaded:12,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -99,9 +100,22 @@
     if (!game.player.alive || damage<=0) return;
     // Legacy shield state is inert: received damage always affects health.
     game.player.shield=0;
+    game.player.stress=clamp((game.player.stress||0)+damage*1.15,0,100);
     game.player.health=Math.max(0, game.player.health-damage);
     game.damageFlash=0.45;
     if(game.player.health===0){game.player.alive=false;game.status='lost';game.message='SIGNAL LOST';}
+  }
+  // Stress is a deterministic game abstraction of exertion and recent harm.
+  function updateStress(player, dt, sprinting) {
+    const t=clamp(Number.isFinite(dt)?dt:0,0,.05);
+    player.stress=clamp((player.stress||0)+(sprinting?9:-3)*t,0,100);
+    return player.stress;
+  }
+  function setReloadAssist(game, enabled) {
+    game.player.reloadAssist=!!enabled;
+    game.message=game.player.reloadAssist?'RELOAD ASSIST ON':'RELOAD ASSIST OFF';
+    game.messageTime=1.6;
+    return game.player.reloadAssist;
   }
   // Reloading transfers finite carried rounds to a magazine, without generating ammo.
   function advanceReload(game, dt) {
@@ -109,6 +123,7 @@
     if(p.reloadRemaining<=0)return;
     p.reloadRemaining=Math.max(0,p.reloadRemaining-clamp(dt,0,.05));
     if(p.reloadRemaining===0){
+      p.reloadHesitation=false;
       p.loaded=Math.min(MAGAZINE_SIZE,p.charges);
       game.message='MAGAZINE READY';game.messageTime=1.4;
     }
@@ -119,9 +134,13 @@
     if(p.reloadRemaining>0)return {ok:false,reason:'already_reloading'};
     if(p.loaded>=MAGAZINE_SIZE)return {ok:false,reason:'magazine_full'};
     if(p.charges<=p.loaded)return {ok:false,reason:'no_reserve'};
-    p.reloadRemaining=RELOAD_SECONDS;
-    game.message='RELOADING';game.messageTime=RELOAD_SECONDS;
-    return {ok:true,duration:RELOAD_SECONDS};
+    const hesitation=(p.stress||0)>=STRESS_THRESHOLD&&!p.reloadAssist;
+    const duration=RELOAD_SECONDS+(hesitation?RELOAD_HESITATION_SECONDS:0);
+    p.reloadRemaining=duration;
+    p.reloadHesitation=hesitation;
+    game.message=hesitation?'RELOAD HESITATION · RECOVERING':'RELOADING';
+    game.messageTime=duration;
+    return {ok:true,duration,hesitation};
   }
   function tick(game, dt, input={}) {
     if(game.status!=='playing') return game;
@@ -138,6 +157,7 @@
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,obstacles);
     p.stamina=clamp(p.stamina+(wantsSprint?-20:13)*dt,0,100);
+    updateStress(p,dt,wantsSprint);
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
     const outside=dist(p,game.zone)>game.zone.radius;
     if(outside) receiveDamage(game,(1.8+game.zone.phase*1.2)*dt);
@@ -240,5 +260,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,MAGAZINE_SIZE,RELOAD_SECONDS,newMatch,tick,tag,reload,advanceReload,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });
