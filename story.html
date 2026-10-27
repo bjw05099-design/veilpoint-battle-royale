@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VEILPOINT — CH01 / 마지막 방송 (브라우저 스토리 프리뷰)</title>
+<meta name="theme-color" content="#08181e">
+<style>
+:root{color-scheme:dark;--ink:#eff9f1;--dim:#bbcbc9;--accent:#c7eaa7;--glass:#07171cdb;--border:#c5e6d04d}
+*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden}body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#101e23;color:var(--ink)}button,select{font:inherit;cursor:pointer}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+#app{position:fixed;inset:0;background:linear-gradient(#617879,#b0a18b 53%,#34493d)}#scene{width:100%;height:100%;display:block;touch-action:none}
+#app:after{content:"";pointer-events:none;position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 38%,#0009)}
+.hud{position:absolute;z-index:3;pointer-events:none}#brand{top:20px;left:26px;letter-spacing:.18em;font-size:12px;font-weight:800;text-shadow:0 2px 8px #000}#brand small{display:block;color:var(--accent);font-size:9px;margin-top:8px}
+#objectivePanel{top:84px;left:26px;max-width:min(460px,calc(100vw - 52px));background:var(--glass);border-left:3px solid var(--accent);padding:15px 18px;box-shadow:0 12px 40px #0005}
+.eyebrow{font-size:10px;letter-spacing:.19em;color:var(--accent);font-weight:800}#objective{font-size:15px;line-height:1.6;margin:7px 0}#status{font-size:11px;color:var(--dim);line-height:1.5}
+#signalBoard{position:absolute;z-index:3;right:22px;top:22px;width:245px;max-width:calc(100vw - 44px);background:var(--glass);border:1px solid var(--border);padding:13px;pointer-events:none}
+#signalBoard strong{font-size:12px;letter-spacing:.1em}#records{font-size:11px;line-height:1.7;color:#d2e4d7;margin:9px 0}#minimap{width:100%;aspect-ratio:1.6;background:#0b2226;border:1px solid #7e9b9270}
+#subtitle{position:absolute;z-index:3;bottom:75px;left:50%;transform:translateX(-50%);width:min(760px,calc(100vw - 24px));text-align:center;background:#041217d9;padding:13px 22px;font-size:15px;line-height:1.6;text-shadow:0 2px 5px #000}
+#interaction{position:absolute;z-index:3;bottom:155px;left:50%;transform:translateX(-50%);background:#102d31e8;border:1px solid var(--border);padding:10px 18px;font-size:12px;color:var(--accent)}
+#crosshair{position:absolute;z-index:2;left:50%;top:50%;width:15px;height:15px;transform:translate(-50%,-50%);pointer-events:none}#crosshair:before,#crosshair:after{content:"";position:absolute;background:#f5fff0a8}#crosshair:before{width:1px;height:15px;left:7px}#crosshair:after{height:1px;width:15px;top:7px}
+#footer{position:absolute;z-index:3;bottom:16px;left:24px;right:24px;display:flex;justify-content:space-between;align-items:end;gap:10px;font-size:10px;letter-spacing:.08em;color:#d9e9df;text-shadow:0 2px 6px #000;pointer-events:none}
+#pauseButton{pointer-events:auto;border:1px solid var(--border);color:var(--ink);background:#102e32c7;padding:8px 12px;border-radius:3px}
+.screen{position:absolute;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:linear-gradient(90deg,#06171ded,#06171dbb);backdrop-filter:blur(7px)}
+.screen.hidden,.hidden{display:none!important}.card{width:min(690px,100%);background:#091b22e8;border:1px solid #a7d8c64d;padding:clamp(20px,4vw,38px);box-shadow:0 24px 90px #0008}
+.card h1{font-size:clamp(36px,7vw,72px);letter-spacing:-.06em;line-height:1.05;margin:15px 0}.card h1 span{color:var(--accent)}
+.card p{line-height:1.8;color:#d7e4dc;font-size:14px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:25px}.actions button,.actions a{padding:12px 18px;background:var(--accent);color:#102321;font-weight:800;border:1px solid #e6f8d6;text-decoration:none;font-size:13px}
+.actions button.secondary,.actions a.secondary{background:#1b363a;color:#eaf6ed;border:1px solid #7e9d91}
+.card .fine{font-size:11px;color:#afc0ba;margin-top:24px}#choices .card{max-width:600px}#choiceVerified:disabled{opacity:.35;cursor:not-allowed}
+#settings{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#e6f4e7;margin-top:18px}#settings select{background:#193b3b;color:white;padding:8px;border:1px solid #87a59a}#settings label{display:flex;align-items:center;gap:5px}
+#mobile{display:none;position:absolute;z-index:6;bottom:200px;left:12px;right:12px;pointer-events:none;justify-content:space-between}
+#dpad{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:5px}#mobile button{pointer-events:auto;touch-action:none;background:#082b2acb;border:1px solid #d3f0db88;color:white;border-radius:8px;font-size:13px;font-weight:700}
+#dpad button:nth-child(1){grid-column:2}#dpad button:nth-child(2){grid-column:1;grid-row:2}#dpad button:nth-child(3){grid-column:2;grid-row:2}#dpad button:nth-child(4){grid-column:3;grid-row:2}
+#mobileActions{display:flex;flex-direction:column;gap:10px}#mobileActions button{min-width:76px;min-height:48px}
+@media(pointer:coarse){#mobile{display:flex}#subtitle{bottom:83px;font-size:13px}#interaction{bottom:195px}#footer .controlsText{display:none}}
+@media(max-width:760px){#signalBoard{width:155px;top:90px;right:12px;padding:8px}#objectivePanel{left:12px;top:68px;max-width:calc(100vw - 190px);padding:9px}#objective{font-size:12px}#records{font-size:10px}#brand{top:12px;left:12px;font-size:10px}#subtitle{padding:9px;font-size:12px}#minimap{display:none}#signalBoard strong{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main id="app">
+<canvas id="scene" aria-label="VEILPOINT 1인칭 스토리 임무 3D 화면"></canvas>
+<div id="crosshair" aria-hidden="true"></div>
+<div class="hud" id="brand">VEILPOINT <small>STORY / CH01 · BROWSER PROTOTYPE</small></div>
+<section class="hud" id="objectivePanel" aria-label="임무 목표"><div class="eyebrow">ACTIVE OBJECTIVE</div><div id="objective"></div><div id="status"></div></section>
+<aside id="signalBoard" aria-label="신호 기록"><strong>SIGNAL ECHO / 기록</strong><div id="records">기록을 찾으면 여기에 표시됩니다.</div><canvas id="minimap" width="240" height="150" aria-label="현재 위치와 목표 표식 지도"></canvas></aside>
+<div id="interaction" class="hidden" aria-live="off"></div>
+<div id="subtitle" role="status" aria-live="polite">나흐린 / 마지막 방송</div>
+<div id="footer"><span class="controlsText">WASD 이동 · SHIFT 달리기 · 마우스 시점 · E 조사 · ESC 일시정지</span><span id="fps">FPS: -- / --</span><button id="pauseButton" type="button">일시정지</button></div>
+<div id="mobile"><div id="dpad"><button data-move="forward" aria-label="앞으로">▲</button><button data-move="left" aria-label="왼쪽">◀</button><button data-move="back" aria-label="뒤로">▼</button><button data-move="right" aria-label="오른쪽">▶</button></div><div id="mobileActions"><button id="touchInteract">조사</button><button id="touchSprint">달리기</button></div></div>
+<section id="menu" class="screen" aria-label="스토리 임무 메뉴">
+<div class="card"><div class="eyebrow">NAHRIN / SAHIR COAST · FICTIONAL SETTING</div><h1>THE LAST<br><span>BROADCAST.</span></h1><p id="menuText">마라 다한은 끊어진 시민 통신망을 복구하려 한다. 항구와 대피소의 기록은 같은 사건을 서로 다른 시각으로 증언한다. 당신의 선택은 다음 경로를 바꾼다.</p><div class="actions"><button id="continue" type="button">미션 시작</button><button id="newGame" class="secondary" type="button">처음부터 다시</button><a class="secondary" href="index.html">배틀로얄로 이동</a></div>
+<div id="settings"><label for="quality">그래픽 <select id="quality"><option value="hyperreal165">HyperReal 165Hz</option><option value="cinematic">Cinematic Maximum</option><option value="ultra">Ultra Photoreal</option><option value="balanced">Balanced Quality</option><option value="performance">Smooth Performance</option><option value="eco">Power Saver</option></select></label><label><input id="reducedMotion" type="checkbox"> 화면 흔들림 최소화</label></div>
+<p class="fine">실행 가능한 짧은 CH01 프로토타입입니다. 12시간 분량의 전체 캠페인, 음성 연기, 실사급 에셋 및 인터넷 멀티플레이는 아직 구현되지 않았습니다. 저장은 이 브라우저의 로컬 저장소에만 적용됩니다.</p></div>
+</section>
+<section id="choices" class="screen hidden" aria-label="스토리 경로 선택">
+<div class="card"><div class="eyebrow">DECISION / THE SIGNAL</div><h1>어떤 길을<br><span>택하겠습니까?</span></h1><p>안전한 안뜰로 바로 향하거나, 항구와 대피소 기록을 모두 확인해 동쪽 추가 확인 경로를 열 수 있습니다.</p><p id="choiceHint" class="fine"></p><div class="actions"><button id="choiceEvac">1 · 대피 우선</button><button id="choiceVerified" class="secondary">2 · 기록 교차 확인</button><button id="choiceBack" class="secondary">돌아가서 조사</button></div></div>
+</section>
+</main>
+<script src="src/simulation.js"></script><script src="src/visibility.js"></script><script src="src/performance.js"></script><script src="src/graphics.js"></script><script src="src/renderer.js"></script><script src="src/clock.js"></script><script src="src/fps.js"></script><script src="src/campaign.js"></script><script src="src/story-slice.js"></script><script src="src/story-app.js"></script>
+</body>
+</html>
