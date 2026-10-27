@@ -339,6 +339,7 @@
     const c=data.combat;
     if(!c||typeof c!=='object'||Array.isArray(c)||
       ![5,6].includes(Object.keys(c).length)||
+      Object.keys(c).some(k=>!['started','cleared','supportUsed','nextPulseAt','drones','lastShotAt'].includes(k))||
       ['started','cleared','supportUsed','nextPulseAt','drones'].some(k=>!hasOwn(c,k))||
       ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
