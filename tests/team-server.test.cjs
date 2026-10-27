@@ -135,3 +135,38 @@ test('two HTTP clients cannot disclose a rear contact or spoof facing in snapsho
     assert.deepEqual((await snapshot()).visible.map(p => p.team), ['red', 'blue']);
   } finally {await server.close();}
 });
+
+test('HTTP server rejects client-authored damage and applies finite combat on the server', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (path, body, token) => {
+    const response = await fetch(base + path, {method: 'POST', headers: {
+      'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})
+    }, body: JSON.stringify(body)});
+    return {status: response.status, body: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'A'})).body;
+    const b = (await post('/join', {name: 'B'})).body;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    const attacker = server.match.players.get(a.token);
+    const defender = server.match.players.get(b.token);
+    attacker.x = 0; attacker.z = 0; defender.x = 5; defender.z = 0;
+    assert.equal((await post('/command', {seq: 2, type: 'fire', damage: 999}, a.token)).status, 400);
+    assert.equal(defender.health, 100);
+    const shot = await post('/command', {seq: 2, type: 'fire'}, a.token);
+    assert.equal(shot.status, 200);
+    assert.equal(shot.body.hit, true);
+    assert.equal(defender.health, 66);
+    const view = await fetch(base + '/state', {headers: {'x-player-token': a.token}});
+    const snapshot = await view.json();
+    assert.equal(snapshot.self.ammo, 11);
+    assert.equal(snapshot.self.health, 100);
+    assert.ok(snapshot.visible.every(p => !Object.hasOwn(p, 'health')));
+    assert.equal((await post('/command', {seq: 3, type: 'reload'}, a.token)).status, 200);
+    assert.equal(attacker.reloadTicks, 90);
+    assert.equal((await post('/command', {seq: 4, type: 'fire'}, a.token)).body.reason, 'reloading');
+  } finally {await server.close();}
+});

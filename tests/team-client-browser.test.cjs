@@ -160,3 +160,29 @@ test('expired tab token fails closed and permits a new join', async () => {
   await settle();
   assert.equal(server.match.players.size, 1);
 });
+
+test('browser keyboard and touch send combat intent without target or damage injection', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.doc('keydown', {code: 'KeyF'});
+  await settle();
+  assert.equal(player.ammo, 11);
+  assert.ok(server.requests.some(r => r.body?.type === 'fire' &&
+    Object.keys(r.body).sort().join(',') === 'seq,type'));
+  a.doc('keydown', {code: 'KeyF', repeat: true});
+  await settle();
+  assert.equal(player.ammo, 11, 'held-key repeat must not generate extra commands');
+  a.node('reload').click();
+  await settle();
+  assert.equal(player.reloadTicks, 90);
+  await a.poll(); await settle();
+  assert.equal(a.node('ammo').textContent, '11 / 24');
+  assert.match(a.node('reloadState').textContent, /재장전/);
+  assert.ok(server.requests.some(r => r.body?.type === 'reload'));
+});
