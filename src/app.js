@@ -132,7 +132,7 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
  const cpu=telemetry.stats('cpu'),gpu=telemetry.stats('gpu'),raf=telemetry.stats('raf');
  const fmt=v=>v===null?'측정 불가':v.toFixed(2)+'ms';
  const scale=renderer?(renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale):graphicsSettings.resolutionScale;
- $('perfDetails').textContent='렌더 CPU P95: '+fmt(cpu.p95)+' | GPU P95: '+fmt(gpu.p95)+' ('+gpu.count+'개) | 표시 간격 P95: '+fmt(raf.p95)+' | 현재 배율: '+Math.round(scale*100)+'%';
+ $('perfDetails').textContent='렌더 CPU P95: '+fmt(cpu.p95)+' | GPU P95: '+fmt(gpu.p95)+' ('+gpu.count+'개) | 표시 간격 P95: '+fmt(raf.p95)+' | 현재 배율: '+Math.round(scale*100)+'%' + (renderer&&renderer.lastVisibilityStats?' | 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'');
  lastHud=now;}
 }
 requestAnimationFrame(frame);

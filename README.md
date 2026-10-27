@@ -80,3 +80,7 @@ The browser prototype adds **opt-in GPU-timer-driven adaptive resolution** (when
 - **Browser:** adaptive resolution now preserves selected quality during CPU-bound stalls (see `tests/performance-cpubound.test.cjs`).
 - **Unreal source scaffold:** `UVPGameUserSettings` exposes six Blueprint-callable native graphics presets, including HyperReal 165Hz (Cinematic scalability + 165FPS cap), and Custom FPS/resolution/V-Sync. Configuration and source-only tests are in `docs/UNREAL_GRAPHICS_SETTINGS.md`.
 - **Not yet available:** a native settings menu, a compiled UE build, and hardware-verified photorealism or sustained 165FPS.
+
+## v1.6 dynamic visibility/LOD (2026-10-27)
+
+The browser renderer now conservatively skips off-camera dynamic geometry and reduces distant bot/loot mesh detail. This is **render-only**: the 60Hz simulation, AI, zone and collision are unchanged. The graphics panel shows visible bots and planned dynamic vertex counts. Run `npm run verify` and `npm run bench:visibility` for deterministic tests and a CPU-only microbenchmark. See [render culling design and limitations](docs/RENDER_CULLING.md). No GPU/165Hz benchmark or native UE compile is claimed.

@@ -7,6 +7,7 @@ const path=require('node:path');
 const Sim=require('../src/simulation.js');
 const Gfx=require('../src/graphics.js');
 const Perf=require('../src/performance.js');
+const Visibility=require('../src/visibility.js');
 function fakeGl(){
  let created=0;let allocations=0;const deleted=[];let viewports=[];
  const gl={VERTEX_SHADER:1,FRAGMENT_SHADER:2,COMPILE_STATUS:3,LINK_STATUS:4,ARRAY_BUFFER:5,STATIC_DRAW:6,DYNAMIC_DRAW:7,
@@ -20,7 +21,7 @@ function fakeGl(){
 }
 test('WebGL renderer reuses dynamic GPU vertex buffer across frames and honors adaptive resolution',()=>{
  const fake=fakeGl();
- const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,devicePixelRatio:1});
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
  const canvas={clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null};
  const renderer=new context.VeilpointRenderer(canvas);
@@ -41,4 +42,27 @@ test('WebGL renderer reuses dynamic GPU vertex buffer across frames and honors a
  renderer.draw(state);
  assert.equal(fake.created,3,'changing vegetation regenerates only the static mesh');
  assert.deepEqual(fake.deleted,[1]);
+});
+
+test('renderer draws only planned visible geometry, preserving active simulation entities',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(9,18);
+ state.zone={x:0,z:0,radius:95};
+ state.player.x=0;state.player.z=0;state.player.yaw=0;
+ renderer.draw(state);
+ const forward=renderer.lastVisibilityStats;
+ assert.equal(renderer.dynamic.count,forward.estimatedDynamicVertices);
+ assert.ok(forward.zoneVisible>0&&forward.zoneVisible<128);
+ const original=JSON.stringify(state);
+ state.player.yaw=Math.PI;
+ renderer.draw(state);
+ const backward=renderer.lastVisibilityStats;
+ assert.equal(renderer.dynamic.count,backward.estimatedDynamicVertices);
+ assert.ok(backward.estimatedDynamicVertices>0);
+ assert.equal(state.bots.filter(b=>b.alive).length,18);
+ state.player.yaw=0;
+ assert.equal(JSON.stringify(state),original);
 });

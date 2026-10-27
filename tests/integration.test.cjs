@@ -17,3 +17,12 @@ test('graphics UI exposes the adaptive opt-in control and frame telemetry',()=>{
  }
  assert.match(html,/type="checkbox"/);
 });
+
+test('visibility planner loads before renderer and remains render-only',()=>{
+ const scripts=[...html.matchAll(/<script\s+src="([^"]+)"\s*>/g)].map(m=>m[1]);
+ assert.ok(scripts.includes('src/visibility.js'));
+ assert.ok(scripts.indexOf('src/visibility.js')<scripts.indexOf('src/renderer.js'));
+ const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
+ assert.ok(app.includes('clock.advance(dt'));
+ assert.ok(!app.includes('Visibility.planVisible'));
+});
