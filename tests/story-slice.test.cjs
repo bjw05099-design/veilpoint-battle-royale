@@ -243,3 +243,17 @@ test('browser integration exposes encounter controls and never treats preview as
   assert.doesNotMatch(app,/Campaign\.completeMission/);
   assert.match(app,/veilpoint\.story\.ch01PreviewCompleted/);
 });
+
+test('running out of signal charges cannot permanently soft-lock the encounter',()=>{
+  const state=story.createState();
+  go(state,'terminal');story.interact(state);
+  state.world.player.charges=0;
+  const reload=story.fire(state);
+  assert.equal(reload.ok,true);
+  assert.equal(reload.recharged,true);
+  assert.equal(state.world.player.charges,12);
+  state.world.elapsed+=.2;
+  assert.equal(story.fire(state).hit,true);
+  const resumed=story.restore(story.serialize(state));
+  assert.equal(resumed.world.player.charges,11);
+});
