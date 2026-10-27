@@ -5,7 +5,7 @@
 ## Canon continuity decision
 
 - Keep **Sahir Coast**, **Nahrin** and its surrounding *fictional Middle Eastern* civil-war districts as the main location; it is not a portrayal of a specific current or historical war.
-- **Playable protagonist across all twelve chapters:** **서진혁 (Seo Jin-hyeok), 대한민국 특수부대 대위** — an entirely fictional Republic of Korea military officer. The narrative uses an original fictional international protection/observation mission as context; it does **not** claim that a real ROK unit or the Korean government undertook such an operation.
+- **Playable protagonist across all twelve chapters:** **이수혁 (Lee Su-hyeok), 대한민국 특수부대 대위** — an entirely fictional Republic of Korea military officer. The narrative uses an original fictional international protection/observation mission as context; it does **not** claim that a real ROK unit or the Korean government undertook such an operation.
 - Protagonist never abruptly switches to a secondary playable lead; viewpoint changes are optional short cinematics or radio/dialogue interludes only. The captain's first-person perspective anchors the campaign.
 - **국가정보원(국정원) 소속 가상 요원** enter the cast as consequential fictional characters. Their conduct, technology, internal process and authorisation are invented for the story and must never be framed as a description of real intelligence methods or confidential practices.
 - Existing CH01 prototype is an **early non-combat traversal/record-interaction slice**; its first playable combat segment, character model/voice direction and captain's narrative framing remain to be implemented. Previously authored Mara dialogue is now interpreted as an ally guiding the captain, not the player character.
@@ -15,9 +15,9 @@
 
 | Role | Character | Narrative function and internal conflict |
 |---|---|---|
-| **Player / Captain** | **서진혁 대위 (Seo Jin-hyeok)** | ROK special-forces captain in a fictional multinational mission; responsible for squad and human consequences, personally decisive, not infallible |
-| **NIS liaison** | **윤서하 국정원 요원 (Yoon Seo-ha)** | South Korean intelligence liaison who provides incomplete, often contested intelligence; trustworthy through actions rather than magical exposition |
-| **NIS analyst** | **강민재 국정원 요원 (Kang Min-jae)** | Tracks inconsistencies in civic transmissions and local accounts; challenges assumptions and reveals costs of incomplete records |
+| **Player / Captain** | **이수혁 대위 (Lee Su-hyeok)** | ROK special-forces captain in a fictional multinational mission; responsible for squad and human consequences, personally decisive, not infallible |
+| **NIS liaison (male)** | **김지윤 국정원 요원 (Kim Ji-yun, 남성)** | South Korean intelligence liaison who provides incomplete, often contested intelligence; trustworthy through actions rather than magical exposition |
+| **NIS analyst (female)** | **조현지 국정원 요원 (Jo Hyeon-ji, 여성)** | Tracks inconsistencies in civic transmissions and local accounts; challenges assumptions and reveals costs of incomplete records |
 | Squad sergeant | **김도겸 중사 (Kim Do-gyeom)** | Fictional ROK military squadmate who advocates caution and accountability, with an independent arc |
 | Local systems partner | **마라 다한 (Mara Dahan)** | Municipal communications engineer; introduces the VEILPOINT civilian network and provides environmental context in CH01 |
 | Local aid coordinator | **유수프 라할 (Yusuf Rahal)** | Emergency service coordinator, local decision-maker and essential ally with priorities of his own |
@@ -50,7 +50,7 @@ The percentage ranges are design targets, not exact chapter quotas; preserve sho
 | ID | Working chapter (target min) | Combat-forward playable set-piece | Character/story pivot |
 |---|---|---|---|
 | M01 | 마지막 방송 / The Last Broadcast (50) | sudden first-person urban engagement, squad regrouping and restoring a damaged relay | Captain meets Mara, NIS officer Yoon introduces conflicting accounts |
-| M02 | 두 개의 지도 / Two Maps (55) | mobile protection and contested road segments | Kang's report disagrees with apparent route safety |
+| M02 | 두 개의 지도 / Two Maps (55) | mobile protection and contested road segments | Jo's report disagrees with apparent route safety |
 | M03 | 소금바람 / Salt Wind (60) | fast-paced desert settlement encounter and team support | local aid leader Yusuf shifts the mission priority |
 | M04 | 유리 회랑 / Glass Corridor (55) | vertical city building engagement with changing access | delayed message alters an objective halfway through |
 | M05 | 갈라진 항구 / Split Harbor (65) | large dynamic harbor combat sequence | player-selected route changes later accessible district |
@@ -73,4 +73,4 @@ The percentage ranges are design targets, not exact chapter quotas; preserve sho
 
 ## Binding immersion requirement (2026-10-27)
 
-The user requires a story experience aspiring to **greater felt immersion than merely watching a movie**. This is not a graphics-only directive. Captain Seo must remain in player control during consequential cinematic action whenever practical; NPC dialogue, sound, environment, mission events and follow-on chapters react coherently. Preserve a believable first-person camera and original character arcs, varied combat-forward encounters, meaningful short quiet intervals, subtitles, accessibility/reduced camera motion and smooth checkpoint/replay. See the authoritative [Campaign Immersion Standard](CAMPAIGN_IMMERSION_STANDARD.md) for interactive-scene rules, seven quality pillars and player-test gates. **This remains a target, not a claim of current 12-hour or beyond-film quality.**
+The user requires a story experience aspiring to **greater felt immersion than merely watching a movie**. This is not a graphics-only directive. Captain Lee must remain in player control during consequential cinematic action whenever practical; NPC dialogue, sound, environment, mission events and follow-on chapters react coherently. Preserve a believable first-person camera and original character arcs, varied combat-forward encounters, meaningful short quiet intervals, subtitles, accessibility/reduced camera motion and smooth checkpoint/replay. See the authoritative [Campaign Immersion Standard](CAMPAIGN_IMMERSION_STANDARD.md) for interactive-scene rules, seven quality pillars and player-test gates. **This remains a target, not a claim of current 12-hour or beyond-film quality.**
