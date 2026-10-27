@@ -170,3 +170,44 @@ test('HTTP server rejects client-authored damage and applies finite combat on th
     assert.equal((await post('/command', {seq: 4, type: 'fire'}, a.token)).body.reason, 'reloading');
   } finally {await server.close();}
 });
+
+test('HTTP origin validation rejects cross-scheme and opaque origins without 500', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const join = origin => fetch(base + '/join', {method: 'POST', headers: {
+    'content-type': 'application/json', origin
+  }, body: JSON.stringify({name: 'A'})});
+  try {
+    const wrongScheme = await join(`https://127.0.0.1:${port}`);
+    assert.equal(wrongScheme.status, 403);
+    assert.equal((await wrongScheme.json()).error, 'cross_origin');
+    const opaque = await join('null');
+    assert.equal(opaque.status, 403);
+    assert.equal((await opaque.json()).error, 'cross_origin');
+    const other = await join('http://attacker.example');
+    assert.equal(other.status, 403);
+    const same = await join(base);
+    assert.equal(same.status, 201);
+    assert.equal(same.headers.get('cross-origin-resource-policy'), 'same-origin');
+    const page = await fetch(base + '/');
+    assert.equal(page.headers.get('x-frame-options'), 'DENY');
+  } finally {await server.close();}
+});
+
+test('HTTP request body cap counts UTF-8 bytes, not JavaScript characters', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const oversized = await fetch(base + '/join', {method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({name: '가'.repeat(700)})});
+    assert.equal(oversized.status, 413);
+    assert.equal((await oversized.json()).error, 'body_too_large');
+    assert.equal(server.match.players.size, 0);
+    const valid = await fetch(base + '/join', {method: 'POST',
+      headers: {'content-type': 'application/json'}, body: JSON.stringify({name: 'A'})});
+    assert.equal(valid.status, 201);
+  } finally {await server.close();}
+});
