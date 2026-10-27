@@ -36,3 +36,10 @@ The target 165FPS corresponds to 6.06ms per frame, but successful implementation
 - Native `UVPGameUserSettings` source and engine config wiring now expose six Blueprint-selectable profiles, persisted defaults, Custom FPS/resolution/V-Sync. A playable Unreal menu is not yet implemented.
 - Browser GPU-resolution governor now avoids unnecessary quality loss during CPU-bound stalls; regression tests cover CPU-only, GPU-only and mixed load.
 - Immediate P0 next step: compile UE project on an installed engine, create an actual settings widget and measure Lumen/Nanite/TSR performance on a 165Hz display. Without that hardware, continue with deterministic browser improvements and native compile-check preparation.
+
+## 2026-10-27 14:00 iteration — browser dynamic visibility/LOD
+
+- Added camera-cone visibility and conservative bounding-radius tests for bots, loot, zone pylons and transient effects, with 6/3/1-box bot LOD. Simulation remains independent and deterministic at 60Hz.
+- Both WebGL2 and Canvas2D paths use the planner; the settings panel displays planned dynamic vertex counts. New unit and renderer integration checks protect behavior.
+- `npm run bench:visibility` reports CPU-only planner time and estimated dynamic vertex reduction; **not** measured GPU FPS or a verified 165Hz display result.
+- P0 next: spatially chunk and cull static world geometry, benchmark on actual GPU, test visual transitions in motion, then validate Unreal Engine C++ on installed UE hardware.
