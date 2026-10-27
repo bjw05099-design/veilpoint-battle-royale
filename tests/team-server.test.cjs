@@ -211,3 +211,38 @@ test('HTTP request body cap counts UTF-8 bytes, not JavaScript characters', asyn
     assert.equal(valid.status, 201);
   } finally {await server.close();}
 });
+
+test('local server refuses public binding and forged Host/Origin DNS-rebinding requests', async () => {
+  const http=require('node:http');
+  assert.throws(()=>createTeamServer({host:'0.0.0.0'}),/loopback_host_required/);
+  const server=createTeamServer({port:0,autoTick:false});
+  const {port}=await server.listen();
+  const request=(host,origin)=>new Promise((resolve,reject)=>{
+    const body=JSON.stringify({name:'Spoofed'});
+    const req=http.request({hostname:'127.0.0.1',port,path:'/join',method:'POST',
+      headers:{Host:host,Origin:origin,'Content-Type':'application/json',
+        'Content-Length':Buffer.byteLength(body)}},res=>{
+      let data='';res.on('data',c=>data+=c);res.on('end',()=>resolve({status:res.statusCode,data:JSON.parse(data)}));
+    });
+    req.on('error',reject);req.end(body);
+  });
+  try {
+    const evil=await request('attacker.example:'+port,'http://attacker.example:'+port);
+    assert.equal(evil.status,403);assert.equal(evil.data.error,'invalid_host');
+    const wrongPort=await request('127.0.0.1:'+(port+1),'http://127.0.0.1:'+(port+1));
+    assert.equal(wrongPort.status,403);
+    assert.equal(server.match.players.size,0);
+    const valid=await request('127.0.0.1:'+port,'http://127.0.0.1:'+port);
+    assert.equal(valid.status,201);
+  } finally {await server.close();}
+});
+test('HTTP JSON endpoint rejects non-JSON media type lookalikes', async()=>{
+  const server=createTeamServer({port:0,autoTick:false});
+  const {port}=await server.listen();
+  try{
+    const response=await fetch('http://127.0.0.1:'+port+'/join',{method:'POST',
+      headers:{'Content-Type':'application/json-fake'},body:JSON.stringify({name:'A'})});
+    assert.equal(response.status,415);
+    assert.equal(server.match.players.size,0);
+  }finally{await server.close();}
+});
