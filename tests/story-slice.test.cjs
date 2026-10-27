@@ -518,6 +518,10 @@ test('CH01 legacy v2 shot time migrates conservatively and tampered timing is re
     bad.combat.lastShotAt=badTime;
     assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
   }
+  const unknown=JSON.parse(story.serialize(s));
+  delete unknown.combat.lastShotAt;
+  unknown.combat.unknownTimestamp=0;
+  assert.throws(()=>story.restore(JSON.stringify(unknown)),RangeError);
   assert.match(story.situation(s).command,/이수혁.*지휘관.*유수프.*국정원/);
   assert.match(s.subtitle,/유수프 구조단.*국정원 보고/);
 });
