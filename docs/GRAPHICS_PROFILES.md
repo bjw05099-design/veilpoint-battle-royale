@@ -50,3 +50,36 @@ The owner states that a PC with an **NVIDIA GeForce RTX 3070 GPU** and **165Hz m
 **Acceptance procedure on owner's PC:** For each mode and preset, record 1920×1080 and/or the monitor's actual native resolution (do not assume which); fullscreen mode, native vs upscaling method, graphics settings, CPU/GPU/RAM/VRAM, OS, driver and monitor refresh/VRR. Capture at least one representative timed gameplay sequence plus difficult scene; report median FPS, 1% lows and P50/P95/P99 **CPU and GPU frame times**, stutter spikes, sustained stability and subjective image-quality regressions. At **165FPS**, the frame budget is approximately **6.06ms** and sustained FPS must be verified at the displayed resolution. Explicitly separate 165Hz monitor refresh from 165FPS render output. The browser's fixed 60Hz **simulation step** does not force 60FPS rendering.
 
 **Implementation gate:** First build a runnable native or browser artifact and an unambiguous reproducible benchmark script/manual protocol. The AI automation may prepare builds, CI and measurement instructions, but cannot claim measurements on the owner's RTX 3070 or actually use the hardware without a verified connected execution environment or results shared by the owner. The AI-generated preview images are visual targets only, not actual in-engine captures.
+
+
+## Confirmed primary owner display: QHD 2560 × 1440 at 165Hz (2026-10-27)
+
+**Confirmed by owner:** VEILPOINT's primary available target setup is an **NVIDIA RTX 3070 PC and a native-resolution QHD (2560×1440) 165Hz display**. The PC is not connected to the AI build or CI environment; no actual FPS, frame times, drivers, CPU, RAM, GPU desktop/mobile variant or visual quality results are verified. Always distinguish final 2560×1440 **display/output** resolution from internal render resolution and from 165Hz versus 165 rendered frames per second.
+
+### Native-engine performance acceptance targets — QHD output; NOT measured/guaranteed
+
+| Preset | Planned FPS cap | Target on RTX 3070 QHD | Image-quality / tuning policy |
+| --- | --- | --- | --- |
+| **Cinematic Maximum** | 60 | Fidelity-first ~45–60 FPS is a tuning goal, not an expectation | Maximize believable PBR, lighting, shadows, character detail and cinematic image quality; reduced FPS may be necessary, expose measured cost |
+| **Ultra Photoreal** | 144 | Try for **at least 60 stable FPS** before pursuing 90; 144 is only the configured cap | Prioritize near-photoreal quality and stable output; optionally compare TSR/DLSS Super Resolution Quality vs native output |
+| **Balanced Quality** | 120 | Target **90–120 FPS** as a stretch pending real scenes/CPU | Preserve natural image/geometry; spend frame budget carefully on light, shadow, reflection, visible detail |
+| **Smooth Performance** | 165 | Target **120 FPS first**, then stretch to sustained 165 only if quality and playability remain acceptable | Prioritize low latency, culling, LOD, shadows, reflections, VFX budgets and quality-preserving upscaling |
+| **HyperReal 165Hz** | 165 | **165 sustained FPS plus near-maximum fidelity is an aspirational stretch**, not a minimum guarantee | Do not secretly force all quality to low to meet FPS; report honestly when both cannot fit in one RTX 3070 frame budget |
+| **Power Saver** | 60 | Stable 60 FPS, power/thermals prioritized | Reduced complexity and optional frame limiting |
+| **Custom** | User-selected | User controls FPS cap, output/internal scaling, V-Sync/VRR, visuals and upscaling independently | Always disclose actual measured rendering throughput |
+
+These are **design tuning targets, not estimated hardware benchmarks**; no compiled, packaged native VEILPOINT scene was benchmarked. In demanding scenes, quality-first native rendering may fall well below targets and the game must expose a clear preset/performance trade-off instead of pretending otherwise. No preset should introduce fantasy mechanics or visual cheating inconsistent with the game's strict physical realism requirement.
+
+### Numerical frame-time targets and performance reporting
+
+- **60 FPS**: 16.67ms/frame; **90 FPS**: 11.11ms; **120 FPS**: 8.33ms; **144 FPS**: 6.94ms; **165 FPS**: 6.06ms.
+- Target **P95 total presented frame interval below the target budget** on representative *heavy* live gameplay once optimized. Also report P50/P95/P99 separately for GPU time, CPU game/render-thread time, delivered frame intervals, FPS P50 and 1%-low, hitches and input latency where measurable. CPU/GPU timings overlap and must not simply be added.
+- Benchmark at **QHD 2560×1440 output**, recording internal resolution and upscaler mode; compare native QHD, Unreal TSR, DLSS Super Resolution Quality and Balanced **only where natively integrated/tested**. Use a clear native-vs-upscaled annotation on captured footage. RTX 3070 supports **DLSS Super Resolution** but **not NVIDIA DLSS Frame Generation**, so do not count fictitious generated frames toward 165 real FPS. NVIDIA DLSS source: https://www.nvidia.com/en-us/geforce/technologies/dlss/.
+- Measure in at least (a) outdoor harbor urban wide shot, (b) wet/reflective night street, (c) indoor character-rich scene, (d) intense effects-heavy fictional firefight, and (e) vehicle driving; repeat a reproducible 120-second camera/player path after warmup in each scene, when the scene exists. Record shader-compile hitches and asset-streaming/VRAM-pressure separately.
+- Prioritize **stable frametimes and believable clarity** over synthetic high averages: manage VRAM residency/texture streaming, Nanite geometry budgets, Lumen GI/reflection tiers, shadow maps, transparency/VFX, draw calls, occlusion/LOD, shader warmup and hitch reduction; minimize spatial image instability or ghosting on moving characters, vehicles, crosshairs and vegetation. Lumen quality tiers have substantial different costs: https://dev.epicgames.com/documentation/en-us/unreal-engine/lumen-performance-guide-for-unreal-engine.
+- Define three measured outcomes per preset: **pass** (reference hardware and all required scenes meet stated budget and visual quality gate), **limited** (some scenes or graphics trade-offs prevent meeting it), or **unverified** (no build/owner-PC benchmark). Keep the RTX 3070 QHD 165Hz results **unverified until real evidence**.
+- Preserve the **60Hz fixed gameplay simulation** where still used in the browser demo; this is separate from GPU rendering refresh and monitor scanout. Do not assert 165FPS from a menu option or capped render callback.
+
+### Hardware details not yet supplied
+
+CPU model; system RAM; RTX 3070 desktop versus mobile/TGP and video memory; Windows version, drivers; monitor VRR/G-Sync/FreeSync support and connection type. Record these when the owner runs the first playable benchmark. The user's QHD native display resolution is **confirmed**.
