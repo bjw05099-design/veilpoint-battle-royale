@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.log
+.vscode/
+.idea/
+Unreal/**/Binaries/
+Unreal/**/Intermediate/
+Unreal/**/DerivedDataCache/
+Unreal/**/Saved/
+*.sln
+*.suo
