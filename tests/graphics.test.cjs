@@ -7,7 +7,7 @@ test('six independent visual presets are available',()=>{
  for(const id of Object.keys(g.PRESETS))assert.equal(g.fromPreset(id).preset,id);
 });
 test('HyperReal combines highest regular browser detail with 165 FPS cap',()=>{
- assert.deepEqual(g.fromPreset('hyperreal165'),{fpsCap:165,resolutionScale:1,vegetationDensity:1,effects:1,preset:'hyperreal165'});
+ assert.deepEqual(g.fromPreset('hyperreal165'),{fpsCap:165,resolutionScale:1.25,vegetationDensity:1,effects:1,preset:'hyperreal165'});
 });
 test('cinematic profile favors render sampling and permits independent frame-cap change',()=>{
  const x=g.fromPreset('cinematic');assert.equal(x.resolutionScale,1.25);
@@ -16,7 +16,7 @@ test('cinematic profile favors render sampling and permits independent frame-cap
 });
 test('independent options preserve the other settings',()=>{
  const x=g.customize(g.fromPreset('hyperreal165'),'vegetationDensity',.55);
- assert.equal(x.fpsCap,165);assert.equal(x.resolutionScale,1);assert.equal(x.effects,1);
+ assert.equal(x.fpsCap,165);assert.equal(x.resolutionScale,1.25);assert.equal(x.effects,1);
 });
 test('saved preferences roundtrip and corrupt data resets to safe defaults',()=>{
  const x=g.customize(g.fromPreset('balanced'),'resolutionScale',.7);
