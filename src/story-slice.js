@@ -13,6 +13,7 @@
   const SAVE_LIMIT = 8192;
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
   const HOSTILE_ROUNDS = 12;
+  const HOSTILE_ALERT_RANGE = 42, HOSTILE_CHASE_RADIUS = 6, HOSTILE_TURN_RATE = 1.4;
   const GATE_CLEARANCE_SECONDS = 8; // Finite fictional encounter supply; no auto-replenishment.
   // Fictional local checkpoint obstacle; open only after responders authorize the route.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:3,h:2.5,type:'container',routeId:'east-checkpoint'});
@@ -109,6 +110,29 @@
     Sim.updateStress(p,t,sprint);
     state.world.elapsed+=t;
     Sim.advanceReload(state.world,t);
+    if(state.phase==='engagement'&&t>0){
+      // Human opponents can orient and advance only after observing a visible player.
+      // They cannot magically know a position behind cover or outside their view.
+      for(const hostile of state.world.bots){
+        if(!hostile.alive)continue;
+        const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
+        if(distance<.001||distance>HOSTILE_ALERT_RANGE||
+          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+        const bearing=Math.atan2(dx,-dz);
+        const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
+        if(Math.abs(delta)>1.1)continue;
+        hostile.angle=Math.atan2(Math.sin(hostile.angle+clamp(delta,-HOSTILE_TURN_RATE*t,HOSTILE_TURN_RATE*t)),
+          Math.cos(hostile.angle+clamp(delta,-HOSTILE_TURN_RATE*t,HOSTILE_TURN_RATE*t)));
+        const anchor=HOSTILE_POSITIONS[hostile.id];
+        const remaining=HOSTILE_CHASE_RADIUS-Math.hypot(hostile.x-anchor.x,hostile.z-anchor.z);
+        if(distance>18&&remaining>0){
+          const move=Math.min(1.6*t,remaining);
+          const vx=Math.sin(hostile.angle)*move/t,vz=-Math.cos(hostile.angle)*move/t;
+          if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8)
+            Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles,.75);
+        }
+      }
+    }
     if(state.phase==='exit'&&state.choice==='verification'&&!wasGateOpen&&gateOpen(state)){
       syncRoute(state);
       state.subtitle='마라(기술자): 현지 구조단이 동쪽 차단물을 치웠다고 확인했어. 이제 통과할 수 있어.';
@@ -264,7 +288,7 @@
         health:p.health,shield:0,charges:p.charges,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation},elapsed:state.world.elapsed,
-      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots}))}};
+      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -311,11 +335,15 @@
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
       c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
-        ![3,4].includes(Object.keys(b).length)||
-        Object.keys(b).some(k=>!['id','health','alive','shots'].includes(k))||
+        ![3,4,6,7].includes(Object.keys(b).length)||
+        Object.keys(b).some(k=>!['id','health','alive','shots','x','z','angle'].includes(k))||
         b.id!==i||!Number.isFinite(b.health)||b.health<0||b.health>90||
         typeof b.alive!=='boolean'||b.alive!==(b.health>0)||
-        (hasOwn(b,'shots')&&(!Number.isInteger(b.shots)||b.shots<0||b.shots>HOSTILE_ROUNDS)))||
+        (hasOwn(b,'shots')&&(!Number.isInteger(b.shots)||b.shots<0||b.shots>HOSTILE_ROUNDS))||
+        (['x','z','angle'].some(k=>hasOwn(b,k))&&
+          (['x','z','angle'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
+           Math.hypot(b.x-HOSTILE_POSITIONS[i].x,b.z-HOSTILE_POSITIONS[i].z)>HOSTILE_CHASE_RADIUS+1e-6||
+           Math.abs(b.angle)>Math.PI+1e-6)))||
       (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
@@ -365,7 +393,8 @@
     state.world.player.reloadHesitation=hasOwn(data.player,'reloadHesitation')?data.player.reloadHesitation:false;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
-    state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0}));
+    state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
+      ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{})}));
     state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
     if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
