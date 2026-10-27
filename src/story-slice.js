@@ -70,7 +70,7 @@
     return candidate;
   }
   function step(state, dt, input={}) {
-    if(state.phase==='complete')return state;
+    if(state.phase==='complete'||state.phase==='failed')return state;
     const t=clamp(Number.isFinite(dt)?dt:0,0,.05),p=state.world.player;
     let ix=Number(!!input.right)-Number(!!input.left);
     let iz=Number(!!input.forward)-Number(!!input.back);
@@ -123,7 +123,8 @@
     return {ok:true,event:'support',shield:state.world.player.shield};
   }
   function interact(state) {
-    if(state.phase==='complete'||state.phase==='failed')return {ok:false,reason:'inactive'};
+    if(state.phase==='complete')return {ok:false,reason:'completed'};
+    if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
     if(marker.id==='terminal'&&state.phase==='terminal'){
