@@ -10,16 +10,19 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
   const match = new TeamMatch({now});
   const send = (res, status, value) => {
     res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'});
+      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+      'Cross-Origin-Resource-Policy': 'same-origin', 'X-Frame-Options': 'DENY'});
     res.end(JSON.stringify(value));
   };
   const readJson = req => new Promise((resolve, reject) => {
     let body = '';
     let tooLarge = false;
+    let bytes = 0;
     req.on('data', chunk => {
       if (tooLarge) return;
+      bytes += chunk.length;
+      if (bytes > 2048) {tooLarge = true;body = '';return;}
       body += chunk;
-      if (body.length > 2048) {tooLarge = true;body = '';}
     });
     req.on('end', () => {
       if (tooLarge) return reject(new RangeError('body_too_large'));
@@ -30,7 +33,15 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
   const server = http.createServer(async (req, res) => {
     try {
       const origin = req.headers.origin;
-      if (origin && new URL(origin).host !== req.headers.host) return send(res, 403, {error: 'cross_origin'});
+      // Scheme, host and port must match; malformed/opaque origins fail closed.
+      if (origin) {
+        try {
+          if (new URL(origin).origin !== new URL('http://' + req.headers.host).origin)
+            return send(res, 403, {error: 'cross_origin'});
+        } catch {
+          return send(res, 403, {error: 'cross_origin'});
+        }
+      }
       const url = new URL(req.url, 'http://localhost');
       if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/team-client.js')) {
         const isScript = url.pathname === '/team-client.js';
@@ -38,6 +49,7 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         const body = await fs.readFile(file);
         res.writeHead(200, {'Content-Type': isScript ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8',
           'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+          'Cross-Origin-Resource-Policy': 'same-origin', 'X-Frame-Options': 'DENY',
           'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'"});
         return res.end(body);
       }
@@ -60,7 +72,8 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       }
       send(res, 404, {error: 'not_found'});
     } catch (err) {
-      send(res, err instanceof RangeError ? 400 : 500, {error: err instanceof RangeError ? err.message : 'internal_error'});
+      send(res, err instanceof RangeError ? (err.message === 'body_too_large' ? 413 : 400) : 500,
+        {error: err instanceof RangeError ? err.message : 'internal_error'});
     }
   });
   let timer;
