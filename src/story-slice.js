@@ -69,7 +69,7 @@
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,world:createWorld(),
       combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 민간 통로만 확인하고, 기록의 진위는 단정하지 마세요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+      subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
     return state;
   }
@@ -268,6 +268,7 @@
     const count=state.found.length;
     return Object.freeze({
       mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
+      command:'이수혁 대위: 한국 측 파견 지휘관의 승인 범위에서 임무 수행 · 현지 통로 개방은 유수프 구조단 결정 · 국정원은 정보 자문',
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
@@ -296,7 +297,7 @@
         health:p.health,shield:0,charges:p.charges,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation},elapsed:state.world.elapsed,
-      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
+      combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -337,10 +338,11 @@
       throw new RangeError('Invalid checkpoint world state');
     const c=data.combat;
     if(!c||typeof c!=='object'||Array.isArray(c)||
-      Object.keys(c).length!==5||
+      ![5,6].includes(Object.keys(c).length)||
       ['started','cleared','supportUsed','nextPulseAt','drones'].some(k=>!hasOwn(c,k))||
       ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
+      (hasOwn(c,'lastShotAt')&&(!Number.isFinite(c.lastShotAt)||c.lastShotAt< -2||c.lastShotAt>data.elapsed))||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
       c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
         ![3,4,6,7].includes(Object.keys(b).length)||
@@ -403,6 +405,10 @@
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
       ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{})}));
+    // Older v2 checkpoints omitted the previous shot time. For an active encounter,
+    // conservatively resume its cooldown rather than granting a free instant shot.
+    state.world.lastTagAt=hasOwn(data.combat,'lastShotAt')?data.combat.lastShotAt:
+      (data.phase==='engagement'?data.elapsed:-2);
     state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
     if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
