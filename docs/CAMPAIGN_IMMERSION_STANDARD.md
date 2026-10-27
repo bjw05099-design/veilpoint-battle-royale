@@ -2,13 +2,13 @@
 
 **Owner requirement, 2026-10-27:** The single-player campaign must aspire to an experience more immersive than a film, **not merely imitate a film's visuals**. This is a mandatory product ambition and **not an achievement claim**. Measure what can actually be tested, gather independent human assessments, and state gaps.
 
-**Binding canon:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md). Twelve chapters / 720 minutes of *authored target* (actual duration unmeasured), Korean special-forces Captain **Seo Jin-hyeok** as playable lead, important fictional NIS agents **Yoon Seo-ha** and **Kang Min-jae**, fictional Middle Eastern conflict across Sahir Coast/Nahrin, dominant combat-first gameplay with variety, and three modes overall (campaign, Operations multiplayer, battle royale).
+**Binding canon:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md). Twelve chapters / 720 minutes of *authored target* (actual duration unmeasured), Korean special-forces Captain **Lee Su-hyeok** as playable lead, important fictional NIS agents **Kim Ji-yun** and **Jo Hyeon-ji**, fictional Middle Eastern conflict across Sahir Coast/Nahrin, dominant combat-first gameplay with variety, and three modes overall (campaign, Operations multiplayer, battle royale).
 
 ## Difference between cinematic appearance and participatory immersion
 
 A film controls every shot; a compelling interactive campaign must remain coherent when the player approaches a scene at an unexpected angle, pauses, changes speed, misses a clue, uses accessibility settings or returns from a checkpoint.
 
-**The intended experience:** You do not merely watch what Captain Seo does—you *are responsible for the next in-game decision*, and the people, city, soundscape and mission state react meaningfully. A spectacular cutscene without corresponding playable consequence does not satisfy this standard.
+**The intended experience:** You do not merely watch what Captain Lee does—you *are responsible for the next in-game decision*, and the people, city, soundscape and mission state react meaningfully. A spectacular cutscene without corresponding playable consequence does not satisfy this standard.
 
 ## Seven non-negotiable pillars
 
@@ -16,7 +16,7 @@ A film controls every shot; a compelling interactive campaign must remain cohere
 2. **Grounded physical presence.** Consistent first-person camera, plausible character height, contact with stairs/doorways/vehicles, responsive input and convincing animation blending. Camera shake/head movement/distortion must be optional, not mandatory for "realism."
 3. **Cohesive visual realism.** Physically consistent materials, lighting and exposure; authored unique streets and architecture, depth, atmospheric conditions, character faces and animations. Lumen/Nanite/TSR are tools, not proof of visual quality. Validate in *moving gameplay*, including dim interiors, dusk/day/night and high-contrast transitions.
 4. **Spatial audiovisual narrative.** Believable dialogue positions and transitions, clear ally/enemy/civilian vocal identity, sound propagation and environmental ambience, dynamic music that responds to narrative tension without overwhelming speech. Subtitles, audio cues and independent volume controls must preserve playability.
-5. **Believable characters with memory and motives.** Captain Seo, NIS characters and local allies should react to the same event consistently across missions, remember limited earlier choices, have their own objectives and avoid constant exposition over gameplay. Provide context for uncertainty instead of omniscient plot messages.
+5. **Believable characters with memory and motives.** Captain Lee, NIS characters and local allies should react to the same event consistently across missions, remember limited earlier choices, have their own objectives and avoid constant exposition over gameplay. Provide context for uncertainty instead of omniscient plot messages.
 6. **Combat-led but varied intensity.** Target ~60–65% of campaign *interactive* runtime as fictional combat/action encounters. Distinct mission goals, environmental reactions, readable feedback, AI credibility and movement variety matter more than uninterrupted repetitive fire or graphic effects. Short quiet stretches serve suspense and connection.
 7. **Technical reliability protects immersion.** Maintain stable frame pacing and low input delay, quality settings and 165 Hz-capable options on supported hardware. Avoid clipping, teleporting NPCs, inconsistent objective prompts, broken checkpoints, intrusive UI, sudden audio cuts and immersion-breaking scene reloads.
 
@@ -45,7 +45,7 @@ No world event should rely solely on a static cinematic that ignores the player'
 ### CH01 (first priority after stable browser demo)
 - [ ] Existing **noncombat** story browser slice remains functional and its characters/canon are consistent.
 - [ ] Add a **playable fictional combat encounter** with game-oriented encounter AI, objective state, accessible feedback and checkpoint/resume; avoid scripting a victory that happens without player engagement.
-- [ ] Captain Seo / NIS ally / Mara dialogue responds to player actions and the mission state, with readable subtitles; do not rely on an uninterruptible transcript.
+- [ ] Captain Lee / NIS ally / Mara dialogue responds to player actions and the mission state, with readable subtitles; do not rely on an uninterruptible transcript.
 - [ ] At least one scripted environmental transition happens **in gameplay** and correctly persists (or deterministically reconstructs) through reload.
 - [ ] First-person camera, audio, UI, reduced-motion options and checkpoint consistency have automated checks where feasible, plus actual human/browser playthrough recording.
 - [ ] Implement an independently testable 5–15-minute vertical slice, **then time actual play**. The existing CH01 preview is not a 50-minute production mission.
