@@ -1,6 +1,6 @@
 # VEILPOINT — 30-day accelerated production plan
 
-Start: 2026-10-27 11:00 Asia/Seoul. The existing automation is configured for **744 hourly attempts**. Work happens at individual scheduled executions, not continuously in between; tool or compute limits can cause an iteration to be blocked.
+Start: 2026-10-27 11:00 Asia/Seoul. The automation began with a 744-run plan but was extended to an **open-ended hourly recurrence**. It runs at scheduled executions, subject to platform/account limits. Work happens at individual scheduled executions, not continuously in between; tool or compute limits can cause an iteration to be blocked.
 
 ## Throughput policy
 
@@ -43,3 +43,8 @@ The target 165FPS corresponds to 6.06ms per frame, but successful implementation
 - Both WebGL2 and Canvas2D paths use the planner; the settings panel displays planned dynamic vertex counts. New unit and renderer integration checks protect behavior.
 - `npm run bench:visibility` reports CPU-only planner time and estimated dynamic vertex reduction; **not** measured GPU FPS or a verified 165Hz display result.
 - P0 next: spatially chunk and cull static world geometry, benchmark on actual GPU, test visual transitions in motion, then validate Unreal Engine C++ on installed UE hardware.
+
+
+## Expanded campaign + multiplayer scope (2026-10-27)
+
+First-month delivery is still an **actually runnable and tested offline browser battle-royale demo**. Prepare original campaign CH01 intro systems (evidence interaction/objective flow, checkpoint, subtitle-friendly UI) if doing so doesn't destabilize the release candidate. For the final game, a fictional Middle Eastern-region war/civil-conflict single-player campaign and real server-authoritative team multiplayer join BR as **required separate pillars**. First native story vertical slice and network client/server prototypes must be objectively tested before any completeness claims. Full roadmap: [Final Release](FINAL_RELEASE_ROADMAP.md); design: [Bible](GAME_DESIGN_BIBLE.md), [Campaign](STORY_CAMPAIGN.md), [Multiplayer](MULTIPLAYER_MODES.md), [Requirements](REQUIREMENTS_MATRIX.md).
