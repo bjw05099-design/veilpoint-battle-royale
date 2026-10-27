@@ -64,7 +64,15 @@ function start(){
  $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
-$('play').addEventListener('click',start);
+// Never silently restart a paused match: the same match resumes only by user action.
+function resumeMatch(){
+ if(!running||!suspended)return;
+ suspended=false;resetInactiveClock();
+ $('overlay').classList.add('hidden');
+ $('mobileControls').classList.toggle('active',isTouch);
+ if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+}
+$('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else start();});
 const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
  if(commands[e.code]){e.preventDefault();input[commands[e.code]]=true;}
@@ -77,14 +85,25 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
 // Background throttling must never simulate hostile fire against an unfocused player.
+function suspendMatch(){
+ if(!running||suspended)return;
+ suspended=true;
+ $('overlay').classList.remove('hidden');
+ $('mobileControls').classList.remove('active');
+ $('play').textContent='이어하기';
+ document.querySelector('.eyebrow').textContent='MATCH PAUSED';
+ document.querySelector('h1').textContent='PAUSED.';
+ document.querySelector('.tagline').textContent='창을 벗어나 경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.';
+ if(document.pointerLockElement===canvas)document.exitPointerLock();
+}
 function resetInactiveClock(){
  for(const k in input)input[k]=false;
  clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();
  updateHud();
 }
-addEventListener('blur',()=>{suspended=true;resetInactiveClock();});
-addEventListener('focus',()=>{if(!document.hidden){suspended=false;resetInactiveClock();}});
-document.addEventListener('visibilitychange',()=>{suspended=!!document.hidden;resetInactiveClock();});
+addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
+addEventListener('focus',resetInactiveClock);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
