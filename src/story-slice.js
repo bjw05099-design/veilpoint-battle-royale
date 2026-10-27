@@ -9,8 +9,13 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
-  const VERSION = 1;
-  const SAVE_LIMIT = 4096;
+  const VERSION = 2;
+  const SAVE_LIMIT = 8192;
+  const DRONE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
+  function makeDrones(disabled=false) {
+    return DRONE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
+      alive:!disabled,angle:0,moveTime:999,actionTime:999,skill:0,tags:0}));
+  }
   const INTERACT_RADIUS = 4;
   const POINTS = Object.freeze({
     terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'charge', label:'시민 중계기'}),
@@ -24,7 +29,7 @@
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
     recordB: Object.freeze({title:'대피소 수신 기록', time:'04:07', text:'해안도로의 통신 두절을 이미 다섯 분 전에 보고했다.'})
   });
-  const phases = ['terminal','records','decision','exit','complete'];
+  const phases = ['terminal','engagement','records','decision','exit','complete','failed'];
   const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
   function createWorld() {
@@ -37,6 +42,7 @@
   }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
+      combat:{started:false,cleared:false,supportUsed:false,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 나흐린의 중계망이 멈췄어요. 끊어진 신호를 함께 확인해요.',message:'CH01 / 마지막 방송'};
     syncMarkers(state);
     return state;
@@ -75,16 +81,57 @@
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles);
     p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
     state.world.elapsed+=t;
+    if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
+      state.combat.nextPulseAt=state.world.elapsed+3;
+      const threats=state.world.bots.filter(b=>b.alive&&
+        Math.hypot(b.x-p.x,b.z-p.z)<48&&
+        !Sim.lineBlocked(b.x,b.z,p.x,p.z,state.world.obstacles));
+      if(threats.length)Sim.receiveDamage(state.world,Math.min(12,threats.length*4));
+      if(state.world.status==='lost'){
+        state.phase='failed';
+        state.subtitle='김지윤(국정원): 신호가 끊겼습니다. 체크포인트에서 다시 시도하세요.';
+        state.message='임무 중단 · 메뉴에서 다시 시작';
+      }
+    }
     return state;
   }
+  // Fictional, non-graphic arcade encounter using the same tested ray-tag rules as offline BR.
+  function fire(state) {
+    if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
+    const result=Sim.tag(state.world);
+    if(!result.ok)return result;
+    if(result.elimination){
+      const remaining=state.world.bots.filter(b=>b.alive).length;
+      state.subtitle='조현지(국정원): 교란 신호 '+(3-remaining)+'/3 차단. 경로를 확보하고 있어요.';
+      state.message='신호 교란 드론 '+remaining+'기 남음';
+      if(remaining===0){
+        state.phase='records';state.combat.cleared=true;
+        state.subtitle='조현지(국정원): 교란이 사라졌습니다. 중계 기록을 확인할 수 있어요.';
+        state.message='교란 해제 · 기록 확인은 선택 사항';
+        syncMarkers(state);
+      }
+    }
+    return {...result,phase:state.phase,remaining:state.world.bots.filter(b=>b.alive).length};
+  }
+  function support(state) {
+    if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
+    if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
+    state.combat.supportUsed=true;
+    state.world.player.shield=Math.min(100,state.world.player.shield+40);
+    state.subtitle='김지윤(국정원): 보호 신호를 한 번 연결했습니다. 조현지가 중계 경로를 확인 중입니다.';
+    state.message='동료 지원 사용 · 보호막 '+Math.round(state.world.player.shield);
+    return {ok:true,event:'support',shield:state.world.player.shield};
+  }
   function interact(state) {
-    if(state.phase==='complete')return {ok:false,reason:'completed'};
+    if(state.phase==='complete'||state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
     if(marker.id==='terminal'&&state.phase==='terminal'){
-      state.phase='records';
-      state.subtitle='마라(기술자): 중계기는 살아 있어. 항구와 대피소의 기록이 서로 다른 시각을 가리켜.';
-      state.message='중계기 연결 완료 · 기록 확인은 선택 사항';
+      state.phase='engagement';state.combat.started=true;
+      state.combat.nextPulseAt=state.world.elapsed+3;
+      state.world.bots=makeDrones();
+      state.subtitle='조현지(국정원): 중계기 주변에 가상 교란 드론 세 기가 활성화됐어요. 신호를 차단해 주세요.';
+      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 동료 지원';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -130,6 +177,8 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
+      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 지원(1회).';
+      case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
@@ -143,7 +192,9 @@
   function snapshot(state) {
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
-      player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina},elapsed:state.world.elapsed};
+      player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
+        health:p.health,shield:p.shield,charges:p.charges},elapsed:state.world.elapsed,
+      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -152,21 +203,41 @@
       !data.player||typeof data.player!=='object'||Array.isArray(data.player))
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
-    const expectedKeys=['version','phase','found','choice','player','elapsed'];
+    const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length!==expectedKeys.length||
       Object.keys(data).some(k=>!expectedKeys.includes(k)))
       throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
-    const playerKeys=['x','z','yaw','pitch','stamina'];
+    const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     if(Object.keys(p).length!==playerKeys.length||
       Object.keys(p).some(k=>!playerKeys.includes(k)))
       throw new RangeError('Unknown player checkpoint fields');
-    for(const k of ['x','z','yaw','pitch','stamina'])
+    for(const k of playerKeys)
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
-      p.stamina<0||p.stamina>100||p.pitch<-.34||p.pitch>.36||
+      p.stamina<0||p.stamina>100||p.health<0||p.health>100||
+      p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>60||
+      p.pitch<-.34||p.pitch>.36||
       Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,Sim.newMatch(20261027,0).obstacles))
       throw new RangeError('Invalid checkpoint world state');
+    const c=data.combat;
+    if(!c||typeof c!=='object'||Array.isArray(c)||
+      Object.keys(c).length!==5||
+      ['started','cleared','supportUsed','nextPulseAt','drones'].some(k=>!hasOwn(c,k))||
+      ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
+      !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
+      !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
+      c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
+        Object.keys(b).length!==3||b.id!==i||!Number.isFinite(b.health)||
+        b.health<0||b.health>90||typeof b.alive!=='boolean'||b.alive!==(b.health>0))||
+      (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.nextPulseAt!==0))||
+      (data.phase!=='terminal'&&!c.started)||
+      (['engagement','failed'].includes(data.phase)&&c.cleared)||
+      (['records','decision','exit','complete'].includes(data.phase)&&!c.cleared)||
+      (c.cleared&&c.drones.some(b=>b.alive))||
+      (data.phase==='failed'&&p.health!==0)||
+      (data.phase!=='failed'&&p.health===0))
+      throw new RangeError('Invalid combat checkpoint');
     if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
@@ -178,20 +249,38 @@
     const data=snapshot(state);validateSnapshot(data);
     return JSON.stringify(data);
   }
+  function upgradeLegacy(data) {
+    if(!data||data.version!==1)return data;
+    const keys=['version','phase','found','choice','player','elapsed'];
+    if(Object.keys(data).length!==keys.length||keys.some(k=>!hasOwn(data,k))||
+      !data.player||typeof data.player!=='object'||Array.isArray(data.player)||
+      Object.keys(data.player).length!==5||
+      ['x','z','yaw','pitch','stamina'].some(k=>!hasOwn(data.player,k)))
+      throw new RangeError('Invalid legacy checkpoint');
+    const started=data.phase!=='terminal';
+    return {...data,version:VERSION,
+      player:{...data.player,health:100,shield:80,charges:48},
+      combat:{started,cleared:started,supportUsed:false,nextPulseAt:0,
+        drones:started?makeDrones(true).map(b=>({id:b.id,health:0,alive:false})):[]}};
+  }
   function restore(json) {
     if(typeof json!=='string'||json.length>SAVE_LIMIT)throw new TypeError('Invalid checkpoint save');
-    const data=JSON.parse(json);validateSnapshot(data);
+    const data=upgradeLegacy(JSON.parse(json));validateSnapshot(data);
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
-    for(const key of ['x','z','yaw','pitch','stamina'])state.world.player[key]=data.player[key];
+    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=data.player[key];
+    state.combat={started:data.combat.started,cleared:data.combat.cleared,
+      supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
+    state.world.bots=data.combat.drones.map((b,i)=>({...makeDrones()[i],health:b.health,alive:b.alive}));
     state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
+    if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
     state.subtitle='체크포인트를 불러왔습니다. '+objective(state);
     state.message='CH01 / 이어하기';
     return syncMarkers(state);
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,createState,step,markers,nearest,interact,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,createState,step,markers,nearest,interact,fire,support,choose,
     objective,backToRecords,serialize,restore,validateSnapshot
   });
 });
