@@ -1,9 +1,9 @@
-# VEILPOINT v1.4 — survival battle royale development prototype
+# VEILPOINT — Battle Royale + Story CH01 browser prototypes
 
 > **Status (2026-10-27): playable browser prototype + uncompiled UE5.8 source scaffold.**
 > No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
 
-VEILPOINT is an original first-person *survival* battle royale prototype. The combat interaction in the browser prototype is a fictional, non-lethal tagging system. The project has no account system, telemetry, external assets, analytics or dependency downloads.
+VEILPOINT is a developing original first-person game with **three required final modes**: story campaign (~12h authored target), online team multiplayer, and battle royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The combat interaction in the BR prototype is a fictional, non-lethal tagging system. The project has no account system, telemetry, external assets, analytics or dependency downloads.
 
 ## Quick start
 
@@ -14,6 +14,19 @@ python3 -m http.server 8080
 ```
 
 Then open `http://localhost:8080` in your browser. The 3D WebGL2 renderer has a Canvas2D software fallback for browsers or environments without WebGL2. Desktop: WASD movement, mouse look, left click to tag, SHIFT sprint, C crouch, E collect resources. iPad/touch devices: thumbstick, drag-to-look and on-screen action buttons. ESC unlocks pointer. If focus is lost, keyboard movement resets.
+
+
+### Playable CH01 story preview (new 2026-10-27)
+
+Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on the `index.html` landing menu. This is a short, original **first-person 3D browser mission** in the fictional Nahrin / Sahir Coast setting, *not* the finished 12-hour campaign.
+
+- **Playable path:** move to the relay terminal (gold marker) → press **E** → optionally investigate harbor/shelter records → approach the central decision console → choose immediate evacuation or (after both records) an alternative verification route → follow the color-coded destination → press **E** to finish. The main exit remains available even if clues are skipped.
+- **Story identity:** Signal Echo records show inconsistent times (04:12 vs 04:07); collecting both opens an alternative route. All writing and scene elements are fictional and original.
+- **Controls:** WASD / arrow keys move, mouse to look, SHIFT sprint, C crouch, E interact, ESC pause. Touch screens: drag the 3D view, directional pad, investigate and sprint buttons. Route choice can use on-screen buttons or number keys 1/2.
+- **Accessibility:** readable Korean captions, non-audio-dependent objectives, reduced-motion setting, visible objective markers and optional evidence. Story progress auto-saves to **localStorage** after interactions and can resume from the last saved interaction. BR and campaign progress are isolated; campaign choices do not change online competitiveness.
+- **Graphics:** uses the same renderer and persisted graphics presets as the BR prototype, with independent fixed **60 Hz** gameplay simulation and a selectable render cap. Browser 165 FPS/monitor performance is **not** validated.
+- **Tests:** `npm run verify` now checks both story source files and runs `tests/story-slice.test.cjs` with the existing deterministic test suite. GitHub Actions artifact includes `story.html`.
+- **Limitations:** no voice acting, native Unreal compilation, production photoreal assets, full CH01 cinematic scope, online multiplayer, actual 12h playtime or real browser hardware QA evidence yet. Browser launch and WebGL/Canvas2D rendering still require hands-on smoke testing.
 
 ### Current gameplay features
 
@@ -41,10 +54,7 @@ To make a full fidelity edition:
 ## Tests
 
 ```bash
-node --test tests/*.test.cjs
-node --check src/simulation.js
-node --check src/renderer.js
-node --check src/app.js
+npm run verify
 ```
 
 `npm install` is not required. All tests are offline. Browser GPU rendering must be checked on a WebGL2-capable device. The CI does **not** compile UE C++; Unreal build tests require licensed/installed engine runners.
