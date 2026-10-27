@@ -81,3 +81,54 @@ test('same command stream produces identical deterministic round state', () => {
   };
   assert.deepEqual(play(), play());
 });
+
+test('server-owned cover blocks movement and prevents enemy location disclosure through walls', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = -4; a.z = 6; b.x = 4; b.z = 6;
+  assert.equal(m.snapshot('a').cover.length, 2);
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red']);
+  m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  for (let i = 0; i < 120; i++) m.step();
+  assert.ok(a.x > -4 && a.x <= -2.05 + 1e-8, 'player radius cannot cross cover');
+  b.x = -4; b.z = 0;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+});
+
+test('capture interruption resets partial score rather than banking an instant point', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 8;
+  m.command('a', {seq: 2, type: 'capture', active: true});
+  for (let i = 0; i < 90; i++) m.step();
+  assert.ok(m.progress.red > 1.4);
+  b.x = 0;
+  m.step();
+  assert.equal(m.progress.red, 0, 'contested progress resets');
+  b.x = 8;
+  for (let i = 0; i < 30; i++) m.step();
+  assert.equal(m.score.red, 0, 'cannot score from previously banked progress');
+  m.command('a', {seq: 3, type: 'capture', active: false});
+  m.step();
+  assert.equal(m.progress.red, 0, 'releasing capture resets');
+  m.command('a', {seq: 4, type: 'capture', active: true});
+  for (let i = 0; i < 120; i++) m.step();
+  assert.equal(m.score.red, 1);
+});
+
+test('read-only state polling does not renew a dead session; validated heartbeat does', () => {
+  const stale = setup();
+  stale.setNow(29999);
+  stale.m.snapshot('a'); stale.m.snapshot('b');
+  stale.setNow(30001);
+  stale.m.step();
+  assert.equal(stale.m.reason, 'connection_timeout');
+  const live = setup();
+  live.setNow(25000);
+  live.m.command('a', {seq: 2, type: 'heartbeat'});
+  live.m.command('b', {seq: 2, type: 'heartbeat'});
+  assert.throws(() => live.m.command('a', {seq: 2, type: 'heartbeat'}), /invalid_sequence/);
+  live.setNow(35000);
+  live.m.step();
+  assert.equal(live.m.phase, 'playing');
+});

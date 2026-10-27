@@ -47,6 +47,12 @@
     const point = (x,z) => ({x:250+x*9.5,y:250+z*9.5});
     ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;ctx.beginPath();ctx.arc(250,250,25,0,Math.PI*2);ctx.stroke();
     if (!state) return;
+    // Server-authored cover is shown in both views; opponents behind it stay hidden.
+    ctx.fillStyle = '#677b79';
+    for (const wall of state.cover || []) {
+      const topLeft = point(wall.x - wall.w / 2, wall.z - wall.d / 2);
+      ctx.fillRect(topLeft.x, topLeft.y, wall.w * 9.5, wall.d * 9.5);
+    }
     for (const p of state.visible) {
       const pos = point(p.x,p.z);
       ctx.fillStyle = p.team === 'red' ? '#e58b84' : '#8abcf2';
@@ -88,6 +94,8 @@
   }
   el('capture').addEventListener('pointerdown', e => {e.preventDefault();setCapture(true);});
   for (const event of ['pointerup','pointercancel','pointerleave']) el('capture').addEventListener(event, () => setCapture(false));
+  // A genuine connected client renews its server lease independently of read-only polling.
+  setInterval(() => {if (token) void send('heartbeat');}, 10000);
   setInterval(async () => {
     if (!token) return;
     try {state = await request('/state');render();updateInput();}

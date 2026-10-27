@@ -45,3 +45,30 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
     assert.equal(result.score.blue, 0);
   } finally {await server.close();}
 });
+
+test('HTTP heartbeat renews the authoritative lease while state reads do not', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (path, body, token) => {
+    const response = await fetch(base + path, {method: 'POST', headers: {
+      'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})
+    }, body: JSON.stringify(body)});
+    return {status: response.status, body: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'A'})).body;
+    const b = (await post('/join', {name: 'B'})).body;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    now = 25000;
+    assert.equal((await fetch(base + '/state', {headers: {'x-player-token': a.token}})).status, 200);
+    assert.equal((await post('/command', {seq: 2, type: 'heartbeat'}, a.token)).status, 200);
+    assert.equal((await post('/command', {seq: 2, type: 'heartbeat'}, b.token)).status, 200);
+    now = 35000; server.match.step();
+    assert.equal(server.match.phase, 'playing');
+    now = 56000; server.match.step();
+    assert.equal(server.match.reason, 'connection_timeout');
+  } finally {await server.close();}
+});

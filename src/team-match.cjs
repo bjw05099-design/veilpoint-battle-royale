@@ -1,12 +1,20 @@
 'use strict';
 // VEILPOINT / original, offline-first two-client authoritative objective prototype.
 // Pure 60 Hz rules. Not a production FPS netcode or public internet service.
+const {moveEntity, lineBlocked} = require('./simulation.js');
 const STEP = 1 / 60;
 const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
 const MAX_PLAYERS = 2;
+// Shared grounded geometry: the server owns cover, collision and visibility.
+// Clear central access keeps the original two-player capture route playable.
+const COVER = Object.freeze([
+  Object.freeze({x: 0, z: 6, w: 3, d: 1.5}),
+  Object.freeze({x: 0, z: -6, w: 3, d: 1.5})
+]);
+const PLAYER_RADIUS = 0.55;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
@@ -47,7 +55,7 @@ class TeamMatch {
     const keys = Object.keys(data);
     const expected = data.type === 'move' ? ['seq', 'type', 'direction'] :
       data.type === 'capture' ? ['seq', 'type', 'active'] :
-      data.type === 'ready' || data.type === 'leave' ? ['seq', 'type'] : null;
+      data.type === 'ready' || data.type === 'leave' || data.type === 'heartbeat' ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
     if (data.type === 'move' && !validDirection(data.direction)) throw new RangeError('invalid_direction');
@@ -61,6 +69,8 @@ class TeamMatch {
       if (this.phase === 'playing') this.finish(p.team === 'red' ? 'blue' : 'red', 'player_left');
       return {ok: true};
     }
+    // State polling cannot keep a disconnected/abandoned player active forever.
+    if (data.type === 'heartbeat') return {ok: true};
     if (data.type === 'ready') {
       if (this.phase !== 'playing') {
         p.ready = true;
@@ -107,13 +117,20 @@ class TeamMatch {
         this.finish(p.team === 'red' ? 'blue' : 'red', 'connection_timeout');
         return;
       }
-      p.x = clamp(p.x + p.direction.x * SPEED * STEP, -24, 24);
-      p.z = clamp(p.z + p.direction.z * SPEED * STEP, -24, 24);
+      moveEntity(p, p.direction.x * SPEED, p.direction.z * SPEED, STEP, COVER, PLAYER_RADIUS);
+      p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
+      p.z = clamp(p.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
     }
     const nearby = [...this.players.values()].filter(p => Math.hypot(p.x, p.z) <= CAPTURE_RADIUS);
     const teams = new Set(nearby.map(p => p.team));
-    if (teams.size !== 1 || !nearby.some(p => p.capturing)) return; // Presence contests even without capturing.
+    // An interrupted capture must restart; stored partial progress is exploitable.
+    if (teams.size !== 1 || !nearby.some(p => p.capturing)) {
+      this.progress.red = 0;
+      this.progress.blue = 0;
+      return;
+    }
     const team = nearby[0].team;
+    this.progress[team === 'red' ? 'blue' : 'red'] = 0;
     this.progress[team] += STEP;
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
       this.score[team]++;
@@ -124,14 +141,14 @@ class TeamMatch {
   snapshot(token) {
     const me = this.players.get(token);
     if (!me) throw new RangeError('unknown_player');
-    me.lastSeen = this.now();
     const visible = [...this.players.values()].filter(p => p === me ||
-      (Math.hypot(p.x - me.x, p.z - me.z) <= 14));
+      (Math.hypot(p.x - me.x, p.z - me.z) <= 14 &&
+        !lineBlocked(me.x, me.z, p.x, p.z, COVER)));
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
-      objective: {x: 0, z: 0, radius: CAPTURE_RADIUS},
+      objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER,
       self: {id: me.id, team: me.team, x: me.x, z: me.z, ready: me.ready, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
   }
 }
-module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE};
+module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER};
