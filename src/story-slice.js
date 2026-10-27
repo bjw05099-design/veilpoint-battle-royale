@@ -11,10 +11,12 @@
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   const VERSION = 2;
   const SAVE_LIMIT = 8192;
-  const DRONE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
-  function makeDrones(disabled=false) {
-    return DRONE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
-      alive:!disabled,angle:0,moveTime:999,actionTime:999,skill:0,tags:0}));
+  const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
+  const HOSTILE_ROUNDS = 12; // Finite fictional encounter supply; no auto-replenishment.
+  function makeHostiles(disabled=false) {
+    return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
+      alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
+      shots:disabled?HOSTILE_ROUNDS:0}));
   }
   const INTERACT_RADIUS = 4;
   const POINTS = Object.freeze({
@@ -84,23 +86,31 @@
     state.world.elapsed+=t;
     Sim.advanceReload(state.world,t);
     if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
+      // Legacy checkpoint key nextPulseAt now schedules a grounded, finite hostile volley.
       state.combat.nextPulseAt=state.world.elapsed+3;
-      const threats=state.world.bots.filter(b=>b.alive&&
-        Math.hypot(b.x-p.x,b.z-p.z)<48&&
-        !Sim.lineBlocked(b.x,b.z,p.x,p.z,state.world.obstacles));
-      if(threats.length){
-        p.health=clamp(p.health-Math.min(12,threats.length*4),0,100);
-        if(p.health===0){p.alive=false;state.world.status='lost';}
+      for(const hostile of state.world.bots){
+        if(!hostile.alive||hostile.shots>=HOSTILE_ROUNDS)continue;
+        const distance=Math.hypot(hostile.x-p.x,hostile.z-p.z);
+        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,state.world.obstacles))continue;
+        const bearing=Math.atan2(p.x-hostile.x,-(p.z-hostile.z));
+        const facing=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
+        if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
+        hostile.shots++;
+        state.world.effects.push({x:hostile.x,z:hostile.z,t:0.28,type:'hostile'});
+        p.health=clamp(p.health-4,0,100);
+        if(p.health===0){
+          p.alive=false;state.world.status='lost';break;
+        }
       }
       if(state.world.status==='lost'){
         state.phase='failed';
-        state.subtitle='김지윤(국정원): 신호가 끊겼습니다. 체크포인트에서 다시 시도하세요.';
+        state.subtitle='김지윤(국정원): 교전이 중단됐습니다. 체크포인트에서 다시 시도하세요.';
         state.message='임무 중단 · 메뉴에서 다시 시작';
       }
     }
     return state;
   }
-  // Fictional, non-graphic arcade encounter using the same tested ray-tag rules as offline BR.
+  // Fictional, non-graphic hitscan encounter; finite ammunition and sight-gated hostile response.
   function fire(state) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     // Finite carried supply: no spontaneous ammunition or charge generation.
@@ -120,12 +130,12 @@
     }
     if(result.elimination){
       const remaining=state.world.bots.filter(b=>b.alive).length;
-      state.subtitle='조현지(국정원): 교란 신호 '+(3-remaining)+'/3 차단. 경로를 확보하고 있어요.';
-      state.message='신호 교란 드론 '+remaining+'기 남음';
+      state.subtitle='조현지(국정원): 위협 인원 '+(3-remaining)+'/3 차단. 경로를 확보하고 있어요.';
+      state.message='무장 대치자 '+remaining+'기 남음';
       if(remaining===0){
         state.phase='records';state.combat.cleared=true;
-        state.subtitle='조현지(국정원): 교란이 사라졌습니다. 중계 기록을 확인할 수 있어요.';
-        state.message='교란 해제 · 기록 확인은 선택 사항';
+        state.subtitle='조현지(국정원): 위협이 사라졌습니다. 중계 기록을 확인할 수 있어요.';
+        state.message='안전 확보 · 기록 확인은 선택 사항';
         syncMarkers(state);
       }
     }
@@ -148,9 +158,9 @@
     if(marker.id==='terminal'&&state.phase==='terminal'){
       state.phase='engagement';state.combat.started=true;
       state.combat.nextPulseAt=state.world.elapsed+3;
-      state.world.bots=makeDrones();
-      state.subtitle='조현지(국정원): 중계기 주변에 가상 교란 드론 세 기가 활성화됐어요. 신호를 차단해 주세요.';
-      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 상황 보고';
+      state.world.bots=makeHostiles();
+      state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
+      state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -196,7 +206,7 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, R 재장전, Q 동료 상황 보고(1회).';
+      case 'engagement':return '무장 대치자 3명을 제압해 안전을 확보하세요. 클릭/SPACE 발사, R 재장전, Q 동료 상황 보고(1회).';
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -214,7 +224,7 @@
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,shield:0,charges:p.charges,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining},elapsed:state.world.elapsed,
-      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive}))}};
+      combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -253,8 +263,11 @@
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
       c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
-        Object.keys(b).length!==3||b.id!==i||!Number.isFinite(b.health)||
-        b.health<0||b.health>90||typeof b.alive!=='boolean'||b.alive!==(b.health>0))||
+        ![3,4].includes(Object.keys(b).length)||
+        Object.keys(b).some(k=>!['id','health','alive','shots'].includes(k))||
+        b.id!==i||!Number.isFinite(b.health)||b.health<0||b.health>90||
+        typeof b.alive!=='boolean'||b.alive!==(b.health>0)||
+        (hasOwn(b,'shots')&&(!Number.isInteger(b.shots)||b.shots<0||b.shots>HOSTILE_ROUNDS)))||
       (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
@@ -286,7 +299,7 @@
     return {...data,version:VERSION,
       player:{...data.player,health:100,shield:0,charges:48},
       combat:{started,cleared:started,supportUsed:false,nextPulseAt:0,
-        drones:started?makeDrones(true).map(b=>({id:b.id,health:0,alive:false})):[]}};
+        drones:started?makeHostiles(true).map(b=>({id:b.id,health:0,alive:false,shots:HOSTILE_ROUNDS})):[]}};
   }
   function restore(json) {
     if(typeof json!=='string'||json.length>SAVE_LIMIT)throw new TypeError('Invalid checkpoint save');
@@ -299,7 +312,7 @@
     state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
-    state.world.bots=data.combat.drones.map((b,i)=>({...makeDrones()[i],health:b.health,alive:b.alive}));
+    state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0}));
     state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
     if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
