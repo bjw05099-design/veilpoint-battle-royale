@@ -1,0 +1,72 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const Sim=require('../src/simulation.js');
+const Story=require('../src/story-slice.js');
+const ids=['carbine','compact','marksman'];
+test('three original firearm profiles have distinct finite loadouts and reject unknown IDs',()=>{
+ assert.deepEqual(Object.keys(Sim.FIREARMS),ids);
+ assert.throws(()=>Sim.newMatch(1,0,'__proto__'),RangeError);
+ for(const id of ids){
+  const profile=Sim.FIREARMS[id],g=Sim.newMatch(1,0,id);
+  assert.equal(g.player.weaponId,id);
+  assert.equal(g.player.loaded,profile.magazine);
+  assert.equal(g.player.charges,profile.initialRounds);
+  assert.ok(g.player.maxCharges>=g.player.charges);
+  assert.ok(Object.isFrozen(profile));
+ }
+});
+test('class-specific shot damage, cadence and finite magazines do not leak ammunition',()=>{
+ for(const id of ids){
+  const profile=Sim.FIREARMS[id],g=Sim.newMatch(4,1,id);
+  g.status='playing';g.player.x=0;g.player.z=0;g.player.yaw=0;
+  const b=g.bots[0];b.x=0;b.z=-20;b.health=100;
+  const shot=Sim.tag(g);assert.equal(shot.ok,true);assert.equal(shot.hit,true);
+  assert.equal(b.health,100-profile.damage);
+  assert.equal(g.player.loaded,profile.magazine-1);
+  assert.equal(g.player.charges,profile.initialRounds-1);
+  assert.equal(Sim.tag(g).reason,'cooldown');
+  g.elapsed+=profile.fireInterval+1/60;
+  assert.equal(Sim.tag(g).ok,true);
+  assert.equal(g.player.charges,profile.initialRounds-2);
+ }
+});
+test('all class reloads conserve rounds, enforce own magazine size and stress assist',()=>{
+ for(const id of ids){
+  const profile=Sim.FIREARMS[id],g=Sim.newMatch(8,1,id);
+  g.status='playing';const p=g.player;
+  p.loaded=1;p.charges=profile.magazine+2;p.stress=90;
+  const result=Sim.reload(g);
+  assert.equal(result.duration,profile.reloadSeconds+Sim.RELOAD_HESITATION_SECONDS);
+  assert.equal(result.hesitation,true);
+  assert.equal(Sim.tag(g).reason,'reloading');
+  for(let i=0;i<250;i++)Sim.advanceReload(g,1/60);
+  assert.equal(p.loaded,profile.magazine);
+  assert.equal(p.charges,profile.magazine+2);
+  p.loaded=1;Sim.setReloadAssist(g,true);
+  const assisted=Sim.reload(g);
+  assert.equal(assisted.hesitation,false);
+  assert.equal(assisted.duration,profile.reloadSeconds);
+  for(let i=0;i<250;i++)Sim.advanceReload(g,1/60);
+  assert.equal(p.charges,profile.magazine+2);
+ }
+});
+test('class movement differences are deterministic at fixed 60Hz and obey collisions',()=>{
+ const results=[];
+ for(const id of ids){
+  const a=Sim.newMatch(91,1,id),b=Sim.newMatch(91,1,id);
+  a.status=b.status='playing';
+  for(let i=0;i<60;i++){Sim.tick(a,1/60,{forward:true});Sim.tick(b,1/60,{forward:true});}
+  assert.equal(a.player.z,b.player.z);
+  results.push(a.player.z);
+ }
+ assert.ok(results[1]<results[0]&&results[0]<results[2]);
+});
+test('CH01 default carbine and its checkpoint format remain unchanged',()=>{
+ const s=Story.createState(),p=s.world.player;
+ assert.equal(p.weaponId,'carbine');
+ assert.equal(p.loaded,Sim.MAGAZINE_SIZE);
+ const restored=Story.restore(Story.serialize(s));
+ assert.equal(restored.world.player.weaponId,'carbine');
+ assert.equal(Story.serialize(restored),Story.serialize(s));
+});

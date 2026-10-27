@@ -163,3 +163,25 @@ test('graphics presets persist across BR UI restarts without changing the 60Hz s
   next.frame(1000 / 60);
   assert.equal(next.game.status, 'playing');
 });
+
+test('BR loadout selection persists across restarts and changes gameplay class',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('weaponClass').value='compact';
+ app.node('weaponClass').dispatch('change');
+ assert.equal(store.get('veilpoint.weaponClass'),'compact');
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.player.weaponId,'compact');
+ assert.equal(app.game.player.loaded,18);
+ assert.equal(app.node('weaponName').textContent,'COMPACT');
+ app.context.VeilpointSim.receiveDamage(app.game,100);app.frame(2000/60);
+ app.node('weaponClass').value='marksman';
+ app.node('weaponClass').dispatch('change');
+ app.node('play').click();app.frame(3000/60);
+ assert.equal(app.game.player.weaponId,'marksman');
+ assert.equal(app.game.player.loaded,8);
+ const next=boot({store});
+ assert.equal(next.node('weaponClass').value,'marksman');
+ next.node('weaponClass').value='invalid';
+ next.node('weaponClass').dispatch('change');
+ assert.equal(next.node('weaponClass').value,'carbine');
+});
