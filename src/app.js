@@ -61,7 +61,7 @@ const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
- $('mobileControls').classList.toggle('active',isTouch);last=performance.now();
+ $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
 $('play').addEventListener('click',start);
