@@ -1,12 +1,12 @@
 # VEILPOINT — 12-hour campaign & original multiplayer direction
 
-**Date:** 2026-10-27. **Status:** approved creative/production target; **not a playable 12-hour campaign**. This document adds to the existing [final roadmap](FINAL_RELEASE_ROADMAP.md), [vision](PROJECT_VISION.md), and [one-month demo gates](DEMO_DELIVERY_GATES.md); it does not replace them.
+**Date:** 2026-10-27. **Canon:** Sahir Coast / Nahrin; Mara Dahan, Yusuf Rahal, Samir Qadir, Nadia Faris. Earlier 8-chapter concepts are subsumed into this 12-chapter target. **Status:** approved creative/production target; **not a playable 12-hour campaign**. This document adds to the existing [final roadmap](FINAL_RELEASE_ROADMAP.md), [vision](PROJECT_VISION.md), and [one-month demo gates](DEMO_DELIVERY_GATES.md); it does not replace them.
 
 ## Unified game identity
 
 **Genre:** original photorealism-oriented first-person action experience with (1) **Story Campaign**, (2) **Multiplayer Operations** (team-based), and (3) **Battle Royale / Extraction-adjacent survival events**. Campaign and online modes share a grounded fictional world, movement, visual language, audio, systems and performance settings, but feature different pacing and fairness rules.
 
-**Central hook — THE SIGNAL / 잔향 지도:** In the fictional Middle Eastern coastal federation **아자르 연방 (Azar Federation)**, a protracted civil conflict collides with the collapse of the civil communication grid. The player can reconstruct *limited, fallible* traces of lost broadcasts, sensor logs and civilian witness accounts to discover changing routes, verify misinformation and reveal hidden map history. The system is **not magic, mind-reading or a real-world signal exploitation tutorial**; treat it as a readable, fictional investigation-and-level-state mechanic. Clues matter because they change the next playable **route, objective, support, timed map event or ally response**, not because players are forced to read walls of text.
+**Central hook — THE SIGNAL / 잔향 지도:** In the fictional Middle Eastern **사히르 연안 (Sahir Coast)**, a protracted civil conflict collides with the collapse of the civil communication grid. The player can reconstruct *limited, fallible* traces of lost broadcasts, sensor logs and civilian witness accounts to discover changing routes, verify misinformation and reveal hidden map history. The system is **not magic, mind-reading or a real-world signal exploitation tutorial**; treat it as a readable, fictional investigation-and-level-state mechanic. Clues matter because they change the next playable **route, objective, support, timed map event or ally response**, not because players are forced to read walls of text.
 
 **Core distinction:** The map has **two simultaneous layers**: the visible immediate environment and a dated, imperfect account of what happened there. The game's dynamic objective network gives combat/movement, investigation and environment interaction a coherent narrative reason; optional traces reward attention while the main mission never soft-locks on a clue hunt.
 
@@ -25,7 +25,7 @@ Avoid a feature soup: **only share systems when they improve all modes** and oth
 
 ## Campaign narrative premise
 
-In the autonomous cities of the Azar Federation, a ceasefire breaks down just as the **Lattice** civilian communications backbone goes dark. Rival authorities claim conflicting responsibility. The player follows **나딤 사헬 (Nadim Sahel)**, an emergency-route liaison temporarily embedded with a multinational observation group, and **라일라 하디드 (Layla Hadid)**, a regional systems reporter. A small group of civilians, mechanics, relief personnel and commanders are fully realised voices, not generic props. Across desert transit belts, the coastal capital, mountain relays and a damaged port, seemingly contradictory transmissions reveal that the fracture is being amplified by a system intended to save lives. No faction is written as intrinsically heroic or villainous based on nationality or religion.
+In the fictional Sahir Coast city of Nahrin and its surrounding districts, a ceasefire breaks down just as the **VEILPOINT** civic archive and communications backbone goes dark. Rival authorities claim conflicting responsibility. The player follows **마라 다한 (Mara Dahan)**, a municipal communications engineer, **유수프 라할 (Yusuf Rahal)**, a civilian emergency coordinator, and **나디아 파리스 (Nadia Faris)**, an independent broadcaster. A small group of civilians, mechanics, relief personnel and commanders are fully realised voices, not generic props. Across desert transit belts, the coastal capital, mountain relays and a damaged port, seemingly contradictory transmissions reveal that the fracture is being amplified by a system intended to save lives. No faction is written as intrinsically heroic or villainous based on nationality or religion.
 
 **Dramatic escalation:** local rescue / unreliable orders → contested routes → city-scale blackout → divided loyalties → a public truth that can be revealed imperfectly → final evacuation with lasting consequences. Consequences affect scene state, relationships and the epilogue; avoid fake choices where nothing changes.
 
@@ -35,7 +35,7 @@ A **12-hour expected playtime is an authored target**, not content currently imp
 
 | # | Mission | Target min | Distinct playable fantasy | Signature twist / decision |
 |---:|---|---:|---|---|
-| 01 | 정전의 새벽 / The First Blackout | 50 | coastal night arrival, first-person navigation, collapsing communications | evacuation guide conflicts with live route markers |
+| 01 | 정전의 새벽 / The Last Broadcast | 50 | coastal night arrival, first-person navigation, collapsing communications | evacuation guide conflicts with live route markers |
 | 02 | 두 개의 지도 / Two Maps | 55 | high-speed convoy protection and dynamic roadblocks | date-stamped city overlays show mutually exclusive safe paths |
 | 03 | 소금바람 / Salt Wind | 60 | arid settlement hub, rescue, rooftop traversals | seemingly optional witness reshapes the next chapter |
 | 04 | 유리 회랑 / Glass Corridor | 55 | tower interiors, vertical movement, environmental hazards | a trusted transmission turns out to be delayed |
