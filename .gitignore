@@ -9,3 +9,4 @@ Unreal/**/DerivedDataCache/
 Unreal/**/Saved/
 *.sln
 *.suo
+dist/

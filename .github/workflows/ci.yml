@@ -21,6 +21,19 @@ jobs:
         run: npm test
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
+      - name: Build and verify reproducible offline demo ZIP
+        run: |
+          npm run package:demo
+          cd dist
+          sha256sum -c veilpoint-offline-demo.zip.sha256
+          unzip -t veilpoint-offline-demo.zip
+      - name: Upload offline demo ZIP and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-offline-demo-candidate
+          path: |
+            dist/veilpoint-offline-demo.zip
+            dist/veilpoint-offline-demo.zip.sha256
       - name: Upload browser prototype
         uses: actions/upload-artifact@v4
         with:
