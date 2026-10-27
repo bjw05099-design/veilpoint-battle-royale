@@ -111,7 +111,9 @@ test('opponent reload blocks shots for a fixed 60Hz interval without creating am
  assert.equal(b.reloadRemaining,S.RELOAD_SECONDS);
  for(let i=0;i<100;i++)S.tick(g,1/60,{});
  assert.equal(b.loaded,0);assert.equal(p.health,100);
- for(let i=0;i<12;i++)S.tick(g,1/60,{});
+ let reloadFrames=0;
+ while(b.reloadRemaining>0&&reloadFrames<120){S.tick(g,1/60,{});reloadFrames++;}
+ assert.ok(reloadFrames>=108&&reloadFrames<=109);
  assert.equal(b.reloadRemaining,0);assert.equal(b.loaded,2);
  assert.equal(b.charges,2);assert.equal(p.health,100);
  S.tick(g,1/60,{});
