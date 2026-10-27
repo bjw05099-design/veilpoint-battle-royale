@@ -5,6 +5,10 @@ const Game=global.VeilpointSim;
 const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:0.25,maxSteps:8});
 const fpsLimiter=global.VeilpointFPS.createFrameLimiter(60);
 const graphics=global.VeilpointGraphics;
+const perf=global.VeilpointPerformance;
+const telemetry=perf.createTelemetry();
+let governor=null,autoResolution=false,lastGovernorCheck=0,lastRenderTime=null;
+try{autoResolution=global.localStorage.getItem('veilpoint.autoResolution')==='true';}catch(_){}
 let graphicsSettings=graphics.fromPreset('hyperreal165');
 try{const saved=global.localStorage.getItem('veilpoint.graphics');if(saved)graphicsSettings=graphics.deserialize(saved);}catch(_){}
 const fpsSelect=$('fpsLimit');
@@ -12,9 +16,12 @@ const profileSelect=$('graphicsPreset');
 const resolutionSelect=$('renderScale');
 const vegetationSelect=$('vegetation');
 const effectsSelect=$('effects');
+const autoResolutionCheckbox=$('autoResolution');autoResolutionCheckbox.checked=autoResolution;
 function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
 function applyGraphicsSettings(){
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
+ governor=perf.createResolutionGovernor({minScale:Math.min(.7,graphicsSettings.resolutionScale),maxScale:graphicsSettings.resolutionScale,initialScale:graphicsSettings.resolutionScale,targetFps:graphicsSettings.fpsCap});
+ telemetry.clear();lastRenderTime=null;lastGovernorCheck=0;
  if(renderer&&renderer.setGraphicsQuality)renderer.setGraphicsQuality(graphicsSettings);
  profileSelect.value=graphicsSettings.preset;
  fpsSelect.value=String(graphicsSettings.fpsCap);
@@ -31,12 +38,17 @@ profileSelect.addEventListener('change',()=>{if(profileSelect.value==='custom')r
 for(const [node,field] of [[fpsSelect,'fpsCap'],[resolutionSelect,'resolutionScale'],[vegetationSelect,'vegetationDensity'],[effectsSelect,'effects']]){
  node.addEventListener('change',()=>{try{graphicsSettings=graphics.customize(graphicsSettings,field,Number(node.value));applyGraphicsSettings();}catch(_){applyGraphicsSettings();}});
 }
+autoResolutionCheckbox.addEventListener('change',()=>{autoResolution=autoResolutionCheckbox.checked;applyGraphicsSettings();try{global.localStorage.setItem('veilpoint.autoResolution',String(autoResolution));}catch(_){}});
 $('graphicsOpen').addEventListener('click',()=>{$('graphicsPanel').classList.toggle('hidden');});
 $('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');});
 
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
-try { renderer=new global.VeilpointRenderer(canvas);applyGraphicsSettings(); }
+try { renderer=new global.VeilpointRenderer(canvas);
+ renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
+ applyGraphicsSettings();
+ if(!renderer.gpuTimer||!renderer.gpuTimer.supported){autoResolution=false;autoResolutionCheckbox.checked=false;autoResolutionCheckbox.disabled=true;autoResolutionCheckbox.title='이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';}
+ }
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
@@ -54,8 +66,8 @@ addEventListener('keydown',e=>{
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
-addEventListener('blur',()=>{for(const k in input)input[k]=false;clock.reset();fpsLimiter.reset();last=performance.now();});
-document.addEventListener('visibilitychange',()=>{clock.reset();fpsLimiter.reset();last=performance.now();});
+addEventListener('blur',()=>{for(const k in input)input[k]=false;clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();});
+document.addEventListener('visibilitychange',()=>{clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
@@ -105,8 +117,23 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});if(simulation.status!=='playing')end();
  }
- if(fpsLimiter.shouldRender(now))renderer.draw(simulation);}
- if(now-lastHud>250){updateHud();const f=fpsLimiter.stats();$('fpsMeter').textContent=(f.actualFps||'--')+' / '+f.cap+' FPS';lastHud=now;}
+ if(fpsLimiter.shouldRender(now)){
+  if(lastRenderTime!==null)telemetry.record('raf',now-lastRenderTime);
+  lastRenderTime=now;
+  const cpuStart=performance.now();renderer.draw(simulation);
+  telemetry.record('cpu',performance.now()-cpuStart);
+  if(autoResolution&&renderer.gpuTimer&&renderer.gpuTimer.supported&&now-lastGovernorCheck>=1250){
+   const gpu=telemetry.stats('gpu'),cpu=telemetry.stats('cpu');
+   renderer.setAdaptiveResolution(governor.update({nowMs:now,gpuP95:gpu.p95,cpuP95:cpu.p95,gpuSamples:gpu.count,cpuSamples:cpu.count}));
+   lastGovernorCheck=now;
+  }
+ }}
+ if(now-lastHud>250){updateHud();const f=fpsLimiter.stats();$('fpsMeter').textContent=(f.actualFps||'--')+' / '+f.cap+' FPS';
+ const cpu=telemetry.stats('cpu'),gpu=telemetry.stats('gpu'),raf=telemetry.stats('raf');
+ const fmt=v=>v===null?'측정 불가':v.toFixed(2)+'ms';
+ const scale=renderer?(renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale):graphicsSettings.resolutionScale;
+ $('perfDetails').textContent='렌더 CPU P95: '+fmt(cpu.p95)+' | GPU P95: '+fmt(gpu.p95)+' ('+gpu.count+'개) | 표시 간격 P95: '+fmt(raf.p95)+' | 현재 배율: '+Math.round(scale*100)+'%';
+ lastHud=now;}
 }
 requestAnimationFrame(frame);
 })(globalThis);
