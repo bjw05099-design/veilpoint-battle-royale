@@ -38,6 +38,7 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
+    world.player.shield=0;
     return world;
   }
   function createState() {
@@ -86,7 +87,10 @@
       const threats=state.world.bots.filter(b=>b.alive&&
         Math.hypot(b.x-p.x,b.z-p.z)<48&&
         !Sim.lineBlocked(b.x,b.z,p.x,p.z,state.world.obstacles));
-      if(threats.length)Sim.receiveDamage(state.world,Math.min(12,threats.length*4));
+      if(threats.length){
+        p.health=clamp(p.health-Math.min(12,threats.length*4),0,100);
+        if(p.health===0){p.alive=false;state.world.status='lost';}
+      }
       if(state.world.status==='lost'){
         state.phase='failed';
         state.subtitle='김지윤(국정원): 신호가 끊겼습니다. 체크포인트에서 다시 시도하세요.';
@@ -124,10 +128,10 @@
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
-    state.world.player.shield=Math.min(100,state.world.player.shield+40);
-    state.subtitle='김지윤(국정원): 보호 신호를 한 번 연결했습니다. 조현지가 중계 경로를 확인 중입니다.';
-    state.message='동료 지원 사용 · 보호막 '+Math.round(state.world.player.shield);
-    return {ok:true,event:'support',shield:state.world.player.shield};
+    state.world.player.shield=0;
+    state.subtitle='김지윤(국정원): 중계 경로의 이상 징후를 확인했습니다.';
+    state.message='상황 보고 수신';
+    return {ok:true,event:'support',report:true};
   }
   function interact(state) {
     if(state.phase==='complete')return {ok:false,reason:'completed'};
@@ -139,7 +143,7 @@
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeDrones();
       state.subtitle='조현지(국정원): 중계기 주변에 가상 교란 드론 세 기가 활성화됐어요. 신호를 차단해 주세요.';
-      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 동료 지원';
+      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 상황 보고';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -185,7 +189,7 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 지원(1회).';
+      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 상황 보고(1회).';
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -201,7 +205,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
-        health:p.health,shield:p.shield,charges:p.charges},elapsed:state.world.elapsed,
+        health:p.health,shield:0,charges:p.charges},elapsed:state.world.elapsed,
       combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive}))}};
   }
   function validateSnapshot(data) {
@@ -267,7 +271,7 @@
       throw new RangeError('Invalid legacy checkpoint');
     const started=data.phase!=='terminal';
     return {...data,version:VERSION,
-      player:{...data.player,health:100,shield:80,charges:48},
+      player:{...data.player,health:100,shield:0,charges:48},
       combat:{started,cleared:started,supportUsed:false,nextPulseAt:0,
         drones:started?makeDrones(true).map(b=>({id:b.id,health:0,alive:false})):[]}};
   }
@@ -276,7 +280,7 @@
     const data=upgradeLegacy(JSON.parse(json));validateSnapshot(data);
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
-    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=data.player[key];
+    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeDrones()[i],health:b.health,alive:b.alive}));
