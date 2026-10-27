@@ -76,3 +76,24 @@ test('browser global export is available without dependencies', () => {
   assert.equal(context.VeilpointCampaign.TARGET_MINUTES, 720);
   assert.equal(context.VeilpointCampaign.nextMission(context.VeilpointCampaign.freshProgress()).id, 'M01');
 });
+
+test('campaign always follows a fictional ROK special-forces captain', () => {
+  assert.equal(c.LEAD.id, 'captain-seo-jinhyeok');
+  assert.equal(c.LEAD.rankKo, '대위');
+  assert.match(c.LEAD.affiliationKo, /대한민국 특수부대/);
+  assert.equal(c.LEAD.isPlayer, true);
+  assert.ok(c.MISSIONS.every(m => m.protagonistId === c.LEAD.id));
+});
+
+test('NIS characters have consistent fictional identities and a combat-first pacing target', () => {
+  const nis = c.SUPPORT_CAST.filter(person => person.affiliationKo === '국가정보원');
+  assert.equal(nis.length, 2);
+  assert.deepEqual(nis.map(person => person.nameKo), ['윤서하', '강민재']);
+  assert.equal(new Set(c.SUPPORT_CAST.map(person => person.id)).size, c.SUPPORT_CAST.length);
+  assert.equal(new Set(c.MISSIONS.map(m => m.combatTheme)).size, 12);
+  assert.ok(c.COMBAT_FOCUS.targetShareMin >= 0.6);
+  assert.ok(c.COMBAT_FOCUS.targetShareMax <= 0.65);
+  assert.equal(c.COMBAT_FOCUS.fullyImplemented, false);
+  assert.equal(c.COMBAT_FOCUS.measuredCombatShare, null);
+  assert.equal(c.TARGET_MINUTES, 720);
+});
