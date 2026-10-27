@@ -176,7 +176,9 @@ test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals comp
   const state=story.createState();
   go(state,'terminal');story.interact(state);
   state.world.player.shield=10;
-  assert.deepEqual(story.support(state),{ok:true,event:'support',shield:50});
+  assert.deepEqual(story.support(state),{ok:true,event:'support',report:true});
+  assert.equal(state.world.player.shield,10);
+  assert.equal(state.world.player.health,100);
   assert.match(state.subtitle,/김지윤/);
   assert.equal(story.support(state).reason,'already_used');
   clearEncounter(state);
@@ -189,7 +191,8 @@ test('encounter pulse is fixed-step deterministic, can fail, and preserves retry
   go(a,'terminal');go(b,'terminal');story.interact(a);story.interact(b);
   for(let i=0;i<190;i++){story.step(a,1/60);story.step(b,1/60);}
   assert.equal(a.world.player.shield,b.world.player.shield);
-  assert.ok(a.world.player.shield<80);
+  assert.equal(a.world.player.shield,0);
+  assert.ok(a.world.player.health<100);
   a.world.player.health=1;a.world.player.shield=0;
   for(let i=0;i<240&&a.phase!=='failed';i++)story.step(a,1/60);
   assert.equal(a.phase,'failed');
@@ -256,4 +259,12 @@ test('running out of signal charges cannot permanently soft-lock the encounter',
   assert.equal(story.fire(state).hit,true);
   const resumed=story.restore(story.serialize(state));
   assert.equal(resumed.world.player.charges,11);
+});
+
+test('CH01 never restores arcade shield from a legacy v2 save',()=>{
+  const state=story.createState();
+  const old=JSON.parse(story.serialize(state));old.player.shield=90;
+  const loaded=story.restore(JSON.stringify(old));
+  assert.equal(loaded.world.player.shield,0);
+  assert.equal(JSON.parse(story.serialize(loaded)).player.shield,0);
 });
