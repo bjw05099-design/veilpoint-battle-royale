@@ -37,7 +37,7 @@
   }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
-      subtitle:'마라: 나흐린의 통신망이 멈췄어. 중계기를 찾아 기록을 확인하자.',message:'CH01 / 마지막 방송'};
+      subtitle:'마라(기술자): 서 대위님, 나흐린의 중계망이 멈췄어요. 끊어진 신호를 함께 확인해요.',message:'CH01 / 마지막 방송'};
     syncMarkers(state);
     return state;
   }
@@ -83,7 +83,7 @@
     if(!marker)return {ok:false,reason:'too_far'};
     if(marker.id==='terminal'&&state.phase==='terminal'){
       state.phase='records';
-      state.subtitle='마라: 중계기는 살아 있어. 항구와 대피소의 기록이 서로 다른 시각을 가리켜.';
+      state.subtitle='마라(기술자): 중계기는 살아 있어. 항구와 대피소의 기록이 서로 다른 시각을 가리켜.';
       state.message='중계기 연결 완료 · 기록 확인은 선택 사항';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
@@ -95,7 +95,7 @@
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
-      state.subtitle='마라: 지금 바로 사람들을 안내할까, 두 기록을 대조해 추가 경로를 열까?';
+      state.subtitle='마라(기술자): 지금 바로 사람들을 안내할까, 두 기록을 대조해 추가 경로를 열까?';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
       state.phase='complete';state.world.status='won';
@@ -113,8 +113,8 @@
     if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
     state.choice=choice;state.phase='exit';
     state.subtitle=choice==='verification'
-      ?'마라: 불일치를 확인했어. 동쪽 중계 경로를 통해 안뜰로 가자.'
-      :'마라: 먼저 사람들을 안내하자. 남쪽 안뜰로 향해.';
+      ?'마라(기술자): 불일치를 확인했어. 동쪽 중계 경로를 통해 안뜰로 가자.'
+      :'마라(기술자): 먼저 사람들을 안내하자. 남쪽 안뜰로 향해.';
     state.message=choice==='verification'?'추가 확인 경로 개방':'대피 경로 개방';
     syncMarkers(state);
     return {ok:true,event:'choice',choice};
@@ -122,7 +122,7 @@
   function backToRecords(state) {
     if(state.phase!=='decision')return {ok:false,reason:'not_choosing'};
     state.phase='records';
-    state.subtitle='마라: 기록을 조금 더 살펴보자. 바로 대피하는 선택도 남아 있어.';
+    state.subtitle='마라(기술자): 기록을 조금 더 살펴보자. 바로 대피하는 선택도 남아 있어.';
     state.message='기록 조사로 돌아왔습니다.';
     syncMarkers(state);
     return {ok:true,event:'back'};
