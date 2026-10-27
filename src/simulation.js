@@ -67,7 +67,7 @@
     };
     const bots = Array.from({ length: clamp(botCount, 0, MAX_BOTS) }, (_, i) => {
       const pos = safeSpot(36);
-      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, tags:0 };
+      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0 };
     });
     const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',picked:false}));
     return {
@@ -158,10 +158,25 @@
       const botSpeed=outsideBot?5.3:seesPlayer&&dd>18?3.2:1.0;
       moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,obstacles);
       if(outsideBot){b.health-=(2.3+game.zone.phase)*dt; if(b.health<=0) b.alive=false;}
+      // Opponents also have finite carried ammunition. A reload cannot create rounds,
+      // and the reload completion frame cannot simultaneously produce a shot.
+      const wasReloading=b.reloadRemaining>0;
+      if(wasReloading){
+        b.reloadRemaining=Math.max(0,b.reloadRemaining-dt);
+        if(b.reloadRemaining===0)b.loaded=Math.min(MAGAZINE_SIZE,b.charges);
+      }
       b.actionTime-=dt;
-      if(dd<47&&p.alive&&b.actionTime<=0&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles)){
-        b.actionTime=1.15+game.random()*2;
-        if(game.random()<b.skill){receiveDamage(game,6+game.random()*8);game.effects.push({x:b.x,z:b.z,t:0.28,type:'hostile'});}
+      if(!wasReloading&&dd<47&&p.alive&&b.actionTime<=0&&!lineBlocked(b.x,b.z,p.x,p.z,obstacles)){
+        if(b.loaded===0){
+          if(b.charges>0)b.reloadRemaining=RELOAD_SECONDS;
+          b.actionTime=b.charges>0?0.15:0.5;
+        }else{
+          b.actionTime=1.15+game.random()*2;
+          b.loaded--;b.charges--;
+          // A missed shot still uses ammunition and produces visible shot feedback.
+          game.effects.push({x:b.x,z:b.z,t:0.28,type:'hostile'});
+          if(game.random()<b.skill)receiveDamage(game,6+game.random()*8);
+        }
       }
     }
     game.effects.forEach(e=>e.t-=dt);game.effects=game.effects.filter(e=>e.t>0);
