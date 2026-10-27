@@ -116,6 +116,9 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
     {...valid,elapsed:-1}
   ];
   for(const b of bad)assert.throws(()=>story.restore(JSON.stringify(b)),RangeError);
+  assert.throws(()=>story.restore(JSON.stringify({...valid,unknown:true})),RangeError);
+  assert.throws(()=>story.restore(JSON.stringify({...valid,player:{...valid.player,extra:1}})),RangeError);
+  assert.throws(()=>story.restore(JSON.stringify({...valid,player:JSON.parse('{"x":0,"z":12,"yaw":0,"pitch":0,"stamina":100,"__proto__":{"admin":true}}')})),RangeError);
   assert.throws(()=>story.restore('bad-json'),SyntaxError);
   assert.throws(()=>story.restore('x'.repeat(4100)),TypeError);
 });
