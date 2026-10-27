@@ -85,7 +85,7 @@ function boot(sharedStore=new Map()){
         }
       }
       aim(0);
-      assert.match(this.element('objective').textContent,/기록/);
+      assert.match(this.element('objective').textContent,/기록/,JSON.stringify(JSON.parse(this.store.get('veilpoint.story.ch01')||'null')));
       return frame;
     }
   };
