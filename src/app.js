@@ -49,7 +49,7 @@ loadoutSelect.addEventListener('change',()=>{
  if(!Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value))loadoutSelect.value='carbine';
  try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
 });
-const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,last=performance.now(),lastHud=0,shake=0;
+const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
 try { renderer=new global.VeilpointRenderer(canvas);
  renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
@@ -60,7 +60,7 @@ catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play')
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
+ simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
@@ -76,8 +76,15 @@ addEventListener('keydown',e=>{
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
-addEventListener('blur',()=>{for(const k in input)input[k]=false;clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();});
-document.addEventListener('visibilitychange',()=>{clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();});
+// Background throttling must never simulate hostile fire against an unfocused player.
+function resetInactiveClock(){
+ for(const k in input)input[k]=false;
+ clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();
+ updateHud();
+}
+addEventListener('blur',()=>{suspended=true;resetInactiveClock();});
+addEventListener('focus',()=>{if(!document.hidden){suspended=false;resetInactiveClock();}});
+document.addEventListener('visibilitychange',()=>{suspended=!!document.hidden;resetInactiveClock();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!running)return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
@@ -115,7 +122,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
- $('message').textContent=s.messageTime>0?s.message:'';
+ $('message').textContent=suspended&&running?'창 비활성 · 시뮬레이션 일시중지':s.messageTime>0?s.message:'';
  const nearby=s.loot.filter(l=>!l.picked&&Math.hypot(l.x-p.x,l.z-p.z)<3.7)
   .sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
  $('pickupPrompt').style.display=nearby?'block':'none';
@@ -130,13 +137,13 @@ function end(){running=false;$('overlay').classList.remove('hidden');$('mobileCo
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
- if(renderer){if(running&&simulation.status==='playing'){
+ if(renderer){if(running&&!suspended&&simulation.status==='playing'){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});
  }
  // Resolve terminal states even when they change between simulation ticks.
  if(running&&simulation.status!=='playing')end();
- if(fpsLimiter.shouldRender(now)){
+ if(!suspended&&fpsLimiter.shouldRender(now)){
   if(lastRenderTime!==null)telemetry.record('raf',now-lastRenderTime);
   lastRenderTime=now;
   const cpuStart=performance.now();renderer.draw(simulation);
