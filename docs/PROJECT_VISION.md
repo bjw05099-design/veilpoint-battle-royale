@@ -1,6 +1,6 @@
 # VEILPOINT — Product Vision & Engineering Quality Gates
 
-**Owner objective:** Deliver an original, visually convincing first-person battle-royale game that minimizes perceptual discrepancies between real captured footage and interactive scenes. Aim to compete at the highest level of visual fidelity, responsiveness and stability. This is an *aspirational target*, not a claim of current capability or measured superiority over any existing game.
+**Owner objective:** Deliver an original, visually convincing first-person game with a story campaign, server-authoritative team multiplayer and battle royale that minimizes perceptual discrepancies between real captured footage and interactive scenes. Aim to compete at the highest level of visual fidelity, responsiveness and stability. This is an *aspirational target*, not a claim of current capability or measured superiority over any existing game.
 
 **Recorded:** 2026-10-27 · **Status:** engineering design target, NOT completed implementation.
 
@@ -8,7 +8,7 @@
 
 1. **Photorealism under interaction.** Physically plausible scale, materials, global illumination, reflections, contact shadows, vegetation, terrain, animation, environmental audio and consistent camera behavior. Evaluate *in motion* and through exposure changes, indoors/outdoors, not just screenshots.
 2. **165 Hz-capable experience.** Support a 165 Hz display when selected in the OS/driver, with a configurable render FPS cap up to 165 and V-Sync / latency settings. Never confuse display frequency with achieved FPS. Simulation is separate from rendering. Performance must be measured on specified hardware; no guarantee of sustained 165 FPS.
-3. **Complete battle-royale gameplay.** A polished, original loop: navigation, survivability, traversal, interactions, objectives, shrinking play area, spectators, accessibility and finish/restart. Validate authoritative multiplayer before claiming online-ready.
+3. **Complete cross-mode FPS gameplay.** Cinematic single-player story campaign set in a fictional Middle East-inspired conflict, fair online team play, and complete battle-royale gameplay. A polished, original loop: navigation, survivability, traversal, interactions, objectives, shrinking play area, spectators, accessibility and finish/restart. Validate authoritative multiplayer before claiming online-ready.
 4. **Reliability and player agency.** Stable frametimes, secure authoritative state, anti-cheat-by-design, understandable graphics options, input remapping, motion accessibility (motion blur / head bob / camera shake toggles), clear opt-in diagnostics.
 5. **Originality and licensing.** No copying third-party game assets, proprietary code or recognisable protected designs. Source and distribution licences of externally obtained textures/meshes/audio must be recorded.
 
@@ -54,3 +54,14 @@ Every update must state: changed files/commit or PR URL; actual tests and enviro
 ## 6. Graphics settings and accelerated milestone (2026-10-27)
 
 The flagship profile is HyperReal 165Hz: keep as much realistically perceived detail as possible while progressively reducing measured rendering bottlenecks to target 165FPS on capable hardware. See [Graphics Profiles](GRAPHICS_PROFILES.md) for six modes and granular adjustments, and [30-Day Sprint](30_DAY_SPRINT.md) for accelerated hourly implementation and quality gates. Real 165Hz output, highest visual fidelity and full native engine compilation are not yet verified.
+
+
+## 7. Expanded original game identity — 2026-10-27 owner request
+
+VEILPOINT is no longer defined solely as a battle royale. **Three required release pillars:** (1) character-led Middle East-inspired fictional war/civil-conflict **single-player story campaign**, (2) dedicated-server competitive **team multiplayer**, and (3) **battle royale**. Cooperative story missions are a lower-priority expansion. Each has distinct rules/QA; none may be counted as completed because a menu or source stub exists.
+
+The original setting is **Sahir Coast / Nahrin**, centered on a disrupted civic archive and communications system. **Signal Echo** makes the campaign's conflicting local records interpretable; **Signal Weather** makes temporary communications and infrastructure changes transparent and fair across players in multiplayer. A living district provides continuity between modes without copying the protected expressive content of Call of Duty, Grand Theft Auto, PUBG or Bodycam. Cultural portrayal must be respectful, diverse and distinguish fictional politics from real-world conflicts. No protected characters, assets, mission scripts, map designs, logos or copied proprietary systems.
+
+Authoritative sources: [Game Design Bible](GAME_DESIGN_BIBLE.md), [Story Campaign](STORY_CAMPAIGN.md), [Multiplayer Modes](MULTIPLAYER_MODES.md), [Requirements Matrix](REQUIREMENTS_MATRIX.md), [Six-Month Roadmap](FINAL_RELEASE_ROADMAP.md).
+
+**Schedule reality:** 2026-11-27 remains the playable offline demo target, now with an optional campaign-introduction vertical slice if feasible. 2027-04-27 is an ambitious **full-game stretch goal**, **not** evidence of completion; unmet campaign, multiplayer, native rendering or other P0 gates require continued work after that date.
