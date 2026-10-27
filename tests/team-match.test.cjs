@@ -172,3 +172,83 @@ test('facing and visibility replay deterministically and reset at the next round
   };
   assert.deepEqual(play(), play());
 });
+
+test('server owns sight-gated combat; rear and cover cannot be hit or inferred as health', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = -5; b.z = 0;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red']);
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 100, 'opponent behind player cannot be hit');
+  for (let i = 0; i < 18; i++) m.step();
+  a.x = -4; a.z = 6; b.x = 4; b.z = 6;
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, false);
+  assert.equal(b.health, 100, 'solid cover blocks shots');
+  assert.equal(m.snapshot('a').visible.some(p => 'health' in p), false,
+    'remote health must not leak in opponent snapshots');
+});
+
+test('finite server-owned shots, cooldown and round-ending incapacitation are deterministic', () => {
+  const run = () => {
+    const {m} = setup();
+    const a = m.players.get('a'), b = m.players.get('b');
+    a.x = 0; a.z = 0; b.x = 5; b.z = 0;
+    assert.throws(() => m.command('a', {seq: 2, type: 'fire', damage: 1000}), /invalid_command/);
+    assert.throws(() => m.command('a', {seq: 2, type: 'fire', target: b.id}), /invalid_command/);
+    assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, true);
+    assert.deepEqual([a.ammo, b.health], [11, 66]);
+    assert.equal(m.command('a', {seq: 3, type: 'fire'}).reason, 'cooldown');
+    assert.deepEqual([a.ammo, b.health], [11, 66]);
+    for (let i = 0; i < 18; i++) m.step();
+    assert.equal(m.command('a', {seq: 4, type: 'fire'}).hit, true);
+    assert.equal(b.health, 32);
+    for (let i = 0; i < 18; i++) m.step();
+    assert.equal(m.command('a', {seq: 5, type: 'fire'}).hit, true);
+    assert.equal(b.health, 0);
+    assert.equal(m.phase, 'ended');
+    assert.equal(m.winner, 'red');
+    assert.equal(m.reason, 'opponent_incapacitated');
+    assert.throws(() => m.command('a', {seq: 6, type: 'fire'}), /not_playing/);
+    return m.snapshot('a');
+  };
+  assert.deepEqual(run(), run(), 'identical 60Hz command streams yield identical results');
+});
+
+test('reload transfers finite carried ammunition once, never creates rounds', () => {
+  const {m} = setup();
+  const a = m.players.get('a');
+  for (let shot = 0; shot < 12; shot++) {
+    const result = m.command('a', {seq: 2 + shot, type: 'fire'});
+    assert.equal(result.ok, true);
+    for (let i = 0; i < 18; i++) m.step();
+  }
+  assert.deepEqual([a.ammo, a.reserve], [0, 24]);
+  assert.equal(m.command('a', {seq: 14, type: 'fire'}).reason, 'empty_magazine');
+  assert.equal(m.command('a', {seq: 15, type: 'reload'}).ok, true);
+  assert.equal(m.command('a', {seq: 16, type: 'reload'}).reason, 'already_reloading');
+  assert.equal(m.command('a', {seq: 17, type: 'fire'}).reason, 'reloading');
+  for (let i = 0; i < 89; i++) m.step();
+  assert.deepEqual([a.ammo, a.reserve, a.reloadTicks], [0, 24, 1]);
+  m.step();
+  assert.deepEqual([a.ammo, a.reserve, a.reloadTicks], [12, 12, 0]);
+  assert.equal(a.ammo + a.reserve, 24);
+  assert.equal(m.command('a', {seq: 18, type: 'reload'}).reason, 'magazine_full');
+  m.finish('blue', 'test');
+  m.command('a', {seq: 19, type: 'ready'});
+  m.command('b', {seq: 2, type: 'ready'});
+  assert.deepEqual([a.health, a.ammo, a.reserve, a.reloadTicks], [100, 12, 24, 0],
+    'a fresh match resets inventory without replenishing during a round');
+});
+
+test('combat is refused in lobby and commands cannot spoof health or ammunition', () => {
+  const m = new TeamMatch({now: () => 0});
+  m.join('a', 'A');
+  assert.throws(() => m.command('a', {seq: 1, type: 'fire'}), /not_playing/);
+  assert.throws(() => m.command('a', {seq: 1, type: 'reload'}), /not_playing/);
+  m.join('b', 'B');
+  m.command('a', {seq: 1, type: 'ready'});
+  m.command('b', {seq: 1, type: 'ready'});
+  assert.throws(() => m.command('a', {seq: 2, type: 'reload', reserve: 999}), /invalid_command/);
+  assert.equal(m.snapshot('a').self.health, 100);
+  assert.equal(m.snapshot('a').self.ammo, 12);
+});
