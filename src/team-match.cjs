@@ -15,6 +15,9 @@ const COVER = Object.freeze([
   Object.freeze({x: 0, z: -6, w: 3, d: 1.5})
 ]);
 const PLAYER_RADIUS = 0.55;
+// A local, movement-facing 120-degree view, not a radar of nearby opponents.
+const VISION_RANGE = 14;
+const VISION_COS = 0.5;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
@@ -42,7 +45,8 @@ class TeamMatch {
     const team = red <= blue ? 'red' : 'blue';
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
-      direction: {x: 0, z: 0}, capturing: false, seq: 0, lastSeen: this.now()};
+      direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
+      capturing: false, seq: 0, lastSeen: this.now()};
     this.players.set(token, player);
     return {id: player.id, team};
   }
@@ -81,6 +85,8 @@ class TeamMatch {
     if (data.type === 'move') {
       const {x, z} = data.direction, len = Math.hypot(x, z);
       p.direction = len > 1 ? {x: x / len, z: z / len} : {x, z};
+      // Stopping retains the last facing; a zero vector cannot reveal all directions.
+      if (len > 0) p.facing = {x: x / len, z: z / len};
     } else p.capturing = data.active;
     return {ok: true};
   }
@@ -96,6 +102,7 @@ class TeamMatch {
       p.z = 0;
       p.ready = false;
       p.direction = {x: 0, z: 0};
+      p.facing = {x: p.team === 'red' ? 1 : -1, z: 0};
       p.capturing = false;
     }
   }
@@ -141,13 +148,17 @@ class TeamMatch {
   snapshot(token) {
     const me = this.players.get(token);
     if (!me) throw new RangeError('unknown_player');
-    const visible = [...this.players.values()].filter(p => p === me ||
-      (Math.hypot(p.x - me.x, p.z - me.z) <= 14 &&
-        !lineBlocked(me.x, me.z, p.x, p.z, COVER)));
+    const visible = [...this.players.values()].filter(p => {
+      if (p === me) return true;
+      const dx = p.x - me.x, dz = p.z - me.z, distance = Math.hypot(dx, dz);
+      return distance <= VISION_RANGE &&
+        dx * me.facing.x + dz * me.facing.z >= distance * VISION_COS &&
+        !lineBlocked(me.x, me.z, p.x, p.z, COVER);
+    });
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER,
-      self: {id: me.id, team: me.team, x: me.x, z: me.z, ready: me.ready, seq: me.seq},
+      self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing}, ready: me.ready, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
   }
 }

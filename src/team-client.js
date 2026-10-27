@@ -5,6 +5,7 @@
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let pending = Promise.resolve();
+  let previousPhase = null;
   const SESSION_KEY = 'veilpoint.team.tabSession';
   const keys = new Set();
   const request = async (path, body) => {
@@ -58,11 +59,21 @@
       const pos = point(p.x,p.z);
       ctx.fillStyle = p.team === 'red' ? '#e58b84' : '#8abcf2';
       ctx.beginPath();ctx.arc(pos.x,pos.y,p.id===state.self.id?9:7,0,Math.PI*2);ctx.fill();
-      if (p.id===state.self.id) {ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}
+      if (p.id===state.self.id) {
+        ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+        const f = state.self.facing || {x: state.self.team === 'red' ? 1 : -1, z: 0};
+        ctx.beginPath();ctx.moveTo(pos.x,pos.y);
+        ctx.lineTo(pos.x+f.x*17,pos.y+f.z*17);ctx.stroke();
+      }
     }
   };
   const render = () => {
     if (!state) return;
+    if (state.phase !== previousPhase) {
+      // A new round resets the server's direction; never retain a stale input cache.
+      lastDirection = '';
+      previousPhase = state.phase;
+    }
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
