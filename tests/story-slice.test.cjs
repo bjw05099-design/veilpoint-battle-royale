@@ -384,7 +384,7 @@ test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=
   assert.match(s.subtitle,/현지 구조단.*04:07.*현장 확인 전/);
   clearEncounter(s);
   go(s,'recordA');story.interact(s);
-  assert.match(story.situation(s).evidence,/1\\/2/);
+  assert.ok(story.situation(s).evidence.includes('1/2'));
   go(s,'recordB');story.interact(s);
   assert.match(story.situation(s).evidence,/04:07.*04:12.*미확정/);
   assert.match(s.message,/원인|오차|미확정/);
@@ -422,8 +422,8 @@ test('CH01 route consequence appears in browser HUD without changing checkpoint 
   const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
   assert.match(html,/id="routeStatus"/);
   assert.match(html,/임시행정부.*제한적/);
-  assert.match(app,/Story\\.situation\\(state\\)/);
-  assert.match(app,/routeStatus.*situation\\.route/);
+  assert.ok(app.includes('Story.situation(state)'));
+  assert.ok(app.includes('situation.route'));
   const state=reachDecision();
   assert.equal(story.situation(state).eastGateOpen,false);
   assert.equal(story.situation(story.restore(story.serialize(state))).eastGateOpen,false);
