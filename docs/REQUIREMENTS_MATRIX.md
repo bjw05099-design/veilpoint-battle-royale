@@ -24,6 +24,7 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 | R-19 | Story POV: fictional 대한민국 특수부대 **서진혁 대위** throughout the campaign | P0 | Actual mission/cutscene playtest confirms a continuous captain POV for all chapters | Story/metadata/CH01 narrative text partly updated; full-game unverified |
 | R-20 | Major fictional **국가정보원 요원 윤서하·강민재** supporting characters | P0 | Written scenes, original VO/subtitles and interactions in playable campaign; no presentation as real NIS operations | Character metadata and planned narrative only |
 | R-21 | Story campaign is combat-first, about **60–65% active playable runtime** as an authored design target | P0 | Real playable action encounters, differentiated missions, playtest-derived share; non-graphic story depiction | Design and data target only; existing CH01 browser slice still non-combat |
+| R-22 | Story campaign must aspire to **immersion beyond cinema through player agency**, spatial AV, plausible characters, physical presence, interactive set pieces and reliable pacing | P0 | Twelve fully playable native chapters; moving visual/audio capture, checkpoint and choice consequence tests, independent player ratings across presence/agency/character/pacing/stability and comparative methodology | Design/quality gates specified; full implementation and independent assessment **not achieved** |
 
 ## Completion rules
 - **Full release means all major modes work**, not just a designed menu or documentation.
