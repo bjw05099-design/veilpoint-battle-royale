@@ -150,3 +150,68 @@ test('opponents cannot fire during their gradual turn into alignment',()=>{
  assert.ok(b.charges<36,'aligned opponent should eventually be able to fire');
  assert.ok(p.health<100);
 });
+
+test('rival AI firefights obey sight, aim and finite ammunition without player hit leakage',()=>{
+ const g=S.newMatch(501,2),[a,b]=g.bots;g.status='playing';
+ g.player.x=0;g.player.z=75;
+ a.x=-10;a.z=-20;b.x=10;b.z=-20;
+ a.angle=Math.PI/2;b.angle=-Math.PI/2;
+ a.moveTime=b.moveTime=999;a.actionTime=b.actionTime=0;a.skill=b.skill=1;
+ S.tick(g,1/60,{});
+ assert.equal(a.charges,35);assert.equal(b.charges,35);
+ assert.ok(a.health<100&&b.health<100,'rivals must damage each other');
+ assert.equal(g.player.health,100);
+ assert.equal(g.kills,0,'AI eliminations are not credited to the player');
+ assert.equal(g.effects.filter(e=>e.type==='hostile').length,2);
+});
+test('rivals cannot detect or shoot through buildings',()=>{
+ const g=S.newMatch(502,2),[a,b]=g.bots;g.status='playing';
+ g.player.x=0;g.player.z=75;
+ a.x=-85;a.z=-100;b.x=-85;b.z=-52;
+ a.angle=Math.PI;b.angle=0;
+ a.moveTime=b.moveTime=999;a.actionTime=b.actionTime=0;a.skill=b.skill=1;
+ assert.equal(S.lineBlocked(a.x,a.z,b.x,b.z,g.obstacles),true);
+ for(let i=0;i<60;i++)S.tick(g,1/60,{});
+ assert.equal(a.health,100);assert.equal(b.health,100);
+ assert.equal(a.charges,36);assert.equal(b.charges,36);
+});
+test('rival eliminations advance the offline match without awarding fake player kills',()=>{
+ const g=S.newMatch(503,2),[a,b]=g.bots;g.status='playing';
+ g.player.x=0;g.player.z=75;
+ a.x=-10;a.z=-20;b.x=10;b.z=-20;
+ a.angle=Math.PI/2;b.angle=-Math.PI/2;
+ a.moveTime=b.moveTime=999;a.actionTime=b.actionTime=0;
+ a.skill=1;b.skill=0;b.health=1;b.loaded=0;b.charges=0;
+ S.tick(g,1/60,{});
+ assert.equal(b.alive,false);assert.equal(b.health,0);
+ assert.equal(g.kills,0);assert.equal(S.getAliveCount(g),2);
+ g.player.x=0;g.player.z=-20;g.player.yaw=-Math.PI/2;
+ for(let i=0;i<3;i++){g.elapsed+=.21;assert.equal(S.tag(g).hit,true);}
+ S.tick(g,1/60,{});
+ assert.equal(g.status,'won');assert.equal(g.kills,1);
+});
+test('rival combat and ammo transitions replay identically at fixed 60Hz',()=>{
+ const make=()=>{
+  const g=S.newMatch(504,2),[a,b]=g.bots;g.status='playing';
+  g.player.x=0;g.player.z=75;
+  a.x=-10;a.z=-20;b.x=10;b.z=-20;
+  a.angle=Math.PI/2;b.angle=-Math.PI/2;
+  a.moveTime=b.moveTime=999;a.actionTime=b.actionTime=0;
+  return g;
+ };
+ const a=make(),b=make();
+ for(let i=0;i<300;i++){S.tick(a,1/60,{});S.tick(b,1/60,{});}
+ const snapshot=g=>({status:g.status,elapsed:g.elapsed,kills:g.kills,health:g.player.health,
+  bots:g.bots.map(({x,z,health,alive,angle,loaded,charges,reloadRemaining,actionTime})=>
+   ({x,z,health,alive,angle,loaded,charges,reloadRemaining,actionTime}))});
+ assert.deepEqual(snapshot(a),snapshot(b));
+ assert.ok(a.bots.some(x=>x.charges<36),'at least one rival must spend ammo');
+});
+test('an opponent eliminated by the zone cannot fire on its death frame',()=>{
+ const g=S.newMatch(505,1),b=g.bots[0],p=g.player;g.status='playing';
+ p.x=165;p.z=0;b.x=171;b.z=0;b.angle=-Math.PI/2;
+ b.health=.001;b.actionTime=0;b.moveTime=999;b.skill=1;
+ S.tick(g,1/60,{});
+ assert.equal(b.alive,false);assert.equal(b.health,0);
+ assert.equal(p.health,100);assert.equal(b.charges,36);
+});
