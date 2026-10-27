@@ -242,7 +242,7 @@
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
     const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
     const keys=Object.keys(p),modern=keys.length===modernKeys.length;
-    const extended=keys.length===extendedKeys.length;
+    const extended=modern||keys.length===extendedKeys.length;
     const expected=modern?modernKeys:extended?extendedKeys:playerKeys;
     if(keys.length!==expected.length||keys.some(k=>!expected.includes(k)))
       throw new RangeError('Unknown player checkpoint fields');
