@@ -38,6 +38,7 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
+    world.player.shield=0;
     return world;
   }
   function createState() {
@@ -86,7 +87,10 @@
       const threats=state.world.bots.filter(b=>b.alive&&
         Math.hypot(b.x-p.x,b.z-p.z)<48&&
         !Sim.lineBlocked(b.x,b.z,p.x,p.z,state.world.obstacles));
-      if(threats.length)Sim.receiveDamage(state.world,Math.min(12,threats.length*4));
+      if(threats.length){
+        p.health=clamp(p.health-Math.min(12,threats.length*4),0,100);
+        if(p.health===0){p.alive=false;state.world.status='lost';}
+      }
       if(state.world.status==='lost'){
         state.phase='failed';
         state.subtitle='김지윤(국정원): 신호가 끊겼습니다. 체크포인트에서 다시 시도하세요.';
@@ -201,7 +205,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
-        health:p.health,shield:p.shield,charges:p.charges},elapsed:state.world.elapsed,
+        health:p.health,shield:0,charges:p.charges},elapsed:state.world.elapsed,
       combat:{...state.combat,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive}))}};
   }
   function validateSnapshot(data) {
@@ -267,7 +271,7 @@
       throw new RangeError('Invalid legacy checkpoint');
     const started=data.phase!=='terminal';
     return {...data,version:VERSION,
-      player:{...data.player,health:100,shield:80,charges:48},
+      player:{...data.player,health:100,shield:0,charges:48},
       combat:{started,cleared:started,supportUsed:false,nextPulseAt:0,
         drones:started?makeDrones(true).map(b=>({id:b.id,health:0,alive:false})):[]}};
   }
@@ -276,7 +280,7 @@
     const data=upgradeLegacy(JSON.parse(json));validateSnapshot(data);
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
-    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=data.player[key];
+    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeDrones()[i],health:b.health,alive:b.alive}));
