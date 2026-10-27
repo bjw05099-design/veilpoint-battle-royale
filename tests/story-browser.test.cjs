@@ -134,3 +134,21 @@ test('story graphics preset is shared and remains user-selectable',()=>{
   reload.element('quality').value='eco';reload.element('quality').dispatch('change');
   assert.equal(JSON.parse(shared.get('veilpoint.graphics')).fpsCap,60);
 });
+
+test('choice overlay can return to investigation and reopen without soft-lock',()=>{
+  const app=boot();
+  app.element('continue').click();
+  app.moveForward(0,300);
+  app.interact();
+  app.moveForward(300,225);
+  app.interact();
+  assert.equal(app.element('choices').classList.contains('hidden'),false);
+  app.element('choiceBack').click();
+  assert.equal(app.element('choices').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/기록/);
+  app.interact();
+  assert.equal(app.element('choices').classList.contains('hidden'),false);
+  app.element('choiceEvac').click();
+  assert.equal(app.element('choices').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/안뜰/);
+});
