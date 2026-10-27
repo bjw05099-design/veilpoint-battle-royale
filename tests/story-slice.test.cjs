@@ -623,3 +623,22 @@ test('CH01 finite cache respects capacity, saves before collection and rejects f
   assert.equal(story.markers(migrated).length,1);
   assert.match(fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8'),/nearby.kind==='ammo'/);
 });
+
+test('CH01 empty-fire instructions respect whether the finite cache remains available',()=>{
+ const s=story.createState();go(s,'terminal');story.interact(s);
+ s.world.player.charges=0;s.world.player.loaded=0;
+ assert.equal(story.fire(s).reason,'empty');
+ assert.match(s.subtitle,/유수프.*보급 상자.*E/);
+ assert.match(story.objective(s),/보급 상자.*E/);
+ go(s,'supply');assert.equal(story.interact(s).ok,true);
+ s.world.player.charges=0;s.world.player.loaded=0;
+ assert.equal(story.fire(s).reason,'empty');
+ assert.match(s.subtitle,/다시 시작/);
+ assert.doesNotMatch(story.objective(s),/확보할 수 있습니다/);
+ assert.match(story.objective(s),/이미 사용/);
+ const loaded=story.restore(story.serialize(s));
+ assert.equal(story.fire(loaded).reason,'empty');
+ assert.match(loaded.message,/재시작/);
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+ assert.match(app,/situation.route\+' · '\+situation.civilianConsequence/);
+});

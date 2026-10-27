@@ -145,3 +145,7 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 ## 2026-10-28 BR living-actor collision candidate
 
 - **R-04 / R-13 / R-23 (partial):** The offline BR 60Hz controller and AI now treat other living actors as finite collision bodies; defeated actors cease blocking. Pre-existing overlaps are exempted only for movement to prevent trapping; line-of-fire occlusion also checks intervening live actors, excluding the intended target. Fixed-step regressions cover player/bot passage, bot/bot collision, reproducibility and overlap escape. This remains an approximate 2D collision proxy, not UE physics, measured performance or human playtesting. Actual CI validation required.
+
+## 2026-10-28 CH01 finite-cache UX correction
+
+- **R-13 / R-14 (partial):** Empty-fire prompts and the active objective now distinguish an unclaimed finite rescue cache from genuinely exhausted resources. Previously the new cache could still exist while the HUD incorrectly instructed the player to restart; after consumption it could still advertise an unavailable pickup. The record/evidence count remains in its own panel rather than duplicating it in the route-status line. A save/restore regression covers both branches; real browser readability remains unverified.
