@@ -66,7 +66,7 @@
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
-    running=false;clearInput();clock.reset();limiter.reset();
+    running=false;clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
