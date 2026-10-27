@@ -30,3 +30,9 @@ For each execution: (1) inspect repository HEAD and latest test results, (2) cho
 The target 165FPS corresponds to 6.06ms per frame, but successful implementation must be demonstrated on 165Hz hardware and identified GPU/CPU. Report measured P50/P95/P99 frame times, stutter and actual visual output when available. Browser prototype tests never substitute for a native Unreal Engine build test.
 
 **One-month stretch outcome:** a documented, playable, photorealism-oriented vertical slice with reproducible metrics. This is not a guarantee of a finished best-in-world commercial product.
+
+## 2026-10-27 13:00 iteration — native graphics settings + quality guard
+
+- Native `UVPGameUserSettings` source and engine config wiring now expose six Blueprint-selectable profiles, persisted defaults, Custom FPS/resolution/V-Sync. A playable Unreal menu is not yet implemented.
+- Browser GPU-resolution governor now avoids unnecessary quality loss during CPU-bound stalls; regression tests cover CPU-only, GPU-only and mixed load.
+- Immediate P0 next step: compile UE project on an installed engine, create an actual settings widget and measure Lumen/Nanite/TSR performance on a 165Hz display. Without that hardware, continue with deterministic browser improvements and native compile-check preparation.
