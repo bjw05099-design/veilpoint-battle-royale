@@ -52,6 +52,7 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 ## 2026-10-28 CH01 shot-cadence checkpoint integrity candidate
 
 - **R-02 / R-21 / R-23 — partial.** CH01 checkpoints now persist the last accepted shot time, so reloading a save cannot bypass the finite weapon's firing interval. Older v2 saves without this field conservatively wait one cadence interval during an active encounter. Validation rejects impossible future/negative shot timestamps; deterministic 60Hz replay, ammunition conservation, and legacy migration have automated regression cases.
+- **R-13 / R-26 — partial.** CH01 now ages and removes transient shot/impact effects and damage feedback in its own 60Hz loop rather than retaining visual effects for the rest of the session. Fixed-step regression tests cover cleanup and unchanged ammunition; actual GPU/memory profiling is still missing.
 - **R-28 — partial.** The opening subtitle and situation contract distinguish the captain's limited fictional authorization, local aid coordinator Yusuf's independent route-control decision, and NIS intelligence advice from field command. The existing evidence-dependent physical east gate remains the playable consequence. This is a small CH01 continuity increment, **not** proof of a believable 12-chapter story or independent narrative QA.
 - **Verification boundary:** Node tests and GitHub CI must pass on the proposed commit; human browser, Unreal, QHD 165Hz and comparative narrative/realism playtests remain unverified.
 
