@@ -177,7 +177,7 @@ test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals comp
   go(state,'terminal');story.interact(state);
   state.world.player.shield=10;
   assert.deepEqual(story.support(state),{ok:true,event:'support',report:true});
-  assert.equal(state.world.player.shield,10);
+  assert.equal(state.world.player.shield,0);
   assert.equal(state.world.player.health,100);
   assert.match(state.subtitle,/김지윤/);
   assert.equal(story.support(state).reason,'already_used');
