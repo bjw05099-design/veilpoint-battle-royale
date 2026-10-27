@@ -73,7 +73,7 @@ class TeamMatch {
       throw new RangeError('invalid_command');
     if (data.type === 'move' && !validDirection(data.direction)) throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
-    if (this.phase !== 'playing' && (data.type === 'move' || data.type === 'capture'))
+    if (this.phase !== 'playing' && ['move', 'capture', 'fire', 'reload'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
