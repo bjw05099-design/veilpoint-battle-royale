@@ -17,7 +17,7 @@
 - **Production fidelity path:** Unreal Engine 5.x project and original/licensed physical-based assets. Use Nanite where appropriate for high geometric detail; Lumen for realistic dynamic lighting and reflections where performance permits; Virtual Shadow Maps and TSR where justified by benchmarks. Compare options before enabling globally.
 - **Prototype path:** keep the existing browser demo as a gameplay and automated-test sandbox, not a substitute for the final PC renderer.
 - **Network architecture:** dedicated authoritative server with validation, reproducible simulation where feasible, interest management, profiling and latency/paket-loss tests.
-- **Graphics scalability:** separate **Cinematic Fidelity** (visual target, hardware-dependent FPS) and **Competitive 165 Hz** (frametime-first) profiles. No promise that extreme photorealism and 165 FPS coexist on all hardware.
+- **Graphics scalability:** separate **HyperReal 165Hz** (perceptual quality and high-refresh responsiveness together, tested against measured frame-time budgets), **Cinematic Maximum** (absolute visual quality priority), Ultra Photoreal, Balanced Quality, Smooth Performance, Power Saver, and separate Custom controls. No promise that extreme photorealism and 165 FPS coexist on all hardware.
 - **Display:** user-selectable frame-cap levels (30/60/90/120/144/165 FPS), frame time overlay and benchmarking; separate monitor refresh configuration (OS/driver), V-Sync and screen-mode controls for actual desktop builds.
 
 ## 3. Testable acceptance gates (targets, not present achievements)
@@ -50,3 +50,7 @@ Every update must state: changed files/commit or PR URL; actual tests and enviro
 - Lumen: https://dev.epicgames.com/documentation/unreal-engine/lumen-technical-details-in-unreal-engine
 - Nanite: https://dev.epicgames.com/documentation/unreal-engine/nanite-in-unreal-engine
 - TSR: https://dev.epicgames.com/documentation/ko-kr/unreal-engine/temporal-super-resolution-in-unreal-engine
+
+## 6. Graphics settings and accelerated milestone (2026-10-27)
+
+The flagship profile is HyperReal 165Hz: keep as much realistically perceived detail as possible while progressively reducing measured rendering bottlenecks to target 165FPS on capable hardware. See [Graphics Profiles](GRAPHICS_PROFILES.md) for six modes and granular adjustments, and [30-Day Sprint](30_DAY_SPRINT.md) for accelerated hourly implementation and quality gates. Real 165Hz output, highest visual fidelity and full native engine compilation are not yet verified.
