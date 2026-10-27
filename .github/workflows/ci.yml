@@ -1,4 +1,4 @@
-name: VEILPOINT offline simulation tests
+name: VEILPOINT offline gameplay and story tests
 on:
   push:
     branches: ['**']
@@ -27,5 +27,6 @@ jobs:
           name: veilpoint-browser-prototype
           path: |
             index.html
+            story.html
             src/
             README.md
