@@ -10,12 +10,12 @@
   const VERSION = 1;
   // Canonical cast is fictional. ROK/NIS affiliations are narrative, not real operations.
   const LEAD = Object.freeze({
-    id: 'captain-seo-jinhyeok', nameKo: '서진혁', rankKo: '대위',
+    id: 'captain-lee-suhyeok', nameKo: '이수혁', rankKo: '대위',
     affiliationKo: '대한민국 특수부대', isPlayer: true
   });
   const SUPPORT_CAST = Object.freeze([
-    Object.freeze({id:'nis-yoon-seoha',nameKo:'윤서하',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
-    Object.freeze({id:'nis-kang-minjae',nameKo:'강민재',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
+    Object.freeze({id:'nis-kim-jiyun',nameKo:'김지윤',genderKo:'남성',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
+    Object.freeze({id:'nis-jo-hyeonji',nameKo:'조현지',genderKo:'여성',roleKo:'국정원 요원',affiliationKo:'국가정보원'}),
     Object.freeze({id:'mara-dahan',nameKo:'마라 다한',roleKo:'나흐린 시민 통신기술자',affiliationKo:'나흐린 시민 공동체'}),
     Object.freeze({id:'yusuf-rahal',nameKo:'유수프 라할',roleKo:'현지 구조 책임자',affiliationKo:'시민 구조단'})
   ]);
