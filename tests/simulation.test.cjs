@@ -243,7 +243,8 @@ test('sprint and injury raise deterministic stress while rest lowers it',()=>{
 });
 
 test('offline BR player cannot pass through a living opponent during 60Hz traversal',()=>{
- const g=S.newMatch(910,1),b=g.bots[0],p=g.player;g.status='playing';
+ const g=S.newMatch(910,2),b=g.bots[0],p=g.player;g.status='playing';
+ g.bots[1].x=100;g.bots[1].z=100;g.bots[1].actionTime=999;
  p.x=0;p.z=0;p.yaw=0;b.x=0;b.z=-4;b.angle=0;
  b.moveTime=999;b.actionTime=999;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
