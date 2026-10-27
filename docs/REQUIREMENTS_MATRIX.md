@@ -141,3 +141,7 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 ## 2026-10-28 CH01 finite physical cache candidate
 
 - **R-14 / R-21 / R-23 / R-27 (partial):** A marked, once-only local-rescue ammunition cache can be collected with the existing E/touch interaction during CH01 combat. It transfers at most twelve finite carried rounds, respects the existing capacity, never automatically respawns, and cannot be collected twice after a checkpoint restore. Legacy v2 saves without the new consumption flag migrate with the cache unused; invalid flags are rejected. Two regressions cover exhaustion recovery, capacity, HUD, 60Hz reload and save continuity. No real weapon handling or physical 3D asset provenance is claimed; CI and actual browser QA are required before release.
+
+## 2026-10-28 BR living-actor collision candidate
+
+- **R-04 / R-13 / R-23 (partial):** The offline BR 60Hz controller and AI now treat other living actors as finite collision bodies; defeated actors cease blocking. Pre-existing overlaps are exempted only for movement to prevent trapping; line-of-fire occlusion also checks intervening live actors, excluding the intended target. Fixed-step regressions cover player/bot passage, bot/bot collision, reproducibility and overlap escape. This remains an approximate 2D collision proxy, not UE physics, measured performance or human playtesting. Actual CI validation required.
