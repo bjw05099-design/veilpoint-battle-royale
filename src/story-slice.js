@@ -124,10 +124,10 @@
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
-    state.world.player.shield=Math.min(100,state.world.player.shield+40);
-    state.subtitle='김지윤(국정원): 보호 신호를 한 번 연결했습니다. 조현지가 중계 경로를 확인 중입니다.';
-    state.message='동료 지원 사용 · 보호막 '+Math.round(state.world.player.shield);
-    return {ok:true,event:'support',shield:state.world.player.shield};
+    state.world.player.shield=0;
+    state.subtitle='김지윤(국정원): 중계 경로의 이상 징후를 확인했습니다.';
+    state.message='상황 보고 수신';
+    return {ok:true,event:'support',report:true};
   }
   function interact(state) {
     if(state.phase==='complete')return {ok:false,reason:'completed'};
