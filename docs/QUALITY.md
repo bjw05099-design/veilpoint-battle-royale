@@ -19,3 +19,11 @@
 - 60 Hz fixed simulation with bounded catch-up (8 steps and 250 ms frame clamp).
 - Tab hiding and window blurring reset fractional accumulation.
 - The browser WebGL2 rendering path and Unreal C++ have **not** been evaluated by this test suite.
+
+## 165 Hz quality acceptance criteria (v1.2)
+
+- [x] 165 FPS cap option implemented for browser output; separate from 60 Hz simulation.
+- [x] Synthetic 165 Hz pacing and cap tests included in Node CI.
+- [ ] Confirm Windows/macOS display actually reports 165 Hz and browser renders at appropriate callback cadence.
+- [ ] Test real GPU CPU/GPU frame time (165 Hz frame budget ≈ 6.06 ms), tearing, V-Sync, latency and frame consistency.
+- [ ] UE fullscreen mode enumeration, V-Sync and 165 Hz monitor validation on a real display.
