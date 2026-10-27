@@ -143,7 +143,7 @@
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeDrones();
       state.subtitle='조현지(국정원): 중계기 주변에 가상 교란 드론 세 기가 활성화됐어요. 신호를 차단해 주세요.';
-      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 동료 지원';
+      state.message='교란 드론 3기 · 클릭/SPACE 신호 발사 · Q 상황 보고';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -189,7 +189,7 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
-      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 지원(1회).';
+      case 'engagement':return '교란 드론 3기의 신호를 차단하세요. 클릭/SPACE 발사, Q 동료 상황 보고(1회).';
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
