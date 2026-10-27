@@ -96,3 +96,8 @@ Shared offline BR/CH01 logic adds deterministic sprint/injury stress and a singl
 ## 2026-10-28 BR class-slice verification boundary
 
 BR now offers a pre-match choice of three **fictional** handling profiles, each with a distinct finite ammunition budget, magazine, reload duration, fire cadence, aim tolerance, mobility and basic generated audio cue. BR loot now also carries a fixed class compatibility label and refuses incompatible pickups, with a proximity HUD warning. The default carbine retains the CH01 checkpoint schema and existing 12-round behavior. This is a playable browser-rule candidate with deterministic Node and controller tests, **not** realistic gun acoustics, animation, 7-class coverage, native UE content, actual browser/hardware QA, or authoritative multiplayer inventory. R-27 stays partial and issue #20 stays open. Real-world reference dimensions and licensed assets must be documented before production models are added.
+
+## 2026-10-28 CH01 local-responder clearance candidate
+
+- Verification now retains the east barrier for an authored eight-second local responder clearance interval, with pending/confirmed objective/HUD status; premature exit is rejected. A saved `gateReadyAt` timestamp preserves deterministic checkpoint progress and old v2 verification saves retain their previously open route. Tests cover timing, collision, save migration and malformed timestamps. The encounter failure menu no longer attributes the failure to supernatural signal interference.
+- **R-02/R-22/R-23 remain partial; issue #15 open:** timer is a prototype abstraction without physical gate animation, measured responder travel, real-browser QA, independent narrative review, 12 completed chapters, UE build or QHD 165Hz measurement.
