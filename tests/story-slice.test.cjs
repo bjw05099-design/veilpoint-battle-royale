@@ -37,7 +37,7 @@ test('60Hz player movement is deterministic and uses existing world collision',(
   assert.deepEqual([a.world.player.x,a.world.player.z,a.world.player.stamina],
     [b.world.player.x,b.world.player.z,b.world.player.stamina]);
   assert.ok(a.world.player.z<12);
-  assert.equal(a.world.elapsed,4);
+  assert.ok(Math.abs(a.world.elapsed-4)<1e-10);
   const before=a.world.player.x;
   story.step(a,-10,{right:true});
   assert.equal(a.world.player.x,before);
