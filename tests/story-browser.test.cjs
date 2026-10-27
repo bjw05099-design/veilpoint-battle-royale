@@ -169,3 +169,33 @@ test('choice overlay can return to investigation and reopen without soft-lock',(
   assert.equal(app.element('choices').classList.contains('hidden'),true);
   assert.match(app.element('objective').textContent,/안뜰/);
 });
+
+test('CH01 pause persists elapsed progress outside combat rather than rewinding it',()=>{
+  const app=boot();app.element('continue').click();app.moveForward(0,300);app.interact();
+  const frame=app.clearEncounter(300);
+  const savedBefore=JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed;
+  app.moveForward(frame,60);
+  app.element('pauseButton').click();
+  const savedAfter=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(savedAfter.phase,'records');
+  assert.ok(savedAfter.elapsed>savedBefore);
+  const reloaded=boot(app.store);reloaded.element('continue').click();
+  assert.match(reloaded.element('objective').textContent,/기록/);
+});
+test('CH01 timed clearance is persisted by browser clock and survives reload without repeating wait',()=>{
+  const Story=require('../src/story-slice.js');
+  const state=Story.createState();
+  state.phase='decision';state.found=['recordA','recordB'];
+  state.combat.started=true;state.combat.cleared=true;
+  state.world.bots=[0,1,2].map(id=>({id,health:0,alive:false,shots:12}));
+  assert.equal(Story.choose(state,'verification').ok,true);
+  const shared=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
+  const app=boot(shared);app.element('continue').click();
+  assert.match(app.element('objective').textContent,/개방 작업 중/);
+  for(let i=1;i<=510;i++)app.frame(i*1000/60);
+  const saved=Story.restore(shared.get('veilpoint.story.ch01'));
+  assert.equal(Story.situation(saved).eastGateOpen,true);
+  assert.ok(saved.world.elapsed>=Story.GATE_CLEARANCE_SECONDS);
+  const reloaded=boot(shared);reloaded.element('continue').click();
+  assert.match(reloaded.element('objective').textContent,/추가 확인 경로/);
+});
