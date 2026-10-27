@@ -174,7 +174,7 @@
       const record=RECORDS[marker.id];
       state.subtitle=record.title+' / '+record.time+' — '+record.text;
       state.message=state.found.length===2
-        ?'SIGNAL ECHO: 04:07과 04:12 기록을 대조했습니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
+        ?'SIGNAL ECHO: 04:07과 04:12 기록은 5분 차이입니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
