@@ -64,7 +64,8 @@
     $('continue').disabled=true;$('newGame').disabled=true;
   }
   function menuOpen(text){
-    if(running&&state.phase==='engagement')persist();
+    // Pausing after a choice or during clearance must not roll back elapsed world state.
+    if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
     running=false;clearInput();clock.reset();limiter.reset();
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
@@ -258,7 +259,11 @@
   function frame(now){
     global.requestAnimationFrame(frame);
     const dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
+    const gatePending=running&&state.phase==='exit'&&state.choice==='verification'&&
+      !Story.situation(state).eastGateOpen;
     if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
+    // Persist the actual world transition once, rather than writing every 60Hz tick.
+    if(gatePending&&Story.situation(state).eastGateOpen)persist();
     if(running&&state.phase==='failed'){
       persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
     }
