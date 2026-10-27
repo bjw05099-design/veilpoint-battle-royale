@@ -5,11 +5,10 @@
   'use strict';
   const $=id=>document.getElementById(id);
   const Story=global.VeilpointStorySlice;
-  const Campaign=global.VeilpointCampaign;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const SAVE_KEY='veilpoint.story.ch01';
-  const CAMPAIGN_KEY='veilpoint.campaignProgress';
+  const PREVIEW_KEY='veilpoint.story.ch01PreviewCompleted';
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
   const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:.25,maxSteps:8});
   const limiter=global.VeilpointFPS.createFrameLimiter(60);
@@ -35,15 +34,8 @@
     return storage.set(SAVE_KEY,raw);
   }
   function recordCompletion(){
-    try{
-      const raw=storage.get(CAMPAIGN_KEY);
-      const progress=raw?Campaign.deserialize(raw):Campaign.freshProgress();
-      const next=Campaign.nextMission(progress);
-      if(next&&next.id==='M01'&&state.choice){
-        const completed=Campaign.completeMission(progress,'M01',state.choice);
-        storage.set(CAMPAIGN_KEY,Campaign.serialize(completed));
-      }
-    }catch(_){/* A bad campaign save must not block the playable mission. */}
+    // The CH01 preview is NOT the authored 50-minute M01; never unlock the next campaign chapter.
+    storage.set(PREVIEW_KEY,JSON.stringify({version:1,choice:state.choice}));
   }
   let settings=Graphics.fromPreset('balanced');
   try{const raw=storage.get('veilpoint.graphics');if(raw)settings=Graphics.deserialize(raw);}catch(_){}
@@ -72,16 +64,17 @@
     $('continue').disabled=true;$('newGame').disabled=true;
   }
   function menuOpen(text){
+    if(running&&state.phase==='engagement')persist();
     running=false;clearInput();clock.reset();limiter.reset();
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
-    const completed=state.phase==='complete';
+    const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=completed?'미션 다시 플레이':'이어하기';
   }
   function resume(){
     if(!renderer)return;
-    if(state.phase==='complete')state=Story.createState();
+    if(state.phase==='complete'||state.phase==='failed')state=Story.createState();
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
@@ -128,6 +121,16 @@
     }
     updateHud();
   }
+  function fire(){
+    if(!running)return;
+    const result=Story.fire(state);
+    if(result.ok){persist();updateHud();}
+  }
+  function support(){
+    if(!running)return;
+    const result=Story.support(state);
+    if(result.ok){persist();updateHud();}
+  }
   $('continue').addEventListener('click',()=>begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
@@ -150,6 +153,8 @@
     if(!running)return;
     if(commands[e.code]){e.preventDefault();input[commands[e.code]]=true;}
     if(e.code==='KeyE'){e.preventDefault();interact();}
+    if(e.code==='Space'){e.preventDefault();fire();}
+    if(e.code==='KeyQ'){e.preventDefault();support();}
   });
   global.addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
   global.addEventListener('blur',()=>{clearInput();clock.reset();limiter.reset();last=performance.now();});
@@ -164,7 +169,8 @@
   global.addEventListener('mousemove',e=>{if(running&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
   canvas.addEventListener('click',()=>{
     if(!running||isTouch)return;
-    if(document.pointerLockElement!==canvas&&canvas.requestPointerLock)canvas.requestPointerLock();
+    if(document.pointerLockElement===canvas)fire();
+    else if(canvas.requestPointerLock)canvas.requestPointerLock();
   });
   let touchLookId=null,previous=null;
   canvas.addEventListener('pointerdown',e=>{
@@ -187,6 +193,8 @@
       button.addEventListener(event,()=>{input[name]=false;});
   }
   $('touchInteract').addEventListener('click',interact);
+  $('touchFire').addEventListener('click',fire);
+  $('touchSupport').addEventListener('click',support);
   $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])
     $('touchSprint').addEventListener(event,()=>{input.sprint=false;});
@@ -204,6 +212,10 @@
       ctx.fillStyle=m.kind==='med'?'#91f0ad':m.kind==='shield'?'#8ec6ff':'#ffcb7c';
       ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
     }
+    for(const drone of state.world.bots){
+      if(!drone.alive)continue;
+      ctx.fillStyle='#f1a69a';ctx.beginPath();ctx.arc(tx(drone.x),tz(drone.z),3.5,0,Math.PI*2);ctx.fill();
+    }
     const p=state.world.player;
     ctx.fillStyle='#faffd4';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#faffd4';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));
@@ -213,6 +225,12 @@
     $('objective').textContent=Story.objective(state);
     $('status').textContent=state.message+' · 경과 '+Math.floor(state.world.elapsed)+'초';
     $('subtitle').textContent=state.subtitle;
+    const combatActive=state.phase==='engagement';
+    $('combatStatus').classList.toggle('hidden',!combatActive);
+    if(combatActive){
+      const p=state.world.player;
+      $('combatStatus').textContent='교란 드론 '+state.world.bots.filter(b=>b.alive).length+'/3 · 신호 '+p.charges+' · 보호막 '+Math.ceil(p.shield)+' · 동료 지원 '+(state.combat.supportUsed?'사용 완료':'Q 사용 가능');
+    }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
       ?entries.map(r=>r.title+' / '+r.time).join(' · ')+(entries.length===2?' / 시간 불일치 확인':'')
@@ -227,7 +245,10 @@
   function frame(now){
     global.requestAnimationFrame(frame);
     const dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
-    if(running&&state.phase!=='complete')clock.advance(dt,step=>Story.step(state,step,input));
+    if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
+    if(running&&state.phase==='failed'){
+      persist();menuOpen('교란 신호에 의해 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
+    }
     if(renderer&&limiter.shouldRender(now))renderer.draw(state.world);
     if(now-lastHud>180){lastHud=now;updateHud();}
   }

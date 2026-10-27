@@ -72,7 +72,22 @@ function boot(sharedStore=new Map()){
       for(let i=1;i<=count;i++)this.frame((startFrame+i)*1000/60);
       context.VeilpointInput.forward=false;
     },
-    interact(){this.emit('keydown',{code:'KeyE'});}
+    interact(){this.emit('keydown',{code:'KeyE'});},
+    clearDrones(startFrame){
+      // Real UI input path: pointer-locked mouse aim + SPACE, paced by the 60Hz clock.
+      let frame=startFrame,yaw=0;
+      const aim=next=>{this.emit('mousemove',{movementX:(next-yaw)/.0023,movementY:0});yaw=next;};
+      for(const next of [0,Math.atan2(15,15.5),Math.atan2(-15,15.5)]){
+        aim(next);
+        for(let shot=0;shot<2;shot++){
+          this.emit('keydown',{code:'Space'});
+          for(let tick=0;tick<15;tick++){frame++;this.frame(frame*1000/60);}
+        }
+      }
+      aim(0);
+      assert.match(this.element('objective').textContent,/기록/,JSON.stringify(JSON.parse(this.store.get('veilpoint.story.ch01')||'null')));
+      return frame;
+    }
   };
 }
 
@@ -89,23 +104,24 @@ test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and sa
   assert.equal(app.element('menu').classList.contains('hidden'),true);
   app.moveForward(0,300);
   app.interact();
-  assert.match(app.element('objective').textContent,/기록/);
+  assert.match(app.element('objective').textContent,/교란 드론/);
   assert.ok(app.store.has('veilpoint.story.ch01'));
-  app.moveForward(300,225);
+  const frame=app.clearDrones(300);
+  app.moveForward(frame,225);
   app.interact();
   assert.equal(app.element('choices').classList.contains('hidden'),false);
   assert.equal(app.element('choiceVerified').disabled,true);
   app.element('choiceEvac').click();
   assert.match(app.element('objective').textContent,/안뜰/);
-  app.moveForward(525,193);
+  app.moveForward(frame+225,193);
   app.interact();
   assert.equal(app.element('menu').classList.contains('hidden'),false);
   assert.match(app.element('menuText').textContent,/CH01 완료/);
   const save=JSON.parse(app.store.get('veilpoint.story.ch01'));
   assert.equal(save.phase,'complete');
   assert.equal(save.choice,'evacuation');
-  const progress=JSON.parse(app.store.get('veilpoint.campaignProgress'));
-  assert.deepEqual(Array.from(progress.completed),['M01']);
+  assert.equal(app.store.has('veilpoint.campaignProgress'),false);
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01PreviewCompleted')).choice,'evacuation');
 });
 test('story checkpoint survives new browser context and does not modify BR settings',()=>{
   const shared=new Map();
@@ -116,7 +132,7 @@ test('story checkpoint survives new browser context and does not modify BR setti
   const reloaded=boot(shared);
   assert.match(reloaded.element('menuText').textContent,/이전 진행 기록/);
   reloaded.element('continue').click();
-  assert.match(reloaded.element('objective').textContent,/기록/);
+  assert.match(reloaded.element('objective').textContent,/교란 드론/);
   reloaded.element('pauseButton').click();
   assert.equal(reloaded.element('menu').classList.contains('hidden'),false);
   reloaded.element('newGame').click();
@@ -140,7 +156,8 @@ test('choice overlay can return to investigation and reopen without soft-lock',(
   app.element('continue').click();
   app.moveForward(0,300);
   app.interact();
-  app.moveForward(300,225);
+  const frame=app.clearDrones(300);
+  app.moveForward(frame,225);
   app.interact();
   assert.equal(app.element('choices').classList.contains('hidden'),false);
   app.element('choiceBack').click();
