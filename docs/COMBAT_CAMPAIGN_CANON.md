@@ -78,3 +78,11 @@ The user requires a story experience aspiring to **greater felt immersion than m
 ## Realism correction (2026-10-27)
 
 CH01 story-only combat must not grant a shield or magical protection. Kim Ji-yun's one-use Q interaction is an informational radio report, not health restoration. Story combat damage bypasses the separate BR prototype's shield mechanic. Existing v2 saves may contain a shield field for backward compatibility, but restored CH01 shield is zero. This is a limited browser prototype change, **not** proof of realistic full-body injury, weapon ballistics, native UE performance, or completed campaign combat.
+
+## Real-world object reference policy (owner direction, 2026-10-27)
+
+Every tangible object class in VEILPOINT (firearms, hand tools, knives, cars, trucks, electronics, architecture, furniture, clothing and everyday props) should be modeled from documented real-world references wherever practical. Prioritize credible dimensions, material response, weight, moving parts, vehicle dynamics, audio, animation and environmental interactions. Preserve believable physical constraints instead of adding arcade shields, magic healing or superhuman handling.
+
+**IP and production gate:** Real-world reference does not grant rights to copy proprietary CAD/3D assets, product photography, trademarks, logos, trade dress or licensed sounds. Track source, creator, usage rights and attribution for each asset. Use original game-ready geometry and audio unless explicitly licensed; substitute fictional branding where rights are uncertain. Avoid implying endorsement by manufacturers, armed forces or intelligence agencies. Real-world fidelity is a target and must be verified through side-by-side visual and gameplay review, not asserted as complete.
+
+**Safety and scope:** Treat equipment as visual/interactive fiction, not a technical guide to real-world weapon use. Implement progressively with provenance-tracked reference sheets and representative assets; no claim that all world objects have been built.
