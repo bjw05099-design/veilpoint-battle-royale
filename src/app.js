@@ -119,8 +119,10 @@ function end(){running=false;$('overlay').classList.remove('hidden');$('mobileCo
 function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
  if(renderer){if(running&&simulation.status==='playing'){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
-  clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});if(simulation.status!=='playing')end();
+  clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});
  }
+ // Resolve terminal states even when they change between simulation ticks.
+ if(running&&simulation.status!=='playing')end();
  if(fpsLimiter.shouldRender(now)){
   if(lastRenderTime!==null)telemetry.record('raf',now-lastRenderTime);
   lastRenderTime=now;
