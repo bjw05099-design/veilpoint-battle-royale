@@ -98,6 +98,13 @@
   // Fictional, non-graphic arcade encounter using the same tested ray-tag rules as offline BR.
   function fire(state) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
+    // A missed shot cannot permanently soft-lock the single-player preview.
+    if(state.world.player.charges===0){
+      state.world.player.charges=12;
+      state.subtitle='마라(기술자): 신호 발사기가 자동으로 재충전됐어요. 다시 시도하세요.';
+      state.message='신호 12회 재충전 완료';
+      return {ok:true,recharged:true,hit:false,remaining:state.world.bots.filter(b=>b.alive).length};
+    }
     const result=Sim.tag(state.world);
     if(!result.ok)return result;
     if(result.elimination){
