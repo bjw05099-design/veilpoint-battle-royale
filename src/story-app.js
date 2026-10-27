@@ -169,8 +169,17 @@
     if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
   });
   global.addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
-  global.addEventListener('blur',()=>{clearInput();clock.reset();limiter.reset();last=performance.now();});
-  document.addEventListener('visibilitychange',()=>{clearInput();clock.reset();limiter.reset();last=performance.now();});
+  // Losing focus must not leave the player exposed to hostile volleys or advance
+  // a timed route while they cannot control the game. Persist at the pause boundary.
+  function pauseForBackground(){
+    clearInput();clock.reset();limiter.reset();last=performance.now();
+    if(running)menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
+  }
+  global.addEventListener('blur',pauseForBackground);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)pauseForBackground();
+    else {clearInput();clock.reset();limiter.reset();last=performance.now();}
+  });
   document.addEventListener('pointerlockchange',()=>{
     if(!isTouch&&running&&document.pointerLockElement!==canvas)menuOpen('일시정지됨. 이어하기를 눌러 재개하세요.');
   });
@@ -261,7 +270,11 @@
     const dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
     const gatePending=running&&state.phase==='exit'&&state.choice==='verification'&&
       !Story.situation(state).eastGateOpen;
+    const healthBefore=state.world.player.health;
     if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
+    // A hostile hit is a durable gameplay consequence. Save once per actual
+    // damage event, never every 60Hz tick; terminal failure saves below.
+    if(running&&state.phase==='engagement'&&state.world.player.health<healthBefore)persist();
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
     if(running&&state.phase==='failed'){
