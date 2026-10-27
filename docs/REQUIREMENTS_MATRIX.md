@@ -61,6 +61,10 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 - **R-13 / R-23 — partial:** CH01 E/touch interactions and proximity HUD prompts now require an unobstructed line between the player and a marker, so physical cover prevents through-wall terminal and finite-cache access. Node tests cover blocking, safe access after obstruction removal and resource conservation. Full browser/device playtest remains outstanding.
 - **R-22 / R-28 — partial:** CH01 completion now records a structured, replay-safe preview-only debrief with the actual evidence count, chosen route, local aid authority's outcome and unresolved timestamp discrepancy. The debrief explicitly does **not** unlock the unbuilt M02 or confer online advantages. Tests cover both branches, save/restore and browser completion display; no 12-chapter causal continuity or independent narrative QA is claimed.
 
+## 2026-10-28 BR physical loot access candidate
+
+- **R-13 / R-23 — partial:** Offline BR ammunition pickup and the on-screen pickup prompt now share one unobstructed-reach check. Cover blocks E/touch pickup and does not consume finite loot; a visible cache may still be selected when a closer cache is occluded. Node regression tests cover inventory conservation and HUD parity. Actual human-browser testing, physically authored loot placement, UE rendering and multiplayer loot authority remain outstanding.
+
 ## Completion rules
 - **No obvious unrealistic mechanics in any mode is a hard release gate** (issue #15). The goal is physically and causally convincing simulation, not false claims of perfect real-world physics. Track incompatible prototypes as blocking work, not completed functionality.
 - **Full release means all major modes work**, not just a designed menu or documentation.

@@ -274,3 +274,31 @@ test('offline BR old overlapping actors can separate without collision deadlock'
  S.tick(g,1/60,{forward:true});
  assert.ok(p.z<0,'player can move out of a pre-existing overlap');
 });
+
+
+test('BR E/touch pickup and HUD visibility reject supplies behind solid cover',()=>{
+ const g=S.newMatch(808,0);g.status='playing';g.player.charges=12;
+ g.loot.forEach(item=>{item.x=130;item.z=130;});
+ const blocked=g.loot.find(item=>item.kind==='ammo'&&item.weaponId===g.player.weaponId);
+ const accessible=g.loot.find(item=>item!==blocked&&item.kind==='ammo'&&item.weaponId===g.player.weaponId);
+ blocked.x=0;blocked.z=-3;
+ g.obstacles.push({x:0,z:-1.5,w:2,d:.5,h:2,type:'wall'});
+ assert.equal(S.lineBlocked(0,0,0,-3,g.obstacles),true);
+ assert.equal(S.canReachPickup(g,blocked),false);
+ assert.equal(S.pickup(g),null);
+ assert.equal(blocked.picked,false);
+ assert.equal(g.player.charges,12);
+ // A second, unobstructed cache can be collected even if the blocked one is closer.
+ accessible.x=2.7;accessible.z=0;
+ assert.equal(S.canReachPickup(g,accessible),true);
+ assert.equal(S.pickup(g),'ammo');
+ assert.equal(accessible.picked,true);
+ assert.equal(blocked.picked,false);
+ assert.equal(g.player.charges,24);
+ g.obstacles.pop();
+ assert.equal(S.canReachPickup(g,blocked),true);
+ assert.equal(S.pickup(g),'ammo');
+ assert.equal(g.player.charges,36);
+ const app=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../src/app.js'),'utf8');
+ assert.match(app,/Game\\.canReachPickup\\(s,l\\)/);
+});
