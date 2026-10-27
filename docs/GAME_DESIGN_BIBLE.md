@@ -63,3 +63,7 @@ The distinctiveness arises from systems and storytelling, not from copying other
 - No lifted character identities, maps, modes' protected audiovisual presentation or proprietary technology.
 - No gore-focused depictions or unnecessary graphic violence.
 - No falsely claimed UE compilation, multiplayer readiness, photoreal parity or stable 165FPS.
+
+## Current CH01 implementation checkpoint (2026-10-27)
+
+The offline browser now has `story.html` and `src/story-slice.js` for a **short** playable first-person relay/record/route-choice/exit loop, with local checkpoint saves, subtitles and optional evidence. This is only a **prototype vertical slice**, not a finished full chapter, twelve-hour campaign, server-authoritative multiplayer or native photoreal build. The 12-chapter/720-minute **planned** campaign budget is in [Campaign Design](CAMPAIGN_DESIGN.md), replacing the earlier eight-chapter count. Current BR remains an offline browser mode; the team mode and Signal Weather remain unimplemented.
