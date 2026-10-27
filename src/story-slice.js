@@ -116,6 +116,14 @@
     p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprint);
     state.world.elapsed+=t;
+    // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
+    // shot/impact visuals and damage feedback here, or they persist indefinitely.
+    state.world.damageFlash=Math.max(0,state.world.damageFlash-t*2.4);
+    state.world.messageTime=Math.max(0,state.world.messageTime-t);
+    for(let i=state.world.effects.length-1;i>=0;i--){
+      state.world.effects[i].t-=t;
+      if(state.world.effects[i].t<=0)state.world.effects.splice(i,1);
+    }
     Sim.advanceReload(state.world,t);
     if(state.phase==='engagement'&&t>0){
       // Human opponents can orient and advance only after observing a visible player.
