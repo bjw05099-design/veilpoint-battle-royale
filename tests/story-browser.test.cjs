@@ -187,7 +187,9 @@ test('CH01 timed clearance is persisted by browser clock and survives reload wit
   const state=Story.createState();
   state.phase='decision';state.found=['recordA','recordB'];
   state.combat.started=true;state.combat.cleared=true;
-  state.world.bots=[0,1,2].map(id=>({id,health:0,alive:false,shots:12}));
+  // Completed encounters retain a valid physical pose in the new checkpoint schema.
+  state.world.bots=[{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}].map(({x,z},id)=>
+    ({id,x,z,angle:Math.PI,health:0,alive:false,shots:12}));
   assert.equal(Story.choose(state,'verification').ok,true);
   const shared=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
   const app=boot(shared);app.element('continue').click();
