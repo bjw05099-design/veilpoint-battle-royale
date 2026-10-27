@@ -151,7 +151,16 @@
       new Set(data.found).size!==data.found.length||data.found.some(id=>!hasOwn(RECORDS,id))||
       !data.player||typeof data.player!=='object'||Array.isArray(data.player))
       throw new RangeError('Invalid story checkpoint');
+    // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
+    const expectedKeys=['version','phase','found','choice','player','elapsed'];
+    if(Object.keys(data).length!==expectedKeys.length||
+      Object.keys(data).some(k=>!expectedKeys.includes(k)))
+      throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
+    const playerKeys=['x','z','yaw','pitch','stamina'];
+    if(Object.keys(p).length!==playerKeys.length||
+      Object.keys(p).some(k=>!playerKeys.includes(k)))
+      throw new RangeError('Unknown player checkpoint fields');
     for(const k of ['x','z','yaw','pitch','stamina'])
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
@@ -174,7 +183,8 @@
     const data=JSON.parse(json);validateSnapshot(data);
     const state=createState();
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
-    Object.assign(state.world.player,data.player);state.world.elapsed=data.elapsed;
+    for(const key of ['x','z','yaw','pitch','stamina'])state.world.player[key]=data.player[key];
+    state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
     state.subtitle='체크포인트를 불러왔습니다. '+objective(state);
     state.message='CH01 / 이어하기';
