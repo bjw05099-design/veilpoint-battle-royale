@@ -241,3 +241,35 @@ test('sprint and injury raise deterministic stress while rest lowers it',()=>{
  assert.ok(a.player.stress<before);
  S.receiveDamage(a,20);assert.ok(a.player.stress>before);
 });
+
+test('offline BR player cannot pass through a living opponent during 60Hz traversal',()=>{
+ const g=S.newMatch(910,1),b=g.bots[0],p=g.player;g.status='playing';
+ p.x=0;p.z=0;p.yaw=0;b.x=0;b.z=-4;b.angle=0;
+ b.moveTime=999;b.actionTime=999;
+ for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
+ assert.ok(p.z>=b.z+1.4,'player must remain behind the living opponent');
+ assert.equal(p.alive,true);
+ b.alive=false;b.health=0;
+ for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
+ assert.ok(p.z<b.z,'defeated opponent no longer blocks passage');
+});
+
+test('offline BR opposing actors cannot pass through each other and movement is reproducible',()=>{
+ const make=()=>{const g=S.newMatch(911,2),[a,b]=g.bots;g.status='playing';
+   g.player.x=0;g.player.z=100;
+   a.x=b.x=0;a.z=-10;b.z=-14;a.angle=0;b.angle=Math.PI;
+   a.moveTime=b.moveTime=999;a.actionTime=b.actionTime=999;return g;};
+ const a=make(),b=make();
+ for(let i=0;i<120;i++){S.tick(a,1/60,{});S.tick(b,1/60,{});}
+ const positions=g=>g.bots.map(bot=>[bot.x,bot.z,bot.health,bot.charges]);
+ assert.deepEqual(positions(a),positions(b));
+ assert.ok(Math.hypot(a.bots[0].x-a.bots[1].x,a.bots[0].z-a.bots[1].z)>=1.4);
+});
+
+test('offline BR old overlapping actors can separate without collision deadlock',()=>{
+ const g=S.newMatch(912,1),b=g.bots[0],p=g.player;g.status='playing';
+ p.x=b.x=0;p.z=b.z=0;p.yaw=0;
+ b.angle=0;b.moveTime=999;b.actionTime=999;
+ S.tick(g,1/60,{forward:true});
+ assert.ok(p.z<0,'player can move out of a pre-existing overlap');
+});
