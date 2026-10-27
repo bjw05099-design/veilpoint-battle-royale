@@ -1,5 +1,7 @@
 # VEILPOINT — 12-hour campaign & original multiplayer direction
 
+> **LATEST CANON UPDATE — 2026-10-27:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md) is authoritative for the **playable lead (대한민국 특수부대 서진혁 대위)**, fictional **국정원 요원 윤서하·강민재**, and **60–65% combat-forward gameplay**. Sahir Coast/Nahrin and the 12-chapter 720-minute budget remain, while Mara Dahan is a supporting local engineer rather than the playable protagonist. Existing earlier story emphasis below is historical/preliminary. The first browser CH01 is still a non-combat prototype.
+
 **Date:** 2026-10-27. **Canon:** Sahir Coast / Nahrin; Mara Dahan, Yusuf Rahal, Samir Qadir, Nadia Faris. Earlier 8-chapter concepts are subsumed into this 12-chapter target. **Status:** approved creative/production target; **not a playable 12-hour campaign**. This document adds to the existing [final roadmap](FINAL_RELEASE_ROADMAP.md), [vision](PROJECT_VISION.md), and [one-month demo gates](DEMO_DELIVERY_GATES.md); it does not replace them.
 
 ## Unified game identity
@@ -25,7 +27,7 @@ Avoid a feature soup: **only share systems when they improve all modes** and oth
 
 ## Campaign narrative premise
 
-In the fictional Sahir Coast city of Nahrin and its surrounding districts, a ceasefire breaks down just as the **VEILPOINT** civic archive and communications backbone goes dark. Rival authorities claim conflicting responsibility. The player follows **마라 다한 (Mara Dahan)**, a municipal communications engineer, **유수프 라할 (Yusuf Rahal)**, a civilian emergency coordinator, and **나디아 파리스 (Nadia Faris)**, an independent broadcaster. A small group of civilians, mechanics, relief personnel and commanders are fully realised voices, not generic props. Across desert transit belts, the coastal capital, mountain relays and a damaged port, seemingly contradictory transmissions reveal that the fracture is being amplified by a system intended to save lives. No faction is written as intrinsically heroic or villainous based on nationality or religion.
+In the fictional Sahir Coast city of Nahrin and its surrounding districts, a ceasefire breaks down just as the **VEILPOINT** civic archive and communications backbone goes dark. Rival authorities claim conflicting responsibility. The player controls **서진혁 대위 (Seo Jin-hyeok)**, a fictional Republic of Korea special-forces captain, supported by fictional **국정원 agents 윤서하 and 강민재**, military squadmates, and independent local partners **마라 다한 (Mara Dahan)**, **유수프 라할 (Yusuf Rahal)** and **나디아 파리스 (Nadia Faris)**. A small group of civilians, mechanics, relief personnel and commanders are fully realised voices, not generic props. Across desert transit belts, the coastal capital, mountain relays and a damaged port, seemingly contradictory transmissions reveal that the fracture is being amplified by a system intended to save lives. No faction is written as intrinsically heroic or villainous based on nationality or religion.
 
 **Dramatic escalation:** local rescue / unreliable orders → contested routes → city-scale blackout → divided loyalties → a public truth that can be revealed imperfectly → final evacuation with lasting consequences. Consequences affect scene state, relationships and the epilogue; avoid fake choices where nothing changes.
 
