@@ -142,7 +142,7 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
   assert.throws(()=>story.restore(JSON.stringify({...valid,player:{...valid.player,extra:1}})),RangeError);
   assert.throws(()=>story.restore(JSON.stringify({...valid,player:JSON.parse('{"x":0,"z":12,"yaw":0,"pitch":0,"stamina":100,"__proto__":{"admin":true}}')})),RangeError);
   assert.throws(()=>story.restore('bad-json'),SyntaxError);
-  assert.throws(()=>story.restore('x'.repeat(4100)),TypeError);
+  assert.throws(()=>story.restore('x'.repeat(8300)),TypeError);
 });
 
 test('CH01 accurately frames the captain as protagonist and Mara as ally without claiming combat is implemented', () => {
@@ -187,7 +187,7 @@ test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals comp
 test('encounter pulse is fixed-step deterministic, can fail, and preserves retry path',()=>{
   const a=story.createState(),b=story.createState();
   go(a,'terminal');go(b,'terminal');story.interact(a);story.interact(b);
-  for(let i=0;i<180;i++){story.step(a,1/60);story.step(b,1/60);}
+  for(let i=0;i<190;i++){story.step(a,1/60);story.step(b,1/60);}
   assert.equal(a.world.player.shield,b.world.player.shield);
   assert.ok(a.world.player.shield<80);
   a.world.player.health=1;a.world.player.shield=0;
