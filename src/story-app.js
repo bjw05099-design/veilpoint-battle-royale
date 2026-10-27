@@ -246,7 +246,7 @@
     $('status').textContent=state.message+' · 경과 '+Math.floor(state.world.elapsed)+'초';
     $('subtitle').textContent=state.subtitle;
     const situation=Story.situation(state);
-    $('routeStatus').textContent=situation.evidence+' · '+situation.route;
+    $('routeStatus').textContent=situation.evidence+' · '+situation.route+' · '+situation.civilianConsequence;
     const combatActive=state.phase==='engagement';
     $('combatStatus').classList.toggle('hidden',!combatActive);
     if(combatActive){
