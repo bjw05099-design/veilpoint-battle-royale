@@ -108,6 +108,16 @@
     if (!blocked(nx,entity.z,radius,obstacles)) entity.x=nx;
     if (!blocked(entity.x,nz,radius,obstacles)) entity.z=nz;
   }
+
+  // Lightweight collision bodies for living actors. Pre-existing overlaps are ignored
+  // only for movement so legacy/procedural spawns can separate instead of trapping.
+  function actorObstacles(game, actor, except=null, ignoreOverlaps=true) {
+    return [game.player,...game.bots]
+      .filter(other=>other!==actor&&other!==except&&other.alive&&
+        (!ignoreOverlaps||!intersectsCircleAABB(actor.x,actor.z,.85,
+          {x:other.x,z:other.z,w:1.2,d:1.2})))
+      .map(other=>({x:other.x,z:other.z,w:1.2,d:1.2}));
+  }
   function receiveDamage(game, damage) {
     if (!game.player.alive || damage<=0) return;
     // Legacy shield state is inert: received damage always affects health.
@@ -167,7 +177,8 @@
     const wantsSprint=!!input.sprint&&iz>0&&p.stamina>1;
     const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
-    moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,obstacles);
+    moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
+      obstacles.concat(actorObstacles(game,p)));
     p.stamina=clamp(p.stamina+(wantsSprint?-20:13)*dt,0,100);
     updateStress(p,dt,wantsSprint);
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
@@ -198,7 +209,8 @@
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=outsideBot?5.3:target&&targetDistance>18?3.2:1.0;
-      moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,obstacles);
+      moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,
+        obstacles.concat(actorObstacles(game,b)));
       if(outsideBot){
         b.health-=(2.3+game.zone.phase)*dt;
         if(b.health<=0){b.health=0;b.alive=false;continue;}
@@ -214,7 +226,8 @@
       const bearingNow=target?Math.atan2(target.x-b.x,-(target.z-b.z)):0;
       const aimedAtTarget=target&&target.alive&&!outsideBot&&dist(b,target)<47&&
         Math.abs(normalizeAngle(bearingNow-b.angle))<=0.2&&
-        !lineBlocked(b.x,b.z,target.x,target.z,obstacles);
+        !lineBlocked(b.x,b.z,target.x,target.z,
+          obstacles.concat(actorObstacles(game,b,target,false)));
       if(!wasReloading&&b.actionTime<=0&&aimedAtTarget){
         if(b.loaded===0){
           if(b.charges>0)b.reloadRemaining=RELOAD_SECONDS;
@@ -253,7 +266,8 @@
       const vx=b.x-p.x,vz=b.z-p.z, d=Math.hypot(vx,vz);
       const forward=vx*dx+vz*dz;
       const lateral=Math.abs(vx*dz-vz*dx);
-      if(forward>0 && d<85 && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)) {target=b;best=d;}
+      if(forward>0 && d<85 && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)&&
+          !lineBlocked(p.x,p.z,b.x,b.z,actorObstacles(game,p,b,false))) {target=b;best=d;}
     }
     game.effects.push({x:p.x+dx*Math.min(best,22),z:p.z+dz*Math.min(best,22),t:0.2,type:target?'hit':'tag'});
     if(target){target.health=Math.max(0,target.health-firearm.damage);if(target.health===0){target.alive=false;game.kills++;game.message='OPPONENT ELIMINATED';game.messageTime=2.2;}}
