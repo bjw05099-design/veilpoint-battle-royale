@@ -37,7 +37,7 @@
   }
   function createState() {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,world:createWorld(),
-      subtitle:'마라(기술자): 서 대위님, 나흐린의 중계망이 멈췄어요. 끊어진 신호를 함께 확인해요.',message:'CH01 / 마지막 방송'};
+      subtitle:'마라(기술자): 이 대위님, 나흐린의 중계망이 멈췄어요. 끊어진 신호를 함께 확인해요.',message:'CH01 / 마지막 방송'};
     syncMarkers(state);
     return state;
   }
