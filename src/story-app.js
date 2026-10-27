@@ -69,7 +69,7 @@
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
-    const completed=state.phase==='complete';
+    const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=completed?'미션 다시 플레이':'이어하기';
   }
   function resume(){
