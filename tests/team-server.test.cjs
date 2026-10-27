@@ -105,3 +105,33 @@ test('guest refresh can resume server-owned sequence and neutralize held inputs'
     assert.equal(server.match.players.size, 2, 'refresh must not allocate a third player');
   } finally {await server.close();}
 });
+
+
+test('two HTTP clients cannot disclose a rear contact or spoof facing in snapshots', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (body, token) => {
+    const response = await fetch(base + '/command', {method: 'POST', headers: {
+      'content-type': 'application/json', 'x-player-token': token
+    }, body: JSON.stringify(body)});
+    return response.status;
+  };
+  try {
+    const join = async name => (await (await fetch(base + '/join', {method: 'POST',
+      headers: {'content-type': 'application/json'}, body: JSON.stringify({name})})).json());
+    const a = await join('A'), b = await join('B');
+    assert.equal(await post({seq: 1, type: 'ready'}, a.token), 200);
+    assert.equal(await post({seq: 1, type: 'ready'}, b.token), 200);
+    server.match.players.get(a.token).x = 0;
+    server.match.players.get(b.token).x = -5;
+    const snapshot = async () => (await (await fetch(base + '/state', {
+      headers: {'x-player-token': a.token}
+    })).json());
+    assert.deepEqual((await snapshot()).visible.map(p => p.team), ['red']);
+    assert.equal(await post({seq: 2, type: 'move', direction: {x: -1, z: 0},
+      facing: {x: 1, z: 0}}, a.token), 400);
+    assert.equal(await post({seq: 2, type: 'move', direction: {x: -1, z: 0}}, a.token), 200);
+    assert.deepEqual((await snapshot()).visible.map(p => p.team), ['red', 'blue']);
+  } finally {await server.close();}
+});
