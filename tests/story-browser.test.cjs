@@ -73,7 +73,7 @@ function boot(sharedStore=new Map()){
       context.VeilpointInput.forward=false;
     },
     interact(){this.emit('keydown',{code:'KeyE'});},
-    clearDrones(startFrame){
+    clearEncounter(startFrame){
       // Real UI input path: pointer-locked mouse aim + SPACE, paced by the 60Hz clock.
       let frame=startFrame,yaw=0;
       const aim=next=>{this.emit('mousemove',{movementX:(next-yaw)/.0023,movementY:0});yaw=next;};
@@ -104,9 +104,9 @@ test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and sa
   assert.equal(app.element('menu').classList.contains('hidden'),true);
   app.moveForward(0,300);
   app.interact();
-  assert.match(app.element('objective').textContent,/교란 드론/);
+  assert.match(app.element('objective').textContent,/무장 대치자/);
   assert.ok(app.store.has('veilpoint.story.ch01'));
-  const frame=app.clearDrones(300);
+  const frame=app.clearEncounter(300);
   app.moveForward(frame,225);
   app.interact();
   assert.equal(app.element('choices').classList.contains('hidden'),false);
@@ -132,7 +132,7 @@ test('story checkpoint survives new browser context and does not modify BR setti
   const reloaded=boot(shared);
   assert.match(reloaded.element('menuText').textContent,/이전 진행 기록/);
   reloaded.element('continue').click();
-  assert.match(reloaded.element('objective').textContent,/교란 드론/);
+  assert.match(reloaded.element('objective').textContent,/무장 대치자/);
   reloaded.element('pauseButton').click();
   assert.equal(reloaded.element('menu').classList.contains('hidden'),false);
   reloaded.element('newGame').click();
@@ -156,7 +156,7 @@ test('choice overlay can return to investigation and reopen without soft-lock',(
   app.element('continue').click();
   app.moveForward(0,300);
   app.interact();
-  const frame=app.clearDrones(300);
+  const frame=app.clearEncounter(300);
   app.moveForward(frame,225);
   app.interact();
   assert.equal(app.element('choices').classList.contains('hidden'),false);

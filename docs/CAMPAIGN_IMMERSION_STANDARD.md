@@ -78,3 +78,7 @@ Track reviewer count, median scores, hardware and capture artifacts. Target **me
 - The 2026-11-27 primary commitment remains a packaged, playable offline demo. Immersive **CH01 combat-first vertical slice** is a stretch until implemented and tested.
 - The 2027-04-27 completed-game target is a major, non-guaranteed stretch for a solo developer. Keep building after the date if critical gates are unmet, subject to scheduled service limits.
 - Hourly development prioritizes *end-to-end playable behavior* and tests over large, beautiful but non-functional design documents. Every progress report must distinguish **designed, coded, tested in Node, browser played, Unreal built, hardware measured**.
+
+### 2026-10-27 finite CH01 opponent-fire candidate
+
+A code-level CH01 iteration replaces the previous fictional signal-drone pulse damage with non-graphic human-opponent fire gated by proximity, facing and obstacle sight lines, with finite shots and saved expenditure. This improves causal consistency in the short preview but does **not** prove cinematic immersion, believable companion AI, real firearm animation/audio, independent playtest ratings or complete campaign runtime. Keep the corresponding acceptance checkboxes open pending actual gameplay evidence.
