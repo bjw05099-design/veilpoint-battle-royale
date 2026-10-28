@@ -59,10 +59,12 @@
     return {...EAST_CHECKPOINT,x:EAST_CHECKPOINT.x+GATE_TRAVEL*fraction};
   }
   function syncRoute(state) {
-    // One live collision body and one live rendered mesh share the same geometry.
-    // Reconstruct it from elapsed time and authorization on every checkpoint load.
-    state.world.obstacles=state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint');
-    state.world.obstacles.push(gateGeometry(state));
+    // Preserve the live obstacle and array identity across 60Hz updates; the
+    // renderer and collision code observe the same moving gate without churn.
+    const gate=state.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+    const x=gateGeometry(state).x;
+    if(gate)gate.x=x;
+    else state.world.obstacles.push({...EAST_CHECKPOINT,x});
     return state;
   }
   function recoverGateOverlap(state) {
