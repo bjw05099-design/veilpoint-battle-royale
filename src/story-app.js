@@ -16,6 +16,7 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
   let checkpoint=null;
+  if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   const isTouch=global.matchMedia('(pointer:coarse)').matches;
   const clearInput=()=>{for(const key in input)input[key]=false;};
   const storage={
@@ -78,7 +79,7 @@
   }
   function resume(){
     if(!renderer)return;
-    if(state.phase==='complete'||state.phase==='failed')state=Story.createState();
+    if(state.phase==='complete'||state.phase==='failed')state=Story.createState($('storyWeapon').value);
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
