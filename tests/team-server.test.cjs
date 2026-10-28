@@ -178,7 +178,7 @@ test('HTTP server rejects client-authored damage and applies finite combat on th
     assert.equal(defender.health, 66);
     const view = await fetch(base + '/state', {headers: {'x-player-token': a.token}});
     const snapshot = await view.json();
-    assert.equal(snapshot.self.ammo, 11);
+    assert.equal(snapshot.self.ammo, 10);
     assert.equal(snapshot.self.health, 100);
     assert.ok(snapshot.visible.every(p => !Object.hasOwn(p, 'health')));
     assert.equal((await post('/command', {seq: 4, type: 'reload'}, a.token)).status, 200);
