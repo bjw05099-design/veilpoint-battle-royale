@@ -178,6 +178,9 @@ test('browser keyboard and touch send combat intent without target or damage inj
   a.doc('keydown', {code: 'KeyF'});
   await settle();
   assert.equal(player.ammo, 11);
+  await a.poll();await settle();
+  assert.match(a.node('status').textContent, /발사 완료/);
+  assert.doesNotMatch(a.node('status').textContent, /명중 확인/);
   assert.ok(server.requests.some(r => r.body?.type === 'fire' &&
     Object.keys(r.body).sort().join(',') === 'seq,type'));
   a.doc('keydown', {code: 'KeyF', repeat: true});
