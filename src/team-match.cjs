@@ -44,7 +44,17 @@ class TeamMatch {
     this.winner = null;
     this.reason = null;
   }
+  pruneIdleWaitingPlayers() {
+    // An abandoned lobby/finished session must not reserve both local slots forever.
+    // Active rounds instead terminate through the existing timeout winner rule.
+    if (this.phase === 'playing') return;
+    for (const [token, player] of this.players) {
+      if (this.now() - player.lastSeen > this.timeoutMs) this.players.delete(token);
+    }
+    if (this.players.size === 0 && this.phase === 'ended') this.phase = 'lobby';
+  }
   join(token, name) {
+    this.pruneIdleWaitingPlayers();
     if (this.players.size >= MAX_PLAYERS) throw new RangeError('match_full');
     if (this.players.has(token)) throw new RangeError('duplicate_token');
     if (typeof name !== 'string' || !name.trim() || name.length > 24) throw new RangeError('invalid_name');
@@ -163,7 +173,7 @@ class TeamMatch {
     }
   }
   step() {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
     this.ticks++;
     for (const p of this.players.values()) {
       if (this.now() - p.lastSeen > this.timeoutMs) {
