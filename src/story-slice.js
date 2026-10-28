@@ -19,6 +19,7 @@
   // speed after the local aid coordinator approves clearance; it never vanishes.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:.6,h:2.5,type:'gate',routeId:'east-checkpoint'});
   const GATE_TRAVEL = -12;
+  const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -72,7 +73,9 @@
     // Relocate only those overlapping the new checkpoint, never rewrite valid positions.
     const p=state.world.player;
     const gate=gateGeometry(state);
-    if(!Sim.blocked(p.x,p.z,.85,[gate]))return false;
+    // Touching the collision boundary is a valid save; relocate only legacy
+    // positions that are deeply inside the gate, not players safely beside it.
+    if(!Sim.blocked(p.x,p.z,.80,[gate]))return false;
     const north=gate.z+gate.d/2+1;
     const south=gate.z-gate.d/2-1;
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
@@ -172,7 +175,7 @@
       // A player standing in the gate's travel path pauses the mechanism instead
       // of being pushed, teleported, or passed through by an animated collider.
       const nextGate=gateGeometry(state);
-      if(Sim.blocked(p.x,p.z,.85,[nextGate])){
+      if(Sim.blocked(p.x,p.z,GATE_SAFETY_RADIUS,[nextGate])){
         state.gateObstructed=true;
         state.gateReadyAt+=t;
         state.subtitle='마라(기술자): 이동식 통제문이 접근자를 감지해 멈췄어. 문 이동 경로에서 벗어나 줘.';
