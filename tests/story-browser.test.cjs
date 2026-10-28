@@ -58,7 +58,7 @@ function boot(sharedStore=new Map(),touch=false){
   context.globalThis=context;
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
     'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js',
-    'src/story-slice.js','src/story-app.js'];
+    'src/story-slice.js','src/story-audio.js','src/story-app.js'];
   for(const script of scripts){
     const source=fs.readFileSync(path.join(__dirname,'..',script),'utf8');
     vm.runInNewContext(source,context,{filename:script,timeout:1500});
@@ -359,4 +359,19 @@ test('CH01 restored exhaustion displays understandable recovery guidance in the 
  assert.match(app.element('status').textContent,/지구력 회복 중.*25/);
  const fresh=boot();fresh.element('continue').click();
  assert.doesNotMatch(fresh.element('status').textContent,/지구력 회복 중/);
+});
+
+test('CH01 sound option persists across refresh and does not affect the BR save',()=>{
+  const store=new Map();
+  const first=boot(store);
+  assert.equal(first.element('soundEnabled').checked,true);
+  first.element('soundEnabled').checked=false;
+  first.element('soundEnabled').dispatch('change');
+  assert.equal(store.get('veilpoint.story.audio'),'off');
+  const second=boot(store);
+  assert.equal(second.element('soundEnabled').checked,false);
+  second.element('soundEnabled').checked=true;
+  second.element('soundEnabled').dispatch('change');
+  assert.equal(store.get('veilpoint.story.audio'),'on');
+  assert.equal(store.has('veilpoint.campaignProgress'),false);
 });
