@@ -332,3 +332,17 @@ test('premature correction gives a bounded, non-magical player feedback cue',()=
  assert.equal(g.player.reloadHesitation,true);
  assert.equal(g.player.charges,S.FIREARMS.carbine.initialRounds);
 });
+
+test('injury slows BR movement predictably without healing or affecting finite ammunition',()=>{
+ const healthy=S.newMatch(910,1),injured=S.newMatch(910,1);
+ healthy.status=injured.status='playing';
+ injured.player.health=40;
+ const rounds=injured.player.charges;
+ for(let i=0;i<60;i++){S.tick(healthy,1/60,{forward:true});S.tick(injured,1/60,{forward:true});}
+ assert.ok(healthy.player.z<injured.player.z,'wounded player covers less ground');
+ assert.equal(injured.player.health,40,'moving does not magically heal');
+ assert.equal(injured.player.charges,rounds);
+ assert.ok(Math.abs(S.injuryMobility(injured.player)-0.868)<1e-10);
+ assert.equal(S.injuryMobility(healthy.player),1);
+ assert.ok(S.injuryMobility({health:0})>0.75);
+});
