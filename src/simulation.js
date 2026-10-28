@@ -118,7 +118,8 @@
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0,
         lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],picked:false}));
+    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],
+      remaining:i%2===0?12:24,picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -384,7 +385,7 @@
   // A pickup is physically accessible only within reach and without a solid wall
   // between the player and the item. Shared by E/touch interaction and the HUD.
   function canReachPickup(game,item) {
-    if(!item||item.picked||dist(item,game.player)>=PICKUP_REACH)return false;
+    if(!item||item.picked||item.remaining===0||dist(item,game.player)>=PICKUP_REACH)return false;
     return !lineBlocked(game.player.x,game.player.z,item.x,item.z,game.obstacles);
   }
   // The same selection governs E/touch and the HUD. A nearby incompatible
@@ -413,8 +414,17 @@
       game.message='INCOMPATIBLE AMMUNITION';game.messageTime=1.5;return null;
     }
     if(p.charges>=p.maxCharges)return null;
-    p.charges=Math.min(p.maxCharges,p.charges+(closest.kind==='ammo'?12:24));
-    closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
+    // Collect only what the player can physically carry. An older/custom map
+    // item without remaining metadata still starts with its original stock.
+    const remaining=Number.isInteger(closest.remaining)?closest.remaining:
+      (closest.kind==='ammo'?12:24);
+    if(remaining<=0)return null;
+    const taken=Math.min(remaining,p.maxCharges-p.charges);
+    p.charges+=taken;
+    closest.remaining=remaining-taken;
+    closest.picked=closest.remaining===0;
+    game.message=closest.kind.toUpperCase()+' '+taken+' ROUNDS · '+closest.remaining+' LEFT';
+    game.messageTime=2;
     return closest.kind;
   }
   return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
