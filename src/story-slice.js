@@ -131,10 +131,14 @@
     const sprint=!!input.sprint&&iz>0&&p.stamina>1;
     const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*Sim.injuryMobility(p);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
+    const beforeX=p.x,beforeZ=p.z;
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
-    p.stamina=clamp(p.stamina+(sprint?-20:13)*t,0,100);
-    Sim.updateStress(p,t,sprint);
+    // Keep CH01 fatigue consistent with the BR controller: a blocked forward
+    // sprint does not spend stamina or create exertion without actual travel.
+    const sprinting=sprint&&Math.hypot(p.x-beforeX,p.z-beforeZ)>1e-7;
+    p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
+    Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
     // shot/impact visuals and damage feedback here, or they persist indefinitely.
