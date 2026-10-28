@@ -389,7 +389,7 @@ test('BR crouching with sprint held never grants sprint speed or spends exertion
  assert.equal(p.sprintExhausted,false);
 });
 test('BR sprint exhaustion has deterministic recovery hysteresis, not infinite micro-bursts',()=>{
- const a=S.newMatch(20261028,0),b=S.newMatch(20261028,0);
+ const a=S.newMatch(20261028,1),b=S.newMatch(20261028,1);
  a.status=b.status='playing';a.player.stamina=b.player.stamina=1;
  for(let i=0;i<90;i++){
    const before=a.player.z;
