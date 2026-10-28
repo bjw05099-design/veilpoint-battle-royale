@@ -411,7 +411,9 @@
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation,
          sprintExhausted:!!p.sprintExhausted},elapsed:state.world.elapsed,
       combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle,
-        lastSeenX:b.lastSeenX,lastSeenZ:b.lastSeenZ,investigateUntil:b.investigateUntil}))}};
+        lastSeenX:Number.isFinite(b.lastSeenX)?b.lastSeenX:b.x,
+        lastSeenZ:Number.isFinite(b.lastSeenZ)?b.lastSeenZ:b.z,
+        investigateUntil:Number.isFinite(b.investigateUntil)?b.investigateUntil:0}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -474,7 +476,7 @@
       (hasOwn(c,'lastShotAt')&&(!Number.isFinite(c.lastShotAt)||c.lastShotAt< -2||c.lastShotAt>data.elapsed))||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
       c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
-        ![3,4,6,7,10].includes(Object.keys(b).length)||
+        ![3,4,6,7,9,10].includes(Object.keys(b).length)||
         Object.keys(b).some(k=>!['id','health','alive','shots','x','z','angle','lastSeenX','lastSeenZ','investigateUntil'].includes(k))||
         b.id!==i||!Number.isFinite(b.health)||b.health<0||b.health>90||
         typeof b.alive!=='boolean'||b.alive!==(b.health>0)||
