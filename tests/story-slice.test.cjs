@@ -469,7 +469,8 @@ test('CH01 clearance waits, blocks early exit and persists through checkpoint',(
   const loaded=story.restore(story.serialize(s));
   for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60-1;i++)story.step(loaded,1/60,{});
   assert.equal(story.situation(loaded).eastGateOpen,false);
-  assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),true);
+  const movingGate=loaded.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+  assert.ok(movingGate.x>15&&movingGate.x<27,'physical gate is nearly parked but clearance is pending');
   story.step(loaded,1/60,{});story.step(loaded,1/60,{});
   assert.equal(story.situation(loaded).eastGateOpen,true);
   assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),false);
@@ -701,9 +702,10 @@ test('CH01 completed debrief preserves causal choice, local authority and uncert
 
 test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and restores without teleporting',()=>{
  const setup=()=>{
-  const s=story.createState();
-  s.phase='exit';s.choice='verification';
-  s.gateReadyAt=s.world.elapsed+story.GATE_CLEARANCE_SECONDS;
+  const s=reachDecision();
+  go(s,'recordA');assert.equal(story.interact(s).ok,true);
+  go(s,'recordB');assert.equal(story.interact(s).ok,true);
+  assert.equal(story.choose(s,'verification').ok,true);
   return s;
  };
  const a=setup(),b=setup();
