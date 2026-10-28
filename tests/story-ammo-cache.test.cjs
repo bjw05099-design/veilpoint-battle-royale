@@ -89,3 +89,26 @@ test('malformed or contradictory cache balances cannot be restored',()=>{
   inconsistent.combat.supplyRemaining=0;
   assert.throws(()=>Story.restore(JSON.stringify(inconsistent)),RangeError);
 });
+
+
+test('60Hz replay remains deterministic after partial supply and checkpoint restore',()=>{
+  const a=atCache();
+  a.world.player.charges=59;
+  assert.equal(Story.interact(a).ok,true);
+  const b=Story.restore(Story.serialize(a));
+  for(let tick=0;tick<240;tick++){
+    const input=tick<60?{back:true}:tick<120?{forward:true}:{};
+    Story.step(a,1/60,input);
+    Story.step(b,1/60,input);
+  }
+  assert.equal(Story.serialize(a),Story.serialize(b));
+  assert.equal(a.combat.supplyRemaining,11);
+  assert.equal(b.combat.supplyRemaining,11);
+});
+
+test('no-opponent uncleared encounter checkpoint is rejected rather than soft-locking play',()=>{
+  const s=atCache();
+  const bad=JSON.parse(Story.serialize(s));
+  for(const opponent of bad.combat.drones){opponent.health=0;opponent.alive=false;}
+  assert.throws(()=>Story.restore(JSON.stringify(bad)),RangeError);
+});
