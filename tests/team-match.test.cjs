@@ -386,3 +386,26 @@ test('server-owned injury slows team movement after an actual hit without client
   };
   assert.deepEqual(play(),play(),'authoritative injury movement replays at 60Hz');
 });
+
+test('authoritative aim direction is independent of movement, sight-gated and replayable',()=>{
+ const run=()=>{
+  const {m}=setup(),a=m.players.get('a'),b=m.players.get('b');
+  a.x=0;a.z=0;b.x=0;b.z=-5;
+  assert.throws(()=>m.command('a',{seq:2,type:'aim',direction:{x:0,z:0}}),/invalid_direction/);
+  assert.throws(()=>m.command('a',{seq:2,type:'aim',direction:{x:0,z:-1},target:b.id}),/invalid_command/);
+  assert.throws(()=>m.command('a',{seq:2,type:'aim',direction:{x:3,z:0}}),/invalid_direction/);
+  assert.equal(m.command('a',{seq:2,type:'aim',direction:{x:0,z:-1}}).ok,true);
+  assert.deepEqual({...a.facing},{x:0,z:-1});
+  assert.deepEqual(m.snapshot('a').visible.map(p=>p.team),['red','blue']);
+  m.command('a',{seq:3,type:'move',direction:{x:1,z:0}});
+  assert.deepEqual({...a.facing},{x:0,z:-1},'strafe must not hijack an explicitly aimed view');
+  assert.equal(m.command('a',{seq:4,type:'fire'}).hit,true);
+  assert.equal(b.health,66);
+  m.finish('red','test');
+  m.command('a',{seq:5,type:'ready'});m.command('b',{seq:2,type:'ready'});
+  assert.equal(a.aiming,false);
+  assert.deepEqual({...a.facing},{x:1,z:0});
+  return m.snapshot('a');
+ };
+ assert.deepEqual(run(),run());
+});

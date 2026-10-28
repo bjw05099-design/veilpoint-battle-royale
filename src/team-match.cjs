@@ -67,7 +67,7 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      aiming: false, capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0};
     this.players.set(token, player);
@@ -80,14 +80,17 @@ class TeamMatch {
       !Number.isSafeInteger(data.seq) || data.seq <= p.seq || data.seq > 1000000000 ||
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
     const keys = Object.keys(data);
-    const expected = data.type === 'move' ? ['seq', 'type', 'direction'] :
+    const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
       data.type === 'capture' ? ['seq', 'type', 'active'] :
       ['ready', 'leave', 'heartbeat', 'fire', 'reload'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
-    if (data.type === 'move' && !validDirection(data.direction)) throw new RangeError('invalid_direction');
+    if (['move', 'aim'].includes(data.type) &&
+        (!validDirection(data.direction) ||
+         (data.type === 'aim' && Math.hypot(data.direction.x, data.direction.z) < 1e-6)))
+      throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
-    if (this.phase !== 'playing' && ['move', 'capture', 'fire', 'reload'].includes(data.type))
+    if (this.phase !== 'playing' && ['move', 'aim', 'capture', 'fire', 'reload'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
@@ -103,6 +106,14 @@ class TeamMatch {
         p.ready = true;
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
       }
+      return {ok: true};
+    }
+    if (data.type === 'aim') {
+      // Aiming is a bounded player intent, not a client-supplied hit/target.
+      // The server normalizes the direction and still owns all sight and damage.
+      const len = Math.hypot(data.direction.x, data.direction.z);
+      p.facing = {x: data.direction.x / len, z: data.direction.z / len};
+      p.aiming = true;
       return {ok: true};
     }
     if (data.type === 'fire') {
@@ -141,7 +152,7 @@ class TeamMatch {
       const {x, z} = data.direction, len = Math.hypot(x, z);
       p.direction = len > 1 ? {x: x / len, z: z / len} : {x, z};
       // Stopping retains the last facing; a zero vector cannot reveal all directions.
-      if (len > 0) p.facing = {x: x / len, z: z / len};
+      if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
       p.lastMoveTick = this.ticks;
     } else {
       p.capturing = data.active;
@@ -162,6 +173,7 @@ class TeamMatch {
       p.ready = false;
       p.direction = {x: 0, z: 0};
       p.facing = {x: p.team === 'red' ? 1 : -1, z: 0};
+      p.aiming = false;
       p.capturing = false;
       p.health = 100;
       p.ammo = MAGAZINE_ROUNDS;

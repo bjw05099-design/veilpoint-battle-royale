@@ -52,7 +52,8 @@ function boot(server, storage = new Map()) {
     const events = new Map();
     const value = {
       id, value: id === 'name' ? 'Player' : '', textContent: '', disabled: false,
-      dataset: {}, getContext: () => ctx,
+      dataset: {}, width: 500, height: 500, getContext: () => ctx,
+      getBoundingClientRect: () => ({left: 0, top: 0, width: 500, height: 500}),
       addEventListener: (name, callback) => on(events, name, callback),
       dispatch: (name, event) => emit(events, name, event),
       click() {this.dispatch('click');}
@@ -243,4 +244,25 @@ test('overlapping state polls are serialized to prevent stale UI snapshots', asy
   await ui.poll();await settle();
   assert.equal(server.requests.filter(r => r.route === '/state').length, before + 2,
     'polling resumes after the previous request settles');
+});
+
+test('mouse/touch map aiming sends only normalized direction and preserves strafing',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'touch'});
+ await settle();
+ assert.equal(p.aiming,true);
+ assert.ok(p.facing.x>0&&p.facing.z<0);
+ const aim={...p.facing};
+ a.doc('keydown',{code:'KeyA'});await settle();
+ assert.equal(p.direction.x,-1);
+ assert.deepEqual({...p.facing},aim);
+ const cmd=server.requests.find(r=>r.token===token&&r.body?.type==='aim');
+ assert.deepEqual(Object.keys(cmd.body).sort(),['direction','seq','type']);
+ assert.ok(Math.abs(Math.hypot(cmd.body.direction.x,cmd.body.direction.z)-1)<1e-12);
+ assert.equal('target' in cmd.body,false);
 });
