@@ -178,7 +178,7 @@ test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals comp
   go(state,'terminal');story.interact(state);
   state.world.player.shield=10;
   assert.deepEqual(story.support(state),{ok:true,event:'support',report:true});
-  assert.equal(state.world.player.shield,0);
+  assert.equal(Object.hasOwn(state.world.player,'shield'),false);
   assert.equal(state.world.player.health,100);
   assert.match(state.subtitle,/김지윤/);
   assert.equal(story.support(state).reason,'already_used');
@@ -192,7 +192,7 @@ test('encounter sight-gated hostile shots are fixed-step deterministic, can fail
   go(a,'terminal');go(b,'terminal');story.interact(a);story.interact(b);
   for(let i=0;i<190;i++){story.step(a,1/60);story.step(b,1/60);}
   assert.equal(a.world.player.shield,b.world.player.shield);
-  assert.equal(a.world.player.shield,0);
+  assert.equal(Object.hasOwn(a.world.player,'shield'),false);
   assert.ok(a.world.player.health<100);
   a.world.player.health=1;a.world.player.shield=0;
   for(let i=0;i<240&&a.phase!=='failed';i++)story.step(a,1/60);
@@ -271,7 +271,7 @@ test('CH01 never restores arcade shield from a legacy v2 save',()=>{
   const state=story.createState();
   const old=JSON.parse(story.serialize(state));old.player.shield=90;
   const loaded=story.restore(JSON.stringify(old));
-  assert.equal(loaded.world.player.shield,0);
+  assert.equal(Object.hasOwn(loaded.world.player,'shield'),false);
   assert.equal(JSON.parse(story.serialize(loaded)).player.shield,0);
 });
 
@@ -324,7 +324,7 @@ test('older v2 CH01 combat checkpoints migrate with finite hostile ammunition an
   for(const b of old.combat.drones)delete b.shots;
   old.player.shield=70;
   const loaded=story.restore(JSON.stringify(old));
-  assert.equal(loaded.world.player.shield,0);
+  assert.equal(Object.hasOwn(loaded.world.player,'shield'),false);
   assert.ok(loaded.world.bots.every(b=>b.shots===0));
   assert.ok(JSON.parse(story.serialize(loaded)).combat.drones.every(b=>b.shots===0));
 });
@@ -364,7 +364,7 @@ test('CH01 hostile pressure raises stress deterministically without phantom ammu
  assert.ok(a.world.player.health<100);
  assert.ok(a.world.player.stress>0);
  assert.equal(a.world.player.charges,48);
- assert.equal(a.world.player.shield,0);
+ assert.equal(Object.hasOwn(a.world.player,'shield'),false);
  assert.equal(story.serialize(a),story.serialize(b));
  const resumed=story.restore(story.serialize(a));
  assert.equal(resumed.world.player.stress,a.world.player.stress);
