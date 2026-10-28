@@ -258,6 +258,9 @@
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
     const outside=dist(p,game.zone)>game.zone.radius;
     if(outside) receiveDamage(game,(1.8+game.zone.phase*1.2)*dt);
+    // Collect actual rival footsteps after movement. Hearing uses only audible,
+    // rounded positions and cannot grant sight or permission to shoot.
+    const rivalFootsteps=[];
     // Opponent behavior is intentionally simple and deterministic for a zero-asset offline prototype.
     for(const b of game.bots) {
       if(!b.alive) continue;
@@ -301,8 +304,23 @@
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
         investigating&&lastSeenDistance>3?2.0:1.0)*injuryMobility(b);
-      moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,
-        obstacles.concat(actorObstacles(game,b)));
+      const movementObstacles=obstacles.concat(actorObstacles(game,b));
+      const startX=b.x,startZ=b.z;
+      const vx=Math.sin(b.angle)*botSpeed,vz=-Math.cos(b.angle)*botSpeed;
+      moveEntity(b,vx,vz,dt,movementObstacles);
+      // If solid cover stops a patrol, sidestep along its edge at the SAME
+      // walking speed instead of walking into the wall until the zone kills it.
+      // Only local collision is queried; no hidden target position or teleport.
+      if(Math.hypot(b.x-startX,b.z-startZ)<botSpeed*dt*0.2){
+        const side=b.id%2===0?1:-1;
+        for(const direction of [side,-side]){
+          const previousX=b.x,previousZ=b.z;
+          moveEntity(b,-vz*direction,vx*direction,dt,movementObstacles);
+          if(Math.hypot(b.x-previousX,b.z-previousZ)>=botSpeed*dt*0.2)break;
+        }
+      }
+      const movedBot=Math.hypot(b.x-startX,b.z-startZ);
+      if(movedBot>1e-7)rivalFootsteps.push({source:b,distance:movedBot});
       if(outsideBot){
         b.health-=(2.3+game.zone.phase)*dt;
         if(b.health<=0){b.health=0;b.alive=false;continue;}
@@ -348,6 +366,20 @@
             }
           }
         }
+      }
+    }
+    // Rival movement can be heard at close range just like player movement.
+    // Process after all bot movement so iteration order cannot give early bots
+    // knowledge of future positions. An existing direct observation takes priority.
+    for(const footstep of rivalFootsteps){
+      const source=footstep.source;
+      if(!source.alive)continue;
+      for(const listener of game.bots){
+        if(listener===source||!listener.alive||listener.lastSeenUntil>game.elapsed)continue;
+        if(!hearsFootsteps(listener,source,footstep.distance,false,obstacles))continue;
+        const heard=approximateSoundPosition(source);
+        listener.lastSeenX=heard.x;listener.lastSeenZ=heard.z;
+        listener.lastSeenUntil=game.elapsed+2.5;
       }
     }
     game.effects.forEach(e=>e.t-=dt);game.effects=game.effects.filter(e=>e.t>0);
