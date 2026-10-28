@@ -413,3 +413,27 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   assert.match(final.element('combatStatus').textContent,/보급 소진/);
   assert.equal(final.element('interaction').classList.contains('hidden'),true);
 });
+
+test('CH01 a missed hostile shot persists finite ammunition without a phantom injury',()=>{
+  const Story=require('../src/story-slice.js');
+  const state=Story.createState();
+  state.world.player.x=Story.POINTS.terminal.x;
+  state.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(state).ok,true);
+  const [left,shooter,right]=state.world.bots;
+  for(const hostile of [left,right]){hostile.health=0;hostile.alive=false;}
+  state.world.player.x=15;state.world.player.z=-18;
+  state.combat.nextPulseAt=0; // One scheduled, visible hostile volley.
+  const shared=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
+  const app=boot(shared);app.element('continue').click();
+  app.frame(1000/60);
+  const saved=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.equal(saved.phase,'engagement');
+  assert.equal(saved.player.health,100,'the deterministic hostile round misses');
+  assert.equal(saved.combat.drones[1].shots,1,'missed rounds are still spent');
+  assert.equal(saved.combat.drones[0].shots,0);
+  assert.equal(saved.combat.drones[2].shots,0);
+  assert.equal(Story.restore(JSON.stringify(saved)).world.bots[1].shots,1);
+  const reloaded=boot(shared);reloaded.element('continue').click();
+  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).combat.drones[1].shots,1);
+});
