@@ -479,3 +479,26 @@ test('CH01 autosave is bounded, pauses with the game and resets after a new miss
   for(let i=1201;i<=1320;i++)app.frame(i*1000/60);
   assert.equal(shared.has('veilpoint.story.ch01'),false,'new mission cannot inherit old autosave deadline');
 });
+
+
+test('CH01 reports blocked offline checkpoint storage and clears warning after a successful retry',()=>{
+  class FailingStore extends Map{
+    fail=true;
+    set(key,value){if(this.fail&&key==='veilpoint.story.ch01')throw new Error('storage quota or privacy block');return super.set(key,value);}
+  }
+  const shared=new FailingStore(),app=boot(shared);
+  app.element('continue').click();
+  for(let i=1;i<=360;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),false);
+  assert.equal(app.element('saveStatus').classList.contains('hidden'),false);
+  assert.match(app.element('saveStatus').textContent,/저장 실패.*새로고침/);
+  app.element('pauseButton').click();
+  assert.match(app.element('menuText').textContent,/저장 실패.*새로고침/);
+  shared.fail=false;
+  app.element('continue').click();
+  for(let i=361;i<=720;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),true);
+  assert.equal(app.element('saveStatus').classList.contains('hidden'),true);
+  assert.equal(app.element('saveStatus').textContent,'');
+  assert.equal(shared.has('veilpoint.campaignProgress'),false);
+});
