@@ -60,6 +60,15 @@
     }
     return false;
   }
+  // Finite, local sound awareness: actual movement produces footsteps, not
+  // knowledge of a hidden actor's live coordinates. Cover attenuates the
+  // authored hearing radius; this is a game abstraction, not an acoustic model.
+  function hearsFootsteps(listener, source, movedDistance, sprinting, obstacles) {
+    if (!sprinting || !(movedDistance > 1e-7)) return false;
+    const distance = dist(listener, source);
+    if (distance > 12) return false;
+    return distance <= (lineBlocked(listener.x, listener.z, source.x, source.z, obstacles) ? 6 : 12);
+  }
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -221,7 +230,8 @@
       obstacles.concat(actorObstacles(game,p)));
     // Colliding with solid cover is not actual sprint travel. Exertion follows
     // resolved displacement, not a held key, while unobstructed movement is unchanged.
-    const sprinting=wantsSprint&&Math.hypot(p.x-beforeX,p.z-beforeZ)>1e-7;
+    const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
+    const sprinting=wantsSprint&&movedDistance>1e-7;
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*dt,0,100);
     updateStress(p,dt,sprinting);
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
@@ -250,6 +260,11 @@
         // Memory is updated only from an actor actually observed in the
         // current field of view. No hidden live coordinates are consulted.
         b.lastSeenX=target.x;b.lastSeenZ=target.z;
+        b.lastSeenUntil=game.elapsed+2.5;
+      } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles)){
+        // Investigate only the last audible footstep position. Quiet movement
+        // behind cover cannot continuously update this memory.
+        b.lastSeenX=p.x;b.lastSeenZ=p.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
       const investigating=!target&&!outsideBot&&b.lastSeenUntil>game.elapsed;
@@ -364,5 +379,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });

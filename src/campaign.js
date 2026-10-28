@@ -123,8 +123,11 @@
       targetMinutes: TARGET_MINUTES,
       plannedRemainingMinutes: plannedRemainingMinutes(progress),
       nextMissionId: next ? next.id : null,
-      fullyCompleted: next === null,
-      // The estimate is *not* real playtime; an authored game is still required.
+      // The sequence is metadata only: no authored chapter is certified playable.
+      // A filled-out planning save must never claim a finished twelve-hour game.
+      metadataSequenceComplete: next === null,
+      playableMissionsVerified: 0,
+      fullyCompleted: false,
       measuredPlaytimeMinutes: null
     };
   }
