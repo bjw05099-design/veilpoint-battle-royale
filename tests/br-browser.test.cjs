@@ -249,3 +249,22 @@ test('BR clears held touch stick on focus loss so explicit resume cannot drift',
   app.frame(31000/60);
   assert.ok(game.player.x>position,'fresh touch input remains functional');
 });
+
+test('BR proximity HUD does not invite a physically unreachable pickup',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const g=app.game;g.player.charges=12;
+ g.loot.forEach(item=>{item.x=130;item.z=130;});
+ const ammo=g.loot.find(item=>item.kind==='ammo'&&item.weaponId===g.player.weaponId);
+ ammo.x=2.6;ammo.z=0;
+ app.frame(300);
+ assert.doesNotMatch(app.node('pickupPrompt').textContent,/CARBINE/);
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(g.player.charges,12);
+ assert.equal(ammo.picked,false);
+ ammo.x=1.4;
+ app.frame(600);
+ assert.match(app.node('pickupPrompt').textContent,/CARBINE/);
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(g.player.charges,24);
+ assert.equal(ammo.picked,true);
+});

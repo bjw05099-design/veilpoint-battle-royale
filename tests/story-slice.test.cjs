@@ -664,6 +664,7 @@ test('CH01 interaction prompt and input cannot reach an objective through physic
   assert.equal(story.interact(s).reason,'too_far');
   assert.equal(s.combat.supplyUsed,false);
   s.world.obstacles.pop();
+  s.world.player.z=-18.7; // Step within physical arm's reach after removing cover.
   assert.equal(story.interact(s).event,'supply');
   assert.equal(s.combat.supplyUsed,true);
   assert.equal(s.world.player.charges,48);
@@ -928,4 +929,24 @@ test('CH01 checkpoint rejects forged far-future hostile volley delay',()=>{
   assert.throws(()=>story.restore(JSON.stringify(data)),RangeError);
   for(let i=0;i<185;i++)story.step(s,1/60,{});
   assert.equal(story.serialize(story.restore(story.serialize(s))),story.serialize(s));
+});
+
+test('CH01 supply cache requires physical reach, unlike a distant objective trigger',()=>{
+ const s=story.createState();go(s,'terminal');story.interact(s);
+ s.world.player.charges=20;
+ s.world.player.x=story.POINTS.supply.x+2.6;
+ s.world.player.z=story.POINTS.supply.z;
+ assert.equal(story.nearest(s),null);
+ assert.equal(story.interact(s).reason,'too_far');
+ assert.equal(s.world.player.charges,20);
+ assert.equal(s.combat.supplyUsed,false);
+ s.world.player.x=story.POINTS.supply.x+1.4;
+ assert.equal(story.nearest(s).id,'supply');
+ assert.equal(story.interact(s).event,'supply');
+ assert.equal(s.world.player.charges,32);
+ assert.equal(s.combat.supplyUsed,true);
+ assert.equal(story.interact(s).reason,'too_far');
+ const restored=story.restore(story.serialize(s));
+ assert.equal(restored.combat.supplyUsed,true);
+ assert.equal(restored.world.player.charges,32);
 });

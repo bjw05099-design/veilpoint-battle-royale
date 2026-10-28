@@ -26,6 +26,7 @@
       shots:disabled?HOSTILE_ROUNDS:0}));
   }
   const INTERACT_RADIUS = 4;
+  const SUPPLY_REACH = 1.8; // Physical cache reach; larger radius remains for terminals/route triggers.
   const POINTS = Object.freeze({
     terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'objective', label:'시민 중계기'}),
     supply: Object.freeze({id:'supply', x:5, z:-20, kind:'ammo', label:'현지 구조단 유한 보급 상자'}),
@@ -115,7 +116,8 @@
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
-      if(d<best&&!Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
+      if(d<best&&d<(marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
+        !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;candidate=marker;
       }
     }
