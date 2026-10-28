@@ -131,7 +131,7 @@
     let ix=Number(!!input.right)-Number(!!input.left);
     let iz=Number(!!input.forward)-Number(!!input.back);
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
-    const sprint=!!input.sprint&&iz>0&&p.stamina>1;
+    const sprint=Sim.canSprint(p,input,iz);
     const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*Sim.injuryMobility(p);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     const beforeX=p.x,beforeZ=p.z;
@@ -396,7 +396,8 @@
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,shield:0,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
-         stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation},elapsed:state.world.elapsed,
+         stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation,
+         sprintExhausted:!!p.sprintExhausted},elapsed:state.world.elapsed,
       combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
   }
   function validateSnapshot(data) {
@@ -417,20 +418,25 @@
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
     const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
+    const currentKeys=modernKeys.concat('sprintExhausted');
     // Each historical v2 schema is accepted with or without the new class ID.
     // Never accept arbitrary subsets: only exact, known checkpoint generations.
-    const variants=[playerKeys,extendedKeys,modernKeys,
-      playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId')];
+    const variants=[playerKeys,extendedKeys,modernKeys,currentKeys,
+      playerKeys.concat('sprintExhausted'),extendedKeys.concat('sprintExhausted'),
+      playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId'),currentKeys.concat('weaponId'),
+      playerKeys.concat(['weaponId','sprintExhausted']),extendedKeys.concat(['weaponId','sprintExhausted'])];
     const keys=Object.keys(p);
     const expected=variants.find(fields=>fields.length===keys.length&&keys.every(k=>fields.includes(k)));
     if(!expected)throw new RangeError('Unknown player checkpoint fields');
     const modern=expected.includes('stress'),extended=expected.includes('loaded');
     const firearm=hasOwn(p,'weaponId')?Sim.FIREARMS[p.weaponId]:Sim.FIREARMS.carbine;
     if(!firearm||!hasOwn(Sim.FIREARMS,firearm.id))throw new RangeError('Invalid checkpoint firearm');
-    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'))
+    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'&&k!=='sprintExhausted'))
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(modern&&(p.stress<0||p.stress>100||typeof p.reloadAssist!=='boolean'||
        typeof p.reloadHesitation!=='boolean'))throw new RangeError('Invalid reload stress state');
+    if(expected.includes('sprintExhausted')&&typeof p.sprintExhausted!=='boolean')
+      throw new RangeError('Invalid sprint fatigue state');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
       p.stamina<0||p.stamina>100||p.health<0||p.health>100||
       p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>firearm.maxRounds||
@@ -515,6 +521,9 @@
     state.world.player.stress=hasOwn(data.player,'stress')?data.player.stress:0;
     state.world.player.reloadAssist=hasOwn(data.player,'reloadAssist')?data.player.reloadAssist:false;
     state.world.player.reloadHesitation=hasOwn(data.player,'reloadHesitation')?data.player.reloadHesitation:false;
+    // Older v2 checkpoints lack fatigue lockout; never grant an exhausted save a free sprint.
+    state.world.player.sprintExhausted=hasOwn(data.player,'sprintExhausted')
+      ?data.player.sprintExhausted:data.player.stamina<=1;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,supplyUsed:hasOwn(data.combat,'supplyUsed')?data.combat.supplyUsed:false,
       nextPulseAt:data.combat.nextPulseAt};
