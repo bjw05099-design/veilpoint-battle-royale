@@ -246,3 +246,32 @@ test('HTTP JSON endpoint rejects non-JSON media type lookalikes', async()=>{
     assert.equal(server.match.players.size,0);
   }finally{await server.close();}
 });
+
+test('HTTP abandoned lobby can be reclaimed by two independent clients', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (route, body, token) => {
+    const res = await fetch(base + route, {method: 'POST',
+      headers: {'content-type': 'application/json',
+        ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(body)});
+    return {status: res.status, body: await res.json()};
+  };
+  try {
+    assert.equal((await post('/join', {name: 'Idle A'})).status, 201);
+    assert.equal((await post('/join', {name: 'Idle B'})).status, 201);
+    assert.equal((await post('/join', {name: 'Blocked'})).status, 400);
+    now = 30001;
+    const c = await post('/join', {name: 'New C'});
+    const d = await post('/join', {name: 'New D'});
+    assert.equal(c.status, 201);
+    assert.equal(d.status, 201);
+    assert.equal(server.match.players.size, 2);
+    assert.equal((await post('/command', {seq: 1, type: 'ready'}, c.body.token)).status, 200);
+    assert.equal((await post('/command', {seq: 1, type: 'ready'}, d.body.token)).status, 200);
+    const view = await fetch(base + '/state', {headers: {'x-player-token': c.body.token}});
+    assert.equal((await view.json()).phase, 'playing');
+  } finally {await server.close();}
+});
