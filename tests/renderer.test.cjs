@@ -66,3 +66,37 @@ test('renderer draws only planned visible geometry, preserving active simulation
  state.player.yaw=0;
  assert.equal(JSON.stringify(state),original);
 });
+
+test('CH01 checkpoint has matching visible WebGL geometry and collision until local clearance',()=>{
+ const Story=require('../src/story-slice.js');
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Story.createState();
+ const gate=state.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+ assert.ok(gate);
+ assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),true);
+ const boxes=[];
+ const originalBox=renderer.dynamic.box.bind(renderer.dynamic);
+ renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
+  if(w===gate.w&&h===gate.h&&d===gate.d)boxes.push({x,z,w,h,d});
+  return originalBox(x,y,z,w,h,d,color);
+ };
+ const before=JSON.stringify(state.world);
+ renderer.draw(state.world);
+ const closedCount=renderer.dynamic.count;
+ assert.deepEqual(boxes,[{x:gate.x,z:gate.z,w:gate.w,h:gate.h,d:gate.d}]);
+ assert.equal(JSON.stringify(state.world),before,'rendering must not change mission state');
+ state.phase='exit';state.choice='verification';
+ state.gateReadyAt=state.world.elapsed+Story.GATE_CLEARANCE_SECONDS;
+ for(let i=0;i<Story.GATE_CLEARANCE_SECONDS*60+1;i++)Story.step(state,1/60,{});
+ assert.equal(Story.situation(state).eastGateOpen,true);
+ assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),false);
+ renderer.draw(state.world);
+ assert.equal(boxes.length,1,'cleared barrier must not remain visible');
+ assert.equal(renderer.dynamic.count,closedCount-36,'one 6-face box is removed, with no stale static mesh');
+ const restored=Story.restore(Story.serialize(state));
+ renderer.draw(restored.world);
+ assert.equal(boxes.length,1,'a restored open checkpoint must stay visually open');
+});
