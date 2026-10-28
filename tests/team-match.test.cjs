@@ -1,7 +1,7 @@
 'use strict';
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {TeamMatch, WIN_SCORE} = require('../src/team-match.cjs');
+const {TeamMatch, WIN_SCORE, INPUT_LEASE_TICKS} = require('../src/team-match.cjs');
 const setup = () => {
   let now = 0;
   const m = new TeamMatch({now: () => now});
@@ -32,15 +32,29 @@ test('only uncontested physical presence accumulates objective score; no score i
   const a = m.players.get('a'), b = m.players.get('b');
   a.x = 0; a.z = 0; b.x = 0; b.z = 0;
   assert.throws(() => m.command('a', {seq: 2, type: 'capture', active: true, score: 999}), /invalid_command/);
-  m.command('a', {seq: 2, type: 'capture', active: true});
-  m.command('b', {seq: 2, type: 'capture', active: true});
-  for (let i = 0; i < 240; i++) m.step();
+  let aSeq = 2, bSeq = 2;
+  m.command('a', {seq: aSeq, type: 'capture', active: true});
+  m.command('b', {seq: bSeq, type: 'capture', active: true});
+  for (let i = 0; i < 240; i++) {
+    m.step();
+    if ((i + 1) % 60 === 0) {
+      m.command('a', {seq: ++aSeq, type: 'capture', active: true});
+      m.command('b', {seq: ++bSeq, type: 'capture', active: true});
+    }
+  }
   assert.equal(m.score.red, 0);
-  m.command('b', {seq: 3, type: 'capture', active: false});
-  for (let i = 0; i < 120; i++) m.step();
+  m.command('b', {seq: ++bSeq, type: 'capture', active: false});
+  for (let i = 0; i < 120; i++) {
+    m.step();
+    if ((i + 1) % 60 === 0) m.command('a', {seq: ++aSeq, type: 'capture', active: true});
+  }
   assert.equal(m.score.red, 0, 'enemy physical presence must contest without holding capture');
   b.x = 8;
-  for (let i = 0; i < 120 * WIN_SCORE; i++) m.step();
+  for (let i = 0; i < 120 * WIN_SCORE; i++) {
+    m.step();
+    if (m.phase === 'playing' && (i + 1) % 60 === 0)
+      m.command('a', {seq: ++aSeq, type: 'capture', active: true});
+  }
   assert.equal(m.phase, 'ended');
   assert.equal(m.winner, 'red');
   assert.equal(m.score.red, WIN_SCORE);
@@ -114,7 +128,10 @@ test('capture interruption resets partial score rather than banking an instant p
   m.step();
   assert.equal(m.progress.red, 0, 'releasing capture resets');
   m.command('a', {seq: 4, type: 'capture', active: true});
-  for (let i = 0; i < 120; i++) m.step();
+  for (let i = 0; i < 120; i++) {
+    m.step();
+    if (i === 59) m.command('a', {seq: 5, type: 'capture', active: true});
+  }
   assert.equal(m.score.red, 1);
 });
 
@@ -316,4 +333,38 @@ test('lobby expiry keeps heartbeat-active guest and never silently evicts live r
   now = 100003;m.step();
   assert.equal(m.phase, 'lobby');
   assert.equal(m.players.size, 0);
+});
+
+test('stale movement and capture expire at 60Hz even when heartbeats continue', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 8;
+  m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  m.command('a', {seq: 3, type: 'capture', active: true});
+  for (let i = 0; i < INPUT_LEASE_TICKS + 1; i++) m.step();
+  assert.deepEqual(a.direction, {x: 0, z: 0});
+  assert.equal(a.capturing, false);
+  const stoppedX = a.x;
+  m.command('a', {seq: 4, type: 'heartbeat'});
+  for (let i = 0; i < 120; i++) m.step();
+  assert.equal(a.x, stoppedX, 'heartbeat is not movement authorization');
+  assert.equal(m.progress.red, 0, 'capture cannot continue after input disappears');
+});
+
+test('periodic held-intent renewals remain deterministic and do not reset facing', () => {
+  const play = () => {
+    const {m} = setup();
+    const a = m.players.get('a'), b = m.players.get('b');
+    a.x = 0; a.z = 0; b.x = 8;
+    let seq = 2;
+    m.command('a', {seq, type: 'capture', active: true});
+    for (let i = 0; i < 240; i++) {
+      m.step();
+      if ((i + 1) % 60 === 0 && m.phase === 'playing')
+        m.command('a', {seq: ++seq, type: 'capture', active: true});
+    }
+    assert.equal(m.score.red, 2, 'renewed capture can still complete a full point');
+    return m.snapshot('a');
+  };
+  assert.deepEqual(play(), play());
 });

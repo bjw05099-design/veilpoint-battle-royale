@@ -4,6 +4,8 @@
   const el = id => document.getElementById(id);
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
+  let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
+  let joining = false, restoring = false, polling = false;
   let pending = Promise.resolve();
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
@@ -45,12 +47,19 @@
   const updateInput = () => {
     if (!token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
-    if (key !== lastDirection) {lastDirection = key;void send('move', {direction: d});}
+    // Renew only active movement at a bounded interval. Server expires intent after 90 ticks.
+    if (key !== lastDirection || (key !== '0,0' && state.tick - lastMoveRefreshTick >= 20)) {
+      lastDirection = key;lastMoveRefreshTick = state.tick;
+      void send('move', {direction: d});
+    }
   };
   const setCapture = active => {
     if (capturing === active) return;
     capturing = active;
-    if (state?.phase === 'playing') void send('capture', {active});
+    if (state?.phase === 'playing') {
+      lastCaptureRefreshTick = state.tick;
+      void send('capture', {active});
+    }
   };
   const draw = () => {
     ctx.clearRect(0, 0, 500, 500);
@@ -84,6 +93,9 @@
     if (state.phase !== previousPhase) {
       // A new round resets the server's direction; never retain a stale input cache.
       lastDirection = '';
+      lastMoveRefreshTick = -Infinity;
+      lastCaptureRefreshTick = -Infinity;
+      if (state.phase !== 'playing') capturing = false;
       previousPhase = state.phase;
     }
     el('phase').textContent = state.phase.toUpperCase();
@@ -103,12 +115,16 @@
     draw();
   };
   el('join').addEventListener('click', async () => {
+    // A rapid double-click must never consume both two-player lobby slots.
+    if (joining || restoring || token) return;
+    joining = true;el('join').disabled = true;
     try {
       const result = await request('/join', {name: el('name').value});
       token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
-    } catch (err) {status(`입장 실패: ${err.message}`);}
+    } catch (err) {el('join').disabled = false;status(`입장 실패: ${err.message}`);}
+    finally {joining = false;}
   });
   el('ready').addEventListener('click', () => void send('ready'));
   el('fire').addEventListener('click', () => {if (state?.phase === 'playing') void send('fire');});
@@ -125,7 +141,10 @@
     updateInput();
   });
   document.addEventListener('keyup', e => {keys.delete(e.code);if (e.code === 'KeyE') setCapture(false);updateInput();});
-  window.addEventListener('blur', () => {keys.clear();setCapture(false);updateInput();});
+  const releaseHeldInput = () => {keys.clear();setCapture(false);updateInput();};
+  window.addEventListener('blur', releaseHeldInput);
+  // Mobile tab switches may suspend polling without dispatching window.blur.
+  document.addEventListener('visibilitychange', () => {if (document.hidden) releaseHeldInput();});
   for (const btn of document.querySelectorAll('[data-dir]')) {
     const key = btn.dataset.dir;
     btn.addEventListener('pointerdown', e => {e.preventDefault();keys.add(key);updateInput();});
@@ -139,6 +158,7 @@
     let saved = null;
     try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
     if (!saved || !/^[a-f0-9]{48}$/.test(saved)) return;
+    restoring = true;
     token = saved;
     try {
       state = await request('/state');
@@ -157,15 +177,25 @@
       el('join').disabled = false;el('name').disabled = false;
       el('ready').disabled = true;
       status('이전 세션이 만료되었습니다. 다시 입장하세요.');
-    }
+    } finally {restoring = false;}
   };
   void restoreTabSession();
   // A genuine connected client renews its server lease independently of read-only polling.
   setInterval(() => {if (token) void send('heartbeat');}, 10000);
   setInterval(async () => {
-    if (!token) return;
-    try {state = await request('/state');render();updateInput();}
+    // Slow responses must not overlap and overwrite newer game snapshots.
+    if (!token || polling || restoring) return;
+    polling = true;
+    try {
+      state = await request('/state');render();updateInput();
+      if (capturing && state.phase === 'playing' &&
+          state.tick - lastCaptureRefreshTick >= 20) {
+        lastCaptureRefreshTick = state.tick;
+        void send('capture', {active: true});
+      }
+    }
     catch (err) {status(`연결 확인 필요: ${err.message}`);}
+    finally {polling = false;}
   }, 150);
   draw();
 })();

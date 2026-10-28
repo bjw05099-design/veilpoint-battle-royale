@@ -65,6 +65,12 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 
 - **R-13 / R-23 — partial:** Offline BR ammunition pickup and the on-screen pickup prompt now share one unobstructed-reach check. Cover blocks E/touch pickup and does not consume finite loot; a visible cache may still be selected when a closer cache is occluded. Node regression tests cover inventory conservation and HUD parity. Actual human-browser testing, physically authored loot placement, UE rendering and multiplayer loot authority remain outstanding.
 
+## 2026-10-28 local team input-freshness candidate (PR #52)
+
+- **R-03 / R-12 — partial implementation, not online-ready:** the 60Hz server now expires stale movement and capture intent after 90 ticks (1.5 seconds), independent of heartbeat and state polling. The browser refreshes held commands, releases them on blur/hidden-tab, serializes state polling and prevents a rapid double-join from consuming both lobby slots. Server and DOM/HTTP regression tests exercise the candidate. This closes a ghost-movement/ghost-capture fairness gap, **not** the dedicated UE FPS, real internet matchmaking, packet-loss QA or human 2-client browser playtest gates.
+- **R-23 — still release-blocked:** this bounded server-input lease is one realistic causal constraint in the team prototype; BR, CH01, complete weapon/medical/environment realism and physical-world comparative validation remain separate unfinished gates.
+- **Verification boundary:** PR #52 must pass `npm run verify` and GitHub CI before merge. Real target RTX 3070/QHD 165Hz, 8GB RAM, Unreal compilation and production network stability are unmeasured.
+
 ## Completion rules
 - **No obvious unrealistic mechanics in any mode is a hard release gate** (issue #15). The goal is physically and causally convincing simulation, not false claims of perfect real-world physics. Track incompatible prototypes as blocking work, not completed functionality.
 - **Full release means all major modes work**, not just a designed menu or documentation.

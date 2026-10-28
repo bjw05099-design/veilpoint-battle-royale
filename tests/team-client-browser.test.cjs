@@ -58,6 +58,7 @@ function boot(server, storage = new Map()) {
     return value;
   }
   const document = {
+    hidden: false,
     getElementById: node,
     querySelectorAll: () => [],
     addEventListener: (name, callback) => on(documentListeners, name, callback)
@@ -79,6 +80,7 @@ function boot(server, storage = new Map()) {
     node, storage,
     doc: (name, event) => emit(documentListeners, name, event),
     blur: () => emit(windowListeners, 'blur'),
+    hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
     heartbeat: () => intervals[0]()
   };
@@ -185,4 +187,54 @@ test('browser keyboard and touch send combat intent without target or damage inj
   assert.equal(a.node('ammo').textContent, '11 / 24');
   assert.match(a.node('reloadState').textContent, /재장전/);
   assert.ok(server.requests.some(r => r.body?.type === 'reload'));
+});
+
+test('suspended tab releases intent and held inputs renew before server lease expiry', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.doc('keydown', {code: 'KeyD'});
+  a.node('capture').dispatch('pointerdown');
+  await settle();
+  const before = server.requests.filter(r => r.token === token && r.body?.type === 'move').length;
+  const beforeCapture = server.requests.filter(r => r.token === token && r.body?.type === 'capture').length;
+  for (let i = 0; i < 25; i++) server.match.step();
+  await a.poll();await settle();
+  assert.ok(server.requests.filter(r => r.token === token && r.body?.type === 'move').length > before,
+    'held movement is periodically renewed');
+  assert.ok(server.requests.filter(r => r.token === token && r.body?.type === 'capture').length > beforeCapture,
+    'held capture is periodically renewed');
+  a.hide();await settle();
+  assert.deepEqual({...player.direction}, {x: 0, z: 0});
+  assert.equal(player.capturing, false);
+  for (let i = 0; i < 100; i++) server.match.step();
+  assert.deepEqual({...player.direction}, {x: 0, z: 0});
+});
+
+test('rapid double join never allocates two server identities from one tab', async () => {
+  const server = backend(), a = boot(server);
+  a.node('join').click();
+  a.node('join').click();
+  await settle();
+  assert.equal(server.match.players.size, 1);
+  assert.equal(server.requests.filter(r => r.route === '/join').length, 1);
+  assert.equal(a.node('join').disabled, true);
+});
+
+test('overlapping state polls are serialized to prevent stale UI snapshots', async () => {
+  const server = backend(), ui = boot(server);
+  ui.node('join').click();
+  await settle();
+  const before = server.requests.filter(r => r.route === '/state').length;
+  await Promise.all([ui.poll(), ui.poll(), ui.poll()]);
+  await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state').length, before + 1);
+  await ui.poll();await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state').length, before + 2,
+    'polling resumes after the previous request settles');
 });
