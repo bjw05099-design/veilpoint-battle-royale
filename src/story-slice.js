@@ -409,7 +409,10 @@
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
-        (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용했습니다.':' 표시된 유한 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 E로 확보할 수 있습니다.');
+        (state.combat.supplyRemaining===0?' 유한 보급은 소진되었습니다.':
+        state.world.player.charges>=state.world.player.maxCharges
+          ?' 보급 상자에 '+state.combat.supplyRemaining+'발이 남아 있지만 휴대 한도에 도달했습니다.'
+          :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
