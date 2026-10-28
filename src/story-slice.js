@@ -50,7 +50,6 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
-    world.player.shield=0;
     return world;
   }
   function gateOpen(state) {
@@ -295,7 +294,7 @@
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
-    state.world.player.shield=0;
+    if(hasOwn(state.world.player,'shield'))delete state.world.player.shield;
     state.subtitle='김지윤(국정원): 현지 구조단이 공유한 대피소 수신 시각은 04:07입니다. 제 정보는 현장 확인 전이니 기록과 대조해 주세요.';
     state.message='출처 명시된 무선 보고 · 현장 검증 필요';
     return {ok:true,event:'support',report:true};
@@ -563,7 +562,7 @@
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
-    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
+    for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
     state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.FIREARMS[weaponId].magazine,data.player.charges);
     state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
