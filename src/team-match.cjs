@@ -1,7 +1,7 @@
 'use strict';
 // VEILPOINT / original, offline-first two-client authoritative objective prototype.
 // Pure 60 Hz rules. Not a production FPS netcode or public internet service.
-const {moveEntity, lineBlocked} = require('./simulation.js');
+const {moveEntity, lineBlocked, blocked} = require('./simulation.js');
 const STEP = 1 / 60;
 const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
@@ -178,7 +178,13 @@ class TeamMatch {
           p.reserve -= transferred;
         }
       }
-      moveEntity(p, p.direction.x * SPEED, p.direction.z * SPEED, STEP, COVER, PLAYER_RADIUS);
+      // Server-owned standing bodies: players cannot walk through one another.
+      // Existing overlaps (e.g. old test sessions) may separate rather than soft-lock.
+      const actors = [...this.players.values()].filter(other => other !== p && other.health > 0)
+        .map(other => ({x: other.x, z: other.z, w: PLAYER_RADIUS * 2, d: PLAYER_RADIUS * 2}))
+        .filter(body => !blocked(p.x, p.z, PLAYER_RADIUS, [body]));
+      moveEntity(p, p.direction.x * SPEED, p.direction.z * SPEED, STEP,
+        COVER.concat(actors), PLAYER_RADIUS);
       p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       p.z = clamp(p.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
     }
