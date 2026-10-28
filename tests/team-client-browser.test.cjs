@@ -23,7 +23,10 @@ function backend() {
         const newToken = (++id).toString(16).padStart(48, '0');
         result = {token: newToken, ...match.join(newToken, body.name)};
       } else if (route === '/state') result = match.snapshot(token);
-      else if (route === '/command') result = match.command(token, body);
+      else if (route === '/command') {
+        result = match.command(token, body);
+        if (body.type === 'fire' && result.ok) result = {ok: true, ammo: result.ammo};
+      }
       else throw new RangeError('unknown_route');
       return {ok: true, status: 200, json: async () => result};
     } catch (error) {
@@ -175,6 +178,9 @@ test('browser keyboard and touch send combat intent without target or damage inj
   a.doc('keydown', {code: 'KeyF'});
   await settle();
   assert.equal(player.ammo, 11);
+  await a.poll();await settle();
+  assert.match(a.node('status').textContent, /발사 완료/);
+  assert.doesNotMatch(a.node('status').textContent, /명중 확인/);
   assert.ok(server.requests.some(r => r.body?.type === 'fire' &&
     Object.keys(r.body).sort().join(',') === 'seq,type'));
   a.doc('keydown', {code: 'KeyF', repeat: true});

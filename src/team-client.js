@@ -29,7 +29,7 @@
           empty_magazine: '탄창 비움 · R 재장전', already_reloading: '이미 재장전 중',
           magazine_full: '탄창 가득 참', no_reserve: '예비 탄약 없음'};
         actionFeedback = result.ok
-          ? (type === 'fire' ? (result.hit ? '명중 확인' : '명중 미확인') : '재장전 시작')
+          ? (type === 'fire' ? '발사 완료 · 명중 여부는 시야로 판단' : '재장전 시작')
           : (messages[result.reason] || '명령을 처리하지 못했습니다');
         feedbackUntil = (state?.tick || 0) + 90;
       }

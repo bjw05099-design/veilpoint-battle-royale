@@ -75,7 +75,11 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
           const player = match.join(token, body.name);
           return send(res, 201, {token, ...player});
         }
-        return send(res, 200, match.command(req.headers['x-player-token'], body));
+        const result = match.command(req.headers['x-player-token'], body);
+        // The server resolves hits authoritatively, but a remote client must
+        // not receive an omniscient hit-confirmation bit from the API.
+        if (body.type === 'fire' && result.ok) return send(res, 200, {ok: true, ammo: result.ammo});
+        return send(res, 200, result);
       }
       send(res, 404, {error: 'not_found'});
     } catch (err) {
