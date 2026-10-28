@@ -61,8 +61,8 @@ test('full inventory does not consume finite cache; no pickups after exhaustion'
   assert.equal(p.charges,12);
   assert.equal(s.combat.supplyRemaining,0);
   assert.equal(Story.markers(s).length,0);
-  assert.equal(Story.fire(s).ok,true);
-  assert.equal(p.charges,11);
+  assert.equal(Story.fire(s).reason,'reload_required');
+  assert.equal(p.charges,12);
 });
 
 test('older v2 cache checkpoints migrate consumed and unconsumed stock',()=>{
