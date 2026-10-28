@@ -304,3 +304,81 @@ test('BR mixed loot pile gives keyboard and touch users the same compatible pick
   assert.match(app.node('pickupPrompt').textContent,/INCOMPATIBLE/);
  }
 });
+
+test('BR pause blocks keyboard firing, reload, supply, aim and assist without advancing the world',()=>{
+  const app=boot();app.node('play').click();app.frame(1000/60);
+  const g=app.game,p=g.player;
+  g.loot.forEach(item=>{item.x=120;item.z=120;});
+  const supply=g.loot.find(item=>item.weaponId===p.weaponId);
+  supply.x=p.x;supply.z=p.z;
+  p.charges=12;p.loaded=12;
+  const yaw=p.yaw, elapsed=g.elapsed, shots=g.lastTagAt;
+  app.emit('blur');
+  for(const code of ['Space','KeyR','KeyE','KeyH','KeyW'])
+    app.emit('keydown',{code});
+  app.emit('mousemove',{movementX:100,movementY:10});
+  app.node('scene').dispatch('click');
+  app.frame(2000/60);
+  assert.equal(g.elapsed,elapsed,'pause must freeze 60Hz simulation');
+  assert.equal(p.charges,12,'neither fire nor E may mutate finite ammunition');
+  assert.equal(p.loaded,12);
+  assert.equal(p.reloadRemaining,0);
+  assert.equal(p.reloadAssist,false);
+  assert.equal(g.lastTagAt,shots);
+  assert.equal(supply.picked,false);
+  assert.equal(p.yaw,yaw);
+  app.node('play').click();app.frame(3000/60);
+  app.emit('keydown',{code:'Space'});
+  assert.equal(p.charges,11,'firing works after explicit resume');
+  app.emit('keydown',{code:'KeyE'});
+  assert.ok(p.charges>11,'reachable physical supply works after resume');
+  app.emit('keydown',{code:'KeyR'});
+  assert.ok(p.reloadRemaining>0,'reload works after resume');
+});
+
+test('BR pause blocks touch controls and restores only fresh touch input after resume',()=>{
+  const app=boot({touch:true});app.node('play').click();app.frame(1000/60);
+  const g=app.game,p=g.player;
+  g.loot.forEach(item=>{item.x=120;item.z=120;});
+  const supply=g.loot.find(item=>item.weaponId===p.weaponId);
+  supply.x=p.x;supply.z=p.z;
+  p.charges=12;p.loaded=12;
+  app.emit('blur');
+  const before={charges:p.charges,loaded:p.loaded,remaining:p.reloadRemaining,
+    assist:p.reloadAssist,x:p.x,yaw:p.yaw};
+  for(const id of ['tagButton','reloadButton','lootButton','assistButton','sprintButton'])
+    app.node(id).dispatch('pointerdown');
+  app.node('stick').dispatch('pointerdown',{pointerId:3,clientX:80,clientY:44});
+  app.node('scene').dispatch('pointerdown',{pointerId:4,clientX:40,clientY:40});
+  app.node('scene').dispatch('pointermove',{pointerId:4,clientX:80,clientY:40});
+  app.frame(2000/60);
+  assert.deepEqual({charges:p.charges,loaded:p.loaded,remaining:p.reloadRemaining,
+    assist:p.reloadAssist,x:p.x,yaw:p.yaw},before);
+  assert.equal(supply.picked,false);
+  app.node('play').click();app.frame(3000/60);
+  app.node('tagButton').dispatch('pointerdown');
+  assert.equal(p.charges,11,'fresh touch firing resumes');
+  app.node('lootButton').dispatch('pointerdown');
+  assert.ok(p.charges>11,'fresh touch supply interaction resumes');
+});
+
+test('opening BR graphics settings during play pauses the match until explicit resume',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const g=app.game,ammo=g.player.charges,elapsed=g.elapsed;
+ app.emit('keydown',{code:'KeyG'});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Space'});
+ for(let i=2;i<=120;i++)app.frame(i*1000/60);
+ assert.equal(g.elapsed,elapsed,'settings must not allow hostile simulation to run behind the panel');
+ assert.equal(g.player.charges,ammo,'settings must not allow unopposed shots');
+ app.emit('keydown',{code:'KeyG'});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ app.frame(121*1000/60);
+ assert.equal(g.elapsed,elapsed,'closing settings must not implicitly resume');
+ app.node('play').click();
+ app.frame(122*1000/60);
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(g.elapsed>elapsed);
+});
