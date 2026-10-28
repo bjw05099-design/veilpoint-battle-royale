@@ -294,3 +294,10 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-13 / R-22 — partial candidate:** CH01 browser integrates six original, lightweight synthesized action/feedback cues (shot, reload, interaction, report, impact and completion), with a persistent explicit mute option, accessibility-preserving subtitles and lazy Web Audio initialization. This is **not** recorded/spatial/production-quality audio and has not been listened to or measured on actual user hardware.
 - **R-23 — partial candidate:** CH01 rejects nonpositive/non-finite time steps before hostile-volley or checkpoint-gate state can mutate, preserving the existing 60Hz gameplay contract. Regression and GitHub Actions are required before considering this validated.
+
+
+## 2026-10-29 CH01 finite-cache conservation candidate (PR #82)
+
+- **R-23 / R-27 — partial implementation, pending CI and browser playtest:** CH01's marked aid cache has exactly 12 finite rounds. A player with limited carrying capacity takes only the rounds that fit; the remaining rounds stay in the same physical cache for later collection. Empty caches disappear from the objective marker. No automatic ammunition replenishment or inventory overflow.
+- The existing v2 checkpoint retains the remaining round count; older checkpoints with only the boolean `supplyUsed` migrate to 0 or 12 remaining rounds. Invalid, fractional, out-of-range or contradictory saved balances are rejected. Deterministic round-trip tests and existing BR/story regression are required before merge.
+- **Not achieved:** licensed production firearm assets, physical magazine animation, native UE play, 165Hz hardware measurements, complete campaign or all-mode firearm parity. This improvement does not close realism issue #15 or firearm issue #20.
