@@ -272,10 +272,10 @@ test('BR proximity HUD does not invite a physically unreachable pickup',()=>{
 test('BR HUD explains exhausted sprint lockout without masking active messages',()=>{
  const app=boot();app.node('play').click();app.frame(1000/60);
  const p=app.game.player;p.stamina=10;p.sprintExhausted=true;
- app.game.messageTime=0;app.frame(2000/60);
+ app.game.messageTime=0;app.frame(300);
  assert.match(app.node('message').textContent,/EXHAUSTED.*25/);
  app.game.message='RECENT EVENT';app.game.messageTime=1;
- app.frame(3000/60);assert.equal(app.node('message').textContent,'RECENT EVENT');
- p.sprintExhausted=false;app.game.messageTime=0;app.frame(4000/60);
+ app.frame(600);assert.equal(app.node('message').textContent,'RECENT EVENT');
+ p.sprintExhausted=false;app.game.messageTime=0;app.frame(900);
  assert.doesNotMatch(app.node('message').textContent,/EXHAUSTED/);
 });
