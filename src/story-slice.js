@@ -134,9 +134,10 @@
     const beforeX=p.x,beforeZ=p.z;
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
+    const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
     // Keep CH01 fatigue consistent with the BR controller: a blocked forward
     // sprint does not spend stamina or create exertion without actual travel.
-    const sprinting=sprint&&Math.hypot(p.x-beforeX,p.z-beforeZ)>1e-7;
+    const sprinting=sprint&&movedDistance>1e-7;
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
@@ -204,7 +205,14 @@
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
         hostile.shots++;
         state.world.effects.push({x:hostile.x,z:hostile.z,t:0.28,type:'hostile'});
-        Sim.receiveDamage(state.world,4);
+        // A visible, correctly facing opponent can still miss. A shot always
+        // consumes one of twelve finite rounds; range and actual player travel
+        // reduce accuracy. Seed each shot from saved id/count so a checkpoint
+        // cannot reroll a miss into a hit or alter the 60 Hz replay.
+        const accuracy=clamp(0.96-distance*0.011-(t>0&&movedDistance/t>2.5?0.12:0),0.2,0.92);
+        const shotSeed=(state.world.seed ^ Math.imul(hostile.id+1,0x9e3779b9) ^
+          Math.imul(hostile.shots,0x85ebca6b))>>>0;
+        if(Sim.rngFromSeed(shotSeed)()<accuracy)Sim.receiveDamage(state.world,4);
         if(p.health===0)break;
       }
       if(state.world.status==='lost'){
