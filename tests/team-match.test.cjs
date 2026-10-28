@@ -252,3 +252,32 @@ test('combat is refused in lobby and commands cannot spoof health or ammunition'
   assert.equal(m.snapshot('a').self.health, 100);
   assert.equal(m.snapshot('a').self.ammo, 12);
 });
+
+test('authoritative team bodies prevent head-on phasing at 60Hz', () => {
+  const run = () => {
+    const {m} = setup();
+    const a = m.players.get('a'), b = m.players.get('b');
+    a.x = -1.3; a.z = 0; b.x = 1.3; b.z = 0;
+    m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+    m.command('b', {seq: 2, type: 'move', direction: {x: -1, z: 0}});
+    for (let i = 0; i < 120; i++) m.step();
+    assert.ok(a.x < b.x, 'players must retain their physical order');
+    assert.ok(b.x - a.x >= 1.1 - 1e-8, 'two standing bodies cannot overlap');
+    assert.equal(m.phase, 'playing');
+    return [a.x, b.x, m.ticks];
+  };
+  assert.deepEqual(run(), run(), 'actor collision is fixed-step deterministic');
+});
+
+test('legacy overlapping team positions can separate without a collision soft-lock', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 0; b.z = 0;
+  m.command('a', {seq: 2, type: 'move', direction: {x: -1, z: 0}});
+  m.command('b', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  for (let i = 0; i < 40; i++) m.step();
+  assert.ok(a.x < -1 && b.x > 1, 'both participants can move out of old overlaps');
+  assert.ok(b.x - a.x > 2);
+  assert.throws(() => m.command('a', {seq: 3, type: 'move',
+    direction: {x: 1, z: 0}, collider: false}), /invalid_command/);
+});
