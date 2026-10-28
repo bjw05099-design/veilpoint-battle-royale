@@ -16,7 +16,10 @@
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
-  let checkpoint=null;
+  let checkpoint=null,saveFailed=false;
+  // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
+  const AUTOSAVE_SECONDS=5;
+  let lastAutosaveAt=0;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   const isTouch=global.matchMedia('(pointer:coarse)').matches;
   const clearInput=()=>{for(const key in input)input[key]=false;};
@@ -30,10 +33,17 @@
     if(!saved)return null;
     try{return Story.restore(saved);}catch(_){storage.remove(SAVE_KEY);return null;}
   }
+  $('saveStatus').classList.add('hidden');
   function persist(){
     const raw=Story.serialize(state);
-    checkpoint=raw;
-    return storage.set(SAVE_KEY,raw);
+    lastAutosaveAt=state.world.elapsed;
+    const saved=storage.set(SAVE_KEY,raw);
+    saveFailed=!saved;
+    if(saved)checkpoint=raw;
+    const notice=$('saveStatus');
+    notice.textContent=saved?'':'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
+    notice.classList.toggle('hidden',saved);
+    return saved;
   }
   function recordCompletion(){
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
@@ -79,6 +89,7 @@
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
     running=false;clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
+    if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -87,7 +98,10 @@
   }
   function resume(){
     if(!renderer)return;
-    if(state.phase==='complete'||state.phase==='failed')state=Story.createState($('storyWeapon').value);
+    if(state.phase==='complete'||state.phase==='failed'){
+      state=Story.createState($('storyWeapon').value);
+      lastAutosaveAt=state.world.elapsed;
+    }
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
@@ -105,6 +119,10 @@
       state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
     }
     $('storyWeapon').value=state.world.player.weaponId;
+    lastAutosaveAt=state.world.elapsed;
+    saveFailed=false;
+    $('saveStatus').textContent='';
+    $('saveStatus').classList.add('hidden');
     resume();
   }
   function showChoices(){
@@ -318,6 +336,11 @@
     }
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
+    // A browser crash or refresh during quiet traversal must not rewind an entire
+    // mission segment. This uses simulated time, so paused/background tabs cannot
+    // generate repeated writes or advance hostile attacks.
+    if(running&&state.phase!=='complete'&&state.phase!=='failed'&&
+       state.world.elapsed-lastAutosaveAt>=AUTOSAVE_SECONDS)persist();
     if(running&&state.phase==='failed'){
       persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
     }

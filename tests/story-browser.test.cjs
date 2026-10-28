@@ -437,3 +437,68 @@ test('CH01 a missed hostile shot persists finite ammunition without a phantom in
   const reloaded=boot(shared);reloaded.element('continue').click();
   assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).combat.drones[1].shots,1);
 });
+
+
+test('CH01 periodically checkpoints quiet first-person traversal and restores the actual pose',()=>{
+  const shared=new Map(),app=boot(shared);
+  app.element('continue').click();
+  app.context.VeilpointInput.forward=true;
+  for(let i=1;i<=240;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),false,'no per-frame save before the five-second interval');
+  for(let i=241;i<=360;i++)app.frame(i*1000/60);
+  app.context.VeilpointInput.forward=false;
+  const saved=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.equal(saved.phase,'terminal');
+  assert.ok(saved.elapsed>=5&&saved.elapsed<=6.01);
+  assert.ok(saved.player.z<12,'actual player traversal must survive refresh');
+  const reloaded=boot(shared);reloaded.element('continue').click();
+  reloaded.element('pauseButton').click();
+  const resumed=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.equal(resumed.player.z,saved.player.z);
+  assert.equal(resumed.player.stamina,saved.player.stamina);
+  assert.equal(resumed.player.charges,saved.player.charges);
+});
+
+test('CH01 autosave is bounded, pauses with the game and resets after a new mission',()=>{
+  class CountingStore extends Map{
+    writes=0;
+    set(key,value){if(key==='veilpoint.story.ch01')this.writes++;return super.set(key,value);}
+  }
+  const shared=new CountingStore(),app=boot(shared);
+  app.element('continue').click();
+  for(let i=1;i<=360;i++)app.frame(i*1000/60);
+  assert.equal(shared.writes,1,'one periodic save for six seconds of gameplay');
+  for(let i=361;i<=720;i++)app.frame(i*1000/60);
+  assert.equal(shared.writes,2,'the next periodic save is spaced by simulated time');
+  app.element('pauseButton').click();
+  const pausedWrites=shared.writes;
+  for(let i=721;i<=1200;i++)app.frame(i*1000/60);
+  assert.equal(shared.writes,pausedWrites,'paused frames must not write or advance time');
+  app.element('newGame').click();
+  assert.equal(shared.has('veilpoint.story.ch01'),false,'new mission removes old checkpoint');
+  for(let i=1201;i<=1320;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),false,'new mission cannot inherit old autosave deadline');
+});
+
+
+test('CH01 reports blocked offline checkpoint storage and clears warning after a successful retry',()=>{
+  class FailingStore extends Map{
+    fail=true;
+    set(key,value){if(this.fail&&key==='veilpoint.story.ch01')throw new Error('storage quota or privacy block');return super.set(key,value);}
+  }
+  const shared=new FailingStore(),app=boot(shared);
+  app.element('continue').click();
+  for(let i=1;i<=360;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),false);
+  assert.equal(app.element('saveStatus').classList.contains('hidden'),false);
+  assert.match(app.element('saveStatus').textContent,/저장 실패.*새로고침/);
+  app.element('pauseButton').click();
+  assert.match(app.element('menuText').textContent,/저장 실패.*새로고침/);
+  shared.fail=false;
+  app.element('continue').click();
+  for(let i=361;i<=720;i++)app.frame(i*1000/60);
+  assert.equal(shared.has('veilpoint.story.ch01'),true);
+  assert.equal(app.element('saveStatus').classList.contains('hidden'),true);
+  assert.equal(app.element('saveStatus').textContent,'');
+  assert.equal(shared.has('veilpoint.campaignProgress'),false);
+});
