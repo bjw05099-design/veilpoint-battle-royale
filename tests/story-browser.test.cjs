@@ -326,3 +326,26 @@ test('real CH01 keyboard and touch reload inputs correct stress hesitation after
   assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).player.charges,initial.player.charges);
  }
 });
+
+test('CH01 real browser input path exposes injury state and transient non-omniscient damage cue',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../story.html'),'utf8');
+  assert.match(html,/id="healthStatus"/);
+  assert.match(html,/id="damageIndicator" aria-hidden="true"/);
+  const app=boot();
+  assert.equal(app.element('healthStatus').classList.contains('hidden'),true);
+  app.element('continue').click();app.moveForward(0,300);app.interact();
+  assert.match(app.element('healthStatus').textContent,/건강 상태 100\/100.*안정/);
+  let flashed=false;
+  for(let i=301;i<=540;i++){
+    app.frame(i*1000/60);
+    if(Number(app.element('damageIndicator').style.opacity)>0)flashed=true;
+  }
+  assert.equal(flashed,true,'a real hostile hit must be perceivable without revealing an enemy position');
+  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.ok(saved.player.health<100);
+  assert.match(app.element('healthStatus').textContent,/건강 상태 [0-9]+\/100.*부상/);
+  const restored=boot(app.store);restored.element('continue').click();
+  assert.match(restored.element('healthStatus').textContent,new RegExp('건강 상태 '+saved.player.health+'/100'));
+  restored.element('pauseButton').click();restored.frame(10000);
+  assert.equal(Number(restored.element('damageIndicator').style.opacity),0);
+});

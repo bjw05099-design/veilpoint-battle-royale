@@ -895,3 +895,37 @@ test('CH01 wounded human opponents have bounded mobility and preserve injury aft
   for(let i=0;i<60;i++){story.step(injured,1/60,{});story.step(resumed,1/60,{});}
   assert.equal(story.serialize(resumed),story.serialize(injured));
 });
+
+test('CH01 casualty report has a credible captain-to-liaison information chain',()=>{
+  const s=story.createState();
+  go(s,'terminal');story.interact(s);
+  const initial=s.subtitle;
+  s.world.player.yaw=Math.PI;
+  assert.equal(story.fire(s).hit,false);
+  assert.equal(s.subtitle,initial,'a missed shot cannot become an NIS casualty report');
+  const first=s.world.bots[0];
+  for(let i=0;i<2;i++){
+    s.world.player.yaw=Math.atan2(first.x-s.world.player.x,-(first.z-s.world.player.z));
+    s.world.elapsed+=.21;
+    assert.equal(story.fire(s).hit,true);
+  }
+  assert.match(s.subtitle,/이수혁 대위\(무전\).*현장에서 확인한/);
+  assert.doesNotMatch(s.subtitle,/조현지/);
+  for(const bot of s.world.bots.filter(b=>b.alive)){
+    for(let i=0;i<2;i++){
+      s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+      s.world.elapsed+=.21;
+      assert.equal(story.fire(s).hit,true);
+    }
+  }
+  assert.equal(s.phase,'records');
+  assert.match(s.subtitle,/조현지.*이 대위님의 현장 보고 확인/);
+});
+test('CH01 checkpoint rejects forged far-future hostile volley delay',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  const data=JSON.parse(story.serialize(s));
+  data.combat.nextPulseAt=data.elapsed+90;
+  assert.throws(()=>story.restore(JSON.stringify(data)),RangeError);
+  for(let i=0;i<185;i++)story.step(s,1/60,{});
+  assert.equal(story.serialize(story.restore(story.serialize(s))),story.serialize(s));
+});

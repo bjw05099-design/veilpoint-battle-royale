@@ -258,6 +258,15 @@
     const situation=Story.situation(state);
     $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence;
     const combatActive=state.phase==='engagement';
+    const p=state.world.player;
+    // Self-condition is knowable to the player; never reveal hidden enemy state
+    // or claim an exact source/direction for incoming shots.
+    const healthVisible=combatActive||p.health<100;
+    $('healthStatus').classList.toggle('hidden',!healthVisible);
+    if(healthVisible){
+      const condition=p.health===0?'임무 수행 불가':p.health<=30?'위급':p.health<70?'부상':p.health<100?'경미한 부상':'안정';
+      $('healthStatus').textContent='건강 상태 '+Math.round(p.health)+'/100 · '+condition;
+    }
     $('combatStatus').classList.toggle('hidden',!combatActive);
     if(combatActive){
       const p=state.world.player;
@@ -290,6 +299,9 @@
     if(running&&state.phase==='failed'){
       persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
     }
+    // The existing finite damageFlash timer is already advanced by the fixed
+    // 60Hz story step. Present a brief non-directional edge cue (no enemy radar).
+    $('damageIndicator').style.opacity=String(running?Math.min(.65,Math.max(0,state.world.damageFlash/.45*.65)):0);
     if(renderer&&limiter.shouldRender(now))renderer.draw(state.world);
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
