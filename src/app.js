@@ -64,7 +64,8 @@ function clearStoredMatch(){
  else global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
 }
 function persistMatch(){
- if(!running||simulation.status!=='playing')return;
+ if(!running)return;
+ if(simulation.status!=='playing'){clearStoredMatch();return;}
  try{global.localStorage.setItem(MATCH_SAVE_KEY,Game.snapshotMatch(simulation));
   lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;saveWarning=false;
  }catch(_){if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}}

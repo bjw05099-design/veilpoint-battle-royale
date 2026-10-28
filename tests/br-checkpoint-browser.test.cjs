@@ -115,3 +115,13 @@ test('BR checkpoint is independent of the campaign save and remains available on
  app.node('newMatch').click();app.frame(2000/60);
  assert.equal(store.get('veilpoint.storyCheckpoint.v2'),'campaign-only');
 });
+
+test('BR fatal outcome invalidates the save on pagehide before the next render frame',()=>{
+ const store=new Map();const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ assert.ok(store.get(KEY));
+ app.global.VeilpointSim.receiveDamage(app.game,100);
+ assert.equal(app.game.status,'lost');
+ app.emit('pagehide');
+ assert.equal(store.has(KEY),false,'a stale active checkpoint must not revive a finished match');
+});
