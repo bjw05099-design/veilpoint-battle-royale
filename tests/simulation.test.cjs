@@ -336,6 +336,7 @@ test('premature correction gives a bounded, non-magical player feedback cue',()=
 test('injury slows BR movement predictably without healing or affecting finite ammunition',()=>{
  const healthy=S.newMatch(910,1),injured=S.newMatch(910,1);
  healthy.status=injured.status='playing';
+ for(const g of [healthy,injured]){g.bots[0].x=140;g.bots[0].z=140;g.bots[0].actionTime=999;}
  injured.player.health=40;
  const rounds=injured.player.charges;
  for(let i=0;i<60;i++){S.tick(healthy,1/60,{forward:true});S.tick(injured,1/60,{forward:true});}
