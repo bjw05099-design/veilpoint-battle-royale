@@ -15,7 +15,7 @@ small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
 <h1>VEILPOINT / DISTRICT CONTROL</h1>
 <p>로컬 2인 서버 권한형 목표 점령 실험. 최종 1인칭 팀 대전이 아닌 <strong>네트워크 규칙 검증용 2D 테스트 화면</strong>입니다. 서버가 위치·시야·장애물·피해·유한 탄약·점수를 결정합니다. 점령은 연속 유지해야 하며 방해받으면 진행도가 초기화됩니다. 교전으로 상대가 전투 불능이 되면 해당 라운드가 종료됩니다.</p>
 <main><section><canvas id="arena" width="500" height="500" aria-label="팀 목표 구역 및 가시 범위 지도"></canvas>
-<p id="status" role="status" aria-live="polite">서버 연결 대기</p><p><small>WASD/방향키 이동 · E 점령 유지 · F/SPACE 발사 · R 재장전 · 버튼은 터치 입력 지원. 원형 목표에서 적이 함께 있으면 점령 불가. 두 탭에서 서로 다른 이름으로 접속하세요.</small></p></section>
+<p id="status" role="status" aria-live="polite">서버 연결 대기</p><p><small>WASD/방향키 이동 · 지도 클릭/드래그로 별도 조준(터치 가능) · E 점령 유지 · F/SPACE 발사 · R 재장전 · 버튼은 터치 입력 지원. 원형 목표에서 적이 함께 있으면 점령 불가. 두 탭에서 서로 다른 이름으로 접속하세요.</small></p></section>
 <section class="panel"><label for="name">플레이어 이름</label><p><input id="name" maxlength="24" value="Player" autocomplete="off"></p>
 <button id="join">서버 입장</button><button id="ready" disabled>준비 / 재대전</button>
 <p>상태: <strong id="phase">LOBBY</strong></p><p>팀: <strong id="team">—</strong></p>
