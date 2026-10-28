@@ -134,7 +134,12 @@
   }
   function reload(){
     if(!running||state.phase!=='engagement')return;
-    if(Sim.reload(state.world).ok){persist();updateHud();}
+    const result=Sim.reload(state.world);
+    if(result.reason==='recovery_not_ready'){
+      state.subtitle='이수혁 대위: 장전 동작이 안정되면 R키 또는 장전 버튼을 다시 눌러 복구할 수 있습니다.';
+      updateHud();return;
+    }
+    if(result.ok){persist();updateHud();}
   }
   function toggleReloadAssist(){
     if(!running)return;

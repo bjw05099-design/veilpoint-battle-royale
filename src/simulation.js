@@ -158,8 +158,10 @@
       // The initial quarter-second must elapse before a second R/touch press can
       // recover it; no instant reload, repeated shortening or extra rounds.
       if(!p.reloadHesitation)return {ok:false,reason:'already_reloading'};
-      if(p.reloadRemaining>firearm.reloadSeconds+RELOAD_HESITATION_SECONDS-0.25)
+      if(p.reloadRemaining>firearm.reloadSeconds+RELOAD_HESITATION_SECONDS-0.25){
+        game.message='RELOAD SETTLING · PRESS R AGAIN SHORTLY';game.messageTime=0.8;
         return {ok:false,reason:'recovery_not_ready'};
+      }
       p.reloadRemaining=Math.max(0.25,p.reloadRemaining-RELOAD_HESITATION_SECONDS);
       p.reloadHesitation=false;
       game.message='RELOAD CORRECTED';game.messageTime=1.2;

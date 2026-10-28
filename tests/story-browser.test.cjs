@@ -292,3 +292,37 @@ test('CH01 browser menu selects a real finite firearm class, persists it and res
   assert.equal(saved.player.charges,32);
   assert.match(resumed.element('combatStatus').textContent,/MARKSMAN.*탄창 8/);
 });
+
+test('real CH01 keyboard and touch reload inputs correct stress hesitation after a short delay',()=>{
+ const Story=require('../src/story-slice.js');
+ for(const touch of [false,true]){
+  const state=Story.createState('marksman');
+  state.world.player.x=Story.POINTS.terminal.x;
+  state.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(state).ok,true);
+  state.world.player.loaded=2;state.world.player.stress=90;
+  const shared=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
+  const app=boot(shared,touch);
+  app.element('continue').click();
+  const press=()=>touch?app.element('touchReload').click():app.emit('keydown',{code:'KeyR'});
+  press();
+  const initial=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.equal(initial.player.reloadHesitation,true);
+  press();
+  assert.match(app.element('subtitle').textContent,/안정되면/);
+  for(let i=1;i<=18;i++)app.frame(i*1000/60);
+  press();
+  const recovered=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.equal(recovered.player.reloadHesitation,false);
+  assert.ok(recovered.player.reloadRemaining>=0.25);
+  assert.ok(recovered.player.reloadRemaining<initial.player.reloadRemaining);
+  assert.equal(recovered.player.charges,initial.player.charges);
+  assert.equal(recovered.player.loaded,initial.player.loaded);
+  press();
+  assert.equal(shared.get('veilpoint.story.ch01'),JSON.stringify(recovered),'repeat correction must not alter saved rounds');
+  const reloaded=boot(shared,touch);
+  reloaded.element('continue').click();
+  assert.match(reloaded.element('combatStatus').textContent,/재장전 중/);
+  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).player.charges,initial.player.charges);
+ }
+});
