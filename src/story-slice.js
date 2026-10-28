@@ -489,9 +489,9 @@
       ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
       (hasOwn(c,'supplyUsed')&&typeof c.supplyUsed!=='boolean')||
       (hasOwn(c,'supplyRemaining')&&
-        (!hasOwn(c,'supplyUsed')||!Number.isInteger(c.supplyRemaining)||
-         c.supplyRemaining<0||c.supplyRemaining>12||
-         c.supplyUsed!==(c.supplyRemaining===0)))||
+        (!Number.isInteger(c.supplyRemaining)||c.supplyRemaining<0||
+         c.supplyRemaining>12||
+         (hasOwn(c,'supplyUsed')&&c.supplyUsed!==(c.supplyRemaining===0))))||
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
       // A forged far-future hostile timer would make a resumed encounter
       // artificially harmless. The authored volley interval is three seconds.
