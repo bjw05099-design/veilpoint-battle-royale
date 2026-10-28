@@ -1,7 +1,7 @@
 'use strict';
 // VEILPOINT / original, offline-first two-client authoritative objective prototype.
 // Pure 60 Hz rules. Not a production FPS netcode or public internet service.
-const {moveEntity, lineBlocked, blocked} = require('./simulation.js');
+const {moveEntity, lineBlocked, blocked, injuryMobility} = require('./simulation.js');
 const STEP = 1 / 60;
 const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
