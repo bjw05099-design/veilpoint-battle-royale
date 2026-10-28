@@ -230,7 +230,7 @@
       else if(target)aim=targetAngle;
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
-      const botSpeed=outsideBot?5.3:target&&targetDistance>18?3.2:1.0;
+      const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:1.0)*injuryMobility(b);
       moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,
         obstacles.concat(actorObstacles(game,b)));
       if(outsideBot){
