@@ -9,6 +9,7 @@
   'use strict';
   const WORLD = 175, MAX_BOTS = 20, MAGAZINE_SIZE = 12, RELOAD_SECONDS = 1.8;
   const RELOAD_HESITATION_SECONDS = 0.6, STRESS_THRESHOLD = 60;
+  const SPRINT_RECOVERY_STAMINA = 25; // Hysteresis prevents exhausted one-frame sprint bursts.
   // Grounded arm's-reach interaction, not a three-metre remote loot vacuum.
   const PICKUP_REACH = 1.8;
   const ACTOR_RADIUS = 0.85; // Shared BR actor footprint for standing-body collision.
@@ -88,7 +89,7 @@
     const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%3],picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -140,6 +141,14 @@
     const t=clamp(Number.isFinite(dt)?dt:0,0,.05);
     player.stress=clamp((player.stress||0)+(sprinting?9:-3)*t,0,100);
     return player.stress;
+  }
+  // Shared BR/CH01 rule: an exhausted runner must recover before sprinting again.
+  // Crouched movement cannot spend sprint stamina or grant sprint speed.
+  function canSprint(player, input, forwardAxis) {
+    if(player.stamina<=1)player.sprintExhausted=true;
+    else if(player.sprintExhausted&&player.stamina>=SPRINT_RECOVERY_STAMINA)
+      player.sprintExhausted=false;
+    return !!input.sprint&&!input.crouch&&forwardAxis>0&&player.stamina>1&&!player.sprintExhausted;
   }
   function setReloadAssist(game, enabled) {
     game.player.reloadAssist=!!enabled;
@@ -195,7 +204,7 @@
     const {player:p,obstacles} = game;
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
-    const wantsSprint=!!input.sprint&&iz>0&&p.stamina>1;
+    const wantsSprint=canSprint(p,input,iz);
     const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p);
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     const beforeX=p.x,beforeZ=p.z;
@@ -324,5 +333,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });
