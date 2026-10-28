@@ -482,7 +482,7 @@
         (['x','z','angle'].some(k=>hasOwn(b,k))&&
           (['x','z','angle'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
            Math.hypot(b.x-HOSTILE_POSITIONS[i].x,b.z-HOSTILE_POSITIONS[i].z)>HOSTILE_CHASE_RADIUS+1e-6||
-           Math.abs(b.angle)>Math.PI+1e-6)))||
+           Math.abs(b.angle)>Math.PI+1e-6))||
         (['lastSeenX','lastSeenZ','investigateUntil'].some(k=>hasOwn(b,k))&&
           (['lastSeenX','lastSeenZ','investigateUntil'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
            Math.abs(b.lastSeenX)>Sim.WORLD||Math.abs(b.lastSeenZ)>Sim.WORLD||
