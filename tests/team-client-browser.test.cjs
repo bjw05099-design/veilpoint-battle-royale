@@ -23,7 +23,10 @@ function backend() {
         const newToken = (++id).toString(16).padStart(48, '0');
         result = {token: newToken, ...match.join(newToken, body.name)};
       } else if (route === '/state') result = match.snapshot(token);
-      else if (route === '/command') result = match.command(token, body);
+      else if (route === '/command') {
+        result = match.command(token, body);
+        if (body.type === 'fire' && result.ok) result = {ok: true, ammo: result.ammo};
+      }
       else throw new RangeError('unknown_route');
       return {ok: true, status: 200, json: async () => result};
     } catch (error) {
