@@ -26,6 +26,9 @@ const FIRE_INTERVAL_TICKS = 18;
 const MAGAZINE_ROUNDS = 12;
 const SPARE_ROUNDS = 24;
 const RELOAD_TICKS = 90;
+// Fixed-step intent lease: disconnected/suspended input must not move or capture forever.
+// Clients periodically renew held intent; heartbeat/state polling never renews it.
+const INPUT_LEASE_TICKS = 90;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
@@ -65,7 +68,8 @@ class TeamMatch {
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
       capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
-      reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now()};
+      reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
+      lastMoveTick: 0, lastCaptureTick: 0};
     this.players.set(token, player);
     return {id: player.id, team};
   }
@@ -138,7 +142,11 @@ class TeamMatch {
       p.direction = len > 1 ? {x: x / len, z: z / len} : {x, z};
       // Stopping retains the last facing; a zero vector cannot reveal all directions.
       if (len > 0) p.facing = {x: x / len, z: z / len};
-    } else p.capturing = data.active;
+      p.lastMoveTick = this.ticks;
+    } else {
+      p.capturing = data.active;
+      p.lastCaptureTick = this.ticks;
+    }
     return {ok: true};
   }
   start() {
@@ -160,6 +168,8 @@ class TeamMatch {
       p.reserve = SPARE_ROUNDS;
       p.reloadTicks = 0;
       p.lastShotTick = -FIRE_INTERVAL_TICKS;
+      p.lastMoveTick = 0;
+      p.lastCaptureTick = 0;
     }
   }
   finish(winner, reason) {
@@ -176,6 +186,8 @@ class TeamMatch {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
     this.ticks++;
     for (const p of this.players.values()) {
+      if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
+      if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) p.capturing = false;
       if (this.now() - p.lastSeen > this.timeoutMs) {
         this.finish(p.team === 'red' ? 'blue' : 'red', 'connection_timeout');
         return;
@@ -235,4 +247,4 @@ class TeamMatch {
   }
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
-  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS};
+  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, INPUT_LEASE_TICKS};
