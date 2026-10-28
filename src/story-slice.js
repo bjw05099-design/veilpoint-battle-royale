@@ -13,6 +13,7 @@
   const SAVE_LIMIT = 8192;
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
   const HOSTILE_ROUNDS = 12;
+  const HOSTILE_BODY_RADIUS = .75; // Same authored radius as hostile movement collision.
   const HOSTILE_ALERT_RANGE = 42, HOSTILE_CHASE_RADIUS = 6, HOSTILE_TURN_RATE = 1.4;
   const GATE_CLEARANCE_SECONDS = 8;
   // Original, motorized sliding checkpoint gate. Its geometry moves at fixed-step
@@ -107,7 +108,7 @@
     // Temporary AABB proxies keep the first-person controller from passing through
     // standing opponents. Ignore already-overlapping actors so legacy saves can escape.
     return state.world.bots.filter(b=>b.alive&&b!==except)
-      .map(b=>({x:b.x,z:b.z,w:1.2,d:1.2}));
+      .map(b=>({x:b.x,z:b.z,w:HOSTILE_BODY_RADIUS*2,d:HOSTILE_BODY_RADIUS*2}));
   }
   function nearest(state) {
     const p=state.world.player;
@@ -176,7 +177,7 @@
           const vx=Math.sin(hostile.angle)*move/t,vz=-Math.cos(hostile.angle)*move/t;
           if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8)
             Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles.concat(actorBlockers(state,hostile),
-              [{x:p.x,z:p.z,w:1.2,d:1.2}]),.75);
+              [{x:p.x,z:p.z,w:1.7,d:1.7}]),HOSTILE_BODY_RADIUS);
         }
       }
     }
