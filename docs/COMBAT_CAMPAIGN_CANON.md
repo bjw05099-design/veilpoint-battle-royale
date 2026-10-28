@@ -8,7 +8,7 @@
 - **Playable protagonist across all twelve chapters:** **이수혁 (Lee Su-hyeok), 대한민국 특수부대 대위** — an entirely fictional Republic of Korea military officer. The narrative uses an original fictional international protection/observation mission as context; it does **not** claim that a real ROK unit or the Korean government undertook such an operation.
 - Protagonist never abruptly switches to a secondary playable lead; viewpoint changes are optional short cinematics or radio/dialogue interludes only. The captain's first-person perspective anchors the campaign.
 - **국가정보원(국정원) 소속 가상 요원** enter the cast as consequential fictional characters. Their conduct, technology, internal process and authorisation are invented for the story and must never be framed as a description of real intelligence methods or confidential practices.
-- Existing CH01 browser prototype is a **short traversal/record-interaction slice with an initial non-graphic arcade signal-drone encounter** (three targets, aim/fire, one-use ally support and failure/retry). It is **not** a completed combat-first 50-minute mission; full encounter variety, believable companions, character model/voice direction and real playtesting remain to be implemented. Previously authored Mara dialogue is now interpreted as an ally guiding the captain, not the player character.
+- Existing CH01 browser prototype is a **short traversal/record-interaction slice with a short non-graphic three-human-opponent encounter with finite ammunition and bounded sight/sound awareness** (three targets, aim/fire, one-use ally support and failure/retry). It is **not** a completed combat-first 50-minute mission; full encounter variety, believable companions, character model/voice direction and real playtesting remain to be implemented. Previously authored Mara dialogue is now interpreted as an ally guiding the captain, not the player character.
 - Mara Dahan, Yusuf Rahal, Samir Qadir and Nadia Faris remain original **local** supporting characters. Do not erase local agency or reduce civilians to background scenery.
 
 ## Principal cast (all fictional)
@@ -49,12 +49,12 @@ The percentage ranges are design targets, not exact chapter quotas; preserve sho
 
 | ID | Working chapter (target min) | Combat-forward playable set-piece | Character/story pivot |
 |---|---|---|---|
-| M01 | 마지막 방송 / The Last Broadcast (50) | sudden first-person urban engagement, squad regrouping and restoring a damaged relay | Captain meets Mara, NIS officer Yoon introduces conflicting accounts |
+| M01 | 마지막 방송 / The Last Broadcast (50) | sudden first-person urban engagement, squad regrouping and restoring a damaged relay | Captain meets Mara, NIS liaison Kim Ji-yun introduces incomplete, sourced accounts |
 | M02 | 두 개의 지도 / Two Maps (55) | mobile protection and contested road segments | Jo's report disagrees with apparent route safety |
 | M03 | 소금바람 / Salt Wind (60) | fast-paced desert settlement encounter and team support | local aid leader Yusuf shifts the mission priority |
 | M04 | 유리 회랑 / Glass Corridor (55) | vertical city building engagement with changing access | delayed message alters an objective halfway through |
 | M05 | 갈라진 항구 / Split Harbor (65) | large dynamic harbor combat sequence | player-selected route changes later accessible district |
-| M06 | 마지막 중계 / The Last Relay (60) | mountainous relay fight and escalating environmental events | Yoon challenges a seemingly reliable field report |
+| M06 | 마지막 중계 / The Last Relay (60) | mountainous relay fight and escalating environmental events | Kim Ji-yun challenges a seemingly reliable field report |
 | M07 | 거짓된 평온 / Borrowed Calm (55) | uneasy lull turning into sudden district-wide action | Captain, squad and local partners disagree on responsibility |
 | M08 | 도시의 심장 / Heart of the City (65) | sustained urban multi-objective battle across changed familiar areas | prior decisions change ally support and the city's visible state |
 | M09 | 부서진 약속 / Fractured Promise (60) | separated squad objectives rejoin during an intense major encounter | Captain stays playable; cutaways show conflicting witnesses |

@@ -100,3 +100,22 @@ test('NIS characters have consistent fictional identities and a combat-first pac
   assert.equal(c.COMBAT_FOCUS.measuredCombatShare, null);
   assert.equal(c.TARGET_MINUTES, 720);
 });
+
+test('active campaign documentation never reintroduces retired cast or obsolete current encounter claims',()=>{
+  const paths=[
+    '../docs/CAMPAIGN_DESIGN.md','../docs/STORY_CAMPAIGN.md',
+    '../docs/COMBAT_CAMPAIGN_CANON.md','../docs/CAMPAIGN_IMMERSION_STANDARD.md',
+    '../docs/DEMO_DELIVERY_GATES.md'
+  ];
+  for(const relative of paths){
+    const source=fs.readFileSync(path.resolve(__dirname,relative),'utf8');
+    assert.doesNotMatch(source,/서진혁|윤서하|강민재|\bYoon\b/,
+      relative+' must use the current fictional cast');
+    assert.doesNotMatch(source,/three-drone signal encounter|short playable signal-drone encounter|initial non-graphic arcade signal-drone encounter/,
+      relative+' must not advertise the retired arcade encounter as current gameplay');
+  }
+  const canon=fs.readFileSync(path.resolve(__dirname,'../docs/COMBAT_CAMPAIGN_CANON.md'),'utf8');
+  assert.match(canon,/김지윤/);
+  assert.match(canon,/조현지/);
+  assert.match(canon,/이수혁/);
+});
