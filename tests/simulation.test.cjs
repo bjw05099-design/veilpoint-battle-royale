@@ -300,7 +300,7 @@ test('BR E/touch pickup and HUD visibility reject supplies behind solid cover',(
  assert.equal(S.pickup(g),'ammo');
  assert.equal(g.player.charges,36);
  const app=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../src/app.js'),'utf8');
- assert.ok(app.includes('Game.canReachPickup(s,l)'));
+ assert.ok(app.includes('Game.nearestReachablePickup(s)'));
 });
 
 test('stress reload correction requires a readable delay, is single-use and never duplicates ammunition',()=>{
@@ -404,4 +404,41 @@ test('BR sprint exhaustion has deterministic recovery hysteresis, not infinite m
  const before=a.player.z;S.tick(a,1/60,{forward:true,sprint:true});
  assert.equal(a.player.sprintExhausted,false);
  assert.ok(Math.abs((before-a.player.z)-9.5/60)<1e-8,'sprint resumes only after recovery');
+});
+
+test('BR compatible ammo wins over closer incompatible loot for E/touch and HUD',()=>{
+ const g=S.newMatch(2801,0,'shotgun');g.status='playing';
+ g.player.charges=g.player.loaded;
+ g.loot.forEach(item=>{item.x=100;item.z=100;});
+ const wrong=g.loot.find(item=>item.weaponId==='carbine');
+ const right=g.loot.find(item=>item.weaponId==='shotgun');
+ assert.ok(wrong&&right);
+ wrong.x=g.player.x;wrong.z=g.player.z;
+ right.x=g.player.x+0.5;right.z=g.player.z;
+ assert.equal(S.nearestReachablePickup(g),right);
+ const before=g.player.charges;
+ assert.equal(S.pickup(g),right.kind);
+ assert.equal(right.picked,true);
+ assert.equal(wrong.picked,false);
+ assert.ok(g.player.charges>before);
+ assert.equal(S.nearestReachablePickup(g),wrong,'remaining incompatible cache is still visible');
+ assert.equal(S.pickup(g),null);
+ assert.match(g.message,/INCOMPATIBLE/);
+});
+test('BR pickup selector never bypasses cover, distance, depletion or class capacity',()=>{
+ const g=S.newMatch(2802,0,'precision');g.status='playing';
+ g.player.charges=g.player.loaded;
+ g.loot.forEach(item=>{item.x=100;item.z=100;});
+ const right=g.loot.find(item=>item.weaponId==='precision');
+ right.x=g.player.x;right.z=g.player.z;
+ assert.equal(S.nearestReachablePickup(g),right);
+ right.picked=true;
+ assert.equal(S.nearestReachablePickup(g),null);
+ right.picked=false;
+ right.x=5;right.z=0;
+ assert.equal(S.nearestReachablePickup(g),null);
+ right.x=0;right.z=0;
+ g.player.charges=g.player.maxCharges;
+ assert.equal(S.pickup(g),null);
+ assert.equal(right.picked,false);
 });

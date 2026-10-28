@@ -279,3 +279,28 @@ test('BR HUD explains exhausted sprint lockout without masking active messages',
  p.sprintExhausted=false;app.game.messageTime=0;app.frame(900);
  assert.doesNotMatch(app.node('message').textContent,/EXHAUSTED/);
 });
+
+test('BR mixed loot pile gives keyboard and touch users the same compatible pickup and prompt',()=>{
+ for(const touch of [false,true]){
+  const app=boot({touch});
+  app.node('weaponClass').value='precision';
+  app.node('play').click();app.frame(1000/60);
+  const g=app.game,p=g.player;
+  p.charges=p.loaded;
+  g.loot.forEach(item=>{item.x=120;item.z=120;});
+  const wrong=g.loot.find(item=>item.weaponId==='carbine');
+  const right=g.loot.find(item=>item.weaponId==='precision');
+  wrong.x=p.x;wrong.z=p.z;
+  right.x=p.x+0.5;right.z=p.z;
+  app.frame(300);
+  assert.match(app.node('pickupPrompt').textContent,/PRECISION/);
+  const before=p.charges;
+  if(touch)app.node('lootButton').dispatch('pointerdown');
+  else app.emit('keydown',{code:'KeyE'});
+  assert.ok(p.charges>before);
+  assert.equal(right.picked,true);
+  assert.equal(wrong.picked,false);
+  app.frame(600);
+  assert.match(app.node('pickupPrompt').textContent,/INCOMPATIBLE/);
+ }
+});
