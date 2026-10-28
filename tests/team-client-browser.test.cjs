@@ -225,3 +225,16 @@ test('rapid double join never allocates two server identities from one tab', asy
   assert.equal(server.requests.filter(r => r.route === '/join').length, 1);
   assert.equal(a.node('join').disabled, true);
 });
+
+test('overlapping state polls are serialized to prevent stale UI snapshots', async () => {
+  const server = backend(), ui = boot(server);
+  ui.node('join').click();
+  await settle();
+  const before = server.requests.filter(r => r.route === '/state').length;
+  await Promise.all([ui.poll(), ui.poll(), ui.poll()]);
+  await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state').length, before + 1);
+  await ui.poll();await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state').length, before + 2,
+    'polling resumes after the previous request settles');
+});
