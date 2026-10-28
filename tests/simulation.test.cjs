@@ -531,3 +531,52 @@ test('BR a missed finite shot alerts a nearby hidden opponent without authorizin
  assert.equal(occluded.bots[0].lastSeenUntil,0);
  assert.equal(occluded.bots[0].health,100);
 });
+
+test('BR rival gunfire alerts only nearby listeners with coarse memory, not wallhack damage',()=>{
+ const make=(listenerZ=0,fire=true)=>{
+  const g=S.newMatch(918,3),[shooter,target,listener]=g.bots;g.status='playing';
+  g.player.x=100;g.player.z=100;
+  shooter.x=0;shooter.z=-14;shooter.angle=0;shooter.moveTime=999;shooter.actionTime=0;shooter.skill=1;
+  target.x=0;target.z=-25;target.angle=0;target.moveTime=999;target.actionTime=999;
+  target.loaded=0;target.charges=0;
+  listener.x=0;listener.z=listenerZ;listener.angle=Math.PI;
+  listener.moveTime=999;listener.actionTime=999;listener.lastSeenUntil=0;
+  g.obstacles.push({x:0,z:-8,w:6,d:3});
+  if(!fire){shooter.loaded=0;shooter.charges=0;}
+  return g;
+ };
+ const a=make(),b=make(),far=make(20),silent=make(0,false);
+ for(const g of [a,b,far,silent])S.tick(g,1/60,{});
+ const shooter=a.bots[0],listener=a.bots[2];
+ assert.equal(shooter.charges,35,'a real rival shot spends one finite round');
+ assert.ok(listener.lastSeenUntil>a.elapsed,'a shot is heard through nearby cover');
+ assert.equal(listener.lastSeenZ,S.approximateSoundPosition(shooter).z);
+ assert.notEqual(listener.lastSeenZ,shooter.z,'sound never exposes exact coordinates');
+ assert.equal(listener.charges,36,'hearing does not permit shooting through cover');
+ assert.equal(a.player.health,100);
+ assert.equal(far.bots[2].lastSeenUntil,0,'cover attenuates distant gunfire');
+ assert.equal(silent.bots[2].lastSeenUntil,0,'an empty weapon makes no gunshot');
+ assert.deepEqual(
+  a.bots.map(({x,z,health,charges,lastSeenX,lastSeenZ,lastSeenUntil})=>
+   ({x,z,health,charges,lastSeenX,lastSeenZ,lastSeenUntil})),
+  b.bots.map(({x,z,health,charges,lastSeenX,lastSeenZ,lastSeenUntil})=>
+   ({x,z,health,charges,lastSeenX,lastSeenZ,lastSeenUntil})),
+  'two fixed-step replays have identical sound memory and finite resources'
+ );
+});
+
+test('BR zero, negative and non-finite frame deltas never mutate combat or RNG',()=>{
+ const g=S.newMatch(919,1),b=g.bots[0];g.status='playing';
+ g.player.x=0;g.player.z=0;
+ b.x=0;b.z=-20;b.angle=Math.PI;b.moveTime=999;b.actionTime=0;b.skill=1;
+ const snapshot=()=>JSON.stringify({
+  elapsed:g.elapsed,player:g.player,bots:g.bots,zone:g.zone,effects:g.effects,
+  damageFlash:g.damageFlash,randomNext:null
+ });
+ const before=snapshot();
+ for(const dt of [0,-1,NaN,Infinity,-Infinity])S.tick(g,dt,{forward:true,sprint:true});
+ assert.equal(snapshot(),before);
+ S.tick(g,1/60,{});
+ assert.equal(g.elapsed,1/60);
+ assert.equal(b.charges,35,'the next valid frame still runs normally');
+});
