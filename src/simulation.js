@@ -128,6 +128,11 @@
     if(game.player.health===0){game.player.alive=false;game.status='lost';game.message='SIGNAL LOST';}
   }
   // Stress is a deterministic game abstraction of exertion and recent harm.
+  // Injury changes movement without automatic healing or a supernatural status buff.
+  // Smooth, bounded gameplay abstraction: fully healthy = 100%, severe injury = 78%.
+  function injuryMobility(player) {
+    return 1-0.22*clamp((100-player.health)/100,0,1);
+  }
   function updateStress(player, dt, sprinting) {
     const t=clamp(Number.isFinite(dt)?dt:0,0,.05);
     player.stress=clamp((player.stress||0)+(sprinting?9:-3)*t,0,100);
@@ -188,7 +193,7 @@
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
     const wantsSprint=!!input.sprint&&iz>0&&p.stamina>1;
-    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility;
+    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p);
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
       obstacles.concat(actorObstacles(game,p)));
@@ -312,5 +317,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });

@@ -129,7 +129,7 @@
     let iz=Number(!!input.forward)-Number(!!input.back);
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
     const sprint=!!input.sprint&&iz>0&&p.stamina>1;
-    const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility;
+    const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*Sim.injuryMobility(p);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));

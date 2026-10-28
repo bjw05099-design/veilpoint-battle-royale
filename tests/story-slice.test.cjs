@@ -826,3 +826,16 @@ test('CH01 manual reload correction survives checkpoints and deterministic 60Hz 
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
  assert.ok(app.includes('R/장전 다시 눌러 복구'));
 });
+
+test('CH01 injured movement remains deterministic and checkpoint-compatible',()=>{
+ const healthy=story.createState(),injured=story.createState();
+ injured.world.player.health=40;
+ for(let i=0;i<60;i++){story.step(healthy,1/60,{forward:true});story.step(injured,1/60,{forward:true});}
+ assert.ok(healthy.world.player.z<injured.world.player.z);
+ assert.equal(injured.world.player.health,40);
+ const saved=story.serialize(injured),resumed=story.restore(saved);
+ assert.equal(story.serialize(resumed),saved);
+ for(let i=0;i<60;i++){story.step(injured,1/60,{right:true});story.step(resumed,1/60,{right:true});}
+ assert.equal(story.serialize(resumed),story.serialize(injured));
+ assert.match(fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8'),/이동 능력/);
+});
