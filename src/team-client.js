@@ -203,6 +203,9 @@
       if (state.phase === 'playing') {
         await send('move', {direction: {x: 0, z: 0}});
         await send('capture', {active: false});
+        // A tab refresh can skip blur/pointerleave. Never inherit an old aim
+        // override that would prevent keyboard-only turning after resume.
+        await send('aimRelease');
       }
       state = await request('/state');
       render();

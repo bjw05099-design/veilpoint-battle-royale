@@ -35,6 +35,10 @@ Updated 2026-10-27. Status labels are evidence-based: **Implemented**, **Partial
 
 | R-28 | **Causally coherent 12-chapter narrative:** credible fictional deployment mandate and inter-agency limits, character motives, dated evidence and uncertainty, travel/injury/equipment continuity, foreshadowing/payoff, consequential player choices and independent narrative QA | P0 story | Playable scene consequences, checkpoint/route consistency tests, chapter timeline and independent plausibility reviews | **Partial CH01 candidate (2026-10-28):** fictional civilian evacuation authorization and distinct NIS information roles appear in browser briefing; 04:07/04:12 records remain explicitly uncertain; evidence-verified branch authorizes a finite-duration sliding east checkpoint gate; collision and WebGL dynamic geometry follow the same live world obstacle and restore from saved elapsed time/authorization. A person in the travel path pauses clearance rather than being displaced. This is a browser-code candidate pending CI and human visual QA. Remaining 12 chapters, timeline, human narrative QA and native cinematic playtest are unimplemented/unverified. |
 
+## 2026-10-28 team tab-resume aim reset candidate
+
+- **R-03 / R-23 — partial code candidate:** A reloaded tab now sends the server an explicit `aimRelease` after clearing movement and capture, even when the browser skipped blur and pointerleave. This closes a sticky-aim input regression across refresh and restores keyboard-facing control. Mocked two-client resume regression and CI required; no production reconnect claim.
+
 ## 2026-10-28 team aim lifecycle follow-up candidate
 
 - **R-03 / R-13 / R-23 — partial code candidate:** Pointer aim now follows a fixed map-world point as the player moves and uses the authoritative server tick for bounded refreshes, rather than leaving a stale initial facing. Leaving the aim canvas, pressing Q or losing focus sends a validated release command so keyboard-only movement can regain facing control. Round resets still clear the override. This prevents a sticky-aim regression in the initial independent-aim implementation.

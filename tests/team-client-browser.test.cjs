@@ -285,3 +285,22 @@ test('team pointer leave releases aim and restores keyboard-facing without stale
  a.doc('keydown',{code:'KeyW'});await settle();
  assert.ok(p.facing.z<0,'keyboard-only direction must regain control after pointer leaves');
 });
+
+test('team tab refresh releases a stale server aim override before keyboard input',async()=>{
+ const server=backend(),storage=new Map(),first=boot(server,storage),other=boot(server);
+ first.node('join').click();other.node('join').click();await settle();
+ first.node('ready').click();other.node('ready').click();await settle();
+ await first.poll();await other.poll();await settle();
+ const token=storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ first.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();assert.equal(p.aiming,true);
+ // Simulate a reload without blur or pointerleave: old JS context vanishes.
+ const refreshed=boot(server,storage);await settle();
+ assert.equal(p.aiming,false,'resumed tab must clear a stale server-side aim lock');
+ assert.deepEqual({...p.direction},{x:0,z:0});
+ await refreshed.poll();await settle();
+ refreshed.doc('keydown',{code:'KeyA'});await settle();
+ assert.deepEqual({...p.facing},{x:-1,z:0});
+ assert.ok(server.requests.some(r=>r.token===token&&r.body?.type==='aimRelease'));
+});
