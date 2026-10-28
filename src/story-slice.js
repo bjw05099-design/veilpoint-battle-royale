@@ -42,8 +42,8 @@
   const phases = ['terminal','engagement','records','decision','exit','complete','failed'];
   const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
-  function createWorld() {
-    const world=Sim.newMatch(20261027,0);
+  function createWorld(weaponId='carbine') {
+    const world=Sim.newMatch(20261027,0,weaponId);
     world.status='playing';
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
@@ -81,8 +81,8 @@
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
     return true;
   }
-  function createState() {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(),
+  function createState(weaponId='carbine') {
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
@@ -129,7 +129,7 @@
     let iz=Number(!!input.forward)-Number(!!input.back);
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
     const sprint=!!input.sprint&&iz>0&&p.stamina>1;
-    const speed=input.crouch?3.1:sprint?9.5:6.1;
+    const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility;
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
@@ -374,7 +374,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
-        health:p.health,shield:0,charges:p.charges,
+        health:p.health,shield:0,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation},elapsed:state.world.elapsed,
       combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
@@ -397,22 +397,25 @@
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
     const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
-    const keys=Object.keys(p),modern=keys.length===modernKeys.length;
+    const weaponKeys=modernKeys.concat('weaponId');
+    const keys=Object.keys(p),modern=keys.length===modernKeys.length||keys.length===weaponKeys.length;
     const extended=modern||keys.length===extendedKeys.length;
-    const expected=modern?modernKeys:extended?extendedKeys:playerKeys;
+    const expected=keys.length===weaponKeys.length?weaponKeys:modern?modernKeys:extended?extendedKeys:playerKeys;
+    const firearm=hasOwn(p,'weaponId')?Sim.FIREARMS[p.weaponId]:Sim.FIREARMS.carbine;
+    if(!firearm||!hasOwn(Sim.FIREARMS,firearm.id))throw new RangeError('Invalid checkpoint firearm');
     if(keys.length!==expected.length||keys.some(k=>!expected.includes(k)))
       throw new RangeError('Unknown player checkpoint fields');
-    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'))
+    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'))
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(modern&&(p.stress<0||p.stress>100||typeof p.reloadAssist!=='boolean'||
        typeof p.reloadHesitation!=='boolean'))throw new RangeError('Invalid reload stress state');
     if(!Number.isFinite(data.elapsed)||data.elapsed<0||data.elapsed>86400||
       p.stamina<0||p.stamina>100||p.health<0||p.health>100||
-      p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>60||
-      (extended&&(!Number.isInteger(p.loaded)||p.loaded<0||p.loaded>Sim.MAGAZINE_SIZE||
+      p.shield<0||p.shield>100||!Number.isInteger(p.charges)||p.charges<0||p.charges>firearm.maxRounds||
+      (extended&&(!Number.isInteger(p.loaded)||p.loaded<0||p.loaded>firearm.magazine||
         p.loaded>p.charges||p.reloadRemaining<0||
-         p.reloadRemaining>Sim.RELOAD_SECONDS+(modern?Sim.RELOAD_HESITATION_SECONDS:0)||
-        (p.reloadRemaining>0&&(p.charges<=p.loaded||p.loaded===Sim.MAGAZINE_SIZE))))||
+         p.reloadRemaining>firearm.reloadSeconds+(modern?Sim.RELOAD_HESITATION_SECONDS:0)||
+        (p.reloadRemaining>0&&(p.charges<=p.loaded||p.loaded===firearm.magazine))))||
       p.pitch<-.34||p.pitch>.36||
       Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,Sim.newMatch(20261027,0).obstacles))
       throw new RangeError('Invalid checkpoint world state');
@@ -475,13 +478,14 @@
   function restore(json) {
     if(typeof json!=='string'||json.length>SAVE_LIMIT)throw new TypeError('Invalid checkpoint save');
     const data=upgradeLegacy(JSON.parse(json));validateSnapshot(data);
-    const state=createState();
+    const weaponId=hasOwn(data.player,'weaponId')?data.player.weaponId:'carbine';
+    const state=createState(weaponId);
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
     for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
-    state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.MAGAZINE_SIZE,data.player.charges);
+    state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.FIREARMS[weaponId].magazine,data.player.charges);
     state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
     state.world.player.stress=hasOwn(data.player,'stress')?data.player.stress:0;
     state.world.player.reloadAssist=hasOwn(data.player,'reloadAssist')?data.player.reloadAssist:false;
