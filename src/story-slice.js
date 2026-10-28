@@ -14,9 +14,11 @@
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
   const HOSTILE_ROUNDS = 12;
   const HOSTILE_ALERT_RANGE = 42, HOSTILE_CHASE_RADIUS = 6, HOSTILE_TURN_RATE = 1.4;
-  const GATE_CLEARANCE_SECONDS = 8; // Finite fictional encounter supply; no auto-replenishment.
-  // Fictional local checkpoint obstacle; open only after responders authorize the route.
-  const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:3,h:2.5,type:'container',routeId:'east-checkpoint'});
+  const GATE_CLEARANCE_SECONDS = 8;
+  // Original, motorized sliding checkpoint gate. Its geometry moves at fixed-step
+  // speed after the local aid coordinator approves clearance; it never vanishes.
+  const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:.6,h:2.5,type:'gate',routeId:'east-checkpoint'});
+  const GATE_TRAVEL = 12;
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -51,19 +53,26 @@
   function gateOpen(state) {
     return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
   }
+  function gateGeometry(state) {
+    const fraction=state.choice==='verification'
+      ?clamp((state.world.elapsed-state.gateReadyAt+GATE_CLEARANCE_SECONDS)/GATE_CLEARANCE_SECONDS,0,1):0;
+    return {...EAST_CHECKPOINT,x:EAST_CHECKPOINT.x+GATE_TRAVEL*fraction};
+  }
   function syncRoute(state) {
-    // Reconstruct physical access from the decision on every load; no drifting save flag.
+    // One live collision body and one live rendered mesh share the same geometry.
+    // Reconstruct it from elapsed time and authorization on every checkpoint load.
     state.world.obstacles=state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint');
-    if(!gateOpen(state))state.world.obstacles.push({...EAST_CHECKPOINT});
+    state.world.obstacles.push(gateGeometry(state));
     return state;
   }
   function recoverGateOverlap(state) {
     // Older v2 saves predate the authored barrier and can place the player inside it.
     // Relocate only those overlapping the new checkpoint, never rewrite valid positions.
     const p=state.world.player;
-    if(gateOpen(state)||!Sim.blocked(p.x,p.z,.85,[EAST_CHECKPOINT]))return false;
-    const north=EAST_CHECKPOINT.z+EAST_CHECKPOINT.d/2+1;
-    const south=EAST_CHECKPOINT.z-EAST_CHECKPOINT.d/2-1;
+    const gate=gateGeometry(state);
+    if(!Sim.blocked(p.x,p.z,.85,[gate]))return false;
+    const north=gate.z+gate.d/2+1;
+    const south=gate.z-gate.d/2-1;
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
     return true;
   }
@@ -156,10 +165,20 @@
         }
       }
     }
-    if(state.phase==='exit'&&state.choice==='verification'&&!wasGateOpen&&gateOpen(state)){
+    if(state.phase==='exit'&&state.choice==='verification'&&!wasGateOpen){
+      // A player standing in the gate's travel path pauses the mechanism instead
+      // of being pushed, teleported, or passed through by an animated collider.
+      const nextGate=gateGeometry(state);
+      if(Sim.blocked(p.x,p.z,.85,[nextGate])){
+        state.gateReadyAt+=t;
+        state.subtitle='마라(기술자): 이동식 통제문이 접근자를 감지해 멈췄어. 문 이동 경로에서 벗어나 줘.';
+        state.message='통제문 안전 정지 · 이동 경로를 비우세요';
+      }
       syncRoute(state);
-      state.subtitle='마라(기술자): 현지 구조단이 동쪽 차단물을 치웠다고 확인했어. 이제 통과할 수 있어.';
-      state.message='현지 구조단 확인 · 동쪽 통로 개방';
+      if(gateOpen(state)){
+        state.subtitle='마라(기술자): 현지 구조단이 동쪽 통제문을 완전히 열었다고 확인했어. 이제 통과할 수 있어.';
+        state.message='현지 구조단 확인 · 동쪽 통로 개방';
+      }
     }
     if(state.phase==='engagement'&&state.world.elapsed>=state.combat.nextPulseAt){
       // Legacy checkpoint key nextPulseAt now schedules a grounded, finite hostile volley.
