@@ -281,15 +281,15 @@ test('BR E/touch pickup and HUD visibility reject supplies behind solid cover',(
  g.loot.forEach(item=>{item.x=130;item.z=130;});
  const blocked=g.loot.find(item=>item.kind==='ammo'&&item.weaponId===g.player.weaponId);
  const accessible=g.loot.find(item=>item!==blocked&&item.kind==='ammo'&&item.weaponId===g.player.weaponId);
- blocked.x=0;blocked.z=-3;
- g.obstacles.push({x:0,z:-1.5,w:2,d:.5,h:2,type:'wall'});
- assert.equal(S.lineBlocked(0,0,0,-3,g.obstacles),true);
+ blocked.x=0;blocked.z=-1.7;
+ g.obstacles.push({x:0,z:-.9,w:2,d:.5,h:2,type:'wall'});
+ assert.equal(S.lineBlocked(0,0,0,-1.7,g.obstacles),true);
  assert.equal(S.canReachPickup(g,blocked),false);
  assert.equal(S.pickup(g),null);
  assert.equal(blocked.picked,false);
  assert.equal(g.player.charges,12);
  // A second, unobstructed cache can be collected even if the blocked one is closer.
- accessible.x=2.7;accessible.z=0;
+ accessible.x=1.4;accessible.z=0;
  assert.equal(S.canReachPickup(g,accessible),true);
  assert.equal(S.pickup(g),'ammo');
  assert.equal(accessible.picked,true);
@@ -360,4 +360,21 @@ test('injured BR opponents move more slowly without spontaneous recovery at 60Hz
   assert.ok(healthy.bots[0].z<injured.bots[0].z,'an injured rival travels less over the same interval');
   assert.equal(injured.bots[0].health,50);
   assert.equal(injured.bots[0].z,replay.bots[0].z,'injury mobility replays deterministically');
+});
+
+test('BR finite supplies require physical proximity even with unobstructed line of sight',()=>{
+ const g=S.newMatch(920,0);g.status='playing';g.player.charges=10;
+ g.loot.forEach(item=>{item.x=130;item.z=130;});
+ const ammo=g.loot.find(item=>item.kind==='ammo'&&item.weaponId===g.player.weaponId);
+ ammo.x=2.6;ammo.z=0;
+ assert.equal(S.lineBlocked(0,0,ammo.x,ammo.z,g.obstacles),false);
+ assert.equal(S.canReachPickup(g,ammo),false);
+ assert.equal(S.pickup(g),null);
+ assert.equal(g.player.charges,10);
+ assert.equal(ammo.picked,false);
+ ammo.x=1.4;
+ assert.equal(S.canReachPickup(g,ammo),true);
+ assert.equal(S.pickup(g),'ammo');
+ assert.equal(g.player.charges,22);
+ assert.equal(S.pickup(g),null,'a finite cache cannot be collected twice');
 });

@@ -9,6 +9,8 @@
   'use strict';
   const WORLD = 175, MAX_BOTS = 20, MAGAZINE_SIZE = 12, RELOAD_SECONDS = 1.8;
   const RELOAD_HESITATION_SECONDS = 0.6, STRESS_THRESHOLD = 60;
+  // Grounded arm's-reach interaction, not a three-metre remote loot vacuum.
+  const PICKUP_REACH = 1.8;
   // Original fictional class profiles; gameplay approximations, not real firearm instructions.
   // 'charges' remains the total carried rounds, including those in the current magazine.
   const FIREARMS = Object.freeze({
@@ -298,12 +300,12 @@
   // A pickup is physically accessible only within reach and without a solid wall
   // between the player and the item. Shared by E/touch interaction and the HUD.
   function canReachPickup(game,item) {
-    if(!item||item.picked||dist(item,game.player)>=3.7)return false;
+    if(!item||item.picked||dist(item,game.player)>=PICKUP_REACH)return false;
     return !lineBlocked(game.player.x,game.player.z,item.x,item.z,game.obstacles);
   }
   function pickup(game) {
     if(game.status!=='playing') return null;
-    let closest=null, nearest=3.7;
+    let closest=null, nearest=PICKUP_REACH;
     for(const item of game.loot){
       if(!canReachPickup(game,item))continue;
       const d=dist(item,game.player);
