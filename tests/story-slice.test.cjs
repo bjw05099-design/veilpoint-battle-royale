@@ -878,3 +878,20 @@ test('CH01 hostile accuracy responds to actual movement, not input alone',()=>{
   assert.equal(blockedInput.world.player.health,96,'blocked input does not grant a magical evasion bonus');
   assert.equal(stationary.world.player.charges,moving.world.player.charges);
 });
+
+test('CH01 wounded human opponents have bounded mobility and preserve injury after save',()=>{
+  const make=health=>{
+    const s=story.createState();go(s,'terminal');story.interact(s);
+    s.world.player.x=0;s.world.player.z=12;
+    s.world.bots[0].health=health;
+    return s;
+  };
+  const healthy=make(90),injured=make(45);
+  for(let i=0;i<60;i++){story.step(healthy,1/60,{});story.step(injured,1/60,{});}
+  assert.ok(healthy.world.bots[0].z>injured.world.bots[0].z);
+  assert.equal(injured.world.bots[0].health,45);
+  const saved=story.serialize(injured),resumed=story.restore(saved);
+  assert.equal(story.serialize(resumed),saved);
+  for(let i=0;i<60;i++){story.step(injured,1/60,{});story.step(resumed,1/60,{});}
+  assert.equal(story.serialize(resumed),story.serialize(injured));
+});
