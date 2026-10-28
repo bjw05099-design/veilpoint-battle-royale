@@ -5,7 +5,7 @@
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
-  let joining = false, restoring = false;
+  let joining = false, restoring = false, polling = false;
   let pending = Promise.resolve();
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
@@ -183,7 +183,9 @@
   // A genuine connected client renews its server lease independently of read-only polling.
   setInterval(() => {if (token) void send('heartbeat');}, 10000);
   setInterval(async () => {
-    if (!token) return;
+    // Slow responses must not overlap and overwrite newer game snapshots.
+    if (!token || polling || restoring) return;
+    polling = true;
     try {
       state = await request('/state');render();updateInput();
       if (capturing && state.phase === 'playing' &&
@@ -193,6 +195,7 @@
       }
     }
     catch (err) {status(`연결 확인 필요: ${err.message}`);}
+    finally {polling = false;}
   }, 150);
   draw();
 })();
