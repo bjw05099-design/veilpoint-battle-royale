@@ -334,18 +334,28 @@
     if(!item||item.picked||dist(item,game.player)>=PICKUP_REACH)return false;
     return !lineBlocked(game.player.x,game.player.z,item.x,item.z,game.obstacles);
   }
+  // The same selection governs E/touch and the HUD. A nearby incompatible
+  // cache must never block an accessible compatible cache in a crowded pile.
+  // One scan, no frame-by-frame allocation or hidden pickups through cover.
+  function nearestReachablePickup(game) {
+    let selected=null,nearest=Infinity,selectedCompatible=false;
+    for(const item of game.loot){
+      if(!canReachPickup(game,item)||(item.kind!=='ammo'&&item.kind!=='magazine'))continue;
+      const compatible=!item.weaponId||item.weaponId===game.player.weaponId;
+      const d=dist(item,game.player);
+      if(!selected||(compatible&&!selectedCompatible)||
+         (compatible===selectedCompatible&&d<nearest)){
+        selected=item;nearest=d;selectedCompatible=compatible;
+      }
+    }
+    return selected;
+  }
   function pickup(game) {
     if(game.status!=='playing') return null;
-    let closest=null, nearest=PICKUP_REACH;
-    for(const item of game.loot){
-      if(!canReachPickup(game,item))continue;
-      const d=dist(item,game.player);
-      if(d<nearest){nearest=d;closest=item;}
-    }
+    const closest=nearestReachablePickup(game);
     if(!closest) return null;
     const p=game.player;
     // Physical ammunition supply only; no pickup provides instant medical recovery or protection.
-    if(closest.kind!=='ammo'&&closest.kind!=='magazine')return null;
     if(closest.weaponId&&closest.weaponId!==p.weaponId){
       game.message='INCOMPATIBLE AMMUNITION';game.messageTime=1.5;return null;
     }
@@ -354,5 +364,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });
