@@ -283,3 +283,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-04/R-13/R-21/R-23 — partial:** BR and CH01 opponents now hear nearby walking, with reduced crouch range and cover attenuation. Sound-only awareness uses an existing 2m-rounded last-heard position instead of perfect hidden coordinates; visible observations still locate actors directly. Fixed 60Hz updates and existing CH01 checkpoint schema are preserved.
 - **Verification:** walking/stealth/cover, replay and save tests require passing CI at the PR head. Hearing radii are uncalibrated gameplay abstractions. Real browser/audio, Unreal, full 3-mode realism, human narrative review and RTX 3070 QHD 165Hz measurements remain unverified.
+
+## 2026-10-28 BR rival-shot sound and invalid-frame guard candidate (PR #80)
+
+- **R-23 / R-04 — partially implemented, browser-only:** A finite round fired by a rival bot now alerts nearby living rival listeners using the same 38m unobstructed / 18m cover-attenuated acoustic rule as player gunfire. The listener records only a rounded source cell for 2.5s, not live enemy coordinates, and cannot damage a target without the ordinary visible, aligned and unobstructed shot. Empty weapons are silent. No measured real-world acoustics or human playtest is claimed.
+- **R-10 / R-17 — deterministic-simulation hardening:** `Sim.tick` rejects zero, negative, NaN and infinite elapsed deltas before moving actors, consuming ammunition or advancing the random stream. Normal 60Hz steps remain unchanged. Added regression tests for finite sound, cover, silence, no through-cover damage, reproducible seeded replay and malformed frames.
+- **Verification gate:** Source/test changes are candidate until the PR head passes `npm run check`, `npm test`, demo ZIP verification and PR CI. Real browser launch, multiplayer authority, Unreal packaging, photorealism and RTX 3070 QHD 165Hz remain unverified. Issue #15 is still a P0 release blocker.

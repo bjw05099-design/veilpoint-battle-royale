@@ -228,6 +228,9 @@
   }
   function tick(game, dt, input={}) {
     if(game.status!=='playing') return game;
+    // A zero, negative or non-finite frame must not advance AI, consume rounds,
+    // mutate the RNG stream or poison the deterministic 60 Hz world state.
+    if(!Number.isFinite(dt)||dt<=0)return game;
     dt=clamp(dt,0,0.05);
     game.elapsed+=dt;
     advanceReload(game,dt);
@@ -321,6 +324,17 @@
           b.actionTime=1.15+game.random()*2;
           b.loaded--;b.charges--;
           game.effects.push({x:b.x,z:b.z,t:0.28,type:'hostile'});
+          // A rival's finite shot is audible to other nearby actors too. Only
+          // an approximate source is remembered; hearing never supplies a live
+          // target, bypasses solid cover or grants damage without line of sight.
+          const heard=approximateSoundPosition(b);
+          for(const listener of game.bots){
+            if(listener!==b&&listener.alive&&listener.lastSeenUntil<=game.elapsed&&
+               hearsImpulse(listener,b,obstacles)){
+              listener.lastSeenX=heard.x;listener.lastSeenZ=heard.z;
+              listener.lastSeenUntil=game.elapsed+2.5;
+            }
+          }
           if(game.random()<b.skill){
             const damage=6+game.random()*8;
             if(target===p)receiveDamage(game,damage);
