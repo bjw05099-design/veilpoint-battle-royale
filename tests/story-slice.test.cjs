@@ -729,6 +729,9 @@ test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and re
  assert.match(story.situation(paused).route,/안전 정지/,'the same obstruction is visible in the route HUD');
  assert.ok(paused.gateReadyAt>story.GATE_CLEARANCE_SECONDS);
  const resumed=story.restore(story.serialize(paused));
+ assert.equal(resumed.world.player.x,paused.world.player.x,'valid gate-side checkpoint must not relocate the player');
+ assert.equal(resumed.world.player.z,paused.world.player.z,'valid gate-side checkpoint must not teleport the player');
+ assert.equal(Sim.blocked(resumed.world.player.x,resumed.world.player.z,.85,resumed.world.obstacles),false);
  assert.equal(gate(resumed).x,gate(paused).x,'save preserves partially obstructed gate position');
  resumed.world.player.x=0;resumed.world.player.z=-41;
  story.step(resumed,1/60,{});
