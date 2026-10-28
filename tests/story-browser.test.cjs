@@ -349,3 +349,14 @@ test('CH01 real browser input path exposes injury state and transient non-omnisc
   restored.element('pauseButton').click();restored.frame(10000);
   assert.equal(Number(restored.element('damageIndicator').style.opacity),0);
 });
+
+test('CH01 restored exhaustion displays understandable recovery guidance in the real HUD path',()=>{
+ const StoryRules=require('../src/story-slice.js');
+ const state=StoryRules.createState();
+ state.world.player.stamina=10;state.world.player.sprintExhausted=true;
+ const store=new Map([['veilpoint.story.ch01',StoryRules.serialize(state)]]);
+ const app=boot(store);app.element('continue').click();
+ assert.match(app.element('status').textContent,/지구력 회복 중.*25/);
+ const fresh=boot();fresh.element('continue').click();
+ assert.doesNotMatch(fresh.element('status').textContent,/지구력 회복 중/);
+});
