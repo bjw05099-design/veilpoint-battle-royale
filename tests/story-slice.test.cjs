@@ -824,5 +824,5 @@ test('CH01 manual reload correction survives checkpoints and deterministic 60Hz 
  assert.equal(a.world.player.charges,before);
  assert.equal(a.world.player.loaded,Sim.FIREARMS.marksman.magazine);
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
- assert.match(app,/R\\/장전 다시 눌러 복구/);
+ assert.ok(app.includes('R/장전 다시 눌러 복구'));
 });
