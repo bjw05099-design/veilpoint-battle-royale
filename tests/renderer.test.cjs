@@ -88,8 +88,21 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  const closedCount=renderer.dynamic.count;
  assert.deepEqual(boxes,[{x:gate.x,z:gate.z,w:gate.w,h:gate.h,d:gate.d}]);
  assert.equal(JSON.stringify(state.world),before,'rendering must not change mission state');
- state.phase='exit';state.choice='verification';
- state.gateReadyAt=state.world.elapsed+Story.GATE_CLEARANCE_SECONDS;
+ state.world.player.x=Story.POINTS.terminal.x;state.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(state).ok,true);
+ for(const opponent of state.world.bots){
+  for(let i=0;i<2;i++){
+   state.world.player.yaw=Math.atan2(opponent.x-state.world.player.x,-(opponent.z-state.world.player.z));
+   state.world.elapsed+=.21;
+   assert.equal(Story.fire(state).hit,true);
+  }
+ }
+ assert.equal(state.phase,'records');
+ for(const id of ['recordA','recordB','decision']){
+  state.world.player.x=Story.POINTS[id].x;state.world.player.z=Story.POINTS[id].z;
+  assert.equal(Story.interact(state).ok,true);
+ }
+ assert.equal(Story.choose(state,'verification').ok,true);
  for(let i=0;i<Story.GATE_CLEARANCE_SECONDS*60+1;i++)Story.step(state,1/60,{});
  assert.equal(Story.situation(state).eastGateOpen,true);
  assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),false);
