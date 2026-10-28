@@ -60,14 +60,17 @@
     }
     return false;
   }
-  // Finite, local sound awareness: actual movement produces footsteps, not
-  // knowledge of a hidden actor's live coordinates. Cover attenuates the
+  // Finite, local sound awareness: walking is audible nearby, crouching quieter,
+  // and sprinting farther. Sound-only memory is imprecise; cover attenuates the
   // authored hearing radius; this is a game abstraction, not an acoustic model.
-  function hearsFootsteps(listener, source, movedDistance, sprinting, obstacles) {
-    if (!sprinting || !(movedDistance > 1e-7)) return false;
-    const distance = dist(listener, source);
-    if (distance > 12) return false;
-    return distance <= (lineBlocked(listener.x, listener.z, source.x, source.z, obstacles) ? 6 : 12);
+  function hearsFootsteps(listener, source, movedDistance, sprinting, obstacles, crouching=false) {
+    if (!(movedDistance > 1e-7)) return false;
+    const clearRange=crouching?1.5:sprinting?12:3.5;
+    const occludedRange=crouching?0.75:sprinting?6:1.75;
+    const distance=dist(listener,source);
+    if(distance>clearRange)return false;
+    return distance<=(lineBlocked(listener.x,listener.z,source.x,source.z,obstacles)
+      ?occludedRange:clearRange);
   }
   // Gunfire can be heard farther than footsteps, but cover attenuates it.
   // A coarse 2 m source estimate prevents acoustic detection from acting
@@ -272,10 +275,11 @@
         // current field of view. No hidden live coordinates are consulted.
         b.lastSeenX=target.x;b.lastSeenZ=target.z;
         b.lastSeenUntil=game.elapsed+2.5;
-      } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles)){
+      } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
         // Investigate only the last audible footstep position. Quiet movement
         // behind cover cannot continuously update this memory.
-        b.lastSeenX=p.x;b.lastSeenZ=p.z;
+        const heard=approximateSoundPosition(p); // Sound cannot reveal exact hidden coordinates.
+        b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
       const investigating=!target&&!outsideBot&&b.lastSeenUntil>game.elapsed;

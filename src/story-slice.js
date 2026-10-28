@@ -165,12 +165,13 @@
         const bearing=Math.atan2(dx,-dz);
         const sightDelta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         const tracking=canSee&&Math.abs(sightDelta)<=1.1;
-        const audible=!tracking&&Sim.hearsFootsteps(hostile,p,movedDistance,sprinting,state.world.obstacles);
+        const audible=!tracking&&Sim.hearsFootsteps(hostile,p,movedDistance,sprinting,state.world.obstacles,!!input.crouch);
         if(tracking||audible){
           // Sight or actual nearby footsteps can reveal a bounded last-known
           // location; neither grants live coordinates once the player goes quiet.
           // The existing checkpoint records this same finite search memory.
-          hostile.lastSeenX=p.x;hostile.lastSeenZ=p.z;
+          const heard=tracking?p:Sim.approximateSoundPosition(p);
+          hostile.lastSeenX=heard.x;hostile.lastSeenZ=heard.z;
           hostile.investigateUntil=state.world.elapsed+3;
         }
         const investigating=!tracking&&hostile.investigateUntil>state.world.elapsed;

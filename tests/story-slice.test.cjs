@@ -994,7 +994,8 @@ test('CH01 hostiles investigate audible running but not quiet or distant hidden 
  const clear=setup(-18);
  story.step(clear,1/60,{forward:true,sprint:true});
  const b=clear.world.bots[0],heard=b.lastSeenZ;
- assert.equal(heard,clear.world.player.z);
+ assert.equal(heard,Sim.approximateSoundPosition(clear.world.player).z);
+ assert.notEqual(heard,clear.world.player.z,'hidden footsteps are not exact coordinates');
  assert.ok(b.investigateUntil>clear.world.elapsed);
  clear.world.obstacles.push({x:0,z:-23,w:4,d:1});
  for(let i=0;i<190;i++)story.step(clear,1/60,{});
@@ -1006,8 +1007,15 @@ test('CH01 hostiles investigate audible running but not quiet or distant hidden 
  const wall={x:0,z:-25,w:4,d:1};
  const near=setup(-22.5,wall);
  story.step(near,1/60,{forward:true,sprint:true});
- assert.equal(near.world.bots[0].lastSeenZ,near.world.player.z,
-   'nearby occluded running can be heard');
+ assert.equal(near.world.bots[0].lastSeenZ,Sim.approximateSoundPosition(near.world.player).z,
+   'nearby occluded running only reveals an approximate position');
+ const walking=setup(-26),crouching=setup(-26);
+ story.step(walking,1/60,{forward:true});
+ story.step(crouching,1/60,{forward:true,crouch:true});
+ assert.equal(walking.world.bots[0].lastSeenZ,Sim.approximateSoundPosition(walking.world.player).z);
+ assert.ok(walking.world.bots[0].investigateUntil>walking.world.elapsed);
+ assert.equal(crouching.world.bots[0].investigateUntil,0);
+ assert.equal(story.serialize(story.restore(story.serialize(walking))),story.serialize(walking));
  const far=setup(-20,wall);
  story.step(far,1/60,{forward:true,sprint:true});
  assert.equal(far.world.bots[0].investigateUntil,0,
