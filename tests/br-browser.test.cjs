@@ -353,7 +353,7 @@ test('BR pause blocks touch controls and restores only fresh touch input after r
   app.node('scene').dispatch('pointermove',{pointerId:4,clientX:80,clientY:40});
   app.frame(2000/60);
   assert.deepEqual({charges:p.charges,loaded:p.loaded,remaining:p.reloadRemaining,
-    assist:p.reloadAssist,x:p.x,yaw:p.y},before);
+    assist:p.reloadAssist,x:p.x,yaw:p.yaw},before);
   assert.equal(supply.picked,false);
   app.node('play').click();app.frame(3000/60);
   app.node('tagButton').dispatch('pointerdown');
