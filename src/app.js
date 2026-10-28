@@ -39,7 +39,10 @@ for(const [node,field] of [[fpsSelect,'fpsCap'],[resolutionSelect,'resolutionSca
  node.addEventListener('change',()=>{try{graphicsSettings=graphics.customize(graphicsSettings,field,Number(node.value));applyGraphicsSettings();}catch(_){applyGraphicsSettings();}});
 }
 autoResolutionCheckbox.addEventListener('change',()=>{autoResolution=autoResolutionCheckbox.checked;applyGraphicsSettings();try{global.localStorage.setItem('veilpoint.autoResolution',String(autoResolution));}catch(_){}});
-$('graphicsOpen').addEventListener('click',()=>{$('graphicsPanel').classList.toggle('hidden');});
+$('graphicsOpen').addEventListener('click',()=>{
+ const panel=$('graphicsPanel');panel.classList.toggle('hidden');
+ if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
+});
 $('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');});
 
 const loadoutSelect=$('weaponClass');
@@ -66,7 +69,7 @@ catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play')
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');
+ simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
@@ -74,7 +77,7 @@ function start(){
 function resumeMatch(){
  if(!running||!suspended)return;
  suspended=false;resetInactiveClock();
- $('overlay').classList.add('hidden');
+ $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
@@ -82,7 +85,10 @@ $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else
 const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
  if(commands[e.code]){e.preventDefault();if(canAct())input[commands[e.code]]=true;}
- if(e.code==='KeyG'){ $('graphicsPanel').classList.toggle('hidden');if(!$('graphicsPanel').classList.contains('hidden')&&document.pointerLockElement===canvas)document.exitPointerLock();}
+ if(e.code==='KeyG'){
+  e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
+  if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
+ }
  if(e.code==='KeyE'){e.preventDefault();collectAmmo();}
  if(e.code==='KeyR'){e.preventDefault();reloadWeapon();}
  if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
