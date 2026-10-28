@@ -18,7 +18,7 @@
   // Original, motorized sliding checkpoint gate. Its geometry moves at fixed-step
   // speed after the local aid coordinator approves clearance; it never vanishes.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:.6,h:2.5,type:'gate',routeId:'east-checkpoint'});
-  const GATE_TRAVEL = 12;
+  const GATE_TRAVEL = -12;
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
