@@ -28,9 +28,10 @@
       if (type === 'fire' || type === 'reload') {
         const messages = {cooldown: '발사 간격 유지', reloading: '재장전 중',
           empty_magazine: '탄창 비움 · R 재장전', already_reloading: '이미 재장전 중',
-          magazine_full: '탄창 가득 참', no_reserve: '예비 탄약 없음'};
+          magazine_full: '탄창 가득 참', no_reserve: '예비 탄약 없음',
+          recover_not_ready: '안정화 필요 · 잠시 후 R로 재시도'};
         actionFeedback = result.ok
-          ? (type === 'fire' ? '발사 완료 · 명중 여부는 시야로 판단' : '재장전 시작')
+          ? (type === 'fire' ? '발사 완료 · 명중 여부는 시야로 판단' : result.recovered ? '재장전 지연 회복' : result.hesitation ? '긴장으로 재장전 지연 · R로 회복 가능' : '재장전 시작')
           : (messages[result.reason] || '명령을 처리하지 못했습니다');
         feedbackUntil = (state?.tick || 0) + 90;
       }
@@ -141,7 +142,10 @@
     el('tick').textContent = String(state.tick);
     el('health').textContent = String(state.self.health);
     el('ammo').textContent = `${state.self.ammo} / ${state.self.reserve}`;
-    el('reloadState').textContent = state.self.reloadTicks > 0 ? '재장전 중' : '준비';
+    el('reloadState').textContent = state.self.reloadTicks > 0
+      ? (state.self.reloadHesitation ? '긴장으로 지연 · R 재입력' : '재장전 중') : '준비';
+    el('stress').textContent = Math.round(state.self.stress);
+    el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     el('ready').disabled = state.phase === 'playing';
     if (state.phase === 'ended') status(`종료 · 승리 팀 ${state.winner} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
@@ -166,6 +170,7 @@
   el('ready').addEventListener('click', () => void send('ready'));
   el('fire').addEventListener('click', () => {if (state?.phase === 'playing') void send('fire');});
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
+  el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     if (e.target === el('name')) return;

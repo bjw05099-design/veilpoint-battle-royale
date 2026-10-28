@@ -458,3 +458,56 @@ test('renewed stationary aim remains active until its final refresh lease expire
   assert.equal(a.aiming,false,'even renewed aim eventually expires without further intent');
   assert.deepEqual({...a.facing},{x:0,z:-1},'stationary player retains last physical look direction');
 });
+
+test('team server applies deterministic injury stress, recoverable hesitation and finite reload', () => {
+  const run = () => {
+    const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+    a.x = 0; a.z = 0; b.x = 5; b.z = 0;
+    assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, true);
+    for (let i = 0; i < 18; i++) m.step();
+    assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, true);
+    assert.equal(b.health, 32);
+    assert.ok(b.stress >= 60);
+    assert.equal(m.command('b', {seq: 2, type: 'fire'}).hit, true);
+    const before = b.ammo + b.reserve;
+    const started = m.command('b', {seq: 3, type: 'reload'});
+    assert.equal(started.hesitation, true);
+    assert.equal(started.reloadTicks, 126);
+    assert.equal(m.command('b', {seq: 4, type: 'reload'}).reason, 'recover_not_ready');
+    for (let i = 0; i < 15; i++) m.step();
+    assert.equal(m.command('b', {seq: 5, type: 'reload'}).recovered, true);
+    assert.equal(b.reloadTicks, 75);
+    for (let i = 0; i < 75; i++) m.step();
+    assert.equal(b.reloadTicks, 0);
+    assert.equal(b.reloadHesitation, false);
+    assert.equal(b.ammo + b.reserve, before);
+    assert.equal(b.health, 32, 'stress decay cannot heal injuries');
+    assert.equal(m.snapshot('b').self.reloadHesitation, false);
+    return m.snapshot('b');
+  };
+  assert.deepEqual(run(), run(), 'same commands and 60Hz steps must replay identically');
+});
+
+test('server validates reload-assist preference, prevents spoofing and preserves it on replay', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  assert.throws(() => m.command('b', {seq: 2, type: 'assist', enabled: 1}), /invalid_assist/);
+  assert.throws(() => m.command('b', {seq: 2, type: 'assist', enabled: true, stress: 0}), /invalid_command/);
+  assert.equal(m.command('b', {seq: 2, type: 'assist', enabled: true}).enabled, true);
+  a.x = 0; a.z = 0; b.x = 5; b.z = 0;
+  m.command('a', {seq: 2, type: 'fire'});
+  for (let i = 0; i < 18; i++) m.step();
+  m.command('a', {seq: 3, type: 'fire'});
+  assert.ok(b.stress >= 60);
+  m.command('b', {seq: 3, type: 'fire'});
+  const start = m.command('b', {seq: 4, type: 'reload'});
+  assert.equal(start.hesitation, false);
+  assert.equal(start.reloadTicks, 90);
+  for (let i = 0; i < 90; i++) m.step();
+  assert.equal(b.ammo, 12);
+  m.finish('blue', 'test');
+  m.command('a', {seq: 4, type: 'ready'});
+  m.command('b', {seq: 5, type: 'ready'});
+  assert.equal(b.stress, 0);
+  assert.equal(b.reloadAssist, true, 'accessibility preference persists across rounds');
+  assert.equal(b.reloadHesitation, false);
+});
