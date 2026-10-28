@@ -266,3 +266,22 @@ test('mouse/touch map aiming sends only normalized direction and preserves straf
  assert.ok(Math.abs(Math.hypot(cmd.body.direction.x,cmd.body.direction.z)-1)<1e-12);
  assert.equal('target' in cmd.body,false);
 });
+
+test('team pointer leave releases aim and restores keyboard-facing without stale override',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();assert.equal(p.aiming,true);
+ a.doc('keydown',{code:'KeyA'});await settle();
+ assert.equal(p.direction.x,-1);
+ a.node('arena').dispatch('pointerleave');await settle();
+ assert.equal(p.aiming,false);
+ assert.deepEqual({...p.facing},{x:-1,z:0});
+ assert.ok(server.requests.some(r=>r.token===token&&r.body?.type==='aimRelease'));
+ a.doc('keydown',{code:'KeyW'});await settle();
+ assert.ok(p.facing.z<0,'keyboard-only direction must regain control after pointer leaves');
+});

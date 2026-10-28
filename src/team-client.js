@@ -5,7 +5,7 @@
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
-  let lastAimAt = 0, lastAimVector = null;
+  let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
   let joining = false, restoring = false, polling = false;
   let pending = Promise.resolve();
   let previousPhase = null;
@@ -45,28 +45,38 @@
       Number(keys.has('ArrowUp') || keys.has('KeyW') || keys.has('up'));
     return {x, z};
   };
-  const aimFromPointer = event => {
+  const aimAtWorld = (tx, tz) => {
     if (!token || state?.phase !== 'playing') return;
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    // Invert the same top-down map projection used by draw(). A pointer selects
-    // a view direction, never a target identity, damage value or world position.
-    const tx = ((event.clientX - rect.left) / rect.width * canvas.width - canvas.width / 2) / 9.5;
-    const tz = ((event.clientY - rect.top) / rect.height * canvas.height - canvas.height / 2) / 9.5;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
     if (!Number.isFinite(len) || len < 0.1) return;
     const aim = {x: dx / len, z: dz / len};
-    const now = Date.now();
     if (lastAimVector && Math.hypot(aim.x - lastAimVector.x, aim.z - lastAimVector.z) < .035) return;
-    if (now - lastAimAt < 75) return; // Bound pointer traffic on local server.
-    lastAimAt = now;lastAimVector = aim;
+    if (state.tick - lastAimTick < 3) return; // Fixed server-tick rate limit, not wall-clock timing.
+    lastAimTick = state.tick;lastAimVector = aim;
     void send('aim', {direction: aim});
+  };
+  const aimFromPointer = event => {
+    if (!token || state?.phase !== 'playing') return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    // Invert the same top-down projection as draw(); send only direction.
+    const tx = ((event.clientX - rect.left) / rect.width * canvas.width - canvas.width / 2) / 9.5;
+    const tz = ((event.clientY - rect.top) / rect.height * canvas.height - canvas.height / 2) / 9.5;
+    if (!Number.isFinite(tx) || !Number.isFinite(tz)) return;
+    lastAimPoint = {x: tx, z: tz};
+    aimAtWorld(tx, tz);
+  };
+  const releaseAim = () => {
+    if (!lastAimPoint) return;
+    lastAimPoint = null;lastAimVector = null;lastAimTick = -Infinity;
+    if (token && state?.phase === 'playing') void send('aimRelease');
   };
   canvas.addEventListener('pointerdown', aimFromPointer);
   canvas.addEventListener('pointermove', event => {
     if (event.pointerType === 'mouse' || event.buttons) aimFromPointer(event);
   });
+  canvas.addEventListener('pointerleave', releaseAim);
   const updateInput = () => {
     if (!token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
@@ -118,7 +128,7 @@
       lastDirection = '';
       lastMoveRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
-      lastAimAt = 0;lastAimVector = null;
+      lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
       if (state.phase !== 'playing') capturing = false;
       previousPhase = state.phase;
     }
@@ -133,7 +143,7 @@
     if (state.phase === 'ended') status(`종료 · 승리 팀 ${state.winner} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
     else {
-      const hint = '목표 원에서 E 점령 · 지도 클릭/드래그 조준 · F/SPACE 발사 · R 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
+      const hint = '목표 원에서 E 점령 · 지도 조준(밖으로 이동/Q 해제) · F/SPACE 발사 · R 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
       status(actionFeedback && state.tick <= feedbackUntil ? hint + ' · ' + actionFeedback : hint);
     }
     draw();
@@ -162,10 +172,11 @@
       if (e.code === 'KeyR') void send('reload');
     }
     if (e.code === 'KeyE') setCapture(true);
+    if (e.code === 'KeyQ' && !e.repeat) releaseAim();
     updateInput();
   });
   document.addEventListener('keyup', e => {keys.delete(e.code);if (e.code === 'KeyE') setCapture(false);updateInput();});
-  const releaseHeldInput = () => {keys.clear();setCapture(false);updateInput();};
+  const releaseHeldInput = () => {keys.clear();setCapture(false);updateInput();releaseAim();};
   window.addEventListener('blur', releaseHeldInput);
   // Mobile tab switches may suspend polling without dispatching window.blur.
   document.addEventListener('visibilitychange', () => {if (document.hidden) releaseHeldInput();});
@@ -212,6 +223,9 @@
     polling = true;
     try {
       state = await request('/state');render();updateInput();
+      // Recompute aim against the latest server-owned player position while
+      // the pointer stays over a fixed world point (no stale direction drift).
+      if (lastAimPoint) aimAtWorld(lastAimPoint.x,lastAimPoint.z);
       if (capturing && state.phase === 'playing' &&
           state.tick - lastCaptureRefreshTick >= 20) {
         lastCaptureRefreshTick = state.tick;

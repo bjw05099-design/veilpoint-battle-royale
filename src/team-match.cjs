@@ -82,7 +82,7 @@ class TeamMatch {
     const keys = Object.keys(data);
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
       data.type === 'capture' ? ['seq', 'type', 'active'] :
-      ['ready', 'leave', 'heartbeat', 'fire', 'reload'].includes(data.type) ? ['seq', 'type'] : null;
+      ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
     if (['move', 'aim'].includes(data.type) &&
@@ -90,7 +90,7 @@ class TeamMatch {
          (data.type === 'aim' && Math.hypot(data.direction.x, data.direction.z) < 1e-6)))
       throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
-    if (this.phase !== 'playing' && ['move', 'aim', 'capture', 'fire', 'reload'].includes(data.type))
+    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
@@ -106,6 +106,13 @@ class TeamMatch {
         p.ready = true;
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
       }
+      return {ok: true};
+    }
+    if (data.type === 'aimRelease') {
+      // Leaving the aim surface restores keyboard/touch movement-facing control.
+      p.aiming = false;
+      const len = Math.hypot(p.direction.x, p.direction.z);
+      if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
       return {ok: true};
     }
     if (data.type === 'aim') {

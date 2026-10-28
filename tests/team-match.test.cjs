@@ -409,3 +409,17 @@ test('authoritative aim direction is independent of movement, sight-gated and re
  };
  assert.deepEqual(run(),run());
 });
+
+test('team aim release returns movement-facing and rejects forged release payloads',()=>{
+ const {m}=setup(),a=m.players.get('a');
+ m.command('a',{seq:2,type:'move',direction:{x:-1,z:0}});
+ m.command('a',{seq:3,type:'aim',direction:{x:0,z:-1}});
+ assert.equal(a.aiming,true);
+ assert.deepEqual({...a.facing},{x:0,z:-1});
+ assert.throws(()=>m.command('a',{seq:4,type:'aimRelease',target:99}),/invalid_command/);
+ assert.equal(m.command('a',{seq:4,type:'aimRelease'}).ok,true);
+ assert.equal(a.aiming,false);
+ assert.deepEqual({...a.facing},{x:-1,z:0});
+ m.command('a',{seq:5,type:'move',direction:{x:0,z:1}});
+ assert.deepEqual({...a.facing},{x:0,z:1});
+});
