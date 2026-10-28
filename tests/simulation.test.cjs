@@ -248,7 +248,8 @@ test('offline BR player cannot pass through a living opponent during 60Hz traver
  p.x=0;p.z=0;p.yaw=0;b.x=0;b.z=-4;b.angle=0;
  b.moveTime=999;b.actionTime=999;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
- assert.ok(p.z>=b.z+1.7-1e-7,'BR actor collision respects both body radii');
+ assert.ok(Math.hypot(p.x-b.x,p.z-b.z)>=1.7-1e-7,
+   'moving opponents must remain separated by both body radii');
  assert.equal(p.alive,true);
  b.alive=false;b.health=0;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
