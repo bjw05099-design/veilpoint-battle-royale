@@ -248,7 +248,8 @@ test('offline BR player cannot pass through a living opponent during 60Hz traver
  p.x=0;p.z=0;p.yaw=0;b.x=0;b.z=-4;b.angle=0;
  b.moveTime=999;b.actionTime=999;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
- assert.ok(p.z>=b.z+1.7-1e-7,'BR actor collision respects both body radii');
+ assert.ok(Math.hypot(p.x-b.x,p.z-b.z)>=1.7-1e-7,
+   'moving opponents must remain separated by both body radii');
  assert.equal(p.alive,true);
  b.alive=false;b.health=0;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
@@ -452,6 +453,29 @@ test('footstep awareness is finite, movement-gated and attenuated by solid cover
  assert.equal(S.hearsFootsteps(listener,far,.16,true,wall),false);
  assert.equal(S.hearsFootsteps(listener,near,.16,true,wall),true);
 });
+test('walking is locally audible, crouching quieter and cover attenuates footsteps',()=>{
+ const listener={x:0,z:0},walk={x:0,z:3},near={x:0,z:1};
+ const wall=[{x:0,z:1.5,w:3,d:.4}];
+ assert.equal(S.hearsFootsteps(listener,walk,.1,false,[]),true);
+ assert.equal(S.hearsFootsteps(listener,walk,.1,false,[],true),false);
+ assert.equal(S.hearsFootsteps(listener,near,.1,false,[],true),true);
+ assert.equal(S.hearsFootsteps(listener,walk,.1,false,wall),false);
+ assert.equal(S.hearsFootsteps(listener,near,0,false,[]),false);
+});
+test('BR hidden opponent hears walking but not crouched movement at equal distance',()=>{
+ const setup=()=>{
+  const g=S.newMatch(302,1),b=g.bots[0];
+  g.status='playing';g.player.x=0;g.player.z=-8;g.player.yaw=0;
+  b.x=0;b.z=-10;b.angle=0;b.moveTime=999;b.actionTime=999;b.lastSeenUntil=0;
+  return g;
+ };
+ const walking=setup(),crouching=setup();
+ S.tick(walking,1/60,{forward:true});
+ S.tick(crouching,1/60,{forward:true,crouch:true});
+ assert.equal(walking.bots[0].lastSeenZ,S.approximateSoundPosition(walking.player).z);
+ assert.ok(walking.bots[0].lastSeenUntil>walking.elapsed);
+ assert.equal(crouching.bots[0].lastSeenUntil,0);
+});
 test('BR hidden opponent investigates only last audible sprint position at 60Hz',()=>{
  const make=()=>{
   const g=S.newMatch(301,1),b=g.bots[0];
@@ -462,7 +486,8 @@ test('BR hidden opponent investigates only last audible sprint position at 60Hz'
  const a=make(),c=make();
  S.tick(a,1/60,{forward:true,sprint:true});
  S.tick(c,1/60,{forward:true,sprint:true});
- assert.equal(a.bots[0].lastSeenZ,a.player.z);
+ assert.equal(a.bots[0].lastSeenZ,S.approximateSoundPosition(a.player).z);
+ assert.notEqual(a.bots[0].lastSeenZ,a.player.z,'hidden footsteps are not exact coordinates');
  assert.ok(a.bots[0].lastSeenUntil>a.elapsed);
  assert.equal(a.bots[0].charges,36);
  assert.deepEqual([a.bots[0].lastSeenZ,a.bots[0].angle],

@@ -278,3 +278,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 ## 2026-10-28 canonical narrative regression gate
 
 - **R-19 / R-20 / R-28 (QA candidate):** Current-facing campaign, immersion and demo documents now consistently describe Captain 이수혁, male NIS liaison 김지윤, female NIS analyst 조현지 and the actual finite-ammo human-opponent CH01 browser encounter. Retired 'Yoon' references and obsolete current drone-encounter claims are corrected. An automated test guards these active documents against character-name drift and falsely describing historical arcade mechanics as present gameplay. This is editorial/code QA, **not** a human assessment of political plausibility, a fully authored 12-chapter timeline or a verified playable 12-hour campaign.
+
+## 2026-10-28 — walking/crouch hearing and imprecise sound memory (P0 candidate)
+
+- **R-04/R-13/R-21/R-23 — partial:** BR and CH01 opponents now hear nearby walking, with reduced crouch range and cover attenuation. Sound-only awareness uses an existing 2m-rounded last-heard position instead of perfect hidden coordinates; visible observations still locate actors directly. Fixed 60Hz updates and existing CH01 checkpoint schema are preserved.
+- **Verification:** walking/stealth/cover, replay and save tests require passing CI at the PR head. Hearing radii are uncalibrated gameplay abstractions. Real browser/audio, Unreal, full 3-mode realism, human narrative review and RTX 3070 QHD 165Hz measurements remain unverified.
