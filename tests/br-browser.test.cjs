@@ -361,3 +361,24 @@ test('BR pause blocks touch controls and restores only fresh touch input after r
   app.node('lootButton').dispatch('pointerdown');
   assert.ok(p.charges>11,'fresh touch supply interaction resumes');
 });
+
+test('opening BR graphics settings during play pauses the match until explicit resume',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const g=app.game,ammo=g.player.charges,elapsed=g.elapsed;
+ app.emit('keydown',{code:'KeyG'});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Space'});
+ for(let i=2;i<=120;i++)app.frame(i*1000/60);
+ assert.equal(g.elapsed,elapsed,'settings must not allow hostile simulation to run behind the panel');
+ assert.equal(g.player.charges,ammo,'settings must not allow unopposed shots');
+ app.emit('keydown',{code:'KeyG'});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ app.frame(121*1000/60);
+ assert.equal(g.elapsed,elapsed,'closing settings must not implicitly resume');
+ app.node('play').click();
+ app.frame(122*1000/60);
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(g.elapsed>elapsed);
+});
