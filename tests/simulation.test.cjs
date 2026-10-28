@@ -378,3 +378,30 @@ test('BR finite supplies require physical proximity even with unobstructed line 
  assert.equal(g.player.charges,22);
  assert.equal(S.pickup(g),null,'a finite cache cannot be collected twice');
 });
+
+test('BR crouching with sprint held never grants sprint speed or spends exertion',()=>{
+ const g=S.newMatch(20261028,0);g.status='playing';const p=g.player;
+ p.stamina=50;p.stress=0;
+ const z=p.z;S.tick(g,1/60,{forward:true,crouch:true,sprint:true});
+ assert.ok(Math.abs((z-p.z)-3.1/60)<1e-9);
+ assert.ok(p.stamina>50,'crouching recovers stamina');
+ assert.equal(p.stress,0,'crouching is not sprint exertion');
+ assert.equal(p.sprintExhausted,false);
+});
+test('BR sprint exhaustion has deterministic recovery hysteresis, not infinite micro-bursts',()=>{
+ const a=S.newMatch(20261028,0),b=S.newMatch(20261028,0);
+ a.status=b.status='playing';a.player.stamina=b.player.stamina=1;
+ for(let i=0;i<90;i++){
+   const before=a.player.z;
+   S.tick(a,1/60,{forward:true,sprint:true});
+   S.tick(b,1/60,{forward:true,sprint:true});
+   assert.ok(Math.abs((before-a.player.z)-6.1/60)<1e-8,'exhausted runner walks');
+   assert.equal(a.player.sprintExhausted,true);
+ }
+ assert.deepEqual([a.player.z,a.player.stamina,a.player.sprintExhausted],
+   [b.player.z,b.player.stamina,b.player.sprintExhausted]);
+ a.player.stamina=25;
+ const before=a.player.z;S.tick(a,1/60,{forward:true,sprint:true});
+ assert.equal(a.player.sprintExhausted,false);
+ assert.ok(Math.abs((before-a.player.z)-9.5/60)<1e-8,'sprint resumes only after recovery');
+});
