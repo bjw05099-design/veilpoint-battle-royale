@@ -19,7 +19,12 @@ test('BR patrol sidesteps a real wall instead of remaining permanently stuck',()
   // Building at (70,-78) occupies x=62.5..77.5, z=-91.5..-64.5.
   walker.x=61.5;walker.z=-78;walker.angle=Math.PI/2;
   other.x=80;other.z=-78;other.angle=Math.PI/2;
-  for(let i=0;i<60;i++)Sim.tick(game,1/60);
+  for(let i=0;i<60;i++){
+    const x=walker.x,z=walker.z;
+    Sim.tick(game,1/60);
+    assert.ok(Math.hypot(walker.x-x,walker.z-z)<=1/60+1e-8,
+      'cover avoidance cannot exceed the original walking-speed budget');
+  }
   assert.ok(walker.z>-77.5,'blocked walker must advance along the obstacle edge');
   assert.ok(walker.x<62.5,'the walker must not phase through solid cover');
   assert.equal(walker.charges,36,'avoidance must not fire or replenish rounds');
