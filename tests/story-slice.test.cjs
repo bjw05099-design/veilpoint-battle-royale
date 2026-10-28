@@ -723,10 +723,14 @@ test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and re
  for(let i=0;i<480;i++)story.step(paused,1/60,{});
  assert.deepEqual({x:paused.world.player.x,z:paused.world.player.z},before,'gate does not push or teleport the player');
  assert.equal(story.situation(paused).eastGateOpen,false,'an occupied travel path delays clearance');
+ assert.match(story.objective(paused),/안전 정지.*벗어나/,'a blocked gate must not display a misleading countdown');
+ assert.match(story.situation(paused).route,/안전 정지/,'the same obstruction is visible in the route HUD');
  assert.ok(paused.gateReadyAt>story.GATE_CLEARANCE_SECONDS);
  const resumed=story.restore(story.serialize(paused));
  assert.equal(gate(resumed).x,gate(paused).x,'save preserves partially obstructed gate position');
  resumed.world.player.x=0;resumed.world.player.z=-41;
+ story.step(resumed,1/60,{});
+ assert.doesNotMatch(story.objective(resumed),/안전 정지/,'moving away clears the safety warning');
  for(let i=0;i<480;i++)story.step(resumed,1/60,{});
  assert.equal(story.situation(resumed).eastGateOpen,true);
  assert.equal(Sim.blocked(27,-53,.85,resumed.world.obstacles),false);
