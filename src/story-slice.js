@@ -422,7 +422,9 @@
     // Each historical v2 schema is accepted with or without the new class ID.
     // Never accept arbitrary subsets: only exact, known checkpoint generations.
     const variants=[playerKeys,extendedKeys,modernKeys,currentKeys,
-      playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId'),currentKeys.concat('weaponId')];
+      playerKeys.concat('sprintExhausted'),extendedKeys.concat('sprintExhausted'),
+      playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId'),currentKeys.concat('weaponId'),
+      playerKeys.concat(['weaponId','sprintExhausted']),extendedKeys.concat(['weaponId','sprintExhausted'])];
     const keys=Object.keys(p);
     const expected=variants.find(fields=>fields.length===keys.length&&keys.every(k=>fields.includes(k)));
     if(!expected)throw new RangeError('Unknown player checkpoint fields');
