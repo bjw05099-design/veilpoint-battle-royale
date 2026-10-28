@@ -17,11 +17,19 @@
   // 'charges' remains the total carried rounds, including those in the current magazine.
   const FIREARMS = Object.freeze({
     carbine: Object.freeze({id:'carbine',label:'CARBINE',magazine:12,initialRounds:48,maxRounds:60,
-      reloadSeconds:1.8,fireInterval:0.19,damage:45,aimTolerance:1,mobility:1,cueHz:420,cueSeconds:0.09}),
+      reloadSeconds:1.8,fireInterval:0.19,damage:45,aimTolerance:1,mobility:1,cueHz:420,cueSeconds:0.09,range:85}),
     compact: Object.freeze({id:'compact',label:'COMPACT',magazine:18,initialRounds:54,maxRounds:72,
-      reloadSeconds:1.55,fireInterval:0.12,damage:26,aimTolerance:1.12,mobility:1.06,cueHz:550,cueSeconds:0.065}),
+      reloadSeconds:1.55,fireInterval:0.12,damage:26,aimTolerance:1.12,mobility:1.06,cueHz:550,cueSeconds:0.065,range:45}),
     marksman: Object.freeze({id:'marksman',label:'MARKSMAN',magazine:8,initialRounds:32,maxRounds:40,
-      reloadSeconds:2.15,fireInterval:0.55,damage:68,aimTolerance:0.75,mobility:0.90,cueHz:320,cueSeconds:0.14})
+      reloadSeconds:2.15,fireInterval:0.55,damage:68,aimTolerance:0.75,mobility:0.90,cueHz:320,cueSeconds:0.14,range:85}),
+    shotgun: Object.freeze({id:'shotgun',label:'SHOTGUN',magazine:6,initialRounds:24,maxRounds:30,
+      reloadSeconds:2.4,fireInterval:0.7,damage:72,aimTolerance:1.45,mobility:0.94,cueHz:270,cueSeconds:0.15,range:18}),
+    support: Object.freeze({id:'support',label:'SUPPORT',magazine:24,initialRounds:72,maxRounds:96,
+      reloadSeconds:3.2,fireInterval:0.14,damage:27,aimTolerance:1.12,mobility:0.82,cueHz:360,cueSeconds:0.11,range:70}),
+    sidearm: Object.freeze({id:'sidearm',label:'SIDEARM',magazine:10,initialRounds:40,maxRounds:50,
+      reloadSeconds:1.3,fireInterval:0.24,damage:28,aimTolerance:0.95,mobility:1.10,cueHz:620,cueSeconds:0.07,range:38}),
+    precision: Object.freeze({id:'precision',label:'PRECISION',magazine:5,initialRounds:20,maxRounds:25,
+      reloadSeconds:2.7,fireInterval:1.1,damage:90,aimTolerance:0.55,mobility:0.84,cueHz:300,cueSeconds:0.16,range:85})
   });
   const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -87,7 +95,7 @@
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0,
         lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%3],picked:false}));
+    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -306,14 +314,14 @@
     if(p.loaded<=0) return {ok:false,reason:'reload_required'};
     if(game.elapsed-game.lastTagAt<firearm.fireInterval) return {ok:false,reason:'cooldown'};
     game.lastTagAt=game.elapsed;p.charges--;p.loaded--;
-    let target=null, best=85;
+    let target=null, best=firearm.range;
     const dx=Math.sin(p.yaw)*Math.cos(p.pitch), dz=-Math.cos(p.yaw)*Math.cos(p.pitch);
     for(const b of game.bots){
       if(!b.alive) continue;
       const vx=b.x-p.x,vz=b.z-p.z, d=Math.hypot(vx,vz);
       const forward=vx*dx+vz*dz;
       const lateral=Math.abs(vx*dz-vz*dx);
-      if(forward>0 && d<85 && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)&&
+      if(forward>0 && d<firearm.range && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)&&
           !lineBlocked(p.x,p.z,b.x,b.z,actorObstacles(game,p,b,false))) {target=b;best=d;}
     }
     game.effects.push({x:p.x+dx*Math.min(best,22),z:p.z+dz*Math.min(best,22),t:0.2,type:target?'hit':'tag'});
