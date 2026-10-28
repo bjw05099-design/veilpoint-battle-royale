@@ -981,3 +981,35 @@ test('CH01 exhausted sprint stays locked across checkpoint and 60Hz replay',()=>
  const tampered=JSON.parse(saved);tampered.player.sprintExhausted='true';
  assert.throws(()=>story.restore(JSON.stringify(tampered)),RangeError);
 });
+
+test('CH01 hostiles investigate audible running but not quiet or distant hidden positions',()=>{
+ const setup=(z,wall)=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  const [b,...others]=s.world.bots;
+  for(const other of others){other.health=0;other.alive=false;}
+  b.angle=0;s.world.player.x=0;s.world.player.z=z;s.world.player.yaw=0;
+  if(wall)s.world.obstacles.push(wall);
+  return s;
+ };
+ const clear=setup(-18);
+ story.step(clear,1/60,{forward:true,sprint:true});
+ const b=clear.world.bots[0],heard=b.lastSeenZ;
+ assert.equal(heard,clear.world.player.z);
+ assert.ok(b.investigateUntil>clear.world.elapsed);
+ clear.world.obstacles.push({x:0,z:-23,w:4,d:1});
+ for(let i=0;i<190;i++)story.step(clear,1/60,{});
+ assert.equal(b.lastSeenZ,heard,'quiet hidden player does not update hearing memory');
+ assert.equal(b.shots,0,'sound alone is not a valid shot');
+ assert.ok(clear.world.elapsed>b.investigateUntil);
+ const saved=story.serialize(clear);
+ assert.equal(story.serialize(story.restore(saved)),saved);
+ const wall={x:0,z:-25,w:4,d:1};
+ const near=setup(-22.5,wall);
+ story.step(near,1/60,{forward:true,sprint:true});
+ assert.equal(near.world.bots[0].lastSeenZ,near.world.player.z,
+   'nearby occluded running can be heard');
+ const far=setup(-20,wall);
+ story.step(far,1/60,{forward:true,sprint:true});
+ assert.equal(far.world.bots[0].investigateUntil,0,
+   'distant footsteps behind cover do not reveal the player');
+});

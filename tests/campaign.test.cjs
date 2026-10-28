@@ -50,7 +50,9 @@ test('all twelve authored chapter decisions advance safely into a final ending s
   assert.equal(c.nextMission(progress), null);
   const status = c.campaignStatus(progress);
   assert.equal(status.completedCount, 12);
-  assert.equal(status.fullyCompleted, true);
+  assert.equal(status.metadataSequenceComplete, true);
+  assert.equal(status.playableMissionsVerified, 0);
+  assert.equal(status.fullyCompleted, false, 'metadata choices are not twelve playable chapters');
   assert.equal(status.plannedRemainingMinutes, 0);
   assert.equal(status.measuredPlaytimeMinutes, null);
   assert.throws(() => c.completeMission(progress, 'M12', 'rebuild'), RangeError);

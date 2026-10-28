@@ -442,3 +442,35 @@ test('BR pickup selector never bypasses cover, distance, depletion or class capa
  assert.equal(S.pickup(g),null);
  assert.equal(right.picked,false);
 });
+
+test('footstep awareness is finite, movement-gated and attenuated by solid cover',()=>{
+ const listener={x:0,z:-10},far={x:0,z:0},near={x:0,z:-4};
+ const wall=[{x:0,z:-7,w:4,d:1}];
+ assert.equal(S.hearsFootsteps(listener,far,.16,true,[]),true);
+ assert.equal(S.hearsFootsteps(listener,far,0,true,[]),false);
+ assert.equal(S.hearsFootsteps(listener,far,.16,false,[]),false);
+ assert.equal(S.hearsFootsteps(listener,far,.16,true,wall),false);
+ assert.equal(S.hearsFootsteps(listener,near,.16,true,wall),true);
+});
+test('BR hidden opponent investigates only last audible sprint position at 60Hz',()=>{
+ const make=()=>{
+  const g=S.newMatch(301,1),b=g.bots[0];
+  g.status='playing';g.player.x=0;g.player.z=0;g.player.yaw=0;
+  b.x=0;b.z=-10;b.angle=0;b.moveTime=999;b.actionTime=999;b.lastSeenUntil=0;
+  return g;
+ };
+ const a=make(),c=make();
+ S.tick(a,1/60,{forward:true,sprint:true});
+ S.tick(c,1/60,{forward:true,sprint:true});
+ assert.equal(a.bots[0].lastSeenZ,a.player.z);
+ assert.ok(a.bots[0].lastSeenUntil>a.elapsed);
+ assert.equal(a.bots[0].charges,36);
+ assert.deepEqual([a.bots[0].lastSeenZ,a.bots[0].angle],
+   [c.bots[0].lastSeenZ,c.bots[0].angle]);
+ const heard=a.bots[0].lastSeenZ;
+ a.obstacles.push({x:0,z:-5,w:4,d:1});
+ for(let i=0;i<190;i++)S.tick(a,1/60,{});
+ assert.equal(a.bots[0].lastSeenZ,heard,'silent hidden player is not tracked');
+ assert.ok(a.elapsed>a.bots[0].lastSeenUntil,'footstep memory expires');
+ assert.equal(a.player.health,100);
+});
