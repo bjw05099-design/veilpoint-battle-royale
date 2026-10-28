@@ -375,3 +375,41 @@ test('CH01 sound option persists across refresh and does not affect the BR save'
   assert.equal(store.get('veilpoint.story.audio'),'on');
   assert.equal(store.has('veilpoint.campaignProgress'),false);
 });
+
+
+test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint recovery',()=>{
+  const Story=require('../src/story-slice.js');
+  const state=Story.createState('carbine');
+  state.world.player.x=Story.POINTS.terminal.x;
+  state.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(state).ok,true);
+  state.world.player.x=Story.POINTS.supply.x;
+  state.world.player.z=Story.POINTS.supply.z;
+  state.world.player.charges=state.world.player.maxCharges-1;
+  const store=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
+  const app=boot(store);
+  app.element('continue').click();
+  assert.match(app.element('combatStatus').textContent,/상자 잔량 12발.*접근 후 E/);
+  assert.match(app.element('interaction').textContent,/잔량 12발.*필요한 만큼 확보/);
+  app.interact();
+  let saved=JSON.parse(store.get('veilpoint.story.ch01'));
+  assert.equal(saved.combat.supplyRemaining,11);
+  assert.equal(saved.combat.supplyUsed,false);
+  assert.match(app.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
+  assert.match(app.element('interaction').textContent,/잔량 11발.*휴대 한도 도달/);
+  assert.doesNotMatch(app.element('interaction').textContent,/\\[E\\]/);
+  const resumed=boot(store);
+  resumed.element('continue').click();
+  assert.match(resumed.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
+  const rules=Story.restore(store.get('veilpoint.story.ch01'));
+  rules.world.player.charges-=11;
+  store.set('veilpoint.story.ch01',Story.serialize(rules));
+  const final=boot(store);final.element('continue').click();
+  assert.match(final.element('interaction').textContent,/잔량 11발.*\\[E\\]/);
+  final.interact();
+  saved=JSON.parse(store.get('veilpoint.story.ch01'));
+  assert.equal(saved.combat.supplyRemaining,0);
+  assert.equal(saved.combat.supplyUsed,true);
+  assert.match(final.element('combatStatus').textContent,/보급 소진/);
+  assert.equal(final.element('interaction').classList.contains('hidden'),true);
+});
