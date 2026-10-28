@@ -1013,3 +1013,27 @@ test('CH01 hostiles investigate audible running but not quiet or distant hidden 
  assert.equal(far.world.bots[0].investigateUntil,0,
    'distant footsteps behind cover do not reveal the player');
 });
+
+test('CH01 missed shot creates finite cover-aware audible search, not an omniscient hit',()=>{
+ const setup=(z,wall)=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  s.world.player.x=0;s.world.player.z=z;s.world.player.yaw=Math.PI;
+  if(wall)s.world.obstacles.push(wall);
+  return s;
+ };
+ const near=setup(-18),initial=near.world.player.charges;
+ const shot=story.fire(near);
+ assert.equal(shot.ok,true);assert.equal(shot.hit,false);
+ assert.equal(near.world.player.charges,initial-1);
+ const b=near.world.bots[0];
+ assert.equal(b.health,90);
+ assert.equal(b.lastSeenZ,-18);
+ assert.ok(b.investigateUntil>near.world.elapsed);
+ const saved=story.serialize(near);
+ assert.equal(story.serialize(story.restore(saved)),saved);
+ const hidden=setup(-3,{x:0,z:-15,w:4,d:1});
+ assert.equal(story.fire(hidden).ok,true);
+ assert.equal(hidden.world.bots[0].investigateUntil,0,
+   'distant occluded gunfire does not reveal a precise shooter location');
+ assert.equal(hidden.world.player.charges,initial-1);
+});

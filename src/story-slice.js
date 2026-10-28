@@ -264,6 +264,15 @@
       }
       return result;
     }
+    // A real shot can alert nearby opponents even when it misses. They search
+    // a coarse audible location and must still acquire line of sight to fire.
+    const heard=Sim.approximateSoundPosition(state.world.player);
+    for(const hostile of state.world.bots){
+      if(hostile.alive&&Sim.hearsImpulse(hostile,state.world.player,state.world.obstacles)){
+        hostile.lastSeenX=heard.x;hostile.lastSeenZ=heard.z;
+        hostile.investigateUntil=state.world.elapsed+3;
+      }
+    }
     if(result.elimination){
       const remaining=state.world.bots.filter(b=>b.alive).length;
       // Only the captain can confirm a visible target he just engaged. The NIS
