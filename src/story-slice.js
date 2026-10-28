@@ -569,10 +569,11 @@
       ?data.player.sprintExhausted:data.player.stamina<=1;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
       supportUsed:data.combat.supportUsed,
-      supplyRemaining:hasOwn(data.combat,'supplyRemaining')?data.combat.supplyRemaining:
-        (data.combat.supplyUsed?0:12),
+      // Preserve stable checkpoint field ordering for byte-for-byte 60Hz replay.
       supplyUsed:hasOwn(data.combat,'supplyRemaining')
         ?data.combat.supplyRemaining===0:!!data.combat.supplyUsed,
+      supplyRemaining:hasOwn(data.combat,'supplyRemaining')?data.combat.supplyRemaining:
+        (data.combat.supplyUsed?0:12),
       nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
       ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{}),
