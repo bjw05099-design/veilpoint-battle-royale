@@ -301,3 +301,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 - **R-23 / R-27 — partial implementation, pending CI and browser playtest:** CH01's marked aid cache has exactly 12 finite rounds. A player with limited carrying capacity takes only the rounds that fit; the remaining rounds stay in the same physical cache for later collection. Empty caches disappear from the objective marker. No automatic ammunition replenishment or inventory overflow.
 - The existing v2 checkpoint retains the remaining round count; older checkpoints with only the boolean `supplyUsed` migrate to 0 or 12 remaining rounds. Invalid, fractional, out-of-range or contradictory saved balances are rejected. Deterministic round-trip tests and existing BR/story regression are required before merge.
 - **Not achieved:** licensed production firearm assets, physical magazine animation, native UE play, 165Hz hardware measurements, complete campaign or all-mode firearm parity. This improvement does not close realism issue #15 or firearm issue #20.
+
+
+## 2026-10-29 BR finite-loot conservation candidate
+
+- **R-04 / R-23 / R-27 — partial, CI and real-browser validation required:** BR ammo and magazine caches now track 12/24 finite rounds respectively. Picking up fewer rounds than a cache holds leaves the rest at the same location, available only while reachable and compatible with the selected fictional firearm. The existing E/touch prompt displays remaining stock. Tests cover capacity, repeat visits, cover, incompatible ammunition and deterministic 60Hz replay.
+- The BR offline match has no durable inventory checkpoint in this increment; this change is **not** proof of online/server authority, complete firearm realism, physical magazine animation, 165FPS, or a fully released battle royale. CH01 and BR remain independently tested; multiplayer parity is still pending.
