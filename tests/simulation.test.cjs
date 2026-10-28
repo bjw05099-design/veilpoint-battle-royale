@@ -322,3 +322,13 @@ test('stress reload correction requires a readable delay, is single-use and neve
  assert.equal(p.charges,ammo);
  assert.equal(p.reloadRemaining,0);
 });
+
+test('premature correction gives a bounded, non-magical player feedback cue',()=>{
+ const g=S.newMatch(821,0);g.status='playing';
+ g.player.loaded=1;g.player.stress=100;
+ assert.equal(S.reload(g).hesitation,true);
+ assert.equal(S.reload(g).reason,'recovery_not_ready');
+ assert.match(g.message,/RELOAD SETTLING/);
+ assert.equal(g.player.reloadHesitation,true);
+ assert.equal(g.player.charges,S.FIREARMS.carbine.initialRounds);
+});
