@@ -434,7 +434,7 @@
   }
   // Offline BR checkpoints preserve the random stream as well as the visible world.
   // All persisted fields are explicitly bounded; old or modified localStorage cannot
-  // inject shields, health regeneration, infinite ammunition or arbitrary object keys.
+  // reintroduce shield fields or out-of-range resources. This is not anti-tamper security.
   const CHECKPOINT_VERSION = 1;
   const finite = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   const integer = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
