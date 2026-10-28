@@ -324,3 +324,38 @@ test('stationary pointer aim renews at bounded server ticks, not every poll',asy
  a.hide();await settle();
  assert.equal(server.match.players.get(token).aiming,false,'hidden tab releases renewed aim');
 });
+
+test('team browser exposes only own server-derived stress and toggles reload accessibility', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const aToken = a.storage.get('veilpoint.team.tabSession');
+  const bToken = b.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(aToken);
+  const opponent = server.match.players.get(bToken);
+  a.node('assist').click();
+  await settle();
+  assert.equal(player.reloadAssist, true);
+  assert.ok(server.requests.some(r => r.token === aToken && r.body?.type === 'assist' &&
+    r.body.enabled === true && Object.keys(r.body).sort().join(',') === 'enabled,seq,type'));
+  player.x = 0; player.z = 0; opponent.x = 5; opponent.z = 0;
+  b.node('fire').click();
+  await settle();
+  for (let i = 0; i < 18; i++) server.match.step();
+  b.node('fire').click();
+  await settle();
+  assert.ok(player.stress >= 60);
+  await a.poll(); await settle();
+  assert.ok(Number(a.node('stress').textContent) >= 60);
+  assert.match(a.node('assist').textContent, /ON/);
+  a.node('fire').click(); await settle();
+  a.node('reload').click(); await settle();
+  assert.equal(player.reloadTicks, 90, 'assist prevents hesitation but not ordinary reload time');
+  await a.poll(); await settle();
+  assert.match(a.node('reloadState').textContent, /재장전 중/);
+  a.node('assist').click(); await settle();
+  assert.equal(player.reloadAssist, false);
+});
