@@ -347,3 +347,17 @@ test('injury slows BR movement predictably without healing or affecting finite a
  assert.equal(S.injuryMobility(healthy.player),1);
  assert.ok(S.injuryMobility({health:0})>0.75);
 });
+
+test('injured BR opponents move more slowly without spontaneous recovery at 60Hz',()=>{
+  const make=health=>{
+    const g=S.newMatch(20261028,1),b=g.bots[0];g.status='playing';
+    g.player.x=0;g.player.z=75;
+    b.x=0;b.z=-20;b.angle=0;b.moveTime=999;b.actionTime=999;b.health=health;
+    return g;
+  };
+  const healthy=make(100),injured=make(50),replay=make(50);
+  for(let i=0;i<60;i++){S.tick(healthy,1/60,{});S.tick(injured,1/60,{});S.tick(replay,1/60,{});}
+  assert.ok(healthy.bots[0].z<injured.bots[0].z,'an injured rival travels less over the same interval');
+  assert.equal(injured.bots[0].health,50);
+  assert.equal(injured.bots[0].z,replay.bots[0].z,'injury mobility replays deterministically');
+});
