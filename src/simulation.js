@@ -369,7 +369,9 @@
       if(forward>0 && d<firearm.range && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)&&
           !lineBlocked(p.x,p.z,b.x,b.z,actorObstacles(game,p,b,false))) {target=b;best=d;}
     }
-    game.effects.push({x:p.x+dx*Math.min(best,22),z:p.z+dz*Math.min(best,22),t:0.2,type:target?'hit':'tag'});
+    // A missed round has no magical floating impact marker. A confirmed
+    // contact gets only a brief, muted physical debris cue at the contact point.
+    if(target)game.effects.push({x:target.x,z:target.z,t:0.2,type:'hit'});
     // An actual fired round produces one audible event even on a miss.
     // Sound never grants a hit, damage, or live target coordinates.
     const heard=approximateSoundPosition(p);

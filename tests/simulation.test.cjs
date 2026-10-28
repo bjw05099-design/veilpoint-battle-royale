@@ -580,3 +580,20 @@ test('BR zero, negative and non-finite frame deltas never mutate combat or RNG',
  assert.equal(g.elapsed,1/60);
  assert.equal(b.charges,35,'the next valid frame still runs normally');
 });
+
+test('BR missed finite rounds create no floating energy marker; confirmed contact uses short debris cue', () => {
+  const miss=S.newMatch(7601,0);miss.status='playing';
+  const before=miss.player.charges;
+  assert.equal(S.tag(miss).hit,false);
+  assert.equal(miss.player.charges,before-1);
+  assert.deepEqual(miss.effects,[], 'a miss cannot create a blue energy cube in empty space');
+  const hit=S.newMatch(7602,1);hit.status='playing';hit.obstacles=[];
+  const bot=hit.bots[0];bot.x=0;bot.z=-8;bot.health=100;bot.alive=true;
+  hit.player.x=0;hit.player.z=0;hit.player.yaw=0;hit.player.pitch=0;
+  assert.equal(S.tag(hit).hit,true);
+  assert.equal(hit.effects.length,1);
+  assert.deepEqual({type:hit.effects[0].type,x:hit.effects[0].x,z:hit.effects[0].z},
+    {type:'hit',x:bot.x,z:bot.z});
+  for(let i=0;i<13;i++)S.tick(hit,1/60,{});
+  assert.equal(hit.effects.length,0,'impact debris is short-lived at fixed 60Hz');
+});

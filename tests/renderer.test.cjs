@@ -118,3 +118,23 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  assert.equal(boxes.length,3,'checkpoint restore must render the same gate');
  assert.deepEqual(boxes[2],boxes[1]);
 });
+
+test('BR renderer uses muted physical-scale shot feedback rather than floating energy cubes',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(7603,0);state.player.x=0;state.player.z=0;state.player.yaw=0;
+ state.effects=[{x:0,z:-8,t:.1,type:'hit'},{x:2,z:-8,t:.1,type:'hostile'}];
+ const feedback=[];
+ const box=renderer.dynamic.box.bind(renderer.dynamic);
+ renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
+   if((x===0&&z===-8)||(x===2&&z===-8))feedback.push({x,y,z,w,h,d,color});
+   return box(x,y,z,w,h,d,color);
+ };
+ renderer.draw(state);
+ assert.equal(feedback.length,2);
+ assert.deepEqual(feedback.map(e=>[e.y,e.w,e.h,e.d]),[[.025,.22,.06,.22],[1.18,.16,.12,.16]]);
+ assert.ok(feedback.every(e=>e.color.every(c=>c<.7)), 'no saturated neon shot markers');
+ assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
+});
