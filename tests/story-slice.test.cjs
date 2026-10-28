@@ -272,7 +272,7 @@ test('CH01 never restores arcade shield from a legacy v2 save',()=>{
   const old=JSON.parse(story.serialize(state));old.player.shield=90;
   const loaded=story.restore(JSON.stringify(old));
   assert.equal(Object.hasOwn(loaded.world.player,'shield'),false);
-  assert.equal(JSON.parse(story.serialize(loaded)).player.shield,0);
+  assert.equal(Object.hasOwn(JSON.parse(story.serialize(loaded)).player,'shield'),false);
 });
 
 
@@ -1044,4 +1044,22 @@ test('CH01 missed shot creates finite cover-aware audible search, not an omnisci
  assert.equal(hidden.world.bots[0].investigateUntil,0,
    'distant occluded gunfire does not reveal a precise shooter location');
  assert.equal(hidden.world.player.charges,initial-1);
+});
+
+test('CH01 new saves never serialize arcade shield and old saves migrate without resources',()=>{
+  for(const weaponId of Object.keys(Sim.FIREARMS)){
+    const s=story.createState(weaponId);
+    const fresh=JSON.parse(story.serialize(s));
+    assert.equal(Object.hasOwn(fresh.player,'shield'),false);
+    assert.equal(story.serialize(story.restore(JSON.stringify(fresh))),JSON.stringify(fresh));
+    const legacy=structuredClone(fresh);
+    legacy.player.shield=95;
+    const restored=story.restore(JSON.stringify(legacy));
+    assert.equal(Object.hasOwn(restored.world.player,'shield'),false);
+    assert.equal(Object.hasOwn(JSON.parse(story.serialize(restored)).player,'shield'),false);
+    assert.equal(restored.world.player.charges,s.world.player.charges);
+    assert.equal(restored.world.player.health,s.world.player.health);
+    legacy.player.shield='95';
+    assert.throws(()=>story.restore(JSON.stringify(legacy)),RangeError);
+  }
 });

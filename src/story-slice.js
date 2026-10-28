@@ -427,7 +427,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
-        health:p.health,shield:0,charges:p.charges,weaponId:p.weaponId,
+        health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation,
          sprintExhausted:!!p.sprintExhausted},elapsed:state.world.elapsed,
@@ -451,6 +451,7 @@
         (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
       throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
+    // Legacy v2 checkpoints included an inert shield field; current saves omit it.
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
     const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
@@ -462,7 +463,8 @@
       playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId'),currentKeys.concat('weaponId'),
       playerKeys.concat(['weaponId','sprintExhausted']),extendedKeys.concat(['weaponId','sprintExhausted'])];
     const keys=Object.keys(p);
-    const expected=variants.find(fields=>fields.length===keys.length&&keys.every(k=>fields.includes(k)));
+    const acceptedVariants=variants.concat(variants.map(fields=>fields.filter(k=>k!=='shield')));
+    const expected=acceptedVariants.find(fields=>fields.length===keys.length&&keys.every(k=>fields.includes(k)));
     if(!expected)throw new RangeError('Unknown player checkpoint fields');
     const modern=expected.includes('stress'),extended=expected.includes('loaded');
     const firearm=hasOwn(p,'weaponId')?Sim.FIREARMS[p.weaponId]:Sim.FIREARMS.carbine;

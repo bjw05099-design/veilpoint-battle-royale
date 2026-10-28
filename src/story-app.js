@@ -303,11 +303,18 @@
     const gatePending=running&&state.phase==='exit'&&state.choice==='verification'&&
       !Story.situation(state).eastGateOpen;
     const healthBefore=state.world.player.health;
+    const shotsBefore=running&&state.phase==='engagement'
+      ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
-    // A hostile hit is a durable gameplay consequence. Save once per actual
-    // damage event, never every 60Hz tick; terminal failure saves below.
-    if(running&&state.phase==='engagement'&&state.world.player.health<healthBefore){
-      audio.play('impact');persist();
+    // A finite hostile shot must survive refresh even when it misses. Persist
+    // only on an actual shot or injury, not every fixed simulation tick.
+    const hostileFired=running&&state.phase==='engagement'&&
+      state.world.bots.some(hostile=>hostile.shots>0)&&
+      state.world.bots.reduce((total,hostile)=>total+hostile.shots,0)>shotsBefore;
+    if(running&&state.phase==='engagement'&&
+       (state.world.player.health<healthBefore||hostileFired)){
+      if(state.world.player.health<healthBefore)audio.play('impact');
+      persist();
     }
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
