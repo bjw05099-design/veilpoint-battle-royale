@@ -710,12 +710,14 @@ test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and re
  };
  const a=setup(),b=setup();
  const gate=s=>s.world.obstacles.find(o=>o.routeId==='east-checkpoint');
- const initial=gate(a);
+ const initial=gate(a),obstacleArray=a.world.obstacles;
  assert.equal(initial.type,'gate');
  assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true);
  for(let i=0;i<120;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
  assert.equal(story.serialize(a),story.serialize(b),'the sliding gate is deterministic');
- assert.ok(gate(a).x<initial.x&&gate(a).x>initial.x-12,'gate slides without vanishing');
+ assert.equal(a.world.obstacles,obstacleArray,'fixed-step updates must not rebuild the entire collision array');
+ assert.equal(gate(a),initial,'the rendered and collided gate retains a stable live identity');
+ assert.ok(gate(a).x<27&&gate(a).x>15,'gate slides without vanishing');
  assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true,'partial opening is not full clearance');
  const paused=setup();
  paused.world.player.x=20;paused.world.player.z=-53;
