@@ -85,7 +85,6 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  };
  const before=JSON.stringify(state.world);
  renderer.draw(state.world);
- const closedCount=renderer.dynamic.count;
  assert.deepEqual(boxes,[{x:gate.x,z:gate.z,w:gate.w,h:gate.h,d:gate.d}]);
  assert.equal(JSON.stringify(state.world),before,'rendering must not change mission state');
  state.world.player.x=Story.POINTS.terminal.x;state.world.player.z=Story.POINTS.terminal.z;
@@ -109,7 +108,10 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  renderer.draw(state.world);
  assert.equal(boxes.length,2,'the barrier must move rather than disappear');
  assert.equal(boxes[1].x,gate.x-12,'opened gate is parked clear of the passage');
- assert.equal(renderer.dynamic.count,closedCount,'the physical barrier remains a rendered object');
+ const openCount=renderer.dynamic.count;
+ const withoutGate={...state.world,obstacles:state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint')};
+ renderer.draw(withoutGate);
+ assert.equal(renderer.dynamic.count,openCount-36,'a parked gate contributes exactly one dynamic box');
  const restored=Story.restore(Story.serialize(state));
  renderer.draw(restored.world);
  assert.equal(boxes.length,3,'checkpoint restore must render the same gate');
