@@ -139,3 +139,24 @@ test('every class receives physically finite, compatible BR pickups without resp
   assert.equal(p.charges,after);
  }
 });
+
+test('all seven classes preserve 60Hz seeded combat replay including a miss and reload',()=>{
+ for(const id of ids){
+  const run=()=>{
+   const g=Sim.newMatch(242,1,id);g.status='playing';
+   g.bots[0].x=0;g.bots[0].z=-12;
+   g.player.yaw=0;
+   const events=[];
+   for(let frame=0;frame<150;frame++){
+    if(frame===0||frame===45||frame===90)events.push(Sim.tag(g));
+    if(frame===95)events.push(Sim.reload(g));
+    Sim.tick(g,1/60,{forward:frame%60<20,sprint:false});
+   }
+   return {events,health:g.player.health,ammo:g.player.charges,
+    loaded:g.player.loaded,reloadRemaining:g.player.reloadRemaining,
+    bot:g.bots.map(b=>({x:b.x,z:b.z,health:b.health,loaded:b.loaded,charges:b.charges})),
+    elapsed:g.elapsed};
+  };
+  assert.deepEqual(run(),run(),id+' must be deterministic');
+ }
+});
