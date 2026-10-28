@@ -304,3 +304,23 @@ test('team tab refresh releases a stale server aim override before keyboard inpu
  assert.deepEqual({...p.facing},{x:-1,z:0});
  assert.ok(server.requests.some(r=>r.token===token&&r.body?.type==='aimRelease'));
 });
+
+test('stationary pointer aim renews at bounded server ticks, not every poll',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();
+ const count=()=>server.requests.filter(r=>r.token===token&&r.body?.type==='aim').length;
+ const before=count();
+ await a.poll();await settle();
+ assert.equal(count(),before,'same tick must not resend identical aim');
+ for(let i=0;i<25;i++)server.match.step();
+ await a.poll();await settle();
+ assert.equal(count(),before+1,'held stationary aim is renewed before server lease expiry');
+ assert.equal(server.match.players.get(token).aiming,true);
+ a.hide();await settle();
+ assert.equal(server.match.players.get(token).aiming,false,'hidden tab releases renewed aim');
+});
