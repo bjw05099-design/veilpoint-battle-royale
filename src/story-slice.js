@@ -77,7 +77,7 @@
     return true;
   }
   function createState() {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,world:createWorld(),
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
@@ -165,11 +165,13 @@
         }
       }
     }
+    state.gateObstructed=false;
     if(state.phase==='exit'&&state.choice==='verification'&&!wasGateOpen){
       // A player standing in the gate's travel path pauses the mechanism instead
       // of being pushed, teleported, or passed through by an animated collider.
       const nextGate=gateGeometry(state);
       if(Sim.blocked(p.x,p.z,.85,[nextGate])){
+        state.gateObstructed=true;
         state.gateReadyAt+=t;
         state.subtitle='마라(기술자): 이동식 통제문이 접근자를 감지해 멈췄어. 문 이동 경로에서 벗어나 줘.';
         state.message='통제문 안전 정지 · 이동 경로를 비우세요';
@@ -319,7 +321,7 @@
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
-      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
+      route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       civilianConsequence:state.choice==='evacuation'
         ?'유수프 구조단: 남쪽 대피 인원 확인 우선 · 동쪽 기록 확인 보류'
         :state.choice==='verification'
@@ -358,7 +360,7 @@
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
-        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.':state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.';
       default:return 'CH01 완료. 캠페인 전체 12시간은 아직 제작 중입니다.';
     }
