@@ -195,10 +195,14 @@
     const wantsSprint=!!input.sprint&&iz>0&&p.stamina>1;
     const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p);
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
+    const beforeX=p.x,beforeZ=p.z;
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
       obstacles.concat(actorObstacles(game,p)));
-    p.stamina=clamp(p.stamina+(wantsSprint?-20:13)*dt,0,100);
-    updateStress(p,dt,wantsSprint);
+    // Colliding with solid cover is not actual sprint travel. Exertion follows
+    // resolved displacement, not a held key, while unobstructed movement is unchanged.
+    const sprinting=wantsSprint&&Math.hypot(p.x-beforeX,p.z-beforeZ)>1e-7;
+    p.stamina=clamp(p.stamina+(sprinting?-20:13)*dt,0,100);
+    updateStress(p,dt,sprinting);
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
     const outside=dist(p,game.zone)>game.zone.radius;
     if(outside) receiveDamage(game,(1.8+game.zone.phase*1.2)*dt);
