@@ -311,11 +311,14 @@
       // If solid cover stops a patrol, sidestep along its edge at the SAME
       // walking speed instead of walking into the wall until the zone kills it.
       // Only local collision is queried; no hidden target position or teleport.
-      if(Math.hypot(b.x-startX,b.z-startZ)<botSpeed*dt*0.2){
+      const initialStep=Math.hypot(b.x-startX,b.z-startZ);
+      if(initialStep<botSpeed*dt*0.2){
         const side=b.id%2===0?1:-1;
+        // A fallback cannot add an extra full step to a partially moved actor.
+        const remainingDt=Math.max(0,dt-initialStep/botSpeed);
         for(const direction of [side,-side]){
           const previousX=b.x,previousZ=b.z;
-          moveEntity(b,-vz*direction,vx*direction,dt,movementObstacles);
+          moveEntity(b,-vz*direction,vx*direction,remainingDt,movementObstacles);
           if(Math.hypot(b.x-previousX,b.z-previousZ)>=botSpeed*dt*0.2)break;
         }
       }
