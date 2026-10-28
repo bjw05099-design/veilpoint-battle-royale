@@ -88,3 +88,30 @@ test('BR storage quota failure remains visible without interrupting offline game
  assert.equal(app.game.status,'playing');
  assert.match(app.game.message,/SAVE FAILED/);
 });
+
+test('BR periodic simulated-time autosave and damage checkpoint do not change the 60Hz rules',()=>{
+ const store=new Map();const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const before=JSON.parse(store.get(KEY));
+ const game=app.game;
+ for(let i=0;i<901&&game.status==='playing';i++)app.global.VeilpointSim.tick(game,1/60,{});
+ assert.equal(game.status,'playing');
+ app.frame(2000/60);
+ const periodic=JSON.parse(store.get(KEY));
+ assert.ok(periodic.elapsed>before.elapsed+15);
+ assert.equal(periodic.player.charges,game.player.charges);
+ app.global.VeilpointSim.receiveDamage(game,8);
+ for(let i=0;i<61&&game.status==='playing';i++)app.global.VeilpointSim.tick(game,1/60,{});
+ app.frame(3000/60);
+ assert.equal(JSON.parse(store.get(KEY)).player.health,game.player.health);
+});
+
+test('BR checkpoint is independent of the campaign save and remains available on pagehide',()=>{
+ const store=new Map([['veilpoint.storyCheckpoint.v2','campaign-only']]);
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('pagehide');
+ assert.ok(store.get(KEY));
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(store.get('veilpoint.storyCheckpoint.v2'),'campaign-only');
+});
