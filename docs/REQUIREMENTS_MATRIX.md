@@ -320,3 +320,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 ## 2026-10-29 BR grounded shot-feedback candidate
 
 - **R-04 / R-23 (partial browser visual realism):** BR missed rounds no longer spawn floating blue impact cubes. Confirmed hits create a brief, muted ground-contact debris cue and rival gunfire uses a smaller, warm muzzle cue rather than large red energy cubes. Existing finite ammunition, deterministic 60Hz decay, view culling and vertex-count accounting are covered by new simulation/WebGL-mock regressions. This is a stylized procedural approximation, **not** physically measured ballistic effects, production VFX or proof of photorealism. The abstract shrinking damage boundary and remaining in-world visual/causal realism audit stay P0 release blockers in issue #15; real-browser visual review, GPU/165Hz profiling and Unreal tests remain unverified.
+
+## 2026-10-29 CH01 checkpoint shield-field retirement candidate
+
+- **R-02 / R-23 — partial code candidate:** Newly serialized CH01 v2 checkpoints omit the obsolete `player.shield` property. Older v2 checkpoints with the legacy numeric shield field still load for compatibility, but their shield value is discarded and never appears in the live player or subsequent saves. Unknown/invalid shield values remain rejected. The fixed-60Hz mission, health, ammunition, firearm selection and checkpoint version remain unchanged.
+- **Verification boundary:** Local isolated JavaScript checks passed for serialization and legacy migration; full Node regression/CI is required before merge. This does not resolve BR's artificial shrinking damage zone, human browser/UE QA, 12-chapter completion, photoreal assets or measured QHD 165Hz performance.
