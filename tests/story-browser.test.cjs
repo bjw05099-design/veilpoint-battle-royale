@@ -397,7 +397,7 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   assert.equal(saved.combat.supplyUsed,false);
   assert.match(app.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
   assert.match(app.element('interaction').textContent,/잔량 11발.*휴대 한도 도달/);
-  assert.doesNotMatch(app.element('interaction').textContent,/\\[E\\]/);
+  assert.doesNotMatch(app.element('interaction').textContent,/\[E\]/);
   const resumed=boot(store);
   resumed.element('continue').click();
   assert.match(resumed.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
@@ -405,7 +405,7 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   rules.world.player.charges-=11;
   store.set('veilpoint.story.ch01',Story.serialize(rules));
   const final=boot(store);final.element('continue').click();
-  assert.match(final.element('interaction').textContent,/잔량 11발.*\\[E\\]/);
+  assert.match(final.element('interaction').textContent,/잔량 11발.*\[E\]/);
   final.interact();
   saved=JSON.parse(store.get('veilpoint.story.ch01'));
   assert.equal(saved.combat.supplyRemaining,0);
