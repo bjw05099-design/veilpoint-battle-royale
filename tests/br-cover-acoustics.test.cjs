@@ -7,7 +7,7 @@ function match(seed=551){
   const game=Sim.newMatch(seed,2);
   game.status='playing';
   for(const b of game.bots){
-    b.moveTime=100;b.actionTime=100;b.lastSeenUntil=0;
+    b.moveTime=5;b.actionTime=5;b.lastSeenUntil=0;
     b.loaded=12;b.charges=36;
   }
   return game;
