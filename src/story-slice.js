@@ -429,7 +429,7 @@
     const modern=expected.includes('stress'),extended=expected.includes('loaded');
     const firearm=hasOwn(p,'weaponId')?Sim.FIREARMS[p.weaponId]:Sim.FIREARMS.carbine;
     if(!firearm||!hasOwn(Sim.FIREARMS,firearm.id))throw new RangeError('Invalid checkpoint firearm');
-    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'))
+    for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'&&k!=='sprintExhausted'))
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(modern&&(p.stress<0||p.stress>100||typeof p.reloadAssist!=='boolean'||
        typeof p.reloadHesitation!=='boolean'))throw new RangeError('Invalid reload stress state');
