@@ -24,7 +24,7 @@
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
-      shots:disabled?HOSTILE_ROUNDS:0}));
+      shots:disabled?HOSTILE_ROUNDS:0,lastSeenX:p.x,lastSeenZ:p.z,investigateUntil:0}));
   }
   const INTERACT_RADIUS = 4;
   const SUPPLY_REACH = 1.8; // Physical cache reach; larger radius remains for terminals/route triggers.
@@ -159,17 +159,29 @@
       for(const hostile of state.world.bots){
         if(!hostile.alive)continue;
         const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
-        if(distance<.001||distance>HOSTILE_ALERT_RANGE||
-          Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
-             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
+        const canSee=distance>=.001&&distance<=HOSTILE_ALERT_RANGE&&
+          !Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+             state.world.obstacles.concat(actorBlockers(state,hostile)));
         const bearing=Math.atan2(dx,-dz);
-        const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
-        if(Math.abs(delta)>1.1)continue;
+        const sightDelta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
+        const tracking=canSee&&Math.abs(sightDelta)<=1.1;
+        if(tracking){
+          // A short, finite memory of the last *observed* position, not live
+          // coordinates behind cover. Checkpoints preserve the same search.
+          hostile.lastSeenX=p.x;hostile.lastSeenZ=p.z;
+          hostile.investigateUntil=state.world.elapsed+3;
+        }
+        const investigating=!tracking&&hostile.investigateUntil>state.world.elapsed;
+        if(!tracking&&!investigating)continue;
+        const goalX=tracking?p.x:hostile.lastSeenX,goalZ=tracking?p.z:hostile.lastSeenZ;
+        const goalDistance=Math.hypot(goalX-hostile.x,goalZ-hostile.z);
+        const goalBearing=Math.atan2(goalX-hostile.x,-(goalZ-hostile.z));
+        const delta=Math.atan2(Math.sin(goalBearing-hostile.angle),Math.cos(goalBearing-hostile.angle));
         hostile.angle=Math.atan2(Math.sin(hostile.angle+clamp(delta,-HOSTILE_TURN_RATE*t,HOSTILE_TURN_RATE*t)),
           Math.cos(hostile.angle+clamp(delta,-HOSTILE_TURN_RATE*t,HOSTILE_TURN_RATE*t)));
         const anchor=HOSTILE_POSITIONS[hostile.id];
         const remaining=HOSTILE_CHASE_RADIUS-Math.hypot(hostile.x-anchor.x,hostile.z-anchor.z);
-        if(distance>18&&remaining>0){
+        if(goalDistance>(tracking?18:3)&&remaining>0){
           // Hostiles use the same bounded injury slowdown as the player, scaled
           // to their authored 90-point starting health; no automatic recovery.
           const mobility=Sim.injuryMobility({health:hostile.health/90*100});
@@ -398,7 +410,10 @@
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
          stress:p.stress||0,reloadAssist:!!p.reloadAssist,reloadHesitation:!!p.reloadHesitation,
          sprintExhausted:!!p.sprintExhausted},elapsed:state.world.elapsed,
-      combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle}))}};
+      combat:{...state.combat,lastShotAt:state.world.lastTagAt,drones:state.world.bots.map(b=>({id:b.id,health:b.health,alive:b.alive,shots:b.shots,x:b.x,z:b.z,angle:b.angle,
+        lastSeenX:Number.isFinite(b.lastSeenX)?b.lastSeenX:b.x,
+        lastSeenZ:Number.isFinite(b.lastSeenZ)?b.lastSeenZ:b.z,
+        investigateUntil:Number.isFinite(b.investigateUntil)?b.investigateUntil:0}))}};
   }
   function validateSnapshot(data) {
     if(!data||typeof data!=='object'||Array.isArray(data)||data.version!==VERSION||
@@ -461,15 +476,19 @@
       (hasOwn(c,'lastShotAt')&&(!Number.isFinite(c.lastShotAt)||c.lastShotAt< -2||c.lastShotAt>data.elapsed))||
       !Array.isArray(c.drones)||c.drones.length!==(c.started?3:0)||
       c.drones.some((b,i)=>!b||typeof b!=='object'||Array.isArray(b)||
-        ![3,4,6,7].includes(Object.keys(b).length)||
-        Object.keys(b).some(k=>!['id','health','alive','shots','x','z','angle'].includes(k))||
+        ![3,4,6,7,9,10].includes(Object.keys(b).length)||
+        Object.keys(b).some(k=>!['id','health','alive','shots','x','z','angle','lastSeenX','lastSeenZ','investigateUntil'].includes(k))||
         b.id!==i||!Number.isFinite(b.health)||b.health<0||b.health>90||
         typeof b.alive!=='boolean'||b.alive!==(b.health>0)||
         (hasOwn(b,'shots')&&(!Number.isInteger(b.shots)||b.shots<0||b.shots>HOSTILE_ROUNDS))||
         (['x','z','angle'].some(k=>hasOwn(b,k))&&
           (['x','z','angle'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
            Math.hypot(b.x-HOSTILE_POSITIONS[i].x,b.z-HOSTILE_POSITIONS[i].z)>HOSTILE_CHASE_RADIUS+1e-6||
-           Math.abs(b.angle)>Math.PI+1e-6)))||
+           Math.abs(b.angle)>Math.PI+1e-6))||
+        (['lastSeenX','lastSeenZ','investigateUntil'].some(k=>hasOwn(b,k))&&
+          (['lastSeenX','lastSeenZ','investigateUntil'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
+           Math.abs(b.lastSeenX)>Sim.WORLD||Math.abs(b.lastSeenZ)>Sim.WORLD||
+           b.investigateUntil<0||b.investigateUntil>data.elapsed+3+1e-6)))||
       (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.supplyUsed===true||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
@@ -528,7 +547,9 @@
       supportUsed:data.combat.supportUsed,supplyUsed:hasOwn(data.combat,'supplyUsed')?data.combat.supplyUsed:false,
       nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
-      ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{})}));
+      ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{}),
+      ...(hasOwn(b,'investigateUntil')?{lastSeenX:b.lastSeenX,lastSeenZ:b.lastSeenZ,
+        investigateUntil:b.investigateUntil}:{})}));
     // Older v2 checkpoints omitted the previous shot time. For an active encounter,
     // conservatively resume its cooldown rather than granting a free instant shot.
     state.world.lastTagAt=hasOwn(data.combat,'lastShotAt')?data.combat.lastShotAt:
