@@ -423,3 +423,38 @@ test('team aim release returns movement-facing and rejects forged release payloa
  m.command('a',{seq:5,type:'move',direction:{x:0,z:1}});
  assert.deepEqual({...a.facing},{x:0,z:1});
 });
+
+test('stale server aim expires despite heartbeats, restoring renewed keyboard-facing intent',()=>{
+  const run=()=>{
+    const {m}=setup(),a=m.players.get('a');
+    m.command('a',{seq:2,type:'move',direction:{x:-1,z:0}});
+    m.command('a',{seq:3,type:'aim',direction:{x:0,z:-1}});
+    assert.equal(a.aiming,true);
+    for(let i=0;i<=INPUT_LEASE_TICKS;i++){
+      m.step();
+      if(i===49)m.command('a',{seq:4,type:'move',direction:{x:-1,z:0}});
+      if(i===59)m.command('a',{seq:5,type:'heartbeat'});
+    }
+    assert.equal(a.aiming,false,'heartbeat cannot keep abandoned pointer aim alive');
+    assert.deepEqual({...a.facing},{x:-1,z:0},'renewed movement controls facing after aim expires');
+    assert.equal(m.command('a',{seq:6,type:'aim',direction:{x:0,z:-1}}).ok,true);
+    assert.equal(a.aiming,true,'fresh aim is allowed after lease expiry');
+    return m.snapshot('a');
+  };
+  assert.deepEqual(run(),run(),'aim expiry follows deterministic server ticks');
+});
+
+test('renewed stationary aim remains active until its final refresh lease expires',()=>{
+  const {m}=setup(),a=m.players.get('a');
+  m.command('a',{seq:2,type:'move',direction:{x:1,z:0}});
+  m.command('a',{seq:3,type:'aim',direction:{x:0,z:-1}});
+  for(let i=0;i<180;i++){
+    m.step();
+    if((i+1)%20===0)m.command('a',{seq:4+Math.floor(i/20),type:'aim',direction:{x:0,z:-1}});
+  }
+  assert.equal(a.aiming,true);
+  assert.deepEqual({...a.facing},{x:0,z:-1});
+  for(let i=0;i<=INPUT_LEASE_TICKS;i++)m.step();
+  assert.equal(a.aiming,false,'even renewed aim eventually expires without further intent');
+  assert.deepEqual({...a.facing},{x:0,z:-1},'stationary player retains last physical look direction');
+});

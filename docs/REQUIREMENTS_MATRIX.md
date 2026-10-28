@@ -225,3 +225,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-03 / R-12 / R-23 (partial):** The local team server still validates finite shots, cover, facing, range and damage, but successful fire command responses now reveal only acceptance and remaining ammunition. The browser no longer presents the server's internal hit result as a magical certainty; players must infer outcomes from visible in-world events. Server-side test diagnostics remain private to the authoritative process.
 - **Verification boundary:** HTTP tests compare successful hit and miss response shapes, damage and ammunition conservation; DOM-mock tests check the actual feedback string and masked adapter. No public internet deployment, real-browser user evaluation, spatial audio, real-world projectile simulation, native UE or hardware benchmark is claimed.
+
+
+## 2026-10-28 — team pointer aim lease hardening (P0 candidate)
+
+- **R-03/R-12/R-23 (partial):** The local 60Hz authoritative match expires an abandoned pointer-aim override after 90 simulation ticks even when a heartbeat continues. A live browser client renews a held stationary pointer direction at a bounded 20-tick cadence; pointerleave, background suspension and tab resume still release aim. When aim expires, active movement regains facing control without teleportation, client-supplied target/damage or hidden information. This addresses stale aim after lost pointer events without weakening valid stationary aiming.
+- **Evidence boundary:** deterministic rule tests and mock-browser input tests accompany the candidate. GitHub CI and actual two-browser manual play must be checked separately. This remains a localhost 2D server-authoritative prototype, not production online multiplayer or verified native UE, human realism, RTX 3070 QHD 165Hz performance or complete release readiness.

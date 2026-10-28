@@ -69,7 +69,7 @@ class TeamMatch {
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
       aiming: false, capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
-      lastMoveTick: 0, lastCaptureTick: 0};
+      lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0};
     this.players.set(token, player);
     return {id: player.id, team};
   }
@@ -111,6 +111,7 @@ class TeamMatch {
     if (data.type === 'aimRelease') {
       // Leaving the aim surface restores keyboard/touch movement-facing control.
       p.aiming = false;
+      p.lastAimTick = 0;
       const len = Math.hypot(p.direction.x, p.direction.z);
       if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
       return {ok: true};
@@ -121,6 +122,7 @@ class TeamMatch {
       const len = Math.hypot(data.direction.x, data.direction.z);
       p.facing = {x: data.direction.x / len, z: data.direction.z / len};
       p.aiming = true;
+      p.lastAimTick = this.ticks;
       return {ok: true};
     }
     if (data.type === 'fire') {
@@ -181,6 +183,7 @@ class TeamMatch {
       p.direction = {x: 0, z: 0};
       p.facing = {x: p.team === 'red' ? 1 : -1, z: 0};
       p.aiming = false;
+      p.lastAimTick = 0;
       p.capturing = false;
       p.health = 100;
       p.ammo = MAGAZINE_ROUNDS;
@@ -197,6 +200,8 @@ class TeamMatch {
     this.reason = reason;
     for (const p of this.players.values()) {
       p.direction = {x: 0, z: 0};
+      p.aiming = false;
+      p.lastAimTick = 0;
       p.capturing = false;
       p.ready = false;
     }
@@ -205,6 +210,13 @@ class TeamMatch {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
     this.ticks++;
     for (const p of this.players.values()) {
+      if (p.aiming && this.ticks - p.lastAimTick > INPUT_LEASE_TICKS) {
+        // A lost pointer-release or suspended tab must not lock the facing forever.
+        // Heartbeats and read-only state requests never extend the aim lease.
+        p.aiming = false;
+        const len = Math.hypot(p.direction.x, p.direction.z);
+        if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
+      }
       if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
       if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) p.capturing = false;
       if (this.now() - p.lastSeen > this.timeoutMs) {
