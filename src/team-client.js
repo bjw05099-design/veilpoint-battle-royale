@@ -51,7 +51,10 @@
     const len = Math.hypot(dx, dz);
     if (!Number.isFinite(len) || len < 0.1) return;
     const aim = {x: dx / len, z: dz / len};
-    if (lastAimVector && Math.hypot(aim.x - lastAimVector.x, aim.z - lastAimVector.z) < .035) return;
+    // A stationary cursor still represents held intent: refresh it before the
+    // server's 90-tick lease expires, without spamming each 150 ms poll.
+    if (lastAimVector && Math.hypot(aim.x - lastAimVector.x, aim.z - lastAimVector.z) < .035 &&
+        state.tick - lastAimTick < 20) return;
     if (state.tick - lastAimTick < 3) return; // Fixed server-tick rate limit, not wall-clock timing.
     lastAimTick = state.tick;lastAimVector = aim;
     void send('aim', {direction: aim});
