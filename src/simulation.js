@@ -153,7 +153,18 @@
   function reload(game) {
     if(game.status!=='playing')return {ok:false,reason:'not_playing'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
-    if(p.reloadRemaining>0)return {ok:false,reason:'already_reloading'};
+    if(p.reloadRemaining>0){
+      // A stressed fumble has one recoverable, player-initiated correction.
+      // The initial quarter-second must elapse before a second R/touch press can
+      // recover it; no instant reload, repeated shortening or extra rounds.
+      if(!p.reloadHesitation)return {ok:false,reason:'already_reloading'};
+      if(p.reloadRemaining>firearm.reloadSeconds+RELOAD_HESITATION_SECONDS-0.25)
+        return {ok:false,reason:'recovery_not_ready'};
+      p.reloadRemaining=Math.max(0.25,p.reloadRemaining-RELOAD_HESITATION_SECONDS);
+      p.reloadHesitation=false;
+      game.message='RELOAD CORRECTED';game.messageTime=1.2;
+      return {ok:true,recovery:true,duration:p.reloadRemaining};
+    }
     if(p.loaded>=firearm.magazine)return {ok:false,reason:'magazine_full'};
     if(p.charges<=p.loaded)return {ok:false,reason:'no_reserve'};
     const hesitation=(p.stress||0)>=STRESS_THRESHOLD&&!p.reloadAssist;

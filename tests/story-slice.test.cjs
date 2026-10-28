@@ -803,3 +803,26 @@ test('CH01 class-specific reload and checkpoint validation prevent ammunition du
   assert.equal(legacy.world.player.charges,32);
   assert.equal(story.restore(story.serialize(legacy)).world.player.weaponId,'carbine');
 });
+
+test('CH01 manual reload correction survives checkpoints and deterministic 60Hz replay',()=>{
+ const make=()=>{
+  const state=story.createState('marksman');
+  go(state,'terminal');story.interact(state);
+  state.world.player.loaded=2;state.world.player.stress=90;
+  assert.equal(Sim.reload(state.world).hesitation,true);
+  for(let i=0;i<18;i++)story.step(state,1/60,{});
+  return state;
+ };
+ const a=make(),b=story.restore(story.serialize(a));
+ const before=a.world.player.charges;
+ assert.equal(Sim.reload(a.world).recovery,true);
+ assert.equal(Sim.reload(b.world).recovery,true);
+ assert.equal(Sim.reload(a.world).reason,'already_reloading');
+ assert.equal(story.serialize(a),story.serialize(b));
+ for(let i=0;i<200;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
+ assert.equal(story.serialize(a),story.serialize(b));
+ assert.equal(a.world.player.charges,before);
+ assert.equal(a.world.player.loaded,Sim.FIREARMS.marksman.magazine);
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+ assert.ok(app.includes('R/장전 다시 눌러 복구'));
+});

@@ -302,3 +302,23 @@ test('BR E/touch pickup and HUD visibility reject supplies behind solid cover',(
  const app=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../src/app.js'),'utf8');
  assert.ok(app.includes('Game.canReachPickup(s,l)'));
 });
+
+test('stress reload correction requires a readable delay, is single-use and never duplicates ammunition',()=>{
+ const g=S.newMatch(820,0);g.status='playing';const p=g.player;
+ p.loaded=3;p.charges=29;p.stress=85;
+ const initial=S.reload(g);
+ assert.equal(initial.hesitation,true);
+ assert.equal(S.reload(g).reason,'recovery_not_ready','double-click must not instantly bypass a stumble');
+ for(let i=0;i<16;i++)S.advanceReload(g,1/60);
+ const before=p.reloadRemaining,ammo=p.charges;
+ const recovered=S.reload(g);
+ assert.equal(recovered.ok,true);assert.equal(recovered.recovery,true);
+ assert.ok(p.reloadRemaining>=0.25&&p.reloadRemaining<before);
+ assert.equal(p.reloadHesitation,false);
+ assert.equal(S.reload(g).reason,'already_reloading','no repeated time shaving');
+ assert.equal(p.charges,ammo);
+ for(let i=0;i<240;i++)S.advanceReload(g,1/60);
+ assert.equal(p.loaded,S.FIREARMS.carbine.magazine);
+ assert.equal(p.charges,ammo);
+ assert.equal(p.reloadRemaining,0);
+});
