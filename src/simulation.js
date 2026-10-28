@@ -84,7 +84,8 @@
     };
     const bots = Array.from({ length: clamp(botCount, 0, MAX_BOTS) }, (_, i) => {
       const pos = safeSpot(36);
-      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0 };
+      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0,
+        lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
     });
     const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%3],picked:false}));
     return {
@@ -237,12 +238,24 @@
       };
       consider(p);
       for(const other of game.bots)consider(other);
+      if(target){
+        // Memory is updated only from an actor actually observed in the
+        // current field of view. No hidden live coordinates are consulted.
+        b.lastSeenX=target.x;b.lastSeenZ=target.z;
+        b.lastSeenUntil=game.elapsed+2.5;
+      }
+      const investigating=!target&&!outsideBot&&b.lastSeenUntil>game.elapsed;
+      const lastSeenDistance=investigating
+        ?Math.hypot(b.lastSeenX-b.x,b.lastSeenZ-b.z):0;
       let aim=b.angle;
       if(outsideBot)aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
       else if(target)aim=targetAngle;
+      else if(investigating&&lastSeenDistance>1)
+        aim=Math.atan2(b.lastSeenX-b.x,-(b.lastSeenZ-b.z));
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
-      const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:1.0)*injuryMobility(b);
+      const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
+        investigating&&lastSeenDistance>3?2.0:1.0)*injuryMobility(b);
       moveEntity(b,Math.sin(b.angle)*botSpeed,-Math.cos(b.angle)*botSpeed,dt,
         obstacles.concat(actorObstacles(game,b)));
       if(outsideBot){
