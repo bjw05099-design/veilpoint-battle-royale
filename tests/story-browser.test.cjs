@@ -265,3 +265,30 @@ test('CH01 discards stale touch-look pointer after pausing without blocking fres
   assert.notEqual(JSON.parse(app.store.get('veilpoint.story.ch01')).player.yaw,paused,
     'a new gesture must still control the camera');
 });
+test('CH01 browser menu selects a real finite firearm class, persists it and respects explicit new-game changes',()=>{
+  const app=boot();
+  assert.equal(app.element('storyWeapon').value,'carbine');
+  app.element('storyWeapon').value='compact';
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  let saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.player.weaponId,'compact');
+  assert.equal(saved.player.loaded,18);
+  assert.equal(saved.player.charges,54);
+  assert.match(app.element('combatStatus').textContent,/COMPACT.*탄창 18/);
+  app.element('pauseButton').click();
+  const resumed=boot(app.store);
+  resumed.element('storyWeapon').value='marksman'; // saved mission must win over menu choice
+  resumed.element('continue').click();
+  assert.equal(resumed.element('storyWeapon').value,'compact');
+  assert.match(resumed.element('combatStatus').textContent,/COMPACT/);
+  resumed.element('pauseButton').click();
+  resumed.element('storyWeapon').value='marksman';
+  resumed.element('newGame').click();
+  resumed.moveForward(0,300);resumed.interact();
+  saved=JSON.parse(resumed.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.player.weaponId,'marksman');
+  assert.equal(saved.player.loaded,8);
+  assert.equal(saved.player.charges,32);
+  assert.match(resumed.element('combatStatus').textContent,/MARKSMAN.*탄창 8/);
+});

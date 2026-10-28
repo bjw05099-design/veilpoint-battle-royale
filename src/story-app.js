@@ -16,6 +16,7 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
   let checkpoint=null;
+  if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   const isTouch=global.matchMedia('(pointer:coarse)').matches;
   const clearInput=()=>{for(const key in input)input[key]=false;};
   const storage={
@@ -78,7 +79,7 @@
   }
   function resume(){
     if(!renderer)return;
-    if(state.phase==='complete'||state.phase==='failed')state=Story.createState();
+    if(state.phase==='complete'||state.phase==='failed')state=Story.createState($('storyWeapon').value);
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
@@ -91,10 +92,11 @@
     if(!renderer)return;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
-      state=loaded&&loaded.phase!=='complete'?loaded:Story.createState();
+      state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
     }else{
-      state=Story.createState();storage.remove(SAVE_KEY);checkpoint=null;
+      state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
     }
+    $('storyWeapon').value=state.world.player.weaponId;
     resume();
   }
   function showChoices(){
@@ -255,7 +257,7 @@
     if(combatActive){
       const p=state.world.player;
       $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
-      $('combatStatus').textContent='무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyUsed?'사용 완료':'E 1회 가능');
+      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyUsed?'사용 완료':'E 1회 가능');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length

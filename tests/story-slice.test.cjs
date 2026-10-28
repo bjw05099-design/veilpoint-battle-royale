@@ -741,3 +741,65 @@ test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and re
  assert.equal(Sim.blocked(27,-53,.85,resumed.world.obstacles),false);
  assert.equal(gate(resumed).x,15,'opened gate remains parked in the world');
 });
+test('CH01 selected original firearm classes change real movement, cadence, finite ammunition and damage',()=>{
+  const positions={};
+  for(const id of ['carbine','compact','marksman']){
+    const a=story.createState(id),b=story.createState(id),gun=Sim.FIREARMS[id];
+    assert.equal(a.world.player.weaponId,id);
+    assert.equal(a.world.player.loaded,gun.magazine);
+    assert.equal(a.world.player.charges,gun.initialRounds);
+    for(let tick=0;tick<60;tick++){story.step(a,1/60,{forward:true});story.step(b,1/60,{forward:true});}
+    assert.equal(story.serialize(a),story.serialize(b),'class-specific movement must be deterministic at 60Hz');
+    positions[id]=a.world.player.z;
+    go(a,'terminal');assert.equal(story.interact(a).ok,true);
+    const before=a.world.player.charges;
+    const first=story.fire(a);
+    assert.equal(first.ok,true);
+    assert.equal(first.hit,true);
+    assert.equal(a.world.bots[0].health,90-gun.damage);
+    assert.equal(a.world.player.charges,before-1);
+    assert.equal(story.fire(a).reason,'cooldown');
+    const saved=story.serialize(a),resumed=story.restore(saved);
+    assert.equal(story.serialize(resumed),saved,'class and firing cooldown survive a checkpoint');
+    assert.equal(resumed.world.player.weaponId,id);
+    assert.equal(resumed.world.player.maxCharges,gun.maxRounds);
+    for(let tick=0;tick<Math.ceil(gun.fireInterval*60)+1;tick++)story.step(resumed,1/60,{});
+    assert.equal(story.fire(resumed).ok,true);
+    assert.equal(resumed.world.player.charges,before-2);
+  }
+  assert.ok(positions.compact<positions.carbine,'compact equipment moves faster');
+  assert.ok(positions.carbine<positions.marksman,'precision equipment moves slower');
+  assert.throws(()=>story.createState('unsupported'),RangeError);
+});
+
+test('CH01 class-specific reload and checkpoint validation prevent ammunition duplication or loadout spoofing',()=>{
+  const s=story.createState('marksman'),gun=Sim.FIREARMS.marksman;
+  go(s,'terminal');story.interact(s);
+  s.world.player.loaded=1;s.world.player.stress=85;
+  const startRounds=s.world.player.charges;
+  const reload=Sim.reload(s.world);
+  assert.equal(reload.ok,true);
+  assert.equal(reload.duration,gun.reloadSeconds+Sim.RELOAD_HESITATION_SECONDS);
+  const raw=story.serialize(s),resumed=story.restore(raw);
+  assert.equal(story.serialize(resumed),raw);
+  for(let i=0;i<180;i++)story.step(resumed,1/60,{});
+  assert.equal(resumed.world.player.loaded,gun.magazine);
+  assert.equal(resumed.world.player.charges,startRounds);
+  const valid=JSON.parse(story.serialize(resumed));
+  for(const weaponId of ['unknown','toString',null]){
+    const tampered=structuredClone(valid);tampered.player.weaponId=weaponId;
+    assert.throws(()=>story.restore(JSON.stringify(tampered)),RangeError);
+  }
+  for(const [field,value] of [['loaded',9],['charges',41],['reloadRemaining',100]]){
+    const tampered=structuredClone(valid);tampered.player[field]=value;
+    assert.throws(()=>story.restore(JSON.stringify(tampered)),RangeError);
+  }
+  const old=structuredClone(valid);
+  old.player.weaponId=undefined;delete old.player.weaponId;
+  old.player.loaded=8;old.player.charges=32;
+  const legacy=story.restore(JSON.stringify(old));
+  assert.equal(legacy.world.player.weaponId,'carbine');
+  assert.equal(legacy.world.player.loaded,8);
+  assert.equal(legacy.world.player.charges,32);
+  assert.equal(story.restore(story.serialize(legacy)).world.player.weaponId,'carbine');
+});
