@@ -195,3 +195,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-03 / R-13 / R-21 / R-23 (partial):** Previously only the BR and CH01 **player** slowed when injured. This candidate applies the same bounded, non-healing movement multiplier to BR rival AI and the authoritative local team server's players, while CH01 human opponents scale the multiplier to their authored 90-point health maximum. Clients still cannot submit movement speed or health, and the 60Hz simulation owns the result.
 - **Evidence boundary:** New deterministic tests compare healthy/injured BR opponents, CH01 opponents with save/replay and a server-validated team hit followed by movement. This does **not** establish medical realism, human animation, native UE physics, production multiplayer, RTX 3070/QHD/165Hz performance, or independent playtesting. Existing three-mode final gates remain open.
+
+## 2026-10-28 16:00 KST — team network hit-confirmation privacy candidate
+
+- **R-03 / R-12 / R-23 (partial):** The local team server still validates finite shots, cover, facing, range and damage, but successful fire command responses now reveal only acceptance and remaining ammunition. The browser no longer presents the server's internal hit result as a magical certainty; players must infer outcomes from visible in-world events. Server-side test diagnostics remain private to the authoritative process.
+- **Verification boundary:** HTTP tests compare successful hit and miss response shapes, damage and ammunition conservation; DOM-mock tests check the actual feedback string and masked adapter. No public internet deployment, real-browser user evaluation, spatial audio, real-world projectile simulation, native UE or hardware benchmark is claimed.
