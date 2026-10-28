@@ -397,14 +397,16 @@
     const playerKeys=['x','z','yaw','pitch','stamina','health','shield','charges'];
     const extendedKeys=playerKeys.concat(['loaded','reloadRemaining']);
     const modernKeys=extendedKeys.concat(['stress','reloadAssist','reloadHesitation']);
-    const weaponKeys=modernKeys.concat('weaponId');
-    const keys=Object.keys(p),modern=keys.length===modernKeys.length||keys.length===weaponKeys.length;
-    const extended=modern||keys.length===extendedKeys.length;
-    const expected=keys.length===weaponKeys.length?weaponKeys:modern?modernKeys:extended?extendedKeys:playerKeys;
+    // Each historical v2 schema is accepted with or without the new class ID.
+    // Never accept arbitrary subsets: only exact, known checkpoint generations.
+    const variants=[playerKeys,extendedKeys,modernKeys,
+      playerKeys.concat('weaponId'),extendedKeys.concat('weaponId'),modernKeys.concat('weaponId')];
+    const keys=Object.keys(p);
+    const expected=variants.find(fields=>fields.length===keys.length&&keys.every(k=>fields.includes(k)));
+    if(!expected)throw new RangeError('Unknown player checkpoint fields');
+    const modern=expected.includes('stress'),extended=expected.includes('loaded');
     const firearm=hasOwn(p,'weaponId')?Sim.FIREARMS[p.weaponId]:Sim.FIREARMS.carbine;
     if(!firearm||!hasOwn(Sim.FIREARMS,firearm.id))throw new RangeError('Invalid checkpoint firearm');
-    if(keys.length!==expected.length||keys.some(k=>!expected.includes(k)))
-      throw new RangeError('Unknown player checkpoint fields');
     for(const k of expected.filter(k=>k!=='reloadAssist'&&k!=='reloadHesitation'&&k!=='weaponId'))
       if(!Number.isFinite(p[k]))throw new RangeError('Invalid checkpoint coordinates');
     if(modern&&(p.stress<0||p.stress>100||typeof p.reloadAssist!=='boolean'||
