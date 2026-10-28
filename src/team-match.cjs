@@ -26,6 +26,9 @@ const FIRE_INTERVAL_TICKS = 18;
 const MAGAZINE_ROUNDS = 12;
 const SPARE_ROUNDS = 24;
 const RELOAD_TICKS = 90;
+const RELOAD_HESITATION_TICKS = 36;
+const STRESS_THRESHOLD = 60;
+const STRESS_DECAY_PER_TICK = 0.03;
 // Fixed-step intent lease: disconnected/suspended input must not move or capture forever.
 // Clients periodically renew held intent; heartbeat/state polling never renews it.
 const INPUT_LEASE_TICKS = 90;
@@ -68,7 +71,8 @@ class TeamMatch {
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
       aiming: false, capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
-      reloadTicks: 0, lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
+      reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
+      lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0};
     this.players.set(token, player);
     return {id: player.id, team};
@@ -82,6 +86,7 @@ class TeamMatch {
     const keys = Object.keys(data);
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
       data.type === 'capture' ? ['seq', 'type', 'active'] :
+      data.type === 'assist' ? ['seq', 'type', 'enabled'] :
       ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
@@ -90,6 +95,7 @@ class TeamMatch {
          (data.type === 'aim' && Math.hypot(data.direction.x, data.direction.z) < 1e-6)))
       throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
+    if (data.type === 'assist' && typeof data.enabled !== 'boolean') throw new RangeError('invalid_assist');
     if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
@@ -101,6 +107,8 @@ class TeamMatch {
     }
     // State polling cannot keep a disconnected/abandoned player active forever.
     if (data.type === 'heartbeat') return {ok: true};
+    // Accessibility preference is server-owned, validated and retained between rounds.
+    if (data.type === 'assist') {p.reloadAssist = data.enabled;return {ok: true, enabled: p.reloadAssist};}
     if (data.type === 'ready') {
       if (this.phase !== 'playing') {
         p.ready = true;
@@ -143,6 +151,7 @@ class TeamMatch {
           !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
         if (hit) {
           opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
+          opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
           opponent.capturing = false;
           if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
         }
@@ -150,12 +159,22 @@ class TeamMatch {
       return {ok: true, hit, ammo: p.ammo};
     }
     if (data.type === 'reload') {
-      if (p.reloadTicks > 0) return {ok: false, reason: 'already_reloading'};
+      if (p.reloadTicks > 0) {
+        if (!p.reloadHesitation) return {ok: false, reason: 'already_reloading'};
+        // A second deliberate input can recover from a visible hesitation, but
+        // never beat the ordinary 90-tick reload or duplicate carried rounds.
+        if (p.reloadTicks > RELOAD_TICKS + RELOAD_HESITATION_TICKS - 15)
+          return {ok: false, reason: 'recover_not_ready'};
+        p.reloadTicks = Math.max(1, p.reloadTicks - RELOAD_HESITATION_TICKS);
+        p.reloadHesitation = false;
+        return {ok: true, recovered: true, reloadTicks: p.reloadTicks};
+      }
       if (p.ammo === MAGAZINE_ROUNDS) return {ok: false, reason: 'magazine_full'};
       if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
-      p.reloadTicks = RELOAD_TICKS;
+      p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
+      p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
       p.capturing = false;
-      return {ok: true, reloadTicks: p.reloadTicks};
+      return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
     }
     if (data.type === 'move') {
       const {x, z} = data.direction, len = Math.hypot(x, z);
@@ -189,6 +208,8 @@ class TeamMatch {
       p.ammo = MAGAZINE_ROUNDS;
       p.reserve = SPARE_ROUNDS;
       p.reloadTicks = 0;
+      p.reloadHesitation = false;
+      p.stress = 0;
       p.lastShotTick = -FIRE_INTERVAL_TICKS;
       p.lastMoveTick = 0;
       p.lastCaptureTick = 0;
@@ -210,6 +231,8 @@ class TeamMatch {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
     this.ticks++;
     for (const p of this.players.values()) {
+      // Exertion settles gradually; no automatic healing or ammunition refill.
+      p.stress = Math.max(0, p.stress - STRESS_DECAY_PER_TICK);
       if (p.aiming && this.ticks - p.lastAimTick > INPUT_LEASE_TICKS) {
         // A lost pointer-release or suspended tab must not lock the facing forever.
         // Heartbeats and read-only state requests never extend the aim lease.
@@ -226,6 +249,7 @@ class TeamMatch {
       if (p.reloadTicks > 0) {
         p.reloadTicks--;
         if (p.reloadTicks === 0) {
+          p.reloadHesitation = false;
           const transferred = Math.min(MAGAZINE_ROUNDS - p.ammo, p.reserve);
           p.ammo += transferred;
           p.reserve -= transferred;
@@ -276,9 +300,11 @@ class TeamMatch {
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER,
       self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
+        stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
         ready: me.ready, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
   }
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
-  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, INPUT_LEASE_TICKS};
+  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS,
+  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS};

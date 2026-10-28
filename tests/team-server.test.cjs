@@ -291,3 +291,36 @@ test('HTTP abandoned lobby can be reclaimed by two independent clients', async (
     assert.equal((await view.json()).phase, 'playing');
   } finally {await server.close();}
 });
+
+test('HTTP clients cannot forge stress; server reports only self stress and validates assist', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (body, token, route = '/command') => {
+    const res = await fetch(base + route, {method: 'POST',
+      headers: {'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(body)});
+    return {status: res.status, body: await res.json()};
+  };
+  try {
+    const a = (await post({name: 'A'}, null, '/join')).body;
+    const b = (await post({name: 'B'}, null, '/join')).body;
+    await post({seq: 1, type: 'ready'}, a.token);
+    await post({seq: 1, type: 'ready'}, b.token);
+    assert.equal((await post({seq: 2, type: 'assist', enabled: true, stress: 0}, b.token)).status, 400);
+    assert.equal((await post({seq: 2, type: 'assist', enabled: true}, b.token)).status, 200);
+    const attacker = server.match.players.get(a.token), defender = server.match.players.get(b.token);
+    attacker.x = 0; attacker.z = 0; defender.x = 5; defender.z = 0;
+    await post({seq: 2, type: 'fire'}, a.token);
+    for (let i = 0; i < 18; i++) server.match.step();
+    await post({seq: 3, type: 'fire'}, a.token);
+    const state = await (await fetch(base + '/state', {headers: {'x-player-token': b.token}})).json();
+    assert.ok(state.self.stress >= 60);
+    assert.equal(state.self.reloadAssist, true);
+    assert.ok(state.visible.every(p => !Object.hasOwn(p, 'stress')));
+    assert.equal((await post({seq: 3, type: 'fire'}, b.token)).status, 200);
+    const reload = await post({seq: 4, type: 'reload'}, b.token);
+    assert.equal(reload.body.hesitation, false);
+    assert.equal(reload.body.reloadTicks, 90);
+  } finally {await server.close();}
+});
