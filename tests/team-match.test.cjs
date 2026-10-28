@@ -281,3 +281,39 @@ test('legacy overlapping team positions can separate without a collision soft-lo
   assert.throws(() => m.command('a', {seq: 3, type: 'move',
     direction: {x: 1, z: 0}, collider: false}), /invalid_command/);
 });
+
+test('abandoned lobby tokens expire and two new guests can start without server restart', () => {
+  let now = 0;
+  const m = new TeamMatch({now: () => now, timeoutMs: 30000});
+  m.join('abandoned-a', 'A');m.join('abandoned-b', 'B');
+  assert.throws(() => m.join('c', 'C'), /match_full/);
+  now = 30001;
+  m.join('c', 'C');m.join('d', 'D');
+  assert.deepEqual([...m.players.keys()], ['c', 'd']);
+  m.command('c', {seq: 1, type: 'ready'});
+  m.command('d', {seq: 1, type: 'ready'});
+  assert.equal(m.phase, 'playing');
+});
+
+test('lobby expiry keeps heartbeat-active guest and never silently evicts live rounds', () => {
+  let now = 0;
+  const m = new TeamMatch({now: () => now, timeoutMs: 30000});
+  m.join('a', 'A');m.join('b', 'B');
+  now = 25000;m.command('a', {seq: 1, type: 'heartbeat'});
+  now = 30001;m.step();
+  assert.equal(m.players.has('a'), true);
+  assert.equal(m.players.has('b'), false);
+  m.join('c', 'C');
+  assert.equal(m.players.get('c').team, 'blue');
+  m.command('a', {seq: 2, type: 'ready'});
+  m.command('c', {seq: 1, type: 'ready'});
+  assert.equal(m.phase, 'playing');
+  now = 60002;
+  assert.throws(() => m.join('d', 'D'), /match_full/,
+    'active match cannot be silently replaced by join');
+  m.step();
+  assert.equal(m.reason, 'connection_timeout');
+  now = 100003;m.step();
+  assert.equal(m.phase, 'lobby');
+  assert.equal(m.players.size, 0);
+});
