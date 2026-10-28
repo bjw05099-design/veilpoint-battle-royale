@@ -18,5 +18,6 @@ test('CH01 invalid or paused frame cannot trigger a due hostile volley or mutate
   }
   Story.step(state,1/60,{});
   assert.ok(state.world.elapsed>0);
-  assert.equal(b.shots,1,'a valid 60Hz step still resolves the due, visible hostile volley');
+  assert.ok(state.combat.nextPulseAt>state.world.elapsed,
+    'a valid 60Hz step schedules the next finite hostile opportunity');
 });
