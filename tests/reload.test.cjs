@@ -43,7 +43,7 @@ test('older v2 checkpoint cannot restore magical shield or extra rounds',()=>{
  old.player.charges=5;old.player.shield=90;
  const loaded=Story.restore(JSON.stringify(old));
  assert.equal(loaded.world.player.loaded,5);assert.equal(loaded.world.player.charges,5);
- assert.equal(loaded.world.player.shield,0);assert.equal(Sim.reload(loaded.world).reason,'no_reserve');
+ assert.equal(Object.hasOwn(loaded.world.player,'shield'),false);assert.equal(Sim.reload(loaded.world).reason,'no_reserve');
 });
 test('invalid magazine save fields are rejected',()=>{
  const base=JSON.parse(Story.serialize(Story.createState()));

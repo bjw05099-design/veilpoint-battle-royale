@@ -122,7 +122,7 @@
       remaining:i%2===0?12:24,picked:false}));
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,shield:0,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
+      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -157,8 +157,8 @@
   }
   function receiveDamage(game, damage) {
     if (!game.player.alive || damage<=0) return;
-    // Legacy shield state is inert: received damage always affects health.
-    game.player.shield=0;
+    // Discard any injected legacy shield state; no shield exists in the live world.
+    if(Object.prototype.hasOwnProperty.call(game.player,'shield'))delete game.player.shield;
     game.player.stress=clamp((game.player.stress||0)+damage*1.15,0,100);
     game.player.health=Math.max(0, game.player.health-damage);
     game.damageFlash=0.45;

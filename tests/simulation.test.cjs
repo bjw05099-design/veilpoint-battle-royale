@@ -14,10 +14,10 @@ test('phase radius always decreases',()=>{
 });
 test('battle royale damage directly affects health even if legacy shield is injected',()=>{
  const a=S.newMatch(2,0);
- assert.equal(a.player.shield,0);
+ assert.equal(Object.hasOwn(a.player,'shield'),false);
  a.player.shield=90;
  S.receiveDamage(a,50);
- assert.equal(a.player.shield,0);
+ assert.equal(Object.hasOwn(a.player,'shield'),false);
  assert.equal(a.player.health,50);
  S.receiveDamage(a,50);
  assert.equal(a.player.health,0);
@@ -36,11 +36,11 @@ test('all battle royale pickups are finite ammunition and cannot instantly resto
  a.loot.forEach(item=>{item.x=130;item.z=130;});
  const ammo=a.loot.find(x=>x.kind==='ammo');ammo.x=0;ammo.z=0;
  assert.equal(S.pickup(a),'ammo');assert.equal(a.player.charges,37);
- assert.equal(a.player.health,35);assert.equal(a.player.shield,0);
+ assert.equal(a.player.health,35);assert.equal(Object.hasOwn(a.player,'shield'),false);
  assert.equal(S.pickup(a),null);
  const magazine=a.loot.find(x=>x.kind==='magazine'&&x.weaponId===a.player.weaponId);magazine.x=0;magazine.z=0;
  assert.equal(S.pickup(a),'magazine');assert.equal(a.player.charges,60);
- assert.equal(a.player.health,35);assert.equal(a.player.shield,0);
+ assert.equal(a.player.health,35);assert.equal(Object.hasOwn(a.player,'shield'),false);
  const next=a.loot.find(x=>!x.picked);next.x=0;next.z=0;
  assert.equal(S.pickup(a),null);
  assert.equal(next.picked,false);

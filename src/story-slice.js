@@ -50,7 +50,6 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
-    world.player.shield=0;
     return world;
   }
   function gateOpen(state) {
@@ -295,7 +294,7 @@
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
-    state.world.player.shield=0;
+    if(hasOwn(state.world.player,'shield'))delete state.world.player.shield;
     state.subtitle='김지윤(국정원): 현지 구조단이 공유한 대피소 수신 시각은 04:07입니다. 제 정보는 현장 확인 전이니 기록과 대조해 주세요.';
     state.message='출처 명시된 무선 보고 · 현장 검증 필요';
     return {ok:true,event:'support',report:true};
@@ -409,7 +408,10 @@
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
-        (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용했습니다.':' 표시된 유한 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 E로 확보할 수 있습니다.');
+        (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용되어 소진되었습니다.':
+        state.world.player.charges>=state.world.player.maxCharges
+          ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'
+          :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -560,7 +562,7 @@
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
-    for(const key of ['x','z','yaw','pitch','stamina','health','shield','charges'])state.world.player[key]=key==='shield'?0:data.player[key];
+    for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
     state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.FIREARMS[weaponId].magazine,data.player.charges);
     state.world.player.reloadRemaining=hasOwn(data.player,'reloadRemaining')?data.player.reloadRemaining:0;
