@@ -168,7 +168,13 @@ test('HTTP server rejects client-authored damage and applies finite combat on th
     assert.equal(defender.health, 100);
     const shot = await post('/command', {seq: 2, type: 'fire'}, a.token);
     assert.equal(shot.status, 200);
-    assert.equal(shot.body.hit, true);
+    assert.deepEqual(shot.body, {ok: true, ammo: 11});
+    assert.equal(defender.health, 66);
+    // A missed shot has the same public response shape: no hidden hit sensor.
+    defender.x = -5;
+    for (let i = 0; i < 18; i++) server.match.step();
+    const miss = await post('/command', {seq: 3, type: 'fire'}, a.token);
+    assert.deepEqual(miss.body, {ok: true, ammo: 10});
     assert.equal(defender.health, 66);
     const view = await fetch(base + '/state', {headers: {'x-player-token': a.token}});
     const snapshot = await view.json();
