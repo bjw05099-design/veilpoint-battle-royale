@@ -85,12 +85,16 @@ test('BR pickups reject incompatible class ammunition without consumption or res
   assert.match(g.message,/INCOMPATIBLE/);
   incompatible.x=100;incompatible.z=100;
   compatible.x=0;compatible.z=0;
+  const initialStock=compatible.remaining;
+  const taken=Math.min(initialStock,g.player.maxCharges-before);
   assert.equal(Sim.pickup(g),compatible.kind);
-  assert.equal(compatible.picked,true);
-  assert.ok(g.player.charges>before&&g.player.charges<=g.player.maxCharges);
+  assert.equal(g.player.charges,before+taken);
+  assert.equal(compatible.remaining,initialStock-taken);
+  assert.equal(compatible.picked,compatible.remaining===0);
   const after=g.player.charges;
   assert.equal(Sim.pickup(g),null);
   assert.equal(g.player.charges,after);
+  assert.equal(compatible.remaining,initialStock-taken);
  }
 });
 
