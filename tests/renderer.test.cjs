@@ -76,6 +76,7 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  const state=Story.createState();
  const gate=state.world.obstacles.find(o=>o.routeId==='east-checkpoint');
  assert.ok(gate);
+ const initialX=gate.x;
  assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),true);
  const boxes=[];
  const originalBox=renderer.dynamic.box.bind(renderer.dynamic);
@@ -104,10 +105,10 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  assert.equal(Story.choose(state,'verification').ok,true);
  for(let i=0;i<Story.GATE_CLEARANCE_SECONDS*60+1;i++)Story.step(state,1/60,{});
  assert.equal(Story.situation(state).eastGateOpen,true);
- assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),false);
+ assert.equal(Sim.blocked(initialX,gate.z,.85,state.world.obstacles),false);
  renderer.draw(state.world);
  assert.equal(boxes.length,2,'the barrier must move rather than disappear');
- assert.equal(boxes[1].x,gate.x-12,'opened gate is parked clear of the passage');
+ assert.equal(boxes[1].x,initialX-12,'opened gate is parked clear of the passage');
  const openCount=renderer.dynamic.count;
  const withoutGate={...state.world,obstacles:state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint')};
  renderer.draw(withoutGate);
