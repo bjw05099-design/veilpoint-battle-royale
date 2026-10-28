@@ -36,7 +36,10 @@
   const normalizeAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
   function rngFromSeed(seed) {
     let v = (seed >>> 0) || 1;
-    return function () { v ^= v << 13; v ^= v >>> 17; v ^= v << 5; return (v >>> 0) / 4294967296; };
+    const next = function () { v ^= v << 13; v ^= v >>> 17; v ^= v << 5; return (v >>> 0) / 4294967296; };
+    next.getState = () => v >>> 0;
+    next.setState = state => { if (!Number.isInteger(state) || state < 1 || state > 0xffffffff) throw new RangeError('Invalid RNG state'); v = state >>> 0; };
+    return next;
   }
   function intersectsCircleAABB(x, z, r, o) {
     const xx = clamp(x, o.x - o.w / 2, o.x + o.w / 2);
@@ -429,5 +432,105 @@
     game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  // Offline BR checkpoints preserve the random stream as well as the visible world.
+  // All persisted fields are explicitly bounded; old or modified localStorage cannot
+  // inject shields, health regeneration, infinite ammunition or arbitrary object keys.
+  const CHECKPOINT_VERSION = 1;
+  const finite = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  const integer = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  function checkedFields(source, fields) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) throw new RangeError('Invalid checkpoint object');
+    const result = {};
+    for (const [key, min, max, whole] of fields) {
+      if (!(whole ? integer(source[key], min, max) : finite(source[key], min, max)))
+        throw new RangeError('Invalid checkpoint field: ' + key);
+      result[key] = source[key];
+    }
+    return result;
+  }
+  const POSITION_FIELDS = [['x',-WORLD,WORLD],['z',-WORLD,WORLD]];
+  const PLAYER_FIELDS = [...POSITION_FIELDS,['yaw',-100000,100000],['pitch',-.35,.35],
+    ['health',0,100],['charges',0,96,true],['maxCharges',1,96,true],['loaded',0,24,true],
+    ['reloadRemaining',0,10],['stamina',0,100],['stress',0,100]];
+  const BOT_FIELDS = [...POSITION_FIELDS,['id',0,MAX_BOTS-1,true],['health',0,100],
+    ['angle',-Math.PI,2*Math.PI],['moveTime',-1,10],['actionTime',-3600,10],['skill',0,1],
+    ['loaded',0,MAGAZINE_SIZE,true],['charges',0,36,true],['reloadRemaining',0,RELOAD_SECONDS],
+    ['lastSeenX',-WORLD-1,WORLD+1],['lastSeenZ',-WORLD-1,WORLD+1],['lastSeenUntil',0,3605]];
+  const LOOT_FIELDS = [...POSITION_FIELDS,['id',0,39,true],['remaining',0,24,true]];
+  function snapshotMatch(game) {
+    if (!game || game.status !== 'playing' || !game.random || typeof game.random.getState !== 'function')
+      throw new RangeError('Only active BR matches can be checkpointed');
+    return JSON.stringify({version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
+      status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
+      player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
+        alive:game.player.alive,reloadAssist:game.player.reloadAssist,
+        reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
+      bots:game.bots.map(b=>({...checkedFields(b,BOT_FIELDS),alive:b.alive})),
+      loot:game.loot.map(item=>({...checkedFields(item,LOOT_FIELDS),kind:item.kind,
+        weaponId:item.weaponId,picked:item.picked})),
+      zone:checkedFields(game.zone,[...POSITION_FIELDS,['radius',0,170],
+        ['phase',0,ZONE_PHASES.length-1,true],['phaseRemaining',0,999]]),
+      effects:game.effects.map(e=>({...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type})),
+      message:game.message,messageTime:game.messageTime,
+      lastTagAt:game.lastTagAt,recentDamage:game.recentDamage});
+  }
+  function restoreMatch(serialized) {
+    let saved;
+    try { saved = typeof serialized === 'string' ? JSON.parse(serialized) : serialized; }
+    catch (_) { throw new RangeError('Malformed BR checkpoint'); }
+    if (!saved || saved.version !== CHECKPOINT_VERSION || saved.status !== 'playing' ||
+        !integer(saved.seed,0,Number.MAX_SAFE_INTEGER) || !integer(saved.rngState,1,0xffffffff) ||
+        !finite(saved.elapsed,0,3600) || !integer(saved.kills,0,MAX_BOTS) ||
+        !Array.isArray(saved.bots) || saved.bots.length>MAX_BOTS || saved.kills>saved.bots.length ||
+        !Array.isArray(saved.loot) || saved.loot.length!==40 ||
+        !Array.isArray(saved.effects) || saved.effects.length>256 ||
+        typeof saved.message!=='string' || saved.message.length>120)
+      throw new RangeError('Invalid BR checkpoint');
+    const weaponId=saved.player && saved.player.weaponId;
+    if (!Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)) throw new RangeError('Unknown saved firearm');
+    const firearm=FIREARMS[weaponId];
+    const p={...checkedFields(saved.player,PLAYER_FIELDS),weaponId,
+      alive:saved.player.alive===true,reloadAssist:saved.player.reloadAssist===true,
+      reloadHesitation:saved.player.reloadHesitation===true,
+      sprintExhausted:saved.player.sprintExhausted===true};
+    if (!p.alive || p.health<=0 || p.charges>p.maxCharges || p.maxCharges!==firearm.maxRounds ||
+        p.loaded>firearm.magazine || p.loaded>p.charges ||
+        (p.reloadHesitation && p.reloadRemaining<=0)) throw new RangeError('Invalid player inventory');
+    const bots=saved.bots.map((raw,i)=>{
+      const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive===true};
+      if (b.id!==i || b.loaded>b.charges || (b.alive && b.health<=0) || (!b.alive && b.health>0))
+        throw new RangeError('Invalid opponent state');
+      return b;
+    });
+    const loot=saved.loot.map((raw,i)=>{
+      const item={...checkedFields(raw,LOOT_FIELDS),kind:raw.kind,weaponId:raw.weaponId,
+        picked:raw.picked===true};
+      if (item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
+          !Object.prototype.hasOwnProperty.call(FIREARMS,item.weaponId) ||
+          item.remaining>(i%2===0?12:24) || item.picked!==(item.remaining===0))
+        throw new RangeError('Invalid pickup state');
+      return item;
+    });
+    const zone=checkedFields(saved.zone,[...POSITION_FIELDS,['radius',0,170],
+      ['phase',0,ZONE_PHASES.length-1,true],['phaseRemaining',0,999]]);
+    const expected=phaseAt(saved.elapsed);
+    if (zone.phase!==expected.phase || Math.abs(zone.radius-expected.radius)>1e-6 ||
+        Math.abs(zone.phaseRemaining-expected.phaseRemaining)>1e-6 || zone.x!==0 || zone.z!==0)
+      throw new RangeError('Invalid zone clock');
+    const effects=saved.effects.map(raw=>{
+      const e=checkedFields(raw,[...POSITION_FIELDS,['t',0,1]]);
+      if (raw.type!=='hit' && raw.type!=='hostile') throw new RangeError('Invalid effect');
+      return {...e,type:raw.type};
+    });
+    const extras=checkedFields(saved,[['damageFlash',0,1],['messageTime',0,10],
+      ['lastTagAt',-2,3600],['recentDamage',0,100]]);
+    const game=newMatch(saved.seed,bots.length,weaponId);
+    Object.assign(game,{status:'playing',elapsed:saved.elapsed,kills:saved.kills,
+      damageFlash:extras.damageFlash,player:p,bots,loot,zone,effects,
+      message:saved.message,messageTime:extras.messageTime,
+      lastTagAt:extras.lastTagAt,recentDamage:extras.recentDamage});
+    game.random.setState(saved.rngState);
+    return game;
+  }
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });
