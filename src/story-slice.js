@@ -516,6 +516,9 @@
         (hasOwn(c,'supplyRemaining')&&c.supplyRemaining!==12)||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
+      // A checkpoint with no surviving opponents but no cleared transition
+      // cannot ever unlock records. Reject it instead of restoring a soft-lock.
+      (data.phase==='engagement'&&c.drones.length===3&&c.drones.every(b=>!b.alive))||
       (['records','decision','exit','complete'].includes(data.phase)&&!c.cleared)||
       (c.cleared&&c.drones.some(b=>b.alive))||
       (data.phase==='failed'&&p.health!==0)||
