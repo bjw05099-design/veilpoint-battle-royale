@@ -29,15 +29,25 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
     assert.equal((await post('/command', {seq: 1, type: 'ready'}, b.data.token)).status, 200);
     assert.equal((await state(a.data.token)).data.phase, 'playing');
     assert.equal((await post('/command', {seq: 2, type: 'move', direction: {x: 1, z: 0}}, a.data.token)).status, 200);
-    for (let i = 0; i < 107; i++) server.match.step();
+    for (let i = 0; i < 107; i++) {
+      server.match.step();
+      if (i === 59) assert.equal((await post('/command', {seq: 3, type: 'move',
+        direction: {x: 1, z: 0}}, a.data.token)).status, 200);
+    }
     assert.ok((await state(a.data.token)).data.self.x > -1);
-    assert.equal((await post('/command', {seq: 2, type: 'ready'}, a.data.token)).status, 400);
-    assert.equal((await post('/command', {seq: 3, type: 'capture', active: true}, a.data.token, 'https://attacker.example')).status, 403);
+    assert.equal((await post('/command', {seq: 3, type: 'ready'}, a.data.token)).status, 400);
+    assert.equal((await post('/command', {seq: 4, type: 'capture', active: true}, a.data.token, 'https://attacker.example')).status, 403);
     assert.equal((await state('invalid')).status, 400);
     assert.deepEqual((await state(a.data.token)).data.score, {red: 0, blue: 0});
     assert.equal((await post('/command', {seq: 4, type: 'move', direction: {x: 0, z: 0}}, a.data.token)).status, 200);
     assert.equal((await post('/command', {seq: 5, type: 'capture', active: true}, a.data.token)).status, 200);
-    for (let i = 0; i < 360; i++) server.match.step();
+    let captureSeq = 5;
+    for (let i = 0; i < 360; i++) {
+      server.match.step();
+      if ((i + 1) % 60 === 0 && server.match.phase === 'playing')
+        assert.equal((await post('/command', {seq: ++captureSeq, type: 'capture', active: true},
+          a.data.token)).status, 200);
+    }
     const result = (await state(b.data.token)).data;
     assert.equal(result.phase, 'ended');
     assert.equal(result.winner, 'red');
