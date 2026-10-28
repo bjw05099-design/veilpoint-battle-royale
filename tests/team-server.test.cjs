@@ -181,9 +181,9 @@ test('HTTP server rejects client-authored damage and applies finite combat on th
     assert.equal(snapshot.self.ammo, 11);
     assert.equal(snapshot.self.health, 100);
     assert.ok(snapshot.visible.every(p => !Object.hasOwn(p, 'health')));
-    assert.equal((await post('/command', {seq: 3, type: 'reload'}, a.token)).status, 200);
+    assert.equal((await post('/command', {seq: 4, type: 'reload'}, a.token)).status, 200);
     assert.equal(attacker.reloadTicks, 90);
-    assert.equal((await post('/command', {seq: 4, type: 'fire'}, a.token)).body.reason, 'reloading');
+    assert.equal((await post('/command', {seq: 5, type: 'fire'}, a.token)).body.reason, 'reloading');
   } finally {await server.close();}
 });
 
