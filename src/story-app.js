@@ -17,6 +17,9 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
   let checkpoint=null;
+  // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
+  const AUTOSAVE_SECONDS=5;
+  let lastAutosaveAt=0;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   const isTouch=global.matchMedia('(pointer:coarse)').matches;
   const clearInput=()=>{for(const key in input)input[key]=false;};
@@ -33,6 +36,7 @@
   function persist(){
     const raw=Story.serialize(state);
     checkpoint=raw;
+    lastAutosaveAt=state.world.elapsed;
     return storage.set(SAVE_KEY,raw);
   }
   function recordCompletion(){
@@ -87,7 +91,10 @@
   }
   function resume(){
     if(!renderer)return;
-    if(state.phase==='complete'||state.phase==='failed')state=Story.createState($('storyWeapon').value);
+    if(state.phase==='complete'||state.phase==='failed'){
+      state=Story.createState($('storyWeapon').value);
+      lastAutosaveAt=state.world.elapsed;
+    }
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
@@ -105,6 +112,7 @@
       state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
     }
     $('storyWeapon').value=state.world.player.weaponId;
+    lastAutosaveAt=state.world.elapsed;
     resume();
   }
   function showChoices(){
@@ -318,6 +326,11 @@
     }
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
+    // A browser crash or refresh during quiet traversal must not rewind an entire
+    // mission segment. This uses simulated time, so paused/background tabs cannot
+    // generate repeated writes or advance hostile attacks.
+    if(running&&state.phase!=='complete'&&state.phase!=='failed'&&
+       state.world.elapsed-lastAutosaveAt>=AUTOSAVE_SECONDS)persist();
     if(running&&state.phase==='failed'){
       persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
     }
