@@ -231,3 +231,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-03/R-12/R-23 (partial):** The local 60Hz authoritative match expires an abandoned pointer-aim override after 90 simulation ticks even when a heartbeat continues. A live browser client renews a held stationary pointer direction at a bounded 20-tick cadence; pointerleave, background suspension and tab resume still release aim. When aim expires, active movement regains facing control without teleportation, client-supplied target/damage or hidden information. This addresses stale aim after lost pointer events without weakening valid stationary aiming.
 - **Evidence boundary:** deterministic rule tests and mock-browser input tests accompany the candidate. GitHub CI and actual two-browser manual play must be checked separately. This remains a localhost 2D server-authoritative prototype, not production online multiplayer or verified native UE, human realism, RTX 3070 QHD 165Hz performance or complete release readiness.
+
+
+## 2026-10-28 — BR / CH01 standing-body footprint consistency (P0 candidate)
+
+- **R-04/R-13/R-21/R-23 (partial):** The offline BR and CH01 fixed-step controllers now use standing-actor collision proxies sized to the corresponding authored actor radii (BR 0.85m; CH01 human opponent 0.75m, player 0.85m). Previously undersized proxies could let living actors visually overlap. Existing deterministic 60Hz, legacy-overlap escape and player/AI contact regressions now require separation consistent with those radius sums.
+- **Evidence boundary:** AABB bodies remain a coarse 2D gameplay approximation; no animated character mesh, physically measured movement, real-browser capture, Unreal physics, production multiplayer or independent realism review is established. CI must pass at the exact branch/merge SHA before considering this candidate validated. Issue #15 remains a release blocker.
