@@ -11,6 +11,7 @@
   const RELOAD_HESITATION_SECONDS = 0.6, STRESS_THRESHOLD = 60;
   // Grounded arm's-reach interaction, not a three-metre remote loot vacuum.
   const PICKUP_REACH = 1.8;
+  const ACTOR_RADIUS = 0.85; // Shared BR actor footprint for standing-body collision.
   // Original fictional class profiles; gameplay approximations, not real firearm instructions.
   // 'charges' remains the total carried rounds, including those in the current magazine.
   const FIREARMS = Object.freeze({
@@ -117,8 +118,8 @@
     return [game.player,...game.bots]
       .filter(other=>other!==actor&&other!==except&&other.alive&&
         (!ignoreOverlaps||!intersectsCircleAABB(actor.x,actor.z,.85,
-          {x:other.x,z:other.z,w:1.2,d:1.2})))
-      .map(other=>({x:other.x,z:other.z,w:1.2,d:1.2}));
+          {x:other.x,z:other.z,w:ACTOR_RADIUS*2,d:ACTOR_RADIUS*2})))
+      .map(other=>({x:other.x,z:other.z,w:ACTOR_RADIUS*2,d:ACTOR_RADIUS*2}));
   }
   function receiveDamage(game, damage) {
     if (!game.player.alive || damage<=0) return;

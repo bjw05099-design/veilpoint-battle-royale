@@ -8,7 +8,7 @@ test('CH01 standing opponents physically block player movement but incapacitated
   const s=spawn(),p=s.world.player,b=s.world.bots[0];
   p.x=0;p.z=-23;p.yaw=0;
   for(let i=0;i<120;i++)Story.step(s,1/60,{forward:true});
-  assert.ok(p.z>b.z+1.4,'controller must not cross a standing opponent');
+  assert.ok(p.z>=b.z+1.6-1e-7,'player and hostile collision footprints cannot overlap');
   b.health=0;b.alive=false;
   for(let i=0;i<80;i++)Story.step(s,1/60,{forward:true});
   assert.ok(p.z<b.z,'cleared route must become physically traversable');
