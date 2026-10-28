@@ -126,7 +126,9 @@
   }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
-    const t=clamp(Number.isFinite(dt)?dt:0,0,.05),p=state.world.player;
+    // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
+    if(!Number.isFinite(dt)||dt<=0)return state;
+    const t=clamp(dt,0,.05),p=state.world.player;
     const wasGateOpen=gateOpen(state);
     let ix=Number(!!input.right)-Number(!!input.left);
     let iz=Number(!!input.forward)-Number(!!input.back);

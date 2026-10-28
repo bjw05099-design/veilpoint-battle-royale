@@ -7,6 +7,7 @@
   const Story=global.VeilpointStorySlice;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
+  const Audio=global.VeilpointStoryAudio;
   const SAVE_KEY='veilpoint.story.ch01';
   const PREVIEW_KEY='veilpoint.story.ch01PreviewCompleted';
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
@@ -41,6 +42,13 @@
     if(report)storage.set(PREVIEW_KEY,JSON.stringify(report));
     return report;
   }
+  const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
+    enabled:storage.get('veilpoint.story.audio')!=='off'});
+  $('soundEnabled').checked=audio.enabled();
+  $('soundEnabled').addEventListener('change',()=>{
+    audio.setEnabled($('soundEnabled').checked);
+    storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
+  });
   let settings=Graphics.fromPreset('balanced');
   try{const raw=storage.get('veilpoint.graphics');if(raw)settings=Graphics.deserialize(raw);}catch(_){}
   function applyQuality(){
@@ -119,6 +127,7 @@
     if(!running||state.phase==='complete')return;
     const result=Story.interact(state);
     if(!result.ok)return;
+    audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'){showChoices();return;}
     if(state.phase==='complete'){
@@ -130,7 +139,7 @@
   function fire(){
     if(!running)return;
     const result=Story.fire(state);
-    if(result.ok){persist();updateHud();}
+    if(result.ok){audio.play('shot');persist();updateHud();}
   }
   function reload(){
     if(!running||state.phase!=='engagement')return;
@@ -139,7 +148,7 @@
       state.subtitle='이수혁 대위: 장전 동작이 안정되면 R키 또는 장전 버튼을 다시 눌러 복구할 수 있습니다.';
       updateHud();return;
     }
-    if(result.ok){persist();updateHud();}
+    if(result.ok){audio.play('reload');persist();updateHud();}
   }
   function toggleReloadAssist(){
     if(!running)return;
@@ -149,7 +158,7 @@
   function support(){
     if(!running)return;
     const result=Story.support(state);
-    if(result.ok){persist();updateHud();}
+    if(result.ok){audio.play('report');persist();updateHud();}
   }
   $('continue').addEventListener('click',()=>begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
@@ -294,7 +303,9 @@
     if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
     // A hostile hit is a durable gameplay consequence. Save once per actual
     // damage event, never every 60Hz tick; terminal failure saves below.
-    if(running&&state.phase==='engagement'&&state.world.player.health<healthBefore)persist();
+    if(running&&state.phase==='engagement'&&state.world.player.health<healthBefore){
+      audio.play('impact');persist();
+    }
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
     if(running&&state.phase==='failed'){
