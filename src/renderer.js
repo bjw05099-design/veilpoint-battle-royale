@@ -144,8 +144,11 @@ class Renderer {
  // Keep full geometry near the camera; remove only off-camera or distant pylons.
  for(const point of plan.zone)mesh.box(point.x,0,point.z,.19,2.5,.19,[.24,.52,.82]);
  for(const e of plan.effects){
-  const c=e.type==='hit'?[1,.6,.22]:e.type==='hostile'?[.89,.20,.19]:[.67,.80,1];
-  mesh.box(e.x,.8,e.z,.34,.34,.34,c);
+  // The prototype previously drew glowing blue/red cubes in mid-air. Replace
+  // them with brief muted ground debris or a small warm muzzle cue; no
+  // persistent energy projectiles, magical hit markers or neon impact boxes.
+  if(e.type==='hit')mesh.box(e.x,.025,e.z,.22,.06,.22,[.36,.33,.28]);
+  else if(e.type==='hostile')mesh.box(e.x,1.18,e.z,.16,.12,.16,[.68,.45,.24]);
  }
  mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data=[];
  }
