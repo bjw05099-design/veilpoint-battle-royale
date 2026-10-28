@@ -248,7 +248,7 @@ test('offline BR player cannot pass through a living opponent during 60Hz traver
  p.x=0;p.z=0;p.yaw=0;b.x=0;b.z=-4;b.angle=0;
  b.moveTime=999;b.actionTime=999;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
- assert.ok(p.z>=b.z+1.4,'player must remain behind the living opponent');
+ assert.ok(p.z>=b.z+1.7-1e-7,'BR actor collision respects both body radii');
  assert.equal(p.alive,true);
  b.alive=false;b.health=0;
  for(let i=0;i<90;i++)S.tick(g,1/60,{forward:true});
@@ -264,7 +264,7 @@ test('offline BR opposing actors cannot pass through each other and movement is 
  for(let i=0;i<120;i++){S.tick(a,1/60,{});S.tick(b,1/60,{});}
  const positions=g=>g.bots.map(bot=>[bot.x,bot.z,bot.health,bot.charges]);
  assert.deepEqual(positions(a),positions(b));
- assert.ok(Math.hypot(a.bots[0].x-a.bots[1].x,a.bots[0].z-a.bots[1].z)>=1.4);
+ assert.ok(Math.hypot(a.bots[0].x-a.bots[1].x,a.bots[0].z-a.bots[1].z)>=1.7-1e-7);
 });
 
 test('offline BR old overlapping actors can separate without collision deadlock',()=>{
