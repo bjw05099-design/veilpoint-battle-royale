@@ -314,12 +314,16 @@
       const initialStep=Math.hypot(b.x-startX,b.z-startZ);
       if(initialStep<botSpeed*dt*0.2){
         const side=b.id%2===0?1:-1;
-        // A fallback cannot add an extra full step to a partially moved actor.
-        const remainingDt=Math.max(0,dt-initialStep/botSpeed);
+        // Even if both sides are tested, cumulative travel cannot exceed the
+        // original single-step distance budget.
+        let travelled=initialStep;
         for(const direction of [side,-side]){
           const previousX=b.x,previousZ=b.z;
+          const remainingDt=Math.max(0,dt-travelled/botSpeed);
           moveEntity(b,-vz*direction,vx*direction,remainingDt,movementObstacles);
-          if(Math.hypot(b.x-previousX,b.z-previousZ)>=botSpeed*dt*0.2)break;
+          const sideStep=Math.hypot(b.x-previousX,b.z-previousZ);
+          travelled+=sideStep;
+          if(sideStep>=botSpeed*dt*0.2)break;
         }
       }
       const movedBot=Math.hypot(b.x-startX,b.z-startZ);
