@@ -469,7 +469,8 @@ test('CH01 clearance waits, blocks early exit and persists through checkpoint',(
   const loaded=story.restore(story.serialize(s));
   for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60-1;i++)story.step(loaded,1/60,{});
   assert.equal(story.situation(loaded).eastGateOpen,false);
-  assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),true);
+  const movingGate=loaded.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+  assert.ok(movingGate.x>15&&movingGate.x<27,'physical gate is nearly parked but clearance is pending');
   story.step(loaded,1/60,{});story.step(loaded,1/60,{});
   assert.equal(story.situation(loaded).eastGateOpen,true);
   assert.equal(Sim.blocked(27,-53,.85,loaded.world.obstacles),false);
@@ -697,4 +698,43 @@ test('CH01 completed debrief preserves causal choice, local authority and uncert
   assert.equal(v.intelligenceRole,'advisory-only');
   assert.equal(v.campaignUnlocked,false);
   assert.notDeepEqual(e,v);
+});
+
+test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and restores without teleporting',()=>{
+ const setup=()=>{
+  const s=reachDecision();
+  go(s,'recordA');assert.equal(story.interact(s).ok,true);
+  go(s,'recordB');assert.equal(story.interact(s).ok,true);
+  assert.equal(story.choose(s,'verification').ok,true);
+  return s;
+ };
+ const a=setup(),b=setup();
+ const gate=s=>s.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+ const initial=gate(a),obstacleArray=a.world.obstacles;
+ assert.equal(initial.type,'gate');
+ assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true);
+ for(let i=0;i<120;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
+ assert.equal(story.serialize(a),story.serialize(b),'the sliding gate is deterministic');
+ assert.equal(a.world.obstacles,obstacleArray,'fixed-step updates must not rebuild the entire collision array');
+ assert.equal(gate(a),initial,'the rendered and collided gate retains a stable live identity');
+ assert.ok(gate(a).x<27&&gate(a).x>15,'gate slides without vanishing');
+ assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true,'partial opening is not full clearance');
+ const paused=setup();
+ paused.world.player.x=20;paused.world.player.z=-53;
+ const before={x:paused.world.player.x,z:paused.world.player.z};
+ for(let i=0;i<480;i++)story.step(paused,1/60,{});
+ assert.deepEqual({x:paused.world.player.x,z:paused.world.player.z},before,'gate does not push or teleport the player');
+ assert.equal(story.situation(paused).eastGateOpen,false,'an occupied travel path delays clearance');
+ assert.match(story.objective(paused),/안전 정지.*벗어나/,'a blocked gate must not display a misleading countdown');
+ assert.match(story.situation(paused).route,/안전 정지/,'the same obstruction is visible in the route HUD');
+ assert.ok(paused.gateReadyAt>story.GATE_CLEARANCE_SECONDS);
+ const resumed=story.restore(story.serialize(paused));
+ assert.equal(gate(resumed).x,gate(paused).x,'save preserves partially obstructed gate position');
+ resumed.world.player.x=0;resumed.world.player.z=-41;
+ story.step(resumed,1/60,{});
+ assert.doesNotMatch(story.objective(resumed),/안전 정지/,'moving away clears the safety warning');
+ for(let i=0;i<480;i++)story.step(resumed,1/60,{});
+ assert.equal(story.situation(resumed).eastGateOpen,true);
+ assert.equal(Sim.blocked(27,-53,.85,resumed.world.obstacles),false);
+ assert.equal(gate(resumed).x,15,'opened gate remains parked in the world');
 });

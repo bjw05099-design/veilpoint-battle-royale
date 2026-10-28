@@ -66,3 +66,55 @@ test('renderer draws only planned visible geometry, preserving active simulation
  state.player.yaw=0;
  assert.equal(JSON.stringify(state),original);
 });
+
+test('CH01 checkpoint has matching visible WebGL geometry and collision until local clearance',()=>{
+ const Story=require('../src/story-slice.js');
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Story.createState();
+ const gate=state.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+ assert.ok(gate);
+ const initialX=gate.x;
+ assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),true);
+ const boxes=[];
+ const originalBox=renderer.dynamic.box.bind(renderer.dynamic);
+ renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
+  if(w===gate.w&&h===gate.h&&d===gate.d)boxes.push({x,z,w,h,d});
+  return originalBox(x,y,z,w,h,d,color);
+ };
+ const before=JSON.stringify(state.world);
+ renderer.draw(state.world);
+ assert.deepEqual(boxes,[{x:gate.x,z:gate.z,w:gate.w,h:gate.h,d:gate.d}]);
+ assert.equal(JSON.stringify(state.world),before,'rendering must not change mission state');
+ state.world.player.x=Story.POINTS.terminal.x;state.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(state).ok,true);
+ for(const opponent of state.world.bots){
+  for(let i=0;i<2;i++){
+   state.world.player.yaw=Math.atan2(opponent.x-state.world.player.x,-(opponent.z-state.world.player.z));
+   state.world.elapsed+=.21;
+   assert.equal(Story.fire(state).hit,true);
+  }
+ }
+ assert.equal(state.phase,'records');
+ for(const id of ['recordA','recordB','decision']){
+  state.world.player.x=Story.POINTS[id].x;state.world.player.z=Story.POINTS[id].z;
+  assert.equal(Story.interact(state).ok,true);
+ }
+ assert.equal(Story.choose(state,'verification').ok,true);
+ for(let i=0;i<Story.GATE_CLEARANCE_SECONDS*60+1;i++)Story.step(state,1/60,{});
+ assert.equal(Story.situation(state).eastGateOpen,true);
+ assert.equal(Sim.blocked(initialX,gate.z,.85,state.world.obstacles),false);
+ renderer.draw(state.world);
+ assert.equal(boxes.length,2,'the barrier must move rather than disappear');
+ assert.equal(boxes[1].x,initialX-12,'opened gate is parked clear of the passage');
+ const openCount=renderer.dynamic.count;
+ const withoutGate={...state.world,obstacles:state.world.obstacles.filter(o=>o.routeId!=='east-checkpoint')};
+ renderer.draw(withoutGate);
+ assert.equal(renderer.dynamic.count,openCount-36,'a parked gate contributes exactly one dynamic box');
+ const restored=Story.restore(Story.serialize(state));
+ renderer.draw(restored.world);
+ assert.equal(boxes.length,3,'checkpoint restore must render the same gate');
+ assert.deepEqual(boxes[2],boxes[1]);
+});

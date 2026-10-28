@@ -116,6 +116,14 @@ class Renderer {
  const mesh=this.dynamic,t=state.elapsed;mesh.data=[];
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
+ // Static geometry is generated from the BR base world. Story-specific route
+ // blockers must also be rendered from the live world or the player collides
+ // with an invisible checkpoint. A cleared route removes this mesh on the
+ // same frame as its collision body; do not cache a stale gate in static GPU data.
+ for(const obstacle of state.obstacles){
+  if(obstacle.routeId==='east-checkpoint')
+   mesh.box(obstacle.x,0,obstacle.z,obstacle.w,obstacle.h,obstacle.d,[.30,.35,.36]);
+ }
  for(const {entity:b,lod} of plan.bots){
   const c=[.24,.29,.26],x=b.x,z=b.z;
   mesh.box(x,0.06,z,.7,1.3,.45,c);
