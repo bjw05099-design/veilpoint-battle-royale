@@ -273,10 +273,20 @@
     if(target){target.health=Math.max(0,target.health-firearm.damage);if(target.health===0){target.alive=false;game.kills++;game.message='OPPONENT ELIMINATED';game.messageTime=2.2;}}
     return {ok:true,hit:!!target,elimination:!!target&&!target.alive};
   }
+  // A pickup is physically accessible only within reach and without a solid wall
+  // between the player and the item. Shared by E/touch interaction and the HUD.
+  function canReachPickup(game,item) {
+    if(!item||item.picked||dist(item,game.player)>=3.7)return false;
+    return !lineBlocked(game.player.x,game.player.z,item.x,item.z,game.obstacles);
+  }
   function pickup(game) {
     if(game.status!=='playing') return null;
     let closest=null, nearest=3.7;
-    for(const item of game.loot){if(item.picked) continue; const d=dist(item,game.player);if(d<nearest){nearest=d;closest=item;}}
+    for(const item of game.loot){
+      if(!canReachPickup(game,item))continue;
+      const d=dist(item,game.player);
+      if(d<nearest){nearest=d;closest=item;}
+    }
     if(!closest) return null;
     const p=game.player;
     // Physical ammunition supply only; no pickup provides instant medical recovery or protection.
@@ -289,5 +299,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,newMatch,tick,tag,reload,advanceReload,updateStress,setReloadAssist,pickup,canReachPickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });

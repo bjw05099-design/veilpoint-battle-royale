@@ -145,7 +145,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  $('message').textContent=suspended&&running?'창 비활성 · 시뮬레이션 일시중지':s.messageTime>0?s.message:'';
- const nearby=s.loot.filter(l=>!l.picked&&Math.hypot(l.x-p.x,l.z-p.z)<3.7)
+ const nearby=s.loot.filter(l=>Game.canReachPickup(s,l))
   .sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
  $('pickupPrompt').style.display=nearby?'block':'none';
  if(nearby)$('pickupPrompt').textContent=nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
