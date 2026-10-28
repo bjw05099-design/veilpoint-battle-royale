@@ -3,8 +3,8 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const Sim=require('../src/simulation.js');
 const Story=require('../src/story-slice.js');
-const ids=['carbine','compact','marksman'];
-test('three original firearm profiles have distinct finite loadouts and reject unknown IDs',()=>{
+const ids=['carbine','compact','marksman','shotgun','support','sidearm','precision'];
+test('seven original firearm profiles have distinct finite loadouts and reject unknown IDs',()=>{
  assert.deepEqual(Object.keys(Sim.FIREARMS),ids);
  assert.throws(()=>Sim.newMatch(1,0,'__proto__'),RangeError);
  for(const id of ids){
@@ -20,7 +20,7 @@ test('class-specific shot damage, cadence and finite magazines do not leak ammun
  for(const id of ids){
   const profile=Sim.FIREARMS[id],g=Sim.newMatch(4,1,id);
   g.status='playing';g.player.x=0;g.player.z=0;g.player.yaw=0;
-  const b=g.bots[0];b.x=0;b.z=-20;b.health=100;
+  const b=g.bots[0];b.x=0;b.z=-12;b.health=100;
   const shot=Sim.tag(g);assert.equal(shot.ok,true);assert.equal(shot.hit,true);
   assert.equal(b.health,100-profile.damage);
   assert.equal(g.player.loaded,profile.magazine-1);
@@ -91,5 +91,51 @@ test('BR pickups reject incompatible class ammunition without consumption or res
   const after=g.player.charges;
   assert.equal(Sim.pickup(g),null);
   assert.equal(g.player.charges,after);
+ }
+});
+
+test('short-range profile cannot damage distant opponents; all seven classes use bounded sight',()=>{
+ for(const id of ids){
+  const g=Sim.newMatch(240,1,id);g.status='playing';
+  const p=g.player,b=g.bots[0];p.x=0;p.z=0;p.yaw=0;p.pitch=0;
+  b.x=0;b.z=-60;b.health=100;
+  const hit=Sim.tag(g);
+  assert.equal(hit.ok,true);
+  assert.equal(hit.hit,60<Sim.FIREARMS[id].range);
+  assert.equal(b.health,hit.hit?100-Sim.FIREARMS[id].damage:100);
+  assert.equal(p.charges,Sim.FIREARMS[id].initialRounds-1,'misses also spend finite ammunition');
+ }
+});
+test('each newly introduced class is selectable in BR and CH01 and survives a CH01 checkpoint',()=>{
+ const fs=require('node:fs');
+ const path=require('node:path');
+ const br=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const story=fs.readFileSync(path.join(__dirname,'../story.html'),'utf8');
+ for(const id of ids){
+  assert.match(br,new RegExp('<option value="'+id+'">'));
+  assert.match(story,new RegExp('<option value="'+id+'">'));
+  const state=Story.createState(id);
+  assert.equal(state.world.player.weaponId,id);
+  const restored=Story.restore(Story.serialize(state));
+  assert.equal(restored.world.player.weaponId,id);
+  assert.equal(restored.world.player.charges,Sim.FIREARMS[id].initialRounds);
+  assert.equal(restored.world.player.loaded,Sim.FIREARMS[id].magazine);
+ }
+});
+test('every class receives physically finite, compatible BR pickups without respawning',()=>{
+ for(const id of ids){
+  const g=Sim.newMatch(241,0,id);g.status='playing';
+  const p=g.player;
+  assert.ok(g.loot.some(item=>item.weaponId===id),'each class has map ammunition');
+  g.loot.forEach(item=>{item.x=120;item.z=120;});
+  const compatible=g.loot.find(item=>item.weaponId===id);
+  compatible.x=p.x;compatible.z=p.z;
+  p.charges=p.loaded;
+  const before=p.charges;
+  assert.equal(Sim.pickup(g),compatible.kind);
+  assert.ok(p.charges>before&&p.charges<=p.maxCharges);
+  const after=p.charges;
+  assert.equal(Sim.pickup(g),null);
+  assert.equal(p.charges,after);
  }
 });
