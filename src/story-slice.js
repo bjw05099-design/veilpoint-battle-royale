@@ -85,14 +85,14 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
-      combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,nextPulseAt:0},
+      combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
     return state;
   }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
-    if (state.phase==='engagement') return state.combat.supplyUsed?[]:[POINTS.supply];
+    if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision
@@ -252,7 +252,7 @@
     // Finite carried supply: no spontaneous ammunition or charge generation.
     // Starting a fresh mission is always available through the menu.
     if(state.world.player.charges===0){
-      const cacheAvailable=!state.combat.supplyUsed;
+      const cacheAvailable=state.combat.supplyRemaining>0;
       state.subtitle=cacheAvailable
         ?'유수프(현지 구조단): 표시된 유한 보급 상자에 남은 장비가 있어. 가까이 가서 E로 확보해.'
         :'마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
@@ -312,14 +312,19 @@
       state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(marker.id==='supply'&&state.phase==='engagement'){
-      // One physical, marked cache: twelve carried rounds maximum, never regenerated.
+      // A physical cache is not consumed wholesale when only one round fits.
+      // Remaining rounds stay at the same reachable location until collected.
       const p=state.world.player;
-      if(state.combat.supplyUsed)return {ok:false,reason:'already_used'};
+      if(state.combat.supplyRemaining===0)return {ok:false,reason:'already_used'};
       if(p.charges>=p.maxCharges)return {ok:false,reason:'inventory_full'};
-      p.charges=Math.min(p.maxCharges,p.charges+12);
-      state.combat.supplyUsed=true;
-      state.subtitle='유수프(현지 구조단): 표시해 둔 유한 보급 상자를 확보했어. 남은 장비로 안전을 확보해 줘.';
-      state.message='현지 구조단 보급 확보 · 추가 보급 없음';
+      const taken=Math.min(state.combat.supplyRemaining,p.maxCharges-p.charges);
+      p.charges+=taken;
+      state.combat.supplyRemaining-=taken;
+      state.combat.supplyUsed=state.combat.supplyRemaining===0;
+      state.subtitle='유수프(현지 구조단): 보급 상자에서 '+taken+'발을 확보했어. 상자 잔량은 '+state.combat.supplyRemaining+'발이야.';
+      state.message=state.combat.supplyUsed
+        ?'현지 구조단 보급 소진 · 추가 보급 없음'
+        :'보급 '+taken+'발 확보 · 상자 잔량 '+state.combat.supplyRemaining+'발';
     }else if(hasOwn(RECORDS,marker.id)&&(state.phase==='records'||state.phase==='decision')){
       if(state.found.includes(marker.id))return {ok:false,reason:'already_found'};
       state.found.push(marker.id);
@@ -404,7 +409,7 @@
     switch(state.phase){
       case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
-        (state.combat.supplyUsed?' 유한 보급은 이미 사용했습니다.':' 표시된 유한 보급 상자는 E로 확보할 수 있습니다.');
+        (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용했습니다.':' 표시된 유한 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
       case 'decision':return state.found.length===2
@@ -478,11 +483,15 @@
       throw new RangeError('Invalid checkpoint world state');
     const c=data.combat;
     if(!c||typeof c!=='object'||Array.isArray(c)||
-      ![5,6,7].includes(Object.keys(c).length)||
-      Object.keys(c).some(k=>!['started','cleared','supportUsed','supplyUsed','nextPulseAt','drones','lastShotAt'].includes(k))||
+      ![5,6,7,8].includes(Object.keys(c).length)||
+      Object.keys(c).some(k=>!['started','cleared','supportUsed','supplyUsed','supplyRemaining','nextPulseAt','drones','lastShotAt'].includes(k))||
       ['started','cleared','supportUsed','nextPulseAt','drones'].some(k=>!hasOwn(c,k))||
       ['started','cleared','supportUsed'].some(k=>typeof c[k]!=='boolean')||
       (hasOwn(c,'supplyUsed')&&typeof c.supplyUsed!=='boolean')||
+      (hasOwn(c,'supplyRemaining')&&
+        (!hasOwn(c,'supplyUsed')||!Number.isInteger(c.supplyRemaining)||
+         c.supplyRemaining<0||c.supplyRemaining>12||
+         c.supplyUsed!==(c.supplyRemaining===0)))||
       !Number.isFinite(c.nextPulseAt)||c.nextPulseAt<0||c.nextPulseAt>86410||
       // A forged far-future hostile timer would make a resumed encounter
       // artificially harmless. The authored volley interval is three seconds.
@@ -503,7 +512,8 @@
           (['lastSeenX','lastSeenZ','investigateUntil'].some(k=>!hasOwn(b,k)||!Number.isFinite(b[k]))||
            Math.abs(b.lastSeenX)>Sim.WORLD||Math.abs(b.lastSeenZ)>Sim.WORLD||
            b.investigateUntil<0||b.investigateUntil>data.elapsed+3+1e-6)))||
-      (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.supplyUsed===true||c.nextPulseAt!==0))||
+      (data.phase==='terminal'&&(c.started||c.cleared||c.supportUsed||c.supplyUsed===true||
+        (hasOwn(c,'supplyRemaining')&&c.supplyRemaining!==12)||c.nextPulseAt!==0))||
       (data.phase!=='terminal'&&!c.started)||
       (['engagement','failed'].includes(data.phase)&&c.cleared)||
       (['records','decision','exit','complete'].includes(data.phase)&&!c.cleared)||
@@ -558,7 +568,11 @@
     state.world.player.sprintExhausted=hasOwn(data.player,'sprintExhausted')
       ?data.player.sprintExhausted:data.player.stamina<=1;
     state.combat={started:data.combat.started,cleared:data.combat.cleared,
-      supportUsed:data.combat.supportUsed,supplyUsed:hasOwn(data.combat,'supplyUsed')?data.combat.supplyUsed:false,
+      supportUsed:data.combat.supportUsed,
+      supplyRemaining:hasOwn(data.combat,'supplyRemaining')?data.combat.supplyRemaining:
+        (data.combat.supplyUsed?0:12),
+      supplyUsed:hasOwn(data.combat,'supplyRemaining')
+        ?data.combat.supplyRemaining===0:!!data.combat.supplyUsed,
       nextPulseAt:data.combat.nextPulseAt};
     state.world.bots=data.combat.drones.map((b,i)=>({...makeHostiles()[i],health:b.health,alive:b.alive,shots:hasOwn(b,'shots')?b.shots:0,
       ...(hasOwn(b,'x')?{x:b.x,z:b.z,angle:b.angle}:{}),
