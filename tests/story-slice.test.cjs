@@ -839,3 +839,42 @@ test('CH01 injured movement remains deterministic and checkpoint-compatible',()=
  assert.equal(story.serialize(resumed),story.serialize(injured));
  assert.match(fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8'),/이동 능력/);
 });
+
+test('CH01 visible hostile shots can miss at range while still consuming finite rounds',()=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  const [hostile,...others]=s.world.bots;
+  for(const other of others){other.alive=false;other.health=0;}
+  s.world.player.x=0;s.world.player.z=12;
+  for(let i=0;i<190;i++)story.step(s,1/60,{});
+  assert.equal(hostile.shots,1);
+  assert.equal(s.world.player.health,96,'the first observed shot lands');
+  for(let i=0;i<190;i++)story.step(s,1/60,{});
+  assert.equal(hostile.shots,2,'a miss must still spend one finite round');
+  assert.equal(s.world.player.health,96,'the second aimed shot can miss at distance');
+  const saved=story.serialize(s),resumed=story.restore(saved);
+  assert.equal(story.serialize(resumed),saved);
+  for(let i=0;i<190;i++){story.step(s,1/60,{});story.step(resumed,1/60,{});}
+  assert.equal(story.serialize(resumed),story.serialize(s),'shot outcomes replay after checkpoint restore');
+});
+test('CH01 hostile accuracy responds to actual movement, not input alone',()=>{
+  const make=()=>{
+    const s=story.createState();go(s,'terminal');story.interact(s);
+    for(const hostile of s.world.bots.slice(0,2)){hostile.alive=false;hostile.health=0;}
+    s.world.player.x=-15;s.world.player.z=-24;
+    s.combat.nextPulseAt=s.world.elapsed;
+    return s;
+  };
+  const stationary=make(),moving=make(),blockedInput=make();
+  // A held input against solid cover does not count as evasive travel.
+  blockedInput.world.obstacles.push({x:-13.7,z:-24,w:1,d:3,h:2,type:'cover'});
+  story.step(stationary,1/60,{});
+  story.step(moving,1/60,{right:true});
+  story.step(blockedInput,1/60,{right:true});
+  assert.equal(stationary.world.bots[2].shots,1);
+  assert.equal(moving.world.bots[2].shots,1);
+  assert.equal(blockedInput.world.bots[2].shots,1);
+  assert.equal(stationary.world.player.health,96);
+  assert.equal(moving.world.player.health,100,'real lateral movement can make the shot miss');
+  assert.equal(blockedInput.world.player.health,96,'blocked input does not grant a magical evasion bonus');
+  assert.equal(stationary.world.player.charges,moving.world.player.charges);
+});
