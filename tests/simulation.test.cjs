@@ -474,3 +474,35 @@ test('BR hidden opponent investigates only last audible sprint position at 60Hz'
  assert.ok(a.elapsed>a.bots[0].lastSeenUntil,'footstep memory expires');
  assert.equal(a.player.health,100);
 });
+
+test('gunfire sound has finite cover-attenuated reach and an imprecise location',()=>{
+ const source={x:1.3,z:0.7},far={x:1.3,z:-25};
+ const wall=[{x:1.3,z:-12,w:4,d:1}];
+ assert.equal(S.hearsImpulse(far,source,[]),true);
+ assert.equal(S.hearsImpulse(far,source,wall),false);
+ assert.equal(S.hearsImpulse({x:1.3,z:-14},source,wall),true);
+ assert.deepEqual(S.approximateSoundPosition(source),{x:2,z:0});
+});
+test('BR a missed finite shot alerts a nearby hidden opponent without authorizing damage',()=>{
+ const make=(wall=false)=>{
+  const g=S.newMatch(400,1),b=g.bots[0];
+  g.status='playing';g.player.x=0;g.player.z=0;g.player.yaw=Math.PI;
+  b.x=0;b.z=-20;b.angle=0;b.moveTime=999;b.actionTime=999;
+  b.lastSeenUntil=0;
+  if(wall)g.obstacles.push({x:0,z:-10,w:4,d:1});
+  return g;
+ };
+ const a=make(),b=make(),occluded=make(true);
+ const before=a.player.charges;
+ assert.equal(S.tag(a).hit,false);
+ assert.equal(S.tag(b).hit,false);
+ assert.equal(a.player.charges,before-1);
+ assert.equal(a.bots[0].health,100);
+ assert.equal(a.bots[0].lastSeenZ,0);
+ assert.ok(a.bots[0].lastSeenUntil>a.elapsed);
+ assert.deepEqual([a.bots[0].lastSeenX,a.bots[0].lastSeenUntil],
+   [b.bots[0].lastSeenX,b.bots[0].lastSeenUntil]);
+ assert.equal(S.tag(occluded).ok,true);
+ assert.equal(occluded.bots[0].lastSeenUntil,0);
+ assert.equal(occluded.bots[0].health,100);
+});

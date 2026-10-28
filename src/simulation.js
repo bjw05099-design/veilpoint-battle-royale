@@ -69,6 +69,17 @@
     if (distance > 12) return false;
     return distance <= (lineBlocked(listener.x, listener.z, source.x, source.z, obstacles) ? 6 : 12);
   }
+  // Gunfire can be heard farther than footsteps, but cover attenuates it.
+  // A coarse 2 m source estimate prevents acoustic detection from acting
+  // as a perfect location feed. These radii are uncalibrated game abstractions.
+  function hearsImpulse(listener, source, obstacles) {
+    const distance = dist(listener, source);
+    if (distance > 38) return false;
+    return distance <= (lineBlocked(listener.x, listener.z, source.x, source.z, obstacles) ? 18 : 38);
+  }
+  function approximateSoundPosition(source) {
+    return {x: Math.round(source.x / 2) * 2, z: Math.round(source.z / 2) * 2};
+  }
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -340,6 +351,15 @@
           !lineBlocked(p.x,p.z,b.x,b.z,actorObstacles(game,p,b,false))) {target=b;best=d;}
     }
     game.effects.push({x:p.x+dx*Math.min(best,22),z:p.z+dz*Math.min(best,22),t:0.2,type:target?'hit':'tag'});
+    // An actual fired round produces one audible event even on a miss.
+    // Sound never grants a hit, damage, or live target coordinates.
+    const heard=approximateSoundPosition(p);
+    for(const b of game.bots){
+      if(b.alive&&b.lastSeenUntil<=game.elapsed&&hearsImpulse(b,p,game.obstacles)){
+        b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
+        b.lastSeenUntil=game.elapsed+2.5;
+      }
+    }
     if(target){target.health=Math.max(0,target.health-firearm.damage);if(target.health===0){target.alive=false;game.kills++;game.message='OPPONENT ELIMINATED';game.messageTime=2.2;}}
     return {ok:true,hit:!!target,elimination:!!target&&!target.alive};
   }
@@ -379,5 +399,5 @@
     closest.picked=true;game.message=closest.kind.toUpperCase()+' COLLECTED';game.messageTime=2;
     return closest.kind;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage};
 });
