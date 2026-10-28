@@ -1,7 +1,7 @@
 'use strict';
 // VEILPOINT / original, offline-first two-client authoritative objective prototype.
 // Pure 60 Hz rules. Not a production FPS netcode or public internet service.
-const {moveEntity, lineBlocked, blocked} = require('./simulation.js');
+const {moveEntity, lineBlocked, blocked, injuryMobility} = require('./simulation.js');
 const STEP = 1 / 60;
 const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
@@ -205,7 +205,10 @@ class TeamMatch {
       const actors = [...this.players.values()].filter(other => other !== p && other.health > 0)
         .map(other => ({x: other.x, z: other.z, w: PLAYER_RADIUS * 2, d: PLAYER_RADIUS * 2}))
         .filter(body => !blocked(p.x, p.z, PLAYER_RADIUS, [body]));
-      moveEntity(p, p.direction.x * SPEED, p.direction.z * SPEED, STEP,
+      // The authoritative server applies the same bounded injury mobility
+      // as the offline player. Clients cannot spoof health or speed.
+      const speed = SPEED * injuryMobility(p);
+      moveEntity(p, p.direction.x * speed, p.direction.z * speed, STEP,
         COVER.concat(actors), PLAYER_RADIUS);
       p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       p.z = clamp(p.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);

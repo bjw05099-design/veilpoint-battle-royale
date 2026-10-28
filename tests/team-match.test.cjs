@@ -368,3 +368,21 @@ test('periodic held-intent renewals remain deterministic and do not reset facing
   };
   assert.deepEqual(play(), play());
 });
+
+test('server-owned injury slows team movement after an actual hit without client speed injection',()=>{
+  const play=()=>{
+    const {m}=setup(),a=m.players.get('a'),b=m.players.get('b');
+    a.x=5;a.z=0;b.x=0;b.z=0;
+    m.command('b',{seq:2,type:'move',direction:{x:1,z:0}});
+    assert.equal(m.command('b',{seq:3,type:'fire'}).hit,true);
+    assert.equal(a.health,66);
+    assert.throws(()=>m.command('a',{seq:2,type:'move',direction:{x:1,z:0},speed:99}),/invalid_command/);
+    m.command('a',{seq:2,type:'move',direction:{x:1,z:0}});
+    for(let i=0;i<60;i++)m.step();
+    const expected=4.5*(1-0.22*0.34);
+    assert.ok(Math.abs(a.x-5-expected)<1e-7);
+    assert.equal(a.health,66,'no magical healing during a team round');
+    return m.snapshot('a');
+  };
+  assert.deepEqual(play(),play(),'authoritative injury movement replays at 60Hz');
+});

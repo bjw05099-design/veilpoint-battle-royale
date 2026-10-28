@@ -167,7 +167,10 @@
         const anchor=HOSTILE_POSITIONS[hostile.id];
         const remaining=HOSTILE_CHASE_RADIUS-Math.hypot(hostile.x-anchor.x,hostile.z-anchor.z);
         if(distance>18&&remaining>0){
-          const move=Math.min(1.6*t,remaining);
+          // Hostiles use the same bounded injury slowdown as the player, scaled
+          // to their authored 90-point starting health; no automatic recovery.
+          const mobility=Sim.injuryMobility({health:hostile.health/90*100});
+          const move=Math.min(1.6*mobility*t,remaining);
           const vx=Math.sin(hostile.angle)*move/t,vz=-Math.cos(hostile.angle)*move/t;
           if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8)
             Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles.concat(actorBlockers(state,hostile),
