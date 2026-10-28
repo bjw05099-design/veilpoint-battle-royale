@@ -950,3 +950,34 @@ test('CH01 supply cache requires physical reach, unlike a distant objective trig
  assert.equal(restored.combat.supplyUsed,true);
  assert.equal(restored.world.player.charges,32);
 });
+
+test('CH01 crouched sprint input recovers stamina without artificial sprint stress',()=>{
+ const s=story.createState(),p=s.world.player;p.stamina=50;
+ const z=p.z;story.step(s,1/60,{forward:true,crouch:true,sprint:true});
+ assert.ok(Math.abs((z-p.z)-3.1/60)<1e-8);
+ assert.ok(p.stamina>50);
+ assert.equal(p.stress,0);
+});
+test('CH01 exhausted sprint stays locked across checkpoint and 60Hz replay',()=>{
+ const a=story.createState();a.world.player.stamina=1;
+ story.step(a,1/60,{forward:true,sprint:true});
+ assert.equal(a.world.player.sprintExhausted,true);
+ const saved=story.serialize(a),b=story.restore(saved);
+ assert.equal(b.world.player.sprintExhausted,true);
+ for(let i=0;i<90;i++){
+   story.step(a,1/60,{forward:true,sprint:true});
+   story.step(b,1/60,{forward:true,sprint:true});
+ }
+ assert.equal(a.world.player.sprintExhausted,true);
+ assert.equal(story.serialize(a),story.serialize(b));
+ a.world.player.stamina=b.world.player.stamina=25;
+ story.step(a,1/60,{forward:true,sprint:true});
+ story.step(b,1/60,{forward:true,sprint:true});
+ assert.equal(a.world.player.sprintExhausted,false);
+ assert.equal(story.serialize(a),story.serialize(b));
+ const legacy=JSON.parse(saved);delete legacy.player.sprintExhausted;
+ legacy.player.stamina=1;
+ assert.equal(story.restore(JSON.stringify(legacy)).world.player.sprintExhausted,true);
+ const tampered=JSON.parse(saved);tampered.player.sprintExhausted='true';
+ assert.throws(()=>story.restore(JSON.stringify(tampered)),RangeError);
+});
