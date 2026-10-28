@@ -698,3 +698,35 @@ test('CH01 completed debrief preserves causal choice, local authority and uncert
   assert.equal(v.campaignUnlocked,false);
   assert.notDeepEqual(e,v);
 });
+
+test('CH01 motorized checkpoint moves at fixed 60Hz, pauses near a person and restores without teleporting',()=>{
+ const setup=()=>{
+  const s=story.createState();
+  s.phase='exit';s.choice='verification';
+  s.gateReadyAt=s.world.elapsed+story.GATE_CLEARANCE_SECONDS;
+  return s;
+ };
+ const a=setup(),b=setup();
+ const gate=s=>s.world.obstacles.find(o=>o.routeId==='east-checkpoint');
+ const initial=gate(a);
+ assert.equal(initial.type,'gate');
+ assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true);
+ for(let i=0;i<120;i++){story.step(a,1/60,{});story.step(b,1/60,{});}
+ assert.equal(story.serialize(a),story.serialize(b),'the sliding gate is deterministic');
+ assert.ok(gate(a).x<initial.x&&gate(a).x>initial.x-12,'gate slides without vanishing');
+ assert.equal(Sim.blocked(27,-53,.85,a.world.obstacles),true,'partial opening is not full clearance');
+ const paused=setup();
+ paused.world.player.x=20;paused.world.player.z=-53;
+ const before={x:paused.world.player.x,z:paused.world.player.z};
+ for(let i=0;i<480;i++)story.step(paused,1/60,{});
+ assert.deepEqual({x:paused.world.player.x,z:paused.world.player.z},before,'gate does not push or teleport the player');
+ assert.equal(story.situation(paused).eastGateOpen,false,'an occupied travel path delays clearance');
+ assert.ok(paused.gateReadyAt>story.GATE_CLEARANCE_SECONDS);
+ const resumed=story.restore(story.serialize(paused));
+ assert.equal(gate(resumed).x,gate(paused).x,'save preserves partially obstructed gate position');
+ resumed.world.player.x=0;resumed.world.player.z=-41;
+ for(let i=0;i<480;i++)story.step(resumed,1/60,{});
+ assert.equal(story.situation(resumed).eastGateOpen,true);
+ assert.equal(Sim.blocked(27,-53,.85,resumed.world.obstacles),false);
+ assert.equal(gate(resumed).x,15,'opened gate remains parked in the world');
+});
