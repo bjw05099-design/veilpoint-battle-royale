@@ -41,6 +41,13 @@ test('BR rivals investigate only bounded audible footsteps, without psychic sigh
   assert.ok(listener.lastSeenUntil>game.elapsed);
   assert.equal(listener.charges,36,'sound alone cannot fire a shot');
   assert.equal(walker.charges,36);
+  const resumed=Sim.restoreMatch(Sim.snapshotMatch(game));
+  assert.equal(resumed.bots[0].lastSeenX,2,'checkpoint must preserve heard evidence');
+  for(let i=0;i<90;i++){
+    Sim.tick(game,1/60);Sim.tick(resumed,1/60);
+    assert.deepEqual(JSON.parse(Sim.snapshotMatch(resumed)),JSON.parse(Sim.snapshotMatch(game)),
+      'hearing and investigation must survive a deterministic resume');
+  }
 
   const distant=match();
   distant.bots[0].x=0;distant.bots[0].z=80;distant.bots[0].angle=0;
