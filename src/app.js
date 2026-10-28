@@ -57,9 +57,26 @@ const input={forward:false,back:false,left:false,right:false,sprint:false,crouch
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
 const canAct=()=>running&&!suspended&&simulation.status==='playing';
-function collectAmmo(){if(!canAct())return;Game.pickup(simulation);updateHud();}
-function reloadWeapon(){if(!canAct())return;Game.reload(simulation);updateHud();}
-function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);updateHud();}
+const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
+let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
+function clearStoredMatch(){
+ try{if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(MATCH_SAVE_KEY);
+ else global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
+}
+function persistMatch(){
+ if(!running||simulation.status!=='playing')return;
+ try{global.localStorage.setItem(MATCH_SAVE_KEY,Game.snapshotMatch(simulation));
+  lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;saveWarning=false;
+ }catch(_){if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}}
+}
+function storedMatch(){
+ try{const raw=global.localStorage.getItem(MATCH_SAVE_KEY);return raw?Game.restoreMatch(raw):null;}
+ catch(_){clearStoredMatch();return null;}
+}
+
+function collectAmmo(){if(!canAct())return;Game.pickup(simulation);persistMatch();updateHud();}
+function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
+function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 try { renderer=new global.VeilpointRenderer(canvas);
  renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
  applyGraphicsSettings();
@@ -68,11 +85,24 @@ try { renderer=new global.VeilpointRenderer(canvas);
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
+ clearStoredMatch();saveWarning=false;
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+ persistMatch();
 }
+function resumeStoredMatch(){
+ const restored=storedMatch();
+ if(!restored){start();return;}
+ simulation=restored;loadoutSelect.value=restored.player.weaponId;
+ running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ clock.reset();fpsLimiter.reset();last=performance.now();
+ $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ $('mobileControls').classList.toggle('active',isTouch);updateHud();
+ if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+}
+if(storedMatch())$('play').textContent='저장 경기 이어하기';
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
  if(!running||!suspended)return;
@@ -81,7 +111,8 @@ function resumeMatch(){
  $('mobileControls').classList.toggle('active',isTouch);
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
 }
-$('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else start();});
+$('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
+$('newMatch').addEventListener('click',start);
 const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
  if(commands[e.code]){e.preventDefault();if(canAct())input[commands[e.code]]=true;}
@@ -93,13 +124,13 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyR'){e.preventDefault();reloadWeapon();}
  if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='Space'){e.preventDefault();fire();}
- if(e.code==='Enter'&&simulation.status!=='playing'&&renderer)start();
+ if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(){
  if(!running||suspended)return;
- suspended=true;
+ persistMatch();suspended=true;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
@@ -117,6 +148,7 @@ function resetInactiveClock(){
  updateHud();
 }
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
+addEventListener('pagehide',persistMatch);
 addEventListener('focus',resetInactiveClock);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
@@ -124,7 +156,7 @@ addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canv
 canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
 let audio=null;
 function tone(freq=560,duration=.08){try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
+function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};
@@ -163,7 +195,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   :p.charges>=p.maxCharges?'AMMUNITION FULL':'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
  minimap();
 }
-function end(){running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
+function end(){clearStoredMatch();running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  const won=simulation.status==='won';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':'RE<span>DEPLOY.</span>';
  document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getAliveCount(simulation)}위`;
@@ -173,6 +205,8 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
  if(renderer){if(running&&!suspended&&simulation.status==='playing'){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});
+  if(simulation.status==='playing'&&(simulation.elapsed-lastAutosaveElapsed>=15 ||
+    (simulation.player.health<lastSavedHealth-.5&&simulation.elapsed-lastAutosaveElapsed>=1)))persistMatch();
  }
  // Resolve terminal states even when they change between simulation ticks.
  if(running&&simulation.status!=='playing')end();
