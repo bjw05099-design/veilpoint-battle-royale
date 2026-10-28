@@ -94,9 +94,11 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  assert.equal(Story.situation(state).eastGateOpen,true);
  assert.equal(Sim.blocked(gate.x,gate.z,.85,state.world.obstacles),false);
  renderer.draw(state.world);
- assert.equal(boxes.length,1,'cleared barrier must not remain visible');
- assert.equal(renderer.dynamic.count,closedCount-36,'one 6-face box is removed, with no stale static mesh');
+ assert.equal(boxes.length,2,'the barrier must move rather than disappear');
+ assert.equal(boxes[1].x,gate.x+12,'opened gate is parked clear of the passage');
+ assert.equal(renderer.dynamic.count,closedCount,'the physical barrier remains a rendered object');
  const restored=Story.restore(Story.serialize(state));
  renderer.draw(restored.world);
- assert.equal(boxes.length,1,'a restored open checkpoint must stay visually open');
+ assert.equal(boxes.length,3,'checkpoint restore must render the same gate');
+ assert.deepEqual(boxes[2],boxes[1]);
 });
