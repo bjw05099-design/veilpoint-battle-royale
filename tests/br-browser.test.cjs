@@ -447,7 +447,7 @@ test('BR desktop pointer-lock loss freezes hostile simulation until explicit res
  app.node('play').click();
  app.frame(1000/60);
  const game=app.game, before=game.elapsed;
- assert.equal(app.context.document.pointerLockElement,app.node('canvas'));
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
  app.emit('keydown',{code:'KeyW'});
  app.context.document.exitPointerLock();
  app.emit('pointerlockchange');
@@ -456,7 +456,7 @@ test('BR desktop pointer-lock loss freezes hostile simulation until explicit res
  assert.equal(app.node('overlay').classList.contains('hidden'),false);
  assert.equal(app.context.VeilpointInput.forward,false);
  app.node('play').click();
- assert.equal(app.context.document.pointerLockElement,app.node('canvas'));
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
  app.frame(6000);
  assert.equal(app.game,game);
  assert.ok(game.elapsed>=before,'explicit resume keeps the same match');
