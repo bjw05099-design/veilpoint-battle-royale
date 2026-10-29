@@ -184,6 +184,10 @@
       activeTouchAimPointer = null;
       if (state.phase !== 'playing') capturing = false;
       previousPhase = state.phase;
+      // A ready button can retain focus after the server starts the round.
+      // Transfer PC keyboard ownership to the arena only on the phase edge,
+      // never on each poll (which would steal focus from deliberate UI use).
+      if(state.phase === 'playing') Desktop.focusGameplay(document,canvas);
     }
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
