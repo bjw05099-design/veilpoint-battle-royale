@@ -15,8 +15,10 @@ const COVER = Object.freeze([
   Object.freeze({x: 0, z: -6, w: 3, d: 1.5})
 ]);
 const PLAYER_RADIUS = 0.55;
-// A local, movement-facing 120-degree view, not a radar of nearby opponents.
-const VISION_RANGE = 14;
+// In clear air, all unobstructed positions in this bounded 48m x 48m
+// prototype arena can be seen within the 120-degree view. This is not a
+// real-world visibility measurement or an automatic target acquisition system.
+const VISION_RANGE = 80;
 const MIST_VISION_RANGE = 9;
 // Fictional coastal mist is a public, deterministic environmental condition.
 // It affects both teams' sight equally; it never damages, heals or reveals actors.
@@ -52,7 +54,7 @@ function weatherAt(tick) {
   const mist = phase !== 'clear';
   const nextTick = tick < 300 ? 300 : tick < 600 ? 600 :
     tick < 1200 ? 1200 : tick < MIST_END_TICK ? MIST_END_TICK : null;
-  // No instantaneous five-metre sight jump at the warning or clearing boundary.
+  // No instantaneous sight jump at the warning or clearing boundary.
   // This same server-owned range drives both clients' opponent disclosure.
   const visibilityRange = phase === 'incoming'
     ? VISION_RANGE - (VISION_RANGE - MIST_VISION_RANGE) * (tick - 300) / 300
