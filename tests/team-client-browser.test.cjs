@@ -655,3 +655,14 @@ test('PC lobby-held movement OS repeat cannot resurrect server movement after ro
   await settle();
   assert.equal(player.direction.x, 1, 'new keydown resumes ordinary movement');
 });
+
+test('PC team HUD reports no winner when both client leases expire', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  server.match.finish(null, 'connection_timeout');
+  await a.poll(); await settle();
+  assert.match(a.node('status').textContent, /승리 팀 없음/);
+  assert.doesNotMatch(a.node('status').textContent, /승리 팀 null/);
+});

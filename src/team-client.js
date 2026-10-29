@@ -212,7 +212,7 @@
     el('stress').textContent = Math.round(state.self.stress);
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     el('ready').disabled = state.phase === 'playing';
-    if (state.phase === 'ended') status(`종료 · 승리 팀 ${state.winner} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
+    if (state.phase === 'ended') status(`종료 · ${state.winner ? '승리 팀 ' + state.winner : '승리 팀 없음 (양측 연결 종료)'} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
     else {
       const hint = '목표 원에서 '+controls.bindings.interact+' 점령 · 지도 조준(밖으로 이동/Q 해제) · '+
