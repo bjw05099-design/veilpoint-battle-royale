@@ -5,6 +5,7 @@
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
+  let triggering = false, lastTriggerRefreshTick = -Infinity;
   let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
   let activeTouchAimPointer = null;
   let joining = false, restoring = false, polling = false;
@@ -141,6 +142,13 @@
     lastCaptureRefreshTick = state.tick;
     void send('capture', {active});
   };
+  const setTrigger = active => {
+    if (state?.phase !== 'playing') {triggering = false;return;}
+    if (triggering === active) return;
+    triggering = active;
+    lastTriggerRefreshTick = state.tick;
+    void send('trigger', {active});
+  };
   const draw = () => {
     ctx.clearRect(0, 0, 500, 500);
     // The small 2D proof mirrors the server's gradual mist intensity. This
@@ -184,6 +192,8 @@
       lastDirection = '';
       lastMoveRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
+      lastTriggerRefreshTick = -Infinity;
+      triggering = false;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
       activeTouchAimPointer = null;
       // Clear held capture on *both* edges: lobby -> playing is especially
@@ -216,7 +226,7 @@
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
     else {
       const hint = '목표 원에서 '+controls.bindings.interact+' 점령 · 지도 조준(밖으로 이동/Q 해제) · '+
-        controls.bindings.fire+' 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
+        controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
       status(actionFeedback && state.tick <= feedbackUntil ? hint + ' · ' + actionFeedback : hint);
     }
     draw();
@@ -255,8 +265,10 @@
     keys.add(e.code);
     if (!e.repeat && state?.phase === 'playing') {
       // F is a legacy alias only while the default Space fire binding is active.
-      if (action === 'fire' || (e.code === 'KeyF' && action === null && controls.bindings.fire === 'Space'))
-        void send('fire');
+      if (action === 'fire' || (e.code === 'KeyF' && action === null && controls.bindings.fire === 'Space')) {
+        void send('fire'); // Immediate click feedback; the authority enforces cooldown.
+        setTrigger(true);
+      }
       if (action === 'reload') void send('reload');
     }
     if (action === 'interact' && !e.repeat) setCapture(true);
@@ -267,9 +279,12 @@
     // Always release an earlier held key, even if focus moved into a form.
     keys.delete(e.code);
     if (Desktop.actionFor(e.code, controls) === 'interact') setCapture(false);
+    if (Desktop.actionFor(e.code, controls) === 'fire' ||
+        (e.code === 'KeyF' && controls.bindings.fire === 'Space' &&
+         Desktop.actionFor(e.code, controls) === null)) setTrigger(false);
     updateInput();
   });
-  const releaseHeldInput = () => {keys.clear();setCapture(false);updateInput();releaseAim();};
+  const releaseHeldInput = () => {setTrigger(false);keys.clear();setCapture(false);updateInput();releaseAim();};
   window.addEventListener('blur', releaseHeldInput);
   // Mobile tab switches may suspend polling without dispatching window.blur.
   document.addEventListener('visibilitychange', () => {if (document.hidden) releaseHeldInput();});
@@ -299,6 +314,7 @@
         // A tab refresh can skip blur/pointerleave. Never inherit an old aim
         // override that would prevent keyboard-only turning after resume.
         await send('aimRelease');
+        await send('trigger', {active: false});
       }
       state = await request('/state');
       render();
@@ -322,6 +338,11 @@
       // Recompute aim against the latest server-owned player position while
       // the pointer stays over a fixed world point (no stale direction drift).
       if (lastAimPoint) aimAtWorld(lastAimPoint.x,lastAimPoint.z);
+      if (triggering && state.phase === 'playing' &&
+          state.tick - lastTriggerRefreshTick >= 20) {
+        lastTriggerRefreshTick = state.tick;
+        void send('trigger', {active: true});
+      }
       if (capturing && state.phase === 'playing' &&
           state.tick - lastCaptureRefreshTick >= 20) {
         lastCaptureRefreshTick = state.tick;
