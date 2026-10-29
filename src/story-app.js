@@ -265,8 +265,8 @@
   });
   canvas.addEventListener('mousedown',e=>{
     if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
+    fire();
     if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;
-    else fire();
   });
   global.addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
   let touchLookId=null,previous=null;

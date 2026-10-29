@@ -228,8 +228,8 @@ addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canv
 canvas.addEventListener('click',()=>{if(!canAct()||isTouch)return;if(document.pointerLockElement!==canvas)requestAimLock();});
 canvas.addEventListener('mousedown',e=>{
  if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
+ fire();
  if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;
- else fire();
 });
 addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
 let audio=null;
