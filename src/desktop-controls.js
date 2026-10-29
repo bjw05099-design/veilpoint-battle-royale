@@ -47,6 +47,18 @@
   const alias=aliases[code];
   return alias&&bindings[alias]===DEFAULT_BINDINGS[alias]?alias:null;
  }
+ // A physical mouse button and a remappable keyboard key are independent
+ // trigger sources. Releasing either must not cancel the other held input.
+ // This latch stores input only; the 60Hz simulation owns shot cadence/ammo.
+ function createTriggerLatch(){
+  const held=new Set();
+  return {
+   press(source){if(source==='keyboard'||source==='mouse')held.add(source);return held.size>0;},
+   release(source){held.delete(source);return held.size>0;},
+   clear(){held.clear();},
+   get held(){return held.size>0;}
+  };
+ }
  function isInteractiveTarget(target){
   if(!target||typeof target!=='object')return false;
   const tag=typeof target.tagName==='string'?target.tagName.toUpperCase():'';
@@ -117,7 +129,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

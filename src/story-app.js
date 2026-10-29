@@ -30,7 +30,8 @@
   // A desktop player cannot aim without pointer lock; no hostile 60Hz tick or
   // player action may advance while permission is pending, denied or lost.
   const canAct=()=>running&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
-  const clearInput=()=>{for(const key in input)input[key]=false;};
+  const trigger=Desktop.createTriggerLatch();
+  const clearInput=()=>{trigger.clear();for(const key in input)input[key]=false;};
   const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
   const storage={
     get(key){try{return global.localStorage.getItem(key);}catch(_){return null;}},
@@ -225,7 +226,7 @@
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
     if(action==='interact'){e.preventDefault();interact();}
-    if(action==='fire'){e.preventDefault();fire();if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;}
+    if(action==='fire'){e.preventDefault();fire();if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}
     if(action==='support'){e.preventDefault();support();}
     if(action==='reload'){e.preventDefault();reload();}
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
@@ -233,7 +234,7 @@
   global.addEventListener('keyup',e=>{
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
-    if(action==='fire')input.fireHeld=false;
+    if(action==='fire')input.fireHeld=trigger.release('keyboard');
   });
   // Losing focus must not leave the player exposed to hostile volleys or advance
   // a timed route while they cannot control the game. Persist at the pause boundary.
@@ -266,9 +267,9 @@
   canvas.addEventListener('mousedown',e=>{
     if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
     fire();
-    if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;
+    if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=trigger.press('mouse');
   });
-  global.addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
+  global.addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('mouse');});
   let touchLookId=null,previous=null;
   canvas.addEventListener('pointerdown',e=>{
     if(!isTouch||!canAct())return;

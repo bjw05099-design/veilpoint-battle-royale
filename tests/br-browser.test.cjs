@@ -745,3 +745,25 @@ test('PC BR primary mouse hold fires at fixed cadence and mouseup ends the strea
  for(let tick=46;tick<=80;tick++)app.frame(tick*1000/60);
  assert.equal(p.charges,afterHeld);
 });
+
+test('PC BR simultaneous mouse and keyboard fire persists until both triggers release',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const p=app.game.player;
+ app.emit('keydown',{code:'Space'});
+ app.node('scene').dispatch('mousedown',{button:0});
+ app.emit('keyup',{code:'Space'});
+ assert.equal(app.context.VeilpointInput.fireHeld,true,'mouse remains pressed');
+ for(let tick=2;tick<=32;tick++)app.frame(tick*1000/60);
+ const after=p.charges;
+ assert.ok(after<47,'mouse continues finite automatic fire after keyboard release');
+ app.emit('mouseup',{button:0});
+ assert.equal(app.context.VeilpointInput.fireHeld,false);
+ for(let tick=33;tick<=60;tick++)app.frame(tick*1000/60);
+ assert.equal(p.charges,after,'no ghost shots after last trigger release');
+ app.emit('keydown',{code:'Space'});
+ app.node('scene').dispatch('mousedown',{button:0});
+ app.emit('mouseup',{button:0});
+ assert.equal(app.context.VeilpointInput.fireHeld,true,'keyboard remains held after mouse release');
+ app.emit('blur');
+ assert.equal(app.context.VeilpointInput.fireHeld,false,'background pause clears all trigger sources');
+});

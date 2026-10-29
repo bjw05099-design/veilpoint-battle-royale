@@ -66,3 +66,18 @@ test('PC gameplay focus leaves the menu and prevents a hidden button owning Spac
  assert.equal(C.focusGameplay(doc,null),false);
  assert.equal(C.focusGameplay(doc,{focus(){throw Error('focus denied');}}),false);
 });
+
+test('PC keyboard and mouse held-fire sources are independent and reset on pause',()=>{
+ const latch=C.createTriggerLatch();
+ assert.equal(latch.held,false);
+ assert.equal(latch.press('keyboard'),true);
+ assert.equal(latch.press('mouse'),true);
+ assert.equal(latch.release('keyboard'),true,'mouse remains held after key release');
+ assert.equal(latch.release('mouse'),false);
+ assert.equal(latch.press('mouse'),true);
+ assert.equal(latch.press('keyboard'),true);
+ assert.equal(latch.release('mouse'),true,'keyboard remains held after mouse release');
+ latch.clear();
+ assert.equal(latch.held,false,'pause/remap must discard all physical trigger sources');
+ assert.equal(latch.press('unknown'),false,'unrecognized sources cannot latch firing');
+});
