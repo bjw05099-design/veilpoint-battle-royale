@@ -356,3 +356,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 - **R-02 / R-13 / R-14 — partial candidate:** Starting a fresh BR match or resuming a local checkpoint now explicitly neutralizes held keyboard/sprint and orphaned touch-stick/look input. The existing 60Hz world continues only from fresh input after restart; browser-mock regression covers lost keyup/pointerup and fresh movement.
 - **R-02 / R-23 — partial candidate:** BR restore rejects player, opponent or loot positions embedded in authored solid cover/outside playable bounds, and rejects elimination totals exceeding actually defeated rivals. It preserves legitimate rival/zone deaths without fabricated player kill credit. This is local save integrity, **not** multiplayer anti-cheat.
 - **Verification boundary:** Proposed Node/DOM tests and GitHub CI must pass; real-browser human launch, RTX 3070 QHD 165Hz, Unreal build and independent realism evaluation remain unverified.
+
+
+## 2026-10-29 BR desktop pointer-lock pause candidate
+
+- **R-13 / R-14 / R-23 — partial candidate:** Escape or external pointer-lock loss now opens the existing explicit-resume pause and clears held input, rather than leaving live opponents advancing while desktop aiming is unavailable. Browser DOM regressions exercise both native lock-loss ordering and a delayed pointerlockchange event; touch controls and the 60Hz fixed-step clock remain unchanged.
+- **Verification boundary:** GitHub Node/DOM tests and CI are required. Actual desktop Escape/pointer-lock behavior, device focus changes and GPU rendering are still pending human browser QA.
