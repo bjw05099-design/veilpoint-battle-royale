@@ -91,3 +91,30 @@ test('BR checkpoint refuses wall-spawn, impossible loot and fabricated eliminati
  game.bots[0].alive=false;game.bots[0].health=0;
  assert.doesNotThrow(()=>Sim.restoreMatch(Sim.snapshotMatch(game)));
 });
+
+test('BR final placement is undefined in active play and never first after a loss',()=>{
+ const game=active(20261029,3);
+ assert.equal(Sim.getFinalPlacement(game),null);
+ assert.equal(Sim.getAliveCount(game),4);
+ Sim.receiveDamage(game,100);
+ assert.equal(game.status,'lost');
+ assert.equal(Sim.getAliveCount(game),3);
+ assert.equal(Sim.getFinalPlacement(game),4);
+ for(const b of game.bots){b.alive=false;b.health=0;}
+ assert.equal(Sim.getFinalPlacement(game),2,'a simultaneous knockout cannot be champion');
+ const win=active(20261030,1);
+ win.bots[0].alive=false;win.bots[0].health=0;
+ Sim.tick(win,1/60,{});
+ assert.equal(win.status,'won');
+ assert.equal(Sim.getFinalPlacement(win),1);
+});
+
+test('BR checkpoint size limit protects offline resume without rejecting 20-opponent saves',()=>{
+ const game=active(20261031,20);
+ const saved=Sim.snapshotMatch(game);
+ assert.ok(saved.length<65536,'normal maximum-bot save fits bounded storage');
+ assert.equal(Sim.snapshotMatch(Sim.restoreMatch(saved)),saved);
+ const padded=saved.slice(0,-1)+',"padding":"'+ 'x'.repeat(65536)+'"}';
+ assert.throws(()=>Sim.restoreMatch(padded),/BR checkpoint too large/);
+ assert.throws(()=>Sim.restoreMatch(' '.repeat(65537)),/BR checkpoint too large/);
+});
