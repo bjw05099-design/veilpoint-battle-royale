@@ -46,7 +46,8 @@
   <label for="vegetation">식생 밀도</label><select id="vegetation"><option value="0.35">낮음</option><option value="0.55">중간</option><option value="0.75">높음</option><option value="1">최고</option></select>
   <label for="effects">필름 그레인</label><select id="effects"><option value="0">끄기</option><option value="0.4">낮음</option><option value="0.7">높음</option><option value="1">최고</option></select>
  </div>
- <div class="adaptive-row"><input id="autoResolution" type="checkbox"><label for="autoResolution">GPU 측정 기반 자동 해상도 (실험적 · 선택)</label></div><div id="perfDetails" aria-live="off">GPU 타이밍 지원 확인 중</div>
+ <div class="adaptive-row"><input id="autoResolution" type="checkbox"><label for="autoResolution">GPU 측정 기반 자동 해상도 (실험적 · 선택)</label></div>
+ <div class="adaptive-row"><input id="soundEnabled" type="checkbox" checked><label for="soundEnabled">게임 효과음 켜기 (M 키로 전환 · 자막/HUD 유지)</label></div><div id="perfDetails" aria-live="off">GPU 타이밍 지원 확인 중</div>
  <p id="qualityInfo" role="status"></p><p class="graphics-disclaimer">165Hz는 모니터와 운영체제에서 설정합니다. 브라우저에서 실제 165Hz/165FPS 달성을 보장하지 않습니다. 게임 시뮬레이션은 60Hz로 유지됩니다.</p>
  </section>
 <div id="watermark">OFFLINE BATTLE ROYALE / STORY CH01 AVAILABLE</div>
@@ -56,7 +57,7 @@
 <div class="message" id="message"></div><div class="alert" id="pickupPrompt">[E] COLLECT AMMUNITION</div>
 <div class="hud-bottom">
 <div class="life-panel"><div class="meter"><label><span>VITALITY</span><span id="healthNum">100</span></label><div class="bar"><div id="healthBar"></div></div></div><div class="meter"><label><span>STAMINA</span><span id="staminaNum">100</span></label><div class="bar stamina"><div id="staminaBar"></div></div></div></div>
-<div class="center-bottom">W A S D — MOVE &nbsp;·&nbsp; SHIFT — SPRINT &nbsp;·&nbsp; C — CROUCH<br>MOUSE — LOOK &nbsp;·&nbsp; CLICK — FIRE &nbsp;·&nbsp; R — RELOAD &nbsp;·&nbsp; H — RELOAD ASSIST &nbsp;·&nbsp; E — COLLECT &nbsp;·&nbsp; ESC — UNLOCK</div>
+<div class="center-bottom">W A S D — MOVE &nbsp;·&nbsp; SHIFT — SPRINT &nbsp;·&nbsp; C — CROUCH<br>MOUSE — LOOK &nbsp;·&nbsp; CLICK — FIRE &nbsp;·&nbsp; R — RELOAD &nbsp;·&nbsp; H — RELOAD ASSIST &nbsp;·&nbsp; E — COLLECT &nbsp;·&nbsp; M — SOUND &nbsp;·&nbsp; ESC — UNLOCK</div>
 <div class="ammo-panel"><div class="micro" id="weaponName">CARBINE</div><div class="micro">MAGAZINE / RESERVE</div><strong id="charges">48<span> / 60</span></strong><div class="micro" id="elims">00 ELIMINATIONS</div></div>
 </div>
 <div id="controls">TAP ESC TO RELEASE POINTER</div>

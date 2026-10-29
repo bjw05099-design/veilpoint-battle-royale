@@ -17,6 +17,15 @@ const resolutionSelect=$('renderScale');
 const vegetationSelect=$('vegetation');
 const effectsSelect=$('effects');
 const autoResolutionCheckbox=$('autoResolution');autoResolutionCheckbox.checked=autoResolution;
+const soundEnabledCheckbox=$('soundEnabled');
+let soundEnabled=true;
+try{soundEnabled=global.localStorage.getItem('veilpoint.br.audio')!=='off';}catch(_){}
+function setSoundEnabled(enabled){
+ soundEnabled=!!enabled;soundEnabledCheckbox.checked=soundEnabled;
+ try{global.localStorage.setItem('veilpoint.br.audio',soundEnabled?'on':'off');}catch(_){}
+}
+soundEnabledCheckbox.checked=soundEnabled;
+soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
 function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
 function applyGraphicsSettings(){
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
@@ -124,6 +133,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyE'){e.preventDefault();collectAmmo();}
  if(e.code==='KeyR'){e.preventDefault();reloadWeapon();}
  if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
+ if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
  if(e.code==='Space'){e.preventDefault();fire();}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
@@ -156,7 +166,7 @@ function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Mat
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
 let audio=null;
-function tone(freq=560,duration=.08){try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
+function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
