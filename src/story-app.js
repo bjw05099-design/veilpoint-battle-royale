@@ -14,7 +14,7 @@
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
   const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:.25,maxSteps:8});
   const limiter=global.VeilpointFPS.createFrameLimiter(60);
-  const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};
+  const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false;
@@ -225,7 +225,7 @@
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
     if(action==='interact'){e.preventDefault();interact();}
-    if(action==='fire'){e.preventDefault();fire();}
+    if(action==='fire'){e.preventDefault();if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;else fire();}
     if(action==='support'){e.preventDefault();support();}
     if(action==='reload'){e.preventDefault();reload();}
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
@@ -233,6 +233,7 @@
   global.addEventListener('keyup',e=>{
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
+    if(action==='fire')input.fireHeld=false;
   });
   // Losing focus must not leave the player exposed to hostile volleys or advance
   // a timed route while they cannot control the game. Persist at the pause boundary.
@@ -260,9 +261,14 @@
   global.addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
   canvas.addEventListener('click',()=>{
     if(!running||isTouch)return;
-    if(document.pointerLockElement===canvas)fire();
-    else requestAimLock();
+    if(document.pointerLockElement!==canvas)requestAimLock();
   });
+  canvas.addEventListener('mousedown',e=>{
+    if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
+    if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;
+    else fire();
+  });
+  global.addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
   let touchLookId=null,previous=null;
   canvas.addEventListener('pointerdown',e=>{
     if(!isTouch||!canAct())return;
@@ -356,7 +362,12 @@
     const healthBefore=state.world.player.health;
     const shotsBefore=running&&state.phase==='engagement'
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
-    if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
+    if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
+      Story.step(state,step,input);
+      if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true).ok){
+        audio.play('shot');persist();
+      }
+    });
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&

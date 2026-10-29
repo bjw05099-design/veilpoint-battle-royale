@@ -1081,3 +1081,27 @@ test('CH01 hostile shots trace the actual spread ray against offset solid cover'
   'offset cover intersects the real shot ray even when the center visibility line is clear');
  assert.equal(story.serialize(story.restore(story.serialize(blocked))),story.serialize(blocked));
 });
+
+test('CH01 held automatic fire reuses real mission clearance, fixed cadence and checkpoint',()=>{
+ const make=()=>{const s=story.createState('compact');go(s,'terminal');story.interact(s);return s;};
+ const a=make(),b=make();
+ for(let i=0;i<75;i++)for(const s of [a,b]){story.step(s,1/60,{});story.autoFire(s,true);}
+ assert.equal(story.serialize(a),story.serialize(b));
+ assert.ok(a.world.player.charges<Sim.FIREARMS.compact.initialRounds-1);
+ assert.equal(story.autoFire(a,false).reason,'manual_trigger');
+ const resumed=story.restore(story.serialize(a));
+ assert.equal(resumed.world.player.charges,a.world.player.charges);
+ const semi=story.createState('precision');go(semi,'terminal');story.interact(semi);
+ assert.equal(story.autoFire(semi,true).reason,'manual_trigger');
+ assert.equal(semi.world.player.charges,Sim.FIREARMS.precision.initialRounds);
+});
+test('both PC browser modes feed held fire from fixed 60Hz steps, not OS repeat',()=>{
+ for(const p of ['../src/app.js','../src/story-app.js']){
+  const source=fs.readFileSync(path.resolve(__dirname,p),'utf8');
+  assert.match(source,/fireHeld:false/);
+  assert.match(source,/if\(e\.repeat\)/);
+  assert.match(source,/addEventListener\('mouseup'/);
+  assert.match(source,/clock\.advance\(dt,step=>/);
+  assert.match(source,/\.autoFire\(/);
+ }
+});

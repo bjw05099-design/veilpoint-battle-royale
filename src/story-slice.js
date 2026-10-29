@@ -302,6 +302,12 @@
     }
     return {...result,phase:state.phase,remaining:state.world.bots.filter(b=>b.alive).length};
   }
+  // Preserve the mission's normal hit, subtitle and clearance transitions.
+  function autoFire(state,held) {
+    if(!held || !Sim.FIREARMS[state.world.player.weaponId]?.automatic)
+      return {ok:false,reason:'manual_trigger'};
+    return fire(state);
+  }
   function support(state) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
@@ -612,7 +618,7 @@
     return syncMarkers(state);
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,fire,support,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,fire,autoFire,support,choose,
     objective,situation,debrief,backToRecords,serialize,restore,validateSnapshot
   });
 });

@@ -666,3 +666,24 @@ test('BR rival shot stops at actual ray cover even if its target center is visib
   assert.equal(b.charges,35,'cover does not refund a fired round');
   assert.equal(p.health,100,'actual shot contact ray cannot penetrate cover');
 });
+
+test('held PC trigger uses fixed-step cadence only for automatic classes, never creates rounds',()=>{
+ const automatic=['carbine','compact','support'];
+ for(const id of Object.keys(S.FIREARMS)){
+  const g=S.newMatch(314,1,id);g.status='playing';const initial=g.player.charges;
+  for(let i=0;i<90;i++){S.tick(g,1/60,{});S.autoFire(g,true);}
+  const spent=initial-g.player.charges;
+  if(automatic.includes(id))assert.ok(spent>1&&spent<=S.FIREARMS[id].magazine,id+' cadence');
+  else assert.equal(spent,0,id+' requires discrete trigger');
+  assert.equal(g.player.loaded,S.FIREARMS[id].magazine-spent);
+  assert.equal(S.autoFire(g,false).reason,'manual_trigger');
+ }
+});
+test('automatic trigger replay and checkpoint continuation preserve 60Hz finite ammunition',()=>{
+ const a=S.newMatch(315,1,'compact');a.status='playing';
+ for(let i=0;i<55;i++){S.tick(a,1/60,{});S.autoFire(a,true);}
+ const b=S.restoreMatch(S.snapshotMatch(a));
+ for(let i=0;i<35;i++)for(const g of [a,b]){S.tick(g,1/60,{});S.autoFire(g,true);}
+ assert.equal(S.snapshotMatch(a),S.snapshotMatch(b));
+ assert.ok(a.player.charges>=a.player.loaded&&a.player.loaded>=0);
+});
