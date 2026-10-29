@@ -131,6 +131,12 @@
     };
   }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
+  // Final placement counts surviving opponents ahead of the eliminated player.
+  // A loss can never be labelled first place, including a simultaneous knockout.
+  function getFinalPlacement(game) {
+    if (!game || (game.status !== 'won' && game.status !== 'lost')) return null;
+    return game.status === 'won' ? 1 : Math.max(2, getAliveCount(game) + 1);
+  }
   function phaseAt(t) {
     let passed = 0;
     for (let i=0;i<ZONE_PHASES.length;i++) {
@@ -475,6 +481,7 @@
   // All persisted fields are explicitly bounded; old or modified localStorage cannot
   // reintroduce shield fields or out-of-range resources. This is not anti-tamper security.
   const CHECKPOINT_VERSION = 1;
+  const MAX_CHECKPOINT_CHARS = 65536; // Hard bound before parsing untrusted browser storage.
   const finite = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   const integer = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
   function checkedFields(source, fields) {
@@ -499,7 +506,7 @@
   function snapshotMatch(game) {
     if (!game || game.status !== 'playing' || !game.random || typeof game.random.getState !== 'function')
       throw new RangeError('Only active BR matches can be checkpointed');
-    return JSON.stringify({version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
+    const serialized=JSON.stringify({version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
@@ -512,8 +519,12 @@
       effects:game.effects.map(e=>({...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type})),
       message:game.message,messageTime:game.messageTime,
       lastTagAt:game.lastTagAt,recentDamage:game.recentDamage});
+    if (serialized.length > MAX_CHECKPOINT_CHARS) throw new RangeError('BR checkpoint too large');
+    return serialized;
   }
   function restoreMatch(serialized) {
+    if (typeof serialized === 'string' && serialized.length > MAX_CHECKPOINT_CHARS)
+      throw new RangeError('BR checkpoint too large');
     let saved;
     try { saved = typeof serialized === 'string' ? JSON.parse(serialized) : serialized; }
     catch (_) { throw new RangeError('Malformed BR checkpoint'); }
@@ -578,5 +589,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });
