@@ -142,6 +142,9 @@ function resumeStoredMatch(){
  desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
+ // A restored match must reclaim keyboard focus just like a new match.
+ // Otherwise the still-focused Resume button consumes Space/arrow controls.
+ Desktop.focusGameplay(document,canvas);
  requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
