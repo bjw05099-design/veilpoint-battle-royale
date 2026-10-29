@@ -541,3 +541,29 @@ test('pagehide pauses BR before bfcache restoration and preserves the exact matc
   assert.equal(app.game, game, 'resume must not restart a different match');
   assert.ok(game.elapsed > elapsed);
 });
+
+test('BR freezes immediately on lost desktop lock even before pointerlockchange dispatch', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game, elapsed = game.elapsed, rounds = game.player.charges;
+  app.context.document.pointerLockElement = null;
+  app.emit('keydown', {code: 'Space'});
+  app.frame(1000);
+  assert.equal(game.elapsed, elapsed);
+  assert.equal(game.player.charges, rounds);
+  app.emit('pointerlockchange');
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+});
+
+test('BR freezes on hidden document before visibilitychange can be delivered', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game, elapsed = game.elapsed;
+  app.context.document.hidden = true;
+  app.frame(1000);
+  assert.equal(game.elapsed, elapsed);
+  app.emit('visibilitychange');
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+});
