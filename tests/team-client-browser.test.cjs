@@ -8,6 +8,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {TeamMatch} = require('../src/team-match.cjs');
 const clientSource = fs.readFileSync(path.join(__dirname, '../src/team-client.js'), 'utf8');
+const Desktop = require('../src/desktop-controls.js');
 
 function backend() {
   const match = new TeamMatch({now: () => 0});
@@ -73,6 +74,11 @@ function boot(server, storage = new Map()) {
       setItem: (key, value) => storage.set(key, String(value)),
       removeItem: key => storage.delete(key)
     },
+    localStorage: {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, String(value))
+    },
+    VeilpointDesktopControls: Desktop,
     addEventListener: (name, callback) => on(windowListeners, name, callback)
   };
   vm.runInNewContext(clientSource, {
@@ -502,4 +508,42 @@ test('mouse pointerup keeps hover aim, but pointercancel releases it without poi
   for (let i = 0; i < 25; i++) server.match.step();
   await a.poll(); await settle();
   assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'aim').length, before);
+});
+
+test('team client obeys saved PC remaps without leaving old aliases active', async () => {
+  const server = backend();
+  const bindings = {...Desktop.DEFAULT_BINDINGS, forward: 'KeyI', interact: 'KeyT',
+    fire: 'KeyY', reload: 'KeyU'};
+  const storage = new Map([[Desktop.STORAGE_KEY, JSON.stringify({bindings, sensitivity: 1, invertY: false})]]);
+  const a = boot(server, storage), b = boot(server);
+  a.node('join').click();b.node('join').click();await settle();
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await settle();
+  const token = storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.doc('keydown', {code: 'KeyW'});await settle();
+  assert.equal(player.direction.z, 0, 'old forward key must not move');
+  a.doc('keyup', {code: 'KeyW'});
+  a.doc('keydown', {code: 'KeyI'});await settle();
+  assert.equal(player.direction.z, -1, 'new forward key moves through server validation');
+  a.doc('keyup', {code: 'KeyI'});await settle();
+  assert.equal(player.direction.z, 0);
+  a.doc('keydown', {code: 'KeyE'});await settle();
+  assert.equal(player.capturing, false, 'old capture key must be disabled');
+  a.doc('keyup', {code: 'KeyE'});
+  a.doc('keydown', {code: 'KeyT'});await settle();
+  assert.equal(player.capturing, true);
+  a.doc('keyup', {code: 'KeyT'});await settle();
+  assert.equal(player.capturing, false);
+  const before = player.ammo;
+  a.doc('keydown', {code: 'KeyF'});await settle();
+  assert.equal(player.ammo, before, 'legacy F fire alias disabled after remap');
+  a.doc('keyup', {code: 'KeyF'});
+  a.doc('keydown', {code: 'KeyY'});await settle();
+  assert.equal(player.ammo, before - 1, 'remapped fire consumes server-owned ammo');
+  a.doc('keydown', {code: 'KeyY', repeat: true});await settle();
+  assert.equal(player.ammo, before - 1, 'OS key repeat cannot send another fire command');
+  a.doc('keyup', {code: 'KeyY'});
+  a.doc('keydown', {code: 'KeyU'});await settle();
+  assert.ok(player.reloadTicks > 0, 'remapped reload begins server-owned reload');
 });
