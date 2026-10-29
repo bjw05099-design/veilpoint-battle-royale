@@ -608,3 +608,50 @@ test('PC team match rejects pre-round held movement until a fresh gameplay keydo
  a.doc('keydown',{code:'KeyD',target:a.node('arena')});await settle();
  assert.equal(p.direction.x,1,'fresh physical keydown restores normal movement');
 });
+
+test('PC lobby-held capture never auto-activates on the next authoritative round', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  // The PC player presses E before both clients are ready, then keeps it held.
+  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  assert.equal(player.capturing, false, 'lobby intent is never sent to the server');
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  for (let i = 0; i < 25; i++) server.match.step();
+  await a.poll(); await settle();
+  assert.equal(player.capturing, false, 'polling cannot revive pre-round capture');
+  assert.equal(server.requests.filter(r => r.token === token &&
+    r.body?.type === 'capture' && r.body.active).length, 0);
+  // OS repeat from the held E must not count as a new physical press.
+  a.doc('keydown', {code: 'KeyE', repeat: true, target: a.node('arena')});
+  await settle();
+  assert.equal(player.capturing, false);
+  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  await settle();
+  assert.equal(player.capturing, true, 'fresh PC press still captures normally');
+  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  await settle();
+  assert.equal(player.capturing, false, 'release stops capture');
+});
+
+test('PC lobby-held movement OS repeat cannot resurrect server movement after round start', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.doc('keydown', {code: 'KeyD', target: a.node('arena')});
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  a.doc('keydown', {code: 'KeyD', repeat: true, target: a.node('arena')});
+  await settle();
+  assert.equal(player.direction.x, 0, 'OS repeat is not a fresh round movement press');
+  a.doc('keyup', {code: 'KeyD', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyD', target: a.node('arena')});
+  await settle();
+  assert.equal(player.direction.x, 1, 'new keydown resumes ordinary movement');
+});

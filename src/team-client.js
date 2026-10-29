@@ -133,12 +133,13 @@
     }
   };
   const setCapture = active => {
+    // A lobby/finished key or button press is not an authorized round intent.
+    // Do not queue it for the next server-owned phase.
+    if (state?.phase !== 'playing') {capturing = false;return;}
     if (capturing === active) return;
     capturing = active;
-    if (state?.phase === 'playing') {
-      lastCaptureRefreshTick = state.tick;
-      void send('capture', {active});
-    }
+    lastCaptureRefreshTick = state.tick;
+    void send('capture', {active});
   };
   const draw = () => {
     ctx.clearRect(0, 0, 500, 500);
@@ -185,7 +186,9 @@
       lastCaptureRefreshTick = -Infinity;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
       activeTouchAimPointer = null;
-      if (state.phase !== 'playing') capturing = false;
+      // Clear held capture on *both* edges: lobby -> playing is especially
+      // important because the old client could auto-capture after the first poll.
+      capturing = false;
       previousPhase = state.phase;
       // A ready button can retain focus after the server starts the round.
       // Transfer PC keyboard ownership to the arena only on the phase edge,
@@ -245,6 +248,10 @@
     const action = Desktop.actionFor(e.code, controls);
     if (action || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
       e.preventDefault();
+    // After a phase change keys.clear() requires a fresh physical press.
+    // An OS repeat from a key held in the lobby must not resurrect movement
+    // or capture, even if the next server snapshot is already playing.
+    if (e.repeat && !keys.has(e.code)) return;
     keys.add(e.code);
     if (!e.repeat && state?.phase === 'playing') {
       // F is a legacy alias only while the default Space fire binding is active.
@@ -252,7 +259,7 @@
         void send('fire');
       if (action === 'reload') void send('reload');
     }
-    if (action === 'interact') setCapture(true);
+    if (action === 'interact' && !e.repeat) setCapture(true);
     if (e.code === 'KeyQ' && !e.repeat && action === 'support') releaseAim();
     updateInput();
   });
