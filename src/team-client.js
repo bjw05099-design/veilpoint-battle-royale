@@ -99,8 +99,13 @@
   });
   for (const type of ['pointerup', 'pointercancel']) {
     canvas.addEventListener(type, event => {
-      if (event.pointerType === 'touch' && activeTouchAimPointer === (event.pointerId ?? -1))
+      if (event.pointerType === 'touch') {
+        if (activeTouchAimPointer === (event.pointerId ?? -1)) releaseAim();
+      } else if (type === 'pointercancel' && activeTouchAimPointer === null) {
+        // Browser/OS may cancel a mouse or pen pointer without pointerleave.
+        // Do not leave the server aim lease refreshing indefinitely.
         releaseAim();
+      }
     });
   }
   canvas.addEventListener('pointerleave', event => {
