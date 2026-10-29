@@ -153,6 +153,9 @@ $('newMatch').addEventListener('click',start);
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
  const action=Desktop.actionFor(e.code,desktopUi.get());
+ // OS key repeat must not flip settings, panels or discrete actions.
+ // Existing firearm cooldown still governs repeated fire until held-fire design lands.
+ if(e.repeat&&action!=='fire')return;
  if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
  if(e.code==='Escape'&&canAct()){
   e.preventDefault();suspendMatch();resetInactiveClock();
