@@ -17,6 +17,10 @@ const COVER = Object.freeze([
 const PLAYER_RADIUS = 0.55;
 // A local, movement-facing 120-degree view, not a radar of nearby opponents.
 const VISION_RANGE = 14;
+const MIST_VISION_RANGE = 9;
+// Fictional coastal mist is a public, deterministic environmental condition.
+// It affects both teams' sight equally; it never damages, heals or reveals actors.
+const MIST_END_TICK = 1500;
 const VISION_COS = 0.5;
 // Original game abstractions: bounded, server-owned combat, not real weapon instruction.
 const FIRE_RANGE = 12;
@@ -36,6 +40,22 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
+
+// 60Hz authoritative passing-mist event: 5s warning, 10s mist, 5s clearing.
+// One bank passes through a local round, rather than implausibly repeating on a timer.
+// The accelerated durations are test abstractions, not real meteorological measurements.
+function weatherAt(tick) {
+  const phase = tick < 300 ? 'clear' :
+    tick < 600 ? 'incoming' :
+    tick < 1200 ? 'active' :
+    tick < MIST_END_TICK ? 'clearing' : 'clear';
+  const mist = phase === 'active' || phase === 'clearing';
+  const nextTick = tick < 300 ? 300 : tick < 600 ? 600 :
+    tick < 1200 ? 1200 : tick < MIST_END_TICK ? MIST_END_TICK : null;
+  return {eventId: 0, phase, kind: mist ? 'coastal_mist' : 'clear',
+    visibilityRange: mist ? MIST_VISION_RANGE : VISION_RANGE,
+    ticksUntilChange: nextTick === null ? null : nextTick - tick};
+}
 
 class TeamMatch {
   constructor({now = () => Date.now(), timeoutMs = 30000} = {}) {
@@ -288,16 +308,17 @@ class TeamMatch {
   snapshot(token) {
     const me = this.players.get(token);
     if (!me) throw new RangeError('unknown_player');
+    const weather = weatherAt(this.ticks);
     const visible = [...this.players.values()].filter(p => {
       if (p === me) return true;
       const dx = p.x - me.x, dz = p.z - me.z, distance = Math.hypot(dx, dz);
-      return distance <= VISION_RANGE &&
+      return distance <= weather.visibilityRange &&
         dx * me.facing.x + dz * me.facing.z >= distance * VISION_COS &&
         !lineBlocked(me.x, me.z, p.x, p.z, COVER);
     });
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
-      objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER,
+      objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER, weather,
       self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
@@ -307,4 +328,4 @@ class TeamMatch {
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS,
-  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS};
+  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK};
