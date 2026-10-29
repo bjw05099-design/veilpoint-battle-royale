@@ -600,3 +600,19 @@ test('PC CH01 repeated accessibility keydown cannot reverse the chosen reload as
   const after = JSON.parse(app.store.get('veilpoint.story.ch01'));
   assert.equal(after.player.reloadAssist, true);
 });
+
+test('CH01 PC focused settings cannot spend ammunition during an active encounter',()=>{
+  const app=boot();
+  app.element('continue').click();
+  app.moveForward(0,300);
+  app.interact();
+  const before=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
+  app.emit('keydown',{code:'Space',target:{tagName:'SELECT'}});
+  app.element('pauseButton').click();
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,before);
+  app.element('continue').click();
+  app.emit('keydown',{code:'Space'});
+  app.element('pauseButton').click();
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,before-1,
+    'unfocused gameplay key must still fire exactly one finite shot');
+});

@@ -552,3 +552,20 @@ test('team client obeys saved PC remaps without leaving old aliases active', asy
   a.doc('keydown', {code: 'KeyU'});await settle();
   assert.ok(player.reloadTicks > 0, 'remapped reload begins server-owned reload');
 });
+
+test('team PC form focus suppresses fire and keyup still clears previously held movement',async()=>{
+  const server=backend(),a=boot(server),b=boot(server);
+  a.node('join').click();b.node('join').click();await settle();
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await b.poll();await settle();
+  const token=a.storage.get('veilpoint.team.tabSession');
+  const p=server.match.players.get(token);
+  a.doc('keydown',{code:'KeyD'});await settle();
+  assert.equal(p.direction.x,1);
+  a.doc('keyup',{code:'KeyD',target:{tagName:'INPUT'}});await settle();
+  assert.equal(p.direction.x,0,'releasing a key after focus change cannot ghost-move');
+  a.doc('keydown',{code:'Space',target:{tagName:'SELECT'}});await settle();
+  assert.equal(p.ammo,12,'focused settings may not fire server-owned ammunition');
+  a.doc('keydown',{code:'Space'});await settle();
+  assert.equal(p.ammo,11,'normal PC fire input remains active');
+});
