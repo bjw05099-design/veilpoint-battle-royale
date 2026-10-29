@@ -8,6 +8,7 @@
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
+  const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
   const PREVIEW_KEY='veilpoint.story.ch01PreviewCompleted';
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
@@ -27,6 +28,7 @@
   // player action may advance while permission is pending, denied or lost.
   const canAct=()=>running&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
   const clearInput=()=>{for(const key in input)input[key]=false;};
+  const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
   const storage={
     get(key){try{return global.localStorage.getItem(key);}catch(_){return null;}},
     set(key,value){try{global.localStorage.setItem(key,value);return true;}catch(_){return false;}},
@@ -92,7 +94,7 @@
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
-    running=false;lockAttempt++;clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
+    running=false;lockAttempt++;desktopUi.cancel();clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
@@ -120,7 +122,7 @@
     }
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
-    running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
+    running=true;desktopUi.cancel();clock.reset();limiter.reset();last=performance.now();clearInput();
     requestAimLock();
     updateHud();
   }
@@ -200,10 +202,8 @@
   $('choiceBack').addEventListener('click',()=>{
     if(Story.backToRecords(state).ok){persist();resume();}
   });
-  const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',
-    KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',
-    ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
   global.addEventListener('keydown',e=>{
+    if(desktopUi.captureKey(e))return;
     if(choices.classList.contains('hidden')===false){
       if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
       if(e.code==='Digit2'){e.preventDefault();decide('verification');}
@@ -212,14 +212,18 @@
     }
     if(e.code==='Escape'&&running){e.preventDefault();menuOpen('일시정지됨. 이어하기를 눌러 재개하세요.');return;}
     if(!canAct())return;
-    if(commands[e.code]){e.preventDefault();input[commands[e.code]]=true;}
-    if(e.code==='KeyE'){e.preventDefault();interact();}
-    if(e.code==='Space'){e.preventDefault();fire();}
-    if(e.code==='KeyQ'){e.preventDefault();support();}
-    if(e.code==='KeyR'){e.preventDefault();reload();}
-    if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
+    const action=Desktop.actionFor(e.code,desktopUi.get());
+    if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
+    if(action==='interact'){e.preventDefault();interact();}
+    if(action==='fire'){e.preventDefault();fire();}
+    if(action==='support'){e.preventDefault();support();}
+    if(action==='reload'){e.preventDefault();reload();}
+    if(action==='assist'){e.preventDefault();toggleReloadAssist();}
   });
-  global.addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
+  global.addEventListener('keyup',e=>{
+    const action=Desktop.actionFor(e.code,desktopUi.get());
+    if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
+  });
   // Losing focus must not leave the player exposed to hostile volleys or advance
   // a timed route while they cannot control the game. Persist at the pause boundary.
   function pauseForBackground(){
@@ -240,7 +244,8 @@
   });
   function look(dx,dy){
     const p=state.world.player;
-    p.yaw+=dx*.0023;p.pitch=Math.max(-.33,Math.min(.35,p.pitch-dy*.00165));
+    const delta=Desktop.mouseDelta(dx,dy,desktopUi.get());
+    p.yaw+=delta.yaw;p.pitch=Math.max(-.33,Math.min(.35,p.pitch+delta.pitch));
   }
   global.addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
   canvas.addEventListener('click',()=>{
