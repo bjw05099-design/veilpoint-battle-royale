@@ -38,6 +38,8 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
       getContext: () => ctx,
       getBoundingClientRect: () => ({x: 0, y: 0, width: 88, height: 88}),
       setPointerCapture() {},
+      focus() {document.activeElement = this;},
+      blur() {if(document.activeElement===this)document.activeElement=null;},
       addEventListener: (key, callback) => add(events, key, callback),
       dispatch: (key, event) => emit(events, key, event),
       click() {this.dispatch('click');},
@@ -53,6 +55,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
   }
   const selectors = new Map();
   const document = {
+    activeElement: null,
     pointerLockElement: null,
     getElementById: node,
     querySelector: selector => {
@@ -697,4 +700,29 @@ test('PC Escape cancels a pending pointer lock even with a focused launch button
  assert.equal(app.node('play').textContent,'이어하기');
  app.frame(2000/60);
  assert.equal(game.elapsed,0,'pause cannot simulate hostile fire while capture is unresolved');
+});
+
+test('PC BR Start/Resume transfers focus off menu buttons to the game canvas',()=>{
+ const app=boot(),play=app.node('play');
+ app.context.document.activeElement=play;
+ play.click();
+ assert.equal(app.context.document.activeElement,app.node('scene'));
+ assert.equal(app.node('scene').tabIndex,-1);
+ app.frame(1000/60);
+ app.emit('blur');
+ app.context.document.activeElement=play;
+ play.click();
+ assert.equal(app.context.document.activeElement,app.node('scene'));
+});
+test('PC BR held keyboard auto-repeat cannot spend ammunition or cause movement scroll',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const p=app.game.player;
+ app.emit('keydown',{code:'Space'});assert.equal(p.charges,47);
+ for(let tick=2;tick<=60;tick++)app.frame(tick*1000/60);
+ for(let i=0;i<8;i++)app.emit('keydown',{code:'Space',repeat:true});
+ assert.equal(p.charges,47,'OS repeat must not fire even after firearm cooldown');
+ let prevented=false;
+ app.emit('keydown',{code:'ArrowUp',repeat:true,preventDefault(){prevented=true;}});
+ assert.equal(prevented,true,'remapped/default movement repeat must not scroll page');
+ app.emit('keydown',{code:'Space'});assert.equal(p.charges,46);
 });

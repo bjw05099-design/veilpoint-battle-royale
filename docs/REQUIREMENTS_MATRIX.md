@@ -451,3 +451,8 @@ The browser graphics settings panel now reports per-window sample counts and P50
 ## 2026-10-29 CH01 hostile physical contact ray (R-04 / R-23)
 - **Partial implementation candidate:** CH01 human opponents now spend finite ammunition on a deterministic spread ray with player-body contact and intervening-cover checks. Replaces the post-fire hit-probability roll, preserving 60Hz checkpoint replay and movement-dependent stability. Offset-cover regression distinguishes center visibility from actual shot-ray obstruction. This remains a 2D game approximation, not measured ballistics or native UE collision.
 - **Acceptance:** `npm run verify`, GitHub CI and browser visual QA required. Broader combat animation, AI judgment, photoreal quality, 165Hz target-PC measurement and all 12 chapters remain unverified.
+
+## 2026-10-29 Windows PC gameplay-focus and discrete-input candidate
+
+- **R-13 / R-14 (partial):** BR and CH01 now explicitly move keyboard focus from a Start/Resume menu button to the first-person canvas before requesting desktop pointer lock. This prevents a hidden focused button from swallowing Space/arrow input or activating native button actions. A refused focus request is nonfatal and does not bypass pointer-lock safety.
+- **R-10 / R-13 / R-23 (partial):** OS key-repeat events no longer generate extra shots or one-shot gameplay actions; finite ammunition is spent only on actual discrete keydowns/clicks. Any future continuous automatic fire must use fixed 60Hz gameplay rules, not OS repeat frequency. Browser DOM-mock tests cover focus and finite rounds; real Windows keyboard/mouse, QHD 165Hz input latency, Unreal and human playtests remain unverified. Touch-only functionality is not a new development requirement.

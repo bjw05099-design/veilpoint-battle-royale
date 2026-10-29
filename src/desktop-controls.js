@@ -58,6 +58,20 @@
   const sensitivity=value.sensitivity;
   return {yaw:x===0?0:x*.0023*sensitivity,pitch:y===0?0:-y*.00165*sensitivity*(value.invertY?-1:1)};
  }
+ // A hidden menu button can retain keyboard focus after Start/Resume on some
+ // desktop browsers. Move focus to the actual gameplay canvas before asking
+ // for pointer lock, so Space/arrow keys reach the game rather than a button.
+ function focusGameplay(document,canvas){
+  if(!canvas)return false;
+  try{
+   const active=document&&document.activeElement;
+   if(active&&active!==canvas&&typeof active.blur==='function')active.blur();
+   if(typeof canvas.focus!=='function')return false;
+   if(!Number.isInteger(canvas.tabIndex)||canvas.tabIndex<0)canvas.tabIndex=-1;
+   canvas.focus({preventScroll:true});
+   return !!document&&document.activeElement===canvas;
+  }catch(_){return false;}
+ }
  function attach(document,storage,onChange){
   let current=load(storage),capturing=false;
   const get=id=>document.getElementById(id);
@@ -103,7 +117,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

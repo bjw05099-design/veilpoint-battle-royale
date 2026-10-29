@@ -26,6 +26,8 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
       click(){this.dispatch('click');},
       getContext:()=>ctx2d,
       setPointerCapture(){},
+      focus(){document.activeElement=this;},
+      blur(){if(document.activeElement===this)document.activeElement=null;},
       requestPointerLock(){
         if(pointerLock==='throw')throw new Error('pointer lock denied');
         if(pointerLock==='denied')return Promise.reject(new Error('pointer lock denied'));
@@ -39,6 +41,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el=element('mobile-'+name);el.dataset.move=name;return el;
   });
   const document={
+    activeElement:null,
     pointerLockElement:null,
     getElementById:element,
     querySelectorAll:()=>mobileButtons,
@@ -635,4 +638,28 @@ test('PC hybrid CH01 waits for mouse pointer lock and then accepts keyboard/mous
  app.element('pauseButton').click();
  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
  assert.ok(saved.player.yaw>0,'mouse movement must update first-person aim');
+});
+
+test('PC CH01 Start/Resume focuses the canvas rather than a menu control',()=>{
+ const app=boot();
+ app.context.document.activeElement=app.element('continue');
+ app.element('continue').click();
+ assert.equal(app.context.document.activeElement,app.element('scene'));
+ app.element('pauseButton').click();
+ app.context.document.activeElement=app.element('continue');
+ app.element('continue').click();
+ assert.equal(app.context.document.activeElement,app.element('scene'));
+});
+test('PC CH01 OS keyboard auto-repeat cannot create extra finite shots',()=>{
+ const app=boot();app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ let saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ const before=saved.player.charges;
+ app.emit('keydown',{code:'Space'});
+ saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ assert.equal(saved.player.charges,before-1);
+ app.moveForward(300,30);
+ for(let i=0;i<5;i++)app.emit('keydown',{code:'Space',repeat:true});
+ saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ assert.equal(saved.player.charges,before-1);
 });
