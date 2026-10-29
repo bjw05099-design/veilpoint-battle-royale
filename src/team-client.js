@@ -102,7 +102,9 @@
     ctx.clearRect(0, 0, 500, 500);
     // The small 2D proof mirrors the server's gradual mist intensity. This
     // background tint is only a UI cue, not a photoreal volumetric fog renderer.
-    const fog = Math.max(0, Math.min(1, (14 - (state?.weather?.visibilityRange ?? 14)) / 5));
+    // Match the server's 80m clear-arena disclosure bound and 9m dense mist.
+    // This only tints the local map; it does not simulate volumetric optics.
+    const fog = Math.max(0, Math.min(1, (80 - (state?.weather?.visibilityRange ?? 80)) / 71));
     ctx.fillStyle = `rgb(${Math.round(25 + 23 * fog)},${Math.round(39 + 22 * fog)},${Math.round(44 + 21 * fog)})`;
     ctx.fillRect(0, 0, 500, 500);
     ctx.strokeStyle = '#41565a';ctx.lineWidth = 1;

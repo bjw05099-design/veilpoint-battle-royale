@@ -67,9 +67,11 @@ test('replayed and malformed commands do not change authoritative state', () => 
   assert.throws(() => m.command('missing', {seq: 1, type: 'ready'}), /unknown_player/);
   assert.equal(m.players.get('a').seq, 2);
 });
-test('opponents outside proximity are not exposed in snapshots', () => {
+test('clear air shows distant actors but dense mist conceals them', () => {
   const {m} = setup();
   m.players.get('b').x = 24;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+  for (let i = 0; i < 600; i++) m.step();
   assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red']);
 });
 test('timeouts and departure terminate a round; ready players can replay', () => {
@@ -568,7 +570,7 @@ test('weather replay and round restart are tick-based, independent of wall clock
     m.command('a', {seq: 3, type: 'ready'});
     m.command('b', {seq: 3, type: 'ready'});
     assert.deepEqual(m.snapshot('a').weather, {
-      eventId: 0, phase: 'clear', kind: 'clear', visibilityRange: 14, ticksUntilChange: 300
+      eventId: 0, phase: 'clear', kind: 'clear', visibilityRange: 80, ticksUntilChange: 300
     });
     return frames;
   };
@@ -588,15 +590,29 @@ test('passing mist changes sight gradually, symmetrically and deterministically 
     assert.equal(red.visible.length, visible);
     assert.equal(blue.visible.length, visible);
   };
-  check(300, 14, 2);
-  check(450, 11.5, 2);
-  check(480, 11, 2);
-  check(481, 14 - 5 * 181 / 300, 1);
+  check(300, 80, 2);
+  check(450, 44.5, 2);
+  check(480, 80 - 71 * 180 / 300, 2);
+  check(481, 80 - 71 * 181 / 300, 2);
+  check(591, 80 - 71 * 291 / 300, 2);
+  check(592, 80 - 71 * 292 / 300, 1);
   check(600, 9, 1);
   check(1200, 9, 1);
-  check(1350, 11.5, 2);
-  check(1500, 14, 2);
+  check(1350, 44.5, 2);
+  check(1500, 80, 2);
   assert.equal(m.snapshot('a').weather.ticksUntilChange, null);
+});
+
+test('clear air discloses unobstructed actors across the bounded arena, mist does not', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  a.x = -15; a.z = 0; b.x = 15; b.z = 0; // 30m separation in a 48m arena
+  assert.equal(m.snapshot('a').weather.visibilityRange, 80);
+  assert.equal(m.snapshot('a').visible.length, 2, 'clear air has no 14m artificial cutoff');
+  for (let i = 0; i < 600; i++) m.step();
+  assert.equal(m.snapshot('a').visible.length, 1, 'dense coastal mist conceals distant actors');
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 66, 'server-owned directional collision remains independent of sight');
+  assert.equal(a.ammo, 11);
 });
 
 test('mist conceals players without preventing aligned shots or leaking unseen hit confirmation', () => {
@@ -604,16 +620,16 @@ test('mist conceals players without preventing aligned shots or leaking unseen h
     const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
     a.x = -5.5; a.z = 0; b.x = 5.5; b.z = 0; // 11 arena metres
     const advanceTo = tick => {while (m.ticks < tick) m.step();};
-    advanceTo(480); // target exactly at sight boundary
+    advanceTo(591); // target still inside the fading sight boundary
     assert.equal(m.snapshot('a').visible.length, 2);
     assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, true);
     assert.equal(b.health, 66);
-    advanceTo(481); // weather hides the opponent, not the shot
+    advanceTo(592); // weather hides the opponent, not the shot
     assert.equal(m.snapshot('b').visible.length, 1);
     assert.equal(m.command('b', {seq: 2, type: 'fire'}).hit, false,
       'unseen damage cannot be confirmed from a server hit marker');
     assert.equal(a.health, 66, 'aligned blind fire still damages a hidden opponent');
-    advanceTo(500);
+    advanceTo(610);
     assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, false);
     assert.equal(b.health, 32, 'mist never becomes a magical bullet barrier');
     advanceTo(1350); // clearing mist exposes both actors again
@@ -644,7 +660,8 @@ test('mist limits snapshots, not collision; visible hits still confirm normally'
 
 test('blind fire beyond old 12m cap needs actual alignment, not target magnetism', () => {
   const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
-  a.x = 0; a.z = 0; b.x = 20; b.z = 1; // unseen, off the +x firing ray
+  a.x = 0; a.z = 0; b.x = 20; b.z = 1; // off the +x firing ray
+  for (let i = 0; i < 600; i++) m.step(); // dense mist hides the distant actor
   assert.equal(m.snapshot('a').visible.length, 1);
   assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
   assert.equal(b.health, 100, 'a broad aim cone must not auto-acquire a hidden actor');
