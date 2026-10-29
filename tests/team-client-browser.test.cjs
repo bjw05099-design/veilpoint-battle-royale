@@ -379,3 +379,25 @@ test('two local clients render identical announced mist and reduced server visib
   assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 1);
   assert.equal(server.match.snapshot([...server.match.players.keys()][1]).visible.length, 1);
 });
+
+test('team clients expose matching gradual sight range without disclosing hidden opponents', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  const [red, blue] = [...server.match.players.values()];
+  red.x = -5.5; red.z = 0; blue.x = 5.5; blue.z = 0;
+  const toTick = async tick => {
+    while (server.match.ticks < tick) server.match.step();
+    await a.poll(); await b.poll(); await settle();
+    assert.equal(a.node('weather').textContent, b.node('weather').textContent);
+  };
+  await toTick(450);
+  assert.ok(a.node('weather').textContent.includes('11.5m'));
+  assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 2);
+  await toTick(600);
+  assert.ok(a.node('weather').textContent.includes('9.0m'));
+  assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 1);
+  await toTick(1350);
+  assert.ok(a.node('weather').textContent.includes('11.5m'));
+  assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 2);
+});

@@ -569,3 +569,27 @@ test('weather replay and round restart are tick-based, independent of wall clock
   };
   assert.deepEqual(run(), run());
 });
+
+test('passing mist changes sight gradually, symmetrically and deterministically at 60Hz', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = -5.5; a.z = 0; b.x = 5.5; b.z = 0; // 11m apart, facing each other
+  const advanceTo = tick => {while (m.ticks < tick) m.step();};
+  const check = (tick, range, visible) => {
+    advanceTo(tick);
+    const red = m.snapshot('a'), blue = m.snapshot('b');
+    assert.ok(Math.abs(red.weather.visibilityRange - range) < 1e-9);
+    assert.deepEqual(red.weather, blue.weather);
+    assert.equal(red.visible.length, visible);
+    assert.equal(blue.visible.length, visible);
+  };
+  check(300, 14, 2);
+  check(450, 11.5, 2);
+  check(480, 11, 2);
+  check(481, 14 - 5 * 181 / 300, 1);
+  check(600, 9, 1);
+  check(1200, 9, 1);
+  check(1350, 11.5, 2);
+  check(1500, 14, 2);
+  assert.equal(m.snapshot('a').weather.ticksUntilChange, null);
+});
