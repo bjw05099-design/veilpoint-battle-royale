@@ -20,7 +20,7 @@ const VISION_RANGE = 14;
 const MIST_VISION_RANGE = 9;
 // Fictional coastal mist is a public, deterministic environmental condition.
 // It affects both teams' sight equally; it never damages, heals or reveals actors.
-const WEATHER_CYCLE_TICKS = 1800;
+const MIST_END_TICK = 1500;
 const VISION_COS = 0.5;
 // Original game abstractions: bounded, server-owned combat, not real weapon instruction.
 const FIRE_RANGE = 12;
@@ -41,21 +41,20 @@ const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
 
-// 60Hz authoritative weather timeline: 5s warning, 10s mist, 5s clearing.
-// The short cycle is for local prototype testing, not a claim about real weather timing.
+// 60Hz authoritative passing-mist event: 5s warning, 10s mist, 5s clearing.
+// One bank passes through a local round, rather than implausibly repeating on a timer.
+// The accelerated durations are test abstractions, not real meteorological measurements.
 function weatherAt(tick) {
-  const cycleTick = tick % WEATHER_CYCLE_TICKS;
-  const eventId = Math.floor(tick / WEATHER_CYCLE_TICKS);
-  const phase = cycleTick < 300 ? 'clear' :
-    cycleTick < 600 ? 'incoming' :
-    cycleTick < 1200 ? 'active' :
-    cycleTick < 1500 ? 'clearing' : 'clear';
+  const phase = tick < 300 ? 'clear' :
+    tick < 600 ? 'incoming' :
+    tick < 1200 ? 'active' :
+    tick < MIST_END_TICK ? 'clearing' : 'clear';
   const mist = phase === 'active' || phase === 'clearing';
-  const nextTick = cycleTick < 300 ? 300 : cycleTick < 600 ? 600 :
-    cycleTick < 1200 ? 1200 : cycleTick < 1500 ? 1500 : WEATHER_CYCLE_TICKS + 300;
-  return {eventId, phase, kind: mist ? 'coastal_mist' : 'clear',
+  const nextTick = tick < 300 ? 300 : tick < 600 ? 600 :
+    tick < 1200 ? 1200 : tick < MIST_END_TICK ? MIST_END_TICK : null;
+  return {eventId: 0, phase, kind: mist ? 'coastal_mist' : 'clear',
     visibilityRange: mist ? MIST_VISION_RANGE : VISION_RANGE,
-    ticksUntilChange: nextTick - cycleTick};
+    ticksUntilChange: nextTick === null ? null : nextTick - tick};
 }
 
 class TeamMatch {
@@ -329,4 +328,4 @@ class TeamMatch {
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS,
-  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, WEATHER_CYCLE_TICKS};
+  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK};

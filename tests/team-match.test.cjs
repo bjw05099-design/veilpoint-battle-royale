@@ -555,7 +555,10 @@ test('weather replay and round restart are tick-based, independent of wall clock
       m.step();
       if (i % 300 === 299) frames.push(m.snapshot('a').weather);
     }
-    assert.equal(m.snapshot('a').weather.eventId, 1);
+    assert.equal(m.snapshot('a').weather.eventId, 0);
+    assert.equal(m.snapshot('a').weather.phase, 'clear');
+    assert.equal(m.snapshot('a').weather.ticksUntilChange, null,
+      'a passing mist bank must not magically repeat in the same round');
     m.finish('red', 'test');
     m.command('a', {seq: 3, type: 'ready'});
     m.command('b', {seq: 3, type: 'ready'});
