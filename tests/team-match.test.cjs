@@ -601,6 +601,18 @@ test('passing mist changes sight gradually, symmetrically and deterministically 
   assert.equal(m.snapshot('a').weather.ticksUntilChange, null);
 });
 
+test('clear air discloses unobstructed actors across the bounded arena, mist does not', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  a.x = -15; a.z = 0; b.x = 15; b.z = 0; // 30m separation in a 48m arena
+  assert.equal(m.snapshot('a').weather.visibilityRange, 80);
+  assert.equal(m.snapshot('a').visible.length, 2, 'clear air has no 14m artificial cutoff');
+  for (let i = 0; i < 600; i++) m.step();
+  assert.equal(m.snapshot('a').visible.length, 1, 'dense coastal mist conceals distant actors');
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 66, 'server-owned directional collision remains independent of sight');
+  assert.equal(a.ammo, 11);
+});
+
 test('mist conceals players without preventing aligned shots or leaking unseen hit confirmation', () => {
   const replay = () => {
     const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
