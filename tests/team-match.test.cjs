@@ -697,3 +697,50 @@ test('a near miss stays a miss at the player collision radius', () => {
     'the server 2D collision radius, not visibility, resolves this shot');
   assert.equal(b.health, 66);
 });
+
+test('server collision traces the aimed ray rather than a different center-to-center cover line', () => {
+  const play = offset => {
+    const {m} = setup();
+    const a = m.players.get('a'), b = m.players.get('b');
+    // Opponent center is visible past the edge of the northern wall.
+    // A slightly lower aim still intersects the actor circle, but the actual
+    // shot ray first passes through solid cover. Both commands cost one round.
+    a.x = -7; a.z = 0;
+    b.x = -1; b.z = 7.5;
+    const angle = Math.atan2(b.z - a.z, b.x - a.x) + offset;
+    m.command('a', {seq: 2, type: 'aim',
+      direction: {x: Math.cos(angle), z: Math.sin(angle)}});
+    const visible = m.snapshot('a').visible.some(actor => actor.id === b.id);
+    const result = m.command('a', {seq: 3, type: 'fire'});
+    return {visible, health: b.health, ammo: a.ammo, result};
+  };
+  const blocked = play(-0.04);
+  assert.equal(blocked.visible, true, 'the opponent center is visible past cover');
+  assert.equal(blocked.health, 100, 'cover must block the actual off-center shot ray');
+  assert.equal(blocked.ammo, 11, 'a blocked shot still consumes a finite round');
+  assert.equal(blocked.result.hit, false);
+  const clear = play(0);
+  assert.equal(clear.health, 66, 'a clear aimed ray still reaches the same opponent');
+  assert.equal(clear.ammo, 11);
+  assert.deepEqual(play(-0.04), blocked, 'fixed 60Hz commands replay identically');
+});
+
+test('partially exposed opponents remain visible when their actual body edge is hittable', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = -7; a.z = 0;
+  b.x = -0.5; b.z = 7.5;
+  // Center sightline crosses solid cover, but the right-hand body edge
+  // remains exposed; center-only disclosure would hide a hittable opponent.
+  const angle = Math.atan2(b.z - a.z, b.x - a.x) + 0.04;
+  m.command('a', {seq: 2, type: 'aim',
+    direction: {x: Math.cos(angle), z: Math.sin(angle)}});
+  assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), true);
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).ok, true);
+  assert.equal(b.health, 66, 'the unobstructed body edge can be contacted');
+  assert.equal(a.ammo, 11);
+  // Moving fully behind the same cover must restore the information barrier.
+  a.x = -4; a.z = 6; b.x = 4; b.z = 6;
+  m.command('a', {seq: 4, type: 'aim', direction: {x: 1, z: 0}});
+  assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), false);
+});

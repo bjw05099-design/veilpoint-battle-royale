@@ -177,9 +177,16 @@ class TeamMatch {
         const dx = opponent.x - p.x, dz = opponent.z - p.z;
         const forward = dx * p.facing.x + dz * p.facing.z;
         const crossTrack = Math.abs(dx * p.facing.z - dz * p.facing.x);
-        const hit = forward > 0 && forward <= FIRE_RANGE &&
-          crossTrack <= PLAYER_RADIUS &&
-          !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
+        // Resolve the first contact on the actual server-owned shot ray.
+        // A center-to-center cover test can falsely damage an actor when the
+        // aimed ray crosses a wall but the line to the actor's center does not.
+        const intersects = forward > 0 && crossTrack <= PLAYER_RADIUS;
+        const contact = intersects
+          ? Math.max(0, forward - Math.sqrt(Math.max(0, PLAYER_RADIUS ** 2 - crossTrack ** 2)))
+          : Infinity;
+        const hit = contact > 0 && contact <= FIRE_RANGE &&
+          !lineBlocked(p.x, p.z, p.x + p.facing.x * contact,
+            p.z + p.facing.z * contact, COVER);
         if (hit) {
           opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
           opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
@@ -326,9 +333,19 @@ class TeamMatch {
     const visible = [...this.players.values()].filter(p => {
       if (p === me) return true;
       const dx = p.x - me.x, dz = p.z - me.z, distance = Math.hypot(dx, dz);
-      return distance <= weather.visibilityRange &&
-        dx * me.facing.x + dz * me.facing.z >= distance * VISION_COS &&
-        !lineBlocked(me.x, me.z, p.x, p.z, COVER);
+      if (distance > weather.visibilityRange + PLAYER_RADIUS) return false;
+      // A partially exposed actor at a wall edge must not be rendered invisible
+      // while the same authoritative shot ray can contact the exposed body.
+      // Three silhouette samples are a bounded 2D proxy, not full 3D occlusion.
+      const sideX = distance > 1e-6 ? -dz / distance * PLAYER_RADIUS : 0;
+      const sideZ = distance > 1e-6 ? dx / distance * PLAYER_RADIUS : 0;
+      return [[p.x, p.z], [p.x + sideX, p.z + sideZ],
+        [p.x - sideX, p.z - sideZ]].some(([x, z]) => {
+        const vx = x - me.x, vz = z - me.z, range = Math.hypot(vx, vz);
+        return range <= weather.visibilityRange &&
+          vx * me.facing.x + vz * me.facing.z >= range * VISION_COS &&
+          !lineBlocked(me.x, me.z, x, z, COVER);
+      });
     });
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
