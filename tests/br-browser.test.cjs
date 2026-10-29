@@ -8,7 +8,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..');
 
-function boot({touch = false, store = new Map()} = {}) {
+function boot({touch = false, store = new Map(), pointerLock = 'granted'} = {}) {
   const nodes = new Map(), listeners = new Map();
   let now = 0, frameCallback = null, latestGame = null;
   const ctx = {};
@@ -41,7 +41,12 @@ function boot({touch = false, store = new Map()} = {}) {
       addEventListener: (key, callback) => add(events, key, callback),
       dispatch: (key, event) => emit(events, key, event),
       click() {this.dispatch('click');},
-      requestPointerLock() {document.pointerLockElement = this;}
+      requestPointerLock() {
+        if (pointerLock === 'throw') throw new Error('pointer lock denied');
+        if (pointerLock === 'denied') return Promise.reject(new Error('pointer lock denied'));
+        if (pointerLock === 'pending') return new Promise(() => {});
+        document.pointerLockElement = this;
+      }
     };
     nodes.set(id, value);
     return value;
@@ -477,4 +482,90 @@ test('BR Escape opens a safe pause even if pointerlockchange is delayed', () => 
  app.node('play').click();app.frame(4000);
  assert.equal(app.game,game);
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
+
+test('desktop BR never advances or fires while pointer-lock permission is pending', () => {
+  const app = boot({pointerLock: 'pending'});
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game;
+  const before = {elapsed: game.elapsed, rounds: game.player.charges};
+  app.emit('keydown', {code: 'Space'});
+  app.emit('keydown', {code: 'KeyW'});
+  app.frame(2000);
+  assert.equal(game.elapsed, before.elapsed, 'pending lock must freeze the fixed-step world');
+  assert.equal(game.player.charges, before.rounds, 'pending lock must prevent blind firing');
+  app.context.document.pointerLockElement = app.node('scene');
+  app.frame(2017);
+  assert.ok(game.elapsed > before.elapsed, 'play resumes only after pointer lock exists');
+});
+
+test('desktop BR safely pauses and explains an asynchronously rejected pointer lock', async () => {
+  const app = boot({pointerLock: 'denied'});
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game;
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+  assert.match(app.selectors.get('.tagline').textContent, /포인터 잠금/);
+  app.frame(1000);
+  assert.equal(game.elapsed, 0);
+  assert.ok(app.store.has('veilpoint.brCheckpoint.v1'), 'failed lock retains the same match');
+});
+
+test('desktop BR handles missing and synchronously denied pointer-lock APIs', () => {
+  for (const mode of ['missing', 'throw']) {
+    const app = boot({pointerLock: mode});
+    if (mode === 'missing') delete app.node('scene').requestPointerLock;
+    app.node('play').click();
+    app.frame(1000);
+    assert.equal(app.node('overlay').classList.contains('hidden'), false, mode);
+    const saved = app.store.get('veilpoint.brCheckpoint.v1');
+    assert.ok(saved, 'refused lock must still checkpoint the match');
+    assert.equal(app.context.VeilpointSim.restoreMatch(saved).elapsed, 0, mode);
+  }
+});
+
+test('pagehide pauses BR before bfcache restoration and preserves the exact match', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game;
+  app.emit('pagehide');
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+  assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+  const elapsed = game.elapsed;
+  app.frame(1000);
+  assert.equal(game.elapsed, elapsed, 'background page cannot continue combat');
+  app.node('play').click();
+  app.frame(1017);
+  assert.equal(app.game, game, 'resume must not restart a different match');
+  assert.ok(game.elapsed > elapsed);
+});
+
+test('BR freezes immediately on lost desktop lock even before pointerlockchange dispatch', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game, elapsed = game.elapsed, rounds = game.player.charges;
+  app.context.document.pointerLockElement = null;
+  app.emit('keydown', {code: 'Space'});
+  app.frame(1000);
+  assert.equal(game.elapsed, elapsed);
+  assert.equal(game.player.charges, rounds);
+  app.emit('pointerlockchange');
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+});
+
+test('BR freezes on hidden document before visibilitychange can be delivered', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  const game = app.game, elapsed = game.elapsed;
+  app.context.document.hidden = true;
+  app.frame(1000);
+  assert.equal(game.elapsed, elapsed);
+  app.emit('visibilitychange');
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
 });

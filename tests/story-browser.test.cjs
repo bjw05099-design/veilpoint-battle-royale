@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function boot(sharedStore=new Map(),touch=false){
+function boot(sharedStore=new Map(),touch=false,pointerLock='granted'){
   const listeners=new Map(),nodes=new Map();
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
   const makeClassList=hidden=>{
@@ -26,7 +26,12 @@ function boot(sharedStore=new Map(),touch=false){
       click(){this.dispatch('click');},
       getContext:()=>ctx2d,
       setPointerCapture(){},
-      requestPointerLock(){document.pointerLockElement=this;return Promise.resolve();}
+      requestPointerLock(){
+        if(pointerLock==='throw')throw new Error('pointer lock denied');
+        if(pointerLock==='denied')return Promise.reject(new Error('pointer lock denied'));
+        if(pointerLock==='pending')return new Promise(()=>{});
+        document.pointerLockElement=this;return Promise.resolve();
+      }
     };
     nodes.set(id,el);return el;
   }
@@ -501,4 +506,56 @@ test('CH01 reports blocked offline checkpoint storage and clears warning after a
   assert.equal(app.element('saveStatus').classList.contains('hidden'),true);
   assert.equal(app.element('saveStatus').textContent,'');
   assert.equal(shared.has('veilpoint.campaignProgress'),false);
+});
+
+test('CH01 freezes hostile clock and keyboard actions while desktop pointer lock is pending',()=>{
+  const app=boot(new Map(),false,'pending');
+  app.element('continue').click();
+  app.moveForward(0,120);
+  app.interact();
+  app.emit('keydown',{code:'Space'});
+  app.emit('blur');
+  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.elapsed,0);
+  assert.equal(saved.player.z,12,'initial CH01 spawn must not move without pointer lock');
+  assert.equal(saved.phase,'terminal','pending lock cannot activate the relay');
+  app.element('continue').click();
+  app.context.document.pointerLockElement=app.element('scene');
+  app.moveForward(120,10);
+  app.element('pauseButton').click();
+  assert.ok(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed>0);
+});
+
+test('CH01 rejected pointer lock opens explicit checkpoint pause rather than live hostile combat',async()=>{
+  const app=boot(new Map(),false,'denied');
+  app.element('continue').click();
+  app.frame(1000);
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  assert.match(app.element('menuText').textContent,/포인터 잠금/);
+  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.elapsed,0);
+  app.frame(2000);
+  assert.equal(app.store.get('veilpoint.story.ch01'),JSON.stringify(saved));
+});
+
+test('CH01 handles unavailable and throwing pointer-lock APIs without dropping mission state',()=>{
+  for(const mode of ['missing','throw']){
+    const app=boot(new Map(),false,mode);
+    if(mode==='missing')delete app.element('scene').requestPointerLock;
+    app.element('continue').click();
+    assert.equal(app.element('menu').classList.contains('hidden'),false,mode);
+    assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed,0,mode);
+  }
+});
+
+test('CH01 pagehide pauses mission and persists its elapsed checkpoint',()=>{
+  const app=boot();
+  app.element('continue').click();
+  app.moveForward(0,12);
+  app.emit('pagehide');
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  app.frame(1000);
+  assert.equal(app.store.get('veilpoint.story.ch01'),JSON.stringify(saved));
 });

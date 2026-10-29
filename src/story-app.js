@@ -22,6 +22,10 @@
   let lastAutosaveAt=0;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   const isTouch=global.matchMedia('(pointer:coarse)').matches;
+  let lockAttempt=0;
+  // A desktop player cannot aim without pointer lock; no hostile 60Hz tick or
+  // player action may advance while permission is pending, denied or lost.
+  const canAct=()=>running&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
   const clearInput=()=>{for(const key in input)input[key]=false;};
   const storage={
     get(key){try{return global.localStorage.getItem(key);}catch(_){return null;}},
@@ -88,13 +92,25 @@
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
-    running=false;clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
+    running=false;lockAttempt++;clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=completed?'미션 다시 플레이':'이어하기';
+  }
+  function requestAimLock(){
+    if(isTouch)return;
+    const attempt=++lockAttempt;
+    const unavailable=()=>menuOpen('마우스 포인터 잠금이 거부되었거나 지원되지 않습니다. 권한을 허용한 뒤 이어하기를 눌러 재시도하세요.');
+    if(typeof canvas.requestPointerLock!=='function'){unavailable();return;}
+    try{
+      const result=canvas.requestPointerLock();
+      if(result&&typeof result.catch==='function')result.catch(()=>{
+        if(attempt===lockAttempt&&running&&document.pointerLockElement!==canvas)unavailable();
+      });
+    }catch(_){unavailable();}
   }
   function resume(){
     if(!renderer)return;
@@ -105,9 +121,7 @@
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;clock.reset();limiter.reset();last=performance.now();clearInput();
-    if(!isTouch&&canvas.requestPointerLock){
-      try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(_){}
-    }
+    requestAimLock();
     updateHud();
   }
   function begin(fromCheckpoint){
@@ -126,7 +140,7 @@
     resume();
   }
   function showChoices(){
-    running=false;clearInput();clock.reset();
+    running=false;lockAttempt++;clearInput();clock.reset();
     choices.classList.remove('hidden');menu.classList.add('hidden');
     const canVerify=state.found.length===2;
     $('choiceVerified').disabled=!canVerify;
@@ -142,7 +156,7 @@
     persist();resume();
   }
   function interact(){
-    if(!running||state.phase==='complete')return;
+    if(!canAct()||state.phase==='complete')return;
     const result=Story.interact(state);
     if(!result.ok)return;
     audio.play(state.phase==='complete'?'complete':'interact');
@@ -155,12 +169,12 @@
     updateHud();
   }
   function fire(){
-    if(!running)return;
+    if(!canAct())return;
     const result=Story.fire(state);
     if(result.ok){audio.play('shot');persist();updateHud();}
   }
   function reload(){
-    if(!running||state.phase!=='engagement')return;
+    if(!canAct()||state.phase!=='engagement')return;
     const result=Sim.reload(state.world);
     if(result.reason==='recovery_not_ready'){
       state.subtitle='이수혁 대위: 장전 동작이 안정되면 R키 또는 장전 버튼을 다시 눌러 복구할 수 있습니다.';
@@ -169,12 +183,12 @@
     if(result.ok){audio.play('reload');persist();updateHud();}
   }
   function toggleReloadAssist(){
-    if(!running)return;
+    if(!canAct())return;
     Sim.setReloadAssist(state.world,!state.world.player.reloadAssist);
     persist();updateHud();
   }
   function support(){
-    if(!running)return;
+    if(!canAct())return;
     const result=Story.support(state);
     if(result.ok){audio.play('report');persist();updateHud();}
   }
@@ -197,7 +211,7 @@
       return;
     }
     if(e.code==='Escape'&&running){e.preventDefault();menuOpen('일시정지됨. 이어하기를 눌러 재개하세요.');return;}
-    if(!running)return;
+    if(!canAct())return;
     if(commands[e.code]){e.preventDefault();input[commands[e.code]]=true;}
     if(e.code==='KeyE'){e.preventDefault();interact();}
     if(e.code==='Space'){e.preventDefault();fire();}
@@ -213,31 +227,35 @@
     if(running)menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   }
   global.addEventListener('blur',pauseForBackground);
+  global.addEventListener('pagehide',pauseForBackground);
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)pauseForBackground();
     else {clearInput();clock.reset();limiter.reset();last=performance.now();}
   });
   document.addEventListener('pointerlockchange',()=>{
-    if(!isTouch&&running&&document.pointerLockElement!==canvas)menuOpen('일시정지됨. 이어하기를 눌러 재개하세요.');
+    if(isTouch)return;
+    if(!running&&document.pointerLockElement===canvas){document.exitPointerLock();return;}
+    if(running&&document.pointerLockElement!==canvas)
+      menuOpen('마우스 포인터 잠금이 해제되었습니다. 이어하기를 눌러 재개하세요.');
   });
   function look(dx,dy){
     const p=state.world.player;
     p.yaw+=dx*.0023;p.pitch=Math.max(-.33,Math.min(.35,p.pitch-dy*.00165));
   }
-  global.addEventListener('mousemove',e=>{if(running&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
+  global.addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
   canvas.addEventListener('click',()=>{
     if(!running||isTouch)return;
     if(document.pointerLockElement===canvas)fire();
-    else if(canvas.requestPointerLock)canvas.requestPointerLock();
+    else requestAimLock();
   });
   let touchLookId=null,previous=null;
   canvas.addEventListener('pointerdown',e=>{
-    if(!isTouch||!running)return;
+    if(!isTouch||!canAct())return;
     touchLookId=e.pointerId;previous={x:e.clientX,y:e.clientY};
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove',e=>{
-    if(touchLookId!==e.pointerId||!previous||!running)return;
+    if(touchLookId!==e.pointerId||!previous||!canAct())return;
     look(e.clientX-previous.x,e.clientY-previous.y);
     previous={x:e.clientX,y:e.clientY};
   });
@@ -246,7 +264,7 @@
   });
   for(const button of document.querySelectorAll('[data-move]')){
     const name=button.dataset.move;
-    button.addEventListener('pointerdown',e=>{e.preventDefault();input[name]=true;button.setPointerCapture(e.pointerId);});
+    button.addEventListener('pointerdown',e=>{e.preventDefault();if(!canAct())return;input[name]=true;button.setPointerCapture(e.pointerId);});
     for(const event of ['pointerup','pointercancel','lostpointercapture'])
       button.addEventListener(event,()=>{input[name]=false;});
   }
@@ -255,7 +273,7 @@
   $('touchReload').addEventListener('click',reload);
   $('touchAssist').addEventListener('click',toggleReloadAssist);
   $('touchSupport').addEventListener('click',support);
-  $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
+  $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();if(!canAct())return;input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])
     $('touchSprint').addEventListener(event,()=>{input.sprint=false;});
   function minimap(){
@@ -323,7 +341,7 @@
     const healthBefore=state.world.player.health;
     const shotsBefore=running&&state.phase==='engagement'
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
-    if(running&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
+    if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>Story.step(state,step,input));
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&

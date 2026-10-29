@@ -65,7 +65,11 @@ const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
-const canAct=()=>running&&!suspended&&simulation.status==='playing';
+let pointerLockAttempt=0;
+// A desktop player without pointer lock cannot aim; freeze both fire and the
+// 60Hz world while permission is pending or the browser refuses the lock.
+const canAct=()=>running&&!suspended&&!document.hidden&&simulation.status==='playing'&&
+  (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 function clearStoredMatch(){
@@ -94,6 +98,24 @@ try { renderer=new global.VeilpointRenderer(canvas);
  }
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 const isTouch=matchMedia('(pointer:coarse)').matches;
+function requestAimLock(){
+ if(isTouch)return;
+ const attempt=++pointerLockAttempt;
+ if(typeof canvas.requestPointerLock!=='function'){
+  suspendMatch('pointer');resetInactiveClock();return;
+ }
+ try{
+  const result=canvas.requestPointerLock();
+  // Modern browsers reject a Promise on permission/user-gesture failure.
+  // An older attempt must never pause a newer successful resume.
+  if(result&&typeof result.catch==='function')result.catch(()=>{
+   if(attempt===pointerLockAttempt&&running&&!suspended&&
+      document.pointerLockElement!==canvas){
+    suspendMatch('pointer');resetInactiveClock();
+   }
+  });
+ }catch(_){suspendMatch('pointer');resetInactiveClock();}
+}
 function start(){
  clearStoredMatch();saveWarning=false;
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
@@ -101,7 +123,7 @@ function start(){
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
  resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
- if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+ requestAimLock();
  persistMatch();
 }
 function resumeStoredMatch(){
@@ -113,7 +135,7 @@ function resumeStoredMatch(){
  resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
- if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+ requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
 // Never silently restart a paused match: the same match resumes only by user action.
@@ -122,7 +144,7 @@ function resumeMatch(){
  suspended=false;resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
- if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
+ requestAimLock();
 }
 $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
 $('newMatch').addEventListener('click',start);
@@ -145,15 +167,17 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
 // Background throttling must never simulate hostile fire against an unfocused player.
-function suspendMatch(){
+function suspendMatch(reason='background'){
  if(!running||suspended)return;
- persistMatch();suspended=true;
+ persistMatch();suspended=true;pointerLockAttempt++;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
- document.querySelector('.tagline').textContent='창을 벗어나 경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.';
+ document.querySelector('.tagline').textContent=reason==='pointer'
+  ?'마우스 포인터 잠금이 해제되었거나 거부되었습니다. 화면을 클릭해 권한을 허용한 뒤 이어하기를 누르세요.'
+  :'경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.';
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function resetInactiveClock(){
@@ -165,19 +189,22 @@ function resetInactiveClock(){
  updateHud();
 }
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
-addEventListener('pagehide',persistMatch);
+addEventListener('pagehide',()=>{suspendMatch();resetInactiveClock();});
 addEventListener('focus',resetInactiveClock);
 // Escape or browser UI can release pointer lock without blurring the window.
 // Do not leave the 60Hz hostile simulation running while the player cannot aim.
 document.addEventListener('pointerlockchange',()=>{
- if(!isTouch&&running&&!suspended&&document.pointerLockElement!==canvas){
-  suspendMatch();resetInactiveClock();
+ if(isTouch)return;
+ // If a pending permission request succeeds after pausing, release it again.
+ if(suspended&&document.pointerLockElement===canvas){document.exitPointerLock();return;}
+ if(running&&!suspended&&document.pointerLockElement!==canvas){
+  suspendMatch('pointer');resetInactiveClock();
  }
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
-canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){canvas.requestPointerLock();return;}fire();});
+canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){requestAimLock();return;}fire();});
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
@@ -226,7 +253,7 @@ function end(){clearStoredMatch();running=false;$('overlay').classList.remove('h
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
- if(renderer){if(running&&!suspended&&simulation.status==='playing'){
+ if(renderer){if(canAct()){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});
   if(simulation.status==='playing'&&(simulation.elapsed-lastAutosaveElapsed>=15 ||
