@@ -512,7 +512,7 @@ test('mouse pointerup keeps hover aim, but pointercancel releases it without poi
 
 test('team client obeys saved PC remaps without leaving old aliases active', async () => {
   const server = backend();
-  const bindings = {...Desktop.DEFAULT_BINDINGS, forward: 'KeyI', interact: 'KeyT',
+  const bindings = {...Desktop.DEFAULT_BINDINGS, forward: 'KeyI', left: 'KeyF', interact: 'KeyT',
     fire: 'KeyY', reload: 'KeyU'};
   const storage = new Map([[Desktop.STORAGE_KEY, JSON.stringify({bindings, sensitivity: 1, invertY: false})]]);
   const a = boot(server, storage), b = boot(server);
@@ -540,8 +540,10 @@ test('team client obeys saved PC remaps without leaving old aliases active', asy
   assert.equal(player.capturing, false);
   const before = player.ammo;
   a.doc('keydown', {code: 'KeyF'});await settle();
-  assert.equal(player.ammo, before, 'legacy F fire alias disabled after remap');
-  a.doc('keyup', {code: 'KeyF'});
+  assert.equal(player.direction.x, -1, 'remapped F controls movement, never fires');
+  assert.equal(player.ammo, before, 'legacy F fire alias cannot override a remapped movement key');
+  a.doc('keyup', {code: 'KeyF'});await settle();
+  assert.equal(player.direction.x, 0);
   a.doc('keydown', {code: 'KeyY'});await settle();
   assert.equal(player.ammo, before - 1, 'remapped fire consumes server-owned ammo');
   a.doc('keydown', {code: 'KeyY', repeat: true});await settle();
