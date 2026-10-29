@@ -86,7 +86,7 @@ test('browser firing feedback never reveals hidden hit confirmation',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
  assert.doesNotMatch(app,/TARGET TAGGED|SCANNING \/ CLEAR|result\.hit\?710/);
  assert.match(app,/SHOT FIRED/);
- assert.match(html,/CLICK — FIRE/);
+ assert.match(html,/좌클릭 발사/);
 });
 
 test('opponents use finite magazines and cannot attack after exhausting carried rounds',()=>{
