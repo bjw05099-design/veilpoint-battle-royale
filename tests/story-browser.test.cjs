@@ -63,7 +63,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted'){
   context.globalThis=context;
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
     'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js',
-    'src/story-slice.js','src/story-audio.js','src/story-app.js'];
+    'src/story-slice.js','src/story-audio.js','src/desktop-controls.js','src/story-app.js'];
   for(const script of scripts){
     const source=fs.readFileSync(path.join(__dirname,'..',script),'utf8');
     vm.runInNewContext(source,context,{filename:script,timeout:1500});
@@ -558,4 +558,33 @@ test('CH01 pagehide pauses mission and persists its elapsed checkpoint',()=>{
   const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
   app.frame(1000);
   assert.equal(app.store.get('veilpoint.story.ch01'),JSON.stringify(saved));
+});
+
+test('CH01 shares PC mouse and keyboard preferences with BR without changing story save',()=>{
+ const store=new Map();
+ const app=boot(store);
+ app.element('desktopBindAction').value='interact';
+ app.element('desktopBindKey').click();
+ app.emit('keydown',{code:'KeyT'});
+ app.element('desktopSensitivity').value='2';
+ app.element('desktopSensitivity').dispatch('change');
+ app.element('desktopInvertY').checked=true;
+ app.element('desktopInvertY').dispatch('change');
+ app.element('continue').click();
+ const before=app.context.VeilpointInput.forward;
+ app.emit('keydown',{code:'KeyW'});
+ assert.equal(app.context.VeilpointInput.forward,true);
+ app.emit('keyup',{code:'KeyW'});
+ assert.equal(app.context.VeilpointInput.forward,false);
+ const saveBefore=store.get('veilpoint.story.ch01');
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(store.get('veilpoint.story.ch01'),saveBefore,'old interact key cannot trigger story state');
+ app.emit('mousemove',{movementX:100,movementY:10});
+ const state=app.context.VeilpointStorySlice;
+ assert.ok(state,'story module still loaded');
+ app.emit('keydown',{code:'Escape'});
+ const again=boot(store);
+ assert.equal(again.element('desktopSensitivity').value,'2');
+ again.element('desktopBindAction').value='interact';again.element('desktopBindAction').dispatch('change');
+ assert.equal(again.element('desktopBindKey').textContent,'KeyT');
 });
