@@ -511,3 +511,58 @@ test('server validates reload-assist preference, prevents spoofing and preserves
   assert.equal(b.reloadAssist, true, 'accessibility preference persists across rounds');
   assert.equal(b.reloadHesitation, false);
 });
+
+test('public coastal mist is deterministic, warned and symmetric for both teams', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = -5.5;a.z = 0;b.x = 5.5;b.z = 0;
+  assert.equal(m.snapshot('a').weather.phase, 'clear');
+  assert.equal(m.snapshot('a').visible.length, 2);
+  assert.equal(m.snapshot('b').visible.length, 2);
+  for (let i = 0; i < 300; i++) m.step();
+  assert.equal(m.snapshot('a').weather.phase, 'incoming');
+  assert.equal(m.snapshot('a').weather.ticksUntilChange, 300);
+  assert.equal(m.snapshot('a').visible.length, 2, 'warning does not silently change sight');
+  for (let i = 0; i < 300; i++) m.step();
+  const fogA = m.snapshot('a'), fogB = m.snapshot('b');
+  assert.deepEqual(fogA.weather, fogB.weather, 'both teams receive the same public event');
+  assert.equal(fogA.weather.kind, 'coastal_mist');
+  assert.equal(fogA.weather.visibilityRange, 9);
+  assert.deepEqual(fogA.visible.map(p => p.team), ['red']);
+  assert.deepEqual(fogB.visible.map(p => p.team), ['blue']);
+  assert.equal(fogA.visible.some(p => 'health' in p), false);
+  assert.throws(() => m.command('a', {seq: 2, type: 'aim',
+    direction: {x: 1, z: 0}, weather: 'clear'}), /invalid_command/);
+  for (let i = 0; i < 600; i++) m.step();
+  assert.equal(m.snapshot('a').weather.phase, 'clearing');
+  assert.equal(m.snapshot('b').visible.length, 1);
+  for (let i = 0; i < 300; i++) m.step();
+  assert.equal(m.snapshot('a').weather.phase, 'clear');
+  assert.equal(m.snapshot('b').visible.length, 2, 'visibility recovers for both sides');
+});
+
+test('weather replay and round restart are tick-based, independent of wall clock', () => {
+  const run = () => {
+    const {m, setNow} = setup();
+    const frames = [];
+    for (let i = 0; i < 2100; i++) {
+      if (i === 1000) setNow(25000);
+      if (i === 1400) {
+        setNow(0);
+        m.command('a', {seq: 2, type: 'heartbeat'});
+        m.command('b', {seq: 2, type: 'heartbeat'});
+      }
+      m.step();
+      if (i % 300 === 299) frames.push(m.snapshot('a').weather);
+    }
+    assert.equal(m.snapshot('a').weather.eventId, 1);
+    m.finish('red', 'test');
+    m.command('a', {seq: 3, type: 'ready'});
+    m.command('b', {seq: 3, type: 'ready'});
+    assert.deepEqual(m.snapshot('a').weather, {
+      eventId: 0, phase: 'clear', kind: 'clear', visibilityRange: 14, ticksUntilChange: 300
+    });
+    return frames;
+  };
+  assert.deepEqual(run(), run());
+});

@@ -359,3 +359,23 @@ test('team browser exposes only own server-derived stress and toggles reload acc
   a.node('assist').click(); await settle();
   assert.equal(player.reloadAssist, false);
 });
+
+test('two local clients render identical announced mist and reduced server visibility', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();
+  await settle();
+  a.node('ready').click();b.node('ready').click();
+  await settle();
+  const [red, blue] = [...server.match.players.values()];
+  red.x = -5.5;red.z = 0;blue.x = 5.5;blue.z = 0;
+  for (let i = 0; i < 300; i++) server.match.step();
+  await a.poll();await b.poll();await settle();
+  assert.match(a.node('weather').textContent, /접근 예보/);
+  assert.equal(a.node('weather').textContent, b.node('weather').textContent);
+  for (let i = 0; i < 300; i++) server.match.step();
+  await a.poll();await b.poll();await settle();
+  assert.match(a.node('weather').textContent, /시야 제한/);
+  assert.equal(a.node('weather').textContent, b.node('weather').textContent);
+  assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 1);
+  assert.equal(server.match.snapshot([...server.match.players.keys()][1]).visible.length, 1);
+});

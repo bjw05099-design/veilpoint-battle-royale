@@ -100,7 +100,8 @@
   };
   const draw = () => {
     ctx.clearRect(0, 0, 500, 500);
-    ctx.fillStyle = '#19272c';ctx.fillRect(0, 0, 500, 500);
+    ctx.fillStyle = state?.weather?.kind === 'coastal_mist' ? '#303d41' : '#19272c';
+    ctx.fillRect(0, 0, 500, 500);
     ctx.strokeStyle = '#41565a';ctx.lineWidth = 1;
     for (let i = 0; i <= 10; i++) {ctx.beginPath();ctx.moveTo(i*50,0);ctx.lineTo(i*50,500);ctx.stroke();
       ctx.beginPath();ctx.moveTo(0,i*50);ctx.lineTo(500,i*50);ctx.stroke();}
@@ -140,6 +141,10 @@
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
     el('tick').textContent = String(state.tick);
+    // Public server event, identical for both teams; never display hidden actor locations.
+    const weatherLabels = {clear: '맑음', incoming: '해안 안개 접근 예보',
+      active: '해안 안개 · 시야 제한', clearing: '안개 약화 중 · 시야 제한'};
+    el('weather').textContent = weatherLabels[state.weather?.phase] || '관측 대기';
     el('health').textContent = String(state.self.health);
     el('ammo').textContent = `${state.self.ammo} / ${state.self.reserve}`;
     el('reloadState').textContent = state.self.reloadTicks > 0

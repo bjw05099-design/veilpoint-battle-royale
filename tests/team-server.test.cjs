@@ -324,3 +324,30 @@ test('HTTP clients cannot forge stress; server reports only self stress and vali
     assert.equal(reload.body.reloadTicks, 90);
   } finally {await server.close();}
 });
+
+test('HTTP clients receive the same public natural-weather event without client control', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (route, body, token) => {
+    const response = await fetch(base + route, {method: 'POST',
+      headers: {'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(body)});
+    return {status: response.status, data: await response.json()};
+  };
+  const state = async token => (await (await fetch(base + '/state',
+    {headers: {'x-player-token': token}})).json());
+  try {
+    const a = (await post('/join', {name: 'A'})).data;
+    const b = (await post('/join', {name: 'B'})).data;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    for (let i = 0; i < 600; i++) server.match.step();
+    const red = await state(a.token), blue = await state(b.token);
+    assert.deepEqual(red.weather, blue.weather);
+    assert.equal(red.weather.phase, 'active');
+    assert.equal((await post('/command',
+      {seq: 2, type: 'move', direction: {x: 0, z: 0}, weather: 'clear'}, a.token)).status, 400);
+    assert.deepEqual((await state(a.token)).weather, red.weather);
+  } finally {await server.close();}
+});
