@@ -152,6 +152,9 @@ $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else
 $('newMatch').addEventListener('click',start);
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
+ // Menu/settings focus must never start a match or fire a round. In particular,
+ // Enter on a focused button is already handled by its native click action.
+ if(Desktop.isInteractiveTarget(e.target))return;
  const action=Desktop.actionFor(e.code,desktopUi.get());
  // OS key repeat must not flip settings, panels or discrete actions.
  // Existing firearm cooldown still governs repeated fire until held-fire design lands.

@@ -46,3 +46,11 @@ test('storage unavailable is nonfatal',()=>{
  assert.equal(C.load(fail).bindings.reload,'KeyR');
  assert.equal(C.save(fail,C.normalize({})),false);
 });
+
+test('PC UI focus excludes form controls and buttons from gameplay key handling',()=>{
+ for(const tagName of ['INPUT','TEXTAREA','SELECT','BUTTON','select'])
+  assert.equal(C.isInteractiveTarget({tagName}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',isContentEditable:true}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'CANVAS'}),false);
+ assert.equal(C.isInteractiveTarget(null),false);
+});

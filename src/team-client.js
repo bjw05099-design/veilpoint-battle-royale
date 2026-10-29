@@ -232,8 +232,9 @@
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
-    // Typing in the player-name field must never trigger gameplay or block spaces.
-    if (e.target === el('name')) return;
+    // Any focused form/menu control owns its keyboard events; no ghost fire,
+    // movement or objective capture while entering names or navigating UI.
+    if (Desktop.isInteractiveTarget(e.target)) return;
     const action = Desktop.actionFor(e.code, controls);
     if (action || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
       e.preventDefault();
@@ -249,7 +250,7 @@
     updateInput();
   });
   document.addEventListener('keyup', e => {
-    if (e.target === el('name')) return;
+    // Always release an earlier held key, even if focus moved into a form.
     keys.delete(e.code);
     if (Desktop.actionFor(e.code, controls) === 'interact') setCapture(false);
     updateInput();

@@ -416,12 +416,21 @@
     let target=null, best=firearm.range;
     const dx=Math.sin(p.yaw)*Math.cos(p.pitch), dz=-Math.cos(p.yaw)*Math.cos(p.pitch);
     for(const b of game.bots){
-      if(!b.alive) continue;
-      const vx=b.x-p.x,vz=b.z-p.z, d=Math.hypot(vx,vz);
+      if(!b.alive||Math.abs(p.pitch)>=0.21)continue;
+      const vx=b.x-p.x,vz=b.z-p.z;
       const forward=vx*dx+vz*dz;
       const lateral=Math.abs(vx*dz-vz*dx);
-      if(forward>0 && d<firearm.range && lateral<(0.85+d*0.012)*firearm.aimTolerance && Math.abs(p.pitch)<0.21 && d<best && !lineBlocked(p.x,p.z,b.x,b.z,game.obstacles)&&
-          !lineBlocked(p.x,p.z,b.x,b.z,actorObstacles(game,p,b,false))) {target=b;best=d;}
+      // Physical contact must intersect the actor's finite body, not a
+      // distance-growing aim-assist cone that bends a shot into a nearby bot.
+      if(forward<=0||lateral>=ACTOR_RADIUS)continue;
+      const contact=forward-Math.sqrt(Math.max(0,ACTOR_RADIUS**2-lateral**2));
+      if(contact<=0||contact>=best)continue;
+      const hitX=p.x+dx*contact,hitZ=p.z+dz*contact;
+      // Trace cover and intervening bodies along the ACTUAL shot ray. A
+      // center-to-center visibility line can miss cover at a wall edge.
+      if(lineBlocked(p.x,p.z,hitX,hitZ,game.obstacles)||
+         lineBlocked(p.x,p.z,hitX,hitZ,actorObstacles(game,p,b,false)))continue;
+      target=b;best=contact;
     }
     // A missed round has no magical floating impact marker. A confirmed
     // contact gets only a brief, muted physical debris cue at the contact point.
