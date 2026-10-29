@@ -24,7 +24,7 @@ function createFixedStepClock(onStep) {
     const steps = Math.min(MAX_CATCHUP_STEPS, Math.floor((remainder + 1e-8) / STEP_MS));
     for (let i = 0; i < steps; i++) onStep();
     remainder -= steps * STEP_MS;
-    if (steps === MAX_CATCHUP_STEPS) remainder %= STEP_MS;
+    if (steps === MAX_CATCHUP_STEPS) remainder = 0; // Discard stale backlog.
     return steps;
   };
 }
