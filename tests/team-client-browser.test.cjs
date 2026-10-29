@@ -444,6 +444,12 @@ test('touch pointercancel releases aim and ignores movement from a different fin
     clientX: 450, clientY: 250, buttons: 1});
   await settle();
   assert.deepEqual({...player.facing}, original, 'a second finger must not steer the aim');
+  canvas.dispatch('pointerleave', {pointerType: 'touch', pointerId: 10});
+  canvas.dispatch('pointermove', {pointerType: 'mouse', clientX: 450, clientY: 250});
+  canvas.dispatch('pointerdown', {pointerType: 'mouse', clientX: 450, clientY: 250});
+  await settle();
+  assert.equal(player.aiming, true, 'unrelated pointerleave cannot end the first touch');
+  assert.deepEqual({...player.facing}, original, 'hybrid mouse input cannot steal touch aim');
   canvas.dispatch('pointercancel', {pointerType: 'touch', pointerId: 9});
   await settle();
   assert.equal(player.aiming, false, 'OS gesture cancellation must release server aim');
@@ -453,4 +459,47 @@ test('touch pointercancel releases aim and ignores movement from a different fin
   canvas.dispatch('pointerup', {pointerType: 'touch', pointerId: 11});
   await settle();
   assert.equal(player.aiming, false);
+});
+
+test('touch aim releases when the active finger leaves the arena without pointerup', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token), canvas = a.node('arena');
+  canvas.dispatch('pointerdown', {pointerType: 'touch', pointerId: 21, clientX: 250, clientY: 155});
+  await settle();
+  assert.equal(player.aiming, true);
+  canvas.dispatch('pointerleave', {pointerType: 'touch', pointerId: 21});
+  await settle();
+  assert.equal(player.aiming, false, 'the originating finger leaving must end the aim lease');
+  const releaseCount = server.requests.filter(r => r.token === token && r.body?.type === 'aimRelease').length;
+  assert.equal(releaseCount, 1);
+  canvas.dispatch('pointerup', {pointerType: 'touch', pointerId: 21});
+  await settle();
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'aimRelease').length, 1,
+    'pointerup after pointerleave must not send a duplicate release');
+});
+
+test('mouse pointerup keeps hover aim, but pointercancel releases it without pointerleave', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token), canvas = a.node('arena');
+  canvas.dispatch('pointerdown', {pointerType: 'mouse', pointerId: 1, clientX: 250, clientY: 155});
+  await settle();
+  assert.equal(player.aiming, true);
+  canvas.dispatch('pointerup', {pointerType: 'mouse', pointerId: 1});
+  await settle();
+  assert.equal(player.aiming, true, 'mouse hover aim must survive normal click release');
+  canvas.dispatch('pointercancel', {pointerType: 'mouse', pointerId: 1});
+  await settle();
+  assert.equal(player.aiming, false, 'OS cancellation must not leave ghost mouse aim');
+  const before = server.requests.filter(r => r.token === token && r.body?.type === 'aim').length;
+  for (let i = 0; i < 25; i++) server.match.step();
+  await a.poll(); await settle();
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'aim').length, before);
 });
