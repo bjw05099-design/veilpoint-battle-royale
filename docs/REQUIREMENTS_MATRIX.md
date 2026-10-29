@@ -497,3 +497,7 @@ The browser graphics settings panel now reports per-window sample counts and P50
 ### PC team dual-source trigger follow-up (R-03 / R-13, partial)
 
 The 2D localhost team client now maps left mouse down/up and keyboard fire onto independent physical hold sources, reusing the shared PC latch already used by offline BR/CH01. Releasing one source leaves the other held; mouse release outside the arena, pointer cancellation, blur, and round transition clear the appropriate state. The server continues to own finite ammunition, ray checks, shot cadence and the 90-tick missing-input lease. DOM/network regression covers either release order and focus loss; actual Windows mouse play, public online service, native UE and QHD 165Hz performance remain **unverified**.
+
+## 2026-10-30 team held-fire simultaneous resolution (R-03 / R-12 / R-23)
+
+Local authoritative 60Hz team rules now stage **same-tick held-trigger** hits before applying damage, so two legitimate simultaneous final hits produce a draw rather than awarding the first-joined player an artificial win. The change preserves finite ammunition, cover-aware server rays, one-shot HTTP command behavior, and round restart; deterministic tests cover insertion-order independence, nonlethal exchanges, unilateral hits, draw rematches and replay. This is a **source/CI candidate**, not latency-compensated public netcode, real browser playtest, first-person multiplayer, Unreal build or hardware benchmark. Real network jitter, discrete HTTP command ordering and client-visible draw UX still need dedicated validation.

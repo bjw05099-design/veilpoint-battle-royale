@@ -199,7 +199,7 @@ class TeamMatch {
     }
     return {ok: true};
   }
-  fireShot(p) {
+  fireShot(p, deferredHits = null) {
     if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
       if (p.reloadTicks > 0) return {ok: false, reason: 'reloading'};
       if (p.ammo === 0) return {ok: false, reason: 'empty_magazine'};
@@ -227,13 +227,19 @@ class TeamMatch {
           !lineBlocked(p.x, p.z, p.x + p.facing.x * contact,
             p.z + p.facing.z * contact, COVER);
         if (hit) {
-          opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
-          opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
-          opponent.capturing = false;
+          // Held triggers in the same 60Hz tick must resolve together. Otherwise
+          // the first Map entry always wins an otherwise mutual final exchange.
+          // Explicit one-shot HTTP commands retain their immediate semantics.
+          if (deferredHits) deferredHits.push({opponent});
+          else {
+            opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
+            opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
+            opponent.capturing = false;
+            if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
+          }
           // A hidden target can be physically struck without giving the shooter
           // omniscient hit confirmation through the client command response.
           confirmedHit = Math.hypot(dx, dz) <= weatherAt(this.ticks).visibilityRange;
-          if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
         }
       }
       return {ok: true, hit: confirmedHit, ammo: p.ammo};
@@ -328,9 +334,23 @@ class TeamMatch {
     // Automatic PC fire advances only on the authoritative 60Hz tick. A lost
     // keyup or suspended tab expires without a renewed trigger command; HTTP
     // heartbeats and state polling do not renew this combat intent.
+    const sameTickHits = [];
     for (const p of this.players.values()) {
       if (this.ticks - p.lastTriggerTick > INPUT_LEASE_TICKS) p.triggerHeld = false;
-      if (p.triggerHeld && this.phase === 'playing') this.fireShot(p);
+      if (p.triggerHeld && this.phase === 'playing') this.fireShot(p, sameTickHits);
+    }
+    // All participants who were able to fire at the start of this tick get
+    // their shot resolved before the round ends. Never award a first-join
+    // advantage when both actors become incapacitated on the same tick.
+    for (const {opponent} of sameTickHits) {
+      opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
+      opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
+      opponent.capturing = false;
+    }
+    if (sameTickHits.length) {
+      const survivors = [...this.players.values()].filter(p => p.health > 0);
+      if (survivors.length === 0) this.finish(null, 'mutual_incapacitation');
+      else if (survivors.length === 1) this.finish(survivors[0].team, 'opponent_incapacitated');
     }
     if (this.phase !== 'playing') return;
     const nearby = [...this.players.values()].filter(p => Math.hypot(p.x, p.z) <= CAPTURE_RADIUS);
