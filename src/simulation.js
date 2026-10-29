@@ -376,12 +376,26 @@
               listener.lastSeenUntil=game.elapsed+2.5;
             }
           }
-          if(game.random()<b.skill){
-            const damage=6+game.random()*8;
-            if(target===p)receiveDamage(game,damage);
-            else{
-              target.health=Math.max(0,target.health-damage);
-              if(target.health===0)target.alive=false;
+          // The skill factor affects bounded aim stability, not a magical
+          // hit-probability roll after the weapon fires. A missed shot spends
+          // ammunition and is audible, but never causes remote damage.
+          const spread=(1-b.skill)*0.22;
+          const shotAngle=b.angle+(game.random()*2-1)*spread;
+          const rayX=Math.sin(shotAngle),rayZ=-Math.cos(shotAngle);
+          const toX=target.x-b.x,toZ=target.z-b.z;
+          const forward=toX*rayX+toZ*rayZ;
+          const lateral=Math.abs(toX*rayZ-toZ*rayX);
+          if(forward>0&&lateral<ACTOR_RADIUS){
+            const contact=forward-Math.sqrt(Math.max(0,ACTOR_RADIUS**2-lateral**2));
+            if(contact>0&&contact<47&&
+               !lineBlocked(b.x,b.z,b.x+rayX*contact,b.z+rayZ*contact,
+                 obstacles.concat(actorObstacles(game,b,target,false)))){
+              const damage=6+game.random()*8;
+              if(target===p)receiveDamage(game,damage);
+              else{
+                target.health=Math.max(0,target.health-damage);
+                if(target.health===0)target.alive=false;
+              }
             }
           }
         }
