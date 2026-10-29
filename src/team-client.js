@@ -100,7 +100,10 @@
   };
   const draw = () => {
     ctx.clearRect(0, 0, 500, 500);
-    ctx.fillStyle = state?.weather?.kind === 'coastal_mist' ? '#303d41' : '#19272c';
+    // The small 2D proof mirrors the server's gradual mist intensity. This
+    // background tint is only a UI cue, not a photoreal volumetric fog renderer.
+    const fog = Math.max(0, Math.min(1, (14 - (state?.weather?.visibilityRange ?? 14)) / 5));
+    ctx.fillStyle = `rgb(${Math.round(25 + 23 * fog)},${Math.round(39 + 22 * fog)},${Math.round(44 + 21 * fog)})`;
     ctx.fillRect(0, 0, 500, 500);
     ctx.strokeStyle = '#41565a';ctx.lineWidth = 1;
     for (let i = 0; i <= 10; i++) {ctx.beginPath();ctx.moveTo(i*50,0);ctx.lineTo(i*50,500);ctx.stroke();
@@ -144,7 +147,9 @@
     // Public server event, identical for both teams; never display hidden actor locations.
     const weatherLabels = {clear: '맑음', incoming: '해안 안개 접근 예보',
       active: '해안 안개 · 시야 제한', clearing: '안개 약화 중 · 시야 제한'};
-    el('weather').textContent = weatherLabels[state.weather?.phase] || '관측 대기';
+    el('weather').textContent = (weatherLabels[state.weather?.phase] || '관측 대기') +
+      (Number.isFinite(state.weather?.visibilityRange)
+        ? ` · 시야 약 ${state.weather.visibilityRange.toFixed(1)}m` : '');
     el('health').textContent = String(state.self.health);
     el('ammo').textContent = `${state.self.ammo} / ${state.self.reserve}`;
     el('reloadState').textContent = state.self.reloadTicks > 0
