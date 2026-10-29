@@ -724,3 +724,22 @@ test('server collision traces the aimed ray rather than a different center-to-ce
   assert.equal(clear.ammo, 11);
   assert.deepEqual(play(-0.04), blocked, 'fixed 60Hz commands replay identically');
 });
+
+test('partially exposed opponents remain visible when their actual body edge is hittable', () => {
+  const {m} = setup();
+  const a = m.players.get('a'), b = m.players.get('b');
+  a.x = -7; a.z = 0;
+  b.x = -0.5; b.z = 7.5;
+  // Center sightline crosses solid cover, but the right-hand body edge
+  // remains exposed; center-only disclosure would hide a hittable opponent.
+  const angle = Math.atan2(b.z - a.z, b.x - a.x) + 0.04;
+  m.command('a', {seq: 2, type: 'aim',
+    direction: {x: Math.cos(angle), z: Math.sin(angle)}});
+  assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), true);
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).ok, true);
+  assert.equal(b.health, 66, 'the unobstructed body edge can be contacted');
+  assert.equal(a.ammo, 11);
+  // Moving fully behind the same cover must restore the information barrier.
+  b.x = 0; b.z = 6;
+  assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), false);
+});
