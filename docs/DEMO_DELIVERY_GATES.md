@@ -63,3 +63,8 @@ The browser BR end screen now uses a terminal-only placement calculation: a defe
 ## 2026-10-29 deterministic end-to-end rule-path tests (candidate)
 
 A new Node test drives CH01 from the spawn through **actual fixed-60Hz movement and finite player shots**, then tests both the evacuation ending and the optional evidence/verification ending through the physically moving checkpoint gate. It saves/restores mid-encounter and mid-gate motion without teleporting the player. A separate one-rival BR route traverses the map, fires finite ammunition and wins with byte-consistent checkpoint replay; an inactive full-size match verifies defeat and honest placement. These are **simulation integration tests, not human browser playthroughs**: rendering, mouse/touch feel, actual GPU frame pacing, Unreal packaging and 165Hz performance still require independent acceptance. No release checklist box is automatically signed off.
+
+
+## 2026-10-29 BR boundary feedback candidate
+
+The BR HUD now displays a proximity warning within 12 world units of the shrinking match boundary and an explicit return warning when outside, without concealing reload or other event feedback. The warning derives from the same simulation radius used for the current damage rule; it does **not** make the arbitrary shrinking-damage hazard physically realistic. The initial HTML ammunition display is corrected to 12 loaded / 36 reserve rounds (48 total). Node simulation and DOM-controller regression tests are proposed; real browser usability and the underlying zone-realism P0 remain **unverified / release-blocking** until independently tested and redesigned.
