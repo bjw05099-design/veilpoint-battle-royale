@@ -129,6 +129,9 @@ $('newMatch').addEventListener('click',start);
 const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
  if(commands[e.code]){e.preventDefault();if(canAct())input[commands[e.code]]=true;}
+ if(e.code==='Escape'&&canAct()){
+  e.preventDefault();suspendMatch();resetInactiveClock();
+ }
  if(e.code==='KeyG'){
   e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
   if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
@@ -164,6 +167,13 @@ function resetInactiveClock(){
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
 addEventListener('pagehide',persistMatch);
 addEventListener('focus',resetInactiveClock);
+// Escape or browser UI can release pointer lock without blurring the window.
+// Do not leave the 60Hz hostile simulation running while the player cannot aim.
+document.addEventListener('pointerlockchange',()=>{
+ if(!isTouch&&running&&!suspended&&document.pointerLockElement!==canvas){
+  suspendMatch();resetInactiveClock();
+ }
+});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});

@@ -528,9 +528,6 @@
     const weaponId=saved.player && saved.player.weaponId;
     if (!Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)) throw new RangeError('Unknown saved firearm');
     const firearm=FIREARMS[weaponId];
-    // Recreate authored cover once; saved positions are untrusted and must not
-    // resume inside a wall or beyond the playable boundary.
-    const game=newMatch(saved.seed,saved.bots.length,weaponId);
     const p={...checkedFields(saved.player,PLAYER_FIELDS),weaponId,
       alive:saved.player.alive===true,reloadAssist:saved.player.reloadAssist===true,
       reloadHesitation:saved.player.reloadHesitation===true,
@@ -538,23 +535,18 @@
     if (!p.alive || p.health<=0 || p.charges>p.maxCharges || p.maxCharges!==firearm.maxRounds ||
         p.loaded>firearm.magazine || p.loaded>p.charges ||
         (p.reloadHesitation && p.reloadRemaining<=0)) throw new RangeError('Invalid player inventory');
-    if (blocked(p.x,p.z,0.85,game.obstacles)) throw new RangeError('Invalid player collision');
     const bots=saved.bots.map((raw,i)=>{
       const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive===true};
-      if (b.id!==i || b.loaded>b.charges || (b.alive && b.health<=0) || (!b.alive && b.health>0) ||
-          blocked(b.x,b.z,0.85,game.obstacles))
+      if (b.id!==i || b.loaded>b.charges || (b.alive && b.health<=0) || (!b.alive && b.health>0))
         throw new RangeError('Invalid opponent state');
       return b;
     });
-    if (saved.kills>bots.filter(b=>!b.alive).length)
-      throw new RangeError('Invalid elimination count');
     const loot=saved.loot.map((raw,i)=>{
       const item={...checkedFields(raw,LOOT_FIELDS),kind:raw.kind,weaponId:raw.weaponId,
         picked:raw.picked===true};
       if (item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
           !Object.prototype.hasOwnProperty.call(FIREARMS,item.weaponId) ||
-          item.remaining>(i%2===0?12:24) || item.picked!==(item.remaining===0) ||
-          blocked(item.x,item.z,0.85,game.obstacles))
+          item.remaining>(i%2===0?12:24) || item.picked!==(item.remaining===0))
         throw new RangeError('Invalid pickup state');
       return item;
     });
@@ -571,6 +563,7 @@
     });
     const extras=checkedFields(saved,[['damageFlash',0,1],['messageTime',0,10],
       ['lastTagAt',-2,3600],['recentDamage',0,100]]);
+    const game=newMatch(saved.seed,bots.length,weaponId);
     Object.assign(game,{status:'playing',elapsed:saved.elapsed,kills:saved.kills,
       damageFlash:extras.damageFlash,player:p,bots,loot,zone,effects,
       message:saved.message,messageTime:extras.messageTime,

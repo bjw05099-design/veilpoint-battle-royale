@@ -440,3 +440,41 @@ test('BR new match discards orphaned keyboard and touch inputs instead of ghost-
   app.frame(5000 / 60);
   assert.ok(game.player.z < before.z, 'fresh input remains responsive');
 });
+
+
+test('BR desktop pointer-lock loss freezes hostile simulation until explicit resume', () => {
+ const app=boot();
+ app.node('play').click();
+ app.frame(1000/60);
+ const game=app.game, before=game.elapsed;
+ assert.equal(app.context.document.pointerLockElement,app.node('canvas'));
+ app.emit('keydown',{code:'KeyW'});
+ app.context.document.exitPointerLock();
+ app.emit('pointerlockchange');
+ app.frame(5000);
+ assert.equal(game.elapsed,before,'lost pointer lock must freeze the world');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ app.node('play').click();
+ assert.equal(app.context.document.pointerLockElement,app.node('canvas'));
+ app.frame(6000);
+ assert.equal(app.game,game);
+ assert.ok(game.elapsed>=before,'explicit resume keeps the same match');
+});
+
+test('BR Escape opens a safe pause even if pointerlockchange is delayed', () => {
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,before=game.elapsed;
+ app.emit('keydown',{code:'Escape'});
+ app.frame(2000);
+ assert.equal(game.elapsed,before);
+ assert.equal(app.node('play').textContent,'이어하기');
+ assert.equal(app.context.document.pointerLockElement,null);
+ app.emit('pointerlockchange');
+ app.frame(3000);
+ assert.equal(game.elapsed,before,'late lock-change cannot restart simulation');
+ app.node('play').click();app.frame(4000);
+ assert.equal(app.game,game);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
