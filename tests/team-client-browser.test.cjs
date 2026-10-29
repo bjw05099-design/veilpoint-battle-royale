@@ -93,6 +93,7 @@ function boot(server, storage = new Map()) {
     node, storage, document,
     doc: (name, event) => emit(documentListeners, name, event),
     blur: () => emit(windowListeners, 'blur'),
+    mouseUp: () => emit(windowListeners, 'mouseup', {button: 0}),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
     heartbeat: () => intervals[0]()
@@ -698,4 +699,37 @@ test('PC team keyboard hold drives finite server shots and releases on keyup/blu
   assert.equal(p.triggerHeld, false, 'focus loss releases server trigger');
   assert.ok(server.requests.some(r => r.body?.type === 'trigger' && r.body.active === true));
   assert.ok(server.requests.some(r => r.body?.type === 'trigger' && r.body.active === false));
+});
+
+test('team PC mouse and keyboard triggers remain independent across either release order', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();
+  await settle();
+  a.node('ready').click();b.node('ready').click();
+  await settle();
+  await a.poll();await b.poll();await settle();
+  const p = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  server.match.players.get(b.storage.get('veilpoint.team.tabSession')).z = 15;
+  const arena = a.node('arena');
+  const mouse = {pointerType: 'mouse', button: 0, clientX: 250, clientY: 250};
+  a.doc('keydown', {code: 'Space', target: arena});await settle();
+  assert.equal(p.ammo, 11);
+  arena.dispatch('pointerdown', mouse);await settle();
+  assert.equal(p.triggerHeld, true);
+  a.doc('keyup', {code: 'Space', target: arena});await settle();
+  assert.equal(p.triggerHeld, true, 'releasing keyboard must preserve mouse hold');
+  for (let i = 0; i < 18; i++) server.match.step();
+  assert.equal(p.ammo, 10, 'mouse hold continues authoritative cadence');
+  arena.dispatch('pointerup', mouse);await settle();
+  assert.equal(p.triggerHeld, false);
+  arena.dispatch('pointerdown', mouse);await settle();
+  a.doc('keydown', {code: 'Space', target: arena});await settle();
+  a.mouseUp();await settle();
+  assert.equal(p.triggerHeld, true, 'releasing mouse outside arena preserves keyboard hold');
+  a.doc('keyup', {code: 'Space', target: arena});await settle();
+  assert.equal(p.triggerHeld, false);
+  arena.dispatch('pointerdown', mouse);await settle();
+  assert.equal(p.triggerHeld, true);
+  a.blur();await settle();
+  assert.equal(p.triggerHeld, false, 'focus loss clears both trigger sources');
 });

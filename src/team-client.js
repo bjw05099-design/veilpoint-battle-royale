@@ -18,6 +18,7 @@
   const Desktop = window.VeilpointDesktopControls;
   const controls = Desktop.load(window.localStorage);
   const keys = new Set();
+  const physicalTrigger = Desktop.createTriggerLatch();
   const request = async (path, body) => {
     const response = await fetch(path, {method: body ? 'POST' : 'GET',
       headers: {...(body ? {'Content-Type': 'application/json'} : {}), ...(token ? {'X-Player-Token': token} : {})},
@@ -98,6 +99,11 @@
       activeTouchAimPointer = event.pointerId ?? -1;
     }
     aimFromPointer(event);
+    if (event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
+      // PC mouse aim and fire share the canvas; server still owns shot cadence.
+      void send('fire');
+      setTrigger(physicalTrigger.press('mouse'));
+    }
   });
   canvas.addEventListener('pointermove', event => {
     if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
@@ -108,6 +114,8 @@
   });
   for (const type of ['pointerup', 'pointercancel']) {
     canvas.addEventListener(type, event => {
+      if (event.pointerType === 'mouse' && (type === 'pointercancel' || event.button === 0))
+        setTrigger(physicalTrigger.release('mouse'));
       if (event.pointerType === 'touch') {
         if (activeTouchAimPointer === (event.pointerId ?? -1)) releaseAim();
       } else if (type === 'pointercancel' && activeTouchAimPointer === null) {
@@ -118,6 +126,7 @@
     });
   }
   canvas.addEventListener('pointerleave', event => {
+    if (event.pointerType === 'mouse') setTrigger(physicalTrigger.release('mouse'));
     // A different finger leaving the arena must not cancel the primary aim.
     // The primary finger leaving does release, even if pointerup is not fired.
     if (activeTouchAimPointer !== null &&
@@ -193,6 +202,7 @@
       lastMoveRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
       lastTriggerRefreshTick = -Infinity;
+      physicalTrigger.clear();
       triggering = false;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
       activeTouchAimPointer = null;
@@ -267,7 +277,7 @@
       // F is a legacy alias only while the default Space fire binding is active.
       if (action === 'fire' || (e.code === 'KeyF' && action === null && controls.bindings.fire === 'Space')) {
         void send('fire'); // Immediate click feedback; the authority enforces cooldown.
-        setTrigger(true);
+        setTrigger(physicalTrigger.press('keyboard'));
       }
       if (action === 'reload') void send('reload');
     }
@@ -281,11 +291,15 @@
     if (Desktop.actionFor(e.code, controls) === 'interact') setCapture(false);
     if (Desktop.actionFor(e.code, controls) === 'fire' ||
         (e.code === 'KeyF' && controls.bindings.fire === 'Space' &&
-         Desktop.actionFor(e.code, controls) === null)) setTrigger(false);
+         Desktop.actionFor(e.code, controls) === null)) setTrigger(physicalTrigger.release('keyboard'));
     updateInput();
   });
-  const releaseHeldInput = () => {setTrigger(false);keys.clear();setCapture(false);updateInput();releaseAim();};
+  const releaseHeldInput = () => {physicalTrigger.clear();setTrigger(false);keys.clear();setCapture(false);updateInput();releaseAim();};
   window.addEventListener('blur', releaseHeldInput);
+  // Releasing outside the arena must not leave a mouse trigger latched.
+  window.addEventListener('mouseup', e => {
+    if (e.button === 0) setTrigger(physicalTrigger.release('mouse'));
+  });
   // Mobile tab switches may suspend polling without dispatching window.blur.
   document.addEventListener('visibilitychange', () => {if (document.hidden) releaseHeldInput();});
   for (const btn of document.querySelectorAll('[data-dir]')) {
