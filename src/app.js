@@ -154,6 +154,11 @@ $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else
 $('newMatch').addEventListener('click',start);
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
+ // Escape must cancel even a pending/denied mouse-capture request. The game
+ // cannot act until locked, but the player must always be able to pause.
+ if(e.code==='Escape'&&running&&!suspended){
+  e.preventDefault();suspendMatch();resetInactiveClock();return;
+ }
  // Menu/settings focus must never start a match or fire a round. In particular,
  // Enter on a focused button is already handled by its native click action.
  if(Desktop.isInteractiveTarget(e.target))return;
@@ -162,9 +167,6 @@ addEventListener('keydown',e=>{
  // Existing firearm cooldown still governs repeated fire until held-fire design lands.
  if(e.repeat&&action!=='fire')return;
  if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
- if(e.code==='Escape'&&canAct()){
-  e.preventDefault();suspendMatch();resetInactiveClock();
- }
  if(e.code==='KeyG'){
   e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
   if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
