@@ -22,9 +22,9 @@ const MIST_VISION_RANGE = 9;
 // It affects both teams' sight equally; it never damages, heals or reveals actors.
 const MIST_END_TICK = 1500;
 const VISION_COS = 0.5;
-// Original game abstractions: bounded, server-owned combat, not real weapon instruction.
-const FIRE_RANGE = 12;
-const FIRE_COS = Math.cos(Math.PI / 12);
+// Server raycast query bound exceeds the small 2D arena; this is NOT a firearm's
+// real-world maximum range or an implementation of full external ballistics.
+const FIRE_RANGE = 250;
 const FIRE_DAMAGE = 34;
 const FIRE_INTERVAL_TICKS = 18;
 const MAGAZINE_ROUNDS = 12;
@@ -166,26 +166,29 @@ class TeamMatch {
       p.lastShotTick = this.ticks;
       p.ammo--;
       p.capturing = false;
-      // No client-provided target, damage, aim or position. Server validates facing and cover.
+      // A shot follows the server-owned facing ray, never an auto-selected target.
+      // Visibility affects what the client KNOWS, not whether a shot can travel
+      // through mist. The opponent's 2D collision radius is a simple hit proxy.
       const opponent = [...this.players.values()].find(other => other !== p);
-      let hit = false;
+      let confirmedHit = false;
       if (opponent && opponent.health > 0) {
         const dx = opponent.x - p.x, dz = opponent.z - p.z;
-        const distance = Math.hypot(dx, dz);
-        // This 2D prototype automatically resolves hits inside an aim cone.
-        // Do not acquire a target that the same authoritative weather state
-        // conceals from both clients. Blind-fire ballistics are not simulated.
-        hit = distance > 0 && distance <= Math.min(FIRE_RANGE, weatherAt(this.ticks).visibilityRange) &&
-          dx * p.facing.x + dz * p.facing.z >= distance * FIRE_COS &&
+        const forward = dx * p.facing.x + dz * p.facing.z;
+        const crossTrack = Math.abs(dx * p.facing.z - dz * p.facing.x);
+        const hit = forward > 0 && forward <= FIRE_RANGE &&
+          crossTrack <= PLAYER_RADIUS &&
           !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
         if (hit) {
           opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
           opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
           opponent.capturing = false;
+          // A hidden target can be physically struck without giving the shooter
+          // omniscient hit confirmation through the client command response.
+          confirmedHit = Math.hypot(dx, dz) <= weatherAt(this.ticks).visibilityRange;
           if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
         }
       }
-      return {ok: true, hit, ammo: p.ammo};
+      return {ok: true, hit: confirmedHit, ammo: p.ammo};
     }
     if (data.type === 'reload') {
       if (p.reloadTicks > 0) {
