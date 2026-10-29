@@ -179,7 +179,7 @@ addEventListener('keydown',e=>{
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
- if(action==='fire'){e.preventDefault();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;else fire();}
+ if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;}}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
 addEventListener('keyup',e=>{

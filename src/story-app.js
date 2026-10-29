@@ -225,7 +225,7 @@
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
     if(action==='interact'){e.preventDefault();interact();}
-    if(action==='fire'){e.preventDefault();if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;else fire();}
+    if(action==='fire'){e.preventDefault();fire();if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=true;}
     if(action==='support'){e.preventDefault();support();}
     if(action==='reload'){e.preventDefault();reload();}
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
