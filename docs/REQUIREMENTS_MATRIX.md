@@ -415,3 +415,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 ### 2026-10-29 browser graphics diagnostics (partial R-08/R-10/R-11)
 
 The browser graphics settings panel now reports per-window sample counts and P50/P95/P99 for CPU draw time, supported WebGL2 GPU timer queries and render callback intervals. Unsupported GPU timing is explicitly unavailable. This is a **code-level diagnostic candidate**, not measured QHD RTX 3070/16GB owner-PC performance, actual monitor presentation, 1%-low FPS, end-to-end latency, Unreal native rendering or proven 165FPS. Keep R-08/R-11 hardware acceptance **unverified**.
+
+## 2026-10-29 — local team touch aim lifecycle candidate (PR #107)
+
+- **R-03 / R-06 / R-14 / R-23 — partial browser input fix:** In the localhost two-client prototype, lifting or canceling the originating touch pointer now sends an explicit `aimRelease` rather than indefinitely refreshing the server's 90-tick aim lease. A second touch pointer cannot steer or release the first gesture. This restores keyboard/touch movement-facing after a canceled aim and does not alter server-owned hit validation, 60Hz simulation or ammunition.
+- **Regression evidence:** DOM/network tests cover finger lift, OS cancellation, unrelated fingers, no stale aim renewal and resumed movement-facing. GitHub CI at the PR head is required; actual touch-device/browser playthrough, public multiplayer security, full realism and Unreal hardware testing remain **unverified**.
