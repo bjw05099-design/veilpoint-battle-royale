@@ -211,6 +211,10 @@
     }
     draw();
   };
+  // Labels must match the active PC profile, not hard-coded default keys.
+  el('fire').textContent = controls.bindings.fire + ' 발사';
+  el('reload').textContent = controls.bindings.reload + ' 재장전';
+  el('capture').textContent = controls.bindings.interact + ' 점령';
   el('join').addEventListener('click', async () => {
     // A rapid double-click must never consume both two-player lobby slots.
     if (joining || restoring || token) return;
