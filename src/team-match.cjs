@@ -172,7 +172,10 @@ class TeamMatch {
       if (opponent && opponent.health > 0) {
         const dx = opponent.x - p.x, dz = opponent.z - p.z;
         const distance = Math.hypot(dx, dz);
-        hit = distance > 0 && distance <= FIRE_RANGE &&
+        // This 2D prototype automatically resolves hits inside an aim cone.
+        // Do not acquire a target that the same authoritative weather state
+        // conceals from both clients. Blind-fire ballistics are not simulated.
+        hit = distance > 0 && distance <= Math.min(FIRE_RANGE, weatherAt(this.ticks).visibilityRange) &&
           dx * p.facing.x + dz * p.facing.z >= distance * FIRE_COS &&
           !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
         if (hit) {
