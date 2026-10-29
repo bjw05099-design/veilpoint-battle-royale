@@ -177,9 +177,16 @@ class TeamMatch {
         const dx = opponent.x - p.x, dz = opponent.z - p.z;
         const forward = dx * p.facing.x + dz * p.facing.z;
         const crossTrack = Math.abs(dx * p.facing.z - dz * p.facing.x);
-        const hit = forward > 0 && forward <= FIRE_RANGE &&
-          crossTrack <= PLAYER_RADIUS &&
-          !lineBlocked(p.x, p.z, opponent.x, opponent.z, COVER);
+        // Resolve the first contact on the actual server-owned shot ray.
+        // A center-to-center cover test can falsely damage an actor when the
+        // aimed ray crosses a wall but the line to the actor's center does not.
+        const intersects = forward > 0 && crossTrack <= PLAYER_RADIUS;
+        const contact = intersects
+          ? Math.max(0, forward - Math.sqrt(Math.max(0, PLAYER_RADIUS ** 2 - crossTrack ** 2)))
+          : Infinity;
+        const hit = contact > 0 && contact <= FIRE_RANGE &&
+          !lineBlocked(p.x, p.z, p.x + p.facing.x * contact,
+            p.z + p.facing.z * contact, COVER);
         if (hit) {
           opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
           opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
