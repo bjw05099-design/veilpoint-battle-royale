@@ -74,3 +74,46 @@ test('pre-existing overlap can separate but cannot be made deeper', () => {
   assert.deepEqual([inward.a.x, inward.b.x], [-0.2, 0.2],
     'an invalid overlap cannot be exploited for further penetration');
 });
+
+test('two real HTTP clients receive the same server-resolved collision result', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (route, payload, token) => {
+    const response = await fetch(base + route, {
+      method: 'POST',
+      headers: {'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(payload)
+    });
+    return {status: response.status, body: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'Red'})).body;
+    const b = (await post('/join', {name: 'Blue'})).body;
+    assert.equal((await post('/command', {seq: 1, type: 'ready'}, a.token)).status, 200);
+    assert.equal((await post('/command', {seq: 1, type: 'ready'}, b.token)).status, 200);
+    server.match.players.get(a.token).x = -0.58;
+    server.match.players.get(b.token).x = 0.58;
+    assert.equal((await post('/command', {seq: 2, type: 'move',
+      direction: {x: 1, z: 0}}, a.token)).status, 200);
+    assert.equal((await post('/command', {seq: 2, type: 'move',
+      direction: {x: -1, z: 0}}, b.token)).status, 200);
+    assert.equal((await post('/command', {seq: 3, type: 'move',
+      direction: {x: -1, z: 0}, x: 999}, b.token)).status, 400,
+    'clients cannot override authoritative positions');
+    server.match.step();
+    const state = async token => {
+      const response = await fetch(base + '/state', {headers: {'x-player-token': token}});
+      assert.equal(response.status, 200);
+      return (await response.json()).self;
+    };
+    const [red, blue] = await Promise.all([state(a.token), state(b.token)]);
+    assert.ok(Math.abs(red.x + blue.x) < 1e-9);
+    assert.ok(blue.x - red.x >= BODY_DIAMETER - 1e-8);
+    assert.equal(red.health, 100);
+    assert.equal(blue.health, 100);
+  } finally {
+    await server.close();
+  }
+});
