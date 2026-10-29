@@ -593,3 +593,45 @@ test('passing mist changes sight gradually, symmetrically and deterministically 
   check(1500, 14, 2);
   assert.equal(m.snapshot('a').weather.ticksUntilChange, null);
 });
+
+test('server mist sight gates automatic hits symmetrically without restoring spent ammunition', () => {
+  const replay = () => {
+    const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+    a.x = -5.5; a.z = 0; b.x = 5.5; b.z = 0; // 11m, both facing each other
+    const advanceTo = tick => {while (m.ticks < tick) m.step();};
+    advanceTo(480); // sight range is exactly 11m at this boundary
+    assert.equal(m.snapshot('a').visible.length, 2);
+    assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, true);
+    assert.equal(b.health, 66);
+    advanceTo(481); // mist has just hidden the opponent
+    assert.equal(m.snapshot('b').visible.length, 1);
+    assert.equal(m.command('b', {seq: 2, type: 'fire'}).hit, false);
+    assert.equal(a.health, 100, 'hidden actor cannot be automatically targeted');
+    advanceTo(500);
+    assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, false);
+    assert.equal(b.health, 66, 'no damage through mist from automatic aim-cone selection');
+    advanceTo(1350); // clearing mist has restored 11.5m sight
+    assert.equal(m.snapshot('b').visible.length, 2);
+    assert.equal(m.command('b', {seq: 3, type: 'fire'}).hit, true);
+    assert.equal(a.health, 66);
+    assert.deepEqual([a.ammo, b.ammo], [10, 10], 'all shots spend finite rounds');
+    return [m.snapshot('a'), m.snapshot('b')];
+  };
+  assert.deepEqual(replay(), replay(), 'mist, damage and ammo replay deterministically at 60Hz');
+});
+
+test('mist sight limit does not disable ordinary close-range sight-gated combat', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 10; b.z = 0;
+  for (let i = 0; i < 600; i++) m.step();
+  assert.equal(m.snapshot('a').weather.visibilityRange, 9);
+  assert.equal(m.snapshot('a').visible.length, 1);
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 100);
+  b.x = 8;
+  for (let i = 0; i < 18; i++) m.step();
+  assert.equal(m.snapshot('a').visible.length, 2);
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, true);
+  assert.equal(b.health, 66);
+  assert.equal(a.ammo, 10, 'concealed and visible shots both consume a round');
+});
