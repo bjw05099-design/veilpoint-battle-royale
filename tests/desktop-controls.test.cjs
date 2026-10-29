@@ -54,3 +54,15 @@ test('PC UI focus excludes form controls and buttons from gameplay key handling'
  assert.equal(C.isInteractiveTarget({tagName:'CANVAS'}),false);
  assert.equal(C.isInteractiveTarget(null),false);
 });
+
+test('PC gameplay focus leaves the menu and prevents a hidden button owning Space',()=>{
+ let active=null;
+ const menu={blur(){if(active===menu)active=null;}};
+ const canvas={tabIndex:-1,focus(options){assert.equal(options.preventScroll,true);active=canvas;}};
+ const doc={get activeElement(){return active;}};
+ active=menu;
+ assert.equal(C.focusGameplay(doc,canvas),true);
+ assert.equal(active,canvas);
+ assert.equal(C.focusGameplay(doc,null),false);
+ assert.equal(C.focusGameplay(doc,{focus(){throw Error('focus denied');}}),false);
+});

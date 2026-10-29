@@ -126,6 +126,7 @@
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
     running=true;desktopUi.cancel();clock.reset();limiter.reset();last=performance.now();clearInput();
+    Desktop.focusGameplay(document,canvas);
     requestAimLock();
     updateHud();
   }
@@ -210,8 +211,9 @@
     // Focused menu and settings controls own their keyboard events.
     if(Desktop.isInteractiveTarget(e.target))return;
     const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
-    // Ignore OS repeat for choices, accessibility toggles and one-shot actions.
-    if(e.repeat&&repeatAction!=='fire')return;
+    // Do not let OS key-repeat frequency decide finite shots or one-shot actions.
+    // A future held-fire mode belongs in the deterministic 60Hz simulation.
+    if(e.repeat){if(repeatAction)e.preventDefault();return;}
     if(choices.classList.contains('hidden')===false){
       if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
       if(e.code==='Digit2'){e.preventDefault();decide('verification');}

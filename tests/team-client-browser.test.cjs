@@ -55,6 +55,8 @@ function boot(server, storage = new Map()) {
       id, value: id === 'name' ? 'Player' : '', textContent: '', disabled: false,
       dataset: {}, width: 500, height: 500, getContext: () => ctx,
       getBoundingClientRect: () => ({left: 0, top: 0, width: 500, height: 500}),
+      focus() {document.activeElement = this;},
+      blur() {if(document.activeElement === this)document.activeElement = null;},
       addEventListener: (name, callback) => on(events, name, callback),
       dispatch: (name, event) => emit(events, name, event),
       click() {this.dispatch('click');}
@@ -64,6 +66,7 @@ function boot(server, storage = new Map()) {
   }
   const document = {
     hidden: false,
+    activeElement: null,
     getElementById: node,
     querySelectorAll: () => [],
     addEventListener: (name, callback) => on(documentListeners, name, callback)
@@ -87,7 +90,7 @@ function boot(server, storage = new Map()) {
     console
   }, {filename: 'src/team-client.js', timeout: 1500});
   return {
-    node, storage,
+    node, storage, document,
     doc: (name, event) => emit(documentListeners, name, event),
     blur: () => emit(windowListeners, 'blur'),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
@@ -568,4 +571,23 @@ test('team PC form focus suppresses fire and keyup still clears previously held 
   assert.equal(p.ammo,12,'focused settings may not fire server-owned ammunition');
   a.doc('keydown',{code:'Space'});await settle();
   assert.equal(p.ammo,11,'normal PC fire input remains active');
+});
+
+test('PC team round start transfers keyboard focus from Ready to the arena only once',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.document.activeElement=a.node('name');
+ await a.poll();await settle();
+ assert.equal(a.document.activeElement,a.node('name'),'lobby must preserve form focus');
+ a.node('ready').click();b.node('ready').click();await settle();
+ a.document.activeElement=a.node('ready');
+ await a.poll();await settle();
+ assert.equal(a.document.activeElement,a.node('arena'));
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const player=server.match.players.get(token);
+ a.doc('keydown',{code:'KeyW',target:a.document.activeElement});
+ await settle();assert.equal(player.direction.z,-1);
+ a.document.activeElement=a.node('assist');
+ await a.poll();await settle();
+ assert.equal(a.document.activeElement,a.node('assist'),'normal polls cannot steal deliberate UI focus');
 });

@@ -127,6 +127,7 @@ function start(){
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
  desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
+ Desktop.focusGameplay(document,canvas);
  requestAimLock();
  persistMatch();
 }
@@ -148,6 +149,7 @@ function resumeMatch(){
  suspended=false;desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
+ Desktop.focusGameplay(document,canvas);
  requestAimLock();
 }
 $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
@@ -163,9 +165,10 @@ addEventListener('keydown',e=>{
  // Enter on a focused button is already handled by its native click action.
  if(Desktop.isInteractiveTarget(e.target))return;
  const action=Desktop.actionFor(e.code,desktopUi.get());
- // OS key repeat must not flip settings, panels or discrete actions.
- // Existing firearm cooldown still governs repeated fire until held-fire design lands.
- if(e.repeat&&action!=='fire')return;
+ // Physical keydown is a discrete action: OS repeat rate must never determine
+ // fire cadence, ammo use, menu toggles or remapped movement. Future held-fire
+ // must be driven by the fixed 60Hz simulation, not keyboard auto-repeat.
+ if(e.repeat){if(action)e.preventDefault();return;}
  if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
  if(e.code==='KeyG'){
   e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
