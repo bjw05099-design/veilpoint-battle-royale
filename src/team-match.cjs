@@ -339,10 +339,21 @@ class TeamMatch {
       const initial = separation(0);
       const desired = separation(1);
       const minimum = PLAYER_RADIUS * 2;
-      if (initial >= minimum - 1e-9 && desired < minimum) {
-        // Both actors advance by the same fraction of their intended step.
-        // Fixed bisection is deterministic and independent of join/Map order.
-        let low = 0, high = 1;
+      // Endpoints alone miss a glancing collision: both actors can enter and
+      // leave each other's collision radius during a single 60Hz movement step.
+      // Find the closest point on their relative swept segment before resolving.
+      const startX = a.from.x - b.from.x, startZ = a.from.z - b.from.z;
+      const deltaX = (a.next.x - a.from.x) - (b.next.x - b.from.x);
+      const deltaZ = (a.next.z - a.from.z) - (b.next.z - b.from.z);
+      const relativeSpeedSquared = deltaX * deltaX + deltaZ * deltaZ;
+      const closestTick = relativeSpeedSquared > 0
+        ? clamp(-(startX * deltaX + startZ * deltaZ) / relativeSpeedSquared, 0, 1)
+        : 0;
+      if (initial >= minimum - 1e-9 && separation(closestTick) < minimum - 1e-9) {
+        // Stop both proposals at their shared first time of contact. Bisection
+        // is bounded by closest approach, so it also catches pass-through
+        // grazes whose ENDPOINT separation remains physically valid.
+        let low = 0, high = closestTick;
         for (let i = 0; i < 24; i++) {
           const mid = (low + high) / 2;
           if (separation(mid) >= minimum) low = mid;

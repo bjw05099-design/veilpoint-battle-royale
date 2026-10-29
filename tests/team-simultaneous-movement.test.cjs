@@ -117,3 +117,77 @@ test('two real HTTP clients receive the same server-resolved collision result', 
     await server.close();
   }
 });
+
+test('swept glancing contact cannot tunnel through another actor with clear endpoints', () => {
+  const play = reverse => {
+    const {m, a, b} = round(reverse);
+    // Both endpoints are > 1.1 apart, but their relative swept paths cross
+    // inside the 1.1 collision diameter before the tick ends.
+    a.x = -0.04; a.z = 0.549;
+    b.x = 0.04; b.z = -0.549;
+    const initial = distance(a, b);
+    const rawEnd = Math.hypot(0.07, 1.098);
+    assert.ok(initial > BODY_DIAMETER && rawEnd > BODY_DIAMETER);
+    assert.ok(1.098 < BODY_DIAMETER, 'the midpoint would overlap');
+    m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+    m.command('b', {seq: 2, type: 'move', direction: {x: -1, z: 0}});
+    m.step();
+    assert.ok(a.x < b.x, 'actors must stop at first contact, not pass through');
+    assert.ok(a.x > -0.04 && b.x < 0.04, 'both participants advance fairly');
+    assert.ok(distance(a, b) >= BODY_DIAMETER - 1e-8);
+    return [a.x, a.z, b.x, b.z, m.ticks];
+  };
+  assert.deepEqual(play(false), play(true), 'collision is independent of join order');
+  assert.deepEqual(play(false), play(false), '60Hz replay is deterministic');
+});
+
+test('swept collision does not slow a genuinely clear near-miss', () => {
+  const {m, a, b} = round();
+  a.x = -0.04; a.z = 0.56;
+  b.x = 0.04; b.z = -0.56;
+  m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  m.command('b', {seq: 2, type: 'move', direction: {x: -1, z: 0}});
+  m.step();
+  assert.ok(Math.abs(a.x - 0.035) < 1e-10);
+  assert.ok(Math.abs(b.x + 0.035) < 1e-10);
+  assert.ok(distance(a, b) > BODY_DIAMETER);
+});
+
+test('two authenticated HTTP clients cannot bypass a glancing swept collision', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (route, payload, token) => {
+    const response = await fetch(base + route, {
+      method: 'POST',
+      headers: {'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(payload)
+    });
+    return {status: response.status, body: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'Red'})).body;
+    const b = (await post('/join', {name: 'Blue'})).body;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    const red = server.match.players.get(a.token);
+    const blue = server.match.players.get(b.token);
+    red.x = -0.04; red.z = 0.549;
+    blue.x = 0.04; blue.z = -0.549;
+    assert.equal((await post('/command', {seq: 2, type: 'move',
+      direction: {x: 1, z: 0}}, a.token)).status, 200);
+    assert.equal((await post('/command', {seq: 2, type: 'move',
+      direction: {x: -1, z: 0}}, b.token)).status, 200);
+    server.match.step();
+    const state = async token => (await (await fetch(base + '/state',
+      {headers: {'x-player-token': token}})).json()).self;
+    const [r, bl] = await Promise.all([state(a.token), state(b.token)]);
+    assert.ok(r.x < bl.x);
+    assert.ok(Math.hypot(r.x - bl.x, r.z - bl.z) >= BODY_DIAMETER - 1e-8);
+    assert.equal(r.health, 100);
+    assert.equal(bl.health, 100);
+  } finally {
+    await server.close();
+  }
+});
