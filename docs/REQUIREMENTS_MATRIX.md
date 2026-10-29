@@ -447,3 +447,7 @@ The browser graphics settings panel now reports per-window sample counts and P50
 - **Verification:** Node DOM-mock regression scenarios exercise coarse+fine hybrid lock pending, keyboard/mouse gating and aim recovery. GitHub CI and actual Windows convertible/fullscreen/QHD hardware validation remain required; RTX 3070 165Hz and 16GB system-RAM performance remain unverified.
 
 - **PC pending-capture recovery (R-13 / R-14):** BR Escape now pauses an active session even while the browser has not granted pointer lock; focused launch controls cannot trap the player behind a pending permission prompt. DOM regression verifies no 60Hz advancement while suspended. Requires CI and real Windows browser QA before acceptance.
+
+## 2026-10-29 CH01 hostile physical contact ray (R-04 / R-23)
+- **Partial implementation candidate:** CH01 human opponents now spend finite ammunition on a deterministic spread ray with player-body contact and intervening-cover checks. Replaces the post-fire hit-probability roll, preserving 60Hz checkpoint replay and movement-dependent stability. Offset-cover regression distinguishes center visibility from actual shot-ray obstruction. This remains a 2D game approximation, not measured ballistics or native UE collision.
+- **Acceptance:** `npm run verify`, GitHub CI and browser visual QA required. Broader combat animation, AI judgment, photoreal quality, 165Hz target-PC measurement and all 12 chapters remain unverified.

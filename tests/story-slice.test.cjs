@@ -1063,3 +1063,21 @@ test('CH01 new saves never serialize arcade shield and old saves migrate without
     assert.throws(()=>story.restore(JSON.stringify(legacy)),RangeError);
   }
 });
+
+test('CH01 hostile shots trace the actual spread ray against offset solid cover',()=>{
+ const make=withCover=>{
+  const s=story.createState();go(s,'terminal');story.interact(s);
+  for(const other of s.world.bots.slice(1)){other.alive=false;other.health=0;}
+  s.world.player.x=0;s.world.player.z=12;
+  if(withCover)s.world.obstacles.push({x:-.36,z:-5,w:.24,d:1,h:2,type:'cover'});
+  for(let i=0;i<190;i++)story.step(s,1/60,{});
+  return s;
+ };
+ const clear=make(false),blocked=make(true);
+ assert.equal(clear.world.bots[0].shots,1);
+ assert.equal(blocked.world.bots[0].shots,1,'cover does not refund an actual fired round');
+ assert.equal(clear.world.player.health,96);
+ assert.equal(blocked.world.player.health,100,
+  'offset cover intersects the real shot ray even when the center visibility line is clear');
+ assert.equal(story.serialize(story.restore(story.serialize(blocked))),story.serialize(blocked));
+});
