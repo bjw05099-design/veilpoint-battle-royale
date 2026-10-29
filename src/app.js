@@ -68,7 +68,7 @@ const input={forward:false,back:false,left:false,right:false,sprint:false,crouch
 let pointerLockAttempt=0;
 // A desktop player without pointer lock cannot aim; freeze both fire and the
 // 60Hz world while permission is pending or the browser refuses the lock.
-const canAct=()=>running&&!suspended&&simulation.status==='playing'&&
+const canAct=()=>running&&!suspended&&!document.hidden&&simulation.status==='playing'&&
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
