@@ -591,3 +591,20 @@ test('PC team round start transfers keyboard focus from Ready to the arena only 
  await a.poll();await settle();
  assert.equal(a.document.activeElement,a.node('assist'),'normal polls cannot steal deliberate UI focus');
 });
+
+test('PC team match rejects pre-round held movement until a fresh gameplay keydown',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ a.doc('keydown',{code:'KeyD',target:a.node('arena')});
+ a.node('ready').click();b.node('ready').click();await settle();
+ assert.equal(server.match.phase,'playing');
+ await a.poll();await b.poll();await settle();
+ assert.equal(p.direction.x,0,'lobby-held movement must be cleared on phase transition');
+ await a.poll();await settle();
+ assert.equal(p.direction.x,0,'polling cannot resurrect a stale held key');
+ a.doc('keydown',{code:'KeyD',target:a.node('arena')});await settle();
+ assert.equal(p.direction.x,1,'fresh physical keydown restores normal movement');
+});
