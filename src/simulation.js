@@ -131,6 +131,12 @@
     };
   }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
+  // A visible boundary warning uses the same authoritative radius as the damage
+  // rule. This is a gameplay warning, not proof of a physically credible hazard.
+  function boundaryStatus(game) {
+    const margin=game.zone.radius-dist(game.player,game.zone);
+    return {outside:margin<0,near:margin<=12,meters:Math.ceil(Math.abs(margin))};
+  }
   // Final placement counts surviving opponents ahead of the eliminated player.
   // A loss can never be labelled first place, including a simultaneous knockout.
   function getFinalPlacement(game) {
@@ -589,5 +595,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });
