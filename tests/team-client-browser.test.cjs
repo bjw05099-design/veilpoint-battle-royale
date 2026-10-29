@@ -666,3 +666,36 @@ test('PC team HUD reports no winner when both client leases expire', async () =>
   assert.match(a.node('status').textContent, /승리 팀 없음/);
   assert.doesNotMatch(a.node('status').textContent, /승리 팀 null/);
 });
+
+test('PC team keyboard hold drives finite server shots and releases on keyup/blur', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();
+  await settle();
+  a.node('ready').click();b.node('ready').click();
+  await settle();
+  await a.poll();await b.poll();await settle();
+  const p = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  // Opponent is off the firing ray; test repeated fire without ending the round.
+  server.match.players.get(b.storage.get('veilpoint.team.tabSession')).z = 15;
+  a.doc('keydown', {code: 'Space', target: a.node('arena')});
+  await settle();
+  assert.equal(p.ammo, 11, 'first physical press fires immediately');
+  assert.equal(p.triggerHeld, true);
+  a.doc('keydown', {code: 'Space', repeat: true, target: a.node('arena')});
+  await settle();
+  assert.equal(p.ammo, 11, 'OS key repeat cannot bypass shot cooldown');
+  for (let i = 0; i < 36; i++) server.match.step();
+  assert.equal(p.ammo, 9, 'server ticks produce the next two finite shots');
+  a.doc('keyup', {code: 'Space', target: a.node('arena')});
+  await settle();
+  assert.equal(p.triggerHeld, false);
+  for (let i = 0; i < 36; i++) server.match.step();
+  assert.equal(p.ammo, 9, 'keyup cancels continued fire');
+  a.doc('keydown', {code: 'Space', target: a.node('arena')});
+  await settle();
+  assert.equal(p.triggerHeld, true);
+  a.blur();await settle();
+  assert.equal(p.triggerHeld, false, 'focus loss releases server trigger');
+  assert.ok(server.requests.some(r => r.body?.type === 'trigger' && r.body.active === true));
+  assert.ok(server.requests.some(r => r.body?.type === 'trigger' && r.body.active === false));
+});

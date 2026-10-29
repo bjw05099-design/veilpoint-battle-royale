@@ -101,7 +101,7 @@ class TeamMatch {
       aiming: false, capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
-      lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0};
+      lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
     this.players.set(token, player);
     return {id: player.id, team};
   }
@@ -113,7 +113,7 @@ class TeamMatch {
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
     const keys = Object.keys(data);
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
-      data.type === 'capture' ? ['seq', 'type', 'active'] :
+      data.type === 'capture' || data.type === 'trigger' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
       ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
@@ -123,8 +123,9 @@ class TeamMatch {
          (data.type === 'aim' && Math.hypot(data.direction.x, data.direction.z) < 1e-6)))
       throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
+    if (data.type === 'trigger' && typeof data.active !== 'boolean') throw new RangeError('invalid_trigger');
     if (data.type === 'assist' && typeof data.enabled !== 'boolean') throw new RangeError('invalid_assist');
-    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload'].includes(data.type))
+    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
@@ -161,7 +162,45 @@ class TeamMatch {
       p.lastAimTick = this.ticks;
       return {ok: true};
     }
-    if (data.type === 'fire') {
+    if (data.type === 'fire') return this.fireShot(p);
+    if (data.type === 'trigger') {
+      // A held PC trigger is an expiring intent, not a client-authored shot or rate.
+      p.triggerHeld = data.active;
+      p.lastTriggerTick = this.ticks;
+      return {ok: true};
+    }
+    if (data.type === 'reload') {
+      if (p.reloadTicks > 0) {
+        if (!p.reloadHesitation) return {ok: false, reason: 'already_reloading'};
+        // A second deliberate input can recover from a visible hesitation, but
+        // never beat the ordinary 90-tick reload or duplicate carried rounds.
+        if (p.reloadTicks > RELOAD_TICKS + RELOAD_HESITATION_TICKS - 15)
+          return {ok: false, reason: 'recover_not_ready'};
+        p.reloadTicks = Math.max(1, p.reloadTicks - RELOAD_HESITATION_TICKS);
+        p.reloadHesitation = false;
+        return {ok: true, recovered: true, reloadTicks: p.reloadTicks};
+      }
+      if (p.ammo === MAGAZINE_ROUNDS) return {ok: false, reason: 'magazine_full'};
+      if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
+      p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
+      p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
+      p.capturing = false;
+      return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
+    }
+    if (data.type === 'move') {
+      const {x, z} = data.direction, len = Math.hypot(x, z);
+      p.direction = len > 1 ? {x: x / len, z: z / len} : {x, z};
+      // Stopping retains the last facing; a zero vector cannot reveal all directions.
+      if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
+      p.lastMoveTick = this.ticks;
+    } else {
+      p.capturing = data.active;
+      p.lastCaptureTick = this.ticks;
+    }
+    return {ok: true};
+  }
+  fireShot(p) {
+    if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
       if (p.reloadTicks > 0) return {ok: false, reason: 'reloading'};
       if (p.ammo === 0) return {ok: false, reason: 'empty_magazine'};
       if (this.ticks - p.lastShotTick < FIRE_INTERVAL_TICKS) return {ok: false, reason: 'cooldown'};
@@ -198,36 +237,6 @@ class TeamMatch {
         }
       }
       return {ok: true, hit: confirmedHit, ammo: p.ammo};
-    }
-    if (data.type === 'reload') {
-      if (p.reloadTicks > 0) {
-        if (!p.reloadHesitation) return {ok: false, reason: 'already_reloading'};
-        // A second deliberate input can recover from a visible hesitation, but
-        // never beat the ordinary 90-tick reload or duplicate carried rounds.
-        if (p.reloadTicks > RELOAD_TICKS + RELOAD_HESITATION_TICKS - 15)
-          return {ok: false, reason: 'recover_not_ready'};
-        p.reloadTicks = Math.max(1, p.reloadTicks - RELOAD_HESITATION_TICKS);
-        p.reloadHesitation = false;
-        return {ok: true, recovered: true, reloadTicks: p.reloadTicks};
-      }
-      if (p.ammo === MAGAZINE_ROUNDS) return {ok: false, reason: 'magazine_full'};
-      if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
-      p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
-      p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
-      p.capturing = false;
-      return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
-    }
-    if (data.type === 'move') {
-      const {x, z} = data.direction, len = Math.hypot(x, z);
-      p.direction = len > 1 ? {x: x / len, z: z / len} : {x, z};
-      // Stopping retains the last facing; a zero vector cannot reveal all directions.
-      if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
-      p.lastMoveTick = this.ticks;
-    } else {
-      p.capturing = data.active;
-      p.lastCaptureTick = this.ticks;
-    }
-    return {ok: true};
   }
   start() {
     this.phase = 'playing';
@@ -254,6 +263,8 @@ class TeamMatch {
       p.lastShotTick = -FIRE_INTERVAL_TICKS;
       p.lastMoveTick = 0;
       p.lastCaptureTick = 0;
+      p.triggerHeld = false;
+      p.lastTriggerTick = 0;
     }
   }
   finish(winner, reason) {
@@ -265,6 +276,7 @@ class TeamMatch {
       p.aiming = false;
       p.lastAimTick = 0;
       p.capturing = false;
+      p.triggerHeld = false;
       p.ready = false;
     }
   }
@@ -313,6 +325,14 @@ class TeamMatch {
       p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       p.z = clamp(p.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
     }
+    // Automatic PC fire advances only on the authoritative 60Hz tick. A lost
+    // keyup or suspended tab expires without a renewed trigger command; HTTP
+    // heartbeats and state polling do not renew this combat intent.
+    for (const p of this.players.values()) {
+      if (this.ticks - p.lastTriggerTick > INPUT_LEASE_TICKS) p.triggerHeld = false;
+      if (p.triggerHeld && this.phase === 'playing') this.fireShot(p);
+    }
+    if (this.phase !== 'playing') return;
     const nearby = [...this.players.values()].filter(p => Math.hypot(p.x, p.z) <= CAPTURE_RADIUS);
     const teams = new Set(nearby.map(p => p.team));
     // An interrupted capture must restart; stored partial progress is exploitable.

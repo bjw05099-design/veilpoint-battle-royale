@@ -357,3 +357,34 @@ test('HTTP clients receive the same public natural-weather event without client 
     assert.deepEqual((await state(a.token)).weather, red.weather);
   } finally {await server.close();}
 });
+
+test('HTTP two-client held trigger is server-timed, finite and rejects client-authored cadence', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (path, body, token) => {
+    const response = await fetch(base + path, {method: 'POST', headers: {
+      'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})
+    }, body: JSON.stringify(body)});
+    return {status: response.status, body: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'A'})).body;
+    const b = (await post('/join', {name: 'B'})).body;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    server.match.players.get(b.token).z = 15;
+    assert.equal((await post('/command', {seq: 2, type: 'trigger', active: true, damage: 999}, a.token)).status, 400);
+    assert.deepEqual(await post('/command', {seq: 2, type: 'trigger', active: true}, a.token),
+      {status: 200, body: {ok: true}});
+    for (let i = 0; i < 37; i++) server.match.step();
+    const view = await (await fetch(base + '/state', {headers: {'x-player-token': a.token}})).json();
+    assert.equal(view.self.ammo, 9, 'authoritative shots at ticks 1, 19, 37');
+    assert.equal(view.self.reserve, 24);
+    assert.deepEqual(await post('/command', {seq: 3, type: 'trigger', active: false}, a.token),
+      {status: 200, body: {ok: true}});
+    for (let i = 0; i < 37; i++) server.match.step();
+    assert.equal(server.match.players.get(a.token).ammo, 9);
+    assert.equal(server.match.players.get(b.token).health, 100);
+  } finally {await server.close();}
+});
