@@ -569,3 +569,20 @@ test('BR freezes on hidden document before visibilitychange can be delivered', (
   app.emit('visibilitychange');
   assert.equal(app.node('overlay').classList.contains('hidden'), false);
 });
+
+
+test('BR browser shows truthful magazine/reserve and boundary proximity without hiding event feedback',()=>{
+ const app=boot();app.node('play').click();app.frame(300);
+ assert.match(app.node('charges').innerHTML,/^12<span> \/ 36/);
+ const game=app.game;
+ game.player.x=161;game.player.z=0;
+ game.message='RELOADING';game.messageTime=3;
+ app.frame(600);
+ assert.match(app.node('message').textContent,/BOUNDARY NEARBY/);
+ assert.match(app.node('message').textContent,/RELOADING/);
+ game.player.x=171;
+ app.frame(900);
+ assert.match(app.node('message').textContent,/OUTSIDE MATCH BOUNDARY/);
+ assert.ok(game.player.health<100,'the warning is not a fictional health shield');
+ assert.equal(game.player.charges,48);
+});
