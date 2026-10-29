@@ -55,3 +55,7 @@ The standalone offline browser candidate is packaged with `npm run package:demo`
 ## 2026-10-29 BR offline continuity candidate
 
 The offline BR candidate now supports an explicit local checkpoint resume and a separate **new match** action, rather than losing every active match on refresh. It persists deterministic PRNG state and finite resources, rejects corrupt or impossible saves and surfaces storage failures. Node/DOM-mock regression tests are necessary but **do not check off** real browser playthrough, ZIP release, graphics, licensing, Unreal or QHD 165Hz acceptance. A saved game is local to the current browser/origin and can be unavailable in private mode or when storage is blocked.
+
+## 2026-10-29 BR match-result and checkpoint-input candidate
+
+The browser BR end screen now uses a terminal-only placement calculation: a defeated player ranks **one behind the surviving opponents** (never first after a loss), while an actual victory displays first place. The offline checkpoint serializer and restore path both enforce a **65,536-character limit**, rejecting oversized localStorage data *before* JSON parsing without invalidating normal 20-opponent saves. Fixed-60Hz save replay, browser DOM end-screen loss/win cases and malformed-save regressions are part of the candidate tests. These changes are not proof of a complete human-playtested match, real-browser stability, native Unreal execution, photorealism or QHD 165Hz performance; the delivery checklist remains unchecked until those independent gates pass.
