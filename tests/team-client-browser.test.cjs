@@ -516,6 +516,9 @@ test('team client obeys saved PC remaps without leaving old aliases active', asy
     fire: 'KeyY', reload: 'KeyU'};
   const storage = new Map([[Desktop.STORAGE_KEY, JSON.stringify({bindings, sensitivity: 1, invertY: false})]]);
   const a = boot(server, storage), b = boot(server);
+  assert.match(a.node('fire').textContent, /KeyY/);
+  assert.match(a.node('reload').textContent, /KeyU/);
+  assert.match(a.node('capture').textContent, /KeyT/);
   a.node('join').click();b.node('join').click();await settle();
   a.node('ready').click();b.node('ready').click();await settle();
   await a.poll();await settle();
