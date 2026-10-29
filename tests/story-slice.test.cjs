@@ -286,7 +286,7 @@ test('CH01 shows only real objective categories and does not reveal unseen oppon
   assert.doesNotMatch(app,/for\(const drone of state\.world\.bots\)/);
   assert.doesNotMatch(app,/m\.kind==='shield'/);
   const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
-  assert.match(html,/Q 상황 보고/);
+  assert.match(html,/value="support">동료 보고/);
 });
 
 
