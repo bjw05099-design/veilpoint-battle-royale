@@ -191,6 +191,29 @@ test('graphics presets persist across BR UI restarts without changing the 60Hz s
   assert.equal(next.game.status, 'playing');
 });
 
+test('BR Custom graphics selector preserves current settings and survives a restart',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('graphicsPreset').value='balanced';
+ app.node('graphicsPreset').dispatch('change');
+ const balanced=JSON.parse(store.get('veilpoint.graphics'));
+ app.node('graphicsPreset').value='custom';
+ app.node('graphicsPreset').dispatch('change');
+ const custom=JSON.parse(store.get('veilpoint.graphics'));
+ assert.equal(custom.preset,'custom','selecting Custom must change persisted mode');
+ for(const key of ['fpsCap','resolutionScale','vegetationDensity','effects'])
+  assert.equal(custom[key],balanced[key],key+' must remain unchanged until explicitly edited');
+ assert.equal(app.node('graphicsPreset').value,'custom');
+ const reloaded=boot({store});
+ assert.equal(reloaded.node('graphicsPreset').value,'custom');
+ assert.equal(reloaded.node('fpsLimit').value,String(balanced.fpsCap));
+ reloaded.node('renderScale').value='0.7';
+ reloaded.node('renderScale').dispatch('change');
+ const edited=JSON.parse(store.get('veilpoint.graphics'));
+ assert.equal(edited.preset,'custom');
+ assert.equal(edited.resolutionScale,.7);
+ assert.equal(edited.fpsCap,balanced.fpsCap);
+});
+
 test('BR loadout selection persists across restarts and changes gameplay class',()=>{
  const store=new Map(),app=boot({store});
  app.node('weaponClass').value='compact';
