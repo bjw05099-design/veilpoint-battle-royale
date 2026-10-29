@@ -30,7 +30,7 @@ function boot(store=new Map()){
   addEventListener:(name,fn)=>on(events,name,fn),console,
   VeilpointRenderer:class{constructor(canvas){this.canvas=canvas;this.gpuTimer={supported:false};}setGraphicsQuality(){}draw(g){rendered=g;}setAdaptiveResolution(){}}};
  global.globalThis=global;
- for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/graphics.js','src/clock.js','src/fps.js','src/app.js'])
+ for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/graphics.js','src/clock.js','src/fps.js','src/desktop-controls.js','src/app.js'])
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,file),'utf8'),global,{filename:file,timeout:1500});
  return {node,store,global,emit:(name,arg)=>emit(events,name,arg),frame(ms){now=ms;assert.equal(typeof frameCallback,'function');frameCallback(ms);},get game(){return rendered;}};
 }
