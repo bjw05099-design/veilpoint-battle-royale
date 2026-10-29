@@ -518,7 +518,7 @@ test('CH01 freezes hostile clock and keyboard actions while desktop pointer lock
   const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
   assert.equal(saved.elapsed,0);
   assert.equal(saved.player.z,12,'initial CH01 spawn must not move without pointer lock');
-  assert.equal(saved.phase,'approach');
+  assert.equal(saved.phase,'terminal','pending lock cannot activate the relay');
   app.element('continue').click();
   app.context.document.pointerLockElement=app.element('scene');
   app.moveForward(120,10);
