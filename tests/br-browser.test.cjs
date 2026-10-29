@@ -143,6 +143,7 @@ test('keyboard fire/reload and touch fire consume finite BR ammo without adding 
   desktop.emit('keydown', {code: 'Space'});
   assert.equal(game.player.charges, 47);
   assert.equal(game.player.loaded, 11);
+  desktop.emit('keyup', {code: 'Space'}); // A released PC trigger must not resume firing after reload.
   desktop.emit('keydown', {code: 'KeyR'});
   assert.ok(game.player.reloadRemaining > 0);
   assert.equal(game.player.charges, 47);
@@ -404,6 +405,7 @@ test('BR effect audio is opt-out, keyboard-accessible, persistent and never gate
  app.emit('keydown',{code:'Space'});
  assert.equal(game.player.charges,47,'muting cannot suppress the actual finite shot');
  assert.equal(audioConstructed,0,'muted gameplay cannot initialize Web Audio');
+ app.emit('keyup',{code:'Space'});
  for(let i=2;i<=30;i++)app.frame(i*1000/60);
  app.emit('keydown',{code:'KeyM'});
  assert.equal(app.node('soundEnabled').checked,true);
@@ -714,15 +716,32 @@ test('PC BR Start/Resume transfers focus off menu buttons to the game canvas',()
  play.click();
  assert.equal(app.context.document.activeElement,app.node('scene'));
 });
-test('PC BR held keyboard auto-repeat cannot spend ammunition or cause movement scroll',()=>{
+test('PC BR held fire follows 60Hz cadence; OS repeat adds no separate shots or scroll',()=>{
  const app=boot();app.node('play').click();app.frame(1000/60);
  const p=app.game.player;
  app.emit('keydown',{code:'Space'});assert.equal(p.charges,47);
  for(let tick=2;tick<=60;tick++)app.frame(tick*1000/60);
+ assert.ok(p.charges<47,'holding automatic fire spends finite rounds on 60Hz steps');
+ const afterHeld=p.charges;
  for(let i=0;i<8;i++)app.emit('keydown',{code:'Space',repeat:true});
- assert.equal(p.charges,47,'OS repeat must not fire even after firearm cooldown');
+ assert.equal(p.charges,afterHeld,'OS repeats without simulation ticks cannot spend rounds');
  let prevented=false;
  app.emit('keydown',{code:'ArrowUp',repeat:true,preventDefault(){prevented=true;}});
  assert.equal(prevented,true,'remapped/default movement repeat must not scroll page');
- app.emit('keydown',{code:'Space'});assert.equal(p.charges,46);
+ app.emit('keyup',{code:'Space'});
+ for(let tick=61;tick<=90;tick++)app.frame(tick*1000/60);
+ assert.equal(p.charges,afterHeld,'releasing the trigger stops fixed-step automatic fire');
+ app.emit('keydown',{code:'Space'});assert.equal(p.charges,afterHeld-1);
+});
+test('PC BR primary mouse hold fires at fixed cadence and mouseup ends the stream',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const p=app.game.player;
+ app.node('scene').dispatch('mousedown',{button:0});
+ assert.equal(p.charges,47,'first click has immediate feedback');
+ for(let tick=2;tick<=45;tick++)app.frame(tick*1000/60);
+ assert.ok(p.charges<47);
+ const afterHeld=p.charges;
+ app.emit('mouseup',{button:0});
+ for(let tick=46;tick<=80;tick++)app.frame(tick*1000/60);
+ assert.equal(p.charges,afterHeld);
 });
