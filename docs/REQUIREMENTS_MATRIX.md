@@ -460,3 +460,8 @@ The browser graphics settings panel now reports per-window sample counts and P50
 - **R-03 / R-13 PC team follow-up:** The localhost team prototype now moves keyboard focus from Ready to the arena once on the server-authoritative transition into playing. Lobby name entry and subsequent intentional UI focus remain untouched. A mocked two-client round test checks this transition and movement command; this is not a native first-person multiplayer or real-browser certification.
 
 - **R-03 / R-12 / R-23 follow-up:** Team browser client now discards held keys at any authoritative round-phase transition. An un-released lobby/previous-round key cannot generate movement or capture in a new round without a fresh keydown; DOM/server regression verifies fresh-input recovery. This is a deterministic client lifecycle fix, not production netcode or measured keyboard latency.
+
+## 2026-10-30 — PC-only team phase transition input safety candidate
+
+- **R-03 / R-12 / R-13 / R-23 (partial):** The localhost two-client PC controller discards lobby-held objective-capture intent on every authoritative phase transition. A keyboard OS auto-repeat after that transition cannot resurrect pre-round movement or capture; only a fresh keydown is accepted. Server-owned capture, score, and ordinary post-start input remain unchanged.
+- **Verification boundary:** Two deterministic simulated-browser regressions cover held E, OS key repeats, and fresh keydown recovery. Final GitHub CI and two real Windows browser clients remain required. No mobile/touch work was added; this does not establish production internet multiplayer, native UE, photorealism or QHD 165Hz performance.
