@@ -233,13 +233,18 @@ test('finite server-owned shots, cooldown and round-ending incapacitation are de
 
 test('reload transfers finite carried ammunition once, never creates rounds', () => {
   const {m} = setup();
-  const a = m.players.get('a');
+  const a = m.players.get('a'), b = m.players.get('b');
+  // Keep the opponent outside the narrow shot ray: this test exercises the
+  // entire finite-ammo/reload lifecycle, not the separate match-win condition.
+  b.z = 3;
   for (let shot = 0; shot < 12; shot++) {
     const result = m.command('a', {seq: 2 + shot, type: 'fire'});
     assert.equal(result.ok, true);
     for (let i = 0; i < 18; i++) m.step();
   }
   assert.deepEqual([a.ammo, a.reserve], [0, 24]);
+  assert.equal(b.health, 100, 'the reload test must not accidentally end the match');
+  assert.equal(m.phase, 'playing');
   assert.equal(m.command('a', {seq: 14, type: 'fire'}).reason, 'empty_magazine');
   assert.equal(m.command('a', {seq: 15, type: 'reload'}).ok, true);
   assert.equal(m.command('a', {seq: 16, type: 'reload'}).reason, 'already_reloading');
