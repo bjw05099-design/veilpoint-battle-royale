@@ -177,6 +177,9 @@
     if (!state) return;
     if (state.phase !== previousPhase) {
       // A new round resets the server's direction; never retain a stale input cache.
+      // A held key from the lobby/previous round is not fresh gameplay input.
+      // Require a new physical keydown after the server changes phase.
+      keys.clear();
       lastDirection = '';
       lastMoveRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
