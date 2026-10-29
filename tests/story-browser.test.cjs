@@ -207,7 +207,7 @@ test('CH01 timed clearance is persisted by browser clock and survives reload wit
   for(let i=1;i<=510;i++)app.frame(i*1000/60);
   const saved=Story.restore(shared.get('veilpoint.story.ch01'));
   assert.equal(Story.situation(saved).eastGateOpen,true);
-  assert.ok(saved.elapsed>=Story.GATE_CLEARANCE_SECONDS);
+  assert.ok(saved.world.elapsed>=Story.GATE_CLEARANCE_SECONDS);
   const reloaded=boot(shared);reloaded.element('continue').click();
   assert.match(reloaded.element('objective').textContent,/추가 확인 경로/);
 });
