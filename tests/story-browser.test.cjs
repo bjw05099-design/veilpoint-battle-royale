@@ -617,4 +617,19 @@ test('CH01 PC focused settings cannot spend ammunition during an active encounte
     'unfocused gameplay key must still fire exactly one finite shot');
 });
 
-test('PC hybrid CH01 waits for mouse pointer lock and then accepts keyboard/mouse aim',()=>{\n const app=boot(new Map(),true,'pending',true);\n app.element('continue').click();\n app.frame(1000/60);\n const input=app.context.VeilpointInput;\n app.emit('keydown',{code:'KeyW'});\n app.emit('mousemove',{movementX:100,movementY:0});\n assert.equal(input.forward,false,'hybrid PC must not move before pointer lock');\n app.context.document.pointerLockElement=app.element('scene');\n app.emit('keydown',{code:'KeyW'});\n app.emit('mousemove',{movementX:100,movementY:0});\n assert.equal(input.forward,true);\n app.element('pauseButton').click();\n const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));\n assert.ok(saved.player.yaw>0,'mouse movement must update first-person aim');\n});\n
+test('PC hybrid CH01 waits for mouse pointer lock and then accepts keyboard/mouse aim',()=>{
+ const app=boot(new Map(),true,'pending',true);
+ app.element('continue').click();
+ app.frame(1000/60);
+ const input=app.context.VeilpointInput;
+ app.emit('keydown',{code:'KeyW'});
+ app.emit('mousemove',{movementX:100,movementY:0});
+ assert.equal(input.forward,false,'hybrid PC must not move before pointer lock');
+ app.context.document.pointerLockElement=app.element('scene');
+ app.emit('keydown',{code:'KeyW'});
+ app.emit('mousemove',{movementX:100,movementY:0});
+ assert.equal(input.forward,true);
+ app.element('pauseButton').click();
+ const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ assert.ok(saved.player.yaw>0,'mouse movement must update first-person aim');
+});

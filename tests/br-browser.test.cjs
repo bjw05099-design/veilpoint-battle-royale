@@ -667,4 +667,22 @@ test('PC settings focus cannot accidentally start a BR match or fire finite ammu
   assert.equal(game.player.charges,rounds-1,'canvas/gameplay keyboard still fires normally');
 });
 
-// Windows convertible PCs must keep mouse aim protected by pointer lock even\n// when their primary pointer is reported as coarse (touchscreen present).\ntest('PC hybrid BR requires mouse pointer lock before movement, aim or firing', () => {\n const app=boot({touch:true,finePointer:true,pointerLock:'pending'});\n app.node('play').click();app.frame(1000/60);\n const game=app.game,rounds=game.player.charges,startYaw=game.player.yaw;\n app.emit('keydown',{code:'KeyW'});\n app.emit('keydown',{code:'Space'});\n app.emit('mousemove',{movementX:100,movementY:0});\n app.frame(2000/60);\n assert.equal(game.player.charges,rounds);\n assert.equal(game.player.yaw,startYaw);\n assert.equal(game.elapsed,0,'world must remain paused without mouse capture');\n app.context.document.pointerLockElement=app.node('scene');\n app.emit('mousemove',{movementX:100,movementY:0});\n app.emit('keydown',{code:'Space'});\n assert.ok(game.player.yaw>startYaw);\n assert.equal(game.player.charges,rounds-1);\n});\n
+// Windows convertible PCs must keep mouse aim protected by pointer lock even
+// when their primary pointer is reported as coarse (touchscreen present).
+test('PC hybrid BR requires mouse pointer lock before movement, aim or firing', () => {
+ const app=boot({touch:true,finePointer:true,pointerLock:'pending'});
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,rounds=game.player.charges,startYaw=game.player.yaw;
+ app.emit('keydown',{code:'KeyW'});
+ app.emit('keydown',{code:'Space'});
+ app.emit('mousemove',{movementX:100,movementY:0});
+ app.frame(2000/60);
+ assert.equal(game.player.charges,rounds);
+ assert.equal(game.player.yaw,startYaw);
+ assert.equal(game.elapsed,0,'world must remain paused without mouse capture');
+ app.context.document.pointerLockElement=app.node('scene');
+ app.emit('mousemove',{movementX:100,movementY:0});
+ app.emit('keydown',{code:'Space'});
+ assert.ok(game.player.yaw>startYaw);
+ assert.equal(game.player.charges,rounds-1);
+});
