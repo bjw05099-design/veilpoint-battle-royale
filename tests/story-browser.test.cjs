@@ -431,10 +431,13 @@ test('CH01 a missed hostile shot persists finite ammunition without a phantom in
   state.combat.nextPulseAt=0; // One scheduled, visible hostile volley.
   const shared=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
   const app=boot(shared);app.element('continue').click();
+  // Actual lateral movement widens the physical shot spread; a held key with
+  // no travel would not grant a fictitious dodge bonus.
+  app.context.VeilpointInput.right=true;
   app.frame(1000/60);
   const saved=JSON.parse(shared.get('veilpoint.story.ch01'));
   assert.equal(saved.phase,'engagement');
-  assert.equal(saved.player.health,100,'the deterministic hostile round misses');
+  assert.equal(saved.player.health,100,'the physically traced hostile round misses');
   assert.equal(saved.combat.drones[1].shots,1,'missed rounds are still spent');
   assert.equal(saved.combat.drones[0].shots,0);
   assert.equal(saved.combat.drones[2].shots,0);
