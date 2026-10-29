@@ -6,6 +6,7 @@ const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:0.25,maxSte
 const fpsLimiter=global.VeilpointFPS.createFrameLimiter(60);
 const graphics=global.VeilpointGraphics;
 const perf=global.VeilpointPerformance;
+const Desktop=global.VeilpointDesktopControls;
 const telemetry=perf.createTelemetry();
 let governor=null,autoResolution=false,lastGovernorCheck=0,lastRenderTime=null;
 try{autoResolution=global.localStorage.getItem('veilpoint.autoResolution')==='true';}catch(_){}
@@ -52,7 +53,7 @@ $('graphicsOpen').addEventListener('click',()=>{
  const panel=$('graphicsPanel');panel.classList.toggle('hidden');
  if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
 });
-$('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');});
+$('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');desktopUi.cancel();});
 
 const loadoutSelect=$('weaponClass');
 try{const saved=global.localStorage.getItem('veilpoint.weaponClass');loadoutSelect.value=Object.prototype.hasOwnProperty.call(Game.FIREARMS,saved)?saved:'carbine';}
@@ -63,6 +64,7 @@ loadoutSelect.addEventListener('change',()=>{
 });
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
+const desktopUi=Desktop.attach(document,global.localStorage,()=>{for(const k in input)input[k]=false;});
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
 let pointerLockAttempt=0;
@@ -121,7 +123,7 @@ function start(){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
- resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  requestAimLock();
  persistMatch();
@@ -132,7 +134,7 @@ function resumeStoredMatch(){
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
  // A restored checkpoint must also start with neutral physical input.
- resetInactiveClock();
+ desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  requestAimLock();
@@ -141,31 +143,36 @@ if(storedMatch())$('play').textContent='저장 경기 이어하기';
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
  if(!running||!suspended)return;
- suspended=false;resetInactiveClock();
+ suspended=false;desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
  requestAimLock();
 }
 $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
 $('newMatch').addEventListener('click',start);
-const commands={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint',KeyC:'crouch'};
 addEventListener('keydown',e=>{
- if(commands[e.code]){e.preventDefault();if(canAct())input[commands[e.code]]=true;}
+ if(desktopUi.captureKey(e))return;
+ const action=Desktop.actionFor(e.code,desktopUi.get());
+ if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
  if(e.code==='Escape'&&canAct()){
   e.preventDefault();suspendMatch();resetInactiveClock();
  }
  if(e.code==='KeyG'){
   e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
   if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
+  else desktopUi.cancel();
  }
- if(e.code==='KeyE'){e.preventDefault();collectAmmo();}
- if(e.code==='KeyR'){e.preventDefault();reloadWeapon();}
- if(e.code==='KeyH'){e.preventDefault();toggleReloadAssist();}
+ if(action==='interact'){e.preventDefault();collectAmmo();}
+ if(action==='reload'){e.preventDefault();reloadWeapon();}
+ if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
- if(e.code==='Space'){e.preventDefault();fire();}
+ if(action==='fire'){e.preventDefault();fire();}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
-addEventListener('keyup',e=>{if(commands[e.code])input[commands[e.code]]=false;});
+addEventListener('keyup',e=>{
+ const action=Desktop.actionFor(e.code,desktopUi.get());
+ if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
+});
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(reason='background'){
  if(!running||suspended)return;
@@ -202,7 +209,7 @@ document.addEventListener('pointerlockchange',()=>{
  }
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
-function look(mx,my){simulation.player.yaw+=mx*.0023;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch-my*.00165));}
+function look(mx,my){const delta=Desktop.mouseDelta(mx,my,desktopUi.get());simulation.player.yaw+=delta.yaw;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch+delta.pitch));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){requestAimLock();return;}fire();});
 let audio=null;
