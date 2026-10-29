@@ -20,6 +20,12 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
     assert.equal(page.status, 200);
     assert.match(await page.text(), /DISTRICT CONTROL/);
     assert.match(await (await fetch(base + '/team-client.js')).text(), /updateInput/);
+    const controlsResponse = await fetch(base + '/desktop-controls.js');
+    assert.equal(controlsResponse.status, 200);
+    assert.match(controlsResponse.headers.get('content-type'), /text\\/javascript/);
+    assert.match(await controlsResponse.text(), /VeilpointDesktopControls/);
+    assert.equal((await fetch(base + '/src/desktop-controls.js')).status, 404,
+      'only the allowlisted shared input script is served');
     const a = await post('/join', {name: 'Captain A'});
     const b = await post('/join', {name: 'Captain B'});
     assert.equal(a.status, 201);assert.equal(b.status, 201);
