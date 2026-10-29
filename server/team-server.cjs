@@ -6,6 +6,28 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const {TeamMatch, STEP} = require('../src/team-match.cjs');
+const {performance} = require('node:perf_hooks');
+const STEP_MS = STEP * 1000;
+const MAX_CATCHUP_STEPS = 5;
+// Node timers truncate fractional millisecond delays: setInterval(1000/60)
+// effectively schedules 16ms, not 16.667ms, accelerating the match clock.
+// Poll a monotonic accumulator and execute only full authoritative 60Hz steps.
+// Bound catch-up after a suspended process rather than simulating seconds of
+// unseen combat in one event-loop turn.
+function createFixedStepClock(onStep) {
+  let previous = null, remainder = 0;
+  return now => {
+    if (!Number.isFinite(now)) return 0;
+    if (previous === null) {previous = now;return 0;}
+    remainder += Math.min(250, Math.max(0, now - previous));
+    previous = now;
+    const steps = Math.min(MAX_CATCHUP_STEPS, Math.floor((remainder + 1e-8) / STEP_MS));
+    for (let i = 0; i < steps; i++) onStep();
+    remainder -= steps * STEP_MS;
+    if (steps === MAX_CATCHUP_STEPS) remainder = 0; // Discard stale backlog.
+    return steps;
+  };
+}
 function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now} = {}) {
   // This proof must never silently bind to a publicly reachable interface.
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
@@ -97,7 +119,12 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         server.once('error', reject);
         server.listen(port, host, resolve);
       });
-      if (autoTick) {timer = setInterval(() => match.step(), STEP * 1000);timer.unref();}
+      if (autoTick) {
+        const advance = createFixedStepClock(() => match.step());
+        advance(performance.now());
+        timer = setInterval(() => advance(performance.now()), 8);
+        timer.unref();
+      }
       return server.address();
     },
     async close() {if (timer) clearInterval(timer);await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));}
@@ -109,4 +136,4 @@ if (require.main === module) {
     process.stdout.write('Open the displayed URL in two separate browser tabs to test the team round.\n');
   }).catch(err => {console.error(err);process.exitCode = 1;});
 }
-module.exports = {createTeamServer};
+module.exports = {createTeamServer, createFixedStepClock};
