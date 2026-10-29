@@ -521,7 +521,9 @@ test('desktop BR handles missing and synchronously denied pointer-lock APIs', ()
     app.node('play').click();
     app.frame(1000);
     assert.equal(app.node('overlay').classList.contains('hidden'), false, mode);
-    assert.equal(app.game.elapsed, 0, mode);
+    const saved = app.store.get('veilpoint.brCheckpoint.v1');
+    assert.ok(saved, 'refused lock must still checkpoint the match');
+    assert.equal(app.context.VeilpointSim.restoreMatch(saved).elapsed, 0, mode);
   }
 });
 
