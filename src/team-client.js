@@ -12,6 +12,10 @@
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
+  // Share PC keyboard preferences with the BR and CH01 browser prototypes.
+  // The server remains authoritative for all movement and gameplay commands.
+  const Desktop = window.VeilpointDesktopControls;
+  const controls = Desktop.load(window.localStorage);
   const keys = new Set();
   const request = async (path, body) => {
     const response = await fetch(path, {method: body ? 'POST' : 'GET',
@@ -40,11 +44,15 @@
     }).catch(err => {status(`명령 실패: ${err.message}`);});
     return pending;
   };
+  const held = action => {
+    for (const code of keys) if (Desktop.actionFor(code, controls) === action) return true;
+    return false;
+  };
   const direction = () => {
-    const x = Number(keys.has('ArrowRight') || keys.has('KeyD') || keys.has('right')) -
-      Number(keys.has('ArrowLeft') || keys.has('KeyA') || keys.has('left'));
-    const z = Number(keys.has('ArrowDown') || keys.has('KeyS') || keys.has('down')) -
-      Number(keys.has('ArrowUp') || keys.has('KeyW') || keys.has('up'));
+    const x = Number(held('right') || keys.has('right')) -
+      Number(held('left') || keys.has('left'));
+    const z = Number(held('back') || keys.has('down')) -
+      Number(held('forward') || keys.has('up'));
     return {x, z};
   };
   const aimAtWorld = (tx, tz) => {
@@ -197,7 +205,8 @@
     if (state.phase === 'ended') status(`종료 · 승리 팀 ${state.winner} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
     else {
-      const hint = '목표 원에서 E 점령 · 지도 조준(밖으로 이동/Q 해제) · F/SPACE 발사 · R 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
+      const hint = '목표 원에서 '+controls.bindings.interact+' 점령 · 지도 조준(밖으로 이동/Q 해제) · '+
+        controls.bindings.fire+' 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
       status(actionFeedback && state.tick <= feedbackUntil ? hint + ' · ' + actionFeedback : hint);
     }
     draw();
@@ -219,18 +228,28 @@
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
-    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    // Typing in the player-name field must never trigger gameplay or block spaces.
     if (e.target === el('name')) return;
+    const action = Desktop.actionFor(e.code, controls);
+    if (action || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
+      e.preventDefault();
     keys.add(e.code);
     if (!e.repeat && state?.phase === 'playing') {
-      if (e.code === 'KeyF' || e.code === 'Space') void send('fire');
-      if (e.code === 'KeyR') void send('reload');
+      // F is a legacy alias only while the default Space fire binding is active.
+      if (action === 'fire' || (e.code === 'KeyF' && controls.bindings.fire === 'Space'))
+        void send('fire');
+      if (action === 'reload') void send('reload');
     }
-    if (e.code === 'KeyE') setCapture(true);
-    if (e.code === 'KeyQ' && !e.repeat) releaseAim();
+    if (action === 'interact') setCapture(true);
+    if (e.code === 'KeyQ' && !e.repeat && action === 'support') releaseAim();
     updateInput();
   });
-  document.addEventListener('keyup', e => {keys.delete(e.code);if (e.code === 'KeyE') setCapture(false);updateInput();});
+  document.addEventListener('keyup', e => {
+    if (e.target === el('name')) return;
+    keys.delete(e.code);
+    if (Desktop.actionFor(e.code, controls) === 'interact') setCapture(false);
+    updateInput();
+  });
   const releaseHeldInput = () => {keys.clear();setCapture(false);updateInput();releaseAim();};
   window.addEventListener('blur', releaseHeldInput);
   // Mobile tab switches may suspend polling without dispatching window.blur.
