@@ -94,6 +94,10 @@ test('BR periodic simulated-time autosave and damage checkpoint do not change th
  app.node('play').click();app.frame(1000/60);
  const before=JSON.parse(store.get(KEY));
  const game=app.game;
+ // This fixture tests checkpoint cadence, not random hostile combat. Finite
+ // empty enemy magazines prevent unrelated seeded encounters from ending the
+ // match before the damage-autosave assertion (observed in CI).
+ for(const bot of game.bots){bot.loaded=0;bot.charges=0;}
  for(let i=0;i<901&&game.status==='playing';i++)app.global.VeilpointSim.tick(game,1/60,{});
  assert.equal(game.status,'playing');
  app.frame(2000/60);
