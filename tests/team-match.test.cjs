@@ -67,9 +67,11 @@ test('replayed and malformed commands do not change authoritative state', () => 
   assert.throws(() => m.command('missing', {seq: 1, type: 'ready'}), /unknown_player/);
   assert.equal(m.players.get('a').seq, 2);
 });
-test('opponents outside proximity are not exposed in snapshots', () => {
+test('clear air shows distant actors but dense mist conceals them', () => {
   const {m} = setup();
   m.players.get('b').x = 24;
+  assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red', 'blue']);
+  for (let i = 0; i < 600; i++) m.step();
   assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red']);
 });
 test('timeouts and departure terminate a round; ready players can replay', () => {
@@ -658,7 +660,8 @@ test('mist limits snapshots, not collision; visible hits still confirm normally'
 
 test('blind fire beyond old 12m cap needs actual alignment, not target magnetism', () => {
   const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
-  a.x = 0; a.z = 0; b.x = 20; b.z = 1; // unseen, off the +x firing ray
+  a.x = 0; a.z = 0; b.x = 20; b.z = 1; // off the +x firing ray
+  for (let i = 0; i < 600; i++) m.step(); // dense mist hides the distant actor
   assert.equal(m.snapshot('a').visible.length, 1);
   assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
   assert.equal(b.health, 100, 'a broad aim cone must not auto-acquire a hidden actor');
