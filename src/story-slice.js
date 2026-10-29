@@ -227,14 +227,26 @@
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.
         hostile.shots++;
         state.world.effects.push({x:hostile.x,z:hostile.z,t:0.28,type:'hostile'});
-        // A visible, correctly facing opponent can still miss. A shot always
-        // consumes one of twelve finite rounds; range and actual player travel
-        // reduce accuracy. Seed each shot from saved id/count so a checkpoint
-        // cannot reroll a miss into a hit or alter the 60 Hz replay.
-        const accuracy=clamp(0.96-distance*0.011-(t>0&&movedDistance/t>2.5?0.12:0),0.2,0.92);
+        // A shot follows a deterministic physical ray, not a post-fire
+        // damage lottery. Range and actual movement increase bounded aim
+        // instability. A miss spends a round and remains audible/visible.
         const shotSeed=(state.world.seed ^ Math.imul(hostile.id+1,0x9e3779b9) ^
           Math.imul(hostile.shots,0x85ebca6b))>>>0;
-        if(Sim.rngFromSeed(shotSeed)()<accuracy)Sim.receiveDamage(state.world,4);
+        const movedQuickly=t>0&&movedDistance/t>2.5;
+        const spread=0.015+distance*0.0006+(movedQuickly?0.15:0);
+        const shotAngle=bearing+Math.sin(Sim.rngFromSeed(shotSeed)()*2*Math.PI)*spread;
+        const rayX=Math.sin(shotAngle),rayZ=-Math.cos(shotAngle);
+        const toX=p.x-hostile.x,toZ=p.z-hostile.z;
+        const forward=toX*rayX+toZ*rayZ;
+        const lateral=Math.abs(toX*rayZ-toZ*rayX);
+        if(forward>0&&lateral<0.85){
+          const contact=forward-Math.sqrt(Math.max(0,0.85**2-lateral**2));
+          if(contact>0&&contact<48&&
+             !Sim.lineBlocked(hostile.x,hostile.z,
+               hostile.x+rayX*contact,hostile.z+rayZ*contact,
+               state.world.obstacles.concat(actorBlockers(state,hostile))))
+            Sim.receiveDamage(state.world,4);
+        }
         if(p.health===0)break;
       }
       if(state.world.status==='lost'){
