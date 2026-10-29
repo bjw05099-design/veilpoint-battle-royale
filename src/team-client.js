@@ -6,6 +6,7 @@
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
   let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
+  let activeTouchAimPointer = null;
   let joining = false, restoring = false, polling = false;
   let pending = Promise.resolve();
   let previousPhase = null;
@@ -72,14 +73,33 @@
     aimAtWorld(tx, tz);
   };
   const releaseAim = () => {
+    // A canceled touch must not keep renewing a server-side aim override.
+    activeTouchAimPointer = null;
     if (!lastAimPoint) return;
     lastAimPoint = null;lastAimVector = null;lastAimTick = -Infinity;
     if (token && state?.phase === 'playing') void send('aimRelease');
   };
-  canvas.addEventListener('pointerdown', aimFromPointer);
-  canvas.addEventListener('pointermove', event => {
-    if (event.pointerType === 'mouse' || event.buttons) aimFromPointer(event);
+  canvas.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') {
+      // Ignore a second finger: only the gesture that began aiming can update
+      // or release this server-owned facing intent.
+      if (activeTouchAimPointer !== null) return;
+      activeTouchAimPointer = event.pointerId ?? -1;
+    }
+    aimFromPointer(event);
   });
+  canvas.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch') {
+      if (activeTouchAimPointer === null || activeTouchAimPointer !== (event.pointerId ?? -1)) return;
+    } else if (event.pointerType !== 'mouse' && !event.buttons) return;
+    aimFromPointer(event);
+  });
+  for (const type of ['pointerup', 'pointercancel']) {
+    canvas.addEventListener(type, event => {
+      if (event.pointerType === 'touch' && activeTouchAimPointer === (event.pointerId ?? -1))
+        releaseAim();
+    });
+  }
   canvas.addEventListener('pointerleave', releaseAim);
   const updateInput = () => {
     if (!token || !state || state.phase !== 'playing') return;
@@ -139,6 +159,7 @@
       lastMoveRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
+      activeTouchAimPointer = null;
       if (state.phase !== 'playing') capturing = false;
       previousPhase = state.phase;
     }
