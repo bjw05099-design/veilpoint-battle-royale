@@ -236,7 +236,7 @@
     keys.add(e.code);
     if (!e.repeat && state?.phase === 'playing') {
       // F is a legacy alias only while the default Space fire binding is active.
-      if (action === 'fire' || (e.code === 'KeyF' && controls.bindings.fire === 'Space'))
+      if (action === 'fire' || (e.code === 'KeyF' && action === null && controls.bindings.fire === 'Space'))
         void send('fire');
       if (action === 'reload') void send('reload');
     }
