@@ -80,6 +80,8 @@
     if (token && state?.phase === 'playing') void send('aimRelease');
   };
   canvas.addEventListener('pointerdown', event => {
+    // On hybrid devices, a mouse event must not steal a held touch gesture.
+    if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
       // Ignore a second finger: only the gesture that began aiming can update
       // or release this server-owned facing intent.
@@ -89,6 +91,7 @@
     aimFromPointer(event);
   });
   canvas.addEventListener('pointermove', event => {
+    if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
       if (activeTouchAimPointer === null || activeTouchAimPointer !== (event.pointerId ?? -1)) return;
     } else if (event.pointerType !== 'mouse' && !event.buttons) return;
@@ -100,7 +103,13 @@
         releaseAim();
     });
   }
-  canvas.addEventListener('pointerleave', releaseAim);
+  canvas.addEventListener('pointerleave', event => {
+    // A different finger leaving the arena must not cancel the primary aim.
+    // The primary finger leaving does release, even if pointerup is not fired.
+    if (activeTouchAimPointer !== null &&
+        (event.pointerType !== 'touch' || activeTouchAimPointer !== (event.pointerId ?? -1))) return;
+    releaseAim();
+  });
   const updateInput = () => {
     if (!token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
