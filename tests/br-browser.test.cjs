@@ -633,3 +633,23 @@ test('PC BR binding conflict and Escape cancel never fire or pause an active mat
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
 });
+
+test('PC key repeat cannot rapidly toggle BR assist, audio or graphics panel', () => {
+  const app = boot();
+  app.node('play').click();app.frame(1000 / 60);
+  const game = app.game;
+  const initial = game.player.reloadAssist;
+  app.emit('keydown', {code: 'KeyH'});
+  assert.notEqual(game.player.reloadAssist, initial);
+  app.emit('keydown', {code: 'KeyH', repeat: true});
+  assert.notEqual(game.player.reloadAssist, initial, 'repeated H must not undo accessibility choice');
+  const audio = app.node('soundEnabled').checked;
+  app.emit('keydown', {code: 'KeyM'});
+  assert.notEqual(app.node('soundEnabled').checked, audio);
+  app.emit('keydown', {code: 'KeyM', repeat: true});
+  assert.notEqual(app.node('soundEnabled').checked, audio);
+  app.emit('keydown', {code: 'KeyG'});
+  const opened = app.node('graphicsPanel').classList.contains('hidden');
+  app.emit('keydown', {code: 'KeyG', repeat: true});
+  assert.equal(app.node('graphicsPanel').classList.contains('hidden'), opened);
+});
