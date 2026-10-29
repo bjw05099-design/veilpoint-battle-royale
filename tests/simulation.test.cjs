@@ -597,3 +597,16 @@ test('BR missed finite rounds create no floating energy marker; confirmed contac
   for(let i=0;i<13;i++)S.tick(hit,1/60,{});
   assert.equal(hit.effects.length,0,'impact debris is short-lived at fixed 60Hz');
 });
+
+
+test('BR boundary warnings derive from the same world-space radius without altering player resources',()=>{
+ const game=S.newMatch(9901,0);game.status='playing';
+ game.zone.radius=170;game.player.x=0;game.player.z=0;
+ const baseline={health:game.player.health,charges:game.player.charges};
+ assert.deepEqual(S.boundaryStatus(game),{outside:false,near:false,meters:170});
+ game.player.x=161;
+ assert.deepEqual(S.boundaryStatus(game),{outside:false,near:true,meters:9});
+ game.player.x=174;
+ assert.deepEqual(S.boundaryStatus(game),{outside:true,near:true,meters:4});
+ assert.deepEqual({health:game.player.health,charges:game.player.charges},baseline);
+});
