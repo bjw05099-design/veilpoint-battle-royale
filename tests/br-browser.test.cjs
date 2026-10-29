@@ -586,3 +586,14 @@ test('BR browser shows truthful magazine/reserve and boundary proximity without 
  assert.ok(game.player.health<100,'the warning is not a fictional health shield');
  assert.equal(game.player.charges,48);
 });
+
+
+test('BR graphics diagnostics report bounded P50/P95/P99 with missing GPU samples explicitly unavailable',()=>{
+ const app=boot();app.node('play').click();app.frame(300);app.frame(600);
+ const details=app.node('perfDetails').textContent;
+ assert.match(details,/렌더 CPU \(n=\d+\) P50\/P95\/P99:/);
+ assert.match(details,/GPU 타이머 \(n=0\) P50\/P95\/P99: 측정 불가 \/ 측정 불가 \/ 측정 불가/);
+ assert.match(details,/표시 콜백 간격 \(n=\d+\) P50\/P95\/P99:/);
+ assert.match(details,/현재 내부 렌더 배율:/);
+ assert.equal(details.split('\n').length,4);
+});

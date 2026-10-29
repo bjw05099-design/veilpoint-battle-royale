@@ -410,3 +410,8 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-04/R-13 (partial, not signed off):** BR now derives near/outside HUD warnings from the live zone radius, preserving reload and other event feedback; initial ammo label reflects 12 loaded / 36 reserve rounds rather than a misleading 48 / 60 display. Fixed-step simulation and DOM-mock tests were added, pending CI and human browser QA.
 - **R-23 (P0 still open):** This is a transparency and usability improvement only. The existing arbitrary shrinking circle with direct health loss is **not** physically credible merely because the boundary is announced. A believable, tested BR play-area mechanism remains a mandatory realism redesign before release.
+
+
+### 2026-10-29 browser graphics diagnostics (partial R-08/R-10/R-11)
+
+The browser graphics settings panel now reports per-window sample counts and P50/P95/P99 for CPU draw time, supported WebGL2 GPU timer queries and render callback intervals. Unsupported GPU timing is explicitly unavailable. This is a **code-level diagnostic candidate**, not measured QHD RTX 3070/16GB owner-PC performance, actual monitor presentation, 1%-low FPS, end-to-end latency, Unreal native rendering or proven 165FPS. Keep R-08/R-11 hardware acceptance **unverified**.
