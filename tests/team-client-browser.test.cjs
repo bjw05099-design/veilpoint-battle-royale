@@ -401,3 +401,56 @@ test('team clients expose matching gradual sight range without disclosing hidden
   assert.ok(a.node('weather').textContent.includes('44.5m'));
   assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 2);
 });
+
+test('touch aim ends on finger lift, restores movement facing and stops lease renewal', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  const canvas = a.node('arena');
+  canvas.dispatch('pointerdown', {pointerType: 'touch', pointerId: 7, clientX: 250, clientY: 155});
+  await settle();
+  assert.equal(player.aiming, true);
+  const aimed = {...player.facing};
+  canvas.dispatch('pointerup', {pointerType: 'touch', pointerId: 8});
+  await settle();
+  assert.equal(player.aiming, true, 'an unrelated finger cannot cancel the active aim');
+  canvas.dispatch('pointerup', {pointerType: 'touch', pointerId: 7});
+  await settle();
+  assert.equal(player.aiming, false, 'lifting the aiming finger must release the server override');
+  const aimCount = () => server.requests.filter(r => r.token === token && r.body?.type === 'aim').length;
+  const before = aimCount();
+  for (let i = 0; i < 25; i++) server.match.step();
+  await a.poll(); await settle();
+  assert.equal(aimCount(), before, 'released touch must not renew stale aim on polling');
+  a.doc('keydown', {code: 'KeyA'}); await settle();
+  assert.deepEqual({...player.facing}, {x: -1, z: 0},
+    'keyboard facing must work immediately after a touch gesture');
+});
+
+test('touch pointercancel releases aim and ignores movement from a different finger', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token), canvas = a.node('arena');
+  canvas.dispatch('pointerdown', {pointerType: 'touch', pointerId: 9, clientX: 250, clientY: 155});
+  await settle();
+  const original = {...player.facing};
+  canvas.dispatch('pointermove', {pointerType: 'touch', pointerId: 10,
+    clientX: 450, clientY: 250, buttons: 1});
+  await settle();
+  assert.deepEqual({...player.facing}, original, 'a second finger must not steer the aim');
+  canvas.dispatch('pointercancel', {pointerType: 'touch', pointerId: 9});
+  await settle();
+  assert.equal(player.aiming, false, 'OS gesture cancellation must release server aim');
+  canvas.dispatch('pointerdown', {pointerType: 'touch', pointerId: 11, clientX: 250, clientY: 155});
+  await settle();
+  assert.equal(player.aiming, true, 'a fresh touch may aim after cancellation');
+  canvas.dispatch('pointerup', {pointerType: 'touch', pointerId: 11});
+  await settle();
+  assert.equal(player.aiming, false);
+});
