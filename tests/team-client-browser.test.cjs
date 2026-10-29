@@ -733,3 +733,27 @@ test('team PC mouse and keyboard triggers remain independent across either relea
   a.blur();await settle();
   assert.equal(p.triggerHeld, false, 'focus loss clears both trigger sources');
 });
+
+test('both local browser clients report a same-tick draw instead of a disconnect', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();
+  await settle();
+  a.node('ready').click();b.node('ready').click();
+  await settle();
+  await a.poll();await b.poll();await settle();
+  const players = [...server.match.players.entries()];
+  const red = players.find(([,p]) => p.team === 'red')[1];
+  const blue = players.find(([,p]) => p.team === 'blue')[1];
+  red.x = -3;red.z = 0;red.facing = {x: 1,z: 0};red.health = 34;
+  blue.x = 3;blue.z = 0;blue.facing = {x: -1,z: 0};blue.health = 34;
+  for (const [token, player] of players)
+    server.match.command(token, {seq: player.seq + 1, type: 'trigger', active: true});
+  server.match.step();
+  assert.equal(server.match.reason, 'mutual_incapacitation');
+  await a.poll();await b.poll();await settle();
+  for (const client of [a,b]) {
+    assert.match(client.node('status').textContent, /무승부/);
+    assert.doesNotMatch(client.node('status').textContent, /양측 연결 종료/);
+    assert.equal(client.node('ready').disabled, false);
+  }
+});
