@@ -382,3 +382,34 @@ test('opening BR graphics settings during play pauses the match until explicit r
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
  assert.ok(g.elapsed>elapsed);
 });
+
+
+test('BR effect audio is opt-out, keyboard-accessible, persistent and never gates gameplay',()=>{
+ const store=new Map(),app=boot({store});
+ let audioConstructed=0;
+ app.context.AudioContext=class {constructor(){audioConstructed++;}};
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ app.node('soundEnabled').checked=false;
+ app.node('soundEnabled').dispatch('change');
+ assert.equal(store.get('veilpoint.br.audio'),'off');
+ app.emit('keydown',{code:'Space'});
+ assert.equal(game.player.charges,47,'muting cannot suppress the actual finite shot');
+ assert.equal(audioConstructed,0,'muted gameplay cannot initialize Web Audio');
+ for(let i=2;i<=30;i++)app.frame(i*1000/60);
+ app.emit('keydown',{code:'KeyM'});
+ assert.equal(app.node('soundEnabled').checked,true);
+ assert.equal(store.get('veilpoint.br.audio'),'on');
+ app.emit('keydown',{code:'Space'});
+ assert.equal(game.player.charges,46);
+ assert.equal(audioConstructed,1,'enabled shot can initialize audio lazily');
+ app.emit('keydown',{code:'KeyM'});
+ assert.equal(store.get('veilpoint.br.audio'),'off');
+ const next=boot({store});
+ assert.equal(next.node('soundEnabled').checked,false,'mute survives page reload');
+ const touch=boot({store,touch:true});
+ touch.node('play').click();touch.frame(1000/60);
+ touch.context.AudioContext=class {constructor(){throw Error('muted touch must stay silent');}};
+ touch.node('tagButton').dispatch('pointerdown');
+ assert.equal(touch.game.player.charges,47,'touch shot remains playable with sound off');
+});
