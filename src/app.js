@@ -239,7 +239,13 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
- $('message').textContent=suspended&&running?'창 비활성 · 시뮬레이션 일시중지':s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
+ const boundary=Game.boundaryStatus(s);
+ const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
+ const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m':
+   boundary.near?'BOUNDARY NEARBY · '+boundary.meters+'m':'';
+ // Keep reload and other event feedback readable alongside the boundary warning.
+ $('message').textContent=suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
+   [boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const nearby=Game.nearestReachablePickup(s);
  $('pickupPrompt').style.display=nearby?'block':'none';
  if(nearby)$('pickupPrompt').textContent=nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
