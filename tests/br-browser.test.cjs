@@ -83,7 +83,7 @@ function boot({touch = false, store = new Map(), pointerLock = 'granted'} = {}) 
   };
   context.globalThis = context;
   for (const filename of ['src/simulation.js', 'src/visibility.js', 'src/performance.js',
-    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/app.js']) {
+    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/desktop-controls.js', 'src/app.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, filename), 'utf8'),
       context, {filename, timeout: 1500});
   }
@@ -596,4 +596,40 @@ test('BR graphics diagnostics report bounded P50/P95/P99 with missing GPU sample
  assert.match(details,/표시 콜백 간격 \(n=\d+\) P50\/P95\/P99:/);
  assert.match(details,/현재 내부 렌더 배율:/);
  assert.equal(details.split('\n').length,4);
+});
+
+test('PC BR remapped fire/reload keys and sensitivity persist without changing 60Hz simulation',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('desktopBindAction').value='fire';
+ app.node('desktopBindKey').click();
+ app.emit('keydown',{code:'KeyT'});
+ assert.match(app.node('desktopBindStatus').textContent,/저장/);
+ app.node('desktopSensitivity').value='2';
+ app.node('desktopSensitivity').dispatch('change');
+ app.node('desktopInvertY').checked=true;
+ app.node('desktopInvertY').dispatch('change');
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,before=game.player.charges,yaw=game.player.yaw,pitch=game.player.pitch;
+ app.emit('keydown',{code:'Space'});
+ assert.equal(game.player.charges,before,'old fire binding must be disabled');
+ app.emit('keydown',{code:'KeyT'});
+ assert.equal(game.player.charges,before-1,'new fire binding consumes one finite round');
+ app.emit('mousemove',{movementX:100,movementY:10});
+ assert.ok(Math.abs(game.player.yaw-yaw-.46)<1e-9);
+ assert.ok(game.player.pitch>pitch,'inverted Y should raise pitch on downward mouse motion');
+ const reloaded=boot({store});
+ assert.equal(reloaded.node('desktopSensitivity').value,'2');
+ assert.equal(reloaded.node('desktopInvertY').checked,true);
+ assert.equal(reloaded.node('desktopBindAction').value,'');
+ reloaded.node('desktopBindAction').value='fire';reloaded.node('desktopBindAction').dispatch('change');
+ assert.equal(reloaded.node('desktopBindKey').textContent,'KeyT');
+});
+test('PC BR binding conflict and Escape cancel never fire or pause an active match',()=>{
+ const app=boot();app.node('desktopBindAction').value='fire';
+ app.node('desktopBindKey').click();app.emit('keydown',{code:'KeyR'});
+ assert.match(app.node('desktopBindStatus').textContent,/이미 사용/);
+ app.emit('keydown',{code:'Escape'});
+ assert.match(app.node('desktopBindStatus').textContent,/취소/);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
 });
