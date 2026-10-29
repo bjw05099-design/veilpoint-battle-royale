@@ -44,7 +44,14 @@ function applyGraphicsSettings(){
   :'성능은 사용 중인 장치에서 실제 측정해야 합니다.';
  saveGraphics();
 }
-profileSelect.addEventListener('change',()=>{if(profileSelect.value==='custom')return;graphicsSettings=graphics.fromPreset(profileSelect.value);applyGraphicsSettings();});
+profileSelect.addEventListener('change',()=>{
+ // Selecting Custom must actually enter editable, persisted custom mode while
+ // preserving the current independent FPS, scale, vegetation and effects.
+ graphicsSettings=profileSelect.value==='custom'
+  ?graphics.customize(graphicsSettings,'fpsCap',graphicsSettings.fpsCap)
+  :graphics.fromPreset(profileSelect.value);
+ applyGraphicsSettings();
+});
 for(const [node,field] of [[fpsSelect,'fpsCap'],[resolutionSelect,'resolutionScale'],[vegetationSelect,'vegetationDensity'],[effectsSelect,'effects']]){
  node.addEventListener('change',()=>{try{graphicsSettings=graphics.customize(graphicsSettings,field,Number(node.value));applyGraphicsSettings();}catch(_){applyGraphicsSettings();}});
 }
@@ -142,6 +149,9 @@ function resumeStoredMatch(){
  desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
+ // A restored match must reclaim keyboard focus just like a new match.
+ // Otherwise the still-focused Resume button consumes Space/arrow controls.
+ Desktop.focusGameplay(document,canvas);
  requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';

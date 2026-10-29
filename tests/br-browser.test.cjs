@@ -123,6 +123,24 @@ test('offline BR browser UI starts, loses, returns to menu and restarts with fre
   assert.equal(app.node('overlay').classList.contains('hidden'), true);
 });
 
+test('restored BR checkpoint reclaims PC keyboard focus from the resume button',()=>{
+ const store=new Map(),first=boot({store});
+ first.node('play').click();first.frame(1000/60);first.emit('blur');
+ assert.ok(store.get('veilpoint.brCheckpoint.v1'),'active match has a checkpoint');
+ const resumed=boot({store});
+ const button=resumed.node('play');
+ resumed.context.document.activeElement=button;
+ button.click();
+ assert.equal(resumed.context.document.activeElement,resumed.node('scene'),
+   'resume must move focus from the button to the actual first-person canvas');
+ resumed.frame(1000/60);
+ const ammo=resumed.game.player.charges;
+ resumed.emit('keydown',{code:'Space',target:resumed.context.document.activeElement});
+ assert.equal(resumed.game.player.charges,ammo-1,
+   'first PC fire key after restoring a match must reach the simulation');
+ resumed.emit('keyup',{code:'Space',target:resumed.node('scene')});
+});
+
 test('offline BR browser UI announces victory only after simulation resolves the last rival', () => {
   const app = boot();
   app.node('play').click();
@@ -171,6 +189,29 @@ test('graphics presets persist across BR UI restarts without changing the 60Hz s
   next.node('play').click();
   next.frame(1000 / 60);
   assert.equal(next.game.status, 'playing');
+});
+
+test('BR Custom graphics selector preserves current settings and survives a restart',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('graphicsPreset').value='balanced';
+ app.node('graphicsPreset').dispatch('change');
+ const balanced=JSON.parse(store.get('veilpoint.graphics'));
+ app.node('graphicsPreset').value='custom';
+ app.node('graphicsPreset').dispatch('change');
+ const custom=JSON.parse(store.get('veilpoint.graphics'));
+ assert.equal(custom.preset,'custom','selecting Custom must change persisted mode');
+ for(const key of ['fpsCap','resolutionScale','vegetationDensity','effects'])
+  assert.equal(custom[key],balanced[key],key+' must remain unchanged until explicitly edited');
+ assert.equal(app.node('graphicsPreset').value,'custom');
+ const reloaded=boot({store});
+ assert.equal(reloaded.node('graphicsPreset').value,'custom');
+ assert.equal(reloaded.node('fpsLimit').value,String(balanced.fpsCap));
+ reloaded.node('renderScale').value='0.7';
+ reloaded.node('renderScale').dispatch('change');
+ const edited=JSON.parse(store.get('veilpoint.graphics'));
+ assert.equal(edited.preset,'custom');
+ assert.equal(edited.resolutionScale,.7);
+ assert.equal(edited.fpsCap,balanced.fpsCap);
 });
 
 test('BR loadout selection persists across restarts and changes gameplay class',()=>{
