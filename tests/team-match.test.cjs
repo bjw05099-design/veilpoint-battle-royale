@@ -697,3 +697,30 @@ test('a near miss stays a miss at the player collision radius', () => {
     'the server 2D collision radius, not visibility, resolves this shot');
   assert.equal(b.health, 66);
 });
+
+test('server collision traces the aimed ray rather than a different center-to-center cover line', () => {
+  const play = offset => {
+    const {m} = setup();
+    const a = m.players.get('a'), b = m.players.get('b');
+    // Opponent center is visible past the edge of the northern wall.
+    // A slightly lower aim still intersects the actor circle, but the actual
+    // shot ray first passes through solid cover. Both commands cost one round.
+    a.x = -7; a.z = 0;
+    b.x = -1; b.z = 7.5;
+    const angle = Math.atan2(b.z - a.z, b.x - a.x) + offset;
+    m.command('a', {seq: 2, type: 'aim',
+      direction: {x: Math.cos(angle), z: Math.sin(angle)}});
+    const visible = m.snapshot('a').visible.some(actor => actor.id === b.id);
+    const result = m.command('a', {seq: 3, type: 'fire'});
+    return {visible, health: b.health, ammo: a.ammo, result};
+  };
+  const blocked = play(-0.04);
+  assert.equal(blocked.visible, true, 'the opponent center is visible past cover');
+  assert.equal(blocked.health, 100, 'cover must block the actual off-center shot ray');
+  assert.equal(blocked.ammo, 11, 'a blocked shot still consumes a finite round');
+  assert.equal(blocked.result.hit, false);
+  const clear = play(0);
+  assert.equal(clear.health, 66, 'a clear aimed ray still reaches the same opponent');
+  assert.equal(clear.ammo, 11);
+  assert.deepEqual(play(-0.04), blocked, 'fixed 60Hz commands replay identically');
+});
