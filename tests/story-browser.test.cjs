@@ -683,3 +683,27 @@ test('PC CH01 mouse hold and release preserve finite ammunition',()=>{
  app.moveForward(335,35);
  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,after);
 });
+
+test('PC CH01 simultaneous mouse and keyboard hold survives either release and clears on pause',()=>{
+ const app=boot();app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const p=app.context.VeilpointInput;
+ app.emit('keydown',{code:'Space'});
+ app.element('scene').dispatch('mousedown',{button:0});
+ app.emit('keyup',{code:'Space'});
+ assert.equal(p.fireHeld,true,'mouse keeps automatic fire held');
+ const before=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
+ app.moveForward(300,30);
+ const after=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
+ assert.ok(after<before,'finite shots continue under mouse hold');
+ app.emit('mouseup',{button:0});
+ assert.equal(p.fireHeld,false);
+ app.moveForward(330,30);
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,after);
+ app.emit('keydown',{code:'Space'});
+ app.element('scene').dispatch('mousedown',{button:0});
+ app.emit('mouseup',{button:0});
+ assert.equal(p.fireHeld,true,'keyboard stays active when mouse releases');
+ app.element('pauseButton').click();
+ assert.equal(p.fireHeld,false,'pause clears trigger latch');
+});

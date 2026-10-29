@@ -64,7 +64,9 @@ loadoutSelect.addEventListener('change',()=>{
 });
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
-const desktopUi=Desktop.attach(document,global.localStorage,()=>{for(const k in input)input[k]=false;});
+const trigger=Desktop.createTriggerLatch();
+function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
+const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
 let pointerLockAttempt=0;
@@ -179,13 +181,13 @@ addEventListener('keydown',e=>{
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
- if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;}}
+ if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
 addEventListener('keyup',e=>{
  const action=Desktop.actionFor(e.code,desktopUi.get());
  if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
- if(action==='fire')input.fireHeld=false;
+ if(action==='fire')input.fireHeld=trigger.release('keyboard');
 });
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(reason='background'){
@@ -202,7 +204,7 @@ function suspendMatch(reason='background'){
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function resetInactiveClock(){
- for(const k in input)input[k]=false;
+ clearInput();
  // A lost touch pointer may never emit pointerup; discard held stick and camera
  // gestures so resuming cannot move or rotate the player without fresh input.
  joyId=null;lookId=null;previousLook=null;thumb.x=0;thumb.y=0;nub.style.transform='';
@@ -229,9 +231,9 @@ canvas.addEventListener('click',()=>{if(!canAct()||isTouch)return;if(document.po
 canvas.addEventListener('mousedown',e=>{
  if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
  fire();
- if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;
+ if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('mouse');
 });
-addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
+addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('mouse');});
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback();}
