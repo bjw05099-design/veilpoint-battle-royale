@@ -744,3 +744,29 @@ test('partially exposed opponents remain visible when their actual body edge is 
   m.command('a', {seq: 4, type: 'aim', direction: {x: 1, z: 0}});
   assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), false);
 });
+
+test('simultaneous disconnected PC clients produce no arbitrary server winner', () => {
+  const {m, setNow} = setup();
+  m.command('a', {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  m.command('b', {seq: 2, type: 'capture', active: true});
+  setNow(30001);
+  m.step();
+  assert.equal(m.phase, 'ended');
+  assert.equal(m.reason, 'connection_timeout');
+  assert.equal(m.winner, null, 'both expired connections cannot claim a team win');
+  assert.equal(m.ticks, 0, 'no half-applied server tick after disconnection');
+  assert.deepEqual(m.players.get('a').direction, {x: 0, z: 0});
+  assert.equal(m.players.get('b').capturing, false);
+});
+
+test('only the still-connected team wins when the opponent lease expires', () => {
+  const {m, setNow} = setup();
+  setNow(25000);
+  m.command('b', {seq: 2, type: 'heartbeat'});
+  setNow(30001);
+  m.step();
+  assert.equal(m.phase, 'ended');
+  assert.equal(m.reason, 'connection_timeout');
+  assert.equal(m.winner, 'blue');
+  assert.equal(m.ticks, 0);
+});

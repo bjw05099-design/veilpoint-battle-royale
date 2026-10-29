@@ -270,6 +270,14 @@ class TeamMatch {
   }
   step() {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
+    // Evaluate both session leases before moving either actor. When both
+    // connections expire together, neither team earns an arbitrary victory
+    // based on Map insertion order or the server's iteration order.
+    const connected = [...this.players.values()].filter(p => this.now() - p.lastSeen <= this.timeoutMs);
+    if (connected.length !== this.players.size) {
+      this.finish(connected.length === 1 ? connected[0].team : null, 'connection_timeout');
+      return;
+    }
     this.ticks++;
     for (const p of this.players.values()) {
       // Exertion settles gradually; no automatic healing or ammunition refill.
@@ -283,10 +291,6 @@ class TeamMatch {
       }
       if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
       if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) p.capturing = false;
-      if (this.now() - p.lastSeen > this.timeoutMs) {
-        this.finish(p.team === 'red' ? 'blue' : 'red', 'connection_timeout');
-        return;
-      }
       if (p.reloadTicks > 0) {
         p.reloadTicks--;
         if (p.reloadTicks === 0) {

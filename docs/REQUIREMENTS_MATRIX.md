@@ -465,3 +465,8 @@ The browser graphics settings panel now reports per-window sample counts and P50
 
 - **R-03 / R-12 / R-13 / R-23 (partial):** The localhost two-client PC controller discards lobby-held objective-capture intent on every authoritative phase transition. A keyboard OS auto-repeat after that transition cannot resurrect pre-round movement or capture; only a fresh keydown is accepted. Server-owned capture, score, and ordinary post-start input remain unchanged.
 - **Verification boundary:** Two deterministic simulated-browser regressions cover held E, OS key repeats, and fresh keydown recovery. Final GitHub CI and two real Windows browser clients remain required. No mobile/touch work was added; this does not establish production internet multiplayer, native UE, photorealism or QHD 165Hz performance.
+
+## 2026-10-30 — server-owned fair simultaneous disconnect result candidate
+
+- **R-03 / R-12 / R-23 (partial):** Before any 60Hz actor update, the localhost team authority checks both connection leases together. If only one player times out, the connected side wins; if both time out, the round ends without awarding a fictitious winner. The PC result HUD explicitly reports no winner. Existing ready/replay flow is retained.
+- **Verification boundary:** Deterministic rules and simulated PC browser HUD tests are added; GitHub CI and real two-browser sessions remain separate acceptance gates. This does not establish production multiplayer uptime or native UE verification.
