@@ -407,7 +407,7 @@ test('BR effect audio is opt-out, keyboard-accessible, persistent and never gate
  assert.equal(store.get('veilpoint.br.audio'),'off');
  const next=boot({store});
  assert.equal(next.node('soundEnabled').checked,false,'mute survives page reload');
- const touch=boot({store,touch:true});
+ const touch=boot({store:new Map([['veilpoint.br.audio','off']]),touch:true});
  touch.node('play').click();touch.frame(1000/60);
  touch.context.AudioContext=class {constructor(){throw Error('muted touch must stay silent');}};
  touch.node('tagButton').dispatch('pointerdown');
