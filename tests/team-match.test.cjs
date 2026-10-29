@@ -594,44 +594,72 @@ test('passing mist changes sight gradually, symmetrically and deterministically 
   assert.equal(m.snapshot('a').weather.ticksUntilChange, null);
 });
 
-test('server mist sight gates automatic hits symmetrically without restoring spent ammunition', () => {
+test('mist conceals players without preventing aligned shots or leaking unseen hit confirmation', () => {
   const replay = () => {
     const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
-    a.x = -5.5; a.z = 0; b.x = 5.5; b.z = 0; // 11m, both facing each other
+    a.x = -5.5; a.z = 0; b.x = 5.5; b.z = 0; // 11 arena metres
     const advanceTo = tick => {while (m.ticks < tick) m.step();};
-    advanceTo(480); // sight range is exactly 11m at this boundary
+    advanceTo(480); // target exactly at sight boundary
     assert.equal(m.snapshot('a').visible.length, 2);
     assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, true);
     assert.equal(b.health, 66);
-    advanceTo(481); // mist has just hidden the opponent
+    advanceTo(481); // weather hides the opponent, not the shot
     assert.equal(m.snapshot('b').visible.length, 1);
-    assert.equal(m.command('b', {seq: 2, type: 'fire'}).hit, false);
-    assert.equal(a.health, 100, 'hidden actor cannot be automatically targeted');
+    assert.equal(m.command('b', {seq: 2, type: 'fire'}).hit, false,
+      'unseen damage cannot be confirmed from a server hit marker');
+    assert.equal(a.health, 66, 'aligned blind fire still damages a hidden opponent');
     advanceTo(500);
     assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, false);
-    assert.equal(b.health, 66, 'no damage through mist from automatic aim-cone selection');
-    advanceTo(1350); // clearing mist has restored 11.5m sight
+    assert.equal(b.health, 32, 'mist never becomes a magical bullet barrier');
+    advanceTo(1350); // clearing mist exposes both actors again
     assert.equal(m.snapshot('b').visible.length, 2);
     assert.equal(m.command('b', {seq: 3, type: 'fire'}).hit, true);
-    assert.equal(a.health, 66);
-    assert.deepEqual([a.ammo, b.ammo], [10, 10], 'all shots spend finite rounds');
+    assert.equal(a.health, 32);
+    assert.deepEqual([a.ammo, b.ammo], [10, 10], 'all four shots consume ammunition');
     return [m.snapshot('a'), m.snapshot('b')];
   };
-  assert.deepEqual(replay(), replay(), 'mist, damage and ammo replay deterministically at 60Hz');
+  assert.deepEqual(replay(), replay(), 'blind fire, weather and ammo replay at fixed 60Hz');
 });
 
-test('mist sight limit does not disable ordinary close-range sight-gated combat', () => {
+test('mist limits snapshots, not collision; visible hits still confirm normally', () => {
   const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
   a.x = 0; a.z = 0; b.x = 10; b.z = 0;
   for (let i = 0; i < 600; i++) m.step();
   assert.equal(m.snapshot('a').weather.visibilityRange, 9);
   assert.equal(m.snapshot('a').visible.length, 1);
   assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
-  assert.equal(b.health, 100);
+  assert.equal(b.health, 66, 'ray-aligned fire reaches a hidden player');
   b.x = 8;
   for (let i = 0; i < 18; i++) m.step();
   assert.equal(m.snapshot('a').visible.length, 2);
   assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, true);
+  assert.equal(b.health, 32);
+  assert.equal(a.ammo, 10);
+});
+
+test('blind fire beyond old 12m cap needs actual alignment, not target magnetism', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 20; b.z = 1; // unseen, off the +x firing ray
+  assert.equal(m.snapshot('a').visible.length, 1);
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 100, 'a broad aim cone must not auto-acquire a hidden actor');
+  for (let i = 0; i < 18; i++) m.step();
+  b.z = 0; // server-authoritative collision shape now intersects the existing ray
+  assert.equal(m.snapshot('a').visible.length, 1);
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, false,
+    'do not reveal unseen hits in command acknowledgements');
+  assert.equal(b.health, 66, 'shots in the 2D arena do not stop at 12m');
+  assert.equal(a.ammo, 10);
+});
+
+test('a near miss stays a miss at the player collision radius', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  a.x = 0; a.z = 0; b.x = 11; b.z = 0.56;
+  assert.equal(m.command('a', {seq: 2, type: 'fire'}).hit, false);
+  assert.equal(b.health, 100);
+  for (let i = 0; i < 18; i++) m.step();
+  b.z = 0.54;
+  assert.equal(m.command('a', {seq: 3, type: 'fire'}).hit, true,
+    'the server 2D collision radius, not visibility, resolves this shot');
   assert.equal(b.health, 66);
-  assert.equal(a.ammo, 10, 'concealed and visible shots both consume a round');
 });
