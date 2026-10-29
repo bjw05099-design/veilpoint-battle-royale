@@ -22,7 +22,7 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
     assert.match(await (await fetch(base + '/team-client.js')).text(), /updateInput/);
     const controlsResponse = await fetch(base + '/desktop-controls.js');
     assert.equal(controlsResponse.status, 200);
-    assert.match(controlsResponse.headers.get('content-type'), /text\\/javascript/);
+    assert.ok(controlsResponse.headers.get('content-type').includes('text/javascript'));
     assert.match(await controlsResponse.text(), /VeilpointDesktopControls/);
     assert.equal((await fetch(base + '/src/desktop-controls.js')).status, 404,
       'only the allowlisted shared input script is served');
