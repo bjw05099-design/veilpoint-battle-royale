@@ -73,3 +73,21 @@ test('BR checkpoint accepts legitimate long inactive target timers and Date.now 
  const saved=Sim.snapshotMatch(game);
  assert.equal(Sim.restoreMatch(saved).bots[0].actionTime,-100);
 });
+
+
+test('BR checkpoint refuses wall-spawn, impossible loot and fabricated eliminations', () => {
+ const game=active(812,3),original=parsed(game);
+ const wall=game.obstacles[0];
+ const mutate=(change)=>{
+  const snapshot=structuredClone(original);
+  change(snapshot);
+  assert.throws(()=>Sim.restoreMatch(JSON.stringify(snapshot)),RangeError);
+ };
+ mutate(s=>{s.player.x=wall.x;s.player.z=wall.z;});
+ mutate(s=>{s.bots[0].x=wall.x;s.bots[0].z=wall.z;});
+ mutate(s=>{s.loot[0].x=wall.x;s.loot[0].z=wall.z;});
+ mutate(s=>{s.kills=1;});
+ // A rival can die without the captain receiving a kill credit.
+ game.bots[0].alive=false;game.bots[0].health=0;
+ assert.doesNotThrow(()=>Sim.restoreMatch(Sim.snapshotMatch(game)));
+});

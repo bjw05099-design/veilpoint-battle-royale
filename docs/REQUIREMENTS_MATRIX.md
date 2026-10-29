@@ -349,3 +349,10 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-13 / R-14 — partial:** The offline BR browser now exposes an explicit persistent effect-audio checkbox and M keyboard toggle. Muting prevents lazy Web Audio creation without blocking finite shots, desktop/touch input, HUD or messages. Browser DOM regression covers toggling, persistence and touch/keyboard parity.
 - **Not verified:** Real browser audio playback, assistive technology, production-quality sound assets, spatial audio, UE integration or device latency. Existing synthetic cues remain temporary and must not be described as realistic recorded weapon sounds.
+
+
+## 2026-10-29 offline BR input and checkpoint integrity candidate
+
+- **R-02 / R-13 / R-14 — partial candidate:** Starting a fresh BR match or resuming a local checkpoint now explicitly neutralizes held keyboard/sprint and orphaned touch-stick/look input. The existing 60Hz world continues only from fresh input after restart; browser-mock regression covers lost keyup/pointerup and fresh movement.
+- **R-02 / R-23 — partial candidate:** BR restore rejects player, opponent or loot positions embedded in authored solid cover/outside playable bounds, and rejects elimination totals exceeding actually defeated rivals. It preserves legitimate rival/zone deaths without fabricated player kill credit. This is local save integrity, **not** multiplayer anti-cheat.
+- **Verification boundary:** Proposed Node/DOM tests and GitHub CI must pass; real-browser human launch, RTX 3070 QHD 165Hz, Unreal build and independent realism evaluation remain unverified.

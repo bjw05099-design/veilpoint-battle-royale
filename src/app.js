@@ -97,8 +97,10 @@ const isTouch=matchMedia('(pointer:coarse)').matches;
 function start(){
  clearStoredMatch();saveWarning=false;
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;clock.reset();fpsLimiter.reset();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
- $('mobileControls').classList.toggle('active',isTouch);last=performance.now();updateHud();
+ simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;
+ // A new round cannot inherit held keyboard, sprint, touch or look pointers.
+ resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ $('mobileControls').classList.toggle('active',isTouch);updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();
  persistMatch();
 }
@@ -107,7 +109,8 @@ function resumeStoredMatch(){
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- clock.reset();fpsLimiter.reset();last=performance.now();
+ // A restored checkpoint must also start with neutral physical input.
+ resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  if(!isTouch&&canvas.requestPointerLock)canvas.requestPointerLock();

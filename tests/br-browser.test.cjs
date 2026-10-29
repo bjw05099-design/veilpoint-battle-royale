@@ -413,3 +413,30 @@ test('BR effect audio is opt-out, keyboard-accessible, persistent and never gate
  touch.node('tagButton').dispatch('pointerdown');
  assert.equal(touch.game.player.charges,47,'touch shot remains playable with sound off');
 });
+
+
+test('BR new match discards orphaned keyboard and touch inputs instead of ghost-moving', () => {
+  const app = boot({touch: true});
+  app.node('play').click();
+  app.frame(1000 / 60);
+  app.emit('keydown', {code: 'KeyW'});
+  app.node('stick').dispatch('pointerdown', {pointerId: 9, clientX: 88, clientY: 0});
+  app.node('sprintButton').dispatch('pointerdown');
+  assert.equal(app.context.VeilpointInput.forward, true);
+  assert.equal(app.context.VeilpointInput.sprint, true);
+  // Restart without keyup/pointerup: mobile browsers may drop both events.
+  app.node('newMatch').click();
+  app.frame(2000 / 60);
+  const game = app.game;
+  assert.ok(Object.values(app.context.VeilpointInput).every(v => v === false));
+  const before = {x: game.player.x, z: game.player.z, stamina: game.player.stamina};
+  app.node('stick').dispatch('pointermove', {pointerId: 9, clientX: 88, clientY: 0});
+  app.frame(3000 / 60);
+  app.frame(4000 / 60);
+  assert.equal(game.player.x, before.x);
+  assert.equal(game.player.z, before.z);
+  assert.ok(game.player.stamina >= before.stamina, 'no orphaned sprint drain');
+  app.emit('keydown', {code: 'KeyW'});
+  app.frame(5000 / 60);
+  assert.ok(game.player.z < before.z, 'fresh input remains responsive');
+});
