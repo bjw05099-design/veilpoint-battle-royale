@@ -595,8 +595,8 @@ test('PC CH01 repeated accessibility keydown cannot reverse the chosen reload as
   app.element('continue').click();
   app.emit('keydown', {code: 'KeyH'});
   const saved = JSON.parse(app.store.get('veilpoint.story.ch01'));
-  assert.equal(saved.world.player.reloadAssist, true);
+  assert.equal(saved.player.reloadAssist, true);
   app.emit('keydown', {code: 'KeyH', repeat: true});
   const after = JSON.parse(app.store.get('veilpoint.story.ch01'));
-  assert.equal(after.world.player.reloadAssist, true);
+  assert.equal(after.player.reloadAssist, true);
 });
