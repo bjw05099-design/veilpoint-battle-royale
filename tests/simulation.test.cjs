@@ -643,3 +643,26 @@ test('BR shot rays stop at cover even when center-to-center line clears a wall e
   assert.equal(S.tag(g).hit,true,'without cover the exposed silhouette is hittable');
   assert.equal(b.health,55);
 });
+
+test('BR rival fire consumes finite ammo but misses when its actual ray clears the player',()=>{
+  const g=S.newMatch(20261031,1),b=g.bots[0],p=g.player;g.status='playing';
+  p.x=0;p.z=0;b.x=0;b.z=-20;
+  b.angle=Math.PI-0.15;b.moveTime=999;b.actionTime=0;b.skill=1;
+  const before=p.health;
+  S.tick(g,1/60,{});
+  assert.equal(b.charges,35,'an off-axis shot is still physically fired');
+  assert.equal(p.health,before,'target-center proximity cannot turn a missed ray into damage');
+  assert.ok(g.effects.some(e=>e.type==='hostile'));
+});
+
+test('BR rival shot stops at actual ray cover even if its target center is visible',()=>{
+  const g=S.newMatch(20261101,1),b=g.bots[0],p=g.player;g.status='playing';
+  b.x=0;b.z=-12;b.angle=Math.PI;b.moveTime=999;b.actionTime=0;b.skill=1;
+  p.x=0.7;p.z=0;
+  const wall={x:0,z:-6,w:0.4,d:1,h:3,type:'cover'};
+  assert.equal(S.lineBlocked(b.x,b.z,p.x,p.z,[wall]),false);
+  g.obstacles.push(wall);
+  S.tick(g,1/60,{});
+  assert.equal(b.charges,35,'cover does not refund a fired round');
+  assert.equal(p.health,100,'actual shot contact ray cannot penetrate cover');
+});
