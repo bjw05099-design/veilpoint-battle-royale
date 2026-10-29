@@ -657,6 +657,18 @@ test('blind fire beyond old 12m cap needs actual alignment, not target magnetism
   assert.equal(a.ammo, 10);
 });
 
+test('physical cover still blocks a ray during coastal mist', () => {
+  const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
+  // The server's central solid barrier remains solid regardless of weather.
+  a.x = -4; a.z = 6; b.x = 4; b.z = 6;
+  for (let i = 0; i < 600; i++) m.step();
+  assert.equal(m.snapshot('a').visible.length, 1);
+  const result = m.command('a', {seq: 2, type: 'fire'});
+  assert.deepEqual([result.ok, result.hit], [true, false]);
+  assert.equal(b.health, 100, 'mist cannot make physical cover permeable');
+  assert.equal(a.ammo, 11, 'a blocked shot still consumes finite ammunition');
+});
+
 test('a near miss stays a miss at the player collision radius', () => {
   const {m} = setup(), a = m.players.get('a'), b = m.players.get('b');
   a.x = 0; a.z = 0; b.x = 11; b.z = 0.56;
