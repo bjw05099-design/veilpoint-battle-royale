@@ -582,8 +582,8 @@ test('CH01 shares PC mouse and keyboard preferences with BR without changing sto
  app.emit('mousemove',{movementX:100,movementY:10});
  app.emit('keydown',{code:'Escape'});
  const checkpoint=JSON.parse(store.get('veilpoint.story.ch01'));
- assert.ok(Math.abs(checkpoint.world.player.yaw-.46)<1e-9);
- assert.ok(checkpoint.world.player.pitch>0,'CH01 Y inversion changes saved first-person aim');
+ assert.ok(Math.abs(checkpoint.player.yaw-.46)<1e-9);
+ assert.ok(checkpoint.player.pitch>0,'CH01 Y inversion changes saved first-person aim');
  const again=boot(store);
  assert.equal(again.element('desktopSensitivity').value,'2');
  again.element('desktopBindAction').value='interact';again.element('desktopBindAction').dispatch('change');
