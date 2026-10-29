@@ -653,3 +653,16 @@ test('PC key repeat cannot rapidly toggle BR assist, audio or graphics panel', (
   app.emit('keydown', {code: 'KeyG', repeat: true});
   assert.equal(app.node('graphicsPanel').classList.contains('hidden'), opened);
 });
+
+test('PC settings focus cannot accidentally start a BR match or fire finite ammunition',()=>{
+  const app=boot();
+  app.emit('keydown',{code:'Enter',target:{tagName:'SELECT'}});
+  assert.equal(app.node('overlay').classList.contains('hidden'),false);
+  app.node('play').click();
+  app.frame(1000/60);
+  const game=app.game,rounds=game.player.charges;
+  app.emit('keydown',{code:'Space',target:{tagName:'SELECT'}});
+  assert.equal(game.player.charges,rounds,'focused settings select must not fire');
+  app.emit('keydown',{code:'Space'});
+  assert.equal(game.player.charges,rounds-1,'canvas/gameplay keyboard still fires normally');
+});

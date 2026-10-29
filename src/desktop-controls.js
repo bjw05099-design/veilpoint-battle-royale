@@ -47,6 +47,12 @@
   const alias=aliases[code];
   return alias&&bindings[alias]===DEFAULT_BINDINGS[alias]?alias:null;
  }
+ function isInteractiveTarget(target){
+  if(!target||typeof target!=='object')return false;
+  const tag=typeof target.tagName==='string'?target.tagName.toUpperCase():'';
+  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||
+    target.isContentEditable===true;
+ }
  function mouseDelta(dx,dy,value){
   const x=Number.isFinite(dx)?dx:0,y=Number.isFinite(dy)?dy:0;
   const sensitivity=value.sensitivity;
@@ -97,7 +103,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,mouseDelta,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

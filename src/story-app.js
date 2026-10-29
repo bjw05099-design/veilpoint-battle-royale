@@ -204,6 +204,8 @@
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
+    // Focused menu and settings controls own their keyboard events.
+    if(Desktop.isInteractiveTarget(e.target))return;
     const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
     // Ignore OS repeat for choices, accessibility toggles and one-shot actions.
     if(e.repeat&&repeatAction!=='fire')return;

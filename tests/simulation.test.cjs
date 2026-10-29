@@ -610,3 +610,36 @@ test('BR boundary warnings derive from the same world-space radius without alter
  assert.deepEqual(S.boundaryStatus(game),{outside:true,near:true,meters:4});
  assert.deepEqual({health:game.player.health,charges:game.player.charges},baseline);
 });
+
+test('BR player shot contact uses finite actor radius, not distance-growing magnetic aim',()=>{
+  const g=S.newMatch(20261029,1,'carbine');g.status='playing';
+  const p=g.player,b=g.bots[0];
+  p.x=0;p.z=0;p.yaw=0;p.pitch=0;b.x=1.1;b.z=-30;b.health=100;
+  const before=p.charges;
+  assert.equal(S.tag(g).hit,false,'off-axis shot must miss despite nearby silhouette');
+  assert.equal(b.health,100);
+  assert.equal(p.charges,before-1,'a miss still consumes one finite round');
+  g.elapsed+=S.FIREARMS.carbine.fireInterval+1/60;
+  b.x=0.65;
+  assert.equal(S.tag(g).hit,true,'the same straight ray can contact an exposed body edge');
+  assert.equal(b.health,55);
+  assert.equal(p.charges,before-2);
+});
+
+test('BR shot rays stop at cover even when center-to-center line clears a wall edge',()=>{
+  const g=S.newMatch(20261030,1,'carbine');g.status='playing';
+  const p=g.player,b=g.bots[0];
+  p.x=0;p.z=0;p.yaw=0;p.pitch=0;b.x=0.7;b.z=-12;b.health=100;
+  const wall={x:0,z:-6,w:0.4,d:1,h:3,type:'cover'};
+  assert.equal(S.lineBlocked(p.x,p.z,b.x,b.z,[wall]),false,
+    'the old center-to-center ray misses this narrow wall');
+  g.obstacles.push(wall);
+  const before=p.charges;
+  assert.equal(S.tag(g).hit,false,'actual forward ray must hit cover first');
+  assert.equal(b.health,100);
+  assert.equal(p.charges,before-1);
+  g.elapsed+=S.FIREARMS.carbine.fireInterval+1/60;
+  g.obstacles.pop();
+  assert.equal(S.tag(g).hit,true,'without cover the exposed silhouette is hittable');
+  assert.equal(b.health,55);
+});
