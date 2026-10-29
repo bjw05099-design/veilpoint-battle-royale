@@ -41,20 +41,26 @@ const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
 
-// 60Hz authoritative passing-mist event: 5s warning, 10s mist, 5s clearing.
-// One bank passes through a local round, rather than implausibly repeating on a timer.
-// The accelerated durations are test abstractions, not real meteorological measurements.
+// 60Hz authoritative passing-mist event: gradual arrival, a sustained bank,
+// then gradual clearing. One bank per round; no client-controlled visibility.
+// Accelerated durations are gameplay abstractions, not meteorological measurements.
 function weatherAt(tick) {
   const phase = tick < 300 ? 'clear' :
     tick < 600 ? 'incoming' :
     tick < 1200 ? 'active' :
     tick < MIST_END_TICK ? 'clearing' : 'clear';
-  const mist = phase === 'active' || phase === 'clearing';
+  const mist = phase !== 'clear';
   const nextTick = tick < 300 ? 300 : tick < 600 ? 600 :
     tick < 1200 ? 1200 : tick < MIST_END_TICK ? MIST_END_TICK : null;
+  // No instantaneous five-metre sight jump at the warning or clearing boundary.
+  // This same server-owned range drives both clients' opponent disclosure.
+  const visibilityRange = phase === 'incoming'
+    ? VISION_RANGE - (VISION_RANGE - MIST_VISION_RANGE) * (tick - 300) / 300
+    : phase === 'clearing'
+      ? MIST_VISION_RANGE + (VISION_RANGE - MIST_VISION_RANGE) * (tick - 1200) / 300
+      : phase === 'active' ? MIST_VISION_RANGE : VISION_RANGE;
   return {eventId: 0, phase, kind: mist ? 'coastal_mist' : 'clear',
-    visibilityRange: mist ? MIST_VISION_RANGE : VISION_RANGE,
-    ticksUntilChange: nextTick === null ? null : nextTick - tick};
+    visibilityRange, ticksUntilChange: nextTick === null ? null : nextTick - tick};
 }
 
 class TeamMatch {
