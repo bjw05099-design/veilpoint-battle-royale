@@ -204,6 +204,9 @@
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
+    const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
+    // Ignore OS repeat for choices, accessibility toggles and one-shot actions.
+    if(e.repeat&&repeatAction!=='fire')return;
     if(choices.classList.contains('hidden')===false){
       if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
       if(e.code==='Digit2'){e.preventDefault();decide('verification');}
