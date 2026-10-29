@@ -125,3 +125,31 @@ test('BR fatal outcome invalidates the save on pagehide before the next render f
  app.emit('pagehide');
  assert.equal(store.has(KEY),false,'a stale active checkpoint must not revive a finished match');
 });
+
+test('BR end screen ranks an eliminated player behind survivors, never as champion',()=>{
+ const eliminated=boot();
+ eliminated.node('play').click();eliminated.frame(1000/60);
+ const game=eliminated.game;
+ const surviving=game.bots.filter(b=>b.alive).length;
+ eliminated.global.VeilpointSim.receiveDamage(game,100);
+ eliminated.frame(2000/60);
+ const summary=eliminated.node('selector-.tagline').textContent;
+ assert.match(summary,new RegExp('순위 '+(surviving+1)+'위'));
+ assert.doesNotMatch(summary,/순위 1위/);
+
+ const lastOpponent=boot();
+ lastOpponent.node('play').click();lastOpponent.frame(1000/60);
+ for(const b of lastOpponent.game.bots){b.alive=false;b.health=0;}
+ lastOpponent.game.bots[0].alive=true;lastOpponent.game.bots[0].health=100;
+ lastOpponent.global.VeilpointSim.receiveDamage(lastOpponent.game,100);
+ lastOpponent.frame(2000/60);
+ assert.match(lastOpponent.node('selector-.tagline').textContent,/순위 2위/);
+
+ const champion=boot();
+ champion.node('play').click();champion.frame(1000/60);
+ for(const b of champion.game.bots){b.alive=false;b.health=0;}
+ champion.global.VeilpointSim.tick(champion.game,1/60,{});
+ assert.equal(champion.game.status,'won');
+ champion.frame(2000/60);
+ assert.match(champion.node('selector-.tagline').textContent,/순위 1위/);
+});
