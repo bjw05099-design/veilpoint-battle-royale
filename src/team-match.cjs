@@ -297,12 +297,14 @@ class TeamMatch {
       return;
     }
     this.ticks++;
+    // Resolve player movement against the same start-of-tick positions. Moving
+    // one Map entry first gives the first joiner a physical collision advantage
+    // in head-on contests, even though both commands are valid in the same tick.
+    const proposals = [];
     for (const p of this.players.values()) {
       // Exertion settles gradually; no automatic healing or ammunition refill.
       p.stress = Math.max(0, p.stress - STRESS_DECAY_PER_TICK);
       if (p.aiming && this.ticks - p.lastAimTick > INPUT_LEASE_TICKS) {
-        // A lost pointer-release or suspended tab must not lock the facing forever.
-        // Heartbeats and read-only state requests never extend the aim lease.
         p.aiming = false;
         const len = Math.hypot(p.direction.x, p.direction.z);
         if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
@@ -318,18 +320,47 @@ class TeamMatch {
           p.reserve -= transferred;
         }
       }
-      // Server-owned standing bodies: players cannot walk through one another.
-      // Existing overlaps (e.g. old test sessions) may separate rather than soft-lock.
-      const actors = [...this.players.values()].filter(other => other !== p && other.health > 0)
-        .map(other => ({x: other.x, z: other.z, w: PLAYER_RADIUS * 2, d: PLAYER_RADIUS * 2}))
-        .filter(body => !blocked(p.x, p.z, PLAYER_RADIUS, [body]));
-      // The authoritative server applies the same bounded injury mobility
-      // as the offline player. Clients cannot spoof health or speed.
+      const from = {x: p.x, z: p.z};
+      const next = {...from};
       const speed = SPEED * injuryMobility(p);
-      moveEntity(p, p.direction.x * speed, p.direction.z * speed, STEP,
-        COVER.concat(actors), PLAYER_RADIUS);
-      p.x = clamp(p.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
-      p.z = clamp(p.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
+      moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
+        COVER, PLAYER_RADIUS);
+      next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
+      next.z = clamp(next.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
+      proposals.push({p, from, next});
+    }
+    if (proposals.length === 2) {
+      const [a, b] = proposals;
+      const separation = t => Math.hypot(
+        a.from.x + (a.next.x - a.from.x) * t -
+          b.from.x - (b.next.x - b.from.x) * t,
+        a.from.z + (a.next.z - a.from.z) * t -
+          b.from.z - (b.next.z - b.from.z) * t);
+      const initial = separation(0);
+      const desired = separation(1);
+      const minimum = PLAYER_RADIUS * 2;
+      if (initial >= minimum - 1e-9 && desired < minimum) {
+        // Both actors advance by the same fraction of their intended step.
+        // Fixed bisection is deterministic and independent of join/Map order.
+        let low = 0, high = 1;
+        for (let i = 0; i < 24; i++) {
+          const mid = (low + high) / 2;
+          if (separation(mid) >= minimum) low = mid;
+          else high = mid;
+        }
+        for (const proposal of proposals) {
+          proposal.next.x = proposal.from.x + (proposal.next.x - proposal.from.x) * low;
+          proposal.next.z = proposal.from.z + (proposal.next.z - proposal.from.z) * low;
+        }
+      } else if (initial < minimum - 1e-9 && desired < initial - 1e-9) {
+        // Old overlapping sessions can separate, but cannot move deeper into
+        // an overlap or exploit a corrupted spawn to phase through a body.
+        for (const proposal of proposals) proposal.next = {...proposal.from};
+      }
+    }
+    for (const {p, next} of proposals) {
+      p.x = next.x;
+      p.z = next.z;
     }
     // Automatic PC fire advances only on the authoritative 60Hz tick. A lost
     // keyup or suspended tab expires without a renewed trigger command; HTTP
