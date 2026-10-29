@@ -445,3 +445,5 @@ The browser graphics settings panel now reports per-window sample counts and P50
 ## 2026-10-29 P0 PC hybrid pointer-lock regression (R-13 / R-14 / R-25)
 - **Partial implementation candidate:** BR and CH01 browser controllers now treat a coarse-primary Windows hybrid as a PC mouse device when `(any-pointer: fine)` matches. This prevents touchscreen presence from bypassing required pointer lock, allowing unguarded keyboard firing and untracked mouse aim. Legacy touch-only fallback remains unchanged, without new touch development.
 - **Verification:** Node DOM-mock regression scenarios exercise coarse+fine hybrid lock pending, keyboard/mouse gating and aim recovery. GitHub CI and actual Windows convertible/fullscreen/QHD hardware validation remain required; RTX 3070 165Hz and 16GB system-RAM performance remain unverified.
+
+- **PC pending-capture recovery (R-13 / R-14):** BR Escape now pauses an active session even while the browser has not granted pointer lock; focused launch controls cannot trap the player behind a pending permission prompt. DOM regression verifies no 60Hz advancement while suspended. Requires CI and real Windows browser QA before acceptance.

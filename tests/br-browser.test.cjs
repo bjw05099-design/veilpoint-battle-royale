@@ -686,3 +686,15 @@ test('PC hybrid BR requires mouse pointer lock before movement, aim or firing', 
  assert.ok(game.player.yaw>startYaw);
  assert.equal(game.player.charges,rounds-1);
 });
+
+test('PC Escape cancels a pending pointer lock even with a focused launch button',()=>{
+ const app=boot({pointerLock:'pending'});
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ assert.equal(game.elapsed,0);
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.node('play').textContent,'이어하기');
+ app.frame(2000/60);
+ assert.equal(game.elapsed,0,'pause cannot simulate hostile fire while capture is unresolved');
+});
