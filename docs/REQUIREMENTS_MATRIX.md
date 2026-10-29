@@ -404,3 +404,9 @@ BR now offers a pre-match choice of three **fictional** handling profiles, each 
 
 - **R-02 / R-04 / R-14 / R-21 / R-23 / R-28 — partial test evidence:** `tests/offline-critical-path.test.cjs` drives real deterministic simulation movement and finite shots through both CH01 endings, verifies records/choice consequences, moving-gate clearance and mid-action checkpoints; it also runs a one-opponent BR victory with identical resume replay and a full-size BR loss with correct placement. No test teleports the player, grants ammunition or heals injury.
 - **Evidence limit:** Isolated V8 test execution passed; GitHub Node CI and reproducible ZIP verification are required before merge. This is not an actual human/browser start-to-finish playthrough, UE5 compile, completed 12-chapter campaign, public authoritative multiplayer, measured RTX 3070/QHD 165Hz rendering or an independent narrative plausibility review. System RAM baseline remains owner-reported **16GB**.
+
+
+### 2026-10-29 boundary warning and ammo-display candidate
+
+- **R-04/R-13 (partial, not signed off):** BR now derives near/outside HUD warnings from the live zone radius, preserving reload and other event feedback; initial ammo label reflects 12 loaded / 36 reserve rounds rather than a misleading 48 / 60 display. Fixed-step simulation and DOM-mock tests were added, pending CI and human browser QA.
+- **R-23 (P0 still open):** This is a transparency and usability improvement only. The existing arbitrary shrinking circle with direct health loss is **not** physically credible merely because the boundary is announced. A believable, tested BR play-area mechanism remains a mandatory realism redesign before release.
