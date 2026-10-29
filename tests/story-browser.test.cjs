@@ -207,7 +207,7 @@ test('CH01 timed clearance is persisted by browser clock and survives reload wit
   for(let i=1;i<=510;i++)app.frame(i*1000/60);
   const saved=Story.restore(shared.get('veilpoint.story.ch01'));
   assert.equal(Story.situation(saved).eastGateOpen,true);
-  assert.ok(saved.world.elapsed>=Story.GATE_CLEARANCE_SECONDS);
+  assert.ok(saved.elapsed>=Story.GATE_CLEARANCE_SECONDS);
   const reloaded=boot(shared);reloaded.element('continue').click();
   assert.match(reloaded.element('objective').textContent,/추가 확인 경로/);
 });
@@ -516,14 +516,14 @@ test('CH01 freezes hostile clock and keyboard actions while desktop pointer lock
   app.emit('keydown',{code:'Space'});
   app.emit('blur');
   const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
-  assert.equal(saved.world.elapsed,0);
+  assert.equal(saved.elapsed,0);
   assert.equal(saved.player.z,0);
   assert.equal(saved.phase,'approach');
   app.element('continue').click();
   app.context.document.pointerLockElement=app.element('scene');
   app.moveForward(120,10);
   app.element('pauseButton').click();
-  assert.ok(JSON.parse(app.store.get('veilpoint.story.ch01')).world.elapsed>0);
+  assert.ok(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed>0);
 });
 
 test('CH01 rejected pointer lock opens explicit checkpoint pause rather than live hostile combat',async()=>{
@@ -534,7 +534,7 @@ test('CH01 rejected pointer lock opens explicit checkpoint pause rather than liv
   assert.equal(app.element('menu').classList.contains('hidden'),false);
   assert.match(app.element('menuText').textContent,/포인터 잠금/);
   const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
-  assert.equal(saved.world.elapsed,0);
+  assert.equal(saved.elapsed,0);
   app.frame(2000);
   assert.equal(app.store.get('veilpoint.story.ch01'),JSON.stringify(saved));
 });
@@ -545,7 +545,7 @@ test('CH01 handles unavailable and throwing pointer-lock APIs without dropping m
     if(mode==='missing')delete app.element('scene').requestPointerLock;
     app.element('continue').click();
     assert.equal(app.element('menu').classList.contains('hidden'),false,mode);
-    assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).world.elapsed,0,mode);
+    assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed,0,mode);
   }
 });
 
