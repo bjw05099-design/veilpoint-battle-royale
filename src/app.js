@@ -63,7 +63,7 @@ loadoutSelect.addEventListener('change',()=>{
  try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
 });
 const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,last=performance.now(),lastHud=0,shake=0;
-const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false};global.VeilpointInput=input;
+const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
 const desktopUi=Desktop.attach(document,global.localStorage,()=>{for(const k in input)input[k]=false;});
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
@@ -179,12 +179,13 @@ addEventListener('keydown',e=>{
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
- if(action==='fire'){e.preventDefault();fire();}
+ if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;}}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
 });
 addEventListener('keyup',e=>{
  const action=Desktop.actionFor(e.code,desktopUi.get());
  if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
+ if(action==='fire')input.fireHeld=false;
 });
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(reason='background'){
@@ -224,10 +225,17 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){const delta=Desktop.mouseDelta(mx,my,desktopUi.get());simulation.player.yaw+=delta.yaw;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch+delta.pitch));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
-canvas.addEventListener('click',()=>{if(!canAct())return;if(isTouch)return;if(document.pointerLockElement!==canvas){requestAimLock();return;}fire();});
+canvas.addEventListener('click',()=>{if(!canAct()||isTouch)return;if(document.pointerLockElement!==canvas)requestAimLock();});
+canvas.addEventListener('mousedown',e=>{
+ if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
+ fire();
+ if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=true;
+});
+addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=false;});
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
+function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback();}
+function shotFeedback(){persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};
@@ -281,7 +289,11 @@ function end(){clearStoredMatch();running=false;$('overlay').classList.remove('h
 function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
  if(renderer){if(canAct()){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
-  clock.advance(dt,step=>{if(simulation.status==='playing')Game.tick(simulation,step,input);});
+  clock.advance(dt,step=>{
+   if(simulation.status!=='playing')return;
+   Game.tick(simulation,step,input);
+   if(input.fireHeld&&simulation.status==='playing'&&Game.autoFire(simulation,true).ok)shotFeedback();
+  });
   if(simulation.status==='playing'&&(simulation.elapsed-lastAutosaveElapsed>=15 ||
     (simulation.player.health<lastSavedHealth-.5&&simulation.elapsed-lastAutosaveElapsed>=1)))persistMatch();
  }

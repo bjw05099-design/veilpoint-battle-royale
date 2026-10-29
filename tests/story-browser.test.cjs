@@ -650,7 +650,7 @@ test('PC CH01 Start/Resume focuses the canvas rather than a menu control',()=>{
  app.element('continue').click();
  assert.equal(app.context.document.activeElement,app.element('scene'));
 });
-test('PC CH01 OS keyboard auto-repeat cannot create extra finite shots',()=>{
+test('PC CH01 held fire follows 60Hz cadence; keyboard repeats add no extra rounds',()=>{
  const app=boot();app.element('continue').click();
  app.moveForward(0,300);app.interact();
  let saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
@@ -659,7 +659,27 @@ test('PC CH01 OS keyboard auto-repeat cannot create extra finite shots',()=>{
  saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
  assert.equal(saved.player.charges,before-1);
  app.moveForward(300,30);
+ saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ assert.ok(saved.player.charges<before-1,'held automatic rounds use 60Hz steps');
+ const afterHeld=saved.player.charges;
  for(let i=0;i<5;i++)app.emit('keydown',{code:'Space',repeat:true});
  saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
- assert.equal(saved.player.charges,before-1);
+ assert.equal(saved.player.charges,afterHeld,'OS repeat without ticks is inert');
+ app.emit('keyup',{code:'Space'});
+ app.moveForward(330,30);
+ saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+ assert.equal(saved.player.charges,afterHeld,'key release ends held fire');
+});
+test('PC CH01 mouse hold and release preserve finite ammunition',()=>{
+ const app=boot();app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const before=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
+ app.element('scene').dispatch('mousedown',{button:0});
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,before-1);
+ app.moveForward(300,35);
+ const after=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
+ assert.ok(after<before-1);
+ app.emit('mouseup',{button:0});
+ app.moveForward(335,35);
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,after);
 });
