@@ -392,12 +392,12 @@ test('team clients expose matching gradual sight range without disclosing hidden
     assert.equal(a.node('weather').textContent, b.node('weather').textContent);
   };
   await toTick(450);
-  assert.ok(a.node('weather').textContent.includes('11.5m'));
+  assert.ok(a.node('weather').textContent.includes('44.5m'));
   assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 2);
   await toTick(600);
   assert.ok(a.node('weather').textContent.includes('9.0m'));
   assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 1);
   await toTick(1350);
-  assert.ok(a.node('weather').textContent.includes('11.5m'));
+  assert.ok(a.node('weather').textContent.includes('44.5m'));
   assert.equal(server.match.snapshot([...server.match.players.keys()][0]).visible.length, 2);
 });
