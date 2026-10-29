@@ -50,9 +50,11 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         }
       }
       const url = new URL(req.url, 'http://localhost');
-      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/team-client.js')) {
-        const isScript = url.pathname === '/team-client.js';
-        const file = path.join(__dirname, '..', isScript ? 'src/team-client.js' : 'team.html');
+      if (req.method === 'GET' && ['/', '/team-client.js', '/desktop-controls.js'].includes(url.pathname)) {
+        const isScript = url.pathname !== '/';
+        const relative = url.pathname === '/' ? 'team.html' :
+          url.pathname === '/team-client.js' ? 'src/team-client.js' : 'src/desktop-controls.js';
+        const file = path.join(__dirname, '..', relative);
         const body = await fs.readFile(file);
         res.writeHead(200, {'Content-Type': isScript ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8',
           'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',

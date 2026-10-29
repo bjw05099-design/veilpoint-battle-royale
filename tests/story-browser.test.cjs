@@ -589,3 +589,14 @@ test('CH01 shares PC mouse and keyboard preferences with BR without changing sto
  again.element('desktopBindAction').value='interact';again.element('desktopBindAction').dispatch('change');
  assert.equal(again.element('desktopBindKey').textContent,'KeyT');
 });
+
+test('PC CH01 repeated accessibility keydown cannot reverse the chosen reload assist', () => {
+  const app = boot();
+  app.element('continue').click();
+  app.emit('keydown', {code: 'KeyH'});
+  const saved = JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.player.reloadAssist, true);
+  app.emit('keydown', {code: 'KeyH', repeat: true});
+  const after = JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(after.player.reloadAssist, true);
+});
