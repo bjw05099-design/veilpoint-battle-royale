@@ -282,7 +282,12 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
  const cpu=telemetry.stats('cpu'),gpu=telemetry.stats('gpu'),raf=telemetry.stats('raf');
  const fmt=v=>v===null?'측정 불가':v.toFixed(2)+'ms';
  const scale=renderer?(renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale):graphicsSettings.resolutionScale;
- $('perfDetails').textContent='렌더 CPU P95: '+fmt(cpu.p95)+' | GPU P95: '+fmt(gpu.p95)+' ('+gpu.count+'개) | 표시 간격 P95: '+fmt(raf.p95)+' | 현재 배율: '+Math.round(scale*100)+'%' + (renderer&&renderer.lastVisibilityStats?' | 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'');
+ const timings=(label,stats)=>label+' (n='+stats.count+') P50/P95/P99: '+
+   [stats.p50,stats.p95,stats.p99].map(fmt).join(' / ');
+ // These are browser callback/draw/timer-query samples, not end-to-end input latency.
+ $('perfDetails').textContent=[timings('렌더 CPU',cpu),timings('GPU 타이머',gpu),
+   timings('표시 콜백 간격',raf),'현재 내부 렌더 배율: '+Math.round(scale*100)+'%'+
+   (renderer&&renderer.lastVisibilityStats?' · 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'')].join('\n');
  lastHud=now;}
 }
 requestAnimationFrame(frame);
