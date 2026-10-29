@@ -740,6 +740,7 @@ test('partially exposed opponents remain visible when their actual body edge is 
   assert.equal(b.health, 66, 'the unobstructed body edge can be contacted');
   assert.equal(a.ammo, 11);
   // Moving fully behind the same cover must restore the information barrier.
-  b.x = 0; b.z = 6;
+  a.x = -4; a.z = 6; b.x = 4; b.z = 6;
+  m.command('a', {seq: 4, type: 'aim', direction: {x: 1, z: 0}});
   assert.equal(m.snapshot('a').visible.some(actor => actor.id === b.id), false);
 });
