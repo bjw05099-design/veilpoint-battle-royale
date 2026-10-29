@@ -580,9 +580,10 @@ test('CH01 shares PC mouse and keyboard preferences with BR without changing sto
  app.emit('keydown',{code:'KeyE'});
  assert.equal(store.get('veilpoint.story.ch01'),saveBefore,'old interact key cannot trigger story state');
  app.emit('mousemove',{movementX:100,movementY:10});
- const state=app.context.VeilpointStorySlice;
- assert.ok(state,'story module still loaded');
  app.emit('keydown',{code:'Escape'});
+ const checkpoint=JSON.parse(store.get('veilpoint.story.ch01'));
+ assert.ok(Math.abs(checkpoint.world.player.yaw-.46)<1e-9);
+ assert.ok(checkpoint.world.player.pitch>0,'CH01 Y inversion changes saved first-person aim');
  const again=boot(store);
  assert.equal(again.element('desktopSensitivity').value,'2');
  again.element('desktopBindAction').value='interact';again.element('desktopBindAction').dispatch('change');
