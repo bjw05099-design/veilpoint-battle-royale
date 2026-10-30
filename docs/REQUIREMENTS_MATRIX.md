@@ -1,6 +1,11 @@
 # VEILPOINT — User Requirements Traceability (living document)
 > **Latest owner hardware correction (2026-10-29):** System RAM is **16GB**, not 8GB. Earlier historical references below to an 8GB owner machine reflect superseded assumptions, not the active test configuration. No measured FPS, peak RAM, Unreal compilation or native graphical quality is inferred from this correction.
 
+## 2026-10-30 PC cross-tab control synchronization candidate (R-03 / R-04 / R-13)
+
+- **Partial browser fix:** The shared Windows keyboard/mouse preferences controller used by BR and CH01 now listens for other-tab changes to `veilpoint.desktopControls.v1`, including storage clear. It reloads validated sensitivity, inverted-Y and unique key bindings, cancels pending rebinding and releases held fire/movement through the existing game callbacks. Team client already had its own storage listener; this does not add touch support.
+- **Evidence boundary:** Node mocked-DOM regressions check remote remap, old-key invalidation, held-input release, UI refresh, duplicate/unrelated event filtering and reset on storage clear. GitHub CI must pass at the final branch SHA; real Windows browser, pointer lock, Unreal engine and RTX 3070 QHD 165Hz/16GB performance remain unverified. Strict realism issue #15 and the 2026-11-27 demo gate remain open.
+
 Updated 2026-10-30. Status labels are evidence-based: **Implemented**, **Partially implemented**, **Planned**, **Blocked / unverified**. A requirement being described in a document is *not* its implementation.
 
 | ID | Owner requirement | Priority | Acceptance evidence | Evidence-based current state |
