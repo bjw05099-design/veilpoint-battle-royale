@@ -123,7 +123,11 @@ class TeamMatch {
   command(token, data) {
     const p = this.players.get(token);
     if (!p) throw new RangeError('unknown_player');
-    if (this.expirePlayingLeases()) throw new RangeError('connection_timeout');
+    // A deliberate leave is terminal, not a session-renewal attempt. Preserve
+    // the existing player_left semantics, including no fictitious winner when
+    // the remaining peer has already expired.
+    if (data?.type !== 'leave' && this.expirePlayingLeases())
+      throw new RangeError('connection_timeout');
     if (!data || typeof data !== 'object' || Array.isArray(data) ||
       !Number.isSafeInteger(data.seq) || data.seq <= p.seq || data.seq > 1000000000 ||
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
