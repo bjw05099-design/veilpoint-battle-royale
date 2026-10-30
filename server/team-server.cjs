@@ -84,8 +84,11 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
           'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'"});
         return res.end(body);
       }
-      if (req.method === 'GET' && url.pathname === '/health')
+      if (req.method === 'GET' && url.pathname === '/health') {
+        // Keep the public diagnostic phase consistent with authoritative state.
+        match.expirePlayingLeases();
         return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase});
+      }
       if (req.method === 'GET' && url.pathname === '/state')
         return send(res, 200, match.snapshot(req.headers['x-player-token']));
       if (req.method === 'POST' && ['/join', '/command'].includes(url.pathname)) {
