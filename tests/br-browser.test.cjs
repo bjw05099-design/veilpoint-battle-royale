@@ -883,6 +883,8 @@ test('PC BR held-fire autosaves are bounded and blur flushes the final finite-am
  const initialWrites=checkpointWrites;
  const game=app.game;
  app.emit('keydown',{code:'Space'});
+ assert.equal(JSON.parse(store.get('veilpoint.brCheckpoint.v1')).player.charges,47,
+   'the deliberate first shot still checkpoints immediately before held-fire batching');
  for(let tick=2;tick<=135;tick++)app.frame(tick*1000/60);
  app.emit('keyup',{code:'Space'});
  const shots=48-game.player.charges;
