@@ -93,6 +93,7 @@ function boot(server, storage = new Map()) {
     node, storage, document,
     doc: (name, event) => emit(documentListeners, name, event),
     blur: () => emit(windowListeners, 'blur'),
+    storageEvent: event => emit(windowListeners, 'storage', event),
     mouseUp: () => emit(windowListeners, 'mouseup', {button: 0}),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
@@ -767,4 +768,79 @@ test('PC team HUD distinguishes expired-opponent departure from two disconnected
   await a.poll(); await settle();
   assert.match(a.node('status').textContent, /퇴장 시 상대 연결 만료/);
   assert.doesNotMatch(a.node('status').textContent, /양측 연결 종료|승리 팀 null/);
+});
+
+test('PC team UI focus stops held movement, capture and fire without window blur', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  a.doc('keydown', {code: 'KeyD'});
+  a.doc('keydown', {code: 'KeyE'});
+  await settle();
+  assert.equal(player.direction.x, 1);
+  assert.equal(player.capturing, true);
+  // In-page focus changes do not fire window.blur in a real desktop browser.
+  a.doc('focusin', {target: {tagName: 'INPUT'}});
+  await settle();
+  assert.equal(player.direction.x, 0, 'focus must stop server-owned movement immediately');
+  assert.equal(player.capturing, false, 'focus must release objective intent');
+  // Shooting and capturing are mutually exclusive in the authoritative match.
+  // Check the held trigger separately rather than assuming both coexist.
+  a.doc('keydown', {code: 'KeyD', target: {tagName: 'CANVAS'}});
+  a.doc('keydown', {code: 'Space', target: {tagName: 'CANVAS'}});
+  await settle();
+  assert.equal(player.triggerHeld, true);
+  a.doc('focusin', {target: {tagName: 'BUTTON'}});
+  await settle();
+  assert.equal(player.direction.x, 0);
+  assert.equal(player.triggerHeld, false, 'focus must release held trigger');
+  a.doc('keydown', {code: 'KeyD', target: {tagName: 'INPUT'}});
+  await settle();
+  assert.equal(player.direction.x, 0, 'typing in a form must not restart movement');
+  a.doc('keydown', {code: 'KeyA', target: {tagName: 'CANVAS'}});
+  await settle();
+  assert.equal(player.direction.x, -1);
+  a.doc('focusin', {target: {tagName: 'CANVAS'}});
+  await settle();
+  assert.equal(player.direction.x, -1, 'game canvas focus must not clear valid movement');
+  a.doc('keyup', {code: 'KeyA'});
+});
+
+test('PC team keymaps update across tabs without stale held input or old fire keys', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  a.doc('keydown', {code: 'KeyD'});
+  await settle();
+  assert.equal(player.direction.x, 1);
+  let next = Desktop.bind(Desktop.normalize({}), 'right', 'KeyT').value;
+  next = Desktop.bind(next, 'fire', 'KeyV').value;
+  a.storage.set(Desktop.STORAGE_KEY, JSON.stringify(next));
+  a.storageEvent({key: Desktop.STORAGE_KEY});
+  await settle();
+  assert.equal(player.direction.x, 0, 'old held movement must be cleared on remap');
+  assert.match(a.node('fire').textContent, /KeyV/);
+  a.doc('keydown', {code: 'KeyD'});
+  a.doc('keydown', {code: 'Space'});
+  await settle();
+  assert.equal(player.direction.x, 0, 'old movement key no longer acts');
+  assert.equal(player.ammo, 12, 'old fire key no longer shoots');
+  a.doc('keyup', {code: 'KeyD'});
+  a.doc('keyup', {code: 'Space'});
+  a.doc('keydown', {code: 'KeyT'});
+  await settle();
+  assert.equal(player.direction.x, 1, 'new movement key works without reloading');
+  a.doc('keyup', {code: 'KeyT'});
+  a.doc('keydown', {code: 'KeyV'});
+  await settle();
+  assert.equal(player.ammo, 11, 'new fire key works without reloading');
+  a.doc('keyup', {code: 'KeyV'});
 });
