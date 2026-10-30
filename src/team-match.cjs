@@ -223,7 +223,10 @@ class TeamMatch {
     } else {
       // A completed relay transmission requires a fresh physical release/press.
       // Repeated active:true lease renewals cannot farm multiple points.
-      if (data.active && !p.captureHeld) p.captureArmed = true;
+      // A relay can only be armed by a fresh press at the physical console.
+       // Holding the key while approaching from outside must not queue a remote capture.
+       if (data.active && !p.captureHeld)
+         p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS;
       if (!data.active) p.captureArmed = false;
       p.captureHeld = data.active;
       p.capturing = data.active;
@@ -402,6 +405,12 @@ class TeamMatch {
     for (const {p, next} of proposals) {
       p.x = next.x;
       p.z = next.z;
+      // Walking away physically releases the relay. A later active:true
+      // renewal cannot re-arm it without a genuine key release and press.
+      if (Math.hypot(p.x, p.z) > CAPTURE_RADIUS) {
+        p.captureArmed = false;
+        p.capturing = false;
+      }
     }
     // Automatic PC fire advances only on the authoritative 60Hz tick. A lost
     // keyup or suspended tab expires without a renewed trigger command; HTTP
