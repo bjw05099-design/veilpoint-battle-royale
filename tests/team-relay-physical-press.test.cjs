@@ -65,3 +65,49 @@ test('leaving relay radius disarms held interaction; returning requires fresh pr
   }
   assert.equal(m.score.red, 1);
 });
+
+test('release and re-press inside one authoritative tick cannot retain banked progress', () => {
+  const m = match(), a = m.players.get('a');
+  a.x = 0;
+  m.command('a', {seq: 2, type: 'capture', active: true});
+  ticks(m, 60);
+  assert.ok(m.progress.red > 0.9);
+  m.command('a', {seq: 3, type: 'capture', active: false});
+  assert.equal(m.progress.red, 0, 'release clears progress immediately');
+  m.command('a', {seq: 4, type: 'capture', active: true});
+  ticks(m, 60);
+  assert.equal(m.score.red, 0, 'a fast key cycle cannot skip the remaining second');
+  assert.ok(m.progress.red > 0.9 && m.progress.red < 1.1);
+  m.command('a', {seq: 5, type: 'capture', active: true});
+  ticks(m, 60);
+  assert.equal(m.score.red, 1);
+});
+
+test('same-tick move, fire, trigger or reload cannot preserve relay progress', () => {
+  for (const action of ['move', 'fire', 'trigger', 'reload']) {
+    const m = match(), a = m.players.get('a');
+    a.x = 0;
+    m.command('a', {seq: 2, type: 'capture', active: true});
+    ticks(m, 60);
+    assert.ok(m.progress.red > 0.9);
+    let seq = 3;
+    if (action === 'move') {
+      m.command('a', {seq: seq++, type: 'move', direction: {x: 1, z: 0}});
+      m.command('a', {seq: seq++, type: 'move', direction: {x: 0, z: 0}});
+    } else if (action === 'trigger') {
+      m.command('a', {seq: seq++, type: 'trigger', active: true});
+      m.command('a', {seq: seq++, type: 'trigger', active: false});
+    } else if (action === 'reload') {
+      a.ammo = 3;
+      m.command('a', {seq: seq++, type: 'reload'});
+    } else {
+      m.command('a', {seq: seq++, type: 'fire'});
+    }
+    assert.equal(m.progress.red, 0, action + ' must reset before the next tick');
+    if (action !== 'reload') {
+      m.command('a', {seq: seq++, type: 'capture', active: true});
+      ticks(m, 60);
+      assert.equal(m.score.red, 0, action + ' must not bank an instant point');
+    }
+  }
+});
