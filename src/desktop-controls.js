@@ -129,6 +129,21 @@
   action.addEventListener('change',refresh);
   button.addEventListener('click',()=>{capturing=true;status.textContent='원하는 키를 누르세요. ESC는 취소합니다.';refresh();});
   reset.addEventListener('click',()=>{capturing=false;change(DEFAULT);status.textContent='PC 조작 설정을 기본값으로 복원했습니다.';});
+  // Other Windows browser tabs share the same desktop binding key. A remote
+  // remap (or localStorage.clear) must not leave BR/CH01 with stale held fire,
+  // movement or mouse sensitivity. Storage events do not fire in the writer tab.
+  const view=document.defaultView;
+  if(view&&typeof view.addEventListener==='function')view.addEventListener('storage',event=>{
+   if(event.key!==STORAGE_KEY&&event.key!==null)return;
+   if(event.storageArea&&event.storageArea!==storage)return;
+   const next=load(storage);
+   if(!capturing&&JSON.stringify(next)===JSON.stringify(current))return;
+   current=next;
+   capturing=false;
+   if(typeof onChange==='function')onChange();
+   status.textContent='다른 탭의 PC 조작 설정을 적용했습니다.';
+   refresh();
+  });
   fullscreen.addEventListener('click',()=>{
    const element=document.documentElement||get('app');
    try{
