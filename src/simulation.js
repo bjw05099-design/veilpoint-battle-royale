@@ -109,20 +109,35 @@
     if(!firearm)throw new RangeError('Unknown firearm class');
     const random = rngFromSeed(seed);
     const obstacles = makeObstacles();
-    const safeSpot = (minRadius = 30) => {
+    // The initial roster, the player and ground caches occupy physical space.
+    // Reject colliding spawn proposals instead of relying on later actor movement
+    // to resolve an impossible overlap. Keep the seeded 60Hz world reproducible.
+    const occupiedActors = [{x:0,z:0}]; // Fixed player spawn.
+    const safeSpot = (minRadius = 30, clearance = 0, occupied = []) => {
       for (let tries=0; tries<2000; tries++) {
         const x = (random() * 2 - 1) * 152, z = (random() * 2 - 1) * 152;
-        if (!blocked(x,z,2.4,obstacles) && Math.hypot(x,z) > minRadius) return {x,z};
+        if (blocked(x,z,2.4,obstacles) || Math.hypot(x,z) <= minRadius ||
+            occupied.some(pos => Math.hypot(pos.x-x,pos.z-z) < clearance)) continue;
+        return {x,z};
       }
-      return {x:0,z:0};
+      // Never silently put a rival or pickup at the player's feet when placement
+      // constraints cannot be met; fail explicitly rather than corrupt a match.
+      throw new RangeError('No collision-free BR spawn available');
     };
     const bots = Array.from({ length: clamp(botCount, 0, MAX_BOTS) }, (_, i) => {
-      const pos = safeSpot(36);
+      const pos = safeSpot(36, ACTOR_RADIUS*2+0.2, occupiedActors);
+      occupiedActors.push(pos);
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0,
         lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
     });
-    const loot = Array.from({ length: 40 }, (_,i) => ({id:i, ...safeSpot(15),kind:i%2===0?'ammo':'magazine',weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],
-      remaining:i%2===0?12:24,picked:false}));
+    const occupiedCaches = [];
+    const loot = Array.from({ length: 40 }, (_,i) => {
+      const pos = safeSpot(15, 1.2, occupiedActors.concat(occupiedCaches));
+      occupiedCaches.push(pos);
+      return {id:i, ...pos, kind:i%2===0?'ammo':'magazine',
+        weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],
+        remaining:i%2===0?12:24,picked:false};
+    });
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
