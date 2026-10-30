@@ -235,6 +235,7 @@
     if (state.phase === 'ended') {
       const outcome = state.winner ? '승리 팀 ' + state.winner :
         state.reason === 'mutual_incapacitation' ? '동시 전투 불능 · 무승부' :
+        state.reason === 'player_left' ? '승리 팀 없음 (퇴장 시 상대 연결 만료)' :
         '승리 팀 없음 (양측 연결 종료)';
       status(`종료 · ${outcome} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     }
