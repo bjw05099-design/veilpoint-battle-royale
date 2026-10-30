@@ -1054,3 +1054,25 @@ test('PC team HUD explains why moving or occupied hands interrupt objective capt
   assert.match(a.node('status').textContent, /목표 원에서 정지 후/);
   assert.match(a.node('status').textContent, /이동\/재장전\/발사 중 중단/);
 });
+
+test('PC team UI explains deliberate release/repress after an earned relay point', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const selfToken = [...server.match.players.keys()][0];
+  server.match.players.get(selfToken).x = 0;
+  [...server.match.players.values()][1].x = 8;
+  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  await settle();
+  for (let i = 0; i < 120; i++) {
+    server.match.step();
+    if ((i + 1) % 30 === 0) {await a.poll();await settle();}
+  }
+  assert.equal(server.match.score.red, 1);
+  assert.match(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
+  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  await settle();
+  await a.poll();await settle();
+  assert.doesNotMatch(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
+});
