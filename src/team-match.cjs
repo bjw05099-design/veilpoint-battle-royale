@@ -2,6 +2,7 @@
 // VEILPOINT / original, offline-first two-client authoritative objective prototype.
 // Pure 60 Hz rules. Not a production FPS netcode or public internet service.
 const {moveEntity, lineBlocked, injuryMobility} = require('./simulation.js');
+const {performance} = require('node:perf_hooks');
 const STEP = 1 / 60;
 const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
@@ -66,7 +67,7 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => Date.now(), timeoutMs = 30000} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000} = {}) {
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -82,8 +83,11 @@ class TeamMatch {
     // An abandoned lobby/finished session must not reserve both local slots forever.
     // Active rounds instead terminate through the existing timeout winner rule.
     if (this.phase === 'playing') return;
+    // One monotonic timestamp per sweep: a wall-clock adjustment or a clock
+    // change between actors must not evict only the second lobby participant.
+    const timestamp = this.now();
     for (const [token, player] of this.players) {
-      if (this.now() - player.lastSeen > this.timeoutMs) this.players.delete(token);
+      if (timestamp - player.lastSeen > this.timeoutMs) this.players.delete(token);
     }
     if (this.players.size === 0 && this.phase === 'ended') this.phase = 'lobby';
   }
@@ -291,7 +295,10 @@ class TeamMatch {
     // Evaluate both session leases before moving either actor. When both
     // connections expire together, neither team earns an arbitrary victory
     // based on Map insertion order or the server's iteration order.
-    const connected = [...this.players.values()].filter(p => this.now() - p.lastSeen <= this.timeoutMs);
+    // Evaluate both players against the same monotonic instant. A system clock
+    // correction must never award an arbitrary winner or prolong dead leases.
+    const timestamp = this.now();
+    const connected = [...this.players.values()].filter(p => timestamp - p.lastSeen <= this.timeoutMs);
     if (connected.length !== this.players.size) {
       this.finish(connected.length === 1 ? connected[0].team : null, 'connection_timeout');
       return;
