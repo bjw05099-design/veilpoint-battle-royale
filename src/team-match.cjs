@@ -102,7 +102,7 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      aiming: false, capturing: false, captureArmed: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      aiming: false, capturing: false, captureHeld: false, captureArmed: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
@@ -223,8 +223,9 @@ class TeamMatch {
     } else {
       // A completed relay transmission requires a fresh physical release/press.
       // Repeated active:true lease renewals cannot farm multiple points.
-      if (data.active && !p.capturing) p.captureArmed = true;
+      if (data.active && !p.captureHeld) p.captureArmed = true;
       if (!data.active) p.captureArmed = false;
+      p.captureHeld = data.active;
       p.capturing = data.active;
       p.lastCaptureTick = this.ticks;
     }
@@ -291,6 +292,7 @@ class TeamMatch {
       p.aiming = false;
       p.lastAimTick = 0;
       p.capturing = false;
+      p.captureHeld = false;
       p.captureArmed = false;
       p.health = 100;
       p.ammo = MAGAZINE_ROUNDS;
@@ -314,6 +316,7 @@ class TeamMatch {
       p.aiming = false;
       p.lastAimTick = 0;
       p.capturing = false;
+      p.captureHeld = false;
       p.captureArmed = false;
       p.triggerHeld = false;
       p.ready = false;
