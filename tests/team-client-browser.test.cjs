@@ -1152,3 +1152,38 @@ test('PC aim-release stays after the latest queued aim during network backpressu
   assert.equal(server.match.players.get(token).aiming, false,
     'release must not be swallowed by aim coalescing or a stale pending direction');
 });
+
+test('PC movement backpressure keeps latest key state and never crosses a fire command', async () => {
+  const server = backend(), normalFetch = server.fetchLocal;
+  let release = null, stall = false;
+  server.fetchLocal = (route, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    if (stall && route === '/command' && body?.type === 'heartbeat') {
+      stall = false;
+      return new Promise(resolve => {release = () => normalFetch(route, options).then(resolve);});
+    }
+    return normalFetch(route, options);
+  };
+  const a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const before = server.requests.length;
+  stall = true; a.heartbeat(); await settle();
+  a.doc('keydown', {code: 'KeyA'});
+  a.doc('keyup', {code: 'KeyA'});
+  a.doc('keydown', {code: 'KeyD'});
+  a.node('fire').click();
+  a.doc('keyup', {code: 'KeyD'});
+  await settle();
+  assert.equal(server.requests.length, before);
+  release(); await settle();
+  const sent = server.requests.slice(before).filter(r => r.token === token && r.body);
+  assert.deepEqual(sent.map(r => r.body.type), ['heartbeat', 'move', 'fire', 'move']);
+  assert.deepEqual({...sent[1].body.direction}, {x: 1, z: 0});
+  assert.deepEqual({...sent[3].body.direction}, {x: 0, z: 0});
+  assert.deepEqual({...server.match.players.get(token).direction}, {x: 0, z: 0},
+    'a released PC key must not replay stale motion after transport recovers');
+  assert.ok(sent.every((r, i) => i === 0 || r.body.seq > sent[i - 1].body.seq));
+});
