@@ -941,6 +941,10 @@ test('PC mouse aim changes promptly without waiting for a new server snapshot',a
  await a.poll();await settle();
  assert.equal(aimCommands().length,3,'the next poll does not duplicate the trailing aim');
  assert.ok(player.facing.x<0,'final aim points left');
- a.blur();await settle();
+ canvas.dispatch('pointermove',{clientX:350,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCommands().length,3,'a second fast flick is queued, not sent');
+ a.blur();a.advanceTime(18);await settle();
+ assert.equal(aimCommands().length,3,'blur cancels the unsent trailing aim');
  assert.equal(player.aiming,false,'focus loss still releases server aim');
 });
