@@ -124,3 +124,52 @@ test('older browsers with synchronous raw-option rejection use ordinary pointer 
  assert.equal(C.requestPrecisionPointerLock(canvas),undefined);
  assert.deepEqual(calls,[{unadjustedMovement:true},undefined]);
 });
+
+test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reject unrelated storage events',()=>{
+ const values=new Map();
+ const localStorage={
+  getItem:key=>values.get(key)??null,
+  setItem:(key,value)=>values.set(key,value)
+ };
+ const nodes=new Map(),windowListeners=new Map();
+ const document={
+  defaultView:{addEventListener:(name,callback)=>windowListeners.set(name,callback)},
+  getElementById(id){
+   if(!nodes.has(id))nodes.set(id,{
+    value:id==='desktopBindAction'?'fire':'',checked:false,textContent:'',
+    listeners:{},
+    addEventListener(name,callback){this.listeners[name]=callback;}
+   });
+   return nodes.get(id);
+  }
+ };
+ let releases=0;
+ const controls=C.attach(document,localStorage,()=>releases++);
+ const notify=windowListeners.get('storage');
+ assert.equal(typeof notify,'function');
+ assert.equal(C.actionFor('Space',controls.get()),'fire');
+ const changed=C.bind(C.normalize({}),'fire','KeyF').value;
+ changed.sensitivity=2.25;
+ changed.invertY=true;
+ localStorage.setItem(C.STORAGE_KEY,JSON.stringify(changed));
+ notify({key:C.STORAGE_KEY,storageArea:localStorage});
+ assert.equal(releases,1,'remote remap must release held mouse and keyboard inputs');
+ assert.equal(C.actionFor('KeyF',controls.get()),'fire');
+ assert.equal(C.actionFor('Space',controls.get()),null);
+ assert.equal(controls.get().sensitivity,2.25);
+ assert.equal(C.mouseDelta(10,10,controls.get()).pitch,0.037125);
+ assert.equal(nodes.get('desktopBindKey').textContent,'KeyF');
+ notify({key:C.STORAGE_KEY,storageArea:localStorage});
+ notify({key:'veilpoint.graphics',storageArea:localStorage});
+ notify({key:C.STORAGE_KEY,storageArea:{}});
+ assert.equal(releases,1,'duplicate and unrelated events must not interrupt gameplay');
+ nodes.get('desktopBindKey').listeners.click();
+ assert.match(nodes.get('desktopBindKey').textContent,/다음 키/);
+ values.delete(C.STORAGE_KEY);
+ notify({key:null,storageArea:localStorage});
+ assert.equal(releases,2,'storage clear must reset controls and cancel pending remap');
+ assert.equal(C.actionFor('Space',controls.get()),'fire');
+ assert.equal(nodes.get('desktopBindKey').textContent,'Space');
+ assert.equal(controls.get().sensitivity,1);
+ assert.equal(controls.captureKey({code:'KeyT'}),false,'stale remap capture must be canceled');
+});
