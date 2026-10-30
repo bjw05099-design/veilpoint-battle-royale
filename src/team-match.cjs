@@ -349,7 +349,14 @@ class TeamMatch {
         if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
       }
       if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
-      if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) p.capturing = false;
+      if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) {
+        // A suspended/abandoned PC tab cannot preserve an armed physical relay
+        // press after its authoritative intent lease has expired. Keep
+        // captureHeld true: an overdue active:true renewal is NOT a new keydown.
+        // The operator must release and press again at the actual console.
+        p.capturing = false;
+        p.captureArmed = false;
+      }
       if (p.reloadTicks > 0) {
         p.reloadTicks--;
         if (p.reloadTicks === 0) {
