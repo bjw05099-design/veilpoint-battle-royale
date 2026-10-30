@@ -612,3 +612,10 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 
 - Team-mode server now requires a **fresh capture press within the relay radius**; a held key from outside cannot remotely queue a future point. Leaving the relay radius disarms the interaction; returning requires release and a new press. Releasing/re-pressing or toggling movement, trigger, firing or reload **within one 60Hz tick** also clears banked progress instead of preserving a near-complete point. The desktop team HUD explains re-arming.
 - Added deterministic 60Hz regressions for remote press/renewal and exit/re-entry, including finite scoring after a valid re-press. **Status: code candidate**, not real Windows two-browser human QA or full team FPS completion. Existing team-mode and offline-demo tests must pass at the PR head before merging. This does not establish the realism of BR/CH01, native UE or RTX 3070 QHD 165Hz.
+
+
+### 2026-10-30 — BR final-phase deadline enforcement candidate (PR #151; R-04 / R-14 / realism P0)
+
+- **Partial offline BR gameplay fix:** All announced boundary phase deadlines, including the end of the final phase, disqualify out-of-bounds players and rivals by the same rule. Once the final countdown reaches zero, leaving the last boundary cannot create an indefinitely unresolved match. No supernatural health drain is reintroduced. The PC HUD shows the final deadline and its active-limit state.
+- **Evidence boundary:** Four deterministic Node regressions cover player and rival parity, post-expiry movement and checkpoint replay. GitHub CI must pass at the final PR head. This is a match-eligibility abstraction, not a realistic physical barrier or completed online BR. Earlier historical notes about BR shrinking-zone HP damage refer to superseded code; the broad realism audit issue #15 remains open for other rules and actual browser QA.
+- **Unverified:** Windows PC browser end-to-end play, RTX 3070 QHD 165Hz/16GB performance, Unreal packaging, final visual realism and release acceptance. No new touch work.

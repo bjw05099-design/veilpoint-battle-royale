@@ -82,3 +82,76 @@ test('BR checkpoint before deadline preserves deterministic eligibility and heal
   assert.equal(g.status,'lost');
   assert.equal(g.player.health,100);
 });
+
+
+function beforeFinalDeadline(seed, opponents=1) {
+  const g=S.newMatch(seed,opponents);
+  g.status='playing';
+  const finalStart=S.ZONE_PHASES.slice(0,-1).reduce((sum,p)=>sum+p.duration,0);
+  const finalEnd=finalStart+S.ZONE_PHASES.at(-1).duration;
+  g.elapsed=finalEnd-0.1;
+  Object.assign(g.zone,S.phaseAt(g.elapsed));
+  return g;
+}
+
+test('final published boundary expiry disqualifies player without fabricated injury',()=>{
+  const g=beforeFinalDeadline(8110,1);
+  g.player.x=5;g.player.z=0;
+  g.bots[0].x=0;g.bots[0].z=0;
+  const hp=g.player.health;
+  S.tick(g,0.05,{});
+  assert.equal(g.status,'playing','the published final grace period remains playable');
+  assert.equal(g.player.health,hp);
+  S.tick(g,0.05,{});
+  S.tick(g,0.05,{});
+  assert.equal(g.zone.phase,S.ZONE_PHASES.length-1);
+  assert.equal(g.zone.phaseRemaining,0);
+  assert.equal(g.status,'lost');
+  assert.equal(g.player.alive,false);
+  assert.equal(g.player.health,hp);
+  assert.match(g.message,/DISQUALIFIED/);
+});
+
+test('final boundary deadline applies to rivals and permits a fair match win',()=>{
+  const g=beforeFinalDeadline(8111,1);
+  g.player.x=0;g.player.z=0;
+  g.bots[0].x=5;g.bots[0].z=0;
+  const hp=g.player.health;
+  for(let i=0;i<3;i++)S.tick(g,0.05,{});
+  assert.equal(g.zone.phaseRemaining,0);
+  assert.equal(g.bots[0].alive,false);
+  assert.equal(g.status,'won');
+  assert.equal(g.player.health,hp);
+});
+
+test('after the final clock expires, leaving the boundary cannot stall the match',()=>{
+  const g=beforeFinalDeadline(8112,1);
+  g.player.x=0;g.player.z=0;
+  g.bots[0].x=0;g.bots[0].z=1;
+  for(let i=0;i<3;i++)S.tick(g,0.05,{});
+  assert.equal(g.status,'playing');
+  assert.equal(g.zone.phaseRemaining,0);
+  const hp=g.player.health;
+  g.player.x=5;
+  S.tick(g,1/60,{});
+  assert.equal(g.status,'lost');
+  assert.equal(g.player.health,hp);
+  assert.equal(g.player.alive,false);
+});
+
+test('final-boundary expiry is deterministic after a checkpoint restore',()=>{
+  const g=beforeFinalDeadline(8113,1);
+  g.player.x=5;g.player.z=0;
+  g.bots[0].x=0;g.bots[0].z=0;
+  const restored=S.restoreMatch(S.snapshotMatch(g));
+  for(let i=0;i<3;i++){
+    S.tick(g,0.05,{});
+    S.tick(restored,0.05,{});
+    assert.equal(g.status,restored.status);
+    assert.equal(g.player.health,restored.player.health);
+    assert.deepEqual(g.bots.map(b=>[b.alive,b.health]),
+      restored.bots.map(b=>[b.alive,b.health]));
+    if(g.status==='playing')assert.equal(S.snapshotMatch(g),S.snapshotMatch(restored));
+  }
+  assert.equal(g.status,'lost');
+});

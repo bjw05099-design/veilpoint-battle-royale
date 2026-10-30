@@ -270,7 +270,11 @@
     updateStress(p,dt,sprinting);
     const previousPhase=game.zone.phase;
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
-    const boundaryDeadline=next.phase!==previousPhase;
+    // The final announced phase also has an expiry: after its clock reaches
+    // zero, crossing the final boundary is an immediate eligibility loss.
+    // Otherwise a survivor could wait outside forever with no later phase edge.
+    const boundaryDeadline=next.phase!==previousPhase ||
+      (next.phase===ZONE_PHASES.length-1 && next.phaseRemaining===0);
     // Out-of-bounds is an announced competition rule, not unexplained damage.
     // The same deadline applies to the player and every opponent.
     if(boundaryDeadline&&dist(p,game.zone)>game.zone.radius){

@@ -290,7 +290,8 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  const boundary=Game.boundaryStatus(s);
  const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
- const deadline=s.zone.phase<Game.ZONE_PHASES.length-1?' · DEADLINE '+tt+'s':'';
+ // Every published phase, including the last one, has a real deadline.
+ const deadline=s.zone.phaseRemaining>0?' · DEADLINE '+tt+'s':' · FINAL LIMIT ACTIVE';
  const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m'+deadline:
    boundary.near?'BOUNDARY NEARBY · '+boundary.meters+'m'+deadline:'';
  // Keep reload and other event feedback readable alongside the boundary warning.
