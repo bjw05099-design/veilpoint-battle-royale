@@ -260,12 +260,12 @@ canvas.addEventListener('mousedown',e=>{
 addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('mouse');});
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback();}
-function shotFeedback(){
+function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback(true);}
+function shotFeedback(immediateSave=false){
  // A fixed-step held trigger may fire several times per second. Avoid a
  // synchronous full-world snapshot and minimap redraw for every round.
  // Normal 15s autosave, explicit inventory actions and pause still flush state.
- if(simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)persistMatch();
+ if(immediateSave||simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)persistMatch();
  if(simulation.elapsed-lastShotHudElapsed>=SHOT_HUD_INTERVAL_SECONDS){
   updateHud();lastShotHudElapsed=simulation.elapsed;
  }
