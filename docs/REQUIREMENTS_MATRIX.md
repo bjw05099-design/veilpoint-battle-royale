@@ -563,3 +563,9 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 
 - **R-03 / R-12:** Some desktop window switches produce `blur` while `document.hidden` remains false. The team client now suspends heartbeat and polling in that state too, releasing held input immediately and renewing once on `focus`. This closes the remaining inactive-visible-window lease loophole without changing the 30-second server timeout or 60Hz authority.
 - **Verification:** Two additional deterministic mocked-client focus/blur regressions. Human desktop focus behavior and public network operation remain unverified pending actual browser QA.
+
+## 2026-10-30 — BR checkpoint temporal integrity (PR #141; R-04/R-12/R-23)
+
+- **Partial implementation, Node CI green at code head:** Offline BR checkpoint writer and restore now reject a player shot timestamp later than the saved simulation time, bot sight/hearing memory later than the 2.5-second authored window, and physically impossible pending reload durations/full-magazine or no-reserve reloads. This prevents a corrupt save from causing prolonged weapon lockout or granting enemies unearned future perception.
+- **Regression scope:** Five new Node tests cover tampered string/object saves, rejected invalid checkpoint writes, legitimate finite reload and exact 60Hz resume/replay. GitHub Actions `verify` passed on the code head; recheck the final documentation head before merge. No new mobile/touch functionality or tests.
+- **Not completed:** BR's unexplained shrinking health-damage zone remains an open strict-realism release blocker (#15). The three complete modes, real PC keyboard/mouse playtest, UE5 packaging, QHD 165Hz RTX 3070 measurements with owner-reported **16GB system RAM**, human narrative QA and licensed photoreal assets remain unverified.

@@ -539,10 +539,22 @@
     ['loaded',0,MAGAZINE_SIZE,true],['charges',0,36,true],['reloadRemaining',0,RELOAD_SECONDS],
     ['lastSeenX',-WORLD-1,WORLD+1],['lastSeenZ',-WORLD-1,WORLD+1],['lastSeenUntil',0,3605]];
   const LOOT_FIELDS = [...POSITION_FIELDS,['id',0,39,true],['remaining',0,24,true]];
+  // A checkpoint may preserve a recent observation or an in-progress reload,
+  // but it must never manufacture future perception or lock the player's gun
+  // for minutes. Use the same bounds on write and restore, including object saves.
+  function validateCheckpointTiming(data, firearm) {
+    const tolerance = 1e-6;
+    if (!firearm || data.lastTagAt > data.elapsed + tolerance ||
+        data.bots.some(b => b.lastSeenUntil > data.elapsed + 2.5 + tolerance) ||
+        data.player.reloadRemaining > firearm.reloadSeconds + RELOAD_HESITATION_SECONDS + tolerance ||
+        (data.player.reloadRemaining > 0 &&
+          (data.player.loaded >= firearm.magazine || data.player.charges <= data.player.loaded)))
+      throw new RangeError('Invalid BR checkpoint timing');
+  }
   function snapshotMatch(game) {
     if (!game || game.status !== 'playing' || !game.random || typeof game.random.getState !== 'function')
       throw new RangeError('Only active BR matches can be checkpointed');
-    const serialized=JSON.stringify({version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
+    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
@@ -554,7 +566,9 @@
         ['phase',0,ZONE_PHASES.length-1,true],['phaseRemaining',0,999]]),
       effects:game.effects.map(e=>({...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type})),
       message:game.message,messageTime:game.messageTime,
-      lastTagAt:game.lastTagAt,recentDamage:game.recentDamage});
+      lastTagAt:game.lastTagAt,recentDamage:game.recentDamage};
+    validateCheckpointTiming(checkpoint,FIREARMS[checkpoint.player.weaponId]);
+    const serialized=JSON.stringify(checkpoint);
     if (serialized.length > MAX_CHECKPOINT_CHARS) throw new RangeError('BR checkpoint too large');
     return serialized;
   }
@@ -618,6 +632,7 @@
     });
     const extras=checkedFields(saved,[['damageFlash',0,1],['messageTime',0,10],
       ['lastTagAt',-2,3600],['recentDamage',0,100]]);
+    validateCheckpointTiming({elapsed:saved.elapsed,lastTagAt:extras.lastTagAt,player:p,bots},firearm);
     Object.assign(game,{status:'playing',elapsed:saved.elapsed,kills:saved.kills,
       damageFlash:extras.damageFlash,player:p,bots,loot,zone,effects,
       message:saved.message,messageTime:extras.messageTime,
