@@ -388,3 +388,37 @@ test('HTTP two-client held trigger is server-timed, finite and rejects client-au
     assert.equal(server.match.players.get(b.token).health, 100);
   } finally {await server.close();}
 });
+
+test('HTTP late heartbeat cannot revive an expired session before the next 60Hz step', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (path, body, token) => {
+    const res = await fetch(base + path, {method: 'POST', headers: {
+      'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})
+    }, body: JSON.stringify(body)});
+    return {status: res.status, data: await res.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'A'})).data;
+    const b = (await post('/join', {name: 'B'})).data;
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    now = 25000;
+    assert.equal((await post('/command', {seq: 2, type: 'heartbeat'}, b.token)).status, 200);
+    now = 30001;
+    const late = await post('/command', {seq: 2, type: 'heartbeat'}, a.token);
+    assert.equal(late.status, 400);
+    assert.equal(late.data.error, 'connection_timeout');
+    const snapshot = await (await fetch(base + '/state', {
+      headers: {'x-player-token': b.token}
+    })).json();
+    assert.equal(snapshot.phase, 'ended');
+    assert.equal(snapshot.winner, 'blue');
+    assert.equal(snapshot.reason, 'connection_timeout');
+    assert.equal(snapshot.tick, 0);
+    assert.equal(snapshot.self.seq, 2);
+    assert.equal(server.match.players.get(a.token).seq, 1);
+  } finally {await server.close();}
+});
