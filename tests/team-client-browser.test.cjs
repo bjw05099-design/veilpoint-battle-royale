@@ -987,6 +987,7 @@ test('returning from a short PC alt-tab renews the server lease without waiting 
   const token = a.storage.get('veilpoint.team.tabSession');
   a.hide(); await settle();
   now = 25000;
+  b.heartbeat(); await settle(); // The active opponent must also keep a valid lease.
   a.show(); await settle();
   assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'heartbeat').length, 1,
     'foreground visibility should renew immediately');
