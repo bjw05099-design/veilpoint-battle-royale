@@ -194,6 +194,8 @@ class TeamMatch {
       // A held PC trigger is an expiring intent, not a client-authored shot or rate.
       p.triggerHeld = data.active;
       p.lastTriggerTick = this.ticks;
+      // A brief trigger press between ticks still interrupts a relay operation.
+      if (data.active) {p.capturing = false;this.progress[p.team] = 0;}
       return {ok: true};
     }
     if (data.type === 'reload') {
@@ -212,6 +214,7 @@ class TeamMatch {
       p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
       p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
       p.capturing = false;
+      this.progress[p.team] = 0;
       return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
     }
     if (data.type === 'move') {
@@ -220,6 +223,8 @@ class TeamMatch {
       // Stopping retains the last facing; a zero vector cannot reveal all directions.
       if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
       p.lastMoveTick = this.ticks;
+      // Start/stop movement commands inside one server tick cannot bank a relay.
+      if (len > 1e-6) this.progress[p.team] = 0;
     } else {
       // A completed relay transmission requires a fresh physical release/press.
       // Repeated active:true lease renewals cannot farm multiple points.
@@ -227,7 +232,7 @@ class TeamMatch {
        // Holding the key while approaching from outside must not queue a remote capture.
        if (data.active && !p.captureHeld)
          p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS;
-      if (!data.active) p.captureArmed = false;
+      if (!data.active) {p.captureArmed = false;this.progress[p.team] = 0;}
       p.captureHeld = data.active;
       p.capturing = data.active;
       p.lastCaptureTick = this.ticks;
@@ -242,6 +247,7 @@ class TeamMatch {
       p.lastShotTick = this.ticks;
       p.ammo--;
       p.capturing = false;
+      this.progress[p.team] = 0;
       // A shot follows the server-owned facing ray, never an auto-selected target.
       // Visibility affects what the client KNOWS, not whether a shot can travel
       // through mist. The opponent's 2D collision radius is a simple hit proxy.
