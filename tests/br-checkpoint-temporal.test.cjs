@@ -64,7 +64,7 @@ test('BR writer refuses contradictory actor state before replacing a valid autos
   for (const invalid of [
     game => { game.player.alive = false; },
     game => { game.bots[0].health = 0; },
-    game => { game.bots[0].loaded = game.bots[0].charges + 1; },
+    game => { game.bots[0].charges = 0; game.bots[0].loaded = 1; },
     game => { game.kills = 1; }
   ]) {
     const game = active();
