@@ -780,16 +780,23 @@ test('PC team UI focus stops held movement, capture and fire without window blur
   const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
   a.doc('keydown', {code: 'KeyD'});
   a.doc('keydown', {code: 'KeyE'});
-  a.doc('keydown', {code: 'Space'});
   await settle();
   assert.equal(player.direction.x, 1);
   assert.equal(player.capturing, true);
-  assert.equal(player.triggerHeld, true);
   // In-page focus changes do not fire window.blur in a real desktop browser.
   a.doc('focusin', {target: {tagName: 'INPUT'}});
   await settle();
   assert.equal(player.direction.x, 0, 'focus must stop server-owned movement immediately');
   assert.equal(player.capturing, false, 'focus must release objective intent');
+  // Shooting and capturing are mutually exclusive in the authoritative match.
+  // Check the held trigger separately rather than assuming both coexist.
+  a.doc('keydown', {code: 'KeyD', target: {tagName: 'CANVAS'}});
+  a.doc('keydown', {code: 'Space', target: {tagName: 'CANVAS'}});
+  await settle();
+  assert.equal(player.triggerHeld, true);
+  a.doc('focusin', {target: {tagName: 'BUTTON'}});
+  await settle();
+  assert.equal(player.direction.x, 0);
   assert.equal(player.triggerHeld, false, 'focus must release held trigger');
   a.doc('keydown', {code: 'KeyD', target: {tagName: 'INPUT'}});
   await settle();
