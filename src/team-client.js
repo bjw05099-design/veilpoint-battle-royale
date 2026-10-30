@@ -18,6 +18,7 @@
   };
   let activeTouchAimPointer = null;
   let joining = false, restoring = false, polling = false;
+  let windowFocused = true; // A visible but unfocused desktop window is also inactive.
   let pending = Promise.resolve();
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
@@ -376,7 +377,12 @@
     refreshControlLabels();
     if (state) render();
   });
-  window.addEventListener('blur', releaseHeldInput);
+  window.addEventListener('blur', () => {windowFocused = false;releaseHeldInput();});
+  window.addEventListener('focus', () => {
+    windowFocused = true;
+    // Regain the lease promptly on a normal PC window switch, not just a tab switch.
+    if (token && !document.hidden) void send('heartbeat');
+  });
   // Releasing outside the arena must not leave a mouse trigger latched.
   window.addEventListener('mouseup', e => {
     if (e.button === 0) setTrigger(physicalTrigger.release('mouse'));
@@ -425,10 +431,10 @@
   };
   void restoreTabSession();
   // A genuine connected client renews its server lease independently of read-only polling.
-  setInterval(() => {if (token && !document.hidden) void send('heartbeat');}, 10000);
+  setInterval(() => {if (token && !document.hidden && windowFocused) void send('heartbeat');}, 10000);
   setInterval(async () => {
     // Slow responses must not overlap and overwrite newer game snapshots.
-    if (!token || document.hidden || polling || restoring) return;
+    if (!token || document.hidden || !windowFocused || polling || restoring) return;
     polling = true;
     const polledToken = token;
     try {

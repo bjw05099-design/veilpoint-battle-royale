@@ -102,6 +102,7 @@ function boot(server, storage = new Map()) {
     node, storage, document,
     doc: (name, event) => emit(documentListeners, name, event),
     blur: () => emit(windowListeners, 'blur'),
+    focus: () => emit(windowListeners, 'focus'),
     storageEvent: event => emit(windowListeners, 'storage', event),
     mouseUp: () => emit(windowListeners, 'mouseup', {button: 0}),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
@@ -154,7 +155,9 @@ test('two client UIs join, ready, send bounded movement and release capture on b
   assert.equal(player.capturing, false);
   const seq = player.seq;
   a.heartbeat(); await settle();
-  assert.equal(player.seq, seq + 1, 'heartbeat uses validated server sequence');
+  assert.equal(player.seq, seq, 'unfocused PC window cannot renew its server session');
+  a.focus(); await settle();
+  assert.equal(player.seq, seq + 1, 'returning focus renews with validated server sequence');
 });
 
 test('tab refresh resumes the same player and clears ghost movement and capture', async () => {
@@ -995,4 +998,45 @@ test('returning from a short PC alt-tab renews the server lease without waiting 
   b.heartbeat(); await settle();
   server.match.step();
   assert.equal(server.match.phase, 'playing', 'brief background pause must not forfeit a valid session');
+});
+
+
+test('visible but unfocused PC team window cannot keep an abandoned match alive', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  let now = 0;
+  server.match.now = () => now;
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const opponent = b.storage.get('veilpoint.team.tabSession');
+  a.blur(); await settle();
+  const reads = server.requests.filter(r => r.route === '/state' && r.token === token).length;
+  await a.poll(); await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state' && r.token === token).length, reads);
+  now = 20000;
+  a.heartbeat(); b.heartbeat(); await settle();
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'heartbeat').length, 0);
+  now = 31001;
+  server.match.step();
+  assert.equal(server.match.reason, 'connection_timeout');
+  assert.equal(server.match.winner, server.match.players.get(opponent).team);
+});
+
+test('visible PC window focus immediately renews a valid short alt-tab session', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  let now = 0;
+  server.match.now = () => now;
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  a.blur(); await settle();
+  now = 25000;
+  b.heartbeat(); await settle();
+  a.focus(); await settle();
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'heartbeat').length, 1);
+  now = 31001;
+  server.match.step();
+  assert.equal(server.match.phase, 'playing');
 });
