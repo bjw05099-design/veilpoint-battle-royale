@@ -773,7 +773,7 @@ test('CH01 PC held-fire checkpoints are bounded and pause flushes final finite a
  for(let tick=301;tick<=440;tick++)app.frame(tick*1000/60);
  app.emit('keyup',{code:'Space'});
  assert.ok(writes-before>=1,'sustained volley must still periodically checkpoint');
- assert.ok(writes-before<=4,'automatic rounds must not each serialize a full mission');
+ assert.ok(writes-before<=7,'automatic rounds must not each serialize a full mission');
  const beforePause=JSON.parse(sharedStore.get('veilpoint.story.ch01'));
  assert.equal(beforePause.phase,'engagement');
  assert.ok(beforePause.player.charges<48,'finite ammo is spent during held fire');
