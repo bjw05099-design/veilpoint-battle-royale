@@ -19,19 +19,42 @@
   let controls = Desktop.load(window.localStorage);
   const keys = new Set();
   const physicalTrigger = Desktop.createTriggerLatch();
-  const request = async (path, body) => {
+  // Capture the identity when a request is queued: an old command must never
+  // be sent using a newly joined tab's token after an expired-session reset.
+  const request = async (path, body, authToken = token) => {
     const response = await fetch(path, {method: body ? 'POST' : 'GET',
-      headers: {...(body ? {'Content-Type': 'application/json'} : {}), ...(token ? {'X-Player-Token': token} : {})},
+      headers: {...(body ? {'Content-Type': 'application/json'} : {}), ...(authToken ? {'X-Player-Token': authToken} : {})},
       ...(body ? {body: JSON.stringify(body)} : {})});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     return data;
   };
   const status = msg => {el('status').textContent = msg;};
+  function invalidateSession(expiredToken) {
+    if (!expiredToken || token !== expiredToken) return;
+    // A restarted local server may forget the token while this tab stays open.
+    // Drop all held PC input and old snapshots before enabling a fresh join.
+    token = null; seq = 0; state = null; previousPhase = null;
+    lastDirection = ''; lastMoveRefreshTick = -Infinity;
+    lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
+    lastAimTick = -Infinity; lastAimVector = null; lastAimPoint = null;
+    activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
+    capturing = false; triggering = false; actionFeedback = '';
+    try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
+    el('join').disabled = false; el('ready').disabled = true;
+    el('name').disabled = false;
+    status('서버 세션이 만료되었습니다. 새로 입장할 수 있습니다.');
+    draw();
+  }
   const send = (type, payload = {}) => {
     if (!token) return Promise.resolve();
+    const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
-    pending = pending.then(() => request('/command', command)).then(result => {
+    pending = pending.then(() => {
+      if (token !== sessionToken) return null;
+      return request('/command', command, sessionToken);
+    }).then(result => {
+      if (!result || token !== sessionToken) return result;
       if (type === 'fire' || type === 'reload') {
         const messages = {cooldown: '발사 간격 유지', reloading: '재장전 중',
           empty_magazine: '탄창 비움 · R 재장전', already_reloading: '이미 재장전 중',
@@ -43,7 +66,11 @@
         feedbackUntil = (state?.tick || 0) + 90;
       }
       return result;
-    }).catch(err => {status(`명령 실패: ${err.message}`);});
+    }).catch(err => {
+      if (token !== sessionToken) return;
+      if (err.message === 'unknown_player') invalidateSession(sessionToken);
+      else status(`명령 실패: ${err.message}`);
+    });
     return pending;
   };
   const held = action => {
@@ -357,11 +384,7 @@
       state = await request('/state');
       render();
     } catch (_) {
-      token = null;seq = 0;state = null;
-      try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
-      el('join').disabled = false;el('name').disabled = false;
-      el('ready').disabled = true;
-      status('이전 세션이 만료되었습니다. 다시 입장하세요.');
+      invalidateSession(saved);
     } finally {restoring = false;}
   };
   void restoreTabSession();
@@ -371,8 +394,11 @@
     // Slow responses must not overlap and overwrite newer game snapshots.
     if (!token || polling || restoring) return;
     polling = true;
+    const polledToken = token;
     try {
-      state = await request('/state');render();updateInput();
+      const nextState = await request('/state', undefined, polledToken);
+      if (token !== polledToken) return;
+      state = nextState;render();updateInput();
       // Recompute aim against the latest server-owned player position while
       // the pointer stays over a fixed world point (no stale direction drift).
       if (lastAimPoint) aimAtWorld(lastAimPoint.x,lastAimPoint.z);
@@ -387,7 +413,11 @@
         void send('capture', {active: true});
       }
     }
-    catch (err) {status(`연결 확인 필요: ${err.message}`);}
+    catch (err) {
+      if (token !== polledToken) return;
+      if (err.message === 'unknown_player') invalidateSession(polledToken);
+      else status(`연결 확인 필요: ${err.message}`);
+    }
     finally {polling = false;}
   }, 150);
   draw();

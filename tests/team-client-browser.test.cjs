@@ -844,3 +844,54 @@ test('PC team keymaps update across tabs without stale held input or old fire ke
   assert.equal(player.ammo, 11, 'new fire key works without reloading');
   a.doc('keyup', {code: 'KeyV'});
 });
+
+
+test('live PC tab recovers an unknown server token without refresh or ghost state', async () => {
+  const server = backend(), ui = boot(server), peer = boot(server);
+  ui.node('join').click(); peer.node('join').click(); await settle();
+  ui.node('ready').click(); peer.node('ready').click(); await settle();
+  await ui.poll(); await settle();
+  const oldToken = ui.storage.get('veilpoint.team.tabSession');
+  ui.doc('keydown', {code: 'KeyD'}); await settle();
+  assert.equal(server.match.players.get(oldToken).direction.x, 1);
+  // Simulate the local server forgetting this identity while the tab remains open.
+  server.match.players.delete(oldToken);
+  server.match.finish(null, 'connection_timeout');
+  await ui.poll(); await settle();
+  assert.equal(ui.storage.has('veilpoint.team.tabSession'), false);
+  assert.equal(ui.node('join').disabled, false);
+  assert.equal(ui.node('ready').disabled, true);
+  assert.equal(ui.node('name').disabled, false);
+  assert.match(ui.node('status').textContent, /만료/);
+  ui.node('join').click(); await settle();
+  const replacement = ui.storage.get('veilpoint.team.tabSession');
+  assert.notEqual(replacement, oldToken);
+  assert.equal(server.match.players.get(replacement).direction.x, 0,
+    'a stale held PC key must not control the new identity');
+  assert.equal(ui.node('join').disabled, true);
+});
+
+test('expired PC command drops queued old-session intents before a fresh join', async () => {
+  const server = backend(), ui = boot(server), peer = boot(server);
+  ui.node('join').click(); peer.node('join').click(); await settle();
+  ui.node('ready').click(); peer.node('ready').click(); await settle();
+  await ui.poll(); await settle();
+  const oldToken = ui.storage.get('veilpoint.team.tabSession');
+  server.match.players.delete(oldToken);
+  server.match.finish(null, 'connection_timeout');
+  const before = server.requests.length;
+  // Both input edges queue before the first rejected command is processed.
+  ui.doc('keydown', {code: 'KeyW'});
+  ui.doc('keyup', {code: 'KeyW'});
+  await settle();
+  const oldCommands = server.requests.slice(before).filter(r =>
+    r.token === oldToken && r.route === '/command');
+  assert.equal(oldCommands.length, 1,
+    'the first unknown_player rejection must cancel all queued old commands');
+  assert.equal(ui.storage.has('veilpoint.team.tabSession'), false);
+  ui.node('join').click(); await settle();
+  const freshToken = ui.storage.get('veilpoint.team.tabSession');
+  assert.notEqual(freshToken, oldToken);
+  assert.equal(server.requests.filter(r => r.token === freshToken && r.body?.type === 'move').length, 0,
+    'queued movement from the old session must not replay under a fresh token');
+});
