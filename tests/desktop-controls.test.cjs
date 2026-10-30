@@ -47,6 +47,15 @@ test('storage unavailable is nonfatal',()=>{
  assert.equal(C.save(fail,C.normalize({})),false);
 });
 
+test('Windows PC detection covers modern and legacy browser platform fields',()=>{
+ assert.equal(C.isWindowsPC({userAgentData:{platform:'Windows'}}),true);
+ assert.equal(C.isWindowsPC({platform:'Win32'}),true);
+ assert.equal(C.isWindowsPC({userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}),true);
+ assert.equal(C.isWindowsPC({platform:'Linux x86_64'}),false);
+ assert.equal(C.isWindowsPC({userAgentData:{platform:'Android'}}),false);
+ assert.equal(C.isWindowsPC(undefined),false);
+});
+
 test('PC UI focus excludes form controls and buttons from gameplay key handling',()=>{
  for(const tagName of ['INPUT','TEXTAREA','SELECT','BUTTON','select'])
   assert.equal(C.isInteractiveTarget({tagName}),true);

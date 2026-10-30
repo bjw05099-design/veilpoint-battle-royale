@@ -59,6 +59,16 @@
    get held(){return held.size>0;}
   };
  }
+ // Windows is a keyboard/mouse-first platform even on convertible hardware
+ // whose only advertised pointer is coarse. Legacy touch handlers remain
+ // dormant there, so no 60Hz gameplay runs without a locked desktop mouse.
+ function isWindowsPC(navigator){
+  if(!navigator||typeof navigator!=='object')return false;
+  const modern=navigator.userAgentData&&navigator.userAgentData.platform;
+  const platform=typeof modern==='string'&&modern?modern:navigator.platform;
+  if(typeof platform==='string'&&/^(?:Windows|Win32|Win64)$/i.test(platform))return true;
+  return typeof navigator.userAgent==='string'&&/\bWindows NT\b/i.test(navigator.userAgent);
+ }
  function isInteractiveTarget(target){
   if(!target||typeof target!=='object')return false;
   const tag=typeof target.tagName==='string'?target.tagName.toUpperCase():'';
@@ -167,7 +177,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isWindowsPC,isInteractiveTarget,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

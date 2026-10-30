@@ -1,4 +1,9 @@
 # VEILPOINT — User Requirements Traceability (living document)
+
+## 2026-10-31 Windows coarse-pointer input safety candidate (R-03 / R-04 / R-13)
+- **PC-only input P0:** Windows devices reporting only a coarse pointer (convertible/touchscreen) now follow the same pointer-lock gate as other desktop hardware in offline BR and CH01. Legacy touch logic remains for non-Windows platforms but cannot bypass Windows gameplay pause/aim ownership. The CH01 coarse-pointer mobile overlay is hidden on Windows.
+- **Evidence boundary:** Added Windows-platform classification and two mocked browser end-to-end pointer-lock regressions. This is a proposed code change pending Node suite and GitHub CI; not a measured Windows 165Hz, UE native or human gameplay validation.
+
 ## 2026-10-31 offline BR physical spawn-spacing candidate (R-04 / R-23)
 - **Code candidate:** Initial seeded BR rivals now reserve non-overlapping physical footprints, and finite ground caches avoid actors and one another. Failed placement raises an explicit error rather than silently spawning at the player's position. No change to the 60Hz simulation clock, checkpoint schema or existing saved positions.
 - **Verification:** Seed-sweep regression and save/restore test added. GitHub CI and actual Windows browser playtesting remain required; this is a collision-plausibility fix, not measured rendering/165FPS or native UE validation.

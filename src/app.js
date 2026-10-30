@@ -110,7 +110,8 @@ try { renderer=new global.VeilpointRenderer(canvas);
 catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
 // A Windows hybrid touchscreen can also have a real mouse. Prefer PC pointer
 // lock whenever ANY fine pointer exists; coarse alone must not bypass aim lock.
-const isTouch=matchMedia('(pointer:coarse)').matches && !matchMedia('(any-pointer:fine)').matches;
+const isTouch=!Desktop.isWindowsPC(global.navigator) &&
+  matchMedia('(pointer:coarse)').matches && !matchMedia('(any-pointer:fine)').matches;
 function requestAimLock(){
  if(isTouch)return;
  const attempt=++pointerLockAttempt;
