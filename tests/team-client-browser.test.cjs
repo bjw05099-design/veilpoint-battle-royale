@@ -1076,3 +1076,114 @@ test('PC team UI explains deliberate release/repress after an earned relay point
   await a.poll();await settle();
   assert.doesNotMatch(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
 });
+
+test('PC mouse aim coalesces unsent updates behind a stalled request without reordering fire', async () => {
+  const server = backend();
+  const normalFetch = server.fetchLocal;
+  let stallHeartbeat = false, releaseHeartbeat = null;
+  server.fetchLocal = (route, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    if (stallHeartbeat && route === '/command' && body?.type === 'heartbeat') {
+      stallHeartbeat = false;
+      return new Promise(resolve => {
+        releaseHeartbeat = () => normalFetch(route, options).then(resolve);
+      });
+    }
+    return normalFetch(route, options);
+  };
+  const a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const initial = server.requests.length;
+  stallHeartbeat = true;
+  a.heartbeat(); await settle();
+  assert.equal(typeof releaseHeartbeat, 'function');
+  const point = (x, y) => {
+    a.advanceTime(20); // Beyond the existing 60Hz PC pointer send throttle.
+    a.node('arena').dispatch('pointermove', {pointerType: 'mouse', clientX: x, clientY: y});
+  };
+  for (let i = 0; i < 12; i++) point(i % 2 ? 140 : 380, i % 2 ? 370 : 130);
+  a.node('fire').click(); // A shot must retain its position between two aim groups.
+  for (let i = 0; i < 12; i++) point(i % 2 ? 390 : 120, i % 2 ? 350 : 140);
+  await settle();
+  assert.equal(server.requests.length, initial, 'blocked transport cannot dispatch later commands');
+  releaseHeartbeat();
+  await settle();
+  const sent = server.requests.slice(initial).filter(r => r.token === token && r.body);
+  assert.deepEqual(sent.map(r => r.body.type), ['heartbeat', 'aim', 'fire', 'aim'],
+    'obsolete unsent aim updates are collapsed but a shot remains an ordering barrier');
+  assert.ok(sent.every((r, i) => i === 0 || r.body.seq > sent[i - 1].body.seq),
+    'coalesced commands preserve increasing server sequence numbers');
+  const lastAim = sent.at(-1).body.direction;
+  const player = server.match.players.get(token);
+  assert.ok(Math.abs(player.facing.x - lastAim.x) < 1e-12);
+  assert.ok(Math.abs(player.facing.z - lastAim.z) < 1e-12);
+});
+
+test('PC aim-release stays after the latest queued aim during network backpressure', async () => {
+  const server = backend(), normalFetch = server.fetchLocal;
+  let release = null, stall = false;
+  server.fetchLocal = (route, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    if (stall && route === '/command' && body?.type === 'heartbeat') {
+      stall = false;
+      return new Promise(resolve => {release = () => normalFetch(route, options).then(resolve);});
+    }
+    return normalFetch(route, options);
+  };
+  const a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const before = server.requests.length;
+  stall = true;a.heartbeat();await settle();
+  for (const x of [110, 390, 120, 380]) {
+    a.advanceTime(20);
+    a.node('arena').dispatch('pointermove', {pointerType: 'mouse', clientX: x, clientY: 140});
+  }
+  a.node('arena').dispatch('pointerleave', {pointerType: 'mouse'});
+  await settle();
+  release();await settle();
+  const commands = server.requests.slice(before).filter(r => r.token === token && r.body);
+  assert.deepEqual(commands.map(r => r.body.type), ['heartbeat', 'aim', 'aimRelease']);
+  assert.equal(server.match.players.get(token).aiming, false,
+    'release must not be swallowed by aim coalescing or a stale pending direction');
+});
+
+test('PC movement backpressure keeps latest key state and never crosses a fire command', async () => {
+  const server = backend(), normalFetch = server.fetchLocal;
+  let release = null, stall = false;
+  server.fetchLocal = (route, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    if (stall && route === '/command' && body?.type === 'heartbeat') {
+      stall = false;
+      return new Promise(resolve => {release = () => normalFetch(route, options).then(resolve);});
+    }
+    return normalFetch(route, options);
+  };
+  const a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const before = server.requests.length;
+  stall = true; a.heartbeat(); await settle();
+  a.doc('keydown', {code: 'KeyA'});
+  a.doc('keyup', {code: 'KeyA'});
+  a.doc('keydown', {code: 'KeyD'});
+  a.node('fire').click();
+  a.doc('keyup', {code: 'KeyD'});
+  await settle();
+  assert.equal(server.requests.length, before);
+  release(); await settle();
+  const sent = server.requests.slice(before).filter(r => r.token === token && r.body);
+  assert.deepEqual(sent.map(r => r.body.type), ['heartbeat', 'move', 'fire', 'move']);
+  assert.deepEqual({...sent[1].body.direction}, {x: 1, z: 0});
+  assert.deepEqual({...sent[3].body.direction}, {x: 0, z: 0});
+  assert.deepEqual({...server.match.players.get(token).direction}, {x: 0, z: 0},
+    'a released PC key must not replay stale motion after transport recovers');
+  assert.ok(sent.every((r, i) => i === 0 || r.body.seq > sent[i - 1].body.seq));
+});

@@ -20,6 +20,10 @@
   let joining = false, restoring = false, polling = false;
   let windowFocused = true; // A visible but unfocused desktop window is also inactive.
   let pending = Promise.resolve();
+  // Coalesce only consecutive unsent aim or movement intents of the SAME type.
+  // Slow HTTP must not replay stale mouse flicks or released keyboard directions.
+  // Fire, release, capture and other commands remain strict ordering barriers.
+  let queuedInput = null;
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
@@ -48,7 +52,7 @@
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
-    cancelAimFlush();activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
+    cancelAimFlush();queuedInput = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
     capturing = false; triggering = false; actionFeedback = '';
     try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
     el('join').disabled = false; el('ready').disabled = true;
@@ -60,9 +64,20 @@
     if (!token) return Promise.resolve();
     const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
+    const coalescible = type === 'aim' || type === 'move';
+    if (coalescible && queuedInput && queuedInput.token === sessionToken &&
+        queuedInput.type === type) {
+      // The server accepts increasing sequences with gaps. Only an UNSENT
+      // same-type intent can be replaced; intervening actions retain order.
+      queuedInput.command = command;
+      return queuedInput.promise;
+    }
+    queuedInput = null;
+    const inputSlot = coalescible ? {type, token: sessionToken, command, promise: null} : null;
     pending = pending.then(() => {
+      if (inputSlot && queuedInput === inputSlot) queuedInput = null;
       if (token !== sessionToken) return null;
-      return request('/command', command, sessionToken);
+      return request('/command', inputSlot ? inputSlot.command : command, sessionToken);
     }).then(result => {
       if (!result || token !== sessionToken) return result;
       if (type === 'fire' || type === 'reload') {
@@ -81,6 +96,10 @@
       if (err.message === 'unknown_player') invalidateSession(sessionToken);
       else status(`명령 실패: ${err.message}`);
     });
+    if (inputSlot) {
+      inputSlot.promise = pending;
+      queuedInput = inputSlot;
+    }
     return pending;
   };
   const held = action => {
