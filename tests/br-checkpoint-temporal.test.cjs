@@ -60,6 +60,24 @@ test('BR checkpoint writer refuses impossible rival reload states before storage
   }
 });
 
+test('BR writer refuses contradictory actor state before replacing a valid autosave', () => {
+  for (const invalid of [
+    game => { game.player.alive = false; },
+    game => { game.bots[0].health = 0; },
+    game => { game.bots[0].loaded = game.bots[0].charges + 1; },
+    game => { game.kills = 1; }
+  ]) {
+    const game = active();
+    invalid(game);
+    assert.throws(() => Sim.snapshotMatch(game), /Invalid BR checkpoint actor state/);
+  }
+  const legitimate = active();
+  legitimate.bots[0].health = 0;
+  legitimate.bots[0].alive = false;
+  assert.doesNotThrow(() => Sim.restoreMatch(Sim.snapshotMatch(legitimate)),
+    'a rival can be eliminated without awarding the player a kill');
+});
+
 test('valid rival finite reload survives checkpoint and fixed-60Hz replay', () => {
   const original = active();
   const bot = original.bots[0];
