@@ -41,6 +41,8 @@ test('round finish and restart cannot inherit a prearmed capture intent', () => 
   m.join('a', 'A');m.join('b', 'B');
   m.command('a', {seq: 1, type: 'ready'});
   m.command('b', {seq: 1, type: 'ready'});
+  // A legitimate prearmed relay must be physically in range first.
+  m.players.get('a').x = 0;
   m.command('a', {seq: 2, type: 'capture', active: true});
   assert.equal(m.players.get('a').captureArmed, true);
   m.finish('red', 'test');

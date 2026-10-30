@@ -194,6 +194,8 @@ class TeamMatch {
       // A held PC trigger is an expiring intent, not a client-authored shot or rate.
       p.triggerHeld = data.active;
       p.lastTriggerTick = this.ticks;
+      // A brief trigger press between ticks still interrupts a relay operation.
+      if (data.active) {p.capturing = false;this.progress[p.team] = 0;}
       return {ok: true};
     }
     if (data.type === 'reload') {
@@ -212,6 +214,7 @@ class TeamMatch {
       p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
       p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
       p.capturing = false;
+      this.progress[p.team] = 0;
       return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
     }
     if (data.type === 'move') {
@@ -220,11 +223,16 @@ class TeamMatch {
       // Stopping retains the last facing; a zero vector cannot reveal all directions.
       if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
       p.lastMoveTick = this.ticks;
+      // Start/stop movement commands inside one server tick cannot bank a relay.
+      if (len > 1e-6) this.progress[p.team] = 0;
     } else {
       // A completed relay transmission requires a fresh physical release/press.
       // Repeated active:true lease renewals cannot farm multiple points.
-      if (data.active && !p.captureHeld) p.captureArmed = true;
-      if (!data.active) p.captureArmed = false;
+      // A relay can only be armed by a fresh press at the physical console.
+       // Holding the key while approaching from outside must not queue a remote capture.
+       if (data.active && !p.captureHeld)
+         p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS;
+      if (!data.active) {p.captureArmed = false;this.progress[p.team] = 0;}
       p.captureHeld = data.active;
       p.capturing = data.active;
       p.lastCaptureTick = this.ticks;
@@ -239,6 +247,7 @@ class TeamMatch {
       p.lastShotTick = this.ticks;
       p.ammo--;
       p.capturing = false;
+      this.progress[p.team] = 0;
       // A shot follows the server-owned facing ray, never an auto-selected target.
       // Visibility affects what the client KNOWS, not whether a shot can travel
       // through mist. The opponent's 2D collision radius is a simple hit proxy.
@@ -402,6 +411,12 @@ class TeamMatch {
     for (const {p, next} of proposals) {
       p.x = next.x;
       p.z = next.z;
+      // Walking away physically releases the relay. A later active:true
+      // renewal cannot re-arm it without a genuine key release and press.
+      if (Math.hypot(p.x, p.z) > CAPTURE_RADIUS) {
+        p.captureArmed = false;
+        p.capturing = false;
+      }
     }
     // Automatic PC fire advances only on the authoritative 60Hz tick. A lost
     // keyup or suspended tab expires without a renewed trigger command; HTTP

@@ -302,7 +302,7 @@
       const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사 중 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
         controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
       const rearmHint = capturing && !state.self.captureArmed
-        ? ' · 중계 완료: 점령 키를 놓고 다시 눌러 다음 전송' : '';
+        ? ' · 목표 이탈 또는 전송 완료: 점령 키를 놓고 다시 눌러 중계기 근처에서 재시도하세요' : '';
       status((actionFeedback && state.tick <= feedbackUntil
         ? hint + ' · ' + actionFeedback : hint) + rearmHint);
     }
