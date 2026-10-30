@@ -131,8 +131,9 @@
     };
   }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
-  // A visible boundary warning uses the same authoritative radius as the damage
-  // rule. This is a gameplay warning, not proof of a physically credible hazard.
+  // The shrinking area is a published match rule, not a supernatural source of
+  // injury. Players have until the next phase deadline to return; disqualification
+  // never changes health or fabricates a physical wound.
   function boundaryStatus(game) {
     const margin=game.zone.radius-dist(game.player,game.zone);
     return {outside:margin<0,near:margin<=12,meters:Math.ceil(Math.abs(margin))};
@@ -267,9 +268,15 @@
     const sprinting=wantsSprint&&movedDistance>1e-7;
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*dt,0,100);
     updateStress(p,dt,sprinting);
+    const previousPhase=game.zone.phase;
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
-    const outside=dist(p,game.zone)>game.zone.radius;
-    if(outside) receiveDamage(game,(1.8+game.zone.phase*1.2)*dt);
+    const boundaryDeadline=next.phase!==previousPhase;
+    // Out-of-bounds is an announced competition rule, not unexplained damage.
+    // The same deadline applies to the player and every opponent.
+    if(boundaryDeadline&&dist(p,game.zone)>game.zone.radius){
+      p.alive=false;game.status='lost';
+      game.message='MATCH DISQUALIFIED · OUTSIDE BOUNDARY';game.messageTime=3;
+    }
     // Collect actual rival footsteps after movement. Hearing uses only audible,
     // rounded positions and cannot grant sight or permission to shoot.
     const rivalFootsteps=[];
@@ -340,9 +347,10 @@
       }
       const movedBot=Math.hypot(b.x-startX,b.z-startZ);
       if(movedBot>1e-7)rivalFootsteps.push({source:b,distance:movedBot});
-      if(outsideBot){
-        b.health-=(2.3+game.zone.phase)*dt;
-        if(b.health<=0){b.health=0;b.alive=false;continue;}
+      // Assess the resolved post-movement position at the published deadline.
+      // No environmental HP drain: an out-of-bounds rival is disqualified.
+      if(boundaryDeadline&&dist(b,game.zone)>game.zone.radius){
+        b.health=0;b.alive=false;continue;
       }
       // Both player and rival encounters consume finite ammunition. Reload completion
       // cannot fire on the same frame, and a missed shot still spends one round.

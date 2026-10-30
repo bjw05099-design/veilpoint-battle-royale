@@ -630,7 +630,8 @@ test('BR browser shows truthful magazine/reserve and boundary proximity without 
  game.player.x=171;
  app.frame(900);
  assert.match(app.node('message').textContent,/OUTSIDE MATCH BOUNDARY/);
- assert.ok(game.player.health<100,'the warning is not a fictional health shield');
+ assert.match(app.node('message').textContent,/DEADLINE/);
+ assert.equal(game.player.health,100,'a competition boundary must not fabricate injury');
  assert.equal(game.player.charges,48);
 });
 

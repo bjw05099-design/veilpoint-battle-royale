@@ -207,11 +207,12 @@ test('rival combat and ammo transitions replay identically at fixed 60Hz',()=>{
  assert.deepEqual(snapshot(a),snapshot(b));
  assert.ok(a.bots.some(x=>x.charges<36),'at least one rival must spend ammo');
 });
-test('an opponent eliminated by the zone cannot fire on its death frame',()=>{
+test('out-of-bounds rival is disqualified at phase deadline without firing',()=>{
  const g=S.newMatch(505,1),b=g.bots[0],p=g.player;g.status='playing';
- p.x=165;p.z=0;b.x=171;b.z=0;b.angle=-Math.PI/2;
+ p.x=0;p.z=0;b.x=171;b.z=0;b.angle=-Math.PI/2;
  b.health=.001;b.actionTime=0;b.moveTime=999;b.skill=1;
- S.tick(g,1/60,{});
+ g.elapsed=89.98;Object.assign(g.zone,S.phaseAt(g.elapsed));
+ S.tick(g,0.05,{});
  assert.equal(b.alive,false);assert.equal(b.health,0);
  assert.equal(p.health,100);assert.equal(b.charges,36);
 });
