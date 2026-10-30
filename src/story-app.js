@@ -24,7 +24,7 @@
   // mission on every fixed-step shot. Pausing and phase changes still flush.
   // Story preview uses a shorter checkpoint window than BR to bound progress loss.
   const SHOT_SAVE_INTERVAL_SECONDS=0.45;
-  let lastAutosaveAt=0;
+  let lastAutosaveAt=0,shotSavePending=false;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
   // Require desktop pointer lock when any fine pointer is available.
@@ -54,6 +54,7 @@
   function persist(){
     const raw=Story.serialize(state);
     lastAutosaveAt=state.world.elapsed;
+    shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
     saveFailed=!saved;
     if(saved)checkpoint=raw;
@@ -65,6 +66,7 @@
   function persistShot(){
     if(state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)
       persist();
+    else shotSavePending=true;
   }
   function recordCompletion(){
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
@@ -152,6 +154,7 @@
     }
     $('storyWeapon').value=state.world.player.weaponId;
     lastAutosaveAt=state.world.elapsed;
+    shotSavePending=false;
     saveFailed=false;
     $('saveStatus').textContent='';
     $('saveStatus').classList.add('hidden');
@@ -386,6 +389,10 @@
         audio.play('shot');persistShot();
       }
     });
+    // Flush a dirty held-fire checkpoint on its bounded clock even if the
+    // most recent shot happened just before the 450ms deadline.
+    if(running&&shotSavePending&&state.phase==='engagement'&&
+       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)persist();
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&
