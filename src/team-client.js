@@ -16,7 +16,7 @@
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
   // The server remains authoritative for all movement and gameplay commands.
   const Desktop = window.VeilpointDesktopControls;
-  const controls = Desktop.load(window.localStorage);
+  let controls = Desktop.load(window.localStorage);
   const keys = new Set();
   const physicalTrigger = Desktop.createTriggerLatch();
   const request = async (path, body) => {
@@ -248,9 +248,12 @@
     draw();
   };
   // Labels must match the active PC profile, not hard-coded default keys.
-  el('fire').textContent = controls.bindings.fire + ' 발사';
-  el('reload').textContent = controls.bindings.reload + ' 재장전';
-  el('capture').textContent = controls.bindings.interact + ' 점령';
+  const refreshControlLabels = () => {
+    el('fire').textContent = controls.bindings.fire + ' 발사';
+    el('reload').textContent = controls.bindings.reload + ' 재장전';
+    el('capture').textContent = controls.bindings.interact + ' 점령';
+  };
+  refreshControlLabels();
   el('join').addEventListener('click', async () => {
     // A rapid double-click must never consume both two-player lobby slots.
     if (joining || restoring || token) return;
@@ -301,6 +304,21 @@
     updateInput();
   });
   const releaseHeldInput = () => {physicalTrigger.clear();setTrigger(false);keys.clear();setCapture(false);updateInput();releaseAim();};
+  // Focusing an in-page form/button does not blur the window. Stop movement,
+  // held fire and objective capture immediately instead of waiting for leases.
+  document.addEventListener('focusin', event => {
+    if (Desktop.isInteractiveTarget(event.target)) releaseHeldInput();
+  });
+  // The BR and CH01 menus share these bindings. A remap in another PC tab
+  // must not leave this tab using stale keys or a stale held-fire command.
+  window.addEventListener('storage', event => {
+    if (event.key !== Desktop.STORAGE_KEY && event.key !== null) return;
+    if (event.storageArea && event.storageArea !== window.localStorage) return;
+    releaseHeldInput();
+    controls = Desktop.load(window.localStorage);
+    refreshControlLabels();
+    if (state) render();
+  });
   window.addEventListener('blur', releaseHeldInput);
   // Releasing outside the arena must not leave a mouse trigger latched.
   window.addEventListener('mouseup', e => {
