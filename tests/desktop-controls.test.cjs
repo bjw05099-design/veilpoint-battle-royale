@@ -157,7 +157,7 @@ test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reje
  assert.equal(C.actionFor('KeyF',controls.get()),'fire');
  assert.equal(C.actionFor('Space',controls.get()),null);
  assert.equal(controls.get().sensitivity,2.25);
- assert.equal(C.mouseDelta(10,10,controls.get()).pitch,0.037125);
+ assert.ok(Math.abs(C.mouseDelta(10,10,controls.get()).pitch-0.037125)<1e-12);
  assert.equal(nodes.get('desktopBindKey').textContent,'KeyF');
  notify({key:C.STORAGE_KEY,storageArea:localStorage});
  notify({key:'veilpoint.graphics',storageArea:localStorage});
