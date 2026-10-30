@@ -37,13 +37,18 @@ test('plan skips behind/far/dead entities, preserving nearby visible entities',(
  assert.equal(plan.stats.botsVisible,2);
  assert.equal(plan.stats.lootVisible,2);
  assert.equal(plan.effects.length,1);
- assert.ok(plan.zone.length>0&&plan.zone.length<128);
+ assert.equal(plan.zone.length,0,'eligibility is HUD-only, not glowing geometry');
+ assert.equal(plan.stats.zoneTotal,0);
 });
-test('zone never disappears when camera faces the nearby boundary',()=>{
+test('moving match boundary never creates nonphysical world-space pylons',()=>{
  const s=state();s.player.z=-99;
- const p=V.planVisible(s);
- assert.ok(p.zone.length>0);
- assert.ok(p.zone.some(x=>x.z<0));
+ for(const radius of [170,100,1.5,0]){
+  s.zone.radius=radius;
+  const p=V.planVisible(s);
+  assert.deepEqual(p.zone,[]);
+  assert.equal(p.stats.zoneVisible,0);
+  assert.equal(p.stats.zoneTotal,0);
+ }
 });
 test('render planner is deterministic and does not mutate simulation state',()=>{
  const s=state(),before=JSON.stringify(s);

@@ -89,7 +89,8 @@ class SoftwareRenderer {
  const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
- const z=state.zone;if(z.radius<160){ctx.strokeStyle='#a9dcfc7e';ctx.lineWidth=2;ctx.beginPath();let started=false;for(let i=0;i<=128;i++){const a=i/128*Math.PI*2,q=proj(z.x+Math.cos(a)*z.radius,1.2,z.z+Math.sin(a)*z.radius);if(q){if(!started){ctx.moveTo(q[0],q[1]);started=true;}else ctx.lineTo(q[0],q[1]);}}ctx.stroke();}
+ // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
+ // not as a floating ring drawn across the physical game world.
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
  }
 }
@@ -136,13 +137,13 @@ class Renderer {
   mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
  }
  for(const {entity:item,lod} of plan.loot){
-  const f=1.2+Math.sin(t*2.4+item.id)*.19;
-  const c=item.kind==='evac'?[.25,.85,.58]:(item.kind==='evidence'||item.kind==='verify')?[.32,.56,.96]:item.kind==='magazine'?[.63,.66,.61]:[.98,.69,.30];
-  mesh.box(item.x,f,item.z,.75,.75,.75,c);
-  if(lod==='high')mesh.box(item.x,0,item.z,1.0,.1,1.0,[.18,.23,.23]);
+  // Grounded, stationary physical prop placeholders. Hovering neon cubes
+  // would contradict the project's realism-only rule in every mode.
+  const c=item.kind==='evac'?[.38,.44,.37]:(item.kind==='evidence'||item.kind==='verify')?[.34,.39,.43]:item.kind==='magazine'?[.40,.42,.39]:[.49,.43,.34];
+  mesh.box(item.x,.09,item.z,.65,.18,.45,c);
+  if(lod==='high')mesh.box(item.x,0,item.z,.85,.06,.65,[.24,.25,.23]);
  }
- // Keep full geometry near the camera; remove only off-camera or distant pylons.
- for(const point of plan.zone)mesh.box(point.x,0,point.z,.19,2.5,.19,[.24,.52,.82]);
+ // No 3D eligibility pylons: the boundary is a published rule, not a wall.
  for(const e of plan.effects){
   // The prototype previously drew glowing blue/red cubes in mid-air. Replace
   // them with brief muted ground debris or a small warm muzzle cue; no
