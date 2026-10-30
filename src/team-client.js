@@ -382,7 +382,13 @@
     if (e.button === 0) setTrigger(physicalTrigger.release('mouse'));
   });
   // Mobile tab switches may suspend polling without dispatching window.blur.
-  document.addEventListener('visibilitychange', () => {if (document.hidden) releaseHeldInput();});
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseHeldInput();
+    // A backgrounded PC tab must not silently keep a competitive slot alive.
+    // On return, renew promptly so a brief alt-tab does not wait for the next
+    // 10-second heartbeat interval and accidentally time out.
+    else if (token) void send('heartbeat');
+  });
   for (const btn of document.querySelectorAll('[data-dir]')) {
     const key = btn.dataset.dir;
     btn.addEventListener('pointerdown', e => {e.preventDefault();keys.add(key);updateInput();});
@@ -419,10 +425,10 @@
   };
   void restoreTabSession();
   // A genuine connected client renews its server lease independently of read-only polling.
-  setInterval(() => {if (token) void send('heartbeat');}, 10000);
+  setInterval(() => {if (token && !document.hidden) void send('heartbeat');}, 10000);
   setInterval(async () => {
     // Slow responses must not overlap and overwrite newer game snapshots.
-    if (!token || polling || restoring) return;
+    if (!token || document.hidden || polling || restoring) return;
     polling = true;
     const polledToken = token;
     try {
