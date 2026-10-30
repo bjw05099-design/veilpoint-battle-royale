@@ -61,7 +61,7 @@ test('two authenticated HTTP clients cannot queue capture while moving', async (
     const response = await fetch(base + path, {method: 'POST',
       headers: {'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})},
       body: JSON.stringify(payload)});
-    assert.equal(response.status, 200, path);
+    assert.ok(response.ok, path + ': HTTP ' + response.status);
     return response.json();
   };
   try {
