@@ -22,7 +22,8 @@
   const AUTOSAVE_SECONDS=5;
   // Keep CH01 automatic volleys from synchronously serializing the whole
   // mission on every fixed-step shot. Pausing and phase changes still flush.
-  const SHOT_SAVE_INTERVAL_SECONDS=1;
+  // Story preview uses a shorter checkpoint window than BR to bound progress loss.
+  const SHOT_SAVE_INTERVAL_SECONDS=0.45;
   let lastAutosaveAt=0;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
