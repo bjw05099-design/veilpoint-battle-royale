@@ -20,6 +20,10 @@
   let joining = false, restoring = false, polling = false;
   let windowFocused = true; // A visible but unfocused desktop window is also inactive.
   let pending = Promise.resolve();
+  // Keep at most one unsent mouse-aim update per consecutive command run.
+  // Slow HTTP must not replay a long trail of obsolete pointer directions.
+  // Fire, release, movement and every other command remain ordering barriers.
+  let queuedAim = null;
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
@@ -48,7 +52,7 @@
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
-    cancelAimFlush();activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
+    cancelAimFlush();queuedAim = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
     capturing = false; triggering = false; actionFeedback = '';
     try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
     el('join').disabled = false; el('ready').disabled = true;
@@ -60,9 +64,18 @@
     if (!token) return Promise.resolve();
     const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
+    if (type === 'aim' && queuedAim && queuedAim.token === sessionToken) {
+      // Sequence gaps are valid server-side; the newest pointer direction
+      // replaces only an aim command that has not reached the network yet.
+      queuedAim.command = command;
+      return queuedAim.promise;
+    }
+    if (type !== 'aim') queuedAim = null;
+    const aimSlot = type === 'aim' ? {token: sessionToken, command, promise: null} : null;
     pending = pending.then(() => {
+      if (aimSlot && queuedAim === aimSlot) queuedAim = null;
       if (token !== sessionToken) return null;
-      return request('/command', command, sessionToken);
+      return request('/command', aimSlot ? aimSlot.command : command, sessionToken);
     }).then(result => {
       if (!result || token !== sessionToken) return result;
       if (type === 'fire' || type === 'reload') {
@@ -81,6 +94,10 @@
       if (err.message === 'unknown_player') invalidateSession(sessionToken);
       else status(`명령 실패: ${err.message}`);
     });
+    if (aimSlot) {
+      aimSlot.promise = pending;
+      queuedAim = aimSlot;
+    }
     return pending;
   };
   const held = action => {
