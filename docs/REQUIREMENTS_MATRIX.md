@@ -1,7 +1,7 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
 ## 2026-10-31 PC BR/CH01 rapid-fire responsiveness and save durability (R-02 / R-04 / R-10 / R-11 / R-14 / R-25)
-- **Partial browser candidate:** BR 60Hz held-fire checkpoints are limited to one per simulated second; CH01 uses a tighter 450ms interval to retain short-mission durability while reducing per-shot writes. CH01 manual shots and encounter completion still save immediately. Explicit pause/pagehide and inventory interactions still flush immediately; regular autosave remains. Ammo HUD/minimap refresh is batched at 250ms while the first shot responds immediately; older shot-feedback timers cannot clear a newer cue.
+- **Partial browser candidate:** BR 60Hz held-fire checkpoints are limited to one per simulated second **after the immediately saved first manual shot**; CH01 uses a tighter 450ms interval to retain short-mission durability while reducing per-shot writes. CH01 manual shots and encounter completion also save immediately. Explicit pause/pagehide and inventory interactions still flush immediately; regular autosave remains. Ammo HUD/minimap refresh is batched at 250ms while the first shot responds immediately; older shot-feedback timers cannot clear a newer cue.
 - **Evidence scope:** Three mocked PC browser regressions check bounded BR/CH01 write counts, final pause-save ammunition parity, BR HUD freshness and feedback-timer ordering. This is an event-count optimization, **not measured frame-time improvement**; actual Windows RTX 3070/QHD 165Hz, 16GB system RAM, GPU/CPU P50/P95/P99, native UE, full realism and 2026-11-27 release acceptance remain unverified.
 
 
