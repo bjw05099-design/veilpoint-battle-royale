@@ -155,7 +155,9 @@ test('two client UIs join, ready, send bounded movement and release capture on b
   assert.equal(player.capturing, false);
   const seq = player.seq;
   a.heartbeat(); await settle();
-  assert.equal(player.seq, seq + 1, 'heartbeat uses validated server sequence');
+  assert.equal(player.seq, seq, 'unfocused PC window cannot renew its server session');
+  a.focus(); await settle();
+  assert.equal(player.seq, seq + 1, 'returning focus renews with validated server sequence');
 });
 
 test('tab refresh resumes the same player and clears ghost movement and capture', async () => {
