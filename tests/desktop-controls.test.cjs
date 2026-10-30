@@ -81,3 +81,46 @@ test('PC keyboard and mouse held-fire sources are independent and reset on pause
  assert.equal(latch.held,false,'pause/remap must discard all physical trigger sources');
  assert.equal(latch.press('unknown'),false,'unrecognized sources cannot latch firing');
 });
+
+test('PC raw mouse lock requests unadjusted movement and caches unsupported fallback',async()=>{
+ const calls=[];
+ const canvas={requestPointerLock(options){
+  calls.push(options);
+  if(options)return Promise.reject(Object.assign(new Error('raw unsupported'),{name:'NotSupportedError'}));
+  return Promise.resolve();
+ }};
+ await C.requestPrecisionPointerLock(canvas);
+ await C.requestPrecisionPointerLock(canvas);
+ assert.deepEqual(calls,[{unadjustedMovement:true},undefined,undefined]);
+});
+test('PC raw mouse lock does not bypass permission denial',async()=>{
+ const calls=[];
+ const canvas={requestPointerLock(options){
+  calls.push(options);
+  return Promise.reject(Object.assign(new Error('denied'),{name:'NotAllowedError'}));
+ }};
+ await assert.rejects(C.requestPrecisionPointerLock(canvas),{name:'NotAllowedError'});
+ assert.equal(calls.length,1,'do not retry a user-denied pointer lock');
+});
+test('a canceled PC lock request cannot reacquire a stale game canvas',async()=>{
+ let wanted=true;
+ const calls=[];
+ const canvas={requestPointerLock(options){
+  calls.push(options);
+  if(options)return Promise.reject(Object.assign(new Error('unsupported'),{name:'NotSupportedError'}));
+  return Promise.resolve();
+ }};
+ const attempt=C.requestPrecisionPointerLock(canvas,()=>wanted);
+ wanted=false;
+ await assert.rejects(attempt,/pointer_lock_superseded/);
+ assert.equal(calls.length,1,'no fallback after pause or superseding resume');
+});
+test('older browsers with synchronous raw-option rejection use ordinary pointer lock',()=>{
+ const calls=[];
+ const canvas={requestPointerLock(options){
+  calls.push(options);
+  if(options)throw new TypeError('raw options unsupported');
+ }};
+ assert.equal(C.requestPrecisionPointerLock(canvas),undefined);
+ assert.deepEqual(calls,[{unadjustedMovement:true},undefined]);
+});
