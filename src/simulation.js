@@ -548,7 +548,10 @@
         data.bots.some(b => b.lastSeenUntil > data.elapsed + 2.5 + tolerance) ||
         data.player.reloadRemaining > firearm.reloadSeconds + RELOAD_HESITATION_SECONDS + tolerance ||
         (data.player.reloadRemaining > 0 &&
-          (data.player.loaded >= firearm.magazine || data.player.charges <= data.player.loaded)))
+          (data.player.loaded >= firearm.magazine || data.player.charges <= data.player.loaded)) ||
+        // Rivals only start reloading after the last loaded round. A forged
+        // timer with rounds still loaded, or no reserve, must not persist.
+        data.bots.some(b => b.reloadRemaining > 0 && (b.loaded !== 0 || b.charges === 0)))
       throw new RangeError('Invalid BR checkpoint timing');
   }
   function snapshotMatch(game) {
