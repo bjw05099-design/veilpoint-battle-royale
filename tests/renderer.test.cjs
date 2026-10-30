@@ -138,3 +138,23 @@ test('BR renderer uses muted physical-scale shot feedback rather than floating e
  assert.ok(feedback.every(e=>e.color.every(c=>c<.7)), 'no saturated neon shot markers');
  assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
 });
+
+test('BR WebGL displays finite caches on the ground without moving force-field pylons',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(8801,0);
+ state.obstacles=[];state.bots=[];state.effects=[];
+ state.loot=[{id:0,x:0,z:-4,kind:'ammo',picked:false}];
+ state.zone.radius=95;
+ const props=[];
+ const box=renderer.dynamic.box.bind(renderer.dynamic);
+ renderer.dynamic.box=(x,y,z,w,h,d,color)=>{props.push({x,y,z,w,h,d,color});return box(x,y,z,w,h,d,color);};
+ renderer.draw(state);
+ assert.equal(renderer.lastVisibilityStats.zoneVisible,0);
+ assert.equal(renderer.lastVisibilityStats.zoneTotal,0);
+ assert.equal(props.length,2,'only grounded cache and its base, never ring pylons');
+ assert.ok(props.every(p=>p.x===0&&p.z===-4&&p.y<=.09&&p.h<=.18));
+ assert.equal(renderer.dynamic.count,72);
+});
