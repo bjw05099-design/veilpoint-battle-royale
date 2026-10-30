@@ -495,6 +495,9 @@ class TeamMatch {
   snapshot(token) {
     const me = this.players.get(token);
     if (!me) throw new RangeError('unknown_player');
+    // State polling never renews a lease. Settle expired sessions before
+    // publishing a phase even when the 60Hz timer is delayed or disabled.
+    this.expirePlayingLeases();
     const weather = weatherAt(this.ticks);
     const visible = [...this.players.values()].filter(p => {
       if (p === me) return true;
