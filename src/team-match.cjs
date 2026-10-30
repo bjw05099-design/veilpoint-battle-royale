@@ -135,7 +135,14 @@ class TeamMatch {
     p.lastSeen = this.now();
     if (data.type === 'leave') {
       this.players.delete(token);
-      if (this.phase === 'playing') this.finish(p.team === 'red' ? 'blue' : 'red', 'player_left');
+      if (this.phase === 'playing') {
+        // A voluntary exit must not award a win to a participant whose lease
+        // already expired before the next authoritative 60Hz timeout sweep.
+        const timestamp = this.now();
+        const connected = [...this.players.values()].find(other =>
+          timestamp - other.lastSeen <= this.timeoutMs);
+        this.finish(connected ? connected.team : null, 'player_left');
+      }
       return {ok: true};
     }
     // State polling cannot keep a disconnected/abandoned player active forever.
