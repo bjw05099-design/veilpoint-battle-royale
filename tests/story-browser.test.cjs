@@ -716,3 +716,22 @@ test('CH01 PC canvas requests unadjusted mouse movement while retaining player c
  app.frame(1000/60);
  assert.equal(app.element('menu').classList.contains('hidden'),true);
 });
+
+
+test('PC CH01 event-only pointer-lock denial checkpoints safely and ignores late errors', () => {
+  const app = boot(new Map(), false, 'pending');
+  app.element('continue').click();
+  app.emit('keydown', {code: 'KeyW'});
+  app.emit('pointerlockerror');
+  app.frame(1000);
+  assert.equal(app.element('menu').classList.contains('hidden'), false);
+  assert.match(app.element('menuText').textContent, /포인터 잠금/);
+  const saved = JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.elapsed, 0);
+  assert.equal(app.context.VeilpointInput.forward, false);
+  app.context.document.pointerLockElement = app.element('scene');
+  app.element('continue').click();
+  app.emit('pointerlockerror');
+  assert.equal(app.element('menu').classList.contains('hidden'), true,
+    'a late event must not interrupt a newly acquired desktop lock');
+});

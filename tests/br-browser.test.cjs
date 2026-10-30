@@ -817,3 +817,23 @@ test('BR PC canvas requests unadjusted mouse movement without altering 60Hz game
  app.frame(1000/60);
  assert.equal(app.game.status,'playing');
 });
+
+
+test('PC BR handles event-only pointer-lock denial and ignores late errors after success', () => {
+  const app = boot({pointerLock: 'pending'});
+  app.node('play').click(); app.frame(1000 / 60);
+  const game = app.game, before = game.elapsed;
+  app.emit('keydown', {code: 'KeyW'});
+  app.emit('pointerlockerror');
+  app.frame(3000);
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+  assert.match(app.selectors.get('.tagline').textContent, /포인터 잠금/);
+  assert.equal(game.elapsed, before, 'an event-only denial cannot advance the world');
+  assert.equal(app.context.VeilpointInput.forward, false);
+  assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+  app.context.document.pointerLockElement = app.node('scene');
+  app.node('play').click();
+  app.emit('pointerlockerror');
+  assert.equal(app.node('overlay').classList.contains('hidden'), true,
+    'late error after an acquired PC lock cannot pause the new attempt');
+});
