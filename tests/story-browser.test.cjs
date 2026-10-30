@@ -755,3 +755,32 @@ test('PC CH01 event-only pointer-lock denial checkpoints safely and ignores late
   assert.equal(app.element('menu').classList.contains('hidden'), true,
     'a late event must not interrupt a newly acquired desktop lock');
 });
+
+test('CH01 PC held-fire checkpoints are bounded and pause flushes final finite ammunition',()=>{
+ const sharedStore=new Map(),originalSet=sharedStore.set.bind(sharedStore);
+ let writes=0;
+ sharedStore.set=(key,value)=>{
+  if(key==='veilpoint.story.ch01')writes++;
+  return originalSet(key,value);
+ };
+ const app=boot(sharedStore);
+ app.element('continue').click();
+ app.moveForward(0,300);
+ app.interact();
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+ const before=writes;
+ app.emit('keydown',{code:'Space'});
+ for(let tick=301;tick<=440;tick++)app.frame(tick*1000/60);
+ app.emit('keyup',{code:'Space'});
+ assert.ok(writes-before>=1,'sustained volley must still periodically checkpoint');
+ assert.ok(writes-before<=7,'automatic rounds must not each serialize a full mission');
+ const beforePause=JSON.parse(sharedStore.get('veilpoint.story.ch01'));
+ assert.equal(beforePause.phase,'engagement');
+ assert.ok(beforePause.player.charges<48,'finite ammo is spent during held fire');
+ app.emit('blur');
+ const flushed=JSON.parse(sharedStore.get('veilpoint.story.ch01'));
+ assert.ok(flushed.elapsed>=beforePause.elapsed);
+ assert.ok(flushed.player.charges<=beforePause.player.charges);
+ assert.equal(flushed.player.charges,36,'pause preserves all twelve spent rounds');
+ assert.equal(app.context.VeilpointInput.fireHeld,false);
+});

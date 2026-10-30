@@ -83,6 +83,11 @@ const canAct=()=>running&&!suspended&&!document.hidden&&simulation.status==='pla
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
+// LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
+// save at most once per second during a volley, and always flush on pause/pagehide.
+const SHOT_SAVE_INTERVAL_SECONDS=1;
+const SHOT_HUD_INTERVAL_SECONDS=0.25;
+let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
  try{if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(MATCH_SAVE_KEY);
  else global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
@@ -215,7 +220,7 @@ function suspendMatch(reason='background'){
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function resetInactiveClock(){
- clearInput();
+ clearInput();lastShotHudElapsed=-Infinity;shotFeedbackSerial++;
  // A lost touch pointer may never emit pointerup; discard held stick and camera
  // gestures so resuming cannot move or rotate the player without fresh input.
  joyId=null;lookId=null;previousLook=null;thumb.x=0;thumb.y=0;nub.style.transform='';
@@ -255,8 +260,22 @@ canvas.addEventListener('mousedown',e=>{
 addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('mouse');});
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
-function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback();}
-function shotFeedback(){persistMatch();updateHud();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
+function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback(true);}
+function shotFeedback(immediateSave=false){
+ // A fixed-step held trigger may fire several times per second. Avoid a
+ // synchronous full-world snapshot and minimap redraw for every round.
+ // Normal 15s autosave, explicit inventory actions and pause still flush state.
+ if(immediateSave||simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)persistMatch();
+ if(simulation.elapsed-lastShotHudElapsed>=SHOT_HUD_INTERVAL_SECONDS){
+  updateHud();lastShotHudElapsed=simulation.elapsed;
+ }
+ const firearm=Game.FIREARMS[simulation.player.weaponId];
+ tone(firearm.cueHz,firearm.cueSeconds);shake=.55;
+ $('hitText').textContent='SHOT FIRED';
+ // Older feedback timers must never clear the newest shot's indicator.
+ const serial=++shotFeedbackSerial;
+ setTimeout(()=>{if(serial===shotFeedbackSerial)$('hitText').textContent='READY';},300);
+}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};

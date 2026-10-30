@@ -20,7 +20,11 @@
   let checkpoint=null,saveFailed=false;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
   const AUTOSAVE_SECONDS=5;
-  let lastAutosaveAt=0;
+  // Keep CH01 automatic volleys from synchronously serializing the whole
+  // mission on every fixed-step shot. Pausing and phase changes still flush.
+  // Story preview uses a shorter checkpoint window than BR to bound progress loss.
+  const SHOT_SAVE_INTERVAL_SECONDS=0.45;
+  let lastAutosaveAt=0,shotSavePending=false;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
   // Require desktop pointer lock when any fine pointer is available.
@@ -50,6 +54,7 @@
   function persist(){
     const raw=Story.serialize(state);
     lastAutosaveAt=state.world.elapsed;
+    shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
     saveFailed=!saved;
     if(saved)checkpoint=raw;
@@ -57,6 +62,11 @@
     notice.textContent=saved?'':'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     notice.classList.toggle('hidden',saved);
     return saved;
+  }
+  function persistShot(){
+    if(state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)
+      persist();
+    else shotSavePending=true;
   }
   function recordCompletion(){
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
@@ -144,6 +154,7 @@
     }
     $('storyWeapon').value=state.world.player.weaponId;
     lastAutosaveAt=state.world.elapsed;
+    shotSavePending=false;
     saveFailed=false;
     $('saveStatus').textContent='';
     $('saveStatus').classList.add('hidden');
@@ -375,9 +386,13 @@
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
       Story.step(state,step,input);
       if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true).ok){
-        audio.play('shot');persist();
+        audio.play('shot');persistShot();
       }
     });
+    // Flush a dirty held-fire checkpoint on its bounded clock even if the
+    // most recent shot happened just before the 450ms deadline.
+    if(running&&shotSavePending&&state.phase==='engagement'&&
+       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)persist();
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&
