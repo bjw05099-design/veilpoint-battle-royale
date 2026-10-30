@@ -28,7 +28,8 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
       setPointerCapture(){},
       focus(){document.activeElement=this;},
       blur(){if(document.activeElement===this)document.activeElement=null;},
-      requestPointerLock(){
+      requestPointerLock(options){
+        this.lastPointerLockOptions=options;
         if(pointerLock==='throw')throw new Error('pointer lock denied');
         if(pointerLock==='denied')return Promise.reject(new Error('pointer lock denied'));
         if(pointerLock==='pending')return new Promise(()=>{});
@@ -706,4 +707,12 @@ test('PC CH01 simultaneous mouse and keyboard hold survives either release and c
  assert.equal(p.fireHeld,true,'keyboard stays active when mouse releases');
  app.element('pauseButton').click();
  assert.equal(p.fireHeld,false,'pause clears trigger latch');
+});
+
+test('CH01 PC canvas requests unadjusted mouse movement while retaining player control',()=>{
+ const app=boot();
+ app.element('continue').click();
+ assert.equal(app.element('scene').lastPointerLockOptions.unadjustedMovement,true);
+ app.frame(1000/60);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
 });
