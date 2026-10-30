@@ -188,7 +188,7 @@
   function fire(){
     if(!canAct())return;
     const result=Story.fire(state);
-    if(result.ok){audio.play('shot');persistShot();updateHud();}
+    if(result.ok){audio.play('shot');persist();updateHud();}
   }
   function reload(){
     if(!canAct()||state.phase!=='engagement')return;
