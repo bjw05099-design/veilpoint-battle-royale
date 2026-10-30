@@ -59,3 +59,32 @@ test('CH01 inherits the same finite long-range hit and clears only real opponent
   assert.equal(state.phase,'records');
   assert.equal(state.combat.cleared,true);
 });
+
+test('both PC loadout menus expose the exact fictional simulation range per class', () => {
+  const fs = require('node:fs');
+  for (const path of ['index.html','story.html']) {
+    const html=fs.readFileSync(require('node:path').join(__dirname,'..',path),'utf8');
+    for (const [id,profile] of Object.entries(Sim.FIREARMS)) {
+      const option=html.match(new RegExp('<option value="'+id+'">([^<]+)</option>'));
+      assert.ok(option,path+' must offer '+id);
+      assert.ok(option[1].includes(profile.range+'m'),
+        path+' must label the live '+id+' range without a stale number');
+    }
+    assert.match(html,/실제 제품의 성능 수치가 아닙니다/);
+  }
+});
+test('a long-range fired round survives BR checkpoint and deterministic continuation', () => {
+  const original=corridor('precision',-105,105,-20);
+  assert.equal(Sim.tag(original).hit,true);
+  const saved=Sim.snapshotMatch(original);
+  const restored=Sim.restoreMatch(saved);
+  assert.equal(restored.player.weaponId,'precision');
+  assert.equal(restored.player.charges,original.player.charges);
+  assert.equal(restored.bots[0].health,original.bots[0].health);
+  assert.equal(Sim.snapshotMatch(restored),saved);
+  for(let i=0;i<60;i++){
+    Sim.tick(original,1/60,{});
+    Sim.tick(restored,1/60,{});
+  }
+  assert.equal(Sim.snapshotMatch(restored),Sim.snapshotMatch(original));
+});
