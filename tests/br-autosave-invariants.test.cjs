@@ -74,3 +74,53 @@ test('autosave refuses an inconsistent zone phase or forged radius', () => {
     assert.throws(() => Sim.snapshotMatch(game), RangeError);
   }
 });
+
+test('BR writer refuses malformed metadata before replacing a valid local checkpoint', () => {
+  const valid = Sim.snapshotMatch(active());
+  assert.equal(Sim.snapshotMatch(Sim.restoreMatch(valid)), valid);
+  for (const corrupt of [
+    g => {g.seed = -1;},
+    g => {g.kills = 1.5;},
+    g => {g.message = 'X'.repeat(121);},
+    g => {g.message = null;},
+    g => {g.messageTime = Infinity;},
+    g => {g.damageFlash = NaN;},
+    g => {g.recentDamage = 101;},
+    g => {g.random.getState = () => 0;},
+    g => {g.effects = new Array(257).fill({x:0,z:0,t:0.2,type:'hit'});}
+  ]) {
+    const game = active();
+    corrupt(game);
+    assert.throws(() => Sim.snapshotMatch(game), RangeError);
+  }
+});
+
+test('BR writer refuses unsupported or corrupt visual effects without losing a prior save', () => {
+  for (const effect of [
+    {x:0,z:0,t:0.2,type:'shield'},
+    {x:0,z:0,t:Infinity,type:'hit'},
+    {x:999,z:0,t:0.2,type:'hostile'}
+  ]) {
+    const game = active();
+    game.effects.push(effect);
+    assert.throws(() => Sim.snapshotMatch(game), RangeError);
+  }
+  const game = active();
+  game.effects.push({x:0,z:0,t:0.2,type:'hit'});
+  assert.deepEqual(Sim.restoreMatch(Sim.snapshotMatch(game)).effects, game.effects);
+});
+
+test('BR writer rejects non-boolean flags that would silently change after resume', () => {
+  for (const corrupt of [
+    g => {g.player.alive = 1;},
+    g => {g.player.reloadAssist = 'false';},
+    g => {g.player.reloadHesitation = 1;},
+    g => {g.player.sprintExhausted = null;},
+    g => {g.bots[0].alive = 1;},
+    g => {g.loot[0].picked = 0;}
+  ]) {
+    const game = active();
+    corrupt(game);
+    assert.throws(() => Sim.snapshotMatch(game), RangeError);
+  }
+});
