@@ -24,8 +24,11 @@
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
   // Require desktop pointer lock when any fine pointer is available.
-  const isTouch=global.matchMedia('(pointer:coarse)').matches &&
+  const isWindows=Desktop.isWindowsPC(global.navigator);
+  const isTouch=!isWindows && global.matchMedia('(pointer:coarse)').matches &&
     !global.matchMedia('(any-pointer:fine)').matches;
+  // A Windows convertible must not show the old coarse-pointer mobile overlay.
+  if(isWindows)$('mobile').style.display='none';
   let lockAttempt=0;
   // A desktop player cannot aim without pointer lock; no hostile 60Hz tick or
   // player action may advance while permission is pending, denied or lost.

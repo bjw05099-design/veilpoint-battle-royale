@@ -8,7 +8,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..');
 
-function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted'} = {}) {
+function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false} = {}) {
   const nodes = new Map(), listeners = new Map();
   let now = 0, frameCallback = null, latestGame = null;
   const ctx = {};
@@ -74,6 +74,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     },
     performance: {now: () => now},
     matchMedia: query => ({matches: query === '(any-pointer:fine)' ? finePointer : touch}),
+    navigator: windows ? {platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} : undefined,
     requestAnimationFrame: callback => {frameCallback = callback;},
     setTimeout: () => 1,
     addEventListener: (key, callback) => add(listeners, key, callback),
@@ -529,6 +530,22 @@ test('BR Escape opens a safe pause even if pointerlockchange is delayed', () => 
  app.node('play').click();app.frame(4000);
  assert.equal(app.game,game);
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
+
+test('Windows coarse-only convertible still requires pointer lock and hides legacy mobile controls', () => {
+  const app=boot({touch:true,finePointer:false,pointerLock:'pending',windows:true});
+  app.node('play').click();
+  app.frame(1000/60);
+  const game=app.game,elapsed=game.elapsed,rounds=game.player.charges;
+  assert.equal(app.node('mobileControls').classList.contains('active'),false);
+  app.emit('keydown',{code:'KeyW'});
+  app.emit('keydown',{code:'Space'});
+  app.frame(2000/60);
+  assert.equal(game.elapsed,elapsed,'coarse Windows pointer cannot advance without desktop lock');
+  assert.equal(game.player.charges,rounds,'coarse Windows pointer cannot fire without desktop lock');
+  app.context.document.pointerLockElement=app.node('scene');
+  app.frame(2017);
+  assert.ok(game.elapsed>elapsed,'fixed 60Hz simulation resumes only after lock');
 });
 
 test('desktop BR never advances or fires while pointer-lock permission is pending', () => {
