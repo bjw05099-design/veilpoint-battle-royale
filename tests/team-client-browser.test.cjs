@@ -40,7 +40,8 @@ function backend() {
 function boot(server, storage = new Map()) {
   const nodes = new Map(), documentListeners = new Map(), windowListeners = new Map();
   const intervals = [];
-  let monotonicMs = 1000;
+  let monotonicMs = 1000, timerId = 0;
+  const timers = new Map();
   const ctx = {};
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'arc', 'fill']) {
     ctx[name] = () => {};
@@ -88,6 +89,12 @@ function boot(server, storage = new Map()) {
   vm.runInNewContext(clientSource, {
     document, window, fetch: server.fetchLocal,
     setInterval: callback => (intervals.push(callback), intervals.length),
+    setTimeout: (callback, delay) => {
+      const id = ++timerId;
+      timers.set(id, {callback, at: monotonicMs + delay});
+      return id;
+    },
+    clearTimeout: id => timers.delete(id),
     performance: {now: () => monotonicMs},
     console
   }, {filename: 'src/team-client.js', timeout: 1500});
@@ -100,7 +107,15 @@ function boot(server, storage = new Map()) {
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
     heartbeat: () => intervals[0](),
-    advanceTime: ms => {monotonicMs += ms;}
+    advanceTime: ms => {
+      monotonicMs += ms;
+      for (const [id, timer] of [...timers]) {
+        if (timer.at <= monotonicMs) {
+          timers.delete(id);
+          timer.callback();
+        }
+      }
+    }
   };
 }
 async function settle() {
@@ -921,9 +936,10 @@ test('PC mouse aim changes promptly without waiting for a new server snapshot',a
  canvas.dispatch('pointermove',{clientX:150,clientY:250,pointerType:'mouse'});
  await settle();
  assert.equal(aimCommands().length,2,'rapid mouse events do not flood HTTP');
- a.advanceTime(18);
+ a.advanceTime(18);await settle();
+ assert.equal(aimCommands().length,3,'a final mouse flick flushes without a server poll');
  await a.poll();await settle();
- assert.equal(aimCommands().length,3,'the last throttled position is sent on poll');
+ assert.equal(aimCommands().length,3,'the next poll does not duplicate the trailing aim');
  assert.ok(player.facing.x<0,'final aim points left');
  a.blur();await settle();
  assert.equal(player.aiming,false,'focus loss still releases server aim');
