@@ -548,7 +548,10 @@
         data.bots.some(b => b.lastSeenUntil > data.elapsed + 2.5 + tolerance) ||
         data.player.reloadRemaining > firearm.reloadSeconds + RELOAD_HESITATION_SECONDS + tolerance ||
         (data.player.reloadRemaining > 0 &&
-          (data.player.loaded >= firearm.magazine || data.player.charges <= data.player.loaded)))
+          (data.player.loaded >= firearm.magazine || data.player.charges <= data.player.loaded)) ||
+        // Rivals only start reloading after the last loaded round. A forged
+        // timer with rounds still loaded, or no reserve, must not persist.
+        data.bots.some(b => b.reloadRemaining > 0 && (b.loaded !== 0 || b.charges === 0)))
       throw new RangeError('Invalid BR checkpoint timing');
   }
   function snapshotMatch(game) {
@@ -567,6 +570,12 @@
       effects:game.effects.map(e=>({...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type})),
       message:game.message,messageTime:game.messageTime,
       lastTagAt:game.lastTagAt,recentDamage:game.recentDamage};
+    // Refuse to overwrite a usable save with internally contradictory actor
+    // state. The restore path already rejects these, but autosave must too.
+    if (!checkpoint.player.alive || checkpoint.player.health <= 0 ||
+        checkpoint.bots.some(b => b.alive !== (b.health > 0) || b.loaded > b.charges) ||
+        checkpoint.kills > checkpoint.bots.filter(b => !b.alive).length)
+      throw new RangeError('Invalid BR checkpoint actor state');
     validateCheckpointTiming(checkpoint,FIREARMS[checkpoint.player.weaponId]);
     const serialized=JSON.stringify(checkpoint);
     if (serialized.length > MAX_CHECKPOINT_CHARS) throw new RangeError('BR checkpoint too large');
