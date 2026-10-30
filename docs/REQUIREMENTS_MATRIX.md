@@ -1,5 +1,11 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 fictional class range + PC loadout visibility candidate (R-04 / R-13 / R-23 / R-27)
+- **Playable browser source:** Seven original fictional weapon classes now have distinct bounded shot ranges (22–260 world metres); the precision class can interact across a clear 210m arena corridor while cover and finite rounds still constrain shots. BR and CH01 use the shared deterministic hit ray, not target-seeking or infinite-distance damage.
+- **Player-facing:** Windows-oriented BR and CH01 loadout menus show the current per-class gameplay range and explicitly warn that these are **not real firearm specifications**. This is an abstract zero-asset browser prototype, not ballistic physics or verified native Unreal weapon behavior.
+- **Verification candidate:** New Node regressions cover class separation, off-axis misses, cover, ammunition, CH01 objective transition, PC menu/source consistency, and BR save/replay. Source-level V8 smoke confirmed a clear 210m precision hit and CH01 phase progression; Node CI, real-browser playtests and UE/RTX 3070 benchmarks remain unverified.
+
+
 ## 2026-10-31 Windows coarse-pointer input safety candidate (R-03 / R-04 / R-13)
 - **PC-only input P0:** Windows devices reporting only a coarse pointer (convertible/touchscreen) now follow the same pointer-lock gate as other desktop hardware in offline BR and CH01. Legacy touch logic remains for non-Windows platforms but cannot bypass Windows gameplay pause/aim ownership. The CH01 coarse-pointer mobile overlay is hidden on Windows.
 - **Evidence boundary:** Added Windows-platform classification and two mocked browser end-to-end pointer-lock regressions. This is a proposed code change pending Node suite and GitHub CI; not a measured Windows 165Hz, UE native or human gameplay validation.
