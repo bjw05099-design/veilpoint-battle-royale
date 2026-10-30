@@ -1040,3 +1040,17 @@ test('visible PC window focus immediately renews a valid short alt-tab session',
   server.match.step();
   assert.equal(server.match.phase, 'playing');
 });
+
+test('PC team HUD explains why moving or occupied hands interrupt objective capture', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();
+  b.node('join').click();
+  await settle();
+  a.node('ready').click();
+  b.node('ready').click();
+  await settle();
+  await a.poll();
+  await settle();
+  assert.match(a.node('status').textContent, /목표 원에서 정지 후/);
+  assert.match(a.node('status').textContent, /이동\/재장전\/발사 중 중단/);
+});
