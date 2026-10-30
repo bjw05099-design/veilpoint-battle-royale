@@ -1089,7 +1089,7 @@ test('PC team HUD prompts a fresh relay press after an observed hit', async () =
   await settle();
   for (let i = 0; i < 60; i++) server.match.step();
   assert.equal(server.match.players.get(aToken).captureArmed, true);
-  assert.equal(server.match.command(bToken, {seq: 2, type: 'fire'}).hit, true);
+  assert.equal(server.match.command(bToken, {seq: server.match.players.get(bToken).seq + 1, type: 'fire'}).hit, true);
   assert.equal(server.match.players.get(aToken).captureArmed, false);
   await a.poll();await settle();
   assert.match(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
