@@ -846,7 +846,7 @@ test('PC BR HUD separates magazine digits from reload and stress feedback', () =
   assert.match(app.node('ammoStatus').textContent, /^READY · STRESS 0 · MOBILITY 100% · ASSIST OFF$/);
   app.emit('keydown', {code: 'Space'});
   app.emit('keyup', {code: 'Space'});
-  app.frame(2 * 1000 / 60); // Firing changes the sim immediately; the HUD refreshes on the next frame.
+  app.frame(300); // The BR HUD intentionally refreshes at a 250ms interval, not every render frame.
   assert.equal(app.node('charges').innerHTML, '11<span> / 36</span>');
   app.emit('keydown', {code: 'KeyR'});
   assert.match(app.node('ammoStatus').textContent, /^RELOADING · STRESS /);
