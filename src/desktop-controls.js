@@ -65,6 +65,29 @@
   return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||
     target.isContentEditable===true;
  }
+ // Request unaccelerated PC mouse movement when the browser supports it.
+ // Unsupported raw input falls back to standard pointer lock; permission
+ // denial never retries behind the user's back. Remember capability per canvas.
+ const rawUnsupported=new WeakSet();
+ function requestPrecisionPointerLock(canvas,stillRequested=()=>true){
+  if(!canvas||typeof canvas.requestPointerLock!=='function')throw new TypeError('pointer_lock_unavailable');
+  const fallback=()=>{
+   if(!stillRequested())throw new Error('pointer_lock_superseded');
+   rawUnsupported.add(canvas);
+   return canvas.requestPointerLock();
+  };
+  if(rawUnsupported.has(canvas))return canvas.requestPointerLock();
+  const isUnsupported=error=>error&&(error.name==='NotSupportedError'||error.name==='TypeError');
+  try{
+   const result=canvas.requestPointerLock({unadjustedMovement:true});
+   return result&&typeof result.catch==='function'
+    ?result.catch(error=>{if(!isUnsupported(error))throw error;return fallback();})
+    :result;
+  }catch(error){
+   if(!isUnsupported(error))throw error;
+   return fallback();
+  }
+ }
  function mouseDelta(dx,dy,value){
   const x=Number.isFinite(dx)?dx:0,y=Number.isFinite(dy)?dy:0;
   const sensitivity=value.sensitivity;
@@ -129,7 +152,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isInteractiveTarget,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

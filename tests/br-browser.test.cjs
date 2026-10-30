@@ -43,7 +43,8 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
       addEventListener: (key, callback) => add(events, key, callback),
       dispatch: (key, event) => emit(events, key, event),
       click() {this.dispatch('click');},
-      requestPointerLock() {
+      requestPointerLock(options) {
+        this.lastPointerLockOptions = options;
         if (pointerLock === 'throw') throw new Error('pointer lock denied');
         if (pointerLock === 'denied') return Promise.reject(new Error('pointer lock denied'));
         if (pointerLock === 'pending') return new Promise(() => {});
@@ -807,4 +808,12 @@ test('PC BR simultaneous mouse and keyboard fire persists until both triggers re
  assert.equal(app.context.VeilpointInput.fireHeld,true,'keyboard remains held after mouse release');
  app.emit('blur');
  assert.equal(app.context.VeilpointInput.fireHeld,false,'background pause clears all trigger sources');
+});
+
+test('BR PC canvas requests unadjusted mouse movement without altering 60Hz gameplay',()=>{
+ const app=boot();
+ app.node('play').click();
+ assert.equal(app.node('scene').lastPointerLockOptions.unadjustedMovement,true);
+ app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
 });

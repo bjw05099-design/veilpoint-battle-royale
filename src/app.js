@@ -118,7 +118,7 @@ function requestAimLock(){
   suspendMatch('pointer');resetInactiveClock();return;
  }
  try{
-  const result=canvas.requestPointerLock();
+  const result=Desktop.requestPrecisionPointerLock(canvas,()=>attempt===pointerLockAttempt&&running&&!suspended);
   // Modern browsers reject a Promise on permission/user-gesture failure.
   // An older attempt must never pause a newer successful resume.
   if(result&&typeof result.catch==='function')result.catch(()=>{

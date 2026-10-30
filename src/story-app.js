@@ -112,7 +112,7 @@
     const unavailable=()=>menuOpen('마우스 포인터 잠금이 거부되었거나 지원되지 않습니다. 권한을 허용한 뒤 이어하기를 눌러 재시도하세요.');
     if(typeof canvas.requestPointerLock!=='function'){unavailable();return;}
     try{
-      const result=canvas.requestPointerLock();
+      const result=Desktop.requestPrecisionPointerLock(canvas,()=>attempt===lockAttempt&&running);
       if(result&&typeof result.catch==='function')result.catch(()=>{
         if(attempt===lockAttempt&&running&&document.pointerLockElement!==canvas)unavailable();
       });
