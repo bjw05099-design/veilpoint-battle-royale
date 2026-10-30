@@ -53,6 +53,12 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
       if ((i + 1) % 60 === 0 && server.match.phase === 'playing')
         assert.equal((await post('/command', {seq: ++captureSeq, type: 'capture', active: true},
           a.data.token)).status, 200);
+      if ((i + 1) % 120 === 0 && server.match.phase === 'playing') {
+        assert.equal((await post('/command', {seq: ++captureSeq, type: 'capture', active: false},
+          a.data.token)).status, 200);
+        assert.equal((await post('/command', {seq: ++captureSeq, type: 'capture', active: true},
+          a.data.token)).status, 200);
+      }
     }
     const result = (await state(b.data.token)).data;
     assert.equal(result.phase, 'ended');
