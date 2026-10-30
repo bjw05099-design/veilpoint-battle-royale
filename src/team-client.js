@@ -11,6 +11,11 @@
   // Throttle changed directions to 60Hz; the next poll flushes a final
   // movement that arrived inside the throttle window. Simulation stays 60Hz.
   let lastAimSentAt = -Infinity;
+  let aimFlushTimer = null;
+  const cancelAimFlush = () => {
+    if (aimFlushTimer !== null) clearTimeout(aimFlushTimer);
+    aimFlushTimer = null;
+  };
   let activeTouchAimPointer = null;
   let joining = false, restoring = false, polling = false;
   let pending = Promise.resolve();
@@ -42,7 +47,7 @@
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
-    activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
+    cancelAimFlush();activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
     capturing = false; triggering = false; actionFeedback = '';
     try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
     el('join').disabled = false; el('ready').disabled = true;
@@ -103,7 +108,21 @@
     if (change < .035 && state.tick - lastAimTick < 20) return;
     const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now() : Date.now();
-    if (change >= .035 && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) return;
+    if (change >= .035 && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
+      // A quick final flick must not wait up to 150ms for the next snapshot.
+      // Keep only one trailing timer; it always reads the latest world point.
+      if (aimFlushTimer === null) {
+        const sessionToken = token;
+        const remaining = 1000 / 60 - (now - lastAimSentAt);
+        aimFlushTimer = setTimeout(() => {
+          aimFlushTimer = null;
+          if (token === sessionToken && state?.phase === 'playing' && lastAimPoint)
+            aimAtWorld(lastAimPoint.x, lastAimPoint.z);
+        }, Math.ceil(remaining) + 1);
+      }
+      return;
+    }
+    cancelAimFlush();
     lastAimSentAt = now;
     lastAimTick = state.tick;lastAimVector = aim;
     void send('aim', {direction: aim});
@@ -122,6 +141,7 @@
   const releaseAim = () => {
     // A canceled touch must not keep renewing a server-side aim override.
     activeTouchAimPointer = null;
+    cancelAimFlush();
     if (!lastAimPoint) return;
     lastAimPoint = null;lastAimVector = null;lastAimTick = -Infinity;lastAimSentAt = -Infinity;
     if (token && state?.phase === 'playing') void send('aimRelease');
@@ -242,7 +262,7 @@
       physicalTrigger.clear();
       triggering = false;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
-      activeTouchAimPointer = null;
+      cancelAimFlush();activeTouchAimPointer = null;
       // Clear held capture on *both* edges: lobby -> playing is especially
       // important because the old client could auto-capture after the first poll.
       capturing = false;
