@@ -46,18 +46,12 @@ function planVisible(state,aspect=16/9){
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=distance<75?'high':'low';
   loot.push({entity,lod});boxes+=lod==='high'?2:1;
  }
- if(Number.isFinite(state.zone.radius)&&state.zone.radius>0&&state.zone.radius<170){
-  for(let i=0;i<ZONE_SEGMENTS;i++){
-   const theta=i/ZONE_SEGMENTS*Math.PI*2;
-   const x=state.zone.x+Math.cos(theta)*state.zone.radius;
-   const z=state.zone.z+Math.sin(theta)*state.zone.radius;
-   if(inView(p,x,z,1.5,MAX_DISTANCE,halfFov)){zone.push({x,z});boxes++;}
-  }
- }
+ // The changing match-eligibility boundary belongs on the minimap/HUD only.
+ // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
   if(inView(p,entity.x,entity.z,.65,MAX_DISTANCE,halfFov)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:state.zone.radius<170?ZONE_SEGMENTS:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
