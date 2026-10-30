@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false} = {}) {
   const nodes = new Map(), listeners = new Map();
   let now = 0, frameCallback = null, latestGame = null;
+  const scheduledCallbacks = [];
   const ctx = {};
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'arc', 'fill']) ctx[name] = () => {};
   const add = (map, key, callback) => map.set(key, [...(map.get(key) || []), callback]);
@@ -76,7 +77,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     matchMedia: query => ({matches: query === '(any-pointer:fine)' ? finePointer : touch}),
     navigator: windows ? {platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'} : undefined,
     requestAnimationFrame: callback => {frameCallback = callback;},
-    setTimeout: () => 1,
+    setTimeout: callback => {scheduledCallbacks.push(callback);return scheduledCallbacks.length;},
     addEventListener: (key, callback) => add(listeners, key, callback),
     console,
     VeilpointRenderer: class {
@@ -93,7 +94,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
       context, {filename, timeout: 1500});
   }
   return {
-    node, store, context, selectors,
+    node, store, context, selectors, scheduledCallbacks,
     emit: (key, event) => emit(listeners, key, event),
     frame(ms) {
       now = ms;
@@ -868,4 +869,57 @@ test('PC BR HUD separates magazine digits from reload and stress feedback', () =
   app.emit('keydown', {code: 'KeyR'});
   assert.match(app.node('ammoStatus').textContent, /^RELOADING · STRESS /);
   assert.doesNotMatch(app.node('charges').innerHTML, /RELOADING|STRESS|MOBILITY|ASSIST/);
+});
+
+test('PC BR held-fire autosaves are bounded and blur flushes the final finite-ammo state',()=>{
+ const store=new Map(),originalSet=store.set.bind(store);
+ let checkpointWrites=0;
+ store.set=(key,value)=>{
+  if(key==='veilpoint.brCheckpoint.v1')checkpointWrites++;
+  return originalSet(key,value);
+ };
+ const app=boot({store});
+ app.node('play').click();app.frame(1000/60);
+ const initialWrites=checkpointWrites;
+ const game=app.game;
+ app.emit('keydown',{code:'Space'});
+ for(let tick=2;tick<=135;tick++)app.frame(tick*1000/60);
+ app.emit('keyup',{code:'Space'});
+ const shots=48-game.player.charges;
+ assert.ok(shots>=8,'real held-fire input must produce multiple fixed-step shots');
+ assert.ok(checkpointWrites-initialWrites<=3,
+   'rapid shots must not synchronously serialize the full match once per round');
+ assert.ok(checkpointWrites-initialWrites>=1,
+   'a sustained volley must still checkpoint within a bounded one-second window');
+ const stored=JSON.parse(store.get('veilpoint.brCheckpoint.v1'));
+ assert.ok(stored.player.charges>=game.player.charges,
+   'checkpoint cannot invent ammunition that was not carried earlier');
+ app.emit('blur');
+ const flushed=JSON.parse(store.get('veilpoint.brCheckpoint.v1'));
+ assert.equal(flushed.player.charges,game.player.charges,
+   'background pause must flush every finite shot before the player leaves');
+ assert.equal(flushed.elapsed,game.elapsed);
+ assert.equal(app.context.VeilpointInput.fireHeld,false);
+});
+
+test('PC BR shot HUD updates immediately then batches rapid fire without stale READY timers',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Space'});
+ assert.equal(app.node('charges').innerHTML,'11<span> / 36</span>');
+ const firstTimer=app.scheduledCallbacks.at(-1);
+ for(let tick=2;tick<=14;tick++)app.frame(tick*1000/60);
+ assert.equal(app.game.player.charges,46,'second shot follows the 60Hz firearm cadence');
+ assert.equal(app.node('charges').innerHTML,'11<span> / 36</span>',
+   'minimap/ammo HUD should not be redrawn synchronously on every rapid shot');
+ assert.ok(app.scheduledCallbacks.length>=2);
+ firstTimer();
+ assert.equal(app.node('hitText').textContent,'SHOT FIRED',
+   'an older feedback timeout must not erase a more recent shot cue');
+ for(let tick=15;tick<=17;tick++)app.frame(tick*1000/60);
+ assert.equal(app.node('charges').innerHTML,'10<span> / 36</span>',
+   'regular HUD refresh catches up without changing fixed-step ammo');
+ app.emit('keyup',{code:'Space'});
+ app.scheduledCallbacks.at(-1)();
+ assert.equal(app.node('hitText').textContent,'READY');
 });
