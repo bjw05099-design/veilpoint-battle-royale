@@ -255,7 +255,7 @@ addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('m
 let audio=null;
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation);if(!result.ok)return;shotFeedback();}
-function shotFeedback(){persistMatch();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
+function shotFeedback(){persistMatch();updateHud();const firearm=Game.FIREARMS[simulation.player.weaponId];tone(firearm.cueHz,firearm.cueSeconds);shake=.55;$('hitText').textContent='SHOT FIRED';setTimeout(()=>$('hitText').textContent='READY',300);}
 // Mobile thumbstick and free-look gesture handlers.
 const stick=$('stick'),nub=$('nub');let joyId=null,lookId=null,previousLook=null;
 const thumb={x:0,y:0};
@@ -283,7 +283,8 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  let tt=Math.max(0,Math.ceil(s.zone.phaseRemaining));$('time').textContent=String((tt/60)|0).padStart(2,'0')+':'+String(tt%60).padStart(2,'0');
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
  $('weaponName').textContent=Game.FIREARMS[p.weaponId].label;
- $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · HESITATION · R TO CORRECT':' · RELOADING'):'')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF')+'</span>';
+ $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+'</span>';
+ $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · R TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF');
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';

@@ -837,3 +837,17 @@ test('PC BR handles event-only pointer-lock denial and ignores late errors after
   assert.equal(app.node('overlay').classList.contains('hidden'), true,
     'late error after an acquired PC lock cannot pause the new attempt');
 });
+
+test('PC BR HUD separates magazine digits from reload and stress feedback', () => {
+  const app = boot();
+  app.node('play').click();
+  app.frame(1000 / 60);
+  assert.equal(app.node('charges').innerHTML, '12<span> / 36</span>');
+  assert.match(app.node('ammoStatus').textContent, /^READY · STRESS 0 · MOBILITY 100% · ASSIST OFF$/);
+  app.emit('keydown', {code: 'Space'});
+  app.emit('keyup', {code: 'Space'});
+  assert.equal(app.node('charges').innerHTML, '11<span> / 36</span>');
+  app.emit('keydown', {code: 'KeyR'});
+  assert.match(app.node('ammoStatus').textContent, /^RELOADING · STRESS /);
+  assert.doesNotMatch(app.node('charges').innerHTML, /RELOADING|STRESS|MOBILITY|ASSIST/);
+});

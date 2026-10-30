@@ -1,6 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 > **Latest owner hardware correction (2026-10-29):** System RAM is **16GB**, not 8GB. Earlier historical references below to an 8GB owner machine reflect superseded assumptions, not the active test configuration. No measured FPS, peak RAM, Unreal compilation or native graphical quality is inferred from this correction.
 
+## 2026-10-30 PC BR ammunition HUD readability candidate (R-13 / R-14)
+- **Real Chromium smoke evidence (Linux headless, script-injected due sandbox navigation restrictions):** BR and CH01 menu-to-render transitions completed with no page exceptions using a mocked localStorage; a visible BR overlap was found between the large ammunition number and the stress/reload line. The BR ammo HUD now uses a separate compact status row; a repeat screenshot showed legible separated digits/status. This is **not** Windows/RTX 3070 hardware QA, full match completion or a real performance benchmark.
+- **Automated regression candidate:** BR DOM controller checks distinct magazine/reserve and status elements before and during reload. CI and native Windows browser acceptance remain separate gates.
+
 ## 2026-10-30 offline BR checkpoint write-integrity candidate (R-04 / R-14 / realism P0)
 - **Code + regression candidate:** BR autosave now rejects malformed finite magazines/reserves, class capacities, stale reload hesitation, actors embedded in cover, contradictory pickup identities/remaining stock and zone clocks **before overwriting** the previous local save. Tests include a 60Hz deterministic save/restore replay. This is offline checkpoint integrity, not anti-cheat or native browser/hardware QA; the full demo delivery gate remains open.
 - **Acceptance remains pending:** the PR's Node regression and GitHub CI must pass, followed by actual desktop browser resume/restart and packaging tests before counting this as a verified release fix.
