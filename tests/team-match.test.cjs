@@ -770,3 +770,47 @@ test('only the still-connected team wins when the opponent lease expires', () =>
   assert.equal(m.winner, 'blue');
   assert.equal(m.ticks, 0);
 });
+
+// Regression: HTTP commands can arrive between 60Hz ticks, after the wall-clock
+// lease expires. Such packets must not revive a player or change a fair winner.
+test('expired heartbeat arriving before next tick cannot revive both dead sessions', () => {
+  const {m, setNow} = setup();
+  const a = m.players.get('a'), before = a.lastSeen;
+  setNow(30001);
+  assert.throws(() => m.command('a', {seq: 2, type: 'heartbeat'}), /connection_timeout/);
+  assert.equal(m.phase, 'ended');
+  assert.equal(m.reason, 'connection_timeout');
+  assert.equal(m.winner, null);
+  assert.equal(a.seq, 1);
+  assert.equal(a.lastSeen, before);
+  assert.equal(m.ticks, 0);
+});
+
+test('active peer wins when expired opponent attempts a late command before tick', () => {
+  const {m, setNow} = setup();
+  setNow(25000);
+  m.command('b', {seq: 2, type: 'heartbeat'});
+  const a = m.players.get('a'), previousX = a.x;
+  setNow(30001);
+  assert.throws(() => m.command('a', {seq: 2, type: 'move',
+    direction: {x: 1, z: 0}}), /connection_timeout/);
+  assert.equal(m.winner, 'blue');
+  assert.equal(m.reason, 'connection_timeout');
+  assert.equal(a.seq, 1);
+  assert.equal(a.x, previousX);
+  assert.equal(m.ticks, 0);
+});
+
+test('live command after opponent lease expiry settles the same winner before movement', () => {
+  const {m, setNow} = setup();
+  setNow(25000);
+  m.command('a', {seq: 2, type: 'heartbeat'});
+  const a = m.players.get('a');
+  setNow(30001);
+  assert.throws(() => m.command('a', {seq: 3, type: 'move',
+    direction: {x: 1, z: 0}}), /connection_timeout/);
+  assert.equal(m.winner, 'red');
+  assert.equal(m.phase, 'ended');
+  assert.deepEqual(a.direction, {x: 0, z: 0});
+  assert.equal(a.seq, 2);
+});
