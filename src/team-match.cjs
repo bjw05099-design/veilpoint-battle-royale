@@ -419,7 +419,14 @@ class TeamMatch {
     const nearby = [...this.players.values()].filter(p => Math.hypot(p.x, p.z) <= CAPTURE_RADIUS);
     const teams = new Set(nearby.map(p => p.team));
     // An interrupted capture must restart; stored partial progress is exploitable.
-    if (teams.size !== 1 || !nearby.some(p => p.capturing)) {
+    // A physical relay/control interaction needs a stationary operator with
+    // hands free. Entering the objective while moving, reloading or holding
+    // the trigger cannot silently earn score; interruption resets progress.
+    // The server checks its own intent/weapon state, not a client claim.
+    const operator = nearby.some(p => p.capturing &&
+      Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
+      p.reloadTicks === 0 && !p.triggerHeld);
+    if (teams.size !== 1 || !operator) {
       this.progress.red = 0;
       this.progress.blue = 0;
       return;
