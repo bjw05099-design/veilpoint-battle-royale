@@ -86,6 +86,7 @@ let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
 const SHOT_SAVE_INTERVAL_SECONDS=1;
+const SHOT_HUD_INTERVAL_SECONDS=0.25;
 let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
  try{if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(MATCH_SAVE_KEY);
@@ -265,7 +266,7 @@ function shotFeedback(){
  // synchronous full-world snapshot and minimap redraw for every round.
  // Normal 15s autosave, explicit inventory actions and pause still flush state.
  if(simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)persistMatch();
- if(simulation.elapsed-lastShotHudElapsed>=0.1){
+ if(simulation.elapsed-lastShotHudElapsed>=SHOT_HUD_INTERVAL_SECONDS){
   updateHud();lastShotHudElapsed=simulation.elapsed;
  }
  const firearm=Game.FIREARMS[simulation.player.weaponId];
