@@ -55,7 +55,7 @@ test('renderer draws only planned visible geometry, preserving active simulation
  renderer.draw(state);
  const forward=renderer.lastVisibilityStats;
  assert.equal(renderer.dynamic.count,forward.estimatedDynamicVertices);
- assert.ok(forward.zoneVisible>0&&forward.zoneVisible<128);
+ assert.equal(forward.zoneVisible,0,'moving match eligibility is not a physical 3D fence');
  const original=JSON.stringify(state);
  state.player.yaw=Math.PI;
  renderer.draw(state);
