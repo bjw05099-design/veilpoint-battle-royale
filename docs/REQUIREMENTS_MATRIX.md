@@ -1,4 +1,8 @@
 # VEILPOINT — User Requirements Traceability (living document)
+## 2026-10-31 offline BR physical spawn-spacing candidate (R-04 / R-23)
+- **Code candidate:** Initial seeded BR rivals now reserve non-overlapping physical footprints, and finite ground caches avoid actors and one another. Failed placement raises an explicit error rather than silently spawning at the player's position. No change to the 60Hz simulation clock, checkpoint schema or existing saved positions.
+- **Verification:** Seed-sweep regression and save/restore test added. GitHub CI and actual Windows browser playtesting remain required; this is a collision-plausibility fix, not measured rendering/165FPS or native UE validation.
+
 > **Latest owner hardware correction (2026-10-29):** System RAM is **16GB**, not 8GB. Earlier historical references below to an 8GB owner machine reflect superseded assumptions, not the active test configuration. No measured FPS, peak RAM, Unreal compilation or native graphical quality is inferred from this correction.
 
 ## 2026-10-30 grounded BR/CH01 placeholder rendering candidate (R-13 / R-23)
