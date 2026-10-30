@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 PC BR rapid-fire responsiveness and save durability (R-04 / R-10 / R-11 / R-14 / R-25)
+- **Partial browser candidate:** A 60Hz automatic-fire volley now limits synchronous full-world localStorage checkpoints to one per simulated second instead of one per shot. Explicit pause/pagehide and inventory interactions still flush immediately; regular autosave remains. Ammo HUD/minimap refresh is batched at 250ms while the first shot responds immediately; older shot-feedback timers cannot clear a newer cue.
+- **Evidence scope:** Two mocked PC browser regressions check bounded write counts, final pause-save ammunition parity, HUD freshness and feedback-timer ordering. This is an event-count optimization, **not measured frame-time improvement**; actual Windows RTX 3070/QHD 165Hz, 16GB system RAM, GPU/CPU P50/P95/P99, native UE, full realism and 2026-11-27 release acceptance remain unverified.
+
+
 ## 2026-10-31 fictional class range + PC loadout visibility candidate (R-04 / R-13 / R-23 / R-27)
 - **Playable browser source:** Seven original fictional weapon classes now have distinct bounded shot ranges (22–260 world metres); the precision class can interact across a clear 210m arena corridor while cover and finite rounds still constrain shots. BR and CH01 use the shared deterministic hit ray, not target-seeking or infinite-distance damage.
 - **Player-facing:** Windows-oriented BR and CH01 loadout menus show the current per-class gameplay range and explicitly warn that these are **not real firearm specifications**. This is an abstract zero-asset browser prototype, not ballistic physics or verified native Unreal weapon behavior.
