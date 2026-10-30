@@ -586,6 +586,17 @@
   function snapshotMatch(game) {
     if (!game || game.status !== 'playing' || !game.random || typeof game.random.getState !== 'function')
       throw new RangeError('Only active BR matches can be checkpointed');
+    // Reject writer-only corruption before replacing a resumable local save.
+    if (!integer(game.seed,0,Number.MAX_SAFE_INTEGER) ||
+        !integer(game.random.getState(),1,0xffffffff) ||
+        !integer(game.kills,0,MAX_BOTS) ||
+        !Array.isArray(game.bots) || game.bots.length>MAX_BOTS ||
+        !Array.isArray(game.loot) || !Array.isArray(game.effects) ||
+        game.effects.length>256 ||
+        typeof game.message!=='string' || game.message.length>120)
+      throw new RangeError('Invalid BR checkpoint metadata');
+    checkedFields(game,[['damageFlash',0,1],['messageTime',0,10],
+      ['lastTagAt',-2,3600],['recentDamage',0,100]]);
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
@@ -596,13 +607,20 @@
         weaponId:item.weaponId,picked:item.picked})),
       zone:checkedFields(game.zone,[...POSITION_FIELDS,['radius',0,170],
         ['phase',0,ZONE_PHASES.length-1,true],['phaseRemaining',0,999]]),
-      effects:game.effects.map(e=>({...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type})),
+      effects:game.effects.map(e=>{
+        if(e?.type!=='hit'&&e?.type!=='hostile')throw new RangeError('Invalid BR checkpoint effect');
+        return {...checkedFields(e,[...POSITION_FIELDS,['t',0,1]]),type:e.type};
+      }),
       message:game.message,messageTime:game.messageTime,
       lastTagAt:game.lastTagAt,recentDamage:game.recentDamage};
     // Refuse to overwrite a usable save with internally contradictory actor
     // state. The restore path already rejects these, but autosave must too.
-    if (!checkpoint.player.alive || checkpoint.player.health <= 0 ||
-        checkpoint.bots.some(b => b.alive !== (b.health > 0) || b.loaded > b.charges) ||
+    if (checkpoint.player.alive !== true || checkpoint.player.health <= 0 ||
+        typeof checkpoint.player.reloadAssist !== 'boolean' ||
+        typeof checkpoint.player.reloadHesitation !== 'boolean' ||
+        typeof checkpoint.player.sprintExhausted !== 'boolean' ||
+        checkpoint.bots.some(b => typeof b.alive !== 'boolean' ||
+          b.alive !== (b.health > 0) || b.loaded > b.charges) ||
         checkpoint.kills > checkpoint.bots.filter(b => !b.alive).length)
       throw new RangeError('Invalid BR checkpoint actor state');
     // Validate on WRITE, not only on restore. Otherwise one corrupted frame
@@ -621,6 +639,7 @@
         item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
         !Object.prototype.hasOwnProperty.call(FIREARMS,item.weaponId) ||
         item.remaining>(i%2===0?12:24) ||
+        typeof item.picked!=='boolean' ||
         item.picked!==(item.remaining===0) ||
         blocked(item.x,item.z,ACTOR_RADIUS,game.obstacles)))
       throw new RangeError('Invalid BR checkpoint pickup state');
