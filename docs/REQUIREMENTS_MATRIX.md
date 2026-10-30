@@ -558,3 +558,8 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 
 - **R-03 / R-12 / R-13:** A hidden desktop tab now releases held inputs and stops both background heartbeats and unnecessary state polling. This prevents an abandoned tab from retaining an online match slot indefinitely solely through periodic heartbeats. Returning to the foreground immediately renews the session before the normal 10-second heartbeat interval. The authoritative server's existing 30-second session lease and 60Hz simulation remain unchanged.
 - **Verification:** Added two deterministic mocked-client regressions for background timeout with a connected opponent and prompt short-alt-tab recovery. Requires PR CI; no human-browser, real-network or public matchmaking validation is implied.
+
+## 2026-10-30 visible-window PC focus fairness follow-up candidate
+
+- **R-03 / R-12:** Some desktop window switches produce `blur` while `document.hidden` remains false. The team client now suspends heartbeat and polling in that state too, releasing held input immediately and renewing once on `focus`. This closes the remaining inactive-visible-window lease loophole without changing the 30-second server timeout or 60Hz authority.
+- **Verification:** Two additional deterministic mocked-client focus/blur regressions. Human desktop focus behavior and public network operation remain unverified pending actual browser QA.
