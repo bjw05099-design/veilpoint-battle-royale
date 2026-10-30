@@ -102,7 +102,7 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      aiming: false, capturing: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      aiming: false, capturing: false, captureArmed: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
@@ -221,6 +221,10 @@ class TeamMatch {
       if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
       p.lastMoveTick = this.ticks;
     } else {
+      // A completed relay transmission requires a fresh physical release/press.
+      // Repeated active:true lease renewals cannot farm multiple points.
+      if (data.active && !p.capturing) p.captureArmed = true;
+      if (!data.active) p.captureArmed = false;
       p.capturing = data.active;
       p.lastCaptureTick = this.ticks;
     }
@@ -287,6 +291,7 @@ class TeamMatch {
       p.aiming = false;
       p.lastAimTick = 0;
       p.capturing = false;
+      p.captureArmed = false;
       p.health = 100;
       p.ammo = MAGAZINE_ROUNDS;
       p.reserve = SPARE_ROUNDS;
@@ -309,6 +314,7 @@ class TeamMatch {
       p.aiming = false;
       p.lastAimTick = 0;
       p.capturing = false;
+      p.captureArmed = false;
       p.triggerHeld = false;
       p.ready = false;
     }
@@ -423,7 +429,7 @@ class TeamMatch {
     // hands free. Entering the objective while moving, reloading or holding
     // the trigger cannot silently earn score; interruption resets progress.
     // The server checks its own intent/weapon state, not a client claim.
-    const operator = nearby.some(p => p.capturing &&
+    const operator = nearby.some(p => p.capturing && p.captureArmed &&
       Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
       p.reloadTicks === 0 && !p.triggerHeld);
     if (teams.size !== 1 || !operator) {
@@ -437,6 +443,9 @@ class TeamMatch {
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
       this.score[team]++;
       this.progress[team] = 0;
+      // One operator interaction transmits one point, not a perpetual stream.
+      // A held key/HTTP renewal cannot re-arm until a release arrives.
+      for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= WIN_SCORE) this.finish(team, 'objective_score');
     }
   }
@@ -467,7 +476,7 @@ class TeamMatch {
       self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
-        ready: me.ready, seq: me.seq},
+        ready: me.ready, captureArmed: me.captureArmed, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
   }
 }
