@@ -602,5 +602,5 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 
 ### 2026-10-30 relay-interaction integrity candidate (branch-only until CI/merge)
 
-- Team-mode server now requires a **fresh capture press within the relay radius**; a held key from outside cannot remotely queue a future point. Leaving the relay radius disarms the interaction; returning requires release and a new press. The desktop team HUD explains this requirement.
+- Team-mode server now requires a **fresh capture press within the relay radius**; a held key from outside cannot remotely queue a future point. Leaving the relay radius disarms the interaction; returning requires release and a new press. Releasing/re-pressing or toggling movement, trigger, firing or reload **within one 60Hz tick** also clears banked progress instead of preserving a near-complete point. The desktop team HUD explains re-arming.
 - Added deterministic 60Hz regressions for remote press/renewal and exit/re-entry, including finite scoring after a valid re-press. **Status: code candidate**, not real Windows two-browser human QA or full team FPS completion. Existing team-mode and offline-demo tests must pass at the PR head before merging. This does not establish the realism of BR/CH01, native UE or RTX 3070 QHD 165Hz.
