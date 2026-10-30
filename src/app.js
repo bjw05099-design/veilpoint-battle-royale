@@ -234,6 +234,14 @@ document.addEventListener('pointerlockchange',()=>{
   suspendMatch('pointer');resetInactiveClock();
  }
 });
+// Legacy browsers may report a failed pointer-lock request only by event,
+// without a rejected Promise or pointerlockchange. Never strand the player in
+// a hidden menu with a frozen but apparently active PC match.
+document.addEventListener('pointerlockerror',()=>{
+ if(!isTouch&&running&&!suspended&&document.pointerLockElement!==canvas){
+  suspendMatch('pointer');resetInactiveClock();
+ }
+});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatch();resetInactiveClock();});
 function look(mx,my){const delta=Desktop.mouseDelta(mx,my,desktopUi.get());simulation.player.yaw+=delta.yaw;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch+delta.pitch));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});

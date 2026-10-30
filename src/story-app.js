@@ -254,6 +254,12 @@
     if(running&&document.pointerLockElement!==canvas)
       menuOpen('마우스 포인터 잠금이 해제되었습니다. 이어하기를 눌러 재개하세요.');
   });
+  // Some desktop browsers emit pointerlockerror without rejecting the request
+  // Promise. Pause and checkpoint instead of leaving CH01 apparently running.
+  document.addEventListener('pointerlockerror',()=>{
+    if(!isTouch&&running&&document.pointerLockElement!==canvas)
+      menuOpen('마우스 포인터 잠금 요청이 거부되었습니다. 이어하기를 눌러 재시도하세요.');
+  });
   function look(dx,dy){
     const p=state.world.player;
     const delta=Desktop.mouseDelta(dx,dy,desktopUi.get());
