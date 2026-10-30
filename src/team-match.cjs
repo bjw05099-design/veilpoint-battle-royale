@@ -109,9 +109,21 @@ class TeamMatch {
     this.players.set(token, player);
     return {id: player.id, team};
   }
+  // A delayed HTTP command can arrive before the next 60Hz server tick.
+  // Settle expired leases first, or an overdue heartbeat/move can resurrect
+  // an abandoned session and alter the round result between ticks.
+  expirePlayingLeases() {
+    if (this.phase !== 'playing') return false;
+    const timestamp = this.now();
+    const connected = [...this.players.values()].filter(p => timestamp - p.lastSeen <= this.timeoutMs);
+    if (connected.length === this.players.size) return false;
+    this.finish(connected.length === 1 ? connected[0].team : null, 'connection_timeout');
+    return true;
+  }
   command(token, data) {
     const p = this.players.get(token);
     if (!p) throw new RangeError('unknown_player');
+    if (this.expirePlayingLeases()) throw new RangeError('connection_timeout');
     if (!data || typeof data !== 'object' || Array.isArray(data) ||
       !Number.isSafeInteger(data.seq) || data.seq <= p.seq || data.seq > 1000000000 ||
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
@@ -299,17 +311,8 @@ class TeamMatch {
   }
   step() {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
-    // Evaluate both session leases before moving either actor. When both
-    // connections expire together, neither team earns an arbitrary victory
-    // based on Map insertion order or the server's iteration order.
-    // Evaluate both players against the same monotonic instant. A system clock
-    // correction must never award an arbitrary winner or prolong dead leases.
-    const timestamp = this.now();
-    const connected = [...this.players.values()].filter(p => timestamp - p.lastSeen <= this.timeoutMs);
-    if (connected.length !== this.players.size) {
-      this.finish(connected.length === 1 ? connected[0].team : null, 'connection_timeout');
-      return;
-    }
+    // Reuse the exact pre-command lease rule for authoritative tick fairness.
+    if (this.expirePlayingLeases()) return;
     this.ticks++;
     // Resolve player movement against the same start-of-tick positions. Moving
     // one Map entry first gives the first joiner a physical collision advantage
