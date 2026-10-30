@@ -195,7 +195,11 @@ class TeamMatch {
       p.triggerHeld = data.active;
       p.lastTriggerTick = this.ticks;
       // A brief trigger press between ticks still interrupts a relay operation.
-      if (data.active) {p.capturing = false;this.progress[p.team] = 0;}
+      if (data.active) {
+        p.capturing = false;
+        p.captureArmed = false;
+        this.progress[p.team] = 0;
+      }
       return {ok: true};
     }
     if (data.type === 'reload') {
@@ -214,6 +218,7 @@ class TeamMatch {
       p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
       p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
       p.capturing = false;
+      p.captureArmed = false;
       this.progress[p.team] = 0;
       return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
     }
@@ -224,14 +229,22 @@ class TeamMatch {
       if (len > 0 && !p.aiming) p.facing = {x: x / len, z: z / len};
       p.lastMoveTick = this.ticks;
       // Start/stop movement commands inside one server tick cannot bank a relay.
-      if (len > 1e-6) this.progress[p.team] = 0;
+      if (len > 1e-6) {
+        p.captureArmed = false;
+        p.capturing = false;
+        this.progress[p.team] = 0;
+      }
     } else {
       // A completed relay transmission requires a fresh physical release/press.
       // Repeated active:true lease renewals cannot farm multiple points.
-      // A relay can only be armed by a fresh press at the physical console.
+      // A relay can only be armed by a fresh stationary, hands-free press at the console.
+      // Movement, firing, reloading or a received hit invalidates that press;
+      // merely renewing active:true must never queue future interaction.
        // Holding the key while approaching from outside must not queue a remote capture.
        if (data.active && !p.captureHeld)
-         p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS;
+         p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS &&
+           Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
+           p.reloadTicks === 0 && !p.triggerHeld;
       if (!data.active) {p.captureArmed = false;this.progress[p.team] = 0;}
       p.captureHeld = data.active;
       p.capturing = data.active;
@@ -247,6 +260,7 @@ class TeamMatch {
       p.lastShotTick = this.ticks;
       p.ammo--;
       p.capturing = false;
+      p.captureArmed = false;
       this.progress[p.team] = 0;
       // A shot follows the server-owned facing ray, never an auto-selected target.
       // Visibility affects what the client KNOWS, not whether a shot can travel
@@ -276,6 +290,8 @@ class TeamMatch {
             opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
             opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
             opponent.capturing = false;
+            opponent.captureArmed = false;
+            this.progress[opponent.team] = 0;
             if (opponent.health === 0) this.finish(p.team, 'opponent_incapacitated');
           }
           // A hidden target can be physically struck without giving the shooter
@@ -440,6 +456,8 @@ class TeamMatch {
       opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
       opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
       opponent.capturing = false;
+      opponent.captureArmed = false;
+      this.progress[opponent.team] = 0;
     }
     if (sameTickHits.length) {
       const survivors = [...this.players.values()].filter(p => p.health > 0);
