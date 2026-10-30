@@ -1,6 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 > **Latest owner hardware correction (2026-10-29):** System RAM is **16GB**, not 8GB. Earlier historical references below to an 8GB owner machine reflect superseded assumptions, not the active test configuration. No measured FPS, peak RAM, Unreal compilation or native graphical quality is inferred from this correction.
 
+## 2026-10-30 offline BR checkpoint write-integrity candidate (R-04 / R-14 / realism P0)
+- **Code + regression candidate:** BR autosave now rejects malformed finite magazines/reserves, class capacities, stale reload hesitation, actors embedded in cover, contradictory pickup identities/remaining stock and zone clocks **before overwriting** the previous local save. Tests include a 60Hz deterministic save/restore replay. This is offline checkpoint integrity, not anti-cheat or native browser/hardware QA; the full demo delivery gate remains open.
+- **Acceptance remains pending:** the PR's Node regression and GitHub CI must pass, followed by actual desktop browser resume/restart and packaging tests before counting this as a verified release fix.
+
 ## 2026-10-30 PC cross-tab control synchronization candidate (R-03 / R-04 / R-13)
 
 - **Partial browser fix:** The shared Windows keyboard/mouse preferences controller used by BR and CH01 now listens for other-tab changes to `veilpoint.desktopControls.v1`, including storage clear. It reloads validated sensitivity, inverted-Y and unique key bindings, cancels pending rebinding and releases held fire/movement through the existing game callbacks. Team client already had its own storage listener; this does not add touch support.

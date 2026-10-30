@@ -576,7 +576,33 @@
         checkpoint.bots.some(b => b.alive !== (b.health > 0) || b.loaded > b.charges) ||
         checkpoint.kills > checkpoint.bots.filter(b => !b.alive).length)
       throw new RangeError('Invalid BR checkpoint actor state');
-    validateCheckpointTiming(checkpoint,FIREARMS[checkpoint.player.weaponId]);
+    // Validate on WRITE, not only on restore. Otherwise one corrupted frame
+    // can overwrite the last usable offline checkpoint with an unloadable save.
+    // This is local save integrity, not multiplayer anti-tamper protection.
+    const firearm=FIREARMS[checkpoint.player.weaponId];
+    const p=checkpoint.player;
+    if (!firearm || p.maxCharges!==firearm.maxRounds || p.charges>p.maxCharges ||
+        p.loaded>p.charges || p.loaded>firearm.magazine ||
+        (p.reloadHesitation && p.reloadRemaining<=0) ||
+        blocked(p.x,p.z,ACTOR_RADIUS,game.obstacles) ||
+        checkpoint.bots.some((b,i)=>b.id!==i ||
+          blocked(b.x,b.z,ACTOR_RADIUS,game.obstacles)))
+      throw new RangeError('Invalid BR checkpoint inventory or collision');
+    if (checkpoint.loot.length!==40 || checkpoint.loot.some((item,i)=>
+        item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
+        !Object.prototype.hasOwnProperty.call(FIREARMS,item.weaponId) ||
+        item.remaining>(i%2===0?12:24) ||
+        item.picked!==(item.remaining===0) ||
+        blocked(item.x,item.z,ACTOR_RADIUS,game.obstacles)))
+      throw new RangeError('Invalid BR checkpoint pickup state');
+    const expectedZone=phaseAt(checkpoint.elapsed);
+    if (!finite(checkpoint.elapsed,0,3600) ||
+        checkpoint.zone.x!==0 || checkpoint.zone.z!==0 ||
+        checkpoint.zone.phase!==expectedZone.phase ||
+        Math.abs(checkpoint.zone.radius-expectedZone.radius)>1e-6 ||
+        Math.abs(checkpoint.zone.phaseRemaining-expectedZone.phaseRemaining)>1e-6)
+      throw new RangeError('Invalid BR checkpoint zone clock');
+    validateCheckpointTiming(checkpoint,firearm);
     const serialized=JSON.stringify(checkpoint);
     if (serialized.length > MAX_CHECKPOINT_CHARS) throw new RangeError('BR checkpoint too large');
     return serialized;
