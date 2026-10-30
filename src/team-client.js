@@ -299,7 +299,7 @@
     }
     else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
     else {
-      const hint = '목표 원에서 '+controls.bindings.interact+' 점령 · 지도 조준(밖으로 이동/Q 해제) · '+
+      const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사 중 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
         controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
       status(actionFeedback && state.tick <= feedbackUntil ? hint + ' · ' + actionFeedback : hint);
     }
