@@ -105,6 +105,7 @@ function boot(server, storage = new Map()) {
     storageEvent: event => emit(windowListeners, 'storage', event),
     mouseUp: () => emit(windowListeners, 'mouseup', {button: 0}),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
+    show: () => {document.hidden = false;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
     heartbeat: () => intervals[0](),
     advanceTime: ms => {
@@ -947,4 +948,50 @@ test('PC mouse aim changes promptly without waiting for a new server snapshot',a
  a.blur();a.advanceTime(18);await settle();
  assert.equal(aimCommands().length,3,'blur cancels the unsent trailing aim');
  assert.equal(player.aiming,false,'focus loss still releases server aim');
+});
+
+
+test('hidden PC team tab cannot heartbeat forever and block a connected opponent win', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  let now = 0;
+  server.match.now = () => now;
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const hiddenToken = a.storage.get('veilpoint.team.tabSession');
+  const activeToken = b.storage.get('veilpoint.team.tabSession');
+  a.hide(); await settle();
+  const beforeStateReads = server.requests.filter(r => r.route === '/state' && r.token === hiddenToken).length;
+  await a.poll(); await settle();
+  assert.equal(server.requests.filter(r => r.route === '/state' && r.token === hiddenToken).length,
+    beforeStateReads, 'background PC tab must not poll redundant snapshots');
+  now = 20000;
+  a.heartbeat(); b.heartbeat(); await settle();
+  assert.equal(server.requests.filter(r => r.token === hiddenToken && r.body?.type === 'heartbeat').length, 0,
+    'background heartbeat must not renew an abandoned competitor');
+  assert.equal(server.requests.filter(r => r.token === activeToken && r.body?.type === 'heartbeat').length, 1);
+  now = 31001;
+  server.match.step();
+  assert.equal(server.match.phase, 'ended');
+  assert.equal(server.match.winner, server.match.players.get(activeToken).team);
+  assert.equal(server.match.reason, 'connection_timeout');
+});
+
+test('returning from a short PC alt-tab renews the server lease without waiting ten seconds', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  let now = 0;
+  server.match.now = () => now;
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  a.hide(); await settle();
+  now = 25000;
+  a.show(); await settle();
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'heartbeat').length, 1,
+    'foreground visibility should renew immediately');
+  now = 31001;
+  b.heartbeat(); await settle();
+  server.match.step();
+  assert.equal(server.match.phase, 'playing', 'brief background pause must not forfeit a valid session');
 });
