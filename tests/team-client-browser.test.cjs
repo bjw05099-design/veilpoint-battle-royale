@@ -757,3 +757,14 @@ test('both local browser clients report a same-tick draw instead of a disconnect
     assert.equal(client.node('ready').disabled, false);
   }
 });
+
+test('PC team HUD distinguishes expired-opponent departure from two disconnected players', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  server.match.finish(null, 'player_left');
+  await a.poll(); await settle();
+  assert.match(a.node('status').textContent, /퇴장 시 상대 연결 만료/);
+  assert.doesNotMatch(a.node('status').textContent, /양측 연결 종료|승리 팀 null/);
+});
