@@ -54,6 +54,10 @@ test('only uncontested physical presence accumulates objective score; no score i
     m.step();
     if (m.phase === 'playing' && (i + 1) % 60 === 0)
       m.command('a', {seq: ++aSeq, type: 'capture', active: true});
+    if (m.phase === 'playing' && (i + 1) % 120 === 0) {
+      m.command('a', {seq: ++aSeq, type: 'capture', active: false});
+      m.command('a', {seq: ++aSeq, type: 'capture', active: true});
+    }
   }
   assert.equal(m.phase, 'ended');
   assert.equal(m.winner, 'red');
@@ -370,7 +374,8 @@ test('periodic held-intent renewals remain deterministic and do not reset facing
       if ((i + 1) % 60 === 0 && m.phase === 'playing')
         m.command('a', {seq: ++seq, type: 'capture', active: true});
     }
-    assert.equal(m.score.red, 2, 'renewed capture can still complete a full point');
+    assert.equal(m.score.red, 1, 'lease renewals cannot auto-arm a second point');
+    assert.equal(m.players.get('a').captureArmed, false);
     return m.snapshot('a');
   };
   assert.deepEqual(play(), play());
