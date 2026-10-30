@@ -40,6 +40,8 @@ function backend() {
 function boot(server, storage = new Map()) {
   const nodes = new Map(), documentListeners = new Map(), windowListeners = new Map();
   const intervals = [];
+  let monotonicMs = 1000, timerId = 0;
+  const timers = new Map();
   const ctx = {};
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'arc', 'fill']) {
     ctx[name] = () => {};
@@ -87,6 +89,13 @@ function boot(server, storage = new Map()) {
   vm.runInNewContext(clientSource, {
     document, window, fetch: server.fetchLocal,
     setInterval: callback => (intervals.push(callback), intervals.length),
+    setTimeout: (callback, delay) => {
+      const id = ++timerId;
+      timers.set(id, {callback, at: monotonicMs + delay});
+      return id;
+    },
+    clearTimeout: id => timers.delete(id),
+    performance: {now: () => monotonicMs},
     console
   }, {filename: 'src/team-client.js', timeout: 1500});
   return {
@@ -97,7 +106,16 @@ function boot(server, storage = new Map()) {
     mouseUp: () => emit(windowListeners, 'mouseup', {button: 0}),
     hide: () => {document.hidden = true;emit(documentListeners, 'visibilitychange');},
     poll: () => intervals[1](),
-    heartbeat: () => intervals[0]()
+    heartbeat: () => intervals[0](),
+    advanceTime: ms => {
+      monotonicMs += ms;
+      for (const [id, timer] of [...timers]) {
+        if (timer.at <= monotonicMs) {
+          timers.delete(id);
+          timer.callback();
+        }
+      }
+    }
   };
 }
 async function settle() {
@@ -894,4 +912,39 @@ test('expired PC command drops queued old-session intents before a fresh join', 
   assert.notEqual(freshToken, oldToken);
   assert.equal(server.requests.filter(r => r.token === freshToken && r.body?.type === 'move').length, 0,
     'queued movement from the old session must not replay under a fresh token');
+});
+
+test('PC mouse aim changes promptly without waiting for a new server snapshot',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const player=server.match.players.get(token);
+ const aimCommands=()=>server.requests.filter(r=>r.token===token&&r.body?.type==='aim');
+ const canvas=a.node('arena');
+ canvas.dispatch('pointermove',{clientX:350,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCommands().length,1);
+ const first={...player.facing};
+ a.advanceTime(18);
+ canvas.dispatch('pointermove',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();
+ assert.equal(server.match.ticks,0,'no authoritative tick was needed to change aim');
+ assert.equal(aimCommands().length,2);
+ assert.ok(Math.hypot(player.facing.x-first.x,player.facing.z-first.z)>.1);
+ canvas.dispatch('pointermove',{clientX:150,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCommands().length,2,'rapid mouse events do not flood HTTP');
+ a.advanceTime(18);await settle();
+ assert.equal(aimCommands().length,3,'a final mouse flick flushes without a server poll');
+ await a.poll();await settle();
+ assert.equal(aimCommands().length,3,'the next poll does not duplicate the trailing aim');
+ assert.ok(player.facing.x<0,'final aim points left');
+ canvas.dispatch('pointermove',{clientX:350,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCommands().length,3,'a second fast flick is queued, not sent');
+ a.blur();a.advanceTime(18);await settle();
+ assert.equal(aimCommands().length,3,'blur cancels the unsent trailing aim');
+ assert.equal(player.aiming,false,'focus loss still releases server aim');
 });
