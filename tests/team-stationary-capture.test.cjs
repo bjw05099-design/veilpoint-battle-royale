@@ -28,7 +28,14 @@ test('moving through a relay cannot bank a capture; stopping starts a full 60Hz 
     m.step();
     if (i === 59) m.command('a', {seq: 5, type: 'capture', active: true});
   }
-  assert.equal(m.score.red, 1, 'stationary, uninterrupted interaction still works');
+  assert.equal(m.score.red, 0, 'a press made while moving cannot queue a later relay');
+  m.command('a', {seq: 6, type: 'capture', active: false});
+  m.command('a', {seq: 7, type: 'capture', active: true});
+  for (let i = 0; i < CAPTURE_SECONDS / STEP; i++) {
+    m.step();
+    if (i === 59) m.command('a', {seq: 8, type: 'capture', active: true});
+  }
+  assert.equal(m.score.red, 1, 'fresh stationary press transmits once');
 });
 
 test('reloading cannot operate the relay until the finite reload completes', () => {
@@ -42,10 +49,17 @@ test('reloading cannot operate the relay until the finite reload completes', () 
   m.command('a', {seq: 4, type: 'capture', active: true});
   for (let i = 0; i < 30; i++) m.step();
   assert.equal(player.reloadTicks, 0);
-  assert.ok(m.progress.red <= STEP + 1e-8, 'reload completion cannot grant prior progress');
+  assert.equal(m.progress.red, 0, 'a press during reload cannot be pre-armed');
   for (let i = 0; i < 120; i++) {
     m.step();
     if (i === 59) m.command('a', {seq: 5, type: 'capture', active: true});
+  }
+  assert.equal(m.score.red, 0);
+  m.command('a', {seq: 6, type: 'capture', active: false});
+  m.command('a', {seq: 7, type: 'capture', active: true});
+  for (let i = 0; i < 120; i++) {
+    m.step();
+    if (i === 59) m.command('a', {seq: 8, type: 'capture', active: true});
   }
   assert.equal(m.score.red, 1);
   assert.equal(player.ammo, 12);
@@ -66,6 +80,13 @@ test('holding an empty trigger cannot capture and cannot generate ammunition', (
   for (let i = 0; i < 120; i++) {
     m.step();
     if (i === 59) m.command('a', {seq: 6, type: 'capture', active: true});
+  }
+  assert.equal(m.score.red, 0, 'trigger-held press cannot queue a relay');
+  m.command('a', {seq: 7, type: 'capture', active: false});
+  m.command('a', {seq: 8, type: 'capture', active: true});
+  for (let i = 0; i < 120; i++) {
+    m.step();
+    if (i === 59) m.command('a', {seq: 9, type: 'capture', active: true});
   }
   assert.equal(m.score.red, 1);
   assert.equal(player.ammo, 0);
