@@ -130,6 +130,10 @@ class TeamMatch {
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
+    // A ready vote consents to the current pairing, not an open lobby seat.
+    // If someone readied while alone, a later join must require fresh consent
+    // from both participants before the server starts the round.
+    for (const existing of this.players.values()) existing.ready = false;
     this.players.set(token, player);
     return {id: player.id, team};
   }
