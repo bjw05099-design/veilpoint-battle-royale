@@ -87,10 +87,26 @@
   }
   // Visual observation is exact; fresh audible evidence is only approximate.
   // An old search clue must not suppress a new, physically audible shot.
-  function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject)) {
+  // A living person standing between an observer and a shooter blocks exact
+  // visual identification. This cheap segment/circle test avoids per-target
+  // obstacle arrays inside the 60Hz rival perception loop.
+  function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject), actors = null) {
     if (distance >= 55 || lineBlocked(observer.x, observer.z, subject.x, subject.z, obstacles)) return false;
     const bearing = Math.atan2(subject.x - observer.x, -(subject.z - observer.z));
-    return Math.abs(normalizeAngle(bearing - observer.angle)) <= 1.4;
+    if (Math.abs(normalizeAngle(bearing - observer.angle)) > 1.4) return false;
+    if (actors) {
+      const dx = subject.x - observer.x, dz = subject.z - observer.z;
+      const lengthSquared = dx * dx + dz * dz;
+      if (lengthSquared > 0) for (const actor of actors) {
+        if (actor === observer || actor === subject || !actor.alive) continue;
+        const projection = ((actor.x - observer.x) * dx + (actor.z - observer.z) * dz) / lengthSquared;
+        if (projection <= 0 || projection >= 1) continue;
+        const x = observer.x + projection * dx - actor.x;
+        const z = observer.z + projection * dz - actor.z;
+        if (x * x + z * z < ACTOR_RADIUS * ACTOR_RADIUS) return false;
+      }
+    }
+    return true;
   }
   function approximateSoundPosition(source) {
     return {x: Math.round(source.x / 2) * 2, z: Math.round(source.z / 2) * 2};
@@ -308,6 +324,7 @@
     // Collect actual rival footsteps after movement. Hearing uses only audible,
     // rounded positions and cannot grant sight or permission to shoot.
     const rivalFootsteps=[];
+    const visibleActors=[p,...game.bots];
     // Opponent behavior is intentionally simple and deterministic for a zero-asset offline prototype.
     for(const b of game.bots) {
       if(!b.alive) continue;
@@ -320,7 +337,7 @@
       const consider=(other)=>{
         if(other===b||!other.alive)return;
         const d=dist(b,other);
-        if(d>=targetDistance||!canSeeActor(b,other,obstacles,d))return;
+        if(d>=targetDistance||!canSeeActor(b,other,obstacles,d,visibleActors))return;
         target=other;targetDistance=d;
         targetAngle=Math.atan2(other.x-b.x,-(other.z-b.z));
       };
@@ -408,7 +425,7 @@
             if(listener!==b&&listener.alive&&hearsImpulse(listener,b,obstacles)){
               // A new shot supersedes old search memory, but unseen shooters
               // never disclose more than a coarse audible source estimate.
-              const observed=canSeeActor(listener,b,obstacles)?b:heard;
+              const observed=canSeeActor(listener,b,obstacles,dist(listener,b),visibleActors)?b:heard;
               listener.lastSeenX=observed.x;listener.lastSeenZ=observed.z;
               listener.lastSeenUntil=game.elapsed+2.5;
             }
@@ -493,7 +510,7 @@
       if(b.alive&&hearsImpulse(b,p,game.obstacles)){
         // A fresh sound replaces stale search evidence, while visible
         // actors remain precise and hidden actors stay imprecise.
-        const observed=canSeeActor(b,p,game.obstacles)?p:heard;
+        const observed=canSeeActor(b,p,game.obstacles,dist(b,p),[p,...game.bots])?p:heard;
         b.lastSeenX=observed.x;b.lastSeenZ=observed.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
