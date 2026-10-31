@@ -221,7 +221,9 @@ test('PC pointer lock releases a late ordinary-lock grant on a cached fallback',
   return new Promise(resolve=>{resolveLock=()=>{doc.pointerLockElement=canvas;resolve();};});
  }};
  const first=C.requestPrecisionPointerLock(canvas);
- await Promise.resolve(); // Raw-input rejection starts the ordinary-lock fallback.
+ // The raw-input rejection and fallback run in successive promise jobs.
+ for(let i=0;i<4&&!resolveLock;i++)await Promise.resolve();
+ assert.equal(typeof resolveLock,'function','ordinary fallback must begin');
  resolveLock();await first;
  const attempt=C.requestPrecisionPointerLock(canvas,()=>wanted);
  wanted=false;resolveLock();
