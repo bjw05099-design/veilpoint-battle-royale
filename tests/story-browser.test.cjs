@@ -91,12 +91,17 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     interact(){this.emit('keydown',{code:'KeyE'});},
     clearEncounter(startFrame){
       // Real UI input path: pointer-locked mouse aim + SPACE, paced by the 60Hz clock.
-      let frame=startFrame,yaw=0;
+      let frame=startFrame,yaw=0,shots=0;
       const aim=next=>{this.emit('mousemove',{movementX:(next-yaw)/.0023,movementY:0});yaw=next;};
       for(const next of [0,Math.atan2(15,15.5),Math.atan2(-15,15.5)]){
         aim(next);
         for(let shot=0;shot<2;shot++){
+          // Actual pointer-locked mouse input counteracts the previous finite
+          // camera kick, instead of letting an automated script aim magically.
+          if(shots>0)this.emit('mousemove',{movementX:0,
+            movementY:this.context.VeilpointSim.FIREARMS.carbine.recoilPitch/.00165});
           this.emit('keydown',{code:'Space'});
+          shots++;
           for(let tick=0;tick<15;tick++){frame++;this.frame(frame*1000/60);}
         }
       }

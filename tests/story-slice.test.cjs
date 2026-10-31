@@ -907,6 +907,7 @@ test('CH01 casualty report has a credible captain-to-liaison information chain',
   const first=s.world.bots[0];
   for(let i=0;i<2;i++){
     s.world.player.yaw=Math.atan2(first.x-s.world.player.x,-(first.z-s.world.player.z));
+    s.world.player.pitch=0; // Scripted captain corrects upward recoil between shots.
     s.world.elapsed+=.21;
     assert.equal(story.fire(s).hit,true);
   }
@@ -915,6 +916,7 @@ test('CH01 casualty report has a credible captain-to-liaison information chain',
   for(const bot of s.world.bots.filter(b=>b.alive)){
     for(let i=0;i<2;i++){
       s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+      s.world.player.pitch=0;
       s.world.elapsed+=.21;
       assert.equal(story.fire(s).hit,true);
     }
