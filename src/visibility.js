@@ -34,7 +34,8 @@ function lodForDistance(distance,near=45,mid=90){
 function rayBlocked(ax,az,bx,bz,obstacles){
  const dx=bx-ax,dz=bz-az;
  for(const o of obstacles){
-  if(!o||![o.x,o.z,o.w,o.d].every(Number.isFinite)||o.w<=0||o.d<=0)continue;
+  if(!o||!Number.isFinite(o.x)||!Number.isFinite(o.z)||
+     !Number.isFinite(o.w)||!Number.isFinite(o.d)||o.w<=0||o.d<=0)continue;
   const minX=o.x-o.w/2,maxX=o.x+o.w/2;
   const minZ=o.z-o.d/2,maxZ=o.z+o.d/2;
   let near=0,far=1;

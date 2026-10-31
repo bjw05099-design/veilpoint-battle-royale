@@ -44,3 +44,18 @@ test('legacy states without obstacle metadata retain existing frustum/LOD behavi
  assert.equal(V.planVisible(s).stats.lootVisible,1);
  assert.equal(V.planVisible(s).stats.effectsVisible,1);
 });
+
+test('dense 60Hz-style planning remains deterministic and skips invalid cover',()=>{
+ const s=scene();
+ s.obstacles=[
+  ...Array.from({length:24},(_,i)=>({x:(i%6-2.5)*5,z:-12-Math.floor(i/6)*7,w:2,d:3,h:4})),
+  {x:NaN,z:-3,w:2,d:3}, {x:0,z:-4,w:0,d:1}
+ ];
+ s.bots=Array.from({length:20},(_,i)=>({x:(i%5-2)*4,z:-15-Math.floor(i/5)*12,alive:true}));
+ s.loot=Array.from({length:40},(_,i)=>({x:(i%8-3.5)*4,z:-8-Math.floor(i/8)*9,picked:false}));
+ const before=JSON.stringify({...s,obstacles:s.obstacles.slice(0,24)});
+ const first=V.planVisible(s);
+ for(let i=0;i<120;i++)assert.deepEqual(V.planVisible(s),first);
+ assert.equal(JSON.stringify({...s,obstacles:s.obstacles.slice(0,24)}),before);
+ assert.ok(first.stats.estimatedDynamicVertices>=0);
+});
