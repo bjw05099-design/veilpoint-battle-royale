@@ -428,3 +428,42 @@ test('HTTP late heartbeat cannot revive an expired session before the next 60Hz 
     assert.equal(server.match.players.get(a.token).seq, 1);
   } finally {await server.close();}
 });
+
+test('real HTTP clients cannot forge a loadout or switch weapons during a round', async () => {
+  const server = createTeamServer({port:0,autoTick:false});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async (route, body, token) => {
+    const response = await fetch(base + route, {method:'POST',headers:{
+      'content-type':'application/json',...(token ? {'x-player-token':token} : {})
+    },body:JSON.stringify(body)});
+    return {status:response.status,data:await response.json()};
+  };
+  const state = async token => (await (await fetch(base+'/state',{headers:{
+    'x-player-token':token
+  }})).json());
+  try {
+    const a=(await post('/join',{name:'Alpha'})).data;
+    const b=(await post('/join',{name:'Bravo'})).data;
+    assert.equal((await post('/command',{seq:1,type:'loadout',weaponId:'admin'},a.token)).status,400);
+    assert.equal((await post('/command',{seq:1,type:'loadout',weaponId:'precision',ammo:999},a.token)).status,400);
+    assert.deepEqual((await post('/command',{seq:1,type:'loadout',weaponId:'precision'},a.token)).data,
+      {ok:true,weaponId:'precision'});
+    assert.equal((await state(a.token)).self.weaponId,'precision');
+    await post('/command',{seq:2,type:'ready'},a.token);
+    await post('/command',{seq:1,type:'ready'},b.token);
+    assert.equal((await state(a.token)).self.ammo,6);
+    assert.deepEqual((await post('/command',{seq:3,type:'loadout',weaponId:'compact'},a.token)).data,
+      {ok:false,reason:'loadout_locked'});
+    const fired=await post('/command',{seq:4,type:'fire'},a.token);
+    assert.deepEqual(fired.data,{ok:true,ammo:5},
+      'HTTP must not disclose hidden hit confirmation or target state');
+    assert.equal((await state(b.token)).self.health,45);
+    assert.equal((await post('/command',{seq:5,type:'fire'},a.token)).data.reason,'cooldown');
+    assert.equal((await state(a.token)).self.ammo,5);
+    for(let i=0;i<42;i++)server.match.step();
+    assert.equal((await post('/command',{seq:6,type:'fire'},a.token)).data.ammo,4);
+    assert.equal((await state(b.token)).phase,'ended');
+    assert.equal((await state(b.token)).winner,'red');
+  } finally {await server.close();}
+});
