@@ -68,3 +68,7 @@ A new Node test drives CH01 from the spawn through **actual fixed-60Hz movement 
 ## 2026-10-29 BR boundary feedback candidate
 
 The BR HUD now displays a proximity warning within 12 world units of the shrinking match boundary and an explicit return warning when outside, without concealing reload or other event feedback. The warning derives from the same simulation radius used for the current damage rule; it does **not** make the arbitrary shrinking-damage hazard physically realistic. The initial HTML ammunition display is corrected to 12 loaded / 36 reserve rounds (48 total). Node simulation and DOM-controller regression tests are proposed; real browser usability and the underlying zone-realism P0 remain **unverified / release-blocking** until independently tested and redesigned.
+
+## 2026-10-31 GPU context-loss continuity candidate
+
+BR and CH01 PC browser controllers now pause/checkpoint on WebGL context loss, recreate the renderer on restoration, and require explicit manual resume. Recovery failures leave game controls disabled instead of advancing an invisible match. Desktop DOM-mock regressions cover successful restoration and failure-to-recreate paths. This is **not** a real-GPU context-loss playtest, QHD 165Hz benchmark or Unreal acceptance result; the release checklist remains unchecked.
