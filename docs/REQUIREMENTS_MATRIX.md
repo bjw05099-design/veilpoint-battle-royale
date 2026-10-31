@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 browser GPU disjoint telemetry integrity (R-08 / R-10 / R-11 / R-25)
+- **Partial P0 candidate:** WebGL2 timer disjoint now invalidates active and pending queries, suppresses new queries until recovery, and resets stale CPU/GPU/RAF telemetry through the renderer-to-BR controller callback. This prevents outdated GPU timing samples from triggering adaptive resolution after a timing discontinuity.
+- **Evidence:** Two Node regression cases cover repeated disjoint, active query cleanup, recovery and stale-sample governor guard. Actual Windows RTX 3070 / QHD 165Hz / 16GB tests, GPU measurement and Unreal native performance remain **unverified**.
+
+
 ## 2026-10-31 BR living-actor visual occlusion (R-04 / R-14 / R-23 / issue #15)
 - **Partial P0 candidate:** Offline BR visual awareness and fresh gunfire evidence now treat intervening **living actor bodies** as sight blockers, rather than granting exact shooter coordinates through another person. An audible but screened shot still yields only a coarse 2m estimate; fallen actors no longer obstruct sight. One reused actor roster per 60Hz AI step and per shot avoids per-target obstacle allocations.
 - **Automated regression:** Node tests cover living-body occlusion, fallen-body visibility, finite ammunition, checkpoint preservation and fixed-60Hz save/replay. This is a browser simulation approximation, **not** measured FPS or fully realistic human vision. Windows PC playthrough, RTX 3070 QHD 165Hz with **16GB system RAM**, UE native build, full three-mode realism and independent visual QA remain **unverified**.

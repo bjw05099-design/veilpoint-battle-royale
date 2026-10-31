@@ -111,3 +111,7 @@ Owner self-report (2026-10-27): "노트북용 amd9시리즈" (AMD 9-series for l
 ## 2026-10-29 browser diagnostic display candidate
 
 The browser graphics panel now displays bounded sample counts and P50/P95/P99 for CPU draw calls, optional WebGL2 GPU elapsed timer queries, and render callback intervals. Missing GPU query support remains explicitly `측정 불가` rather than a fabricated GPU frame time. The 60Hz game simulation and independent FPS cap remain unchanged. These diagnostics are **not** native UE frametimes, display presentation timings, end-to-end input latency, QHD 165Hz hardware proof or a 16GB system-RAM measurement. Verify on the owner's actual machine before using them as performance acceptance evidence.
+
+### 2026-10-31 GPU timing disjoint recovery (browser candidate)
+
+WebGL2 disjoint timer events now end/delete any active query, discard pending invalid results and pause query creation until the disjoint state clears. The renderer notifies the BR controller once per event, clearing old CPU/GPU/render-interval telemetry before the opt-in resolution governor can act on fresh samples. Two deterministic Node tests exercise pending and active query invalidation, recovery, and stale-sample rejection. This improves **integrity of prototype performance diagnostics**, not measured QHD 165FPS, native Unreal rendering, GPU performance, or user-device validation.
