@@ -74,8 +74,11 @@ function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxSca
  if(!RESOLUTIONS.includes(minScale)||!RESOLUTIONS.includes(maxScale)||minScale>maxScale||!RESOLUTIONS.includes(initialScale)||initialScale<minScale||initialScale>maxScale)throw new RangeError('Invalid resolution bounds');
  if(!Number.isFinite(targetFps)||targetFps<30||targetFps>240||!Number.isFinite(cooldownMs)||cooldownMs<0)throw new RangeError('Invalid timing configuration');
  let scale=initialScale,lastChange=-Infinity,goodWindows=0;
+ // A GPU disjoint or invalid measurement breaks consecutive low-load evidence.
+ // Preserve the current scale and cooldown when invalidating timing history.
+ function resetEvidence(){goodWindows=0;}
  function update({nowMs,gpuP95,cpuP95,gpuSamples=0,cpuSamples=0}){
-  if(!Number.isFinite(nowMs)||gpuSamples<30||cpuSamples<30||!Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0)return scale;
+  if(!Number.isFinite(nowMs)||gpuSamples<30||cpuSamples<30||!Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0){resetEvidence();return scale;}
   const budget=1000/targetFps;
   if(nowMs-lastChange<cooldownMs)return scale;
   const index=RESOLUTIONS.indexOf(scale);
@@ -91,7 +94,7 @@ function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxSca
   }else goodWindows=0;
   return scale;
  }
- return {update,getScale:()=>scale};
+ return {update,getScale:()=>scale,resetEvidence};
 }
 return {RESOLUTIONS,TARGET_FRAME_MS,percentile,createTelemetry,createGpuTimer,createResolutionGovernor};
 });
