@@ -103,7 +103,7 @@ This is a **separate 2D networking foundation**, not a completed online FPS, cam
 
 ## Reproducible offline demo ZIP (candidate)
 
-Run `npm run package:demo` from the project root. The script creates `dist/veilpoint-offline-demo.zip` and `dist/veilpoint-offline-demo.zip.sha256` without network access or runtime dependencies. The ZIP includes only the two browser entry pages, their local scripts, a small documentation set, a per-file SHA256 manifest and a release-limitation notice. GitHub CI verifies the checksum and archive integrity and uploads a candidate artifact. It is **not** a validated commercial/UE release; actual desktop-browser end-to-end testing, asset rights and performance benchmarking remain required.
+Run `npm run package:demo` from the project root. The script creates `dist/veilpoint-offline-demo.zip` and `dist/veilpoint-offline-demo.zip.sha256` without network access or runtime dependencies. The ZIP includes only the two browser entry pages, their local scripts, a small documentation set, a per-file SHA256 manifest and a release-limitation notice. The package command independently checks archive CRC32, the per-file SHA256 manifest and sidecar; CI verifies the ZIP structure and uploads a candidate artifact. Direct HTML asset references must be bundled locally; unsupported external/CSS URL dependencies fail packaging. It is **not** a validated commercial/UE release; actual desktop-browser end-to-end testing, asset rights and performance benchmarking remain required.
 
 ## Local team-prototype fairness and tab refresh candidate (2026-10-27)
 

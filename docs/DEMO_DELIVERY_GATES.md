@@ -20,7 +20,7 @@ A cinematic first-person single-player campaign set in the fictional Sahir Coast
 - [ ] HyperReal 165Hz plus Cinematic Maximum, Ultra Photoreal, Balanced Quality, Smooth Performance, Power Saver and Custom work; no unverified 165FPS guarantee.
 - [ ] Real CPU/GPU/monitor results are provided *only if actually measured*. 165FPS has a 6.06ms/frame target.
 - [ ] `npm run verify` passes at release commit, with exact command/output; GitHub Actions is green at that SHA.
-- [ ] Self-contained ZIP, README instructions, relevant licence inventory, changelog and checksum generated.
+- [ ] Self-contained ZIP, README instructions, relevant licence inventory, changelog and checksum generated. Packaging now checks directly referenced HTML assets for offline closure and independently verifies ZIP CRC32, SHA256 manifest and sidecar; code-level validation is not a real-browser launch certificate.
 - [ ] Launch-test records identify actual desktop browser and hardware; if untested, label a candidate, not a verified release.
 - [ ] Unreal demo separately requires real compiled and launched packaged build with logs, signed-off visuals and hardware benchmark.
 
