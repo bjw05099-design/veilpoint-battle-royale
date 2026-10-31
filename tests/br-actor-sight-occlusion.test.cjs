@@ -9,9 +9,9 @@ function audibleShot(blockerAlive=true) {
   const [observer,blocker]=game.bots;
   game.player.x=1.3;game.player.z=20;game.player.yaw=Math.PI;
   observer.x=1.3;observer.z=0;observer.angle=Math.PI;
-  observer.moveTime=999;observer.actionTime=999;
+  observer.moveTime=5;observer.actionTime=5;
   blocker.x=1.3;blocker.z=10;blocker.angle=0;
-  blocker.moveTime=999;blocker.actionTime=999;
+  blocker.moveTime=5;blocker.actionTime=5;
   blocker.alive=blockerAlive;blocker.health=blockerAlive?100:0;
   const rounds=game.player.charges;
   assert.equal(Sim.tag(game).ok,true);
