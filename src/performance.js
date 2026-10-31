@@ -28,14 +28,26 @@ function createTelemetry(size=180){
  return {record,stats,clear};
 }
 // Timer queries are asynchronous. No gl.finish(), no synthetic GPU measurement.
-function createGpuTimer(gl,onSample){
+function createGpuTimer(gl,onSample,onInvalidated){
  const ext=gl&&gl.getExtension&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
  if(!ext)return {supported:false,begin:()=>false,end:()=>{},poll:()=>{},dispose:()=>{}};
- let active=null;const pending=[];let disposed=false;
+ let active=null;const pending=[];let disposed=false,disjointActive=false;
  function poll(){
   if(disposed)return;
   const disjoint=!!gl.getParameter(ext.GPU_DISJOINT_EXT);
-  if(disjoint){while(pending.length)gl.deleteQuery(pending.shift());return;}
+  if(disjoint){
+   // A disjoint invalidates *every* query spanning the event, including one
+   // currently open. End the active WebGL query before deleting it so a later
+   // frame cannot accidentally consume a stale/invalid GPU timing result.
+   if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;}
+   while(pending.length)gl.deleteQuery(pending.shift());
+   // Notify the UI once per disjoint episode; old timing windows must not
+   // drive adaptive resolution after a GPU reset or timing discontinuity.
+   if(!disjointActive&&typeof onInvalidated==='function')onInvalidated();
+   disjointActive=true;
+   return;
+  }
+  disjointActive=false;
   while(pending.length){
    const q=pending[0];
    if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))break;
@@ -46,7 +58,7 @@ function createGpuTimer(gl,onSample){
   }
  }
  function begin(){
-  if(disposed||active||pending.length>=4)return false;
+  if(disposed||disjointActive||active||pending.length>=4)return false;
   active=gl.createQuery();if(!active)return false;
   gl.beginQuery(ext.TIME_ELAPSED_EXT,active);return true;
  }

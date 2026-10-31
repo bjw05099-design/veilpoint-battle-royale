@@ -109,6 +109,9 @@ function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 try { renderer=new global.VeilpointRenderer(canvas);
  renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
+ // Disjoint WebGL queries invalidate the old GPU sample window. Never let
+ // stale pre-reset samples silently downscale the PC graphics preset.
+ renderer.onGpuInvalidated=()=>telemetry.clear();
  applyGraphicsSettings();
  if(!renderer.gpuTimer||!renderer.gpuTimer.supported){autoResolution=false;autoResolutionCheckbox.checked=false;autoResolutionCheckbox.disabled=true;autoResolutionCheckbox.title='이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';}
  }
