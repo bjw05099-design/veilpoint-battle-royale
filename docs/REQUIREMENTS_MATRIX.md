@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 BR living-actor visual occlusion (R-04 / R-14 / R-23 / issue #15)
+- **Partial P0 candidate:** Offline BR visual awareness and fresh gunfire evidence now treat intervening **living actor bodies** as sight blockers, rather than granting exact shooter coordinates through another person. An audible but screened shot still yields only a coarse 2m estimate; fallen actors no longer obstruct sight. One reused actor roster per 60Hz AI step and per shot avoids per-target obstacle allocations.
+- **Automated regression:** Node tests cover living-body occlusion, fallen-body visibility, finite ammunition, checkpoint preservation and fixed-60Hz save/replay. This is a browser simulation approximation, **not** measured FPS or fully realistic human vision. Windows PC playthrough, RTX 3070 QHD 165Hz with **16GB system RAM**, UE native build, full three-mode realism and independent visual QA remain **unverified**.
+
+
 ## 2026-10-31 CH01 direct-sight gunfire evidence (R-02 / R-14 / R-23 / R-28)
 - **Partial P0 candidate (PR #169):** CH01 now uses one bounded line-of-sight rule for hostile pursuit and reaction to a player shot. An opponent who directly observes the shooter keeps the exact visible location instead of having it overwritten by a rounded acoustic estimate. A turned-away or cover-obstructed opponent retains only a coarse 2m audible clue, not hidden-player coordinates.
 - **Regression evidence:** Four new Node tests exercise visible shot evidence with checkpoint persistence, facing-away hearing, solid cover and 60Hz deterministic replay. CI, actual Windows keyboard/mouse play, native UE, full campaign AI realism and RTX 3070 QHD 165Hz / **16GB system RAM** measurements remain distinct gates; no three-mode completion is implied.
