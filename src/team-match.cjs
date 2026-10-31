@@ -36,6 +36,12 @@ const RELOAD_TICKS = 90;
 const RELOAD_HESITATION_TICKS = 36;
 const STRESS_THRESHOLD = 60;
 const STRESS_DECAY_PER_TICK = 0.03;
+// Fictional gameplay profiles, not real-world firearm specifications.
+const LOADOUTS = Object.freeze({
+  carbine:Object.freeze({magazine:MAGAZINE_ROUNDS,reserve:SPARE_ROUNDS,damage:FIRE_DAMAGE,intervalTicks:FIRE_INTERVAL_TICKS,reloadTicks:RELOAD_TICKS,range:FIRE_RANGE}),
+  compact:Object.freeze({magazine:18,reserve:36,damage:22,intervalTicks:12,reloadTicks:75,range:55}),
+  precision:Object.freeze({magazine:6,reserve:18,damage:55,intervalTicks:42,reloadTicks:120,range:FIRE_RANGE})
+});
 // Fixed-step intent lease: disconnected/suspended input must not move or capture forever.
 // Clients periodically renew held intent; heartbeat/state polling never renews it.
 const INPUT_LEASE_TICKS = 90;
@@ -112,7 +118,7 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: name.trim(), team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      aiming: false, capturing: false, captureHeld: false, captureArmed: false, health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      aiming: false, capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
@@ -150,6 +156,7 @@ class TeamMatch {
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
       data.type === 'capture' || data.type === 'trigger' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
+       data.type === 'loadout' ? ['seq', 'type', 'weaponId'] :
       ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
@@ -160,6 +167,7 @@ class TeamMatch {
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
     if (data.type === 'trigger' && typeof data.active !== 'boolean') throw new RangeError('invalid_trigger');
     if (data.type === 'assist' && typeof data.enabled !== 'boolean') throw new RangeError('invalid_assist');
+    if (data.type === 'loadout' && (typeof data.weaponId !== 'string' || !Object.prototype.hasOwnProperty.call(LOADOUTS, data.weaponId))) throw new RangeError('invalid_loadout');
     if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
@@ -178,6 +186,13 @@ class TeamMatch {
     }
     // State polling cannot keep a disconnected/abandoned player active forever.
     if (data.type === 'heartbeat') return {ok: true};
+    if (data.type === 'loadout') {
+      if (this.phase === 'playing' || p.ready) return {ok:false,reason:'loadout_locked'};
+      p.weaponId=data.weaponId;
+      p.ammo=LOADOUTS[p.weaponId].magazine;p.reserve=LOADOUTS[p.weaponId].reserve;
+      p.reloadTicks=0;p.reloadHesitation=false;
+      return {ok:true,weaponId:p.weaponId};
+    }
     // Accessibility preference is server-owned, validated and retained between rounds.
     if (data.type === 'assist') {p.reloadAssist = data.enabled;return {ok: true, enabled: p.reloadAssist};}
     if (data.type === 'ready') {
@@ -222,16 +237,16 @@ class TeamMatch {
         if (!p.reloadHesitation) return {ok: false, reason: 'already_reloading'};
         // A second deliberate input can recover from a visible hesitation, but
         // never beat the ordinary 90-tick reload or duplicate carried rounds.
-        if (p.reloadTicks > RELOAD_TICKS + RELOAD_HESITATION_TICKS - 15)
+        if (p.reloadTicks > LOADOUTS[p.weaponId].reloadTicks + RELOAD_HESITATION_TICKS - 15)
           return {ok: false, reason: 'recover_not_ready'};
         p.reloadTicks = Math.max(1, p.reloadTicks - RELOAD_HESITATION_TICKS);
         p.reloadHesitation = false;
         return {ok: true, recovered: true, reloadTicks: p.reloadTicks};
       }
-      if (p.ammo === MAGAZINE_ROUNDS) return {ok: false, reason: 'magazine_full'};
+      if (p.ammo === LOADOUTS[p.weaponId].magazine) return {ok: false, reason: 'magazine_full'};
       if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
       p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
-      p.reloadTicks = RELOAD_TICKS + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
+      p.reloadTicks = LOADOUTS[p.weaponId].reloadTicks + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
       p.capturing = false;
       p.captureArmed = false;
       this.progress[p.team] = 0;
@@ -268,10 +283,11 @@ class TeamMatch {
     return {ok: true};
   }
   fireShot(p, deferredHits = null) {
+    const weapon = LOADOUTS[p.weaponId];
     if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
       if (p.reloadTicks > 0) return {ok: false, reason: 'reloading'};
       if (p.ammo === 0) return {ok: false, reason: 'empty_magazine'};
-      if (this.ticks - p.lastShotTick < FIRE_INTERVAL_TICKS) return {ok: false, reason: 'cooldown'};
+      if (this.ticks - p.lastShotTick < weapon.intervalTicks) return {ok: false, reason: 'cooldown'};
       p.lastShotTick = this.ticks;
       p.ammo--;
       p.capturing = false;
@@ -293,17 +309,17 @@ class TeamMatch {
         const contact = intersects
           ? Math.max(0, forward - Math.sqrt(Math.max(0, PLAYER_RADIUS ** 2 - crossTrack ** 2)))
           : Infinity;
-        const hit = contact > 0 && contact <= FIRE_RANGE &&
+        const hit = contact > 0 && contact <= weapon.range &&
           !lineBlocked(p.x, p.z, p.x + p.facing.x * contact,
             p.z + p.facing.z * contact, COVER);
         if (hit) {
           // Held triggers in the same 60Hz tick must resolve together. Otherwise
           // the first Map entry always wins an otherwise mutual final exchange.
           // Explicit one-shot HTTP commands retain their immediate semantics.
-          if (deferredHits) deferredHits.push({opponent});
+          if (deferredHits) deferredHits.push({opponent,damage:weapon.damage});
           else {
-            opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
-            opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
+            opponent.health = Math.max(0, opponent.health - weapon.damage);
+            opponent.stress = clamp(opponent.stress + weapon.damage * 1.15, 0, 100);
             opponent.capturing = false;
             opponent.captureArmed = false;
             this.progress[opponent.team] = 0;
@@ -335,12 +351,12 @@ class TeamMatch {
       p.captureHeld = false;
       p.captureArmed = false;
       p.health = 100;
-      p.ammo = MAGAZINE_ROUNDS;
-      p.reserve = SPARE_ROUNDS;
+      p.ammo = LOADOUTS[p.weaponId].magazine;
+      p.reserve = LOADOUTS[p.weaponId].reserve;
       p.reloadTicks = 0;
       p.reloadHesitation = false;
       p.stress = 0;
-      p.lastShotTick = -FIRE_INTERVAL_TICKS;
+      p.lastShotTick = -LOADOUTS[p.weaponId].intervalTicks;
       p.lastMoveTick = 0;
       p.lastCaptureTick = 0;
       p.triggerHeld = false;
@@ -392,7 +408,7 @@ class TeamMatch {
         p.reloadTicks--;
         if (p.reloadTicks === 0) {
           p.reloadHesitation = false;
-          const transferred = Math.min(MAGAZINE_ROUNDS - p.ammo, p.reserve);
+          const transferred = Math.min(LOADOUTS[p.weaponId].magazine - p.ammo, p.reserve);
           p.ammo += transferred;
           p.reserve -= transferred;
         }
@@ -467,9 +483,9 @@ class TeamMatch {
     // All participants who were able to fire at the start of this tick get
     // their shot resolved before the round ends. Never award a first-join
     // advantage when both actors become incapacitated on the same tick.
-    for (const {opponent} of sameTickHits) {
-      opponent.health = Math.max(0, opponent.health - FIRE_DAMAGE);
-      opponent.stress = clamp(opponent.stress + FIRE_DAMAGE * 1.15, 0, 100);
+    for (const {opponent,damage} of sameTickHits) {
+      opponent.health = Math.max(0, opponent.health - damage);
+      opponent.stress = clamp(opponent.stress + damage * 1.15, 0, 100);
       opponent.capturing = false;
       opponent.captureArmed = false;
       this.progress[opponent.team] = 0;
@@ -537,7 +553,7 @@ class TeamMatch {
     return {phase: this.phase, tick: this.ticks, score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER, weather,
-      self: {id: me.id, team: me.team, x: me.x, z: me.z, facing: {...me.facing},
+      self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
         ready: me.ready, captureArmed: me.captureArmed, seq: me.seq},
@@ -545,5 +561,5 @@ class TeamMatch {
   }
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
-  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS,
+  FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, LOADOUTS,
   RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK};
