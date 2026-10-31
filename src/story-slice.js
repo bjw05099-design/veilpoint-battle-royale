@@ -247,9 +247,12 @@
       state.combat.nextPulseAt=state.world.elapsed+3;
       for(const hostile of state.world.bots){
         if(!hostile.alive||hostile.shots>=HOSTILE_ROUNDS)continue;
+        // A scheduled volley must reacquire the same bounded direct sight as
+        // pursuit. The old 48m firing gate exceeded the 42m observation gate,
+        // letting a hostile fire at a player it could not currently see.
+        // Hearing or stale last-known positions can guide movement, not shots.
+        if(!canSeePlayer(state,hostile))continue;
         const distance=Math.hypot(hostile.x-p.x,hostile.z-p.z);
-        if(distance>=48||Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
-             state.world.obstacles.concat(actorBlockers(state,hostile))))continue;
         const bearing=Math.atan2(p.x-hostile.x,-(p.z-hostile.z));
         const facing=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
         if(Math.abs(facing)>1.1)continue; // No omniscient rear attacks.

@@ -1,5 +1,9 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 CH01 hostile direct-sight volley gate (R-02 / R-14 / R-23 / R-28)
+- **Partial P0 code candidate:** CH01 human opponents now require their existing bounded 42m direct-visibility check **at the actual scheduled shot**, not the old 48m firing threshold. Hearing or stale search memory may guide movement but cannot authorize a shot beyond current visual range. Finite rounds, cover occlusion and 60Hz timing remain unchanged.
+- **Evidence boundary:** New Node regressions check no invisible 43m volley, reacquisition at 40m, checkpoint restore and fixed-60Hz replay. CI and real Windows keyboard/mouse playthrough remain separate gates; UE5, owner RTX 3070 QHD 165Hz / **16GB system RAM**, complete three-mode realism and independent human AI assessment are **unverified**.
+
 ## 2026-10-31 browser GPU disjoint telemetry integrity (R-08 / R-10 / R-11 / R-25)
 - **Partial P0 candidate:** WebGL2 timer disjoint now invalidates active and pending queries, suppresses new queries until recovery, and resets stale CPU/GPU/RAF telemetry through the renderer-to-BR controller callback. This prevents outdated GPU timing samples from triggering adaptive resolution after a timing discontinuity.
 - **Evidence:** Two Node regression cases cover repeated disjoint, active query cleanup, recovery and stale-sample governor guard. Actual Windows RTX 3070 / QHD 165Hz / 16GB tests, GPU measurement and Unreal native performance remain **unverified**.
