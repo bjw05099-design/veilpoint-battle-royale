@@ -710,3 +710,9 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 
 - **Partial realism/renderer correction (PR #167):** The shared browser visibility planner now excludes fully occluded standing opponents, local caches and short hostile flash effects behind authored solid cover, while retaining edge-exposed silhouettes. It changes render geometry only; authoritative 60Hz gameplay, finite ammunition, AI and checkpoints are untouched. A scalar ray/AABB path avoids new per-ray array allocations.
 - **Evidence boundary:** Four local Node cover/edge/legacy-state regressions pass; final-head CI and full-repository verify are separately required. Actual Windows browser/WebGL2/Canvas2D appearance, graphics quality, native Unreal 5 and RTX 3070 QHD 165Hz/16GB frame-time or memory behavior remain **unverified**. This conservative 2D proxy does not establish physically complete 3D occlusion or finished cross-mode realism.
+
+### 2026-10-31 — GPU disjoint adaptive hysteresis continuity (R-08 / R-25; PR #172)
+
+- **Partial browser reliability candidate:** A WebGL GPU timer disjoint now resets both sampled CPU/GPU telemetry and the adaptive resolution governor's pending low-load streak. Invalid or insufficient measurements also break the required three-consecutive-window upscale evidence; the user-selected resolution ceiling and cooldown are preserved.
+- **Evidence:** Three deterministic Node regressions cover disjoint recovery, invalid timing gaps and cooldown preservation. Full `npm run verify` and GitHub Actions at the final PR head are required before merging. This changes browser rendering controls only, not the fixed 60Hz game simulation.
+- **Unverified:** Actual Windows browser/WebGL2 disjoint recovery, RTX 3070 QHD 165Hz with **16GB system RAM**, P50/P95/P99 GPU/CPU timing, UE5 native graphics, photorealism and final release gates. No touch development.
