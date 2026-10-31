@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 BR fresh gunfire evidence supersedes stale sound memory (R-04 / R-13 / R-23)
+- **Partial AI realism candidate:** Offline BR opponents can react to a newly audible player or rival shot even while older footstep/search memory remains active. A visible shooter yields exact sight evidence; an unseen audible shooter yields only a coarse 2m sound estimate. No ammunition generation, inaudible location reveal or magic tracking.
+- **Regression gates:** Three new tests cover hidden gunfire memory refresh with checkpoint/replay, direct-sight precedence and finite rival gunfire refresh. Full `npm run verify`, GitHub CI and actual Windows PC playthrough remain separate gates; human AI-believability assessment, native UE and full release criteria are not claimed complete.
+
+
 ## 2026-10-31 team request termination and malformed display-name guard (R-12 / R-14 / R-23)
 - **Partial local-server hardening candidate:** Bounded UTF-8 JSON parsing now rejects an incomplete stream that closes without the legacy `aborted` event, while allowing a normal `end` → `close` sequence. This avoids leaving the local two-client command handler waiting forever for a disconnected request.
 - **International name integrity:** The server rejects JSON-escaped isolated UTF-16 surrogate code units but still accepts well-formed emoji, Korean and Arabic. A malformed name must never occupy a competitive slot.
