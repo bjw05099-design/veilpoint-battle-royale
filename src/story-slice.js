@@ -498,7 +498,11 @@
       Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt').includes(k))||
       (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
         data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
-        (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
+        (data.choice==='verification'&&(
+          // Modern checkpoints cannot invent an instantly open motorized gate.
+          // Older v1/v2 saves without this field retain their legacy migration.
+          data.gateReadyAt<GATE_CLEARANCE_SECONDS ||
+          data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6)))))
       throw new RangeError('Unknown checkpoint fields');
     const p=data.player;
     // Legacy v2 checkpoints included an inert shield field; current saves omit it.
