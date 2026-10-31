@@ -78,15 +78,18 @@ test('clear air shows distant actors but dense mist conceals them', () => {
   for (let i = 0; i < 600; i++) m.step();
   assert.deepEqual(m.snapshot('a').visible.map(p => p.team), ['red']);
 });
-test('timeouts and departure terminate a round; ready players can replay', () => {
+test('timeouts require fresh seats for rematch; voluntary departure still settles a winner', () => {
   const {m, setNow} = setup();
   setNow(31000);m.step();
   assert.equal(m.phase, 'ended');
   assert.equal(m.reason, 'connection_timeout');
-  m.command('a', {seq: 2, type: 'ready'});
-  m.command('b', {seq: 2, type: 'ready'});
+  assert.throws(() => m.command('a', {seq: 2, type: 'ready'}), /unknown_player/,
+    'an expired guest cannot rejoin a completed match with a stale ready packet');
+  m.join('c', 'C');m.join('d', 'D');
+  m.command('c', {seq: 1, type: 'ready'});
+  m.command('d', {seq: 1, type: 'ready'});
   assert.equal(m.phase, 'playing');
-  m.command('a', {seq: 3, type: 'leave'});
+  m.command('c', {seq: 2, type: 'leave'});
   assert.equal(m.winner, 'blue');
   assert.equal(m.reason, 'player_left');
 });
