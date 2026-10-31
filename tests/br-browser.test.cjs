@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false} = {}) {
   const nodes = new Map(), listeners = new Map();
-  let now = 0, frameCallback = null, latestGame = null;
+  let now = 0, frameCallback = null, latestGame = null, grantPointerLock = null;
   const scheduledCallbacks = [];
   const ctx = {};
   for (const name of ['clearRect', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'arc', 'fill']) ctx[name] = () => {};
@@ -46,6 +46,10 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
       click() {this.dispatch('click');},
       requestPointerLock(options) {
         this.lastPointerLockOptions = options;
+        this.ownerDocument = document;
+        if (pointerLock === 'late') return new Promise(resolve => {
+          grantPointerLock = () => {document.pointerLockElement = this;resolve();};
+        });
         if (pointerLock === 'throw') throw new Error('pointer lock denied');
         if (pointerLock === 'denied') return Promise.reject(new Error('pointer lock denied'));
         if (pointerLock === 'pending') return new Promise(() => {});
@@ -95,6 +99,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
   }
   return {
     node, store, context, selectors, scheduledCallbacks,
+    grantPointerLock() {assert.equal(typeof grantPointerLock, 'function');grantPointerLock();},
     emit: (key, event) => emit(listeners, key, event),
     frame(ms) {
       now = ms;
@@ -763,6 +768,21 @@ test('PC Escape cancels a pending pointer lock even with a focused launch button
  assert.equal(app.node('play').textContent,'이어하기');
  app.frame(2000/60);
  assert.equal(game.elapsed,0,'pause cannot simulate hostile fire while capture is unresolved');
+});
+
+
+test('PC BR late permission grant after Escape cannot reclaim the mouse or resume the match', async () => {
+  const app = boot({pointerLock: 'late'});
+  app.node('play').click();
+  app.frame(1000 / 60);
+  app.emit('keydown', {code: 'Escape', target: {tagName: 'BUTTON'}});
+  assert.equal(app.node('overlay').classList.contains('hidden'), false);
+  app.grantPointerLock();
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(app.context.document.pointerLockElement, null,
+    'late browser grant must be released after the player pauses');
+  app.frame(2000 / 60);
+  assert.equal(app.game.elapsed, 0);
 });
 
 test('PC BR Start/Resume transfers focus off menu buttons to the game canvas',()=>{
