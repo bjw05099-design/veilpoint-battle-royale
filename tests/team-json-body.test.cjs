@@ -49,3 +49,32 @@ test('HTTP join retains Korean player name in the server-owned snapshot', async 
     assert.equal(snapshot.visible.find(p => p.id === snapshot.self.id).name, '이수혁');
   } finally {await server.close();}
 });
+
+test('team lobby accepts Korean and Arabic names but rejects invisible and bidi-spoofing controls', () => {
+  const {TeamMatch} = require('../src/team-match.cjs');
+  const match = new TeamMatch();
+  const badNames = ['A\\nB', 'A\\u202eB', '\\u200b', 'A\\u2066B', 'A\\u0000B'];
+  for (const [index, name] of badNames.entries())
+    assert.throws(() => match.join('bad-' + index, name), /invalid_name/);
+  assert.equal(match.players.size, 0, 'invalid names must never reserve player slots');
+  match.join('korean', ' 이수혁 ');
+  match.join('arabic', 'نهرين');
+  assert.deepEqual([...match.players.values()].map(p => p.name), ['이수혁', 'نهرين']);
+});
+
+test('HTTP join refuses multiline or bidi-spoofing player names', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  try {
+    for (const name of ['A\\nB', 'A\\u202eB']) {
+      const response = await fetch(`http://127.0.0.1:${port}/join`, {
+        method: 'POST', headers: {'content-type': 'application/json'},
+        body: JSON.stringify({name})
+      });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error, 'invalid_name');
+    }
+    assert.equal(server.match.players.size, 0);
+  } finally {await server.close();}
+});

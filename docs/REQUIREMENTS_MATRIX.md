@@ -2,6 +2,7 @@
 
 ## 2026-10-31 team HTTP UTF-8 integrity candidate (R-04 / R-14 / multiplayer P0)
 - **Proposed browser/server reliability fix:** The loopback two-client team server now decodes bounded request bodies as complete UTF-8 byte streams instead of converting arbitrary TCP chunks to strings. This prevents fragmented multibyte Korean player names from being corrupted and rejects malformed UTF-8; the 2,048-byte limit and aborted-request handling remain explicit.
+- **Name integrity:** Team lobby now rejects control characters, line breaks and bidi/invisible formatting controls without excluding normal Korean, Arabic or emoji text; direct lobby and HTTP regressions cover this UI-spoofing class.
 - **Verification:** Four isolated Node parser tests (split Unicode, invalid encoding, byte boundary and abort) plus one HTTP join/state integration regression. CI at the proposed commit and Windows two-browser playthrough are separate gates; this is not public internet security certification, UE native multiplayer, full three-mode QA or RTX 3070 QHD 165Hz/16GB hardware validation.
 
 
