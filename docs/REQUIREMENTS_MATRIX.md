@@ -1,5 +1,9 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 BR living-actor checkpoint collision (R-04 / R-14 / R-23)
+- **Partial P0 candidate (PR #162):** Offline BR autosave and restore now refuse overlapping **living** player/rival footprints; fallen opponents may still occupy the same location. This guards against physically impossible checkpoint resume states without changing the v1 save schema or 60Hz simulation.
+- **Regression scope:** Four Node tests for writer refusal, tampered player/rival and rival/rival positions, fallen-actor compatibility and deterministic replay. GitHub CI at the final PR head and actual Windows PC browser play remain required. Native UE collision, realistic full-body physics, three complete modes, RTX 3070 QHD 165Hz/**16GB system RAM** performance and full release gates remain **unverified**.
+
 ## 2026-10-31 BR checkpoint boolean restore integrity (R-04 / R-14 / R-23)
 - **Partial P0 candidate (PR #161):** Restore now rejects malformed player, rival and loot boolean flags rather than silently coercing them to false. Optional player reload/fatigue flags absent from older v1 saves default safely to false; explicit malformed values fail. This complements the prior autosave-writer parity PR #160 without changing the 60Hz world or save version.
 - **Regression coverage:** Four new Node tests for malformed player flags, rival/cache flags, legacy optional flag compatibility and deterministic 60Hz replay. CI at the final PR head is required before merging. Windows desktop browser save/resume, end-to-end demo, UE5 native build, RTX 3070 QHD 165Hz with owner-reported **16GB system RAM**, full realism and release QA remain **unverified**.
