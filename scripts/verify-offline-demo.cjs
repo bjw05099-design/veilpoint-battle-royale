@@ -61,8 +61,11 @@ function verifyArchive(bytes) {
   if (!entries.has('MANIFEST.sha256') || !entries.has('NOTICE.txt') ||
       !entries.has('index.html') || !entries.has('story.html'))
     invalid('required_files');
+  // The packager writes its manifest in code-point order, while ZIP entries
+  // use locale-aware sorting; compare against the original manifest contract.
   const expected = [...entries].filter(([name]) =>
     name !== 'MANIFEST.sha256' && name !== 'NOTICE.txt')
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([name, data]) => sha256(data) + '  ' + name).join('\n') + '\n';
   if (entries.get('MANIFEST.sha256').toString('utf8') !== expected)
     invalid('manifest');
