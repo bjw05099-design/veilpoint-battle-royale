@@ -546,6 +546,13 @@
       (data.phase==='failed'&&p.health!==0)||
       (data.phase!=='failed'&&p.health===0))
       throw new RangeError('Invalid combat checkpoint');
+    // Active checkpoint bodies cannot resume interpenetrating a living opponent.
+    // Legacy v2 enemies without authored positions remain loadable; modern saves
+    // use the same circular-player/AABB-hostile collision rule as movement.
+    // Dead actors do not block passage and never trigger this rejection.
+    if(data.phase==='engagement'&&c.drones.some(b=>b.alive&&hasOwn(b,'x')&&
+      Sim.blocked(p.x,p.z,.85,[{x:b.x,z:b.z,w:HOSTILE_BODY_RADIUS*2,d:HOSTILE_BODY_RADIUS*2}])))
+      throw new RangeError('Overlapping living actor in story checkpoint');
     if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
