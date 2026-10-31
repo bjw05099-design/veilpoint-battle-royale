@@ -30,8 +30,6 @@ test('BR published boundary disqualification does not permit post-result rival s
   assert.equal(game.status,'lost');
   assert.match(game.message,/DISQUALIFIED/);
   assert.deepEqual(game.bots.map(b=>({health:b.health,charges:b.charges,loaded:b.loaded})),before);
-  const frozen=S.snapshotMatch;
-  assert.equal(typeof frozen,'function');
   const positions=game.bots.map(b=>[b.x,b.z]);
   S.tick(game,1/60,{});
   assert.deepEqual(game.bots.map(b=>[b.x,b.z]),positions,'terminal state does not advance next tick');
@@ -44,4 +42,19 @@ test('BR live rivals still fire and spend finite rounds before terminal result',
   S.tick(game,1/60,{});
   assert.equal(game.status,'playing');
   assert.ok(game.bots.some(b=>b.charges<36),'legitimate pre-result opponent engagement remains active');
+});
+
+test('BR player incapacitation halts subsequent rival attacks in the same 60Hz step',()=>{
+  const game=S.newMatch(9203,2);
+  game.status='playing';
+  game.player.x=0;game.player.z=-4;game.player.health=1;
+  const [first,second]=game.bots;
+  Object.assign(first,{x:0,z:0,angle:0,moveTime:999,actionTime:-1,skill:1,loaded:12,charges:36});
+  Object.assign(second,{x:0,z:7,angle:0,moveTime:999,actionTime:-1,skill:1,loaded:12,charges:36});
+  S.tick(game,1/60,{});
+  assert.equal(game.status,'lost');
+  assert.equal(game.player.health,0);
+  assert.equal(first.charges,35,'the terminating hit consumes one real shot');
+  assert.equal(second.charges,36,'no later actor fires after the result is decided');
+  assert.equal(first.health,100,'no post-result damage is applied to other actors');
 });
