@@ -44,3 +44,25 @@ test('packager rejects remote scripts and path traversal instead of fetching con
     assert.throws(()=>collectFiles(dir), /Unsafe\/external/);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('offline packager closes direct HTML asset references and rejects remote dependencies', () => {
+  const dir = fixture();
+  try {
+    fs.mkdirSync(path.join(dir, 'assets'));
+    fs.writeFileSync(path.join(dir, 'assets', 'sign.webp'), Buffer.from('local-asset'));
+    fs.appendFileSync(path.join(dir, 'index.html'), '<img src="assets/sign.webp">');
+    assert.ok(collectFiles(dir).some(file => file.name === 'assets/sign.webp'));
+    for (const unsafe of [
+      '<img src="https://example.com/tracker.png">',
+      '<link rel="stylesheet" href="//example.com/style.css">',
+      '<script src="../private.js"></script>',
+      '<a href="javascript:alert(1)">unsafe</a>',
+      '<style>@import "https://example.com/font.css";</style>',
+      '<style>body{background:url(https://example.com/a.png)}</style>'
+    ]) {
+      fs.writeFileSync(path.join(dir, 'index.html'),
+        '<script src="src/game.js"></script>' + unsafe);
+      assert.throws(() => collectFiles(dir), /Unsafe\/external asset|Unsupported CSS import\/url/);
+    }
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});

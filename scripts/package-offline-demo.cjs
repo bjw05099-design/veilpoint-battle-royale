@@ -20,10 +20,18 @@ function collectFiles(root = ROOT) {
   const files = new Set([...PAGES, ...DOCUMENTS]);
   for (const page of PAGES) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
-    const refs = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(m => m[1]);
-    if (!refs.length) throw new Error(`Missing browser scripts in ${page}`);
+    // Every directly referenced HTML asset must be bundled for offline launch.
+    if (!/<script\b[^>]*\bsrc=["'][^"']+["']/i.test(html))
+      throw new Error('Missing browser scripts in ' + page);
+    if (/@import\b|url\s*\(/i.test(html))
+      throw new Error('Unsupported CSS import/url in ' + page);
+    const refs = [...html.matchAll(/\b(?:src|href|poster|srcset)\s*=\s*(["'])(.*?)\1/gi)]
+      .map(match => match[2]);
     for (const ref of refs) {
-      if (!/^src\/[a-z0-9-]+\.js$/i.test(ref)) throw new Error(`Unsafe/external script in ${page}: ${ref}`);
+      if (ref.startsWith('#') || PAGES.includes(ref)) continue;
+      // Reject network URLs, path traversal, queries and unsupported srcset lists.
+      if (!/^(?:src|assets)\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|ogg|wav)$/i.test(ref))
+        throw new Error('Unsafe/external asset in ' + page + ': ' + ref);
       files.add(ref);
     }
   }
