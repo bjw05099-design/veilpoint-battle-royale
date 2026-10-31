@@ -12,6 +12,11 @@ const MAX_DISTANCE=155;
 // The precision class can reach 260 fictional world metres; its low-LOD
 // silhouettes must not vanish at the ordinary 155m prototype draw limit.
 const PRECISION_VIEW_DISTANCE=270;
+const MARKSMAN_VIEW_DISTANCE=195;
+function actorViewDistance(weaponId){
+ return weaponId==='precision'?PRECISION_VIEW_DISTANCE:
+  weaponId==='marksman'?MARKSMAN_VIEW_DISTANCE:MAX_DISTANCE;
+}
 const ZONE_SEGMENTS=128;
 function halfHorizontalFov(aspect){
  if(!Number.isFinite(aspect)||aspect<=0)throw new RangeError('Invalid viewport aspect');
@@ -75,13 +80,13 @@ function planVisible(state,aspect=16/9){
  const p=state.player,halfFov=halfHorizontalFov(aspect);
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
- const actorViewDistance=p.weaponId==='precision'?PRECISION_VIEW_DISTANCE:MAX_DISTANCE;
+ const actorDistance=actorViewDistance(p.weaponId);
  const bots=[],loot=[],zone=[],effects=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
   botTotal++;
-  if(!inView(p,entity.x,entity.z,1.1,actorViewDistance,halfFov)||
+  if(!inView(p,entity.x,entity.z,1.1,actorDistance,halfFov)||
      !hasExposedSilhouette(p,entity,.85,state.obstacles))continue;
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=lodForDistance(distance);
   bots.push({entity,lod});boxes+=lod==='high'?6:lod==='medium'?3:1;
@@ -97,10 +102,10 @@ function planVisible(state,aspect=16/9){
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
-  if(inView(p,entity.x,entity.z,.65,actorViewDistance,halfFov)&&
+  if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
  return {bots,loot,zone,effects,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
-return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
+return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });

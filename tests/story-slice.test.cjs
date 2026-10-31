@@ -242,7 +242,7 @@ test('browser integration exposes encounter controls and never treats preview as
   const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
   const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
   for(const id of ['combatStatus','touchFire','touchSupport'])assert.match(html,new RegExp('id="'+id+'"'));
-  assert.match(app,/Story\.fire\(state\)/);
+  assert.match(app,/Story\.fire\(state,input\.crouch\)/);
   assert.match(app,/Story\.support\(state\)/);
   assert.doesNotMatch(app,/Campaign\.completeMission/);
   assert.match(app,/veilpoint\.story\.ch01PreviewCompleted/);
