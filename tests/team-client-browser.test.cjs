@@ -1242,3 +1242,83 @@ test('PC team lobby explains invalid Unicode names and allows immediate retry', 
   assert.equal(client.node('join').disabled, true);
   assert.equal([...server.match.players.values()][0].name, '조현지');
 });
+
+for (const failure of ['http_error', 'unacknowledged']) {
+  test('PC tab resume fails closed when resetInput is ' + failure, async () => {
+    const server = backend(), storage = new Map();
+    const first = boot(server, storage), other = boot(server);
+    first.node('join').click(); other.node('join').click();
+    await settle();
+    first.node('ready').click(); other.node('ready').click();
+    await settle();
+    await first.poll(); await other.poll(); await settle();
+    const token = storage.get('veilpoint.team.tabSession');
+    const player = server.match.players.get(token);
+    first.doc('keydown', {code: 'KeyD'}); await settle();
+    assert.equal(player.direction.x, 1);
+    const originalFetch = server.fetchLocal;
+    let resetAttempts = 0;
+    server.fetchLocal = async (route, options) => {
+      const body = options?.body ? JSON.parse(options.body) : null;
+      if (route === '/command' && body?.type === 'resetInput') {
+        resetAttempts++;
+        return failure === 'http_error'
+          ? {ok: false, status: 503, json: async () => ({error: 'reset_unavailable'})}
+          : {ok: true, status: 200, json: async () => ({ok: false})};
+      }
+      return originalFetch(route, options);
+    };
+    const resumed = boot(server, storage);
+    await settle();
+    assert.equal(resetAttempts, 1);
+    assert.equal(storage.has('veilpoint.team.tabSession'), false,
+      'a failed reset must not expose a live restored session');
+    assert.equal(resumed.node('join').disabled, false);
+    const before = server.requests.length;
+    resumed.doc('keydown', {code: 'KeyW'});
+    resumed.heartbeat();
+    await settle();
+    assert.equal(server.requests.length, before,
+      'discarded tab must not send authenticated movement or heartbeat');
+    for (let i = 0; i < 100; i++) server.match.step();
+    assert.deepEqual({...player.direction}, {x: 0, z: 0},
+      'server input lease eventually stops the abandoned movement');
+  });
+}
+
+test('PC tab blocks new input while waiting for the reset acknowledgement', async () => {
+  const server = backend(), storage = new Map();
+  const first = boot(server, storage), other = boot(server);
+  first.node('join').click(); other.node('join').click();
+  await settle();
+  first.node('ready').click(); other.node('ready').click();
+  await settle();
+  await first.poll(); await other.poll(); await settle();
+  const token = storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  first.doc('keydown', {code: 'KeyD'}); await settle();
+  const beforeSeq = player.seq;
+  const originalFetch = server.fetchLocal;
+  let releaseReset;
+  server.fetchLocal = async (route, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null;
+    if (route === '/command' && body?.type === 'resetInput')
+      await new Promise(resolve => {releaseReset = resolve;});
+    return originalFetch(route, options);
+  };
+  const resumed = boot(server, storage);
+  await settle();
+  assert.equal(typeof releaseReset, 'function');
+  resumed.doc('keydown', {code: 'KeyW'});
+  resumed.heartbeat();
+  await settle();
+  assert.equal(player.seq, beforeSeq,
+    'no PC movement or heartbeat may race the pending reset');
+  releaseReset();
+  await settle();
+  assert.equal(player.seq, beforeSeq + 1);
+  assert.deepEqual({...player.direction}, {x: 0, z: 0});
+  assert.equal(resumed.node('join').disabled, true);
+  assert.equal(server.requests.filter(r =>
+    r.token === token && r.body?.type === 'resetInput').length, 1);
+});

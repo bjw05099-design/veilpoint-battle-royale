@@ -62,7 +62,9 @@
     draw();
   }
   const send = (type, payload = {}) => {
-    if (!token) return Promise.resolve();
+    // Until the server acknowledges an atomic reset, no new PC intent may
+    // race the resumed tab's stale movement, aim, trigger or relay state.
+    if (!token || restoring) return Promise.resolve();
     const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
     const coalescible = type === 'aim' || type === 'move';
@@ -453,7 +455,11 @@
         // One sequenced command releases every old held PC intent.
         // Separate HTTP calls previously left ghost fire/movement active
         // until the final response on slow or interrupted connections.
-        await send('resetInput');
+        // Do not use the normal fire-and-forget send queue here: it absorbs
+        // HTTP errors for interactive controls. A failed or unacknowledged
+        // reset must fail closed rather than render a live stale-input session.
+        const reset = await request('/command', {seq: ++seq, type: 'resetInput'}, saved);
+        if (reset?.ok !== true) throw new Error('reset_unacknowledged');
       }
       state = await request('/state');
       render();
