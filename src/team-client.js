@@ -347,8 +347,12 @@
        el('loadout').disabled = false;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
-    } catch (err) {el('join').disabled = false;status(`입장 실패: ${err.message}`);}
-    finally {joining = false;}
+    } catch (err) {
+      el('join').disabled = false;
+      status(err.message === 'invalid_name'
+        ? '이름에 줄바꿈 또는 보이지 않는 문자가 있거나 길이가 맞지 않습니다. 다시 입력하세요.'
+        : `입장 실패: ${err.message}`);
+    } finally {joining = false;}
   });
   el('ready').addEventListener('click', () => void send('ready'));
   el('loadout').addEventListener('change', () => {
