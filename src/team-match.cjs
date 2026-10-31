@@ -43,6 +43,12 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // Display names may contain Korean, Arabic and emoji, but not line breaks,
 // invisible separators or bidi override/isolate controls that spoof UI labels.
 const INVALID_NAME_CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/u;
+// Escaped JSON may contain a lone UTF-16 surrogate even when the HTTP bytes
+// are valid UTF-8. Reject malformed display text without banning emoji pairs.
+const hasLoneSurrogate = value => [...value].some(char => {
+  const point = char.codePointAt(0);
+  return point >= 0xd800 && point <= 0xdfff;
+});
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
@@ -99,7 +105,7 @@ class TeamMatch {
     if (this.players.size >= MAX_PLAYERS) throw new RangeError('match_full');
     if (this.players.has(token)) throw new RangeError('duplicate_token');
     if (typeof name !== 'string' || !name.trim() || name.length > 24 ||
-        INVALID_NAME_CONTROL.test(name)) throw new RangeError('invalid_name');
+        INVALID_NAME_CONTROL.test(name) || hasLoneSurrogate(name)) throw new RangeError('invalid_name');
     const red = [...this.players.values()].filter(p => p.team === 'red').length;
     const blue = this.players.size - red;
     const team = red <= blue ? 'red' : 'blue';
