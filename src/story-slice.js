@@ -289,7 +289,7 @@
     return state;
   }
   // Fictional, non-graphic hitscan encounter; finite ammunition and sight-gated hostile response.
-  function fire(state) {
+  function fire(state,crouching=false) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};
     // Finite carried supply: no spontaneous ammunition or charge generation.
     // Starting a fresh mission is always available through the menu.
@@ -301,7 +301,7 @@
       state.message=cacheAvailable?'자원 소진 · 보급 상자 E 확보 또는 임무 재시작 가능':'자원 소진 · 임무 재시작 가능';
       return {ok:false,reason:'empty'};
     }
-    const result=Sim.tag(state.world);
+    const result=Sim.tag(state.world,crouching);
     if(!result.ok){
       if(result.reason==='reload_required'){
         state.subtitle='이수혁 대위: 탄창이 비었습니다. R키 또는 재장전 버튼을 누르세요.';
@@ -335,10 +335,10 @@
     return {...result,phase:state.phase,remaining:state.world.bots.filter(b=>b.alive).length};
   }
   // Preserve the mission's normal hit, subtitle and clearance transitions.
-  function autoFire(state,held) {
+  function autoFire(state,held,crouching=false) {
     if(!held || !Sim.FIREARMS[state.world.player.weaponId]?.automatic)
       return {ok:false,reason:'manual_trigger'};
-    return fire(state);
+    return fire(state,crouching);
   }
   function support(state) {
     if(state.phase!=='engagement')return {ok:false,reason:'not_in_encounter'};

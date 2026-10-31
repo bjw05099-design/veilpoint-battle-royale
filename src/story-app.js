@@ -210,7 +210,7 @@
   }
   function fire(){
     if(!canAct())return;
-    const result=Story.fire(state);
+    const result=Story.fire(state,input.crouch);
     if(result.ok){audio.play('shot');persist();updateHud();}
   }
   function reload(){
@@ -404,7 +404,7 @@
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
       Story.step(state,step,input);
-      if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true).ok){
+      if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true,input.crouch).ok){
         audio.play('shot');persistShot();
       }
     });

@@ -481,7 +481,7 @@
     if(getAliveCount(game)===1&&p.alive){game.status='won';game.message='YOU ARE THE LAST SIGNAL';}
     return game;
   }
-  function tag(game) {
+  function tag(game, crouching=false) {
     if(game.status!=='playing') return {ok:false,reason:'not_playing'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.charges<=0) return {ok:false,reason:'empty'};
@@ -490,9 +490,12 @@
     if(game.elapsed-game.lastTagAt<firearm.fireInterval) return {ok:false,reason:'cooldown'};
     game.lastTagAt=game.elapsed;p.charges--;p.loaded--;
     let target=null, best=firearm.range;
-    const dx=Math.sin(p.yaw)*Math.cos(p.pitch), dz=-Math.cos(p.yaw)*Math.cos(p.pitch);
+    // Match the renderer's 1.64m standing / 1.09m crouched camera.
+    // The browser uses a finite-height actor proxy, not full 3D ballistics.
+    const eyeHeight=crouching?1.09:1.64;
+    const dx=Math.sin(p.yaw), dz=-Math.cos(p.yaw);
     for(const b of game.bots){
-      if(!b.alive||Math.abs(p.pitch)>=0.21)continue;
+      if(!b.alive)continue;
       const vx=b.x-p.x,vz=b.z-p.z;
       const forward=vx*dx+vz*dz;
       const lateral=Math.abs(vx*dz-vz*dx);
@@ -501,6 +504,11 @@
       if(forward<=0||lateral>=ACTOR_RADIUS)continue;
       const contact=forward-Math.sqrt(Math.max(0,ACTOR_RADIUS**2-lateral**2));
       if(contact<=0||contact>=best)continue;
+      // An upward or downward ray must actually cross the standing actor's
+      // finite vertical silhouette at the horizontal contact point. The old
+      // fixed pitch cutoff could hit a 210m actor while aiming far above it.
+      const impactHeight=eyeHeight+Math.tan(p.pitch)*contact;
+      if(impactHeight<0.15||impactHeight>1.9)continue;
       const hitX=p.x+dx*contact,hitZ=p.z+dz*contact;
       // Trace cover and intervening bodies along the ACTUAL shot ray. A
       // center-to-center visibility line can miss cover at a wall edge.
@@ -529,10 +537,10 @@
   }
   // Only authored automatic classes respond to a continuously held PC trigger.
   // Cadence uses the fixed 60Hz world clock, never operating-system key-repeat.
-  function autoFire(game, held) {
+  function autoFire(game, held, crouching=false) {
     if(!held || !game || !game.player || !FIREARMS[game.player.weaponId]?.automatic)
       return {ok:false,reason:'manual_trigger'};
-    return tag(game);
+    return tag(game,crouching);
   }
   // A pickup is physically accessible only within reach and without a solid wall
   // between the player and the item. Shared by E/touch interaction and the HUD.

@@ -70,7 +70,8 @@ class SoftwareRenderer {
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#536b70');sky.addColorStop(.65,'#89948a');sky.addColorStop(1,'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
  const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,'#5b6551');ground.addColorStop(1,'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
  const focal=Math.min(w,h)*.98,yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
- const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-1.55,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
+ const eyeHeight=1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0);
+ const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,type:'building'});
@@ -81,7 +82,9 @@ class SoftwareRenderer {
  for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);
   // Keep distant precision silhouettes in the Canvas fallback as well as
   // WebGL. Do not extend foliage, buildings or cache geometry unnecessarily.
-  if(d>145&&!(o.type==='bot'&&p.weaponId==='precision'&&d<=Visibility.PRECISION_VIEW_DISTANCE))continue;
+  if(d>145&&!(o.type==='bot'&&
+    (p.weaponId==='precision'||p.weaponId==='marksman')&&
+    d<=Visibility.actorViewDistance(p.weaponId)))continue;
  const x=o.x,z=o.z,ww=o.w*.5,dd=o.d*.5;
  if(o.type==='plant'){
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;
