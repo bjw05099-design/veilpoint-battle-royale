@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const {TeamMatch, STEP} = require('../src/team-match.cjs');
+const {readJson} = require('./json-body.cjs');
 const {performance} = require('node:perf_hooks');
 const STEP_MS = STEP * 1000;
 const MAX_CATCHUP_STEPS = 5;
@@ -38,22 +39,6 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       'Cross-Origin-Resource-Policy': 'same-origin', 'X-Frame-Options': 'DENY'});
     res.end(JSON.stringify(value));
   };
-  const readJson = req => new Promise((resolve, reject) => {
-    let body = '';
-    let tooLarge = false;
-    let bytes = 0;
-    req.on('data', chunk => {
-      if (tooLarge) return;
-      bytes += chunk.length;
-      if (bytes > 2048) {tooLarge = true;body = '';return;}
-      body += chunk;
-    });
-    req.on('end', () => {
-      if (tooLarge) return reject(new RangeError('body_too_large'));
-      try {resolve(JSON.parse(body));} catch {reject(new RangeError('invalid_json'));}
-    });
-    req.on('error', reject);
-  });
   const server = http.createServer(async (req, res) => {
     try {
       const origin = req.headers.origin;

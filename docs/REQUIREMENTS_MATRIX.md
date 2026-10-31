@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 team HTTP UTF-8 integrity candidate (R-04 / R-14 / multiplayer P0)
+- **Proposed browser/server reliability fix:** The loopback two-client team server now decodes bounded request bodies as complete UTF-8 byte streams instead of converting arbitrary TCP chunks to strings. This prevents fragmented multibyte Korean player names from being corrupted and rejects malformed UTF-8; the 2,048-byte limit and aborted-request handling remain explicit.
+- **Verification:** Four isolated Node parser tests (split Unicode, invalid encoding, byte boundary and abort) plus one HTTP join/state integration regression. CI at the proposed commit and Windows two-browser playthrough are separate gates; this is not public internet security certification, UE native multiplayer, full three-mode QA or RTX 3070 QHD 165Hz/16GB hardware validation.
+
+
 ## 2026-10-31 BR living-actor checkpoint collision (R-04 / R-14 / R-23)
 - **Partial P0 candidate (PR #162):** Offline BR autosave and restore now refuse overlapping **living** player/rival footprints; fallen opponents may still occupy the same location. This guards against physically impossible checkpoint resume states without changing the v1 save schema or 60Hz simulation.
 - **Regression scope:** Four Node tests for writer refusal, tampered player/rival and rival/rival positions, fallen-actor compatibility and deterministic replay. GitHub CI at the final PR head and actual Windows PC browser play remain required. Native UE collision, realistic full-body physics, three complete modes, RTX 3070 QHD 165Hz/**16GB system RAM** performance and full release gates remain **unverified**.
