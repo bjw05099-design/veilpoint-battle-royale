@@ -7,6 +7,7 @@ const vm=require('node:vm');
 
 function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false){
   const listeners=new Map(),nodes=new Map();
+  let grantPointerLock=null;
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
   const makeClassList=hidden=>{
     const classes=new Set(hidden?['hidden']:[]);
@@ -30,6 +31,10 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
       blur(){if(document.activeElement===this)document.activeElement=null;},
       requestPointerLock(options){
         this.lastPointerLockOptions=options;
+        this.ownerDocument=document;
+        if(pointerLock==='late')return new Promise(resolve=>{
+          grantPointerLock=()=>{document.pointerLockElement=this;resolve();};
+        });
         if(pointerLock==='throw')throw new Error('pointer lock denied');
         if(pointerLock==='denied')return Promise.reject(new Error('pointer lock denied'));
         if(pointerLock==='pending')return new Promise(()=>{});
@@ -75,6 +80,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
   }
   return {
     element,store:sharedStore,context,
+    grantPointerLock(){assert.equal(typeof grantPointerLock,'function');grantPointerLock();},
     emit(name,event){for(const fn of listeners.get(name)||[])fn({preventDefault(){},...event});},
     frame(ms){now=ms;const callback=frameCallback;assert.equal(typeof callback,'function');callback(ms);},
     moveForward(startFrame,count){
@@ -754,6 +760,19 @@ test('PC CH01 event-only pointer-lock denial checkpoints safely and ignores late
   app.emit('pointerlockerror');
   assert.equal(app.element('menu').classList.contains('hidden'), true,
     'a late event must not interrupt a newly acquired desktop lock');
+});
+
+
+test('PC CH01 late permission grant after Escape leaves the mission paused and releases the mouse',async()=>{
+  const app=boot(new Map(),false,'late');
+  app.element('continue').click();
+  app.emit('keydown',{code:'Escape'});
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  app.grantPointerLock();
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(app.context.document.pointerLockElement,null);
+  app.frame(1000);
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed,0);
 });
 
 test('CH01 PC held-fire checkpoints are bounded and pause flushes final finite ammunition',()=>{
