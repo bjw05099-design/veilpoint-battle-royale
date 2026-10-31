@@ -1,5 +1,9 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 BR checkpoint boolean restore integrity (R-04 / R-14 / R-23)
+- **Partial P0 candidate (PR #161):** Restore now rejects malformed player, rival and loot boolean flags rather than silently coercing them to false. Optional player reload/fatigue flags absent from older v1 saves default safely to false; explicit malformed values fail. This complements the prior autosave-writer parity PR #160 without changing the 60Hz world or save version.
+- **Regression coverage:** Four new Node tests for malformed player flags, rival/cache flags, legacy optional flag compatibility and deterministic 60Hz replay. CI at the final PR head is required before merging. Windows desktop browser save/resume, end-to-end demo, UE5 native build, RTX 3070 QHD 165Hz with owner-reported **16GB system RAM**, full realism and release QA remain **unverified**.
+
 ## 2026-10-31 offline BR autosave write/read parity (R-04 / R-14 / R-23)
 - **P0 reliability candidate (PR #160):** Before overwriting an offline BR checkpoint, the writer now rejects malformed seed/RNG, elimination counts, messages/timers, unsupported effect markers and non-boolean player/loot flags that the restore path would reject or reinterpret. Three Node regression tests cover these cases and a valid effect round trip.
 - **Gate remains open:** CI at the final commit, actual Windows browser save/resume/playthrough, 2026-11-27 demo packaging acceptance, native UE, RTX 3070 QHD 165Hz/16GB memory benchmarks and full three-mode realism QA are separate unverified requirements.

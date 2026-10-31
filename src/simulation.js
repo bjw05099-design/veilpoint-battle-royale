@@ -675,8 +675,15 @@
     // Recreate authored cover once; saved positions are untrusted and must not
     // resume inside a wall or beyond the playable boundary.
     const game=newMatch(saved.seed,saved.bots.length,weaponId);
+    // Reject malformed checkpoint flags instead of silently coercing strings,
+    // numbers or null to false. Older v1 saves may omit the optional control
+    // flags, which legitimately default to false for backward compatibility.
+    if (saved.player.alive !== true ||
+        ['reloadAssist','reloadHesitation','sprintExhausted'].some(key =>
+          saved.player[key] !== undefined && typeof saved.player[key] !== 'boolean'))
+      throw new RangeError('Invalid player checkpoint flags');
     const p={...checkedFields(saved.player,PLAYER_FIELDS),weaponId,
-      alive:saved.player.alive===true,reloadAssist:saved.player.reloadAssist===true,
+      alive:true,reloadAssist:saved.player.reloadAssist===true,
       reloadHesitation:saved.player.reloadHesitation===true,
       sprintExhausted:saved.player.sprintExhausted===true};
     if (!p.alive || p.health<=0 || p.charges>p.maxCharges || p.maxCharges!==firearm.maxRounds ||
@@ -684,7 +691,9 @@
         (p.reloadHesitation && p.reloadRemaining<=0)) throw new RangeError('Invalid player inventory');
     if (blocked(p.x,p.z,0.85,game.obstacles)) throw new RangeError('Invalid player collision');
     const bots=saved.bots.map((raw,i)=>{
-      const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive===true};
+      if (!raw || typeof raw.alive !== 'boolean')
+        throw new RangeError('Invalid opponent checkpoint flag');
+      const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive};
       if (b.id!==i || b.loaded>b.charges || (b.alive && b.health<=0) || (!b.alive && b.health>0) ||
           blocked(b.x,b.z,0.85,game.obstacles))
         throw new RangeError('Invalid opponent state');
@@ -693,8 +702,10 @@
     if (saved.kills>bots.filter(b=>!b.alive).length)
       throw new RangeError('Invalid elimination count');
     const loot=saved.loot.map((raw,i)=>{
+      if (!raw || typeof raw.picked !== 'boolean')
+        throw new RangeError('Invalid pickup checkpoint flag');
       const item={...checkedFields(raw,LOOT_FIELDS),kind:raw.kind,weaponId:raw.weaponId,
-        picked:raw.picked===true};
+        picked:raw.picked};
       if (item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
           !Object.prototype.hasOwnProperty.call(FIREARMS,item.weaponId) ||
           item.remaining>(i%2===0?12:24) || item.picked!==(item.remaining===0) ||
