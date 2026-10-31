@@ -583,6 +583,14 @@
         data.bots.some(b => b.reloadRemaining > 0 && (b.loaded !== 0 || b.charges === 0)))
       throw new RangeError('Invalid BR checkpoint timing');
   }
+  // A valid live checkpoint cannot place two standing actors in the same
+  // physical footprint. Fallen opponents are not blocking living actors.
+  function overlappingLivingActors(player,bots) {
+    const actors=[...(player.alive?[player]:[]),...bots.filter(b=>b.alive)];
+    for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++)
+      if(dist(actors[i],actors[j])<ACTOR_RADIUS*2-1e-6)return true;
+    return false;
+  }
   function snapshotMatch(game) {
     if (!game || game.status !== 'playing' || !game.random || typeof game.random.getState !== 'function')
       throw new RangeError('Only active BR matches can be checkpointed');
@@ -633,7 +641,8 @@
         (p.reloadHesitation && p.reloadRemaining<=0) ||
         blocked(p.x,p.z,ACTOR_RADIUS,game.obstacles) ||
         checkpoint.bots.some((b,i)=>b.id!==i ||
-          blocked(b.x,b.z,ACTOR_RADIUS,game.obstacles)))
+          blocked(b.x,b.z,ACTOR_RADIUS,game.obstacles)) ||
+        overlappingLivingActors(checkpoint.player,checkpoint.bots))
       throw new RangeError('Invalid BR checkpoint inventory or collision');
     if (checkpoint.loot.length!==40 || checkpoint.loot.some((item,i)=>
         item.id!==i || item.kind!==(i%2===0?'ammo':'magazine') ||
@@ -701,6 +710,8 @@
     });
     if (saved.kills>bots.filter(b=>!b.alive).length)
       throw new RangeError('Invalid elimination count');
+    if (overlappingLivingActors(p,bots))
+      throw new RangeError('Invalid living actor overlap');
     const loot=saved.loot.map((raw,i)=>{
       if (!raw || typeof raw.picked !== 'boolean')
         throw new RangeError('Invalid pickup checkpoint flag');
