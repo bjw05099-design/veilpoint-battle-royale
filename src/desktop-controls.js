@@ -95,22 +95,25 @@
   const request=options=>{
    ensureCurrent();
    const result=canvas.requestPointerLock(options);
-   if(result&&typeof result.then==='function')
-    return result.then(value=>{ensureCurrent();return value;});
-   ensureCurrent();
+   if(!result||typeof result.then!=='function')ensureCurrent();
    return result;
   };
+  const guard=result=>result&&typeof result.then==='function'
+   ?result.then(value=>{ensureCurrent();return value;}):result;
   const fallback=()=>{
    ensureCurrent();
    rawUnsupported.add(canvas);
-   return request();
+   return guard(request());
   };
-  if(rawUnsupported.has(canvas))return request();
+  if(rawUnsupported.has(canvas))return guard(request());
   const isUnsupported=error=>error&&(error.name==='NotSupportedError'||error.name==='TypeError');
   try{
    const result=request({unadjustedMovement:true});
-   return result&&typeof result.catch==='function'
-    ?result.catch(error=>{if(!isUnsupported(error))throw error;return fallback();})
+   // Handle rejection on the original promise, not a chained rejection:
+   // the existing BR/CH01 pause handlers must run without an extra frame.
+   return result&&typeof result.then==='function'
+    ?result.then(value=>{ensureCurrent();return value;},
+      error=>{if(!isUnsupported(error))throw error;return fallback();})
     :result;
   }catch(error){
    if(!isUnsupported(error))throw error;
