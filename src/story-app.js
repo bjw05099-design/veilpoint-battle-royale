@@ -16,7 +16,7 @@
   const limiter=global.VeilpointFPS.createFrameLimiter(60);
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
-  let state=Story.createState(),renderer=null,running=false,last=performance.now(),lastHud=0;
+  let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
   const AUTOSAVE_SECONDS=5;
@@ -36,7 +36,7 @@
   let lockAttempt=0;
   // A desktop player cannot aim without pointer lock; no hostile 60Hz tick or
   // player action may advance while permission is pending, denied or lost.
-  const canAct=()=>running&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
+  const canAct=()=>running&&!graphicsContextLost&&!!renderer&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
   const trigger=Desktop.createTriggerLatch();
   const clearInput=()=>{trigger.clear();for(const key in input)input[key]=false;};
   const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
@@ -101,13 +101,32 @@
   $('reducedMotion').addEventListener('change',()=>{
     $('app').classList.toggle('reduced',$('reducedMotion').checked);
   });
-  try{
-    renderer=new global.VeilpointRenderer(canvas);
-    applyQuality();
-  }catch(err){
-    $('menuText').textContent='3D 렌더러를 초기화할 수 없습니다: '+String(err.message);
+  function initializeRenderer(){
+    // WebGL restoration invalidates the old GPU resources; rebuild them.
+    renderer=new global.VeilpointRenderer(canvas);applyQuality();
+  }
+  try{initializeRenderer();}
+  catch(err){
+    renderer=null;$('menuText').textContent='3D 렌더러를 초기화할 수 없습니다: '+String(err.message);
     $('continue').disabled=true;$('newGame').disabled=true;
   }
+  canvas.addEventListener('webglcontextlost',event=>{
+    event.preventDefault();graphicsContextLost=true;
+    menuOpen('그래픽 장치 연결이 끊어졌습니다. 복구될 때까지 CH01 진행이 중단됩니다.');
+    renderer=null;$('continue').disabled=true;$('newGame').disabled=true;
+  });
+  canvas.addEventListener('webglcontextrestored',()=>{
+    if(!graphicsContextLost)return;
+    try{
+      initializeRenderer();graphicsContextLost=false;
+      $('continue').disabled=false;$('newGame').disabled=false;
+      clearInput();clock.reset();limiter.reset();last=performance.now();
+      $('menuText').textContent='그래픽 장치가 복구되었습니다. 이어하기를 눌러 현재 체크포인트부터 재개하세요.';
+    }catch(err){
+      renderer=null;
+      $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
+    }
+  });
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
@@ -132,7 +151,7 @@
     }catch(_){unavailable();}
   }
   function resume(){
-    if(!renderer)return;
+    if(!renderer||graphicsContextLost)return;
     if(state.phase==='complete'||state.phase==='failed'){
       state=Story.createState($('storyWeapon').value);
       lastAutosaveAt=state.world.elapsed;
@@ -145,7 +164,7 @@
     updateHud();
   }
   function begin(fromCheckpoint){
-    if(!renderer)return;
+    if(!renderer||graphicsContextLost)return;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);

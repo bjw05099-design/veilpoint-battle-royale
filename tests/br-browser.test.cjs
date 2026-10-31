@@ -81,7 +81,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     addEventListener: (key, callback) => add(listeners, key, callback),
     console,
     VeilpointRenderer: class {
-      constructor(canvas) {this.canvas = canvas;this.gpuTimer = {supported: false};}
+      constructor(canvas) {if(this.constructor.failNext){this.constructor.failNext=false;throw new Error('GPU restore unavailable');}this.canvas = canvas;this.gpuTimer = {supported: false};}
       setGraphicsQuality() {}
       draw(game) {latestGame = game;}
       setAdaptiveResolution() {}
@@ -924,4 +924,33 @@ test('PC BR shot HUD updates immediately then batches rapid fire without stale R
  app.emit('keyup',{code:'Space'});
  app.scheduledCallbacks.at(-1)();
  assert.equal(app.node('hitText').textContent,'READY');
+});
+
+test('PC WebGL context loss preserves paused BR and explicit resume',()=>{
+ const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
+ const game=app.game,elapsed=game.elapsed;let prevented=false;
+ app.node('scene').dispatch('webglcontextlost',{preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);assert.equal(app.node('play').disabled,true);
+ assert.equal(app.node('newMatch').disabled,true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+ app.frame(3000);assert.equal(game.elapsed,elapsed);
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,false);
+ assert.match(app.selectors.get('.tagline').textContent,/복구/);
+ app.frame(4000);assert.equal(game.elapsed,elapsed,'recovery must not auto-resume');
+ app.node('play').click();app.frame(4000+1000/60);
+ assert.equal(app.game,game);assert.ok(game.elapsed>elapsed);
+});
+
+test('BR renderer recreation failure keeps PC controls disabled and match frozen',()=>{
+ const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
+ const game=app.game,elapsed=game.elapsed;
+ app.node('scene').dispatch('webglcontextlost');
+ app.context.VeilpointRenderer.failNext=true;
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,true);
+ assert.equal(app.node('newMatch').disabled,true);
+ assert.match(app.node('message').textContent,/RECOVERY FAILED/);
+ app.frame(5000);assert.equal(game.elapsed,elapsed);
 });
