@@ -69,7 +69,7 @@ loadoutSelect.addEventListener('change',()=>{
  if(!Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value))loadoutSelect.value='carbine';
  try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
 });
-const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,last=performance.now(),lastHud=0,shake=0;
+const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,graphicsContextLost=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
 const trigger=Desktop.createTriggerLatch();
 function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
@@ -79,7 +79,7 @@ const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
 let pointerLockAttempt=0;
 // A desktop player without pointer lock cannot aim; freeze both fire and the
 // 60Hz world while permission is pending or the browser refuses the lock.
-const canAct=()=>running&&!suspended&&!document.hidden&&simulation.status==='playing'&&
+const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!document.hidden&&simulation.status==='playing'&&
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
@@ -107,20 +107,38 @@ function storedMatch(){
 function collectAmmo(){if(!canAct())return;Game.pickup(simulation);persistMatch();updateHud();}
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
-try { renderer=new global.VeilpointRenderer(canvas);
- renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
- // Disjoint WebGL queries invalidate the old GPU sample window. Never let
- // stale pre-reset samples silently downscale the PC graphics preset.
- renderer.onGpuInvalidated=()=>{
-  telemetry.clear();
-  // Disjoint GPU timing must not finish an old upscale hysteresis streak.
-  // Preserve current quality until fresh CPU and GPU samples accumulate.
-  if(governor)governor.resetEvidence();
- };
- applyGraphicsSettings();
- if(!renderer.gpuTimer||!renderer.gpuTimer.supported){autoResolution=false;autoResolutionCheckbox.checked=false;autoResolutionCheckbox.disabled=true;autoResolutionCheckbox.title='이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';}
+function initializeRenderer(){
+ const next=new global.VeilpointRenderer(canvas);
+ next.onGpuTime=ms=>telemetry.record('gpu',ms);
+ next.onGpuInvalidated=()=>{telemetry.clear();if(governor)governor.resetEvidence();};
+ renderer=next;applyGraphicsSettings();
+ const supported=!!(renderer.gpuTimer&&renderer.gpuTimer.supported);
+ autoResolutionCheckbox.disabled=!supported;
+ autoResolutionCheckbox.title=supported?'':'이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';
+ if(!supported){autoResolution=false;autoResolutionCheckbox.checked=false;}
+}
+try{initializeRenderer();}
+catch(err){renderer=null;$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('newMatch').disabled=true;$('message').textContent=String(err.message);}
+canvas.addEventListener('webglcontextlost',event=>{
+ event.preventDefault();
+ graphicsContextLost=true;suspendMatch('graphics');resetInactiveClock();
+ renderer=null; // Context loss invalidates all previous GPU buffers, shaders and queries.
+ $('play').disabled=true;$('newMatch').disabled=true;
+ $('message').textContent='GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY';
+});
+canvas.addEventListener('webglcontextrestored',()=>{
+ if(!graphicsContextLost)return;
+ try{
+  initializeRenderer();graphicsContextLost=false;
+  $('play').disabled=false;$('newMatch').disabled=false;
+  resetInactiveClock();
+  if(running&&suspended)document.querySelector('.tagline').textContent=
+   '그래픽 장치가 복구되었습니다. 이어하기를 눌러 같은 경기를 재개하세요.';
+ }catch(err){
+  renderer=null;
+  $('message').textContent='GRAPHICS RECOVERY FAILED · RELOAD REQUIRED: '+String(err.message);
  }
-catch(err){$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('message').textContent=String(err.message);}
+});
 // A Windows hybrid touchscreen can also have a real mouse. Prefer PC pointer
 // lock whenever ANY fine pointer exists; coarse alone must not bypass aim lock.
 const isTouch=!Desktop.isWindowsPC(global.navigator) &&
@@ -144,6 +162,7 @@ function requestAimLock(){
  }catch(_){suspendMatch('pointer');resetInactiveClock();}
 }
 function start(){
+ if(graphicsContextLost||!renderer)return;
  clearStoredMatch();saveWarning=false;
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;
@@ -155,6 +174,7 @@ function start(){
  persistMatch();
 }
 function resumeStoredMatch(){
+ if(graphicsContextLost||!renderer)return;
  const restored=storedMatch();
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
@@ -171,7 +191,7 @@ function resumeStoredMatch(){
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
- if(!running||!suspended)return;
+ if(!running||!suspended||graphicsContextLost||!renderer)return;
  suspended=false;desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
@@ -222,7 +242,7 @@ function suspendMatch(reason='background'){
  $('play').textContent='이어하기';
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
- document.querySelector('.tagline').textContent=reason==='pointer'
+ document.querySelector('.tagline').textContent=reason==='graphics'?'그래픽 장치가 끊어졌습니다. 복구 후 이어하기를 누르세요.':reason==='pointer'
   ?'마우스 포인터 잠금이 해제되었거나 거부되었습니다. 화면을 클릭해 권한을 허용한 뒤 이어하기를 누르세요.'
   :'경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.';
  if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -323,7 +343,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m'+deadline:
    boundary.near?'BOUNDARY NEARBY · '+boundary.meters+'m'+deadline:'';
  // Keep reload and other event feedback readable alongside the boundary warning.
- $('message').textContent=suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
+ $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const nearby=Game.nearestReachablePickup(s);
  $('pickupPrompt').style.display=nearby?'block':'none';
