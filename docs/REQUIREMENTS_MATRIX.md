@@ -1,3 +1,7 @@
+## 2026-11-01 local team display-name integrity (R-12 / R-14 / R-23)
+- **Partial P0 fix (PR #188):** The two-client loopback lobby now rejects Unicode line/paragraph separators and invisible formatting controls before a player occupies a seat; the displayed Korean/Arabic name is NFC-normalized and trimmed before enforcing its 24-code-unit limit. This closes a text-spoofing/identity-consistency gap without altering authoritative 60Hz gameplay or adding touch work.
+- **Evidence boundary:** Three Node regression cases cover direct name rejection, canonicalized Korean text and an HTTP join/state round trip. CI at the final PR head, real Windows two-browser testing, public-internet security and accessibility, Unreal native packaging, three complete modes, RTX 3070 QHD 165Hz / **16GB system RAM** and independent realism evaluation remain separate **unverified** gates.
+
 ## 2026-11-01 team lobby pairing consent (R-12 / R-14 / R-23)
 - **Partial local-server P0 candidate:** A ready vote made while alone is invalidated when another participant joins. Both players must explicitly ready for the current pairing; existing timeout/departure ready invalidation remains in place.
 - **Verification boundary:** New unit and two-client loopback HTTP regressions target the ready-before-join case. GitHub CI at the final PR head and actual Windows two-browser play remain separate gates; internet multiplayer, three complete modes, native UE, realism review and RTX 3070 QHD 165Hz / **16GB system RAM** measurements remain unverified.
