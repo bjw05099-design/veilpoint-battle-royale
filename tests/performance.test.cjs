@@ -52,6 +52,8 @@ test('GPU timer samples asynchronously and releases queries',()=>{
  assert.equal(t.supported,true);assert.equal(t.begin(),true);t.end();t.poll();assert.deepEqual(samples,[]);
  available=true;t.poll();assert.deepEqual(samples,[4.2]);assert.deepEqual(deleted,[1]);
  t.begin();t.end();disjoint=true;t.poll();assert.deepEqual(samples,[4.2]);
- t.begin();t.end();t.dispose();assert.deepEqual(deleted,[1,2,3]);
+ assert.equal(t.begin(),false,'GPU disjoint must pause new timing queries');
+ disjoint=false;t.poll();
+ assert.equal(t.begin(),true);t.end();t.dispose();assert.deepEqual(deleted,[1,2,3]);
  assert.equal(t.begin(),false);
 });
