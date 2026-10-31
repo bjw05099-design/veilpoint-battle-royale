@@ -49,9 +49,9 @@ test('CH01 uses the shared vertical rule and retains 60Hz checkpoint determinism
  const s=Story.createState('precision');
  s.world.player.x=0;s.world.player.z=-18;
  assert.equal(Story.interact(s).phase,'engagement');
- s.world.obstacles=[];
- Object.assign(s.world.player,{x:-105,z:-20,yaw:Math.PI/2,pitch:.02});
- Object.assign(s.world.bots[0],{x:105,z:-20,health:90,alive:true});
+ // Keep authored hostile positions inside CH01's bounded checkpoint area.
+ // The terminal approach already faces the first hostile across 10m.
+ Object.assign(s.world.player,{x:0,z:-18,yaw:0,pitch:.2});
  for(const bot of s.world.bots.slice(1)){bot.alive=false;bot.health=0;}
  assert.equal(Story.fire(s).hit,false);
  assert.equal(s.phase,'engagement');
