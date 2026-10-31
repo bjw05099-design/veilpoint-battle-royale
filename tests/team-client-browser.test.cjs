@@ -1208,3 +1208,20 @@ test('PC movement backpressure keeps latest key state and never crosses a fire c
     'a released PC key must not replay stale motion after transport recovers');
   assert.ok(sent.every((r, i) => i === 0 || r.body.seq > sent[i - 1].body.seq));
 });
+
+test('PC loadout selector changes server-owned weapon before ready and locks during round', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();await settle();
+  await a.poll();await b.poll();await settle();
+  a.node('loadout').value = 'compact';
+  a.node('loadout').dispatch('change');
+  await settle();await a.poll();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  assert.equal(server.match.players.get(token).weaponId, 'compact');
+  assert.equal(a.node('loadout').value, 'compact');
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await b.poll();await settle();
+  assert.equal(a.node('loadout').disabled, true);
+  assert.equal(server.match.players.get(token).ammo, 18);
+  assert.equal(a.node('ammo').textContent, '18 / 36');
+});

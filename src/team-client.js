@@ -56,6 +56,7 @@
     capturing = false; triggering = false; actionFeedback = '';
     try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
     el('join').disabled = false; el('ready').disabled = true;
+    el('loadout').disabled = true;
     el('name').disabled = false;
     status('서버 세션이 만료되었습니다. 새로 입장할 수 있습니다.');
     draw();
@@ -304,6 +305,8 @@
         ? ` · 시야 약 ${state.weather.visibilityRange.toFixed(1)}m` : '');
     el('health').textContent = String(state.self.health);
     el('ammo').textContent = `${state.self.ammo} / ${state.self.reserve}`;
+    el('loadout').value = state.self.weaponId || 'carbine';
+    el('loadout').disabled = state.phase === 'playing' || state.self.ready;
     el('reloadState').textContent = state.self.reloadTicks > 0
       ? (state.self.reloadHesitation ? '긴장으로 지연 · R 재입력' : '재장전 중') : '준비';
     el('stress').textContent = Math.round(state.self.stress);
@@ -341,12 +344,16 @@
     try {
       const result = await request('/join', {name: el('name').value});
       token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;
+       el('loadout').disabled = false;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
     } catch (err) {el('join').disabled = false;status(`입장 실패: ${err.message}`);}
     finally {joining = false;}
   });
   el('ready').addEventListener('click', () => void send('ready'));
+  el('loadout').addEventListener('change', () => {
+    if (token && state?.phase !== 'playing') void send('loadout', {weaponId: el('loadout').value});
+  });
   el('fire').addEventListener('click', () => {if (state?.phase === 'playing') void send('fire');});
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
@@ -436,6 +443,7 @@
       state = await request('/state');
       seq = state.self.seq;
       el('join').disabled = true;el('name').disabled = true;
+       el('loadout').disabled = state.phase === 'playing' || state.self.ready;
       el('ready').disabled = state.phase === 'playing';
       if (state.phase === 'playing') {
         await send('move', {direction: {x: 0, z: 0}});
