@@ -784,3 +784,25 @@ test('CH01 PC held-fire checkpoints are bounded and pause flushes final finite a
  assert.equal(flushed.player.charges,36,'pause preserves all twelve spent rounds');
  assert.equal(app.context.VeilpointInput.fireHeld,false);
 });
+
+test('PC WebGL context loss checkpoints CH01 and requires explicit resume',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,15);
+ const elapsed=Number(app.element('status').textContent.match(/경과 ([0-9]+)초/)[1]);
+ let prevented=false;
+ app.element('scene').dispatch('webglcontextlost',{preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('continue').disabled,true);
+ assert.equal(app.element('newGame').disabled,true);
+ const saved=app.store.get('veilpoint.story.ch01');assert.ok(saved);
+ app.frame(10000);assert.equal(app.store.get('veilpoint.story.ch01'),saved);
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,false);
+ assert.equal(app.element('newGame').disabled,false);
+ assert.match(app.element('menuText').textContent,/복구/);
+ app.frame(11000);assert.equal(app.store.get('veilpoint.story.ch01'),saved);
+ app.element('continue').click();app.moveForward(660,90);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.ok(Number(app.element('status').textContent.match(/경과 ([0-9]+)초/)[1])>elapsed);
+});
