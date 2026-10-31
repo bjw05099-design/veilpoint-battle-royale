@@ -44,7 +44,7 @@
     return data;
   };
   const status = msg => {el('status').textContent = msg;};
-  function invalidateSession(expiredToken) {
+  function invalidateSession(expiredToken, retryable = false) {
     if (!expiredToken || token !== expiredToken) return;
     // A restarted local server may forget the token while this tab stays open.
     // Drop all held PC input and old snapshots before enabling a fresh join.
@@ -54,11 +54,16 @@
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
     cancelAimFlush();queuedInput = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
     capturing = false; triggering = false; actionFeedback = '';
-    try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
+    // A transient reset/network failure must not strand a still-valid server
+    // seat by deleting its only tab token. Keep it solely for explicit retry.
+    if (!retryable) try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
     el('join').disabled = false; el('ready').disabled = true;
+    el('join').textContent = retryable ? '재연결' : '입장';
     el('loadout').disabled = true;
-    el('name').disabled = false;
-    status('서버 세션이 만료되었습니다. 새로 입장할 수 있습니다.');
+    el('name').disabled = retryable;
+    status(retryable
+      ? '입력 초기화 확인 실패 · 재연결을 눌러 안전하게 다시 시도하세요.'
+      : '서버 세션이 만료되었습니다. 새로 입장할 수 있습니다.');
     draw();
   }
   const send = (type, payload = {}) => {
@@ -342,6 +347,14 @@
   el('join').addEventListener('click', async () => {
     // A rapid double-click must never consume both two-player lobby slots.
     if (joining || restoring || token) return;
+    // Retry the same authenticated seat before allocating another player.
+    // The server must acknowledge resetInput again before PC controls resume.
+    let saved = null;
+    try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {}
+    if (saved && /^[a-f0-9]{48}$/.test(saved)) {
+      void restoreTabSession();
+      return;
+    }
     joining = true;el('join').disabled = true;
     try {
       const result = await request('/join', {name: el('name').value});
@@ -463,8 +476,9 @@
       }
       state = await request('/state');
       render();
-    } catch (_) {
-      invalidateSession(saved);
+    } catch (err) {
+      invalidateSession(saved, err.message !== 'unknown_player' &&
+        err.message !== 'connection_timeout');
     } finally {restoring = false;}
   };
   void restoreTabSession();
