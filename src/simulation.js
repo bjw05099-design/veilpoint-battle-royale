@@ -396,6 +396,11 @@
       if(boundaryDeadline&&dist(b,game.zone)>game.zone.radius){
         b.health=0;b.alive=false;continue;
       }
+      // A round that already ended (boundary disqualification or injury)
+      // must not produce further attacks, reloads or phantom ammunition use.
+      // Still resolve each rival's physical deadline position above so
+      // simultaneous boundary rulings remain symmetric.
+      if(game.status!=='playing')continue;
       // Both player and rival encounters consume finite ammunition. Reload completion
       // cannot fire on the same frame, and a missed shot still spends one round.
       const wasReloading=b.reloadRemaining>0;
@@ -455,6 +460,9 @@
         }
       }
     }
+    // No further perception or audiovisual combat events after a terminal
+    // outcome. Keep the result frozen for the end-of-match/restart screen.
+    if(game.status!=='playing')return game;
     // Rival movement can be heard at close range just like player movement.
     // Process after all bot movement so iteration order cannot give early bots
     // knowledge of future positions. An existing direct observation takes priority.
