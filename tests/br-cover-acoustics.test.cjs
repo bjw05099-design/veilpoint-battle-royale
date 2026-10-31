@@ -66,3 +66,49 @@ test('BR avoidance and acoustic search remain deterministic at fixed 60Hz',()=>{
   };
   assert.deepEqual(run(),run());
 });
+
+
+test('BR new audible player shot supersedes stale memory without hidden exact tracking',()=>{
+  const game=Sim.newMatch(9921,1);game.status='playing';
+  const listener=game.bots[0];
+  game.player.x=1.3;game.player.z=0;game.player.yaw=Math.PI;
+  listener.x=7;listener.z=0;listener.angle=0;
+  listener.lastSeenX=40;listener.lastSeenZ=40;listener.lastSeenUntil=2.5;
+  const rounds=game.player.charges;
+  assert.equal(Sim.tag(game).ok,true);
+  assert.equal(game.player.charges,rounds-1);
+  assert.deepEqual([listener.lastSeenX,listener.lastSeenZ],[2,0]);
+  assert.notEqual(listener.lastSeenX,game.player.x);
+  const resumed=Sim.restoreMatch(Sim.snapshotMatch(game));
+  for(let i=0;i<90;i++){
+    Sim.tick(game,1/60);Sim.tick(resumed,1/60);
+    if(game.status!=='playing')break;
+    assert.equal(Sim.snapshotMatch(game),Sim.snapshotMatch(resumed));
+  }
+});
+
+test('BR a directly visible shooter stays exact rather than becoming a rounded sound marker',()=>{
+  const game=Sim.newMatch(9922,1);game.status='playing';
+  const listener=game.bots[0];
+  game.player.x=1.3;game.player.z=0;game.player.yaw=Math.PI;
+  listener.x=1.3;listener.z=-10;listener.angle=Math.PI;
+  listener.lastSeenX=40;listener.lastSeenZ=40;listener.lastSeenUntil=2.5;
+  assert.equal(Sim.tag(game).ok,true);
+  assert.equal(listener.lastSeenX,1.3);
+  assert.equal(listener.lastSeenZ,0);
+});
+
+test('BR fresh rival gunfire replaces older footstep memory and spends finite rounds',()=>{
+  const game=Sim.newMatch(9923,2);game.status='playing';
+  game.player.x=0;game.player.z=0;
+  const [shooter,listener]=game.bots;
+  shooter.x=0;shooter.z=-10;shooter.angle=Math.PI;
+  shooter.moveTime=999;shooter.actionTime=0;shooter.loaded=12;shooter.charges=36;
+  listener.x=6;listener.z=-10;listener.angle=0;
+  listener.moveTime=999;listener.actionTime=999;
+  listener.lastSeenX=40;listener.lastSeenZ=40;listener.lastSeenUntil=2.5;
+  Sim.tick(game,1/60);
+  assert.equal(shooter.charges,35);
+  assert.deepEqual([listener.lastSeenX,listener.lastSeenZ],
+    [Sim.approximateSoundPosition(shooter).x,Sim.approximateSoundPosition(shooter).z]);
+});

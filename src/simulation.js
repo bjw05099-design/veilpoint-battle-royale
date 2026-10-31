@@ -85,6 +85,13 @@
     if (distance > 38) return false;
     return distance <= (lineBlocked(listener.x, listener.z, source.x, source.z, obstacles) ? 18 : 38);
   }
+  // Visual observation is exact; fresh audible evidence is only approximate.
+  // An old search clue must not suppress a new, physically audible shot.
+  function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject)) {
+    if (distance >= 55 || lineBlocked(observer.x, observer.z, subject.x, subject.z, obstacles)) return false;
+    const bearing = Math.atan2(subject.x - observer.x, -(subject.z - observer.z));
+    return Math.abs(normalizeAngle(bearing - observer.angle)) <= 1.4;
+  }
   function approximateSoundPosition(source) {
     return {x: Math.round(source.x / 2) * 2, z: Math.round(source.z / 2) * 2};
   }
@@ -313,10 +320,9 @@
       const consider=(other)=>{
         if(other===b||!other.alive)return;
         const d=dist(b,other);
-        if(d>=55||d>=targetDistance||lineBlocked(b.x,b.z,other.x,other.z,obstacles))return;
-        const bearing=Math.atan2(other.x-b.x,-(other.z-b.z));
-        if(Math.abs(normalizeAngle(bearing-b.angle))>1.4)return;
-        target=other;targetDistance=d;targetAngle=bearing;
+        if(d>=targetDistance||!canSeeActor(b,other,obstacles,d))return;
+        target=other;targetDistance=d;
+        targetAngle=Math.atan2(other.x-b.x,-(other.z-b.z));
       };
       consider(p);
       for(const other of game.bots)consider(other);
@@ -399,9 +405,11 @@
           // target, bypasses solid cover or grants damage without line of sight.
           const heard=approximateSoundPosition(b);
           for(const listener of game.bots){
-            if(listener!==b&&listener.alive&&listener.lastSeenUntil<=game.elapsed&&
-               hearsImpulse(listener,b,obstacles)){
-              listener.lastSeenX=heard.x;listener.lastSeenZ=heard.z;
+            if(listener!==b&&listener.alive&&hearsImpulse(listener,b,obstacles)){
+              // A new shot supersedes old search memory, but unseen shooters
+              // never disclose more than a coarse audible source estimate.
+              const observed=canSeeActor(listener,b,obstacles)?b:heard;
+              listener.lastSeenX=observed.x;listener.lastSeenZ=observed.z;
               listener.lastSeenUntil=game.elapsed+2.5;
             }
           }
@@ -482,8 +490,11 @@
     // Sound never grants a hit, damage, or live target coordinates.
     const heard=approximateSoundPosition(p);
     for(const b of game.bots){
-      if(b.alive&&b.lastSeenUntil<=game.elapsed&&hearsImpulse(b,p,game.obstacles)){
-        b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
+      if(b.alive&&hearsImpulse(b,p,game.obstacles)){
+        // A fresh sound replaces stale search evidence, while visible
+        // actors remain precise and hidden actors stay imprecise.
+        const observed=canSeeActor(b,p,game.obstacles)?p:heard;
+        b.lastSeenX=observed.x;b.lastSeenZ=observed.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
     }
