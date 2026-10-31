@@ -506,11 +506,12 @@
     // An actual fired round produces one audible event even on a miss.
     // Sound never grants a hit, damage, or live target coordinates.
     const heard=approximateSoundPosition(p);
+    const sightActors=[p,...game.bots];
     for(const b of game.bots){
       if(b.alive&&hearsImpulse(b,p,game.obstacles)){
         // A fresh sound replaces stale search evidence, while visible
         // actors remain precise and hidden actors stay imprecise.
-        const observed=canSeeActor(b,p,game.obstacles,dist(b,p),[p,...game.bots])?p:heard;
+        const observed=canSeeActor(b,p,game.obstacles,dist(b,p),sightActors)?p:heard;
         b.lastSeenX=observed.x;b.lastSeenZ=observed.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
