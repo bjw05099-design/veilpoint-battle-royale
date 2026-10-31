@@ -131,10 +131,11 @@ class TeamMatch {
     return true;
   }
   command(token, data) {
-    // Lobby/finished-session input must not revive an expired seat between
-    // 60Hz ticks. In particular, a late ready packet cannot start a round
-    // against a disconnected guest who was already marked ready.
-    if (this.phase !== 'playing') this.pruneIdleWaitingPlayers();
+    // A late lobby ready packet cannot start a round against an expired guest.
+    // Preserve finished-round snapshots/heartbeat semantics for result review;
+    // only a new ready request reconciles expired rematch seats.
+    if (this.phase === 'lobby' || (this.phase === 'ended' && data?.type === 'ready'))
+      this.pruneIdleWaitingPlayers();
     const p = this.players.get(token);
     if (!p) throw new RangeError('unknown_player');
     // A deliberate leave is terminal, not a session-renewal attempt. Preserve
@@ -507,9 +508,9 @@ class TeamMatch {
     }
   }
   snapshot(token) {
-    // Read-only polling cannot keep an abandoned lobby or rematch slot alive.
-    // Reconcile stale seats even when the server timer is paused/disabled.
-    if (this.phase !== 'playing') this.pruneIdleWaitingPlayers();
+    // Read-only lobby polling cannot reserve abandoned seats. Finished match
+    // results remain readable after timeout, even when no tick is running.
+    if (this.phase === 'lobby') this.pruneIdleWaitingPlayers();
     const me = this.players.get(token);
     if (!me) throw new RangeError('unknown_player');
     // State polling never renews a lease. Settle expired sessions before
