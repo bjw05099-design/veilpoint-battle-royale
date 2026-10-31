@@ -182,7 +182,8 @@ test('tab refresh resumes the same player and clears ghost movement and capture'
   assert.equal(refreshed.node('join').disabled, true);
   assert.equal(player.direction.x, 0);
   assert.equal(player.capturing, false);
-  assert.ok(player.seq >= previousSeq + 2);
+  assert.equal(player.seq, previousSeq + 1, 'refresh clears all intents in one sequenced command');
+  assert.equal(server.requests.filter(r => r.token === token && r.body?.type === 'resetInput').length, 1);
   await refreshed.poll(); await settle();
   assert.match(refreshed.node('status').textContent, /점령/);
 });
@@ -335,7 +336,7 @@ test('team tab refresh releases a stale server aim override before keyboard inpu
  await refreshed.poll();await settle();
  refreshed.doc('keydown',{code:'KeyA'});await settle();
  assert.deepEqual({...p.facing},{x:-1,z:0});
- assert.ok(server.requests.some(r=>r.token===token&&r.body?.type==='aimRelease'));
+ assert.ok(server.requests.some(r=>r.token===token&&r.body?.type==='resetInput'));
 });
 
 test('stationary pointer aim renews at bounded server ticks, not every poll',async()=>{

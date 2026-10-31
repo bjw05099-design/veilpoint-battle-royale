@@ -174,7 +174,7 @@ class TeamMatch {
       data.type === 'capture' || data.type === 'trigger' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
        data.type === 'loadout' ? ['seq', 'type', 'weaponId'] :
-      ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease'].includes(data.type) ? ['seq', 'type'] : null;
+      ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease', 'resetInput'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
     if (['move', 'aim'].includes(data.type) &&
@@ -206,6 +206,23 @@ class TeamMatch {
     }
     // State polling cannot keep a disconnected/abandoned player active forever.
     if (data.type === 'heartbeat') return {ok: true};
+    if (data.type === 'resetInput') {
+      // A PC refresh must not leave movement, aim, relay or fire active
+      // across four separate HTTP round trips. Clear all held intents in
+      // one authenticated, sequenced command without altering finite ammo.
+      p.direction = {x: 0, z: 0};
+      p.aiming = false;
+      p.lastAimTick = this.ticks;
+      p.lastMoveTick = this.ticks;
+      p.capturing = false;
+      p.captureHeld = false;
+      p.captureArmed = false;
+      p.lastCaptureTick = this.ticks;
+      p.triggerHeld = false;
+      p.lastTriggerTick = this.ticks;
+      this.progress[p.team] = 0;
+      return {ok: true};
+    }
     if (data.type === 'loadout') {
       if (this.phase === 'playing' || p.ready) return {ok:false,reason:'loadout_locked'};
       p.weaponId=data.weaponId;

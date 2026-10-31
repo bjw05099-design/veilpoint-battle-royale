@@ -450,12 +450,10 @@
        el('loadout').disabled = state.phase === 'playing' || state.self.ready;
       el('ready').disabled = state.phase === 'playing';
       if (state.phase === 'playing') {
-        await send('move', {direction: {x: 0, z: 0}});
-        await send('capture', {active: false});
-        // A tab refresh can skip blur/pointerleave. Never inherit an old aim
-        // override that would prevent keyboard-only turning after resume.
-        await send('aimRelease');
-        await send('trigger', {active: false});
+        // One sequenced command releases every old held PC intent.
+        // Separate HTTP calls previously left ghost fire/movement active
+        // until the final response on slow or interrupted connections.
+        await send('resetInput');
       }
       state = await request('/state');
       render();
