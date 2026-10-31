@@ -182,3 +182,52 @@ test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reje
  assert.equal(controls.get().sensitivity,1);
  assert.equal(controls.captureKey({code:'KeyT'}),false,'stale remap capture must be canceled');
 });
+
+test('PC pointer lock rejects a canceled request even after raw-input fallback was cached',async()=>{
+ const calls=[];
+ const canvas={requestPointerLock(options){
+  calls.push(options);
+  if(options)return Promise.reject(Object.assign(new Error('unsupported'),{name:'NotSupportedError'}));
+  return Promise.resolve();
+ }};
+ await C.requestPrecisionPointerLock(canvas);
+ assert.equal(calls.length,2);
+ assert.throws(()=>C.requestPrecisionPointerLock(canvas,()=>false),/pointer_lock_superseded/);
+ assert.equal(calls.length,2,'a canceled cached fallback must not call pointer lock');
+});
+
+test('PC pointer lock releases a late raw-input grant after the menu supersedes it',async()=>{
+ let resolveLock,wanted=true,unlocks=0;
+ const doc={pointerLockElement:null,exitPointerLock(){
+  unlocks++;this.pointerLockElement=null;
+ }};
+ const canvas={ownerDocument:doc,requestPointerLock(){
+  return new Promise(resolve=>{resolveLock=()=>{doc.pointerLockElement=canvas;resolve();};});
+ }};
+ const attempt=C.requestPrecisionPointerLock(canvas,()=>wanted);
+ wanted=false;resolveLock();
+ await assert.rejects(attempt,/pointer_lock_superseded/);
+ assert.equal(unlocks,1);
+ assert.equal(doc.pointerLockElement,null);
+});
+
+test('PC pointer lock releases a late ordinary-lock grant on a cached fallback',async()=>{
+ let resolveLock,wanted=true,unlocks=0;
+ const doc={pointerLockElement:null,exitPointerLock(){
+  unlocks++;this.pointerLockElement=null;
+ }};
+ const canvas={ownerDocument:doc,requestPointerLock(options){
+  if(options)return Promise.reject(Object.assign(new Error('unsupported'),{name:'NotSupportedError'}));
+  return new Promise(resolve=>{resolveLock=()=>{doc.pointerLockElement=canvas;resolve();};});
+ }};
+ const first=C.requestPrecisionPointerLock(canvas);
+ // The raw-input rejection and fallback run in successive promise jobs.
+ for(let i=0;i<4&&!resolveLock;i++)await Promise.resolve();
+ assert.equal(typeof resolveLock,'function','ordinary fallback must begin');
+ resolveLock();await first;
+ const attempt=C.requestPrecisionPointerLock(canvas,()=>wanted);
+ wanted=false;resolveLock();
+ await assert.rejects(attempt,/pointer_lock_superseded/);
+ assert.equal(unlocks,1);
+ assert.equal(doc.pointerLockElement,null);
+});

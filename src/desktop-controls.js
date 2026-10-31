@@ -81,17 +81,39 @@
  const rawUnsupported=new WeakSet();
  function requestPrecisionPointerLock(canvas,stillRequested=()=>true){
   if(!canvas||typeof canvas.requestPointerLock!=='function')throw new TypeError('pointer_lock_unavailable');
-  const fallback=()=>{
-   if(!stillRequested())throw new Error('pointer_lock_superseded');
-   rawUnsupported.add(canvas);
-   return canvas.requestPointerLock();
+  // A pause or menu transition can supersede a pending browser permission
+  // promise. Check before requesting AND after it settles, including the
+  // cached ordinary-lock path, so late grants cannot recapture the PC mouse.
+  const ensureCurrent=()=>{
+   if(stillRequested())return;
+   const doc=canvas.ownerDocument;
+   if(doc&&doc.pointerLockElement===canvas&&typeof doc.exitPointerLock==='function'){
+    try{doc.exitPointerLock();}catch(_){/* The request is still canceled. */}
+   }
+   throw new Error('pointer_lock_superseded');
   };
-  if(rawUnsupported.has(canvas))return canvas.requestPointerLock();
+  const request=options=>{
+   ensureCurrent();
+   const result=canvas.requestPointerLock(options);
+   if(!result||typeof result.then!=='function')ensureCurrent();
+   return result;
+  };
+  const guard=result=>result&&typeof result.then==='function'
+   ?result.then(value=>{ensureCurrent();return value;}):result;
+  const fallback=()=>{
+   ensureCurrent();
+   rawUnsupported.add(canvas);
+   return guard(request());
+  };
+  if(rawUnsupported.has(canvas))return guard(request());
   const isUnsupported=error=>error&&(error.name==='NotSupportedError'||error.name==='TypeError');
   try{
-   const result=canvas.requestPointerLock({unadjustedMovement:true});
-   return result&&typeof result.catch==='function'
-    ?result.catch(error=>{if(!isUnsupported(error))throw error;return fallback();})
+   const result=request({unadjustedMovement:true});
+   // Handle rejection on the original promise, not a chained rejection:
+   // the existing BR/CH01 pause handlers must run without an extra frame.
+   return result&&typeof result.then==='function'
+    ?result.then(value=>{ensureCurrent();return value;},
+      error=>{if(!isUnsupported(error))throw error;return fallback();})
     :result;
   }catch(error){
    if(!isUnsupported(error))throw error;
