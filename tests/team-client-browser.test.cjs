@@ -1262,7 +1262,8 @@ for (const failure of ['http_error', 'unacknowledged']) {
       const body = options?.body ? JSON.parse(options.body) : null;
       if (route === '/command' && body?.type === 'resetInput') {
         resetAttempts++;
-        return failure === 'http_error'
+        // Simulate one transient failure; the next physical retry succeeds.
+        if (resetAttempts === 1) return failure === 'http_error'
           ? {ok: false, status: 503, json: async () => ({error: 'reset_unavailable'})}
           : {ok: true, status: 200, json: async () => ({ok: false})};
       }
@@ -1271,18 +1272,25 @@ for (const failure of ['http_error', 'unacknowledged']) {
     const resumed = boot(server, storage);
     await settle();
     assert.equal(resetAttempts, 1);
-    assert.equal(storage.has('veilpoint.team.tabSession'), false,
-      'a failed reset must not expose a live restored session');
+    assert.equal(storage.get('veilpoint.team.tabSession'), token,
+      'a transient failure retains the token only for explicit retry');
     assert.equal(resumed.node('join').disabled, false);
+    assert.match(resumed.node('join').textContent, /재연결/);
     const before = server.requests.length;
     resumed.doc('keydown', {code: 'KeyW'});
     resumed.heartbeat();
     await settle();
     assert.equal(server.requests.length, before,
-      'discarded tab must not send authenticated movement or heartbeat');
-    for (let i = 0; i < 100; i++) server.match.step();
-    assert.deepEqual({...player.direction}, {x: 0, z: 0},
-      'server input lease eventually stops the abandoned movement');
+      'blocked tab must not send authenticated movement or heartbeat');
+    assert.equal(player.direction.x, 1, 'the server has not acknowledged reset yet');
+    resumed.node('join').click();
+    await settle();
+    assert.equal(resetAttempts, 2);
+    assert.equal(server.match.players.size, 2, 'retry must reuse the same seat');
+    assert.equal(server.requests.filter(r => r.route === '/join').length, 2);
+    assert.deepEqual({...player.direction}, {x: 0, z: 0});
+    assert.equal(resumed.node('join').disabled, true);
+    assert.equal(storage.get('veilpoint.team.tabSession'), token);
   });
 }
 
