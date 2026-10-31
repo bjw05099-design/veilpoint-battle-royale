@@ -78,7 +78,10 @@ class SoftwareRenderer {
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
  for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
- for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);if(d>145)continue;
+ for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);
+  // Keep distant precision silhouettes in the Canvas fallback as well as
+  // WebGL. Do not extend foliage, buildings or cache geometry unnecessarily.
+  if(d>145&&!(o.type==='bot'&&p.weaponId==='precision'&&d<=Visibility.PRECISION_VIEW_DISTANCE))continue;
  const x=o.x,z=o.z,ww=o.w*.5,dd=o.d*.5;
  if(o.type==='plant'){
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;

@@ -158,3 +158,28 @@ test('BR WebGL displays finite caches on the ground without moving force-field p
  assert.ok(props.every(p=>p.x===0&&p.z===-4&&p.y<=.09&&p.h<=.18));
  assert.equal(renderer.dynamic.count,72);
 });
+
+test('WebGL draws a low-LOD 210m precision target and its brief impact cue',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(20261031,1,'precision');
+ state.status='playing';state.obstacles=[];state.loot=[];state.effects=[];
+ Object.assign(state.player,{x:-105,z:-20,yaw:Math.PI/2,pitch:0});
+ Object.assign(state.bots[0],{x:105,z:-20,alive:true,health:100});
+ const boxes=[];
+ const original=renderer.dynamic.box.bind(renderer.dynamic);
+ renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
+  if(x===105&&z===-20)boxes.push({x,y,z,w,h,d});
+  return original(x,y,z,w,h,d,color);
+ };
+ renderer.draw(state);
+ assert.deepEqual(boxes.map(b=>[b.w,b.h,b.d]),[[.7,1.3,.45]],
+   'distant opponent must have one affordable low-LOD silhouette');
+ assert.equal(renderer.lastVisibilityStats.botsVisible,1);
+ boxes.length=0;
+ assert.equal(Sim.tag(state).hit,true,'the same visible 210m corridor permits a shot');
+ renderer.draw(state);
+ assert.ok(boxes.some(b=>b.y===.025&&b.w===.22),'distant physical impact cue must be drawn');
+});
