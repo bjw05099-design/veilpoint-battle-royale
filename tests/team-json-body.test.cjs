@@ -121,3 +121,46 @@ test('HTTP join rejects JSON-escaped isolated surrogate without allocating a slo
     assert.equal(server.match.players.size, 0);
   } finally {await server.close();}
 });
+
+test('team lobby rejects Unicode line and invisible format separators without taking a seat', () => {
+  const {TeamMatch} = require('../src/team-match.cjs');
+  const match = new TeamMatch();
+  for (const [i, name] of ['A\u2028B', 'A\u2029B', '\u180e', 'A\u2061B', 'A\u2064B', '\u2028A'].entries())
+    assert.throws(() => match.join('bad-' + i, name), /invalid_name/);
+  assert.equal(match.players.size, 0);
+});
+
+test('team lobby trims before enforcing display length and NFC-normalizes decomposed Korean', () => {
+  const {TeamMatch} = require('../src/team-match.cjs');
+  const match = new TeamMatch();
+  const composed = '이수혁';
+  const decomposed = composed.normalize('NFD');
+  const result = match.join('canonical', '  ' + decomposed + '  ');
+  assert.equal(result.team, 'red');
+  assert.equal(match.players.get('canonical').name, composed);
+  const twentyFour = '가'.repeat(24);
+  match.join('padded', '  ' + twentyFour + '  ');
+  assert.equal(match.players.get('padded').name, twentyFour);
+});
+
+test('HTTP join rejects Unicode paragraph separators and snapshots canonical names', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const join = name => fetch(base + '/join', {method: 'POST',
+    headers: {'content-type': 'application/json'}, body: JSON.stringify({name})});
+  try {
+    const bad = await join('A\u2029B');
+    assert.equal(bad.status, 400);
+    assert.equal((await bad.json()).error, 'invalid_name');
+    assert.equal(server.match.players.size, 0);
+    const good = await join('  ' + '조현지'.normalize('NFD') + '  ');
+    assert.equal(good.status, 201);
+    const {token} = await good.json();
+    const state = await fetch(base + '/state', {headers: {'x-player-token': token}});
+    assert.equal(state.status, 200);
+    const snapshot = await state.json();
+    assert.equal(snapshot.visible.find(p => p.id === snapshot.self.id).name, '조현지');
+  } finally {await server.close();}
+});

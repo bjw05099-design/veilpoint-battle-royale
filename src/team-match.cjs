@@ -48,7 +48,7 @@ const INPUT_LEASE_TICKS = 90;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // Display names may contain Korean, Arabic and emoji, but not line breaks,
 // invisible separators or bidi override/isolate controls that spoof UI labels.
-const INVALID_NAME_CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/u;
+const INVALID_NAME_CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u2069\ufeff]/u;
 // Escaped JSON may contain a lone UTF-16 surrogate even when the HTTP bytes
 // are valid UTF-8. Reject malformed display text without banning emoji pairs.
 const hasLoneSurrogate = value => [...value].some(char => {
@@ -118,12 +118,17 @@ class TeamMatch {
     this.pruneIdleWaitingPlayers();
     if (this.players.size >= MAX_PLAYERS) throw new RangeError('match_full');
     if (this.players.has(token)) throw new RangeError('duplicate_token');
-    if (typeof name !== 'string' || !name.trim() || name.length > 24 ||
-        INVALID_NAME_CONTROL.test(name) || hasLoneSurrogate(name)) throw new RangeError('invalid_name');
+    // Validate raw text before trimming: a hidden line separator must not
+    // disappear at an edge. NFC keeps decomposed Korean/Arabic names stable
+    // across join, snapshot and refresh without changing visible spelling.
+    if (typeof name !== 'string' || INVALID_NAME_CONTROL.test(name) ||
+        hasLoneSurrogate(name)) throw new RangeError('invalid_name');
+    const displayName = name.trim().normalize('NFC');
+    if (!displayName || displayName.length > 24) throw new RangeError('invalid_name');
     const red = [...this.players.values()].filter(p => p.team === 'red').length;
     const blue = this.players.size - red;
     const team = red <= blue ? 'red' : 'blue';
-    const player = {id: this.nextPlayerId++, name: name.trim(), team,
+    const player = {id: this.nextPlayerId++, name: displayName, team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
       aiming: false, capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,

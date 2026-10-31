@@ -1225,3 +1225,19 @@ test('PC loadout selector changes server-owned weapon before ready and locks dur
   assert.equal(server.match.players.get(token).ammo, 18);
   assert.equal(a.node('ammo').textContent, '18 / 36');
 });
+
+test('PC team lobby explains invalid Unicode names and allows immediate retry', async () => {
+  const server = backend(), client = boot(server);
+  client.node('name').value = 'A\u2028B';
+  client.node('join').click();
+  await settle();
+  assert.equal(server.match.players.size, 0);
+  assert.equal(client.node('join').disabled, false);
+  assert.match(client.node('status').textContent, /이름에 줄바꿈/);
+  client.node('name').value = '  조현지  ';
+  client.node('join').click();
+  await settle();
+  assert.equal(server.match.players.size, 1);
+  assert.equal(client.node('join').disabled, true);
+  assert.equal([...server.match.players.values()][0].name, '조현지');
+});
