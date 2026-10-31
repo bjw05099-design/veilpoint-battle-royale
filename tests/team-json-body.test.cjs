@@ -99,7 +99,8 @@ test('readJson accepts a completed stream that closes normally', async () => {
 test('team lobby refuses isolated Unicode surrogates but retains paired emoji', () => {
   const {TeamMatch} = require('../src/team-match.cjs');
   const match = new TeamMatch();
-  for (const name of ['A\\uD800B', 'A\\uDC00B'])
+  for (const name of ['A' + String.fromCharCode(0xd800) + 'B',
+    'A' + String.fromCharCode(0xdc00) + 'B'])
     assert.throws(() => match.join('invalid-' + name.length, name), /invalid_name/);
   assert.equal(match.players.size, 0);
   match.join('valid', '조현지 🛰️');
