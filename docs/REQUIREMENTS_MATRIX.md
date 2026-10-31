@@ -1,3 +1,7 @@
+## 2026-10-31 PC pointer-lock cancellation guard (R-08 / R-25 / desktop control P0)
+- **Partial P0 candidate:** A pending Windows browser pointer-lock request now checks its cancellation lease before and after the browser permission promise, including the cached standard-lock fallback. A late grant after pause/menu exit is immediately released when the browser exposes the active lock; this prevents a superseded request from reclaiming the player's mouse.
+- **Regression evidence:** Three Node tests cover a canceled cached fallback, a late raw-input grant, and a late ordinary-lock grant. This is desktop-browser input integrity, not a verified Windows hardware run. QHD 165Hz RTX 3070 / **16GB system RAM**, real input latency, native Unreal and three-mode release gates remain **unverified**.
+
 # VEILPOINT — User Requirements Traceability (living document)
 
 ## 2026-10-31 CH01 hostile direct-sight volley gate (R-02 / R-14 / R-23 / R-28)

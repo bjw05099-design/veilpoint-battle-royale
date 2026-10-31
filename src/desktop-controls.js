@@ -81,15 +81,34 @@
  const rawUnsupported=new WeakSet();
  function requestPrecisionPointerLock(canvas,stillRequested=()=>true){
   if(!canvas||typeof canvas.requestPointerLock!=='function')throw new TypeError('pointer_lock_unavailable');
-  const fallback=()=>{
-   if(!stillRequested())throw new Error('pointer_lock_superseded');
-   rawUnsupported.add(canvas);
-   return canvas.requestPointerLock();
+  // A pause or menu transition can supersede a pending browser permission
+  // promise. Check before requesting AND after it settles, including the
+  // cached ordinary-lock path, so late grants cannot recapture the PC mouse.
+  const ensureCurrent=()=>{
+   if(stillRequested())return;
+   const doc=canvas.ownerDocument;
+   if(doc&&doc.pointerLockElement===canvas&&typeof doc.exitPointerLock==='function'){
+    try{doc.exitPointerLock();}catch(_){/* The request is still canceled. */}
+   }
+   throw new Error('pointer_lock_superseded');
   };
-  if(rawUnsupported.has(canvas))return canvas.requestPointerLock();
+  const request=options=>{
+   ensureCurrent();
+   const result=canvas.requestPointerLock(options);
+   if(result&&typeof result.then==='function')
+    return result.then(value=>{ensureCurrent();return value;});
+   ensureCurrent();
+   return result;
+  };
+  const fallback=()=>{
+   ensureCurrent();
+   rawUnsupported.add(canvas);
+   return request();
+  };
+  if(rawUnsupported.has(canvas))return request();
   const isUnsupported=error=>error&&(error.name==='NotSupportedError'||error.name==='TypeError');
   try{
-   const result=canvas.requestPointerLock({unadjustedMovement:true});
+   const result=request({unadjustedMovement:true});
    return result&&typeof result.catch==='function'
     ?result.catch(error=>{if(!isUnsupported(error))throw error;return fallback();})
     :result;
