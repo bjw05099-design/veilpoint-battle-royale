@@ -82,6 +82,27 @@
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
     return true;
   }
+  function recoverActorOverlap(state) {
+    // Historic v2 saves can predate standing-body collision. Resolve only on
+    // restore; never teleport an actor during live 60Hz gameplay. Keep the
+    // nearest collision-free adjacent position, with deterministic tie order.
+    if(state.phase!=='engagement')return false;
+    const p=state.world.player;
+    const living=state.world.bots.filter(b=>b.alive);
+    const bodies=living.map(b=>({x:b.x,z:b.z,w:HOSTILE_BODY_RADIUS*2,d:HOSTILE_BODY_RADIUS*2}));
+    if(!Sim.blocked(p.x,p.z,.85,bodies))return false;
+    const distance=HOSTILE_BODY_RADIUS+.85+.05;
+    const candidates=living.flatMap(b=>[
+      {x:b.x,z:b.z+distance},{x:b.x,z:b.z-distance},
+      {x:b.x+distance,z:b.z},{x:b.x-distance,z:b.z}
+    ]);
+    const safe=candidates.filter(pos=>!Sim.blocked(pos.x,pos.z,.85,
+      state.world.obstacles.concat(bodies)));
+    if(!safe.length)throw new RangeError('No collision-free story checkpoint recovery');
+    safe.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+    p.x=safe[0].x;p.z=safe[0].z;
+    return true;
+  }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
@@ -546,13 +567,6 @@
       (data.phase==='failed'&&p.health!==0)||
       (data.phase!=='failed'&&p.health===0))
       throw new RangeError('Invalid combat checkpoint');
-    // Active checkpoint bodies cannot resume interpenetrating a living opponent.
-    // Legacy v2 enemies without authored positions remain loadable; modern saves
-    // use the same circular-player/AABB-hostile collision rule as movement.
-    // Dead actors do not block passage and never trigger this rejection.
-    if(data.phase==='engagement'&&c.drones.some(b=>b.alive&&hasOwn(b,'x')&&
-      Sim.blocked(p.x,p.z,.85,[{x:b.x,z:b.z,w:HOSTILE_BODY_RADIUS*2,d:HOSTILE_BODY_RADIUS*2}])))
-      throw new RangeError('Overlapping living actor in story checkpoint');
     if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
@@ -622,6 +636,7 @@
     state.message='CH01 / 이어하기';
     syncRoute(state);
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
+    if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
     return syncMarkers(state);
   }
   return Object.freeze({
