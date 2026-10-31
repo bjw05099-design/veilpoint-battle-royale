@@ -130,6 +130,19 @@
     return state.world.bots.filter(b=>b.alive&&b!==except)
       .map(b=>({x:b.x,z:b.z,w:HOSTILE_BODY_RADIUS*2,d:HOSTILE_BODY_RADIUS*2}));
   }
+  // CH01 shares one sight rule between movement AI and gunfire evidence.
+  // A shot is audible behind cover, but only a directly observed player
+  // yields an exact location; hearing alone retains a coarse estimate.
+  function canSeePlayer(state,hostile) {
+    const p=state.world.player;
+    const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
+    if(distance<.001||distance>HOSTILE_ALERT_RANGE||
+      Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
+        state.world.obstacles.concat(actorBlockers(state,hostile))))return false;
+    const bearing=Math.atan2(dx,-dz);
+    const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
+    return Math.abs(delta)<=1.1;
+  }
   function nearest(state) {
     const p=state.world.player;
     let candidate=null,best=INTERACT_RADIUS;
@@ -180,13 +193,7 @@
       // They cannot magically know a position behind cover or outside their view.
       for(const hostile of state.world.bots){
         if(!hostile.alive)continue;
-        const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
-        const canSee=distance>=.001&&distance<=HOSTILE_ALERT_RANGE&&
-          !Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
-             state.world.obstacles.concat(actorBlockers(state,hostile)));
-        const bearing=Math.atan2(dx,-dz);
-        const sightDelta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
-        const tracking=canSee&&Math.abs(sightDelta)<=1.1;
+        const tracking=canSeePlayer(state,hostile);
         const audible=!tracking&&Sim.hearsFootsteps(hostile,p,movedDistance,sprinting,state.world.obstacles,!!input.crouch);
         if(tracking||audible){
           // Sight or actual nearby footsteps can reveal a bounded last-known
@@ -304,7 +311,8 @@
     const heard=Sim.approximateSoundPosition(state.world.player);
     for(const hostile of state.world.bots){
       if(hostile.alive&&Sim.hearsImpulse(hostile,state.world.player,state.world.obstacles)){
-        hostile.lastSeenX=heard.x;hostile.lastSeenZ=heard.z;
+        const observed=canSeePlayer(state,hostile)?state.world.player:heard;
+        hostile.lastSeenX=observed.x;hostile.lastSeenZ=observed.z;
         hostile.investigateUntil=state.world.elapsed+3;
       }
     }
