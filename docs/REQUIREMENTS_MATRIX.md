@@ -1,5 +1,11 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 team request termination and malformed display-name guard (R-12 / R-14 / R-23)
+- **Partial local-server hardening candidate:** Bounded UTF-8 JSON parsing now rejects an incomplete stream that closes without the legacy `aborted` event, while allowing a normal `end` → `close` sequence. This avoids leaving the local two-client command handler waiting forever for a disconnected request.
+- **International name integrity:** The server rejects JSON-escaped isolated UTF-16 surrogate code units but still accepts well-formed emoji, Korean and Arabic. A malformed name must never occupy a competitive slot.
+- **Regression gates:** Four additional Node tests cover premature close, normal close, direct lobby rejection and HTTP join rejection. Full `npm run verify`/GitHub CI and real two-browser play remain separate acceptance checks. This is not public-network hardening certification or a completed native multiplayer mode.
+
+
 ## 2026-10-31 team HTTP UTF-8 integrity candidate (R-04 / R-14 / multiplayer P0)
 - **Proposed browser/server reliability fix:** The loopback two-client team server now decodes bounded request bodies as complete UTF-8 byte streams instead of converting arbitrary TCP chunks to strings. This prevents fragmented multibyte Korean player names from being corrupted and rejects malformed UTF-8; the 2,048-byte limit and aborted-request handling remain explicit.
 - **Name integrity:** Team lobby now rejects control characters, line breaks and bidi/invisible formatting controls without excluding normal Korean, Arabic or emoji text; direct lobby and HTTP regressions cover this UI-spoofing class.

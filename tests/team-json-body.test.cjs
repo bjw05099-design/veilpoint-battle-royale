@@ -78,3 +78,46 @@ test('HTTP join refuses multiline or bidi-spoofing player names', async () => {
     assert.equal(server.match.players.size, 0);
   } finally {await server.close();}
 });
+
+test('readJson rejects a premature close even without an aborted event', async () => {
+  const stream = new EventEmitter();
+  const pending = readJson(stream);
+  stream.emit('data', Buffer.from('{"name":'));
+  stream.emit('close');
+  await assert.rejects(pending, /request_aborted/);
+});
+
+test('readJson accepts a completed stream that closes normally', async () => {
+  const stream = new EventEmitter();
+  const pending = readJson(stream);
+  stream.emit('data', Buffer.from(JSON.stringify({name: '나흐린 🛰️'})));
+  stream.emit('end');
+  stream.emit('close');
+  assert.deepEqual(await pending, {name: '나흐린 🛰️'});
+});
+
+test('team lobby refuses isolated Unicode surrogates but retains paired emoji', () => {
+  const {TeamMatch} = require('../src/team-match.cjs');
+  const match = new TeamMatch();
+  for (const name of ['A' + String.fromCharCode(0xd800) + 'B',
+    'A' + String.fromCharCode(0xdc00) + 'B'])
+    assert.throws(() => match.join('invalid-' + name.length, name), /invalid_name/);
+  assert.equal(match.players.size, 0);
+  match.join('valid', '조현지 🛰️');
+  assert.equal([...match.players.values()][0].name, '조현지 🛰️');
+});
+
+test('HTTP join rejects JSON-escaped isolated surrogate without allocating a slot', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  try {
+    const response = await fetch('http://127.0.0.1:' + port + '/join', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: '{"name":"A\\uD800B"}'
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, 'invalid_name');
+    assert.equal(server.match.players.size, 0);
+  } finally {await server.close();}
+});
