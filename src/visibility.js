@@ -35,19 +35,23 @@ function rayBlocked(ax,az,bx,bz,obstacles){
  const dx=bx-ax,dz=bz-az;
  for(const o of obstacles){
   if(!o||![o.x,o.z,o.w,o.d].every(Number.isFinite)||o.w<=0||o.d<=0)continue;
+  const minX=o.x-o.w/2,maxX=o.x+o.w/2;
+  const minZ=o.z-o.d/2,maxZ=o.z+o.d/2;
   let near=0,far=1;
-  for(const [start,delta,min,max] of [
-   [ax,dx,o.x-o.w/2,o.x+o.w/2],
-   [az,dz,o.z-o.d/2,o.z+o.d/2]]){
-   if(Math.abs(delta)<1e-8){if(start<min||start>max){near=2;break;}}
-   else{
-    let a=(min-start)/delta,b=(max-start)/delta;
-    if(a>b)[a,b]=[b,a];
-    near=Math.max(near,a);far=Math.min(far,b);
-   }
+  if(Math.abs(dx)<1e-8){if(ax<minX||ax>maxX)continue;}
+  else{
+   let a=(minX-ax)/dx,b=(maxX-ax)/dx;
+   if(a>b){const tmp=a;a=b;b=tmp;}
+   near=Math.max(near,a);far=Math.min(far,b);
+   if(near>=far)continue;
   }
-  // A wall touching the camera or target surface must not hide a target
-  // unless positive-length cover actually lies between them.
+  if(Math.abs(dz)<1e-8){if(az<minZ||az>maxZ)continue;}
+  else{
+   let a=(minZ-az)/dz,b=(maxZ-az)/dz;
+   if(a>b){const tmp=a;a=b;b=tmp;}
+   near=Math.max(near,a);far=Math.min(far,b);
+  }
+  // Only positive-length cover strictly between the camera and target counts.
   if(near<far-1e-8&&far>1e-6&&near<1-1e-6)return true;
  }
  return false;
@@ -58,8 +62,9 @@ function hasExposedSilhouette(player,entity,radius,obstacles){
  const distance=Math.hypot(dx,dz);
  if(distance<1e-6)return true;
  const sideX=-dz/distance*radius,sideZ=dx/distance*radius;
- return [[0,0],[sideX,sideZ],[-sideX,-sideZ]].some(([sx,sz])=>
-  !rayBlocked(player.x,player.z,entity.x+sx,entity.z+sz,obstacles));
+ return !rayBlocked(player.x,player.z,entity.x,entity.z,obstacles)||
+  !rayBlocked(player.x,player.z,entity.x+sideX,entity.z+sideZ,obstacles)||
+  !rayBlocked(player.x,player.z,entity.x-sideX,entity.z-sideZ,obstacles);
 }
 function planVisible(state,aspect=16/9){
  if(!state||!state.player||!state.zone||!Array.isArray(state.bots)||!Array.isArray(state.loot)||!Array.isArray(state.effects))throw new TypeError('Invalid simulation state');
