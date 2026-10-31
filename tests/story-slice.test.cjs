@@ -1146,3 +1146,16 @@ test('CH01 gate deadline is validated while older checkpoints remain readable',(
   const legacy={...data};delete legacy.gateReadyAt;
   assert.equal(story.restore(JSON.stringify(legacy)).phase,'exit');
 });
+
+test('CH01 gate remains closed until its 60Hz clearance clock expires',()=>{
+  const s=reachDecision();
+  go(s,'recordA');story.interact(s);
+  go(s,'recordB');story.interact(s);
+  story.choose(s,'verification');
+  const resumed=story.restore(story.serialize(s));
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60-1;i++)story.step(resumed,1/60,{});
+  assert.equal(story.situation(resumed).eastGateOpen,false);
+  story.step(resumed,1/60,{});
+  assert.equal(story.situation(resumed).eastGateOpen,true);
+  assert.equal(story.serialize(story.restore(story.serialize(resumed))),story.serialize(resumed));
+});
