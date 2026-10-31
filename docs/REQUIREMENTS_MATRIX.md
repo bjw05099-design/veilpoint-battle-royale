@@ -1,5 +1,9 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 CH01 direct-sight gunfire evidence (R-02 / R-14 / R-23 / R-28)
+- **Partial P0 candidate (PR #169):** CH01 now uses one bounded line-of-sight rule for hostile pursuit and reaction to a player shot. An opponent who directly observes the shooter keeps the exact visible location instead of having it overwritten by a rounded acoustic estimate. A turned-away or cover-obstructed opponent retains only a coarse 2m audible clue, not hidden-player coordinates.
+- **Regression evidence:** Four new Node tests exercise visible shot evidence with checkpoint persistence, facing-away hearing, solid cover and 60Hz deterministic replay. CI, actual Windows keyboard/mouse play, native UE, full campaign AI realism and RTX 3070 QHD 165Hz / **16GB system RAM** measurements remain distinct gates; no three-mode completion is implied.
+
 ## 2026-10-31 CH01 legacy actor-overlap recovery (R-02 / R-14 / R-23 / R-28)
 - **Partial checkpoint/realism fix (PR #166):** Restoring a CH01 engagement checkpoint that places the player inside a living hostile's collision body now deterministically selects the nearest collision-free adjacent pose, using the same player/actor/cover collision geometry as live movement. The correction happens **only on restore**; valid poses, fallen opponents and historical v2 saves without hostile positions retain compatibility. This avoids turning a save migration into in-game teleportation.
 - **Evidence boundary:** A regression covers corrupt/legacy overlap recovery, deterministic save round-trips and unchanged adjacent saves; the pre-fix PR head failed an existing legacy-overlap regression and was corrected. Full npm run verify at the final commit, Windows browser end-to-end play, native UE collision, 16GB/QHD RTX 3070 benchmarks and the 2026-11-27 demo acceptance remain separate gates.
