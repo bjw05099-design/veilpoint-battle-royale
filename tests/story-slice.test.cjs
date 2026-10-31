@@ -1131,3 +1131,18 @@ test('CH01 restores overlapping legacy or tampered saves to a deterministic coll
   assert.equal(story.restore(JSON.stringify(legacy)).phase,'engagement',
     'older v2 checkpoints without actor positions remain supported');
 });
+
+test('CH01 gate deadline is validated while older checkpoints remain readable',()=>{
+  const s=reachDecision();
+  go(s,'recordA');story.interact(s);
+  go(s,'recordB');story.interact(s);
+  assert.equal(story.choose(s,'verification').ok,true);
+  const original=story.serialize(s);
+  const data=JSON.parse(original);
+  assert.equal(story.restore(original).gateReadyAt,data.gateReadyAt);
+  for(const value of [0,story.GATE_CLEARANCE_SECONDS-0.01,-1]){
+    assert.throws(()=>story.restore(JSON.stringify({...data,gateReadyAt:value})),RangeError);
+  }
+  const legacy={...data};delete legacy.gateReadyAt;
+  assert.equal(story.restore(JSON.stringify(legacy)).phase,'exit');
+});
