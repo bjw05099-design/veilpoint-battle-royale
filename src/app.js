@@ -111,7 +111,12 @@ try { renderer=new global.VeilpointRenderer(canvas);
  renderer.onGpuTime=ms=>telemetry.record('gpu',ms);
  // Disjoint WebGL queries invalidate the old GPU sample window. Never let
  // stale pre-reset samples silently downscale the PC graphics preset.
- renderer.onGpuInvalidated=()=>telemetry.clear();
+ renderer.onGpuInvalidated=()=>{
+  telemetry.clear();
+  // Disjoint GPU timing must not finish an old upscale hysteresis streak.
+  // Preserve current quality until fresh CPU and GPU samples accumulate.
+  if(governor)governor.resetEvidence();
+ };
  applyGraphicsSettings();
  if(!renderer.gpuTimer||!renderer.gpuTimer.supported){autoResolution=false;autoResolutionCheckbox.checked=false;autoResolutionCheckbox.disabled=true;autoResolutionCheckbox.title='이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';}
  }
