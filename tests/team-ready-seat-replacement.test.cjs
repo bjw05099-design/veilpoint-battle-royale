@@ -75,3 +75,52 @@ test('two HTTP clients cannot inherit a stale ready vote after a seat expires', 
     await server.close();
   }
 });
+
+test('a solo ready vote does not silently consent to a later opponent', () => {
+  const match = new TeamMatch({now: () => 0});
+  match.join('a', 'A');
+  match.command('a', {seq: 1, type: 'ready'});
+  assert.equal(match.players.get('a').ready, true);
+  match.join('b', 'B');
+  assert.equal(match.players.get('a').ready, false, 'a new pairing needs fresh consent');
+  match.command('b', {seq: 1, type: 'ready'});
+  assert.equal(match.phase, 'lobby', 'newcomer alone cannot start the match');
+  match.command('a', {seq: 2, type: 'ready'});
+  assert.equal(match.phase, 'playing');
+  assert.equal(match.ticks, 0);
+});
+
+test('HTTP join after a solo ready vote requires both clients to ready again', async () => {
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (route, body, token) => {
+    const response = await fetch(base + route, {
+      method: 'POST',
+      headers: {'content-type': 'application/json',
+        ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(body)
+    });
+    assert.equal(response.ok, true);
+    return response.json();
+  };
+  const state = async token => {
+    const response = await fetch(base + '/state', {
+      headers: {'x-player-token': token}
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  try {
+    const a = await post('/join', {name: 'A'});
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    const b = await post('/join', {name: 'B'});
+    assert.equal((await state(a.token)).self.ready, false);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    assert.equal((await state(b.token)).phase, 'lobby');
+    await post('/command', {seq: 2, type: 'ready'}, a.token);
+    assert.equal((await state(b.token)).phase, 'playing');
+  } finally {
+    await server.close();
+  }
+});
