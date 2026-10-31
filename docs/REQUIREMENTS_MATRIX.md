@@ -1,5 +1,10 @@
 # VEILPOINT — User Requirements Traceability (living document)
 
+## 2026-10-31 CH01 legacy actor-overlap recovery (R-02 / R-14 / R-23 / R-28)
+- **Partial checkpoint/realism fix (PR #166):** Restoring a CH01 engagement checkpoint that places the player inside a living hostile's collision body now deterministically selects the nearest collision-free adjacent pose, using the same player/actor/cover collision geometry as live movement. The correction happens **only on restore**; valid poses, fallen opponents and historical v2 saves without hostile positions retain compatibility. This avoids turning a save migration into in-game teleportation.
+- **Evidence boundary:** A regression covers corrupt/legacy overlap recovery, deterministic save round-trips and unchanged adjacent saves; the pre-fix PR head failed an existing legacy-overlap regression and was corrected. Full npm run verify at the final commit, Windows browser end-to-end play, native UE collision, 16GB/QHD RTX 3070 benchmarks and the 2026-11-27 demo acceptance remain separate gates.
+
+
 ## 2026-10-31 BR fresh gunfire evidence supersedes stale sound memory (R-04 / R-13 / R-23)
 - **Partial AI realism candidate:** Offline BR opponents can react to a newly audible player or rival shot even while older footstep/search memory remains active. A visible shooter yields exact sight evidence; an unseen audible shooter yields only a coarse 2m sound estimate. No ammunition generation, inaudible location reveal or magic tracking.
 - **Regression gates:** Three new tests cover hidden gunfire memory refresh with checkpoint/replay, direct-sight precedence and finite rival gunfire refresh. Full `npm run verify`, GitHub CI and actual Windows PC playthrough remain separate gates; human AI-believability assessment, native UE and full release criteria are not claimed complete.

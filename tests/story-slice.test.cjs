@@ -1105,3 +1105,29 @@ test('both PC browser modes feed held fire from fixed 60Hz steps, not OS repeat'
   assert.match(source,/\.autoFire\(/);
  }
 });
+
+
+test('CH01 restores overlapping legacy or tampered saves to a deterministic collision-free pose',()=>{
+  const s=story.createState();
+  go(s,'terminal');assert.equal(story.interact(s).ok,true);
+  const original=story.serialize(s);
+  const hostile=s.world.bots[0];
+  const corrupted=JSON.parse(original);
+  corrupted.player.x=hostile.x;corrupted.player.z=hostile.z;
+  const recovered=story.restore(JSON.stringify(corrupted));
+  assert.equal(Sim.blocked(recovered.world.player.x,recovered.world.player.z,.85,
+    recovered.world.bots.filter(b=>b.alive).map(b=>({x:b.x,z:b.z,w:1.5,d:1.5}))),false);
+  assert.match(recovered.message,/겹치지 않게/);
+  assert.equal(story.serialize(story.restore(JSON.stringify(corrupted))),story.serialize(recovered),
+    'same saved overlap must recover to the same deterministic 60Hz pose');
+  s.world.player.x=hostile.x+1.7;s.world.player.z=hostile.z;
+  assert.equal(story.serialize(story.restore(story.serialize(s))),story.serialize(s),
+    'valid adjacent checkpoint must not move');
+  const legacy=JSON.parse(original);
+  for(const bot of legacy.combat.drones){
+    delete bot.x;delete bot.z;delete bot.angle;
+    delete bot.lastSeenX;delete bot.lastSeenZ;delete bot.investigateUntil;
+  }
+  assert.equal(story.restore(JSON.stringify(legacy)).phase,'engagement',
+    'older v2 checkpoints without actor positions remain supported');
+});
