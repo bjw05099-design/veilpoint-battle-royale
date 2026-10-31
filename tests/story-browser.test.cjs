@@ -63,7 +63,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     requestAnimationFrame:fn=>{frameCallback=fn;},
     addEventListener:(name,fn)=>{const list=listeners.get(name)||[];list.push(fn);listeners.set(name,list);},
     console,
-    VeilpointRenderer:class{constructor(canvas){this.canvas=canvas;}setGraphicsQuality(){}draw(){}}
+    VeilpointRenderer:class{constructor(canvas){if(this.constructor.failNext){this.constructor.failNext=false;throw new Error('GPU restore unavailable');}this.canvas=canvas;}setGraphicsQuality(){}draw(){}}
   };
   context.globalThis=context;
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
@@ -805,4 +805,17 @@ test('PC WebGL context loss checkpoints CH01 and requires explicit resume',()=>{
  app.element('continue').click();app.moveForward(660,90);
  assert.equal(app.element('menu').classList.contains('hidden'),true);
  assert.ok(Number(app.element('status').textContent.match(/경과 ([0-9]+)초/)[1])>elapsed);
+});
+
+test('CH01 renderer recreation failure remains paused with a durable checkpoint',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,15);
+ app.element('scene').dispatch('webglcontextlost');
+ const saved=app.store.get('veilpoint.story.ch01');assert.ok(saved);
+ app.context.VeilpointRenderer.failNext=true;
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,true);
+ assert.equal(app.element('newGame').disabled,true);
+ assert.match(app.element('menuText').textContent,/복구 실패/);
+ app.frame(5000);assert.equal(app.store.get('veilpoint.story.ch01'),saved);
 });
