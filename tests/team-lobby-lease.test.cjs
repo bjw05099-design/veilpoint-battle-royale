@@ -90,3 +90,37 @@ test('HTTP late lobby ready/state cannot reserve an expired seat or block a new 
     await server.close();
   }
 });
+
+test('expired finished-round heartbeat cannot revive a rematch seat', () => {
+  let now = 0;
+  const match = new TeamMatch({now: () => now});
+  match.join('a', 'A');match.join('b', 'B');
+  match.command('a', {seq: 1, type: 'ready'});
+  match.command('b', {seq: 1, type: 'ready'});
+  match.finish('red', 'objective_score');
+  now = 30001;
+  assert.equal(match.snapshot('a').phase, 'ended',
+    'completed results remain readable until an explicit command');
+  assert.throws(() => match.command('a', {seq: 2, type: 'heartbeat'}), /unknown_player/);
+  assert.equal(match.players.size, 0);
+  assert.equal(match.phase, 'lobby');
+});
+
+test('expired finished peer cannot rejoin via heartbeat while a live peer keeps its result', () => {
+  let now = 0;
+  const match = new TeamMatch({now: () => now});
+  match.join('active', 'A');match.join('stale', 'B');
+  match.command('active', {seq: 1, type: 'ready'});
+  match.command('stale', {seq: 1, type: 'ready'});
+  now = 25000;
+  match.command('active', {seq: 2, type: 'heartbeat'});
+  match.finish('red', 'objective_score');
+  now = 30001;
+  assert.throws(() => match.command('stale', {seq: 2, type: 'heartbeat'}), /unknown_player/);
+  assert.equal(match.snapshot('active').phase, 'ended');
+  assert.equal(match.snapshot('active').winner, 'red');
+  match.join('replacement', 'C');
+  match.command('active', {seq: 3, type: 'ready'});
+  match.command('replacement', {seq: 1, type: 'ready'});
+  assert.equal(match.phase, 'playing');
+});

@@ -131,10 +131,10 @@ class TeamMatch {
     return true;
   }
   command(token, data) {
-    // A late lobby ready packet cannot start a round against an expired guest.
-    // Preserve finished-round snapshots/heartbeat semantics for result review;
-    // only a new ready request reconciles expired rematch seats.
-    if (this.phase === 'lobby' || (this.phase === 'ended' && data?.type === 'ready'))
+    // A late lobby/finished-round command must not renew an expired seat.
+    // Preserve read-only finished results and the existing explicit leave
+    // contract; all other commands, including heartbeat, check expiry first.
+    if (this.phase === 'lobby' || (this.phase === 'ended' && data?.type !== 'leave'))
       this.pruneIdleWaitingPlayers();
     const p = this.players.get(token);
     if (!p) throw new RangeError('unknown_player');
