@@ -1,3 +1,7 @@
+## 2026-11-01 team lobby pairing consent (R-12 / R-14 / R-23)
+- **Partial local-server P0 candidate:** A ready vote made while alone is invalidated when another participant joins. Both players must explicitly ready for the current pairing; existing timeout/departure ready invalidation remains in place.
+- **Verification boundary:** New unit and two-client loopback HTTP regressions target the ready-before-join case. GitHub CI at the final PR head and actual Windows two-browser play remain separate gates; internet multiplayer, three complete modes, native UE, realism review and RTX 3070 QHD 165Hz / **16GB system RAM** measurements remain unverified.
+
 ## 2026-11-01 shared BR/CH01 finite weapon sight kick (R-13 / R-23 / R-27)
 - **Partial gameplay candidate:** Each of seven original firearm classes now produces a distinct bounded upward first-person aim impulse after a valid finite shot; the current shot uses the pre-kick ray and later shots require player correction. Both offline BR and CH01 reuse the same deterministic simulation and persisted pitch, without new ammunition, supernatural hit correction, touch work or checkpoint schema changes.
 - **Verification boundary:** Six new Node regressions cover class separation, a long-range second-shot miss, rejected-trigger invariance, pitch bounds, BR replay and CH01 checkpoint continuity. Final-head GitHub Actions and actual Windows mouse feel, accessibility, real weapon reference calibration, UE native build and RTX 3070 QHD 165Hz/16GB frame-time measurements remain separate unverified gates.
