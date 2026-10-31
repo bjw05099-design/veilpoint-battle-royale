@@ -93,6 +93,7 @@ test('CH01 checkpoint has matching visible WebGL geometry and collision until lo
  for(const opponent of state.world.bots){
   for(let i=0;i<2;i++){
    state.world.player.yaw=Math.atan2(opponent.x-state.world.player.x,-(opponent.z-state.world.player.z));
+   state.world.player.pitch=0; // Scripted test explicitly corrects the new class-specific recoil.
    state.world.elapsed+=.21;
    assert.equal(Story.fire(state).hit,true);
   }
