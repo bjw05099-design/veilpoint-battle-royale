@@ -1105,3 +1105,27 @@ test('both PC browser modes feed held fire from fixed 60Hz steps, not OS repeat'
   assert.match(source,/\.autoFire\(/);
  }
 });
+
+
+test('CH01 checkpoint rejects living actor overlap on write and restore, preserving valid adjacent and legacy saves',()=>{
+  const s=story.createState();
+  go(s,'terminal');assert.equal(story.interact(s).ok,true);
+  const original=story.serialize(s);
+  const hostile=s.world.bots[0];
+  const corrupted=JSON.parse(original);
+  corrupted.player.x=hostile.x;
+  corrupted.player.z=hostile.z;
+  assert.throws(()=>story.restore(JSON.stringify(corrupted)),/Overlapping living actor/);
+  s.world.player.x=hostile.x;s.world.player.z=hostile.z;
+  assert.throws(()=>story.serialize(s),/Overlapping living actor/,
+    'autosave must not replace a usable checkpoint with an overlapping actor');
+  s.world.player.x=hostile.x+1.7;
+  assert.equal(story.serialize(story.restore(story.serialize(s))),story.serialize(s));
+  const legacy=JSON.parse(original);
+  for(const bot of legacy.combat.drones){
+    delete bot.x;delete bot.z;delete bot.angle;
+    delete bot.lastSeenX;delete bot.lastSeenZ;delete bot.investigateUntil;
+  }
+  assert.equal(story.restore(JSON.stringify(legacy)).phase,'engagement',
+    'older v2 checkpoints without actor positions remain supported');
+});
