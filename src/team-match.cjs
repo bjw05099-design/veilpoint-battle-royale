@@ -101,9 +101,17 @@ class TeamMatch {
     // One monotonic timestamp per sweep: a wall-clock adjustment or a clock
     // change between actors must not evict only the second lobby participant.
     const timestamp = this.now();
+    let seatExpired = false;
     for (const [token, player] of this.players) {
-      if (timestamp - player.lastSeen > this.timeoutMs) this.players.delete(token);
+      if (timestamp - player.lastSeen > this.timeoutMs) {
+        this.players.delete(token);
+        seatExpired = true;
+      }
     }
+    // A ready vote belongs to the current pair of opponents, not to a seat
+    // that a different person may occupy after a lobby timeout.
+    if (seatExpired && this.phase === 'lobby')
+      for (const player of this.players.values()) player.ready = false;
     if (this.players.size === 0 && this.phase === 'ended') this.phase = 'lobby';
   }
   join(token, name) {
@@ -174,6 +182,9 @@ class TeamMatch {
     p.lastSeen = this.now();
     if (data.type === 'leave') {
       this.players.delete(token);
+      // A new opponent must not inherit the departed guest's ready pairing.
+      if (this.phase === 'lobby')
+        for (const player of this.players.values()) player.ready = false;
       if (this.phase === 'playing') {
         // A voluntary exit must not award a win to a participant whose lease
         // already expired before the next authoritative 60Hz timeout sweep.
