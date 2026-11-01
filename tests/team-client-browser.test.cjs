@@ -1404,3 +1404,26 @@ test('stalled ready command cannot freeze the PC command queue after timeout', a
     'next higher sequence is accepted after the earlier command was aborted');
   assert.equal(server.match.players.get(token).seq, 2);
 });
+
+test('PC team client sends no commands for IME composition and OS chords',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const player=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ const before=server.requests.filter(r=>r.route==='/command').length;
+ for(const event of [
+  {code:'Space',isComposing:true},{code:'Space',key:'Process'},
+  {code:'Space',keyCode:229},{code:'Space',ctrlKey:true},
+  {code:'Space',metaKey:true},{code:'KeyR',altKey:true},
+  {code:'KeyD',ctrlKey:true}
+ ])a.doc('keydown',event);
+ await settle();
+ assert.equal(player.ammo,12);
+ assert.equal(player.reloadTicks,0);
+ assert.equal(player.direction.x,0);
+ assert.equal(server.requests.filter(r=>r.route==='/command').length,before);
+ a.doc('keydown',{code:'Space',shiftKey:true});await settle();
+ assert.equal(player.ammo,11);
+ a.doc('keyup',{code:'Space'});
+});

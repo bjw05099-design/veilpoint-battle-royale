@@ -69,6 +69,12 @@
   if(typeof platform==='string'&&/^(?:Windows|Win32|Win64)$/i.test(platform))return true;
   return typeof navigator.userAgent==='string'&&/\bWindows NT\b/i.test(navigator.userAgent);
  }
+ // IME composition and browser/OS shortcuts never represent game commands.
+ // Shift alone remains valid for sprint; keyup still releases held keys.
+ function isGameplayShortcut(event){
+  return !!event&&(event.isComposing===true||event.key==='Process'||
+   event.keyCode===229||!!event.ctrlKey||!!event.altKey||!!event.metaKey);
+ }
  function isInteractiveTarget(target){
   // Keyboard events often originate from a child span/icon/text node inside
   // a focused button or editable control. Check the composed ancestor chain,
@@ -213,6 +219,7 @@
   });
   function captureKey(event){
    if(!capturing)return false;
+   if(isGameplayShortcut(event))return false;
    event.preventDefault();
    if(event.code==='Escape'){capturing=false;status.textContent='키 변경을 취소했습니다.';refresh();return true;}
    if(event.repeat)return true;
@@ -225,7 +232,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isWindowsPC,isInteractiveTarget,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
