@@ -8,6 +8,11 @@ const SPEED = 4.5;
 // A lower stance is a slower, server-owned PC movement state, not a stealth buff.
 // Match the BR/CH01 3.1:6.1 crouch/walk ratio; actual motion is still a 2D proxy.
 const CROUCH_SPEED_FACTOR = 3.1 / 6.1;
+// Finite, server-owned exertion for the PC Shift hold; no sprint while crouched.
+const SPRINT_SPEED_FACTOR = 1.35;
+const SPRINT_DRAIN_PER_TICK = 0.20;
+const SPRINT_RECOVER_PER_TICK = 0.12;
+const SPRINT_RESTART_STAMINA = 25;
 const CAPTURE_RADIUS = 2.6;
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
@@ -155,6 +160,7 @@ class TeamMatch {
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
       aiming: false, crouching: false, lastCrouchTick: 0,
+      sprintHeld: false, sprinting: false, lastSprintTick: 0, stamina: 100, sprintExhausted: false,
       capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
@@ -195,7 +201,7 @@ class TeamMatch {
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
     const keys = Object.keys(data);
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
-      data.type === 'capture' || data.type === 'trigger' || data.type === 'crouch' ? ['seq', 'type', 'active'] :
+      data.type === 'capture' || data.type === 'trigger' || data.type === 'crouch' || data.type === 'sprint' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
        data.type === 'loadout' ? ['seq', 'type', 'weaponId'] :
       ['ready', 'unready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease', 'resetInput'].includes(data.type) ? ['seq', 'type'] : null;
@@ -208,9 +214,10 @@ class TeamMatch {
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
     if (data.type === 'trigger' && typeof data.active !== 'boolean') throw new RangeError('invalid_trigger');
     if (data.type === 'crouch' && typeof data.active !== 'boolean') throw new RangeError('invalid_crouch');
+    if (data.type === 'sprint' && typeof data.active !== 'boolean') throw new RangeError('invalid_sprint');
     if (data.type === 'assist' && typeof data.enabled !== 'boolean') throw new RangeError('invalid_assist');
     if (data.type === 'loadout' && (typeof data.weaponId !== 'string' || !Object.prototype.hasOwnProperty.call(LOADOUTS, data.weaponId))) throw new RangeError('invalid_loadout');
-    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger', 'crouch'].includes(data.type))
+    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger', 'crouch', 'sprint'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
@@ -238,6 +245,9 @@ class TeamMatch {
       p.direction = {x: 0, z: 0};
       p.crouching = false;
       p.lastCrouchTick = this.ticks;
+      p.sprintHeld = false;
+      p.sprinting = false;
+      p.lastSprintTick = this.ticks;
       p.aiming = false;
       p.lastAimTick = this.ticks;
       p.lastMoveTick = this.ticks;
@@ -271,6 +281,13 @@ class TeamMatch {
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
       }
       return {ok: true};
+    }
+    if (data.type === 'sprint') {
+      // A PC key is only an expiring request; movement and fatigue are simulated
+      // by the server at 60Hz, never accepted as client-supplied speed/stamina.
+      p.sprintHeld = data.active;
+      p.lastSprintTick = this.ticks;
+      return {ok: true, sprintHeld: p.sprintHeld};
     }
     if (data.type === 'crouch') {
       // A held crouch key must be explicitly renewed; losing PC focus cannot
@@ -427,6 +444,11 @@ class TeamMatch {
       p.aiming = false;
       p.crouching = false;
       p.lastCrouchTick = 0;
+      p.sprintHeld = false;
+      p.sprinting = false;
+      p.lastSprintTick = 0;
+      p.stamina = 100;
+      p.sprintExhausted = false;
       p.lastAimTick = 0;
       p.capturing = false;
       p.captureHeld = false;
@@ -463,6 +485,9 @@ class TeamMatch {
       p.lastAimTick = 0;
       p.crouching = false;
       p.lastCrouchTick = 0;
+      p.sprintHeld = false;
+      p.sprinting = false;
+      p.lastSprintTick = 0;
       p.capturing = false;
       p.captureHeld = false;
       p.captureArmed = false;
@@ -501,6 +526,8 @@ class TeamMatch {
       }
       if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
       if (this.ticks - p.lastCrouchTick > INPUT_LEASE_TICKS) p.crouching = false;
+      if (this.ticks - p.lastSprintTick > INPUT_LEASE_TICKS) p.sprintHeld = false;
+      if (p.sprintExhausted && p.stamina >= SPRINT_RESTART_STAMINA) p.sprintExhausted = false;
       if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) {
         // A suspended/abandoned PC tab cannot preserve an armed physical relay
         // press after its authoritative intent lease has expired. Keep
@@ -521,13 +548,15 @@ class TeamMatch {
       const from = {x: p.x, z: p.z};
       const next = {...from};
       // Carried equipment affects traversal as well as the server-owned shot rules.
-      const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : 1) *
+      const sprintRequested = p.sprintHeld && !p.crouching && !p.sprintExhausted &&
+        p.stamina > 1 && Math.hypot(p.direction.x, p.direction.z) > 1e-6;
+      const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : sprintRequested ? SPRINT_SPEED_FACTOR : 1) *
         LOADOUTS[p.weaponId].mobility * injuryMobility(p);
       moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
         COVER, PLAYER_RADIUS);
       next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       next.z = clamp(next.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
-      proposals.push({p, from, next});
+      proposals.push({p, from, next, sprintRequested});
     }
     if (proposals.length === 2) {
       const [a, b] = proposals;
@@ -569,7 +598,11 @@ class TeamMatch {
         for (const proposal of proposals) proposal.next = {...proposal.from};
       }
     }
-    for (const {p, next} of proposals) {
+    for (const {p, from, next, sprintRequested} of proposals) {
+      const moved = Math.hypot(next.x - from.x, next.z - from.z) > 1e-7;
+      p.sprinting = sprintRequested && moved;
+      p.stamina = clamp(p.stamina + (p.sprinting ? -SPRINT_DRAIN_PER_TICK : SPRINT_RECOVER_PER_TICK), 0, 100);
+      if (p.stamina <= 1) {p.sprintExhausted = true;p.sprinting = false;}
       p.x = next.x;
       p.z = next.z;
       // Walking away physically releases the relay. A later active:true
@@ -672,7 +705,9 @@ class TeamMatch {
       self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
-        ready: me.ready, crouching: me.crouching, captureArmed: me.captureArmed, seq: me.seq},
+        ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
+        stamina: me.stamina, sprintExhausted: me.sprintExhausted,
+        captureArmed: me.captureArmed, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
         incapacitated: p.health === 0, crouching: p.crouching}))};
@@ -681,4 +716,4 @@ class TeamMatch {
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, LOADOUTS,
   RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK,
-  ROUND_LIMIT_TICKS};
+  ROUND_LIMIT_TICKS, SPRINT_SPEED_FACTOR, SPRINT_DRAIN_PER_TICK, SPRINT_RECOVER_PER_TICK, SPRINT_RESTART_STAMINA};
