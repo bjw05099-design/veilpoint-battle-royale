@@ -27,6 +27,7 @@
   let previousPhase = null;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
+  const PENDING_JOIN_KEY = 'veilpoint.team.pendingJoin.v1';
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
   // The server remains authoritative for all movement and gameplay commands.
   const Desktop = window.VeilpointDesktopControls;
@@ -375,13 +376,37 @@
     }
     joining = true;el('join').disabled = true;
     try {
-      const result = await request('/join', {name: el('name').value});
+      // Persist the original name and a cryptographically random join ID
+      // before sending. Retrying after an 8-second timeout must reuse both:
+      // the server can return the first seat/token if its reply was lost.
+      let attempt = null;
+      try {
+        const savedAttempt = JSON.parse(window.sessionStorage.getItem(PENDING_JOIN_KEY));
+        if (savedAttempt && /^[a-f0-9]{32}$/.test(savedAttempt.requestId) &&
+            typeof savedAttempt.name === 'string') attempt = savedAttempt;
+      } catch (_) { /* Storage may be disabled. */ }
+      if (!attempt) {
+        if (!window.crypto || typeof window.crypto.getRandomValues !== 'function')
+          throw new Error('secure_join_unavailable');
+        const random = window.crypto.getRandomValues(new Uint8Array(16));
+        attempt = {name: el('name').value,
+          requestId: Array.from(random, byte => byte.toString(16).padStart(2, '0')).join('')};
+        try {window.sessionStorage.setItem(PENDING_JOIN_KEY, JSON.stringify(attempt));} catch (_) {}
+      }
+      el('name').value = attempt.name;
+      const result = await request('/join', attempt);
       token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;
        el('loadout').disabled = false;
-      try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
+      try {
+        window.sessionStorage.setItem(SESSION_KEY, token);
+        window.sessionStorage.removeItem(PENDING_JOIN_KEY);
+      } catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
     } catch (err) {
       el('join').disabled = false;
+      if (err.message === 'invalid_name' || err.message === 'invalid_join' ||
+          err.message === 'join_conflict')
+        try {window.sessionStorage.removeItem(PENDING_JOIN_KEY);} catch (_) {}
       status(err.message === 'invalid_name'
         ? '이름에 줄바꿈 또는 보이지 않는 문자가 있거나 길이가 맞지 않습니다. 다시 입력하세요.'
         : `입장 실패: ${err.message}`);
