@@ -119,7 +119,17 @@ class TeamMatch {
     // that a different person may occupy after a lobby timeout.
     if (seatExpired && this.phase === 'lobby')
       for (const player of this.players.values()) player.ready = false;
-    if (this.players.size === 0 && this.phase === 'ended') this.phase = 'lobby';
+    if (this.players.size === 0 && this.phase === 'ended') {
+      // A completed result belongs to its former participants. Once both
+      // leases expire, the next local pair must enter a genuinely fresh lobby,
+      // not inherit a stale winner, score, progress or five-minute clock.
+      this.phase = 'lobby';
+      this.score = {red: 0, blue: 0};
+      this.progress = {red: 0, blue: 0};
+      this.ticks = 0;
+      this.winner = null;
+      this.reason = null;
+    }
   }
   join(token, name) {
     this.pruneIdleWaitingPlayers();
