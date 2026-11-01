@@ -1,3 +1,8 @@
+## 2026-11-02 authoritative team round timing and result integrity (R-12 / R-14 / R-23)
+
+- **Partial P0 reliability:** The loopback 60Hz clock now ignores backward timestamp samples without rewinding its high-water mark (PR #216; 699 Node tests and offline ZIP CI passed). A separate terminal-result correction clears unfinished relay progress on every round-ending path, without erasing earned scores; a deterministic test covers actual leave/timeout and direct terminal transitions. Neither change establishes public multiplayer, real hardware frametimes or a complete 3D team FPS.
+- **Verification boundary:** The terminal-result change requires its own PR-head CI before merge; actual Windows two-client play and RTX 3070 QHD 165Hz / **16GB system RAM** remain unverified. No mobile/touch work.
+
 ## 2026-11-02 local team voluntary exit and safe rejoin (R-12 / R-14 / R-23)
 
 - **Partial P0 PC session UX:** The loopback two-client 2D UI now exposes an explicit server-acknowledged leave action. It stops accepting new held PC input, drains earlier sequenced commands, vacates the authoritative seat, clears the tab token only after acknowledgment, and permits immediate rejoin without waiting for the 30-second session lease. On an uncertain HTTP failure the token remains for retry rather than allocating a duplicate identity.
