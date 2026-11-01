@@ -193,3 +193,35 @@ test('readJson still accepts chunked exact-limit JSON without a length header', 
   stream.emit('end');
   assert.equal((await pending).value.length, 2036);
 });
+
+
+test('loopback HTTP sends 413 before an oversized chunked upload ends', async () => {
+  const http = require('node:http');
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  let request;
+  try {
+    const result = await new Promise((resolve, reject) => {
+      request = http.request({hostname: '127.0.0.1', port, path: '/join',
+        method: 'POST', headers: {'content-type': 'application/json'}}, response => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', chunk => {body += chunk;});
+        response.on('end', () => {clearTimeout(guard);resolve({status: response.statusCode, body: JSON.parse(body)});});
+      });
+      const guard = setTimeout(() => {
+        request.destroy();
+        reject(new Error('oversized upload waited for request end'));
+      }, 2000);
+      request.on('error', reject);
+      request.write('x'.repeat(2049)); // Deliberately never call end().
+    });
+    assert.equal(result.status, 413);
+    assert.deepEqual(result.body, {error: 'body_too_large'});
+    assert.equal(server.match.players.size, 0);
+  } finally {
+    request?.destroy();
+    await server.close();
+  }
+});
