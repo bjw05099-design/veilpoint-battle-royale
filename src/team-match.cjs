@@ -194,7 +194,7 @@ class TeamMatch {
       data.type === 'capture' || data.type === 'trigger' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
        data.type === 'loadout' ? ['seq', 'type', 'weaponId'] :
-      ['ready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease', 'resetInput'].includes(data.type) ? ['seq', 'type'] : null;
+      ['ready', 'unready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease', 'resetInput'].includes(data.type) ? ['seq', 'type'] : null;
     if (!expected || keys.length !== expected.length || keys.some(k => !expected.includes(k)))
       throw new RangeError('invalid_command');
     if (['move', 'aim'].includes(data.type) &&
@@ -252,6 +252,12 @@ class TeamMatch {
     }
     // Accessibility preference is server-owned, validated and retained between rounds.
     if (data.type === 'assist') {p.reloadAssist = data.enabled;return {ok: true, enabled: p.reloadAssist};}
+    if (data.type === 'unready') {
+      // Waiting participants can withdraw consent; an active round cannot be undone.
+      if (this.phase === 'playing') return {ok: false, reason: 'round_active'};
+      p.ready = false;
+      return {ok: true, ready: false};
+    }
     if (data.type === 'ready') {
       if (this.phase !== 'playing') {
         p.ready = true;
@@ -637,6 +643,9 @@ class TeamMatch {
     });
     return {phase: this.phase, tick: this.ticks,
       round: {limitTicks: ROUND_LIMIT_TICKS, remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
+      // Public consent only: no opponent health, inventory or hidden coordinates.
+      lobby: {participants: this.players.size,
+        ready: [...this.players.values()].filter(p => p.ready).length},
       score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER, weather,
