@@ -429,10 +429,12 @@
       }
       b.actionTime-=dt;
       const bearingNow=target?Math.atan2(target.x-b.x,-(target.z-b.z)):0;
+      // An opponent who sees an exposed body edge may attempt a shot even
+      // when the target's centre is behind cover. Do not require a second
+      // centre-only sight test: the actual spread ray below still stops at
+      // solid cover and intervening actors, and every attempt spends a round.
       const aimedAtTarget=target&&target.alive&&!outsideBot&&dist(b,target)<47&&
-        Math.abs(normalizeAngle(bearingNow-b.angle))<=0.2&&
-        !lineBlocked(b.x,b.z,target.x,target.z,
-          obstacles.concat(actorObstacles(game,b,target,false)));
+        Math.abs(normalizeAngle(bearingNow-b.angle))<=0.2;
       if(!wasReloading&&b.actionTime<=0&&aimedAtTarget){
         if(b.loaded===0){
           if(b.charges>0)b.reloadRemaining=RELOAD_SECONDS;
