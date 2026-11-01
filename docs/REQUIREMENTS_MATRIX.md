@@ -1,3 +1,8 @@
+## 2026-11-01 offline demo ZIP closure / archive integrity (R-01 / R-23 / demo P0)
+
+- **Partial packaging/QA improvement (PR #210):** The offline ZIP verifier now rejects missing HTML-referenced local scripts/assets even if its per-file manifest hashes are internally consistent, rejects missing README/delivery documents, and requires contiguous non-aliased local ZIP records. Packager and verifier share the same direct HTML reference policy. Regression fixtures exercise missing dependencies, missing documentation, remote scripts and untracked ZIP padding.
+- **Evidence boundary:** GitHub Actions `npm run check`, `npm test` and `npm run package:demo` must pass at the final PR head before merge. Archive integrity does not prove actual Windows browser launch or full BR gameplay completion. 2026-11-27 demo delivery, native UE5, 3-mode final release, RTX 3070 QHD 165Hz with **16GB system RAM**, licensed photoreal assets and independent QA remain **unverified**. PC keyboard/mouse scope only.
+
 ## 2026-11-01 authoritative team round deadline (R-12 / R-14 / R-23)
 
 - **Partial P0 gameplay/reliability implementation:** The loopback-only two-client 2D team round now ends at an authoritative 18,000-tick (five-minute at fixed 60Hz) simulation deadline. A server-owned score lead wins; tied scores draw. A fully completed relay objective on the final tick takes precedence over the timeout; interrupted/contested progress does not count. Rematches reset the clock. Both clients receive the same remaining-tick snapshot and the PC UI displays an approximate mm:ss countdown from that snapshot, not a client-controlled clock.
