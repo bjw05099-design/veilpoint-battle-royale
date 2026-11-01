@@ -55,6 +55,7 @@ test('BR visible-edge opponent spends a finite round but cannot hit through soli
   const game = encounter(2.0, 92343);
   const opponent = game.bots[0];
   opponent.actionTime = 0;
+  opponent.skill = 1; // Deterministic centre-directed ray must stop at the wall.
   const before = opponent.charges;
   Sim.tick(game, 1 / 60, {});
   assert.equal(opponent.charges, before - 1,
