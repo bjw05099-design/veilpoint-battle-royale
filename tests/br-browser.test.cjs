@@ -1021,7 +1021,7 @@ test('PC benchmark cannot silently measure a different graphics preset after arm
  app.frame(620);
  app.frame(900);
  assert.match(app.node('benchmarkStatus').textContent,/측정 중/);
- app.node('graphicsPreset').value='smooth';
+ app.node('graphicsPreset').value='performance';
  app.node('graphicsPreset').dispatch('change');
  app.frame(1200);
  assert.match(app.node('benchmarkStatus').textContent,/graphics-settings-changed/);
