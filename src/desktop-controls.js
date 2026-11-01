@@ -81,7 +81,16 @@
    seen.add(node);
    const tag=typeof node.tagName==='string'?node.tagName.toUpperCase():'';
    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||
-      tag==='OPTION'||node.isContentEditable===true)return true;
+      tag==='OPTION'||tag==='SUMMARY'||node.isContentEditable===true)return true;
+   // A focused help link, custom ARIA control or contenteditable region owns
+   // its keyboard events. Otherwise Space can fire a weapon while navigating
+   // PC menus even though ordinary form controls are already protected.
+   if(tag==='A'&&(typeof node.href==='string'||
+      (typeof node.hasAttribute==='function'&&node.hasAttribute('href'))))return true;
+   const role=typeof node.getAttribute==='function'?node.getAttribute('role'):node.role;
+   if(typeof role==='string'&&/^(?:button|link|checkbox|radio|switch|tab|menuitem|menuitemcheckbox|menuitemradio|slider|spinbutton|combobox|textbox|option)$/.test(role.trim().toLowerCase()))return true;
+   const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
+   if(editable!==null&&editable!=='false')return true;
    node=node.parentElement||node.parentNode||node.host||null;
   }
   return false;

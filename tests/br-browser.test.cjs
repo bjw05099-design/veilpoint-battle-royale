@@ -734,6 +734,9 @@ test('PC settings focus cannot accidentally start a BR match or fire finite ammu
   const game=app.game,rounds=game.player.charges;
   app.emit('keydown',{code:'Space',target:{tagName:'SELECT'}});
   assert.equal(game.player.charges,rounds,'focused settings select must not fire');
+  app.emit('keydown',{code:'Space',target:{tagName:'A',href:'#help'}});
+  app.emit('keydown',{code:'Space',target:{tagName:'SPAN',parentElement:{tagName:'DIV',role:'button'}}});
+  assert.equal(game.player.charges,rounds,'focused help link and custom PC menu control cannot fire');
   app.emit('keydown',{code:'Space'});
   assert.equal(game.player.charges,rounds-1,'canvas/gameplay keyboard still fires normally');
 });

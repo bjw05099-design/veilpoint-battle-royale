@@ -627,6 +627,8 @@ test('CH01 PC focused settings cannot spend ammunition during an active encounte
   app.interact();
   const before=JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges;
   app.emit('keydown',{code:'Space',target:{tagName:'SELECT'}});
+  app.emit('keydown',{code:'Space',target:{tagName:'SPAN',parentElement:{tagName:'A',href:'#help'}}});
+  app.emit('keydown',{code:'Space',target:{tagName:'DIV',role:'button'}});
   app.element('pauseButton').click();
   assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.charges,before);
   app.element('continue').click();
