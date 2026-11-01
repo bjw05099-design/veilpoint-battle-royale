@@ -18,7 +18,7 @@ function encounter(targetX, seed = 92341) {
 }
 
 test('BR human opponent can see a finite exposed silhouette at a wall edge', () => {
-  const game = encounter(1.8);
+  const game = encounter(2.0);
   const opponent = game.bots[0];
   assert.equal(Sim.lineBlocked(opponent.x, opponent.z,
     game.player.x, game.player.z, game.obstacles), true,
@@ -41,7 +41,7 @@ test('BR full solid cover still prevents exact visual tracking', () => {
 });
 
 test('BR partial-cover sight is deterministic across identical 60Hz streams', () => {
-  const a = encounter(1.8, 92342), b = encounter(1.8, 92342);
+  const a = encounter(2.0, 92342), b = encounter(2.0, 92342);
   for (let i = 0; i < 120; i++) {
     Sim.tick(a, 1 / 60, {});
     Sim.tick(b, 1 / 60, {});
