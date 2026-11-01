@@ -1086,3 +1086,23 @@ test('PC BR granted pointer lock wins over an undelivered permission event', () 
  assert.equal(app.node('overlay').classList.contains('hidden'),true,
    'the completed permission must not trigger a later stale timeout');
 });
+
+test('PC BR a silently lost acquired pointer lock pauses before another hostile tick', () => {
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,before=game.elapsed;
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
+ app.emit('keydown',{code:'KeyW'});
+ // Some embedded browsers can drop the lock without delivering pointerlockchange.
+ app.context.document.exitPointerLock();
+ app.frame(5000);
+ assert.equal(game.elapsed,before,'no simulation after an unannounced lock release');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+ app.node('play').click();
+ app.frame(5050);
+ assert.equal(app.game,game,'explicit resume must keep the original round');
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(game.elapsed>before);
+});
