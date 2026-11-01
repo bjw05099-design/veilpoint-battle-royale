@@ -73,7 +73,8 @@
  // Shift alone remains valid for sprint; keyup still releases held keys.
  function isGameplayShortcut(event){
   return !!event&&(event.isComposing===true||event.key==='Process'||
-   event.keyCode===229||!!event.ctrlKey||!!event.altKey||!!event.metaKey);
+   event.keyCode===229||event.key==='Dead'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
+   (typeof event.getModifierState==='function'&&event.getModifierState('AltGraph')));
  }
  function isInteractiveTarget(target){
   // Keyboard events often originate from a child span/icon/text node inside

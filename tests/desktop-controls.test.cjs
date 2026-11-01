@@ -295,6 +295,7 @@ test('PC pointer lock releases a late ordinary-lock grant on a cached fallback',
 test('IME composition and OS shortcuts are not PC gameplay commands',()=>{
  for(const event of [
   {code:'Space',isComposing:true},{code:'KeyE',key:'Process'},
+  {code:'KeyE',key:'Dead'},{code:'KeyE',getModifierState:name=>name==='AltGraph'},
   {code:'KeyR',keyCode:229},{code:'KeyR',ctrlKey:true},
   {code:'KeyW',altKey:true},{code:'Space',metaKey:true}
  ])assert.equal(C.isGameplayShortcut(event),true,JSON.stringify(event));

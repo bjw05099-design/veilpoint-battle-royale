@@ -1,5 +1,5 @@
 ## 2026-11-01 PC Korean IME and OS shortcut isolation (R-08 / R-14 / R-23 / R-25)
-- **Partial, PR CI pending:** BR, CH01 and team PC keyboard controllers reject IME composition, legacy Process/keyCode 229 and Ctrl/Alt/Meta chords before gameplay. PC remapping leaves those events untouched; Shift+fire/movement and keyup releases remain enabled.
+- **Partial, CI required at final PR head:** BR, CH01 and team PC keyboard controllers reject IME composition, dead-key/AltGraph events, legacy Process/keyCode 229 and Ctrl/Alt/Meta chords before gameplay. PC remapping leaves those events untouched; Shift+fire/movement and keyup releases remain enabled.
 - **Evidence:** Shared controls and three browser-controller Node regressions. Real Windows Korean IME, RTX 3070 QHD 165Hz with **16GB system RAM**, native UE and latency remain **unverified**. No mobile/touch work added.
 
 ## 2026-11-01 CH01 exposed-body sight and physical occlusion (R-02 / R-14 / R-23 / R-28)
