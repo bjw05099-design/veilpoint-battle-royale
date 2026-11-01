@@ -405,7 +405,7 @@
   document.addEventListener('keydown', e => {
     // Any focused form/menu control owns its keyboard events; no ghost fire,
     // movement or objective capture while entering names or navigating UI.
-    if (Desktop.isInteractiveTarget(e.target)) return;
+    if (Desktop.isInteractiveTarget(e.target) || Desktop.isGameplayShortcut(e)) return;
     const action = Desktop.actionFor(e.code, controls);
     if (action || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
       e.preventDefault();

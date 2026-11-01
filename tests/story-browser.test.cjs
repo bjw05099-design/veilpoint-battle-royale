@@ -845,3 +845,19 @@ test('CH01 renderer recreation failure remains paused with a durable checkpoint'
  assert.match(app.element('menuText').textContent,/복구 실패/);
  app.frame(5000);assert.equal(app.store.get('veilpoint.story.ch01'),saved);
 });
+
+test('CH01 PC ignores Korean IME and OS chords but allows shifted movement',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ const input=app.context.VeilpointInput;
+ for(const event of [
+  {code:'KeyW',ctrlKey:true},{code:'KeyW',altKey:true},
+  {code:'KeyW',metaKey:true},{code:'KeyW',isComposing:true},
+  {code:'KeyW',key:'Process'},{code:'KeyW',keyCode:229}
+ ])app.emit('keydown',event);
+ assert.equal(input.forward,false);
+ app.emit('keydown',{code:'KeyW',shiftKey:true});
+ assert.equal(input.forward,true);
+ app.emit('keyup',{code:'KeyW'});
+ assert.equal(input.forward,false);
+});

@@ -291,3 +291,31 @@ test('PC pointer lock releases a late ordinary-lock grant on a cached fallback',
  assert.equal(unlocks,1);
  assert.equal(doc.pointerLockElement,null);
 });
+
+test('IME composition and OS shortcuts are not PC gameplay commands',()=>{
+ for(const event of [
+  {code:'Space',isComposing:true},{code:'KeyE',key:'Process'},
+  {code:'KeyE',key:'Dead'},{code:'KeyE',getModifierState:name=>name==='AltGraph'},
+  {code:'KeyR',keyCode:229},{code:'KeyR',ctrlKey:true},
+  {code:'KeyW',altKey:true},{code:'Space',metaKey:true}
+ ])assert.equal(C.isGameplayShortcut(event),true,JSON.stringify(event));
+ assert.equal(C.isGameplayShortcut({code:'ShiftLeft',shiftKey:true}),false);
+ assert.equal(C.isGameplayShortcut({code:'Space',shiftKey:true}),false);
+ assert.equal(C.isGameplayShortcut(null),false);
+});
+test('PC key remapping leaves IME and browser shortcuts untouched',()=>{
+ const nodes=new Map();
+ const doc={getElementById(id){
+  if(!nodes.has(id))nodes.set(id,{value:id==='desktopBindAction'?'fire':'',
+   checked:false,textContent:'',addEventListener(name,callback){this[name]=callback;}});
+  return nodes.get(id);
+ }};
+ const ui=C.attach(doc,{getItem(){return null;},setItem(){}});
+ nodes.get('desktopBindKey').click();
+ let prevented=0;
+ assert.equal(ui.captureKey({code:'KeyR',ctrlKey:true,preventDefault(){prevented++;}}),false);
+ assert.equal(ui.captureKey({code:'KeyT',isComposing:true,preventDefault(){prevented++;}}),false);
+ assert.equal(prevented,0);
+ assert.equal(ui.captureKey({code:'KeyT',preventDefault(){prevented++;}}),true);
+ assert.equal(prevented,1);assert.equal(ui.get().bindings.fire,'KeyT');
+});

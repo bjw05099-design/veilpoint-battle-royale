@@ -977,3 +977,20 @@ test('BR renderer recreation failure keeps PC controls disabled and match frozen
  assert.match(app.node('message').textContent,/RECOVERY FAILED/);
  app.frame(5000);assert.equal(game.elapsed,elapsed);
 });
+
+test('PC BR ignores Korean IME and OS chords without blocking shifted fire',()=>{
+ const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
+ const game=app.game,input=app.context.VeilpointInput,ammo=game.player.charges;
+ for(const event of [
+  {code:'Space',isComposing:true},{code:'Space',key:'Process'},
+  {code:'Space',keyCode:229},{code:'Space',ctrlKey:true},
+  {code:'Space',metaKey:true},{code:'KeyR',altKey:true},
+  {code:'KeyW',ctrlKey:true}
+ ])app.emit('keydown',event);
+ assert.equal(game.player.charges,ammo);
+ assert.equal(game.player.reloadRemaining,0);
+ assert.equal(input.forward,false);
+ app.emit('keydown',{code:'Space',shiftKey:true});
+ assert.equal(game.player.charges,ammo-1);
+ app.emit('keyup',{code:'Space'});
+});

@@ -1,3 +1,7 @@
+## 2026-11-01 PC Korean IME and OS shortcut isolation (R-08 / R-14 / R-23 / R-25)
+- **Partial, CI required at final PR head:** BR, CH01 and team PC keyboard controllers reject IME composition, dead-key/AltGraph events, legacy Process/keyCode 229 and Ctrl/Alt/Meta chords before gameplay. PC remapping leaves those events untouched; Shift+fire/movement and keyup releases remain enabled.
+- **Evidence:** Shared controls and three browser-controller Node regressions. Real Windows Korean IME, RTX 3070 QHD 165Hz with **16GB system RAM**, native UE and latency remain **unverified**. No mobile/touch work added.
+
 ## 2026-11-01 CH01 exposed-body sight and physical occlusion (R-02 / R-14 / R-23 / R-28)
 - **Partial P0 implementation (PR #198):** CH01 opponents now inspect three finite standing-body silhouette rays rather than requiring an unobstructed centre ray. A shoulder visible beside cover can trigger a bounded 42m direct-sight response, while solid cover, intervening living actors and the facing cone still prevent impossible perception. This shares BR's approximate visibility principle but does not replace the existing finite shot-ray cover check.
 - **Verification:** Four new Node regressions cover edge exposure, full concealment, living-body occlusion and deterministic 60Hz replay. GitHub Actions must pass at the final PR head; actual Windows browser gameplay, human AI realism, RTX 3070 QHD 165Hz with **16GB system RAM**, Unreal native build and the full 12-chapter/three-mode release remain **unverified**.
