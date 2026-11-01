@@ -1,3 +1,8 @@
+## 2026-11-02 local team voluntary exit and safe rejoin (R-12 / R-14 / R-23)
+
+- **Partial P0 PC session UX:** The loopback two-client 2D UI now exposes an explicit server-acknowledged leave action. It stops accepting new held PC input, drains earlier sequenced commands, vacates the authoritative seat, clears the tab token only after acknowledgment, and permits immediate rejoin without waiting for the 30-second session lease. On an uncertain HTTP failure the token remains for retry rather than allocating a duplicate identity.
+- **Verification boundary:** Three new DOM/network-mock regressions cover leaving a live round, immediate re-pairing, a failed leave followed by retry, and suppression of new PC input while a departure is pending. GitHub CI at the PR head and real Windows two-browser behavior remain separate gates. This is not a public internet service, a finished team FPS, Unreal build, RTX 3070 QHD 165Hz / **16GB system RAM** benchmark, or full three-mode release.
+
 ## 2026-11-02 CH01 PC silent pointer-lock watchdog (R-08 / R-14 / R-23 / R-25)
 
 - **Partial P0 reliability fix:** CH01 now pauses and saves if desktop pointer-lock permission stays silent for four seconds of animation-frame time, or if a previously observed lock disappears without an event. A lock acquired without an event cancels the watchdog. A late grant after pause is rejected by the existing attempt guard. No hidden 60Hz hostile simulation advances without desktop mouse capture.

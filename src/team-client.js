@@ -17,7 +17,7 @@
     aimFlushTimer = null;
   };
   let activeTouchAimPointer = null;
-  let joining = false, restoring = false, polling = false;
+  let joining = false, restoring = false, polling = false, leaving = false;
   let windowFocused = true; // A visible but unfocused desktop window is also inactive.
   let pending = Promise.resolve();
   // Coalesce only consecutive unsent aim or movement intents of the SAME type.
@@ -75,7 +75,7 @@
     // A transient reset/network failure must not strand a still-valid server
     // seat by deleting its only tab token. Keep it solely for explicit retry.
     if (!retryable) try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
-    el('join').disabled = false; el('ready').disabled = true;
+    el('join').disabled = false; el('ready').disabled = true; el('leave').disabled = true;
     el('join').textContent = retryable ? '재연결' : '입장';
     el('loadout').disabled = true;
     el('name').disabled = retryable;
@@ -87,7 +87,7 @@
   const send = (type, payload = {}) => {
     // Until the server acknowledges an atomic reset, no new PC intent may
     // race the resumed tab's stale movement, aim, trigger or relay state.
-    if (!token || restoring) return Promise.resolve();
+    if (!token || restoring || leaving) return Promise.resolve();
     const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
     const coalescible = type === 'aim' || type === 'move';
@@ -140,7 +140,7 @@
     return {x, z};
   };
   const aimAtWorld = (tx, tz) => {
-    if (!token || state?.phase !== 'playing') return;
+    if (leaving || !token || state?.phase !== 'playing') return;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
     if (!Number.isFinite(len) || len < 0.1) return;
@@ -193,6 +193,7 @@
     if (token && state?.phase === 'playing') void send('aimRelease');
   };
   canvas.addEventListener('pointerdown', event => {
+    if (leaving) return;
     // On hybrid devices, a mouse event must not steal a held touch gesture.
     if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
@@ -209,6 +210,7 @@
     }
   });
   canvas.addEventListener('pointermove', event => {
+    if (leaving) return;
     if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
       if (activeTouchAimPointer === null || activeTouchAimPointer !== (event.pointerId ?? -1)) return;
@@ -237,7 +239,7 @@
     releaseAim();
   });
   const updateInput = () => {
-    if (!token || !state || state.phase !== 'playing') return;
+    if (leaving || !token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
     // Renew only active movement at a bounded interval. Server expires intent after 90 ticks.
     if (key !== lastDirection || (key !== '0,0' && state.tick - lastMoveRefreshTick >= 20)) {
@@ -246,6 +248,7 @@
     }
   };
   const setCapture = active => {
+    if (leaving) {capturing = false;return;}
     // A lobby/finished key or button press is not an authorized round intent.
     // Do not queue it for the next server-owned phase.
     if (state?.phase !== 'playing') {capturing = false;return;}
@@ -255,6 +258,7 @@
     void send('capture', {active});
   };
   const setTrigger = active => {
+    if (leaving) {triggering = false;return;}
     if (state?.phase !== 'playing') {triggering = false;return;}
     if (triggering === active) return;
     triggering = active;
@@ -381,7 +385,7 @@
   refreshControlLabels();
   el('join').addEventListener('click', async () => {
     // A rapid double-click must never consume both two-player lobby slots.
-    if (joining || restoring || token) return;
+    if (joining || restoring || leaving || token) return;
     // Retry the same authenticated seat before allocating another player.
     // The server must acknowledge resetInput again before PC controls resume.
     let saved = null;
@@ -393,7 +397,7 @@
     joining = true;el('join').disabled = true;
     try {
       const result = await request('/join', {name: el('name').value});
-      token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;
+      token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
        el('loadout').disabled = false;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
       el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
@@ -404,6 +408,47 @@
         : `입장 실패: ${err.message}`);
     } finally {joining = false;}
   });
+  // A participant must be able to vacate a local server seat immediately, not
+  // wait for the 30-second lease or refresh into a stale identity. This is a
+  // sequenced server command: do not erase the only session token until the
+  // authority acknowledges departure. In-flight intents drain before leave.
+  el('leave').addEventListener('click', async () => {
+    if (!token || restoring || leaving) return;
+    const departingToken = token;
+    leaving = true;
+    el('leave').disabled = true;
+    // Stop accepting any new physical PC input while departure is pending.
+    keys.clear();physicalTrigger.clear();capturing = false;triggering = false;
+    lastDirection = '';lastAimPoint = null;lastAimVector = null;
+    lastAimTick = -Infinity;lastAimSentAt = -Infinity;
+    cancelAimFlush();activeTouchAimPointer = null;
+    try {
+      await pending;
+      if (token !== departingToken) return;
+      const result = await request('/command', {seq: ++seq, type: 'leave'}, departingToken);
+      if (result?.ok !== true) throw new Error('leave_unacknowledged');
+      if (token !== departingToken) return;
+      token = null;seq = 0;state = null;previousPhase = null;queuedInput = null;
+      lastMoveRefreshTick = -Infinity;lastCaptureRefreshTick = -Infinity;
+      lastTriggerRefreshTick = -Infinity;
+      try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
+      el('join').disabled = false;el('join').textContent = '서버 입장';
+      el('name').disabled = false;el('ready').disabled = true;
+      el('loadout').disabled = true;el('leave').disabled = true;
+      status('퇴장 완료 · 새 참가자로 다시 입장할 수 있습니다.');
+      draw();
+    } catch (err) {
+      if (token !== departingToken) return;
+      if (err.message === 'unknown_player') invalidateSession(departingToken);
+      else {
+        // An unacknowledged leave may already have reached the server.
+        // Preserve the tab token for a safe retry/reconciliation; never
+        // allocate a duplicate seat on an uncertain network outcome.
+        el('leave').disabled = false;
+        status('퇴장 확인 실패 · 재시도하거나 연결 상태를 확인하세요: ' + err.message);
+      }
+    } finally {leaving = false;}
+  });
   el('ready').addEventListener('click', () => void send('ready'));
   el('loadout').addEventListener('change', () => {
     if (token && state?.phase !== 'playing') void send('loadout', {weaponId: el('loadout').value});
@@ -412,6 +457,7 @@
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
+    if (leaving) return;
     // Any focused form/menu control owns its keyboard events; no ghost fire,
     // movement or objective capture while entering names or navigating UI.
     if (Desktop.isInteractiveTarget(e.target)) return;
@@ -515,6 +561,7 @@
         if (reset?.ok !== true) throw new Error('reset_unacknowledged');
       }
       state = await request('/state');
+      el('leave').disabled = false;
       render();
     } catch (err) {
       invalidateSession(saved, err.message !== 'unknown_player' &&
@@ -526,7 +573,7 @@
   setInterval(() => {if (token && !document.hidden && windowFocused) void send('heartbeat');}, 10000);
   setInterval(async () => {
     // Slow responses must not overlap and overwrite newer game snapshots.
-    if (!token || document.hidden || !windowFocused || polling || restoring) return;
+    if (!token || document.hidden || !windowFocused || polling || restoring || leaving) return;
     polling = true;
     const polledToken = token;
     try {
