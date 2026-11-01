@@ -285,8 +285,16 @@
     for (const p of state.visible) {
       const pos = point(p.x,p.z);
       ctx.fillStyle = p.team === 'red' ? '#e58b84' : '#8abcf2';
-      ctx.beginPath();ctx.arc(pos.x,pos.y,p.id===state.self.id?9:7,0,Math.PI*2);ctx.fill();
-      if (p.id===state.self.id) {
+      if (p.incapacitated) {
+        // A finished combatant must not remain a standing actor marker.
+        // Non-graphic 2D cue only; not a skeletal fall animation.
+        ctx.globalAlpha = 0.6;
+        ctx.fillRect(pos.x - 8, pos.y - 3, 16, 6);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.beginPath();ctx.arc(pos.x,pos.y,p.id===state.self.id?9:7,0,Math.PI*2);ctx.fill();
+      }
+      if (p.id===state.self.id && !p.incapacitated) {
         ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
         const f = state.self.facing || {x: state.self.team === 'red' ? 1 : -1, z: 0};
         ctx.beginPath();ctx.moveTo(pos.x,pos.y);
