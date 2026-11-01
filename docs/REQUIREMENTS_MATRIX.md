@@ -1,3 +1,8 @@
+## 2026-11-01 BR boundary disqualification health integrity (R-14 / R-23 / P0)
+
+- **Partial realism correction, CI pending:** At a published BR boundary deadline, a rival is now marked administratively disqualified without zeroing physical health. A separate checkpoint flag distinguishes disqualification from combat incapacitation; existing saves without the flag migrate to the previous combat-elimination semantics. The same 60Hz rule still applies to player and opponents, and finite ammunition is unchanged.
+- **Verification boundary:** Node regression candidates cover positive-health disqualification, replay, save/restore and invalid flag injection. Full `npm run verify`, GitHub PR CI and actual Windows offline play are still required before merge. This does not close realism issue #15 or establish final 3-mode physical realism, UE5, QHD 165Hz RTX 3070 / **16GB system RAM** performance, or the 2026-11-27 demo gate. PC-only keyboard/mouse scope remains; no touch-specific work.
+
 ## 2026-11-01 authoritative team round deadline (R-12 / R-14 / R-23)
 
 - **Partial P0 gameplay/reliability implementation:** The loopback-only two-client 2D team round now ends at an authoritative 18,000-tick (five-minute at fixed 60Hz) simulation deadline. A server-owned score lead wins; tied scores draw. A fully completed relay objective on the final tick takes precedence over the timeout; interrupted/contested progress does not count. Rematches reset the clock. Both clients receive the same remaining-tick snapshot and the PC UI displays an approximate mm:ss countdown from that snapshot, not a client-controlled clock.
