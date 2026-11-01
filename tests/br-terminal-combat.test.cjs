@@ -51,10 +51,29 @@ test('BR player incapacitation halts subsequent rival attacks in the same 60Hz s
   const [first,second]=game.bots;
   Object.assign(first,{x:0,z:0,angle:0,moveTime:999,actionTime:-1,skill:1,loaded:12,charges:36});
   Object.assign(second,{x:0,z:7,angle:0,moveTime:999,actionTime:-1,skill:1,loaded:12,charges:36});
+  const laterBefore={x:second.x,z:second.z,angle:second.angle,moveTime:second.moveTime};
   S.tick(game,1/60,{});
   assert.equal(game.status,'lost');
+  assert.deepEqual({x:second.x,z:second.z,angle:second.angle,moveTime:second.moveTime},laterBefore,
+    'later rivals must not move or turn after the lethal shot ends the match');
   assert.equal(game.player.health,0);
   assert.equal(first.charges,35,'the terminating hit consumes one real shot');
   assert.equal(second.charges,36,'no later actor fires after the result is decided');
   assert.equal(first.health,100,'no post-result damage is applied to other actors');
+});
+
+
+test('BR published boundary deadline still evaluates every rival after player disqualification',()=>{
+  const game=S.newMatch(9204,2);
+  game.status='playing';
+  game.elapsed=89.99;
+  Object.assign(game.zone,S.phaseAt(game.elapsed));
+  game.player.x=160;game.player.z=0;
+  const [first,second]=game.bots;
+  Object.assign(first,{x:160,z:0,moveTime:999,actionTime:999});
+  Object.assign(second,{x:160,z:2,moveTime:999,actionTime:999});
+  S.tick(game,1/60,{});
+  assert.equal(game.status,'lost');
+  assert.equal(first.alive,false,'first out-of-bounds rival is disqualified');
+  assert.equal(second.alive,false,'later out-of-bounds rival is not skipped');
 });
