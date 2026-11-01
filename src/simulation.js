@@ -735,6 +735,11 @@
         Math.abs(checkpoint.zone.radius-expectedZone.radius)>1e-6 ||
         Math.abs(checkpoint.zone.phaseRemaining-expectedZone.phaseRemaining)>1e-6)
       throw new RangeError('Invalid BR checkpoint zone clock');
+    // A boundary disqualification must have an observable spatial cause.
+    // Reject fabricated non-injured eliminations inside the legal play area.
+    if(checkpoint.bots.some(b=>b.disqualified &&
+        dist(b,checkpoint.zone)<=checkpoint.zone.radius))
+      throw new RangeError('Invalid BR checkpoint boundary ruling');
     validateCheckpointTiming(checkpoint,firearm);
     const serialized=JSON.stringify(checkpoint);
     if (serialized.length > MAX_CHECKPOINT_CHARS) throw new RangeError('BR checkpoint too large');
@@ -808,6 +813,8 @@
     const zone=checkedFields(saved.zone,[...POSITION_FIELDS,['radius',0,170],
       ['phase',0,ZONE_PHASES.length-1,true],['phaseRemaining',0,999]]);
     const expected=phaseAt(saved.elapsed);
+    if (bots.some(b=>b.disqualified && dist(b,zone)<=zone.radius))
+      throw new RangeError('Invalid opponent boundary ruling');
     if (zone.phase!==expected.phase || Math.abs(zone.radius-expected.radius)>1e-6 ||
         Math.abs(zone.phaseRemaining-expected.phaseRemaining)>1e-6 || zone.x!==0 || zone.z!==0)
       throw new RangeError('Invalid zone clock');
