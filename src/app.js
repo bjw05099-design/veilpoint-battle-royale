@@ -8,9 +8,10 @@ const graphics=global.VeilpointGraphics;
 const perf=global.VeilpointPerformance;
 const Desktop=global.VeilpointDesktopControls;
 const telemetry=perf.createTelemetry();
-const benchmark=global.VeilpointBenchmark.createBenchmark();
+const benchmark=global.VeilpointBenchmark?global.VeilpointBenchmark.createBenchmark():null;
 const benchmarkStart=$('benchmarkStart'),benchmarkStop=$('benchmarkStop'),benchmarkExport=$('benchmarkExport'),benchmarkStatus=$('benchmarkStatus');
 function benchmarkUi(){
+ if(!benchmark){benchmarkStart.disabled=true;benchmarkStop.disabled=true;benchmarkExport.disabled=true;benchmarkStatus.textContent='측정 모듈을 불러오지 못했습니다.';return;}
  const info=benchmark.getStatus(),active=info.state==='armed'||info.state==='running';
  benchmarkStart.disabled=active;benchmarkStop.disabled=!active;
  benchmarkExport.disabled=info.state!=='finished'||info.frames<2;
@@ -19,6 +20,7 @@ function benchmarkUi(){
   info.state==='finished'?'측정 종료 ('+info.reason+') · 결과 JSON을 저장할 수 있습니다.':
   '미측정 · 클릭해서 준비한 뒤 게임을 플레이하세요. 측정 데이터는 외부 전송되지 않습니다.';
 }
+if(benchmark){
 benchmarkStart.addEventListener('click',()=>{
  benchmark.arm({graphicsPreset:graphicsSettings.preset,fpsCap:graphicsSettings.fpsCap,
   chosenRenderScale:graphicsSettings.resolutionScale,autoResolution,
@@ -35,6 +37,7 @@ benchmarkExport.addEventListener('click',()=>{
  a.href=url;a.download='veilpoint-browser-benchmark.json';document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),2000);
 });
+}
 benchmarkUi();
 let governor=null,autoResolution=false,lastGovernorCheck=0,lastRenderTime=null;
 try{autoResolution=global.localStorage.getItem('veilpoint.autoResolution')==='true';}catch(_){}
@@ -57,7 +60,7 @@ soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
 function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
 function applyGraphicsSettings(){
- if(benchmark.getStatus().state==='running')benchmark.finish('graphics-settings-changed');
+ if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish('graphics-settings-changed');
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
  governor=perf.createResolutionGovernor({minScale:Math.min(.7,graphicsSettings.resolutionScale),maxScale:graphicsSettings.resolutionScale,initialScale:graphicsSettings.resolutionScale,targetFps:graphicsSettings.fpsCap});
  telemetry.clear();lastRenderTime=null;lastGovernorCheck=0;
@@ -138,8 +141,8 @@ function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 function initializeRenderer(){
  const next=new global.VeilpointRenderer(canvas);
- next.onGpuTime=ms=>{telemetry.record('gpu',ms);benchmark.gpu(ms);};
- next.onGpuInvalidated=()=>{telemetry.clear();benchmark.invalidateGpu();if(governor)governor.resetEvidence();};
+ next.onGpuTime=ms=>{telemetry.record('gpu',ms);if(benchmark)benchmark.gpu(ms);};
+ next.onGpuInvalidated=()=>{telemetry.clear();if(benchmark)benchmark.invalidateGpu();if(governor)governor.resetEvidence();};
  renderer=next;applyGraphicsSettings();
  const supported=!!(renderer.gpuTimer&&renderer.gpuTimer.supported);
  autoResolutionCheckbox.disabled=!supported;
@@ -149,7 +152,7 @@ function initializeRenderer(){
 try{initializeRenderer();}
 catch(err){renderer=null;$('play').textContent='WebGL2를 지원하지 않습니다';$('play').disabled=true;$('newMatch').disabled=true;$('message').textContent=String(err.message);}
 canvas.addEventListener('webglcontextlost',event=>{
- benchmark.finish('graphics-context-lost');
+ if(benchmark)benchmark.finish('graphics-context-lost');
  event.preventDefault();
  graphicsContextLost=true;suspendMatch('graphics');resetInactiveClock();
  renderer=null; // Context loss invalidates all previous GPU buffers, shaders and queries.
@@ -266,7 +269,7 @@ addEventListener('keyup',e=>{
 });
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(reason='background'){
- if(benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
+ if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
  persistMatch();suspended=true;pointerLockAttempt++;
  $('overlay').classList.remove('hidden');
@@ -383,7 +386,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   :p.charges>=p.maxCharges?'AMMUNITION FULL':'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
  minimap();
 }
-function end(){benchmark.finish('match-ended');clearStoredMatch();running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
+function end(){if(benchmark)benchmark.finish('match-ended');clearStoredMatch();running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  const won=simulation.status==='won';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':'RE<span>DEPLOY.</span>';
  document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getFinalPlacement(simulation)}위`;
@@ -410,7 +413,7 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
   telemetry.record('cpu',cpuMs);
   if(canAct()){
    const measuredScale=renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale;
-   benchmark.frame(now,cpuMs,measuredScale);
+   if(benchmark)benchmark.frame(now,cpuMs,measuredScale);
   }
   if(autoResolution&&renderer.gpuTimer&&renderer.gpuTimer.supported&&now-lastGovernorCheck>=1250){
    const gpu=telemetry.stats('gpu'),cpu=telemetry.stats('cpu');
