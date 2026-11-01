@@ -594,7 +594,9 @@ class TeamMatch {
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
         ready: me.ready, captureArmed: me.captureArmed, seq: me.seq},
-      visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z}))};
+      visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
+        // Visible physical state only; never disclose private opponent health/stress.
+        incapacitated: p.health === 0}))};
   }
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
