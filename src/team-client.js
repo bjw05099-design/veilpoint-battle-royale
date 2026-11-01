@@ -6,6 +6,7 @@
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
   let lastCrouchIntent = false, lastCrouchRefreshTick = -Infinity;
+  let lastSprintIntent = false, lastSprintRefreshTick = -Infinity;
   let triggering = false, lastTriggerRefreshTick = -Infinity;
   let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
   // Mouse input must not wait for the next 150ms server snapshot to change aim.
@@ -75,6 +76,7 @@
     readyIntent = null; readyIntentSeq = 0; readyIntentGeneration++;
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCrouchIntent = false; lastCrouchRefreshTick = -Infinity;
+    lastSprintIntent = false; lastSprintRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
     cancelAimFlush();queuedInput = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
@@ -262,6 +264,15 @@
       lastCrouchRefreshTick = state.tick;
       void send('crouch', {active: crouch});
     }
+    // Shift sprint is a renewed PC intent. The server alone owns movement
+    // speed, exertion, fatigue lockout and crouch precedence at fixed 60Hz.
+    const sprint = held('sprint');
+    if (sprint !== lastSprintIntent ||
+        (sprint && state.tick - lastSprintRefreshTick >= 20)) {
+      lastSprintIntent = sprint;
+      lastSprintRefreshTick = state.tick;
+      void send('sprint', {active: sprint});
+    }
   };
   const setCapture = active => {
     if (leaving) {capturing = false;return;}
@@ -340,6 +351,8 @@
       lastMoveRefreshTick = -Infinity;
       lastCrouchIntent = false;
       lastCrouchRefreshTick = -Infinity;
+      lastSprintIntent = false;
+      lastSprintRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
       lastTriggerRefreshTick = -Infinity;
       physicalTrigger.clear();
@@ -382,6 +395,9 @@
     el('stress').textContent = Math.round(state.self.stress);
     // The server reports actual posture; never infer it from an unacknowledged key.
     el('stress').textContent += state.self.crouching ? ' · 낮은 자세' : '';
+    el('stress').textContent += ' · 지구력 ' + Math.round(state.self.stamina ?? 100) + '/100';
+    if (state.self.sprintExhausted) el('stress').textContent += ' · 질주 회복 중';
+    else if (state.self.sprinting) el('stress').textContent += ' · 질주 중';
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     const displayedReady = readyIntent === null ? state.self.ready : readyIntent;
     el('ready').disabled = state.phase === 'playing';
@@ -407,7 +423,7 @@
     else {
       const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
         controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전 · '+
-        controls.bindings.crouch+' 누르고 있으면 낮은 자세로 천천히 이동. 시야·피해·탄약은 서버에서 검증합니다.';
+        controls.bindings.crouch+' 낮은 자세 · '+controls.bindings.sprint+' 누르면 지구력 범위에서 질주 (낮은 자세에서는 불가). 시야·피해·탄약·이동은 서버에서 검증합니다.';
       const rearmHint = capturing && !state.self.captureArmed
         ? ' · 중계 중단/목표 이탈/전송 완료: 점령 키를 놓고 다시 눌러 중계기 근처에서 재시도하세요' : '';
       status((actionFeedback && state.tick <= feedbackUntil
