@@ -164,3 +164,32 @@ test('HTTP join rejects Unicode paragraph separators and snapshots canonical nam
     assert.equal(snapshot.visible.find(p => p.id === snapshot.self.id).name, '조현지');
   } finally {await server.close();}
 });
+
+
+test('readJson rejects an oversized streaming body before the sender finishes', async () => {
+  const stream = new EventEmitter();
+  const pending = readJson(stream);
+  stream.emit('data', Buffer.alloc(2049, 0x61));
+  await assert.rejects(pending, /body_too_large/);
+  // An eventual end event cannot resurrect the already rejected request.
+  stream.emit('end');
+});
+
+test('readJson rejects declared oversized bodies before reading a byte', async () => {
+  const stream = new EventEmitter();
+  let resumed = false;
+  stream.headers = {'content-length': '2049'};
+  stream.resume = () => {resumed = true;};
+  await assert.rejects(readJson(stream), /body_too_large/);
+  assert.equal(resumed, true, 'discard an oversized request stream');
+});
+
+test('readJson still accepts chunked exact-limit JSON without a length header', async () => {
+  const exact = Buffer.from(JSON.stringify({value: 'x'.repeat(2036)}));
+  const stream = new EventEmitter();
+  const pending = readJson(stream);
+  stream.emit('data', exact.subarray(0, 1000));
+  stream.emit('data', exact.subarray(1000));
+  stream.emit('end');
+  assert.equal((await pending).value.length, 2036);
+});
