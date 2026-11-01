@@ -5,6 +5,7 @@
   const canvas = el('arena'), ctx = canvas.getContext('2d');
   let token = null, seq = 0, state = null, lastDirection = '', capturing = false;
   let lastMoveRefreshTick = -Infinity, lastCaptureRefreshTick = -Infinity;
+  let lastCrouchIntent = false, lastCrouchRefreshTick = -Infinity;
   let triggering = false, lastTriggerRefreshTick = -Infinity;
   let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
   // Mouse input must not wait for the next 150ms server snapshot to change aim.
@@ -73,6 +74,7 @@
     token = null; seq = 0; state = null; previousPhase = null;
     readyIntent = null; readyIntentSeq = 0; readyIntentGeneration++;
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
+    lastCrouchIntent = false; lastCrouchRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
     cancelAimFlush();queuedInput = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
@@ -251,6 +253,15 @@
       lastDirection = key;lastMoveRefreshTick = state.tick;
       void send('move', {direction: d});
     }
+    // PC crouch is a held, leased intent. Send both press and release, and
+    // renew while held so an abandoned tab cannot remain crouched forever.
+    const crouch = held('crouch');
+    if (crouch !== lastCrouchIntent ||
+        (crouch && state.tick - lastCrouchRefreshTick >= 20)) {
+      lastCrouchIntent = crouch;
+      lastCrouchRefreshTick = state.tick;
+      void send('crouch', {active: crouch});
+    }
   };
   const setCapture = active => {
     if (leaving) {capturing = false;return;}
@@ -301,7 +312,9 @@
         ctx.fillRect(pos.x - 8, pos.y - 3, 16, 6);
         ctx.globalAlpha = 1;
       } else {
-        ctx.beginPath();ctx.arc(pos.x,pos.y,p.id===state.self.id?9:7,0,Math.PI*2);ctx.fill();
+        // A smaller marker is a visible stance cue, not a stealth or hitbox claim.
+        const radius = p.crouching ? (p.id===state.self.id?7:5) : (p.id===state.self.id?9:7);
+        ctx.beginPath();ctx.arc(pos.x,pos.y,radius,0,Math.PI*2);ctx.fill();
       }
       if (p.id===state.self.id && !p.incapacitated) {
         ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
@@ -325,6 +338,8 @@
       keys.clear();
       lastDirection = '';
       lastMoveRefreshTick = -Infinity;
+      lastCrouchIntent = false;
+      lastCrouchRefreshTick = -Infinity;
       lastCaptureRefreshTick = -Infinity;
       lastTriggerRefreshTick = -Infinity;
       physicalTrigger.clear();
@@ -365,6 +380,8 @@
     el('reloadState').textContent = state.self.reloadTicks > 0
       ? (state.self.reloadHesitation ? '긴장으로 지연 · R 재입력' : '재장전 중') : '준비';
     el('stress').textContent = Math.round(state.self.stress);
+    // The server reports actual posture; never infer it from an unacknowledged key.
+    el('stress').textContent += state.self.crouching ? ' · 낮은 자세' : '';
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     const displayedReady = readyIntent === null ? state.self.ready : readyIntent;
     el('ready').disabled = state.phase === 'playing';
@@ -389,7 +406,8 @@
     }
     else {
       const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
-        controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
+        controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전 · '+
+        controls.bindings.crouch+' 누르고 있으면 낮은 자세로 천천히 이동. 시야·피해·탄약은 서버에서 검증합니다.';
       const rearmHint = capturing && !state.self.captureArmed
         ? ' · 중계 중단/목표 이탈/전송 완료: 점령 키를 놓고 다시 눌러 중계기 근처에서 재시도하세요' : '';
       status((actionFeedback && state.tick <= feedbackUntil
