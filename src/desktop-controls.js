@@ -23,6 +23,17 @@
    const candidate=ACTIONS.map(a=>source.bindings[a]);
    if(candidate.every(validCode)&&new Set(candidate).size===candidate.length)
     for(const action of ACTIONS)bindings[action]=source.bindings[action];
+   else {
+    // Migrate only obsolete Ctrl/Alt bindings when possible, preserving
+    // unrelated valid custom keys. If fallback defaults would collide with
+    // another remap, reset the entire map rather than create duplicate actions.
+    const obsolete=/^(?:Control|Alt)(?:Left|Right)$/;
+    if(candidate.every(code=>validCode(code)||(typeof code==='string'&&obsolete.test(code)))){
+     const migrated=ACTIONS.map((action,i)=>validCode(candidate[i])?candidate[i]:DEFAULT_BINDINGS[action]);
+     if(new Set(migrated).size===ACTIONS.length)
+      for(let i=0;i<ACTIONS.length;i++)bindings[ACTIONS[i]]=migrated[i];
+    }
+   }
   }
   return {sensitivity,invertY,bindings};
  }
