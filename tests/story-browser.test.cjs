@@ -871,3 +871,60 @@ test('CH01 OS shortcut transition releases held PC movement',()=>{
  assert.equal(input.forward,false);
  app.emit('keyup',{code:'KeyW'});
 });
+
+
+test('CH01 silent desktop pointer-lock request times out to a saved, resumable pause',()=>{
+ const app=boot(new Map(),false,'pending');
+ app.element('continue').click();
+ app.emit('keydown',{code:'KeyW'});
+ app.frame(3999);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ app.frame(4000);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.match(app.element('menuText').textContent,/포인터 잠금/);
+ const saved=app.store.get('veilpoint.story.ch01');
+ assert.equal(JSON.parse(saved).elapsed,0,'pending lock never advances hostile 60Hz state');
+ app.frame(7000);
+ assert.equal(app.store.get('veilpoint.story.ch01'),saved);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true,'a fresh user click can retry');
+});
+
+test('CH01 eventless pointer-lock success cancels the watchdog',()=>{
+ const app=boot(new Map(),false,'pending');
+ app.element('continue').click();
+ app.context.document.pointerLockElement=app.element('scene');
+ app.frame(5000);
+ app.frame(5100);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ app.element('pauseButton').click();
+ assert.ok(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed>0);
+});
+
+test('CH01 silently lost desktop pointer lock pauses before the next simulation tick',()=>{
+ const app=boot();
+ app.element('continue').click();
+ app.emit('keydown',{code:'KeyW'});
+ app.frame(1000/60);
+ app.frame(2000/60);
+ app.context.document.pointerLockElement=null;
+ app.frame(3000/60);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ const saved=app.store.get('veilpoint.story.ch01');
+ assert.ok(JSON.parse(saved).elapsed>0);
+ app.frame(4000/60);
+ assert.equal(app.store.get('veilpoint.story.ch01'),saved,'no hidden progress after silent loss');
+});
+
+test('CH01 late pointer-lock grant after watchdog timeout cannot recapture the mouse',async()=>{
+ const app=boot(new Map(),false,'late');
+ app.element('continue').click();
+ app.frame(4001);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ app.grantPointerLock();
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(app.context.document.pointerLockElement,null);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed,0);
+});

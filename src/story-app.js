@@ -33,7 +33,8 @@
     !global.matchMedia('(any-pointer:fine)').matches;
   // A Windows convertible must not show the old coarse-pointer mobile overlay.
   if(isWindows)$('mobile').style.display='none';
-  let lockAttempt=0;
+  let lockAttempt=0,pointerLockPendingSince=null,aimLockObserved=false;
+  const POINTER_LOCK_TIMEOUT_MS=4000;
   // A desktop player cannot aim without pointer lock; no hostile 60Hz tick or
   // player action may advance while permission is pending, denied or lost.
   const canAct=()=>running&&!graphicsContextLost&&!!renderer&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
@@ -130,7 +131,8 @@
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
-    running=false;lockAttempt++;desktopUi.cancel();clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
+    running=false;lockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
+    desktopUi.cancel();clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
@@ -141,6 +143,7 @@
   function requestAimLock(){
     if(isTouch)return;
     const attempt=++lockAttempt;
+    pointerLockPendingSince=performance.now();aimLockObserved=false;
     const unavailable=()=>menuOpen('마우스 포인터 잠금이 거부되었거나 지원되지 않습니다. 권한을 허용한 뒤 이어하기를 눌러 재시도하세요.');
     if(typeof canvas.requestPointerLock!=='function'){unavailable();return;}
     try{
@@ -397,6 +400,17 @@
   }
   function frame(now){
     global.requestAnimationFrame(frame);
+    // Some PC browsers silently leave permission pending forever or drop a
+    // previously granted mouse lock without dispatching pointerlockchange.
+    // Pause before any 60Hz world step; do not let unseen opponents progress.
+    if(running&&!isTouch){
+      if(document.pointerLockElement===canvas){
+        pointerLockPendingSince=null;aimLockObserved=true;
+      }else if(aimLockObserved||(pointerLockPendingSince!==null&&
+          now-pointerLockPendingSince>=POINTER_LOCK_TIMEOUT_MS)){
+        menuOpen('마우스 포인터 잠금이 응답하지 않거나 해제되었습니다. 이어하기를 눌러 다시 시도하세요.');
+      }
+    }
     const dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
     const gatePending=running&&state.phase==='exit'&&state.choice==='verification'&&
       !Story.situation(state).eastGateOpen;
