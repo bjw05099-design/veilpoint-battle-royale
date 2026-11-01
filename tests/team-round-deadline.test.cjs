@@ -37,11 +37,13 @@ test('a score lead is adjudicated by the server when time expires', () => {
   const match = playingPair();
   match.score.red = 2;
   match.score.blue = 1;
+  match.progress.red = CAPTURE_SECONDS / 2; // Incomplete score cannot survive expiry.
   match.ticks = ROUND_LIMIT_TICKS - 1;
   match.step();
   assert.equal(match.reason, 'time_limit');
   assert.equal(match.winner, 'red');
   assert.deepEqual(match.score, {red: 2, blue: 1});
+  assert.deepEqual(match.progress, {red: 0, blue: 0});
 });
 
 test('a valid objective completed on the final tick beats the time limit', () => {
