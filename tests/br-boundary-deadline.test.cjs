@@ -190,6 +190,8 @@ test('BR checkpoint rejects fabricated boundary flags but migrates earlier comba
   invalid(s=>{s.bots[0].disqualified=true;});
   invalid(s=>{s.bots[0].disqualified='true';});
   invalid(s=>{s.bots[0].alive=false;s.bots[0].health=40;s.bots[0].disqualified=false;});
+  invalid(s=>{s.bots[0].x=0;s.bots[0].z=-25;
+    s.bots[0].alive=false;s.bots[0].health=40;s.bots[0].disqualified=true;});
   const legacy=structuredClone(base);
   for(const bot of legacy.bots)delete bot.disqualified;
   legacy.bots[0].alive=false;legacy.bots[0].health=0;
