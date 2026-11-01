@@ -29,7 +29,7 @@ function createFixedStepClock(onStep) {
     return steps;
   };
 }
-function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now} = {}) {
+function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now, bodyTimeoutMs = 5000} = {}) {
   // This proof must never silently bind to a publicly reachable interface.
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
   const match = new TeamMatch({now});
@@ -79,7 +79,7 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       if (req.method === 'POST' && ['/join', '/command'].includes(url.pathname)) {
         if (!/^application\/json(?:\s*;\s*charset=utf-8)?\s*$/i.test(String(req.headers['content-type'] || '')))
           return send(res, 415, {error: 'json_required'});
-        const body = await readJson(req);
+        const body = await readJson(req, 2048, bodyTimeoutMs);
         if (url.pathname === '/join') {
           if (!body || Object.keys(body).length !== 1 || typeof body.name !== 'string')
             throw new RangeError('invalid_join');
@@ -95,7 +95,7 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       }
       send(res, 404, {error: 'not_found'});
     } catch (err) {
-      send(res, err instanceof RangeError ? (err.message === 'body_too_large' ? 413 : 400) : 500,
+      send(res, err instanceof RangeError ? (err.message === 'body_too_large' ? 413 : err.message === 'request_timeout' ? 408 : 400) : 500,
         {error: err instanceof RangeError ? err.message : 'internal_error'});
     }
   });
