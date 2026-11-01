@@ -1,3 +1,8 @@
+## 2026-11-02 local team match result isolation on seat expiry (R-12 / R-14 / R-23)
+
+- **Partial P0 session integrity (PR #219):** Once both finished-round participants' 30-second local leases expire, the server now resets the previous winner, result reason, score, relay progress and round clock before admitting a new pair. A still-connected participant retains the finished result until their own lease expires; existing rematch consent rules remain unchanged. New pure-match and loopback HTTP regressions check that fresh guests do not inherit prior results.
+- **Verification boundary:** PR-head npm run verify and offline package CI must pass before merge. A passing local HTTP simulation is not evidence of public multiplayer, actual Windows two-browser play, native UE, photorealism or RTX 3070 QHD 165Hz performance with **16GB system RAM**. PC keyboard/mouse scope only; no touch work.
+
 ## 2026-11-02 authoritative team round timing and result integrity (R-12 / R-14 / R-23)
 
 - **Partial P0 reliability:** The loopback 60Hz clock now ignores backward timestamp samples without rewinding its high-water mark (PR #216; 699 Node tests and offline ZIP CI passed). A separate terminal-result correction clears unfinished relay progress on every round-ending path, without erasing earned scores; a deterministic test covers actual leave/timeout and direct terminal transitions. Neither change establishes public multiplayer, real hardware frametimes or a complete 3D team FPS.
