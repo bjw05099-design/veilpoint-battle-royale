@@ -16,24 +16,28 @@ const crc32 = data => {
   }
   return (c ^ 0xffffffff) >>> 0;
 };
+// One dependency policy for both packaging and independent archive verification.
+// A manifest can be internally consistent while omitting a required browser script.
+function referencedAssets(page, html) {
+  if (!/<script\b[^>]*\bsrc=["'][^"']+["']/i.test(html))
+    throw new Error('Missing browser scripts in ' + page);
+  if (/@import\b|url\s*\(/i.test(html))
+    throw new Error('Unsupported CSS import/url in ' + page);
+  const refs = [...html.matchAll(/\b(?:src|href|poster|srcset)\s*=\s*(["'])(.*?)\1/gi)]
+    .map(match => match[2]);
+  return refs.filter(ref => {
+    if (ref.startsWith('#') || PAGES.includes(ref)) return false;
+    // Reject network URLs, path traversal, queries and unsupported srcset lists.
+    if (!/^(?:src|assets)\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|ogg|wav)$/i.test(ref))
+      throw new Error('Unsafe/external asset in ' + page + ': ' + ref);
+    return true;
+  });
+}
 function collectFiles(root = ROOT) {
   const files = new Set([...PAGES, ...DOCUMENTS]);
   for (const page of PAGES) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
-    // Every directly referenced HTML asset must be bundled for offline launch.
-    if (!/<script\b[^>]*\bsrc=["'][^"']+["']/i.test(html))
-      throw new Error('Missing browser scripts in ' + page);
-    if (/@import\b|url\s*\(/i.test(html))
-      throw new Error('Unsupported CSS import/url in ' + page);
-    const refs = [...html.matchAll(/\b(?:src|href|poster|srcset)\s*=\s*(["'])(.*?)\1/gi)]
-      .map(match => match[2]);
-    for (const ref of refs) {
-      if (ref.startsWith('#') || PAGES.includes(ref)) continue;
-      // Reject network URLs, path traversal, queries and unsupported srcset lists.
-      if (!/^(?:src|assets)\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|ogg|wav)$/i.test(ref))
-        throw new Error('Unsafe/external asset in ' + page + ': ' + ref);
-      files.add(ref);
-    }
+    for (const ref of referencedAssets(page, html)) files.add(ref);
   }
   return [...files].sort().map(name => {
     const full = path.join(root, name);
@@ -84,4 +88,4 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
   return {output, files: entries.length, bytes: zip.length, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
-module.exports = {collectFiles, buildZip, packageDemo, crc32};
+module.exports = {collectFiles, referencedAssets, buildZip, packageDemo, crc32};
