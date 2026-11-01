@@ -111,7 +111,7 @@ const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
 // A browser may never resolve or reject a pointer-lock permission request.
 // Fail closed to a visible, resumable pause rather than leaving a hidden frozen game.
 const POINTER_LOCK_TIMEOUT_MS=4000;
-let pointerLockAttempt=0,pointerLockPendingSince=null;
+let pointerLockAttempt=0,pointerLockPendingSince=null,aimLockObserved=false;
 // A desktop player without pointer lock cannot aim; freeze both fire and the
 // 60Hz world while permission is pending or the browser refuses the lock.
 const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!document.hidden&&simulation.status==='playing'&&
@@ -182,7 +182,7 @@ const isTouch=!Desktop.isWindowsPC(global.navigator) &&
 function requestAimLock(){
  if(isTouch)return;
  const attempt=++pointerLockAttempt;
- pointerLockPendingSince=performance.now();
+ pointerLockPendingSince=performance.now();aimLockObserved=false;
  if(typeof canvas.requestPointerLock!=='function'){
   suspendMatch('pointer');resetInactiveClock();return;
  }
@@ -275,7 +275,7 @@ addEventListener('keyup',e=>{
 function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- persistMatch();suspended=true;pointerLockAttempt++;pointerLockPendingSince=null;
+ persistMatch();suspended=true;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
@@ -400,9 +400,12 @@ function frame(now){requestAnimationFrame(frame);
  // Watch the actual browser permission state, not just a Promise: older
  // browsers can leave it pending indefinitely without an error event.
  // An acquired lock always wins even if its event has not been dispatched.
- if(pointerLockPendingSince!==null&&running&&!suspended&&!isTouch){
-  if(document.pointerLockElement===canvas)pointerLockPendingSince=null;
-  else if(now-pointerLockPendingSince>=POINTER_LOCK_TIMEOUT_MS){
+ if(running&&!suspended&&!isTouch){
+  if(document.pointerLockElement===canvas){
+   pointerLockPendingSince=null;aimLockObserved=true;
+  }else if(aimLockObserved || (pointerLockPendingSince!==null&&
+     now-pointerLockPendingSince>=POINTER_LOCK_TIMEOUT_MS)){
+   // Also catch a silently released lock when pointerlockchange is lost.
    suspendMatch('pointer');resetInactiveClock();
   }
  }
