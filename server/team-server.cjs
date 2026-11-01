@@ -20,7 +20,11 @@ function createFixedStepClock(onStep) {
   return now => {
     if (!Number.isFinite(now)) return 0;
     if (previous === null) {previous = now;return 0;}
-    remainder += Math.min(250, Math.max(0, now - previous));
+    // Ignore backward/jittered timestamps without moving the high-water mark.
+    // Otherwise a 10ms clock rollback followed by recovery is counted twice,
+    // advancing invisible 60Hz gameplay despite no equivalent elapsed time.
+    if (now <= previous) return 0;
+    remainder += Math.min(250, now - previous);
     previous = now;
     const steps = Math.min(MAX_CATCHUP_STEPS, Math.floor((remainder + 1e-8) / STEP_MS));
     for (let i = 0; i < steps; i++) onStep();

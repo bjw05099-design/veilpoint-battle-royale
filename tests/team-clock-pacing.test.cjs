@@ -45,11 +45,29 @@ test('clock rollback cannot create phantom elapsed ticks', () => {
   let count = 0;
   const advance = createFixedStepClock(() => count++);
   advance(100);
-  advance(90);
-  advance(90);
+  assert.equal(advance(90), 0);
+  assert.equal(advance(90), 0);
+  assert.equal(advance(100), 0);
+  assert.equal(advance(110), 0, 'recovery past a rollback must not double-count ten milliseconds');
   assert.equal(count, 0);
-  advance(100);
-  assert.equal(count, 0);
-  advance(110);
+  assert.equal(advance(116.667), 1);
   assert.equal(count, 1);
+  assert.equal(advance(115), 0, 'later jitter must not rewind the high-water mark');
+  assert.equal(advance(120), 0);
+  assert.equal(count, 1);
+});
+
+test('clock jitter and a long stall do not create phantom catch-up steps', () => {
+  let ticks = 0;
+  const advance = createFixedStepClock(() => ticks++);
+  advance(1000);
+  assert.equal(advance(999), 0);
+  assert.equal(advance(1005), 0);
+  assert.equal(advance(1010), 0);
+  assert.equal(advance(1017), 1);
+  assert.equal(ticks, 1);
+  assert.equal(advance(3017), 5, 'real long stalls remain bounded');
+  assert.equal(advance(3010), 0);
+  assert.equal(advance(3017), 0);
+  assert.equal(ticks, 6);
 });
