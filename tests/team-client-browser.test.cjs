@@ -1457,3 +1457,58 @@ test('PC team HUD shows the server-owned 60Hz countdown and tied timeout', async
   assert.match(a.node('status').textContent, /제한 시간 종료 · 동점 무승부/);
   assert.equal(b.node('tick').textContent, a.node('tick').textContent);
 });
+
+test('PC voluntary leave releases an active authoritative seat and permits immediate rejoin', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click();b.node('join').click();await settle();
+  assert.equal(a.node('leave').disabled, false);
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await b.poll();await settle();
+  assert.equal(server.match.phase, 'playing');
+  const departingToken = a.storage.get('veilpoint.team.tabSession');
+  a.doc('keydown', {code: 'KeyD'});
+  a.node('leave').click();
+  await settle();
+  assert.equal(server.match.players.has(departingToken), false);
+  assert.equal(server.match.players.size, 1);
+  assert.equal(server.match.phase, 'ended');
+  assert.equal(server.match.reason, 'player_left');
+  assert.equal(a.storage.has('veilpoint.team.tabSession'), false);
+  assert.equal(a.node('join').disabled, false);
+  assert.equal(a.node('leave').disabled, true);
+  assert.equal(a.node('ready').disabled, true);
+  assert.equal(a.node('name').disabled, false);
+  assert.equal(server.requests.filter(r => r.token === departingToken &&
+    r.body?.type === 'leave').length, 1);
+  a.node('join').click();await settle();
+  assert.equal(server.match.players.size, 2);
+  assert.notEqual(a.storage.get('veilpoint.team.tabSession'), departingToken);
+  await b.poll();await settle();
+  a.node('ready').click();b.node('ready').click();await settle();
+  assert.equal(server.match.phase, 'playing', 'both participants can consent to a fresh round');
+});
+
+test('unacknowledged voluntary leave preserves the only token for retry, not a duplicate join', async () => {
+  const server = backend(), original = server.fetchLocal;
+  let failures = 0;
+  server.fetchLocal = (route, options = {}) => {
+    if (route === '/command' && JSON.parse(options.body).type === 'leave' && failures++ === 0)
+      return Promise.resolve({ok: false, status: 503,
+        json: async () => ({error: 'temporary_network_failure'})});
+    return original(route, options);
+  };
+  const ui = boot(server);
+  ui.node('join').click();await settle();
+  const token = ui.storage.get('veilpoint.team.tabSession');
+  ui.node('leave').click();await settle();
+  assert.equal(ui.storage.get('veilpoint.team.tabSession'), token);
+  assert.equal(ui.node('join').disabled, true);
+  assert.equal(ui.node('leave').disabled, false);
+  assert.match(ui.node('status').textContent, /퇴장 확인 실패/);
+  ui.node('join').click();await settle();
+  assert.equal(server.match.players.size, 1);
+  ui.node('leave').click();await settle();
+  assert.equal(server.match.players.size, 0);
+  assert.equal(ui.storage.has('veilpoint.team.tabSession'), false);
+  assert.equal(ui.node('join').disabled, false);
+});
