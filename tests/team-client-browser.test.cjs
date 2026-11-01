@@ -1614,3 +1614,17 @@ test('stale PC team state polling cannot override a queued ready cancellation', 
   assert.equal(server.match.players.get(token).ready, false);
   assert.equal(ui.node('ready').textContent, '준비 / 재대전');
 });
+
+test('PC lobby accepts server revocation of a solo ready vote when a peer joins', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); await settle();
+  a.node('ready').click(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  assert.equal(server.match.players.get(token).ready, true);
+  // The peer joins before the original tab sees a confirming state poll.
+  b.node('join').click(); await settle();
+  assert.equal(server.match.players.get(token).ready, false);
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').textContent, '준비 / 재대전');
+  assert.equal(server.match.phase, 'lobby');
+});
