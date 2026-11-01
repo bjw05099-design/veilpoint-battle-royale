@@ -70,10 +70,21 @@
   return typeof navigator.userAgent==='string'&&/\bWindows NT\b/i.test(navigator.userAgent);
  }
  function isInteractiveTarget(target){
-  if(!target||typeof target!=='object')return false;
-  const tag=typeof target.tagName==='string'?target.tagName.toUpperCase():'';
-  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||
-    target.isContentEditable===true;
+  // Keyboard events often originate from a child span/icon/text node inside
+  // a focused button or editable control. Check the composed ancestor chain,
+  // not just event.target, so all three PC modes suppress ghost gameplay keys.
+  // The bound also guards against malformed/cyclic synthetic event targets.
+  let node=target;
+  const seen=new Set();
+  for(let depth=0;node&&depth<32;depth++){
+   if(typeof node!=='object'||seen.has(node))return false;
+   seen.add(node);
+   const tag=typeof node.tagName==='string'?node.tagName.toUpperCase():'';
+   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||tag==='BUTTON'||
+      tag==='OPTION'||node.isContentEditable===true)return true;
+   node=node.parentElement||node.parentNode||node.host||null;
+  }
+  return false;
  }
  // Request unaccelerated PC mouse movement when the browser supports it.
  // Unsupported raw input falls back to standard pointer lock; permission
