@@ -2,6 +2,23 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {TeamMatch, WIN_SCORE, INPUT_LEASE_TICKS} = require('../src/team-match.cjs');
+test('every terminal result clears unearned relay progress without changing awarded score', () => {
+  for (const reason of ['player_left', 'connection_timeout', 'opponent_incapacitated', 'mutual_incapacitation']) {
+    const {m, setNow} = setup();
+    const a = m.players.get('a');
+    a.x = 0; a.z = 0;
+    m.command('a', {seq: 2, type: 'capture', active: true});
+    for (let i = 0; i < 30; i++) m.step();
+    assert.ok(m.progress.red > 0, 'a real incomplete relay was underway');
+    if (reason === 'player_left') m.command('b', {seq: 2, type: 'leave'});
+    else if (reason === 'connection_timeout') {setNow(31000);m.step();}
+    else m.finish(reason === 'mutual_incapacitation' ? null : 'blue', reason);
+    assert.equal(m.phase, 'ended');
+    assert.equal(m.reason, reason);
+    assert.deepEqual(m.progress, {red: 0, blue: 0});
+    assert.deepEqual(m.score, {red: 0, blue: 0});
+  }
+});
 const setup = () => {
   let now = 0;
   const m = new TeamMatch({now: () => now});
