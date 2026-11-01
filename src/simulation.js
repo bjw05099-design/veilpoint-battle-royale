@@ -327,6 +327,11 @@
     const visibleActors=[p,...game.bots];
     // Opponent behavior is intentionally simple and deterministic for a zero-asset offline prototype.
     for(const b of game.bots) {
+      // Once a live shot incapacitates the player, freeze later actors in the
+      // same tick. Otherwise they can patrol, turn and consume random state
+      // after the result has already been decided. A published boundary
+      // deadline is different: every rival must still be assessed fairly.
+      if(game.status!=='playing'&&!boundaryDeadline)break;
       if(!b.alive) continue;
       b.moveTime-=dt;
       if(b.moveTime<=0){b.moveTime=1+game.random()*3; b.angle+=(game.random()-0.5)*2.8;}
