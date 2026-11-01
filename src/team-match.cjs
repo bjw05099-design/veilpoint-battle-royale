@@ -123,12 +123,8 @@ class TeamMatch {
       // A completed result belongs to its former participants. Once both
       // leases expire, the next local pair must enter a genuinely fresh lobby,
       // not inherit a stale winner, score, progress or five-minute clock.
+      this.resetRoundState();
       this.phase = 'lobby';
-      this.score = {red: 0, blue: 0};
-      this.progress = {red: 0, blue: 0};
-      this.ticks = 0;
-      this.winner = null;
-      this.reason = null;
     }
   }
   join(token, name) {
@@ -142,6 +138,13 @@ class TeamMatch {
         hasLoneSurrogate(name)) throw new RangeError('invalid_name');
     const displayName = name.trim().normalize('NFC');
     if (!displayName || displayName.length > 24) throw new RangeError('invalid_name');
+    if (this.phase === 'ended') {
+      // A newly paired guest is not a participant in the previous result.
+      // Reset old scores, clock and survivor health before publishing a lobby
+      // snapshot; the surviving guest must explicitly ready again.
+      this.resetRoundState();
+      this.phase = 'lobby';
+    }
     const red = [...this.players.values()].filter(p => p.team === 'red').length;
     const blue = this.players.size - red;
     const team = red <= blue ? 'red' : 'blue';
@@ -386,8 +389,10 @@ class TeamMatch {
       }
       return {ok: true, hit: confirmedHit, ammo: p.ammo};
   }
-  start() {
-    this.phase = 'playing';
+  // Shared authoritative reset for a new pair and for the next actual round.
+  // Preserve authenticated identity, loadout choice, accessibility preference,
+  // command sequence and live session lease; never carry old injuries or inputs.
+  resetRoundState() {
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
     this.ticks = 0;
@@ -416,6 +421,10 @@ class TeamMatch {
       p.triggerHeld = false;
       p.lastTriggerTick = 0;
     }
+  }
+  start() {
+    this.resetRoundState();
+    this.phase = 'playing';
   }
   finish(winner, reason) {
     this.phase = 'ended';
