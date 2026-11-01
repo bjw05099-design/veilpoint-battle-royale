@@ -25,7 +25,7 @@ benchmarkStart.addEventListener('click',()=>{
  benchmark.arm({graphicsPreset:graphicsSettings.preset,fpsCap:graphicsSettings.fpsCap,
   chosenRenderScale:graphicsSettings.resolutionScale,autoResolution,
   viewportCssPixels:{width:global.innerWidth,height:global.innerHeight},devicePixelRatio:global.devicePixelRatio,
-  browserUserAgent:global.navigator.userAgent,gpuTimerSupported:!!(renderer&&renderer.gpuTimer&&renderer.gpuTimer.supported),
+  browserUserAgent:(global.navigator&&global.navigator.userAgent)||'unavailable',gpuTimerSupported:!!(renderer&&renderer.gpuTimer&&renderer.gpuTimer.supported),
   referenceHardware:'RTX 3070 / 16 GB system RAM / QHD 165 Hz (owner reported; NOT browser verified)'});
  benchmarkUi();
 });
