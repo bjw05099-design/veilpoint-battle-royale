@@ -136,12 +136,23 @@
   function canSeePlayer(state,hostile) {
     const p=state.world.player;
     const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
-    if(distance<.001||distance>HOSTILE_ALERT_RANGE||
-      Sim.lineBlocked(hostile.x,hostile.z,p.x,p.z,
-        state.world.obstacles.concat(actorBlockers(state,hostile))))return false;
-    const bearing=Math.atan2(dx,-dz);
-    const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
-    return Math.abs(delta)<=1.1;
+    if(distance<.001||distance>HOSTILE_ALERT_RANGE)return false;
+    // CH01 uses the same bounded three-point standing silhouette as BR.
+    // An exposed shoulder can be observed beside cover, but neither a wall
+    // nor another standing person may reveal a completely concealed player.
+    // This is a finite 2D visibility proxy, not an aim or damage shortcut.
+    const sideX=-dz/distance*.85*.8,sideZ=dx/distance*.85*.8;
+    const blockers=state.world.obstacles.concat(actorBlockers(state,hostile));
+    const visible=(x,z)=>{
+      const vx=x-hostile.x,vz=z-hostile.z,range=Math.hypot(vx,vz);
+      if(range>HOSTILE_ALERT_RANGE||
+        Sim.lineBlocked(hostile.x,hostile.z,x,z,blockers))return false;
+      const bearing=Math.atan2(vx,-vz);
+      const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
+      return Math.abs(delta)<=1.1;
+    };
+    return visible(p.x,p.z)||visible(p.x+sideX,p.z+sideZ)||
+      visible(p.x-sideX,p.z-sideZ);
   }
   function nearest(state) {
     const p=state.world.player;
