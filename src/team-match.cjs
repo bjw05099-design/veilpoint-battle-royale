@@ -38,9 +38,13 @@ const STRESS_THRESHOLD = 60;
 const STRESS_DECAY_PER_TICK = 0.03;
 // Fictional gameplay profiles, not real-world firearm specifications.
 const LOADOUTS = Object.freeze({
-  carbine:Object.freeze({magazine:MAGAZINE_ROUNDS,reserve:SPARE_ROUNDS,damage:FIRE_DAMAGE,intervalTicks:FIRE_INTERVAL_TICKS,reloadTicks:RELOAD_TICKS,range:FIRE_RANGE}),
-  compact:Object.freeze({magazine:18,reserve:36,damage:22,intervalTicks:12,reloadTicks:75,range:55}),
-  precision:Object.freeze({magazine:6,reserve:18,damage:55,intervalTicks:42,reloadTicks:120,range:FIRE_RANGE})
+  carbine:Object.freeze({magazine:MAGAZINE_ROUNDS,reserve:SPARE_ROUNDS,damage:FIRE_DAMAGE,intervalTicks:FIRE_INTERVAL_TICKS,reloadTicks:RELOAD_TICKS,range:FIRE_RANGE,mobility:1}),
+  compact:Object.freeze({magazine:18,reserve:36,damage:22,intervalTicks:12,reloadTicks:75,range:55,mobility:1.06}),
+  marksman:Object.freeze({magazine:8,reserve:24,damage:48,intervalTicks:33,reloadTicks:129,range:FIRE_RANGE,mobility:0.90}),
+  shotgun:Object.freeze({magazine:6,reserve:18,damage:70,intervalTicks:42,reloadTicks:144,range:20,mobility:0.94}),
+  support:Object.freeze({magazine:24,reserve:48,damage:24,intervalTicks:9,reloadTicks:192,range:120,mobility:0.82}),
+  sidearm:Object.freeze({magazine:10,reserve:30,damage:25,intervalTicks:15,reloadTicks:78,range:55,mobility:1.10}),
+  precision:Object.freeze({magazine:6,reserve:18,damage:55,intervalTicks:42,reloadTicks:120,range:FIRE_RANGE,mobility:0.84})
 });
 // Fixed-step intent lease: disconnected/suspended input must not move or capture forever.
 // Clients periodically renew held intent; heartbeat/state polling never renews it.
@@ -452,7 +456,8 @@ class TeamMatch {
       }
       const from = {x: p.x, z: p.z};
       const next = {...from};
-      const speed = SPEED * injuryMobility(p);
+      // Carried equipment affects traversal as well as the server-owned shot rules.
+      const speed = SPEED * LOADOUTS[p.weaponId].mobility * injuryMobility(p);
       moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
         COVER, PLAYER_RADIUS);
       next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
