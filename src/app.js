@@ -108,7 +108,10 @@ function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
 const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
-let pointerLockAttempt=0;
+// A browser may never resolve or reject a pointer-lock permission request.
+// Fail closed to a visible, resumable pause rather than leaving a hidden frozen game.
+const POINTER_LOCK_TIMEOUT_MS=4000;
+let pointerLockAttempt=0,pointerLockPendingSince=null,aimLockObserved=false;
 // A desktop player without pointer lock cannot aim; freeze both fire and the
 // 60Hz world while permission is pending or the browser refuses the lock.
 const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!document.hidden&&simulation.status==='playing'&&
@@ -179,6 +182,7 @@ const isTouch=!Desktop.isWindowsPC(global.navigator) &&
 function requestAimLock(){
  if(isTouch)return;
  const attempt=++pointerLockAttempt;
+ pointerLockPendingSince=performance.now();aimLockObserved=false;
  if(typeof canvas.requestPointerLock!=='function'){
   suspendMatch('pointer');resetInactiveClock();return;
  }
@@ -271,7 +275,7 @@ addEventListener('keyup',e=>{
 function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- persistMatch();suspended=true;pointerLockAttempt++;
+ persistMatch();suspended=true;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
@@ -392,7 +396,20 @@ function end(){if(benchmark)benchmark.finish('match-ended');clearStoredMatch();r
  document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getFinalPlacement(simulation)}위`;
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
-function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
+function frame(now){requestAnimationFrame(frame);
+ // Watch the actual browser permission state, not just a Promise: older
+ // browsers can leave it pending indefinitely without an error event.
+ // An acquired lock always wins even if its event has not been dispatched.
+ if(running&&!suspended&&!isTouch){
+  if(document.pointerLockElement===canvas){
+   pointerLockPendingSince=null;aimLockObserved=true;
+  }else if(aimLockObserved || (pointerLockPendingSince!==null&&
+     now-pointerLockPendingSince>=POINTER_LOCK_TIMEOUT_MS)){
+   // Also catch a silently released lock when pointerlockchange is lost.
+   suspendMatch('pointer');resetInactiveClock();
+  }
+ }
+ let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
  if(renderer){if(canAct()){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{

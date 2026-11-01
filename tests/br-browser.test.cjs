@@ -1027,3 +1027,82 @@ test('PC benchmark cannot silently measure a different graphics preset after arm
  assert.match(app.node('benchmarkStatus').textContent,/graphics-settings-changed/);
  assert.equal(app.node('benchmarkStop').disabled,true);
 });
+
+test('PC BR silent pointer-lock permission stall pauses safely and preserves the match', () => {
+ const app=boot({pointerLock:'pending'});
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,rounds=game.player.charges;
+ app.emit('keydown',{code:'KeyW'});
+ app.frame(3999);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true,
+   'short permission prompts must not be interrupted');
+ assert.equal(game.elapsed,0,'no world simulation before permission');
+ app.frame(4001);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false,
+   'a silent browser permission stall must return to a visible pause');
+ assert.equal(app.node('play').textContent,'이어하기');
+ assert.match(app.selectors.get('.tagline').textContent,/포인터 잠금/);
+ assert.equal(game.elapsed,0);
+ assert.equal(game.player.charges,rounds);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ const saved=app.store.get('veilpoint.brCheckpoint.v1');
+ assert.ok(saved,'the original round must remain resumable');
+ assert.equal(app.context.VeilpointSim.restoreMatch(saved).elapsed,0);
+ // A new user gesture can retry permission without replacing the round.
+ app.node('play').click();
+ app.context.document.pointerLockElement=app.node('scene');
+ app.frame(4050);
+ assert.equal(app.game,game);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(game.elapsed>0,'fresh permission resumes the original fixed-step world');
+});
+
+test('PC BR a late pointer-lock grant after watchdog pause cannot reclaim the mouse', async () => {
+ const app=boot({pointerLock:'late'});
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ app.frame(4500);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.grantPointerLock();
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(app.context.document.pointerLockElement,null,
+   'canceled permission must release a late browser grant');
+ app.frame(4600);
+ assert.equal(game.elapsed,0);
+ assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+});
+
+test('PC BR granted pointer lock wins over an undelivered permission event', () => {
+ const app=boot({pointerLock:'pending'});
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ app.frame(3900);
+ app.context.document.pointerLockElement=app.node('scene');
+ app.frame(4200);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true,
+   'a valid lock must not be timed out solely because no event fired');
+ assert.ok(game.elapsed>0);
+ app.frame(9000);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true,
+   'the completed permission must not trigger a later stale timeout');
+});
+
+test('PC BR a silently lost acquired pointer lock pauses before another hostile tick', () => {
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,before=game.elapsed;
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
+ app.emit('keydown',{code:'KeyW'});
+ // Some embedded browsers can drop the lock without delivering pointerlockchange.
+ app.context.document.exitPointerLock();
+ app.frame(5000);
+ assert.equal(game.elapsed,before,'no simulation after an unannounced lock release');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ assert.ok(app.store.has('veilpoint.brCheckpoint.v1'));
+ app.node('play').click();
+ app.frame(5050);
+ assert.equal(app.game,game,'explicit resume must keep the original round');
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(game.elapsed>before);
+});
