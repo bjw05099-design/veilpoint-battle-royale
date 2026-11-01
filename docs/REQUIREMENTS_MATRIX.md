@@ -833,3 +833,8 @@ BR and CH01 browser pointer-lock requests now prefer `unadjustedMovement` for pr
 ## 2026-11-01 Windows PC focused-link / ARIA control input guard (R-08 / R-23 / R-25)
 - **Partial, CI pending:** Shared desktop keyboard focus detection now recognizes focused help anchors, summary disclosures, ARIA widgets and contenteditable regions (including nested children) so PC navigation cannot accidentally move/fire in BR, CH01 or the two-client team prototype. Added Node unit and browser-controller regressions for all three playable slices. Existing touch code is unchanged and no new touch feature/test is introduced.
 - **Evidence boundary:** GitHub Actions must pass syntax, Node, and offline package checks before merge. Real Windows browser focus behavior, pointer-lock latency, RTX 3070 QHD 165Hz with **16GB system RAM**, UE5 native, and release-grade three-mode realism remain **unverified**.
+
+
+## 2026-11-01 — Local team stalled-upload deadline (R-12 / R-23, P0)
+- **Implementation candidate:** A partial, under-2KiB JSON request now has a bounded 5-second body deadline; the loopback server responds with HTTP 408 and does not allocate a lobby seat. Existing early HTTP 413 for oversized uploads is preserved. This deadline protects local prototype availability; it is **not** production-grade internet DoS mitigation.
+- **Regression:** Node unit cases for incomplete, late and valid UTF-8 JSON, plus a real loopback HTTP stalled-join and recovery test. Verify the branch CI and actual Windows browser behavior before merging. All three final modes, Unreal native packaging, photorealism and RTX 3070 QHD 165Hz / 16GB RAM remain **unverified**.
