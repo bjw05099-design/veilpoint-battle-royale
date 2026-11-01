@@ -30,7 +30,7 @@ function boot(store=new Map()){
   addEventListener:(name,fn)=>on(events,name,fn),console,
   VeilpointRenderer:class{constructor(canvas){this.canvas=canvas;this.gpuTimer={supported:false};}setGraphicsQuality(){}draw(g){rendered=g;}setAdaptiveResolution(){}}};
  global.globalThis=global;
- for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/graphics.js','src/clock.js','src/fps.js','src/desktop-controls.js','src/app.js'])
+ for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/benchmark.js','src/graphics.js','src/clock.js','src/fps.js','src/desktop-controls.js','src/app.js'])
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,file),'utf8'),global,{filename:file,timeout:1500});
  return {node,store,global,emit:(name,arg)=>emit(events,name,arg),frame(ms){now=ms;assert.equal(typeof frameCallback,'function');frameCallback(ms);},get game(){return rendered;}};
 }
@@ -156,4 +156,25 @@ test('BR end screen ranks an eliminated player behind survivors, never as champi
  assert.equal(champion.game.status,'won');
  champion.frame(2000/60);
  assert.match(champion.node('selector-.tagline').textContent,/순위 1위/);
+});
+
+
+test('opt-in PC benchmark starts only with active rendering and stops on match pause',()=>{
+ const app=boot();
+ const start=app.node('benchmarkStart'),stop=app.node('benchmarkStop'),download=app.node('benchmarkExport');
+ assert.equal(start.disabled,false);
+ assert.equal(download.disabled,true);
+ start.click();
+ assert.match(app.node('benchmarkStatus').textContent,/준비됨/);
+ app.frame(32);
+ assert.match(app.node('benchmarkStatus').textContent,/준비됨/,'ready/menu render must not start an active benchmark');
+ app.node('play').click();
+ for(const ms of [300,316,332,348])app.frame(ms);
+ assert.match(app.node('benchmarkStatus').textContent,/측정 중/);
+ assert.equal(start.disabled,true);
+ app.emit('blur');
+ app.frame(650);
+ assert.match(app.node('benchmarkStatus').textContent,/측정 종료/);
+ assert.equal(stop.disabled,true);
+ assert.equal(download.disabled,true,'less than warmup must not invent performance evidence');
 });
