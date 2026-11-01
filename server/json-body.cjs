@@ -29,7 +29,10 @@ function readJson(req, maxBytes = 2048, timeoutMs = 5000) {
       if (typeof req.resume === 'function') req.resume();
     }, timeoutMs);
     req.on('data', chunk => {
-      if (tooLarge) return;
+      // Once timeout, abort or an oversized upload has settled the request,
+      // ignore subsequent chunks. The socket may still drain, but a peer
+      // cannot grow the abandoned buffer without a live HTTP handler.
+      if (settled || tooLarge) return;
       bytes += chunk.length;
       if (bytes > maxBytes) {
         tooLarge = true; chunks.length = 0;
