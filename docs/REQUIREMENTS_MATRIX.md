@@ -1,3 +1,8 @@
+## 2026-11-01 PC benchmark sample integrity / actual canvas backing size (R-08 / R-23 / R-25)
+
+- **Partial P0 measurement integrity candidate:** The offline BR benchmark now records CPU draw times, effective render scale and actual canvas backing dimensions only for complete post-warmup render intervals. Changing graphics settings while a benchmark is merely armed now terminates it explicitly, preventing an exported JSON report from silently describing a different preset. The JSON exposes observed min/max backing pixel width and height, not the operating system's verified QHD output or physical 165Hz refresh.
+- **Evidence boundary:** Deterministic Node unit and browser-controller regression cases target warmup alignment, malformed canvas dimensions, re-arming and preset changes. CI at the PR head and Windows RTX 3070 / QHD 165Hz / **16GB system RAM** measurements remain separate gates. Neither this instrumentation nor its passing tests establish actual 165FPS, GPU P95/P99, native Unreal performance, or completed three-mode play.
+
 ## 2026-11-01 offline demo ZIP closure / archive integrity (R-01 / R-23 / demo P0)
 
 - **Partial packaging/QA improvement (PR #210):** The offline ZIP verifier now rejects missing HTML-referenced local scripts/assets even if its per-file manifest hashes are internally consistent, rejects missing README/delivery documents, and requires contiguous non-aliased local ZIP records. Packager and verifier share the same direct HTML reference policy. Regression fixtures exercise missing dependencies, missing documentation, remote scripts and untracked ZIP padding.

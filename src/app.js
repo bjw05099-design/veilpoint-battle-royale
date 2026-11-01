@@ -60,7 +60,7 @@ soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
 function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
 function applyGraphicsSettings(){
- if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish('graphics-settings-changed');
+ if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))benchmark.finish('graphics-settings-changed');
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
  governor=perf.createResolutionGovernor({minScale:Math.min(.7,graphicsSettings.resolutionScale),maxScale:graphicsSettings.resolutionScale,initialScale:graphicsSettings.resolutionScale,targetFps:graphicsSettings.fpsCap});
  telemetry.clear();lastRenderTime=null;lastGovernorCheck=0;
@@ -413,7 +413,7 @@ function frame(now){requestAnimationFrame(frame);let dt=Math.min(Math.max((now-l
   telemetry.record('cpu',cpuMs);
   if(canAct()){
    const measuredScale=renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale;
-   if(benchmark)benchmark.frame(now,cpuMs,measuredScale);
+   if(benchmark)benchmark.frame(now,cpuMs,measuredScale,{width:canvas.width,height:canvas.height});
   }
   if(autoResolution&&renderer.gpuTimer&&renderer.gpuTimer.supported&&now-lastGovernorCheck>=1250){
    const gpu=telemetry.stats('gpu'),cpu=telemetry.stats('cpu');

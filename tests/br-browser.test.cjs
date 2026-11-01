@@ -93,7 +93,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
   };
   context.globalThis = context;
   for (const filename of ['src/simulation.js', 'src/visibility.js', 'src/performance.js',
-    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/desktop-controls.js', 'src/app.js']) {
+    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/app.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, filename), 'utf8'),
       context, {filename, timeout: 1500});
   }
@@ -1003,4 +1003,27 @@ test('PC BR OS shortcut transition releases held fire and movement',()=>{
  app.emit('keydown',{code:'ControlLeft',ctrlKey:true});
  assert.equal(input.fireHeld,false);assert.equal(input.forward,false);
  app.emit('keyup',{code:'Space'});app.emit('keyup',{code:'KeyW'});
+});
+
+
+test('PC benchmark cannot silently measure a different graphics preset after arming',()=>{
+ const app=boot({windows:true});
+ app.node('benchmarkStart').click();
+ assert.match(app.node('benchmarkStatus').textContent,/준비됨/);
+ app.node('graphicsPreset').value='balanced';
+ app.node('graphicsPreset').dispatch('change');
+ app.frame(300);
+ assert.match(app.node('benchmarkStatus').textContent,/graphics-settings-changed/);
+ assert.equal(app.node('benchmarkStop').disabled,true);
+ app.node('benchmarkStart').click();
+ app.node('play').click();
+ app.frame(600);
+ app.frame(620);
+ app.frame(900);
+ assert.match(app.node('benchmarkStatus').textContent,/측정 중/);
+ app.node('graphicsPreset').value='performance';
+ app.node('graphicsPreset').dispatch('change');
+ app.frame(1200);
+ assert.match(app.node('benchmarkStatus').textContent,/graphics-settings-changed/);
+ assert.equal(app.node('benchmarkStop').disabled,true);
 });
