@@ -1654,3 +1654,32 @@ test('PC crouch key press/release and focus loss are reconciled with server stan
   assert.equal(player.crouching, false, 'lost focus clears held crouch without waiting for lease');
   assert.equal(player.direction.x, 0, 'lost focus clears held movement too');
 });
+
+test('remapped PC crouch binding replaces the default key without ghost posture', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  const localStorage = {
+    getItem: key => a.storage.get(key) ?? null,
+    setItem: (key, value) => a.storage.set(key, value)
+  };
+  const remapped = Desktop.bind(Desktop.load(localStorage), 'crouch', 'KeyV');
+  assert.equal(remapped.ok, true);
+  assert.equal(Desktop.save(localStorage, remapped.value), true);
+  a.storageEvent({key: Desktop.STORAGE_KEY});
+  await settle();
+  a.doc('keydown', {code: 'KeyC'});
+  await settle();
+  assert.equal(player.crouching, false, 'old crouch key is no longer active');
+  a.doc('keyup', {code: 'KeyC'});
+  a.doc('keydown', {code: 'KeyV'});
+  await settle();
+  assert.equal(player.crouching, true, 'new PC key controls the server posture');
+  a.doc('keyup', {code: 'KeyV'});
+  await settle();
+  assert.equal(player.crouching, false);
+});
