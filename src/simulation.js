@@ -91,22 +91,36 @@
   // visual identification. This cheap segment/circle test avoids per-target
   // obstacle arrays inside the 60Hz rival perception loop.
   function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject), actors = null) {
-    if (distance >= 55 || lineBlocked(observer.x, observer.z, subject.x, subject.z, obstacles)) return false;
-    const bearing = Math.atan2(subject.x - observer.x, -(subject.z - observer.z));
-    if (Math.abs(normalizeAngle(bearing - observer.angle)) > 1.4) return false;
-    if (actors) {
-      const dx = subject.x - observer.x, dz = subject.z - observer.z;
-      const lengthSquared = dx * dx + dz * dz;
-      if (lengthSquared > 0) for (const actor of actors) {
-        if (actor === observer || actor === subject || !actor.alive) continue;
-        const projection = ((actor.x - observer.x) * dx + (actor.z - observer.z) * dz) / lengthSquared;
-        if (projection <= 0 || projection >= 1) continue;
-        const x = observer.x + projection * dx - actor.x;
-        const z = observer.z + projection * dz - actor.z;
-        if (x * x + z * z < ACTOR_RADIUS * ACTOR_RADIUS) return false;
+    if (distance >= 55) return false;
+    // A standing actor may be partially visible beside solid cover even when
+    // their centre is concealed. Use three finite silhouette samples, as the
+    // authoritative team snapshot does, rather than granting see-through walls
+    // or requiring an impossible fully exposed centre. This is a 2D proxy.
+    const dx = subject.x - observer.x, dz = subject.z - observer.z;
+    const sideX = distance > 1e-6 ? -dz / distance * ACTOR_RADIUS * 0.8 : 0;
+    const sideZ = distance > 1e-6 ? dx / distance * ACTOR_RADIUS * 0.8 : 0;
+    const rayVisible = (x, z) => {
+      const vx = x - observer.x, vz = z - observer.z;
+      const range = Math.hypot(vx, vz);
+      if (range >= 55 || lineBlocked(observer.x, observer.z, x, z, obstacles)) return false;
+      const bearing = Math.atan2(vx, -vz);
+      if (Math.abs(normalizeAngle(bearing - observer.angle)) > 1.4) return false;
+      if (actors && range > 1e-6) {
+        const lengthSquared = range * range;
+        for (const actor of actors) {
+          if (actor === observer || actor === subject || !actor.alive) continue;
+          const projection = ((actor.x - observer.x) * vx + (actor.z - observer.z) * vz) / lengthSquared;
+          if (projection <= 0 || projection >= 1) continue;
+          const offsetX = observer.x + projection * vx - actor.x;
+          const offsetZ = observer.z + projection * vz - actor.z;
+          if (offsetX * offsetX + offsetZ * offsetZ < ACTOR_RADIUS * ACTOR_RADIUS) return false;
+        }
       }
-    }
-    return true;
+      return true;
+    };
+    return rayVisible(subject.x, subject.z) ||
+      rayVisible(subject.x + sideX, subject.z + sideZ) ||
+      rayVisible(subject.x - sideX, subject.z - sideZ);
   }
   function approximateSoundPosition(source) {
     return {x: Math.round(source.x / 2) * 2, z: Math.round(source.z / 2) * 2};
