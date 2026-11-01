@@ -64,6 +64,25 @@ test('PC UI focus excludes form controls and buttons from gameplay key handling'
  assert.equal(C.isInteractiveTarget(null),false);
 });
 
+test('nested PC menu and editable descendants never dispatch gameplay hotkeys',()=>{
+ const button={tagName:'BUTTON'};
+ const icon={tagName:'SPAN',parentElement:button};
+ assert.equal(C.isInteractiveTarget(icon),true,'button icon inherits interactive focus');
+ const editable={tagName:'DIV',isContentEditable:true};
+ const child={tagName:'SPAN',parentElement:editable};
+ const textNode={nodeType:3,parentNode:child};
+ assert.equal(C.isInteractiveTarget(textNode),true,'nested editable text inherits protection');
+ const select={tagName:'SELECT'};
+ assert.equal(C.isInteractiveTarget({tagName:'OPTION',parentElement:select}),true);
+ const shadowHost={tagName:'BUTTON'};
+ const shadowRoot={host:shadowHost};
+ assert.equal(C.isInteractiveTarget({tagName:'SPAN',parentNode:shadowRoot}),true,
+  'shadow-root descendants inherit host button protection');
+ assert.equal(C.isInteractiveTarget({tagName:'CANVAS',parentElement:{tagName:'MAIN'}}),false);
+ const cyclic={tagName:'SPAN'};cyclic.parentNode=cyclic;
+ assert.equal(C.isInteractiveTarget(cyclic),false,'malformed event target cannot loop');
+});
+
 test('PC gameplay focus leaves the menu and prevents a hidden button owning Space',()=>{
  let active=null;
  const menu={blur(){if(active===menu)active=null;}};
