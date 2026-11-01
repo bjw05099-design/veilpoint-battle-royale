@@ -140,7 +140,7 @@
     return {x, z};
   };
   const aimAtWorld = (tx, tz) => {
-    if (!token || state?.phase !== 'playing') return;
+    if (leaving || !token || state?.phase !== 'playing') return;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
     if (!Number.isFinite(len) || len < 0.1) return;
@@ -193,6 +193,7 @@
     if (token && state?.phase === 'playing') void send('aimRelease');
   };
   canvas.addEventListener('pointerdown', event => {
+    if (leaving) return;
     // On hybrid devices, a mouse event must not steal a held touch gesture.
     if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
@@ -209,6 +210,7 @@
     }
   });
   canvas.addEventListener('pointermove', event => {
+    if (leaving) return;
     if (activeTouchAimPointer !== null && event.pointerType !== 'touch') return;
     if (event.pointerType === 'touch') {
       if (activeTouchAimPointer === null || activeTouchAimPointer !== (event.pointerId ?? -1)) return;
@@ -237,7 +239,7 @@
     releaseAim();
   });
   const updateInput = () => {
-    if (!token || !state || state.phase !== 'playing') return;
+    if (leaving || !token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
     // Renew only active movement at a bounded interval. Server expires intent after 90 ticks.
     if (key !== lastDirection || (key !== '0,0' && state.tick - lastMoveRefreshTick >= 20)) {
@@ -246,6 +248,7 @@
     }
   };
   const setCapture = active => {
+    if (leaving) {capturing = false;return;}
     // A lobby/finished key or button press is not an authorized round intent.
     // Do not queue it for the next server-owned phase.
     if (state?.phase !== 'playing') {capturing = false;return;}
@@ -255,6 +258,7 @@
     void send('capture', {active});
   };
   const setTrigger = active => {
+    if (leaving) {triggering = false;return;}
     if (state?.phase !== 'playing') {triggering = false;return;}
     if (triggering === active) return;
     triggering = active;
@@ -453,6 +457,7 @@
   el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
+    if (leaving) return;
     // Any focused form/menu control owns its keyboard events; no ghost fire,
     // movement or objective capture while entering names or navigating UI.
     if (Desktop.isInteractiveTarget(e.target)) return;
