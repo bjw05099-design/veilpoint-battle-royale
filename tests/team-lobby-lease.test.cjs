@@ -124,3 +124,69 @@ test('expired finished peer cannot rejoin via heartbeat while a live peer keeps 
   match.command('replacement', {seq: 1, type: 'ready'});
   assert.equal(match.phase, 'playing');
 });
+
+test('expired finished pair resets the entire old result before new guests see a lobby', () => {
+  let now = 0;
+  const match = new TeamMatch({now: () => now});
+  match.join('old-red', 'Old Red');
+  match.join('old-blue', 'Old Blue');
+  match.command('old-red', {seq: 1, type: 'ready'});
+  match.command('old-blue', {seq: 1, type: 'ready'});
+  for (let i = 0; i < 30; i++) match.step();
+  match.score.red = 2;
+  match.progress.blue = 0.75;
+  match.finish('red', 'objective_score');
+  assert.equal(match.winner, 'red');
+  assert.equal(match.ticks, 30);
+  now = 30001;
+  match.step();
+  assert.equal(match.phase, 'lobby');
+  assert.equal(match.players.size, 0);
+  assert.deepEqual(match.score, {red: 0, blue: 0});
+  assert.deepEqual(match.progress, {red: 0, blue: 0});
+  assert.equal(match.ticks, 0);
+  assert.equal(match.winner, null);
+  assert.equal(match.reason, null);
+  match.join('new-red', 'New Red');
+  const view = match.snapshot('new-red');
+  assert.equal(view.phase, 'lobby');
+  assert.deepEqual(view.score, {red: 0, blue: 0});
+  assert.equal(view.winner, null);
+  assert.equal(view.reason, null);
+  assert.equal(view.round.remainingTicks, view.round.limitTicks);
+});
+
+test('HTTP replacement guests never inherit an expired previous match result', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const join = async name => {
+    const response = await fetch(base + '/join', {method: 'POST',
+      headers: {'content-type': 'application/json'}, body: JSON.stringify({name})});
+    assert.equal(response.status, 201);
+    return response.json();
+  };
+  try {
+    await join('Old A');
+    await join('Old B');
+    server.match.phase = 'ended';
+    server.match.score.red = 2;
+    server.match.winner = 'red';
+    server.match.reason = 'objective_score';
+    server.match.ticks = 777;
+    now = 30001;
+    const newcomer = await join('New A');
+    const response = await fetch(base + '/state', {headers: {'x-player-token': newcomer.token}});
+    assert.equal(response.status, 200);
+    const state = await response.json();
+    assert.equal(state.phase, 'lobby');
+    assert.deepEqual(state.score, {red: 0, blue: 0});
+    assert.equal(state.winner, null);
+    assert.equal(state.reason, null);
+    assert.equal(state.tick, 0);
+    assert.equal(state.round.remainingTicks, state.round.limitTicks);
+  } finally {
+    await server.close();
+  }
+});
