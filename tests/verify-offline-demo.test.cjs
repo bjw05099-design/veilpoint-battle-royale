@@ -85,3 +85,25 @@ test('ZIP verification rejects untracked local-record padding even with valid CR
   padded.writeUInt32LE(directoryOffset + 1, padded.length - 22 + 16);
   assert.throws(() => inspectZip(padded), /invalid_demo_zip:local_layout/);
 });
+
+test('self-consistent archive cannot smuggle unreferenced executable files', () => {
+  const dir = fixture();
+  try {
+    const complete = collectFiles(dir);
+    const extra = {name: 'src/unused.js', data: Buffer.from('console.log("unexpected")')};
+    const archive = archiveWithValidManifest([...complete, extra]);
+    assert.throws(() => verifyArchive(archive),
+      /invalid_demo_zip:unexpected_file:src\/unused\.js/);
+    assert.doesNotThrow(() => verifyArchive(archiveWithValidManifest(complete)),
+      'referenced scripts and the original static files remain valid');
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});
+
+test('ZIP inspection bounds archive bytes and directory entries before parsing', () => {
+  assert.throws(() => inspectZip(Buffer.alloc(16 * 1024 * 1024 + 1)),
+    /invalid_demo_zip:archive_too_large/);
+  const many = buildZip(Array.from({length:129}, (_, i) => ({
+    name: 'f' + i + '.txt', data: Buffer.from('x')
+  })));
+  assert.throws(() => inspectZip(many), /invalid_demo_zip:entry_count/);
+});
