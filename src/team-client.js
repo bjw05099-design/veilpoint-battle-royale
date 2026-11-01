@@ -357,6 +357,8 @@
     el('stress').textContent = Math.round(state.self.stress);
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     el('ready').disabled = state.phase === 'playing';
+    el('ready').textContent = state.phase === 'playing' ? '대전 중' :
+      state.self.ready ? '준비 취소' : '준비 / 재대전';
     if (state.phase === 'ended') {
       const outcome = state.winner ? '승리 팀 ' + state.winner :
         state.reason === 'mutual_incapacitation' ? '동시 전투 불능 · 무승부' :
@@ -365,7 +367,15 @@
         '승리 팀 없음 (양측 연결 종료)';
       status(`종료 · ${outcome} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
     }
-    else if (state.phase === 'lobby') status('양쪽 플레이어가 준비 버튼을 눌러야 시작합니다.');
+    else if (state.phase === 'lobby') {
+      const participants = state.lobby?.participants ?? 2;
+      const ready = state.lobby?.ready ?? (state.self.ready ? 1 : 0);
+      status(participants < 2
+        ? '상대 입장 대기 · 양쪽 플레이어가 준비해야 시작합니다.'
+        : state.self.ready
+          ? `준비 완료 (${ready}/2) · 상대 준비 대기 · 준비 취소 가능`
+          : `양쪽 플레이어가 준비 버튼을 눌러야 시작합니다. (${ready}/2)`);
+    }
     else {
       const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
         controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전. 시야·피해·탄약은 서버에서 검증합니다.';
@@ -449,7 +459,10 @@
       }
     } finally {leaving = false;}
   });
-  el('ready').addEventListener('click', () => void send('ready'));
+  el('ready').addEventListener('click', () => {
+    if (!token || state?.phase === 'playing') return;
+    void send(state?.self?.ready ? 'unready' : 'ready');
+  });
   el('loadout').addEventListener('change', () => {
     if (token && state?.phase !== 'playing') void send('loadout', {weaponId: el('loadout').value});
   });

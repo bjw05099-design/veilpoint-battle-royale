@@ -1548,3 +1548,28 @@ test('PC movement, aim, trigger and capture stay inert during a pending failed l
   assert.equal(player.triggerHeld, false);
   assert.equal(server.match.players.size, 2, 'uncertain departure preserves the original seat');
 });
+
+test('PC lobby shows authoritative ready count and supports consent withdrawal', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); await settle();
+  await a.poll(); await settle();
+  assert.match(a.node('status').textContent, /상대 입장 대기/);
+  b.node('join').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  assert.match(a.node('status').textContent, /0\/2/);
+  a.node('ready').click(); await settle();
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').textContent, '준비 취소');
+  assert.match(a.node('status').textContent, /준비 완료 \(1\/2\)/);
+  a.node('ready').click(); await settle();
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').textContent, '준비 / 재대전');
+  assert.equal(server.match.players.get(a.storage.get('veilpoint.team.tabSession')).ready, false);
+  b.node('ready').click(); await settle();
+  assert.equal(server.match.phase, 'lobby');
+  a.node('ready').click(); await settle();
+  assert.equal(server.match.phase, 'playing');
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').disabled, true);
+  assert.ok(server.requests.some(r => r.body?.type === 'unready'));
+});

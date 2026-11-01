@@ -1,3 +1,8 @@
+## 2026-11-02 local PC team lobby consent and visibility (R-12 / R-14 / R-23)
+
+- **Partial P0 UX/authority:** Waiting participants can explicitly withdraw a sequenced ready vote before the round starts. The server publishes only lobby participant/ready counts; the PC UI displays opponent wait and cancel feedback. Late cancellation cannot undo an active round. This avoids accidental starts after a stale vote and clarifies the local two-client loop.
+- **Evidence boundary:** Deterministic rules, loopback HTTP and mocked PC browser regressions cover both clients' counts and renewed mutual consent. PR-head CI and actual Windows two-browser play remain separate gates. Public multiplayer, UE native play and RTX 3070 QHD 165Hz / 16GB RAM are unverified. No touch development.
+
 ## 2026-11-02 local team match result isolation on seat expiry (R-12 / R-14 / R-23)
 
 - **Partial P0 session integrity (PR #219):** Once both finished-round participants' 30-second local leases expire, the server now resets the previous winner, result reason, score, relay progress and round clock before admitting a new pair. A still-connected participant retains the finished result until their own lease expires; existing rematch consent rules remain unchanged. New pure-match and loopback HTTP regressions check that fresh guests do not inherit prior results.
