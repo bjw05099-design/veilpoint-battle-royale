@@ -50,3 +50,18 @@ test('BR partial-cover sight is deterministic across identical 60Hz streams', ()
     assert.equal(a.player.health, b.player.health);
   }
 });
+
+test('BR visible-edge opponent spends a finite round but cannot hit through solid cover', () => {
+  const game = encounter(2.0, 92343);
+  const opponent = game.bots[0];
+  opponent.actionTime = 0;
+  opponent.skill = 1; // Deterministic centre-directed ray must stop at the wall.
+  const before = opponent.charges;
+  Sim.tick(game, 1 / 60, {});
+  assert.equal(opponent.charges, before - 1,
+    'a physically visible edge permits a bounded shot attempt');
+  assert.equal(opponent.loaded, 11);
+  assert.equal(game.player.health, 100,
+    'the actual shot ray cannot penetrate a wall hiding the body centre');
+  assert.equal(game.status, 'playing');
+});
