@@ -337,17 +337,7 @@ test('Ctrl/Alt cannot be saved as dead PC bindings; legacy preferences safely fa
 });
 
 test('PC remapping UI rejects bare OS modifiers and still accepts a later valid key',()=>{
- const nodes=new Map();
- const doc={getElementById(id){
-  if(!nodes.has(id))nodes.set(id,{value:id==='desktopBindAction'?'fire':'',
-   checked:false,textContent:'',addEventListener(){}});
-  return nodes.get(id);
- }};
- const ui=C.attach(doc,{getItem(){return null;},setItem(){}});
- ui.captureKey({code:'ControlLeft',preventDefault(){}});
- // Enter remap mode before trying the bare modifier (some synthetic events omit ctrlKey).
- nodes.get('desktopBindKey').textContent='';
- // attach() uses a click listener; capture that listener with an explicit mock below.
+ // Synthetic modifier keydown may lack ctrlKey/altKey; validation must still reject it.
  const events=new Map(),elements=new Map();
  const doc2={getElementById(id){
   if(!elements.has(id))elements.set(id,{value:id==='desktopBindAction'?'fire':'',
@@ -357,10 +347,12 @@ test('PC remapping UI rejects bare OS modifiers and still accepts a later valid 
  const editor=C.attach(doc2,{getItem(){return null;},setItem(){}});
  events.get('desktopBindKey:click')();
  let prevented=0;
+ assert.equal(editor.captureKey({code:'ControlLeft',preventDefault(){prevented++;}}),true);
+ assert.equal(editor.get().bindings.fire,'Space');
  assert.equal(editor.captureKey({code:'AltLeft',preventDefault(){prevented++;}}),true);
  assert.match(elements.get('desktopBindStatus').textContent,/사용할 수 없는 키/);
  assert.equal(editor.get().bindings.fire,'Space');
  assert.equal(editor.captureKey({code:'KeyT',preventDefault(){prevented++;}}),true);
  assert.equal(editor.get().bindings.fire,'KeyT');
- assert.equal(prevented,2);
+ assert.equal(prevented,3);
 });
