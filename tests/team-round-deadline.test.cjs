@@ -52,6 +52,8 @@ test('a valid objective completed on the final tick beats the time limit', () =>
   red.capturing = true;
   red.captureHeld = true;
   red.captureArmed = true;
+  // The held capture intent must still have a valid 90-tick server lease.
+  red.lastCaptureTick = ROUND_LIMIT_TICKS - 1;
   match.score.red = 2;
   match.progress.red = CAPTURE_SECONDS - STEP;
   match.ticks = ROUND_LIMIT_TICKS - 1;
