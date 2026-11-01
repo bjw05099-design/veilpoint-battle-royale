@@ -411,6 +411,11 @@ class TeamMatch {
     this.phase = 'ended';
     this.winner = winner;
     this.reason = reason;
+    // A finished round cannot display an unfinished relay as still progressing.
+    // Apply this to every ending (leave, timeout, injury, draw and score), not
+    // only the time-limit path; completed score is preserved separately.
+    this.progress.red = 0;
+    this.progress.blue = 0;
     for (const p of this.players.values()) {
       p.direction = {x: 0, z: 0};
       p.aiming = false;
