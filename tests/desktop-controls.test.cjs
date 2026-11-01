@@ -110,6 +110,35 @@ test('PC keyboard and mouse held-fire sources are independent and reset on pause
  assert.equal(latch.press('unknown'),false,'unrecognized sources cannot latch firing');
 });
 
+test('offline BR and CH01 release held PC movement/fire on nested settings focus',()=>{
+ const nodes=new Map(),listeners=new Map();
+ const doc={
+  addEventListener:(name,callback)=>listeners.set(name,callback),
+  getElementById(id){
+   if(!nodes.has(id))nodes.set(id,{
+    value:id==='desktopBindAction'?'fire':'',checked:false,textContent:'',
+    addEventListener(){}
+   });
+   return nodes.get(id);
+  }
+ };
+ const storage={getItem(){return null;},setItem(){}};
+ let releases=0;
+ C.attach(doc,storage,()=>releases++);
+ const focus=listeners.get('focusin');
+ assert.equal(typeof focus,'function');
+ focus({target:{tagName:'CANVAS'}});
+ assert.equal(releases,0,'gameplay canvas focus must not cancel live input');
+ const button={tagName:'BUTTON'};
+ focus({target:{tagName:'SPAN',parentElement:button}});
+ assert.equal(releases,1,'nested button focus releases held movement and trigger');
+ const editable={tagName:'DIV',isContentEditable:true};
+ focus({target:{tagName:'SPAN',parentElement:editable}});
+ assert.equal(releases,2,'editable descendants release held inputs');
+ focus({target:{tagName:'INPUT'}});
+ assert.equal(releases,3,'sensitivity field focus releases held inputs');
+});
+
 test('PC raw mouse lock requests unadjusted movement and caches unsupported fallback',async()=>{
  const calls=[];
  const canvas={requestPointerLock(options){
