@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {packageDemo, buildZip} = require('../scripts/package-offline-demo.cjs');
+const crypto = require('node:crypto');
+const {packageDemo, collectFiles, buildZip} = require('../scripts/package-offline-demo.cjs');
 const {inspectZip, verifyArchive, verifyPackage} = require('../scripts/verify-offline-demo.cjs');
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veilpoint-verify-'));
@@ -49,4 +50,38 @@ test('sidecar mismatch cannot be reported as verified delivery', () => {
     fs.writeFileSync(made.output + '.sha256', '0'.repeat(64) + '  veilpoint-offline-demo.zip\n');
     assert.throws(() => verifyPackage(made.output), /invalid_demo_zip:sidecar/);
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});
+
+function archiveWithValidManifest(files) {
+  const digest = data => crypto.createHash('sha256').update(data).digest('hex');
+  const manifest = files.map(f => digest(f.data) + '  ' + f.name).join('\n') + '\n';
+  return buildZip([...files, {name: 'MANIFEST.sha256', data: Buffer.from(manifest)},
+    {name: 'NOTICE.txt', data: Buffer.from('offline candidate')}]
+    .sort((a, b) => a.name.localeCompare(b.name, 'en')));
+}
+
+test('verified ZIP cannot silently omit referenced scripts despite a valid manifest', () => {
+  const dir = fixture();
+  try {
+    const complete = collectFiles(dir);
+    const withoutScript = archiveWithValidManifest(complete.filter(f => f.name !== 'src/game.js'));
+    assert.throws(() => verifyArchive(withoutScript), /invalid_demo_zip:missing_asset:src\/game.js/);
+    const withoutReadme = archiveWithValidManifest(complete.filter(f => f.name !== 'README.md'));
+    assert.throws(() => verifyArchive(withoutReadme), /invalid_demo_zip:required_files/);
+    const unsafe = complete.map(f => f.name === 'index.html'
+      ? {name: f.name, data: Buffer.from('<script src="https://example.com/remote.js"></script>')}
+      : f);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(unsafe)),
+      /invalid_demo_zip:html_assets:index.html/);
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});
+
+test('ZIP verification rejects untracked local-record padding even with valid CRCs', () => {
+  const zip = buildZip([{name:'a.txt', data:Buffer.from('abc')},
+    {name:'b.txt', data:Buffer.from('def')}]);
+  const end = zip.length - 22, directoryOffset = zip.readUInt32LE(end + 16);
+  const padded = Buffer.concat([zip.subarray(0, directoryOffset),
+    Buffer.from([0x7f]), zip.subarray(directoryOffset)]);
+  padded.writeUInt32LE(directoryOffset + 1, padded.length - 22 + 16);
+  assert.throws(() => inspectZip(padded), /invalid_demo_zip:local_layout/);
 });
