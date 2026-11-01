@@ -166,7 +166,7 @@
     const bots = Array.from({ length: clamp(botCount, 0, MAX_BOTS) }, (_, i) => {
       const pos = safeSpot(36, ACTOR_RADIUS*2+0.2, occupiedActors);
       occupiedActors.push(pos);
-      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0,
+      return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0, disqualified:false,
         lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
     });
     const occupiedCaches = [];
@@ -413,7 +413,9 @@
       // Assess the resolved post-movement position at the published deadline.
       // No environmental HP drain: an out-of-bounds rival is disqualified.
       if(boundaryDeadline&&dist(b,game.zone)>game.zone.radius){
-        b.health=0;b.alive=false;continue;
+        // Boundary removal is an administrative ruling, not a physical injury.
+        // Preserve the rival's actual health for honest HUD and checkpoint state.
+        b.alive=false;b.disqualified=true;continue;
       }
       // A round that already ended (boundary disqualification or injury)
       // must not produce further attacks, reloads or phantom ammunition use.
@@ -681,7 +683,8 @@
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
         reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
-      bots:game.bots.map(b=>({...checkedFields(b,BOT_FIELDS),alive:b.alive})),
+      bots:game.bots.map(b=>({...checkedFields(b,BOT_FIELDS),alive:b.alive,
+        disqualified:b.disqualified===true})), 
       loot:game.loot.map(item=>({...checkedFields(item,LOOT_FIELDS),kind:item.kind,
         weaponId:item.weaponId,picked:item.picked})),
       zone:checkedFields(game.zone,[...POSITION_FIELDS,['radius',0,170],
@@ -699,7 +702,9 @@
         typeof checkpoint.player.reloadHesitation !== 'boolean' ||
         typeof checkpoint.player.sprintExhausted !== 'boolean' ||
         checkpoint.bots.some(b => typeof b.alive !== 'boolean' ||
-          b.alive !== (b.health > 0) || b.loaded > b.charges) ||
+          typeof b.disqualified !== 'boolean' ||
+          (b.disqualified ? (b.alive || b.health <= 0) : b.alive !== (b.health > 0)) ||
+          b.loaded > b.charges) ||
         checkpoint.kills > checkpoint.bots.filter(b => !b.alive).length)
       throw new RangeError('Invalid BR checkpoint actor state');
     // Validate on WRITE, not only on restore. Otherwise one corrupted frame
@@ -771,10 +776,15 @@
         (p.reloadHesitation && p.reloadRemaining<=0)) throw new RangeError('Invalid player inventory');
     if (blocked(p.x,p.z,0.85,game.obstacles)) throw new RangeError('Invalid player collision');
     const bots=saved.bots.map((raw,i)=>{
-      if (!raw || typeof raw.alive !== 'boolean')
+      if (!raw || typeof raw.alive !== 'boolean' ||
+          (raw.disqualified !== undefined && typeof raw.disqualified !== 'boolean'))
         throw new RangeError('Invalid opponent checkpoint flag');
-      const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive};
-      if (b.id!==i || b.loaded>b.charges || (b.alive && b.health<=0) || (!b.alive && b.health>0) ||
+      // Existing v3 saves did not have this flag; their combat eliminations
+      // remain valid. New boundary rulings preserve positive health.
+      const b={...checkedFields(raw,BOT_FIELDS),alive:raw.alive,
+        disqualified:raw.disqualified===true};
+      if (b.id!==i || b.loaded>b.charges ||
+          (b.disqualified ? (b.alive || b.health<=0) : b.alive !== (b.health>0)) ||
           blocked(b.x,b.z,0.85,game.obstacles))
         throw new RangeError('Invalid opponent state');
       return b;
