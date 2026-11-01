@@ -405,7 +405,12 @@
   document.addEventListener('keydown', e => {
     // Any focused form/menu control owns its keyboard events; no ghost fire,
     // movement or objective capture while entering names or navigating UI.
-    if (Desktop.isInteractiveTarget(e.target) || Desktop.isGameplayShortcut(e)) return;
+    if (Desktop.isInteractiveTarget(e.target)) return;
+    if (Desktop.isGameplayShortcut(e)) {
+      // Release old server-held intent before ignoring the OS/IME chord.
+      if (keys.size || physicalTrigger.held || capturing || triggering) releaseHeldInput();
+      return;
+    }
     const action = Desktop.actionFor(e.code, controls);
     if (action || ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
       e.preventDefault();

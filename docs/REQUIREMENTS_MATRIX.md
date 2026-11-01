@@ -1,3 +1,7 @@
+## 2026-11-01 PC held-input release on IME/OS shortcut transition (R-08 / R-14 / R-23 / R-25)
+- **Partial, CI required:** BR and CH01 clear already held keyboard/mouse movement and fire when a composing/OS chord begins. Team browser sends neutral movement, trigger and capture/aim releases to the authoritative local server rather than leaving intents active. Fresh keydown is required to resume.
+- **Evidence:** Three browser-controller regressions. Actual Windows Korean IME, AltGraph, pointer-lock behavior, network latency and RTX 3070 QHD 165Hz / **16GB system RAM** remain unverified. No touch/mobile work.
+
 ## 2026-11-01 PC Korean IME and OS shortcut isolation (R-08 / R-14 / R-23 / R-25)
 - **Partial, CI required at final PR head:** BR, CH01 and team PC keyboard controllers reject IME composition, dead-key/AltGraph events, legacy Process/keyCode 229 and Ctrl/Alt/Meta chords before gameplay. PC remapping leaves those events untouched; Shift+fire/movement and keyup releases remain enabled.
 - **Evidence:** Shared controls and three browser-controller Node regressions. Real Windows Korean IME, RTX 3070 QHD 165Hz with **16GB system RAM**, native UE and latency remain **unverified**. No mobile/touch work added.

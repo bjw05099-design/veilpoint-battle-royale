@@ -861,3 +861,13 @@ test('CH01 PC ignores Korean IME and OS chords but allows shifted movement',()=>
  app.emit('keyup',{code:'KeyW'});
  assert.equal(input.forward,false);
 });
+
+test('CH01 OS shortcut transition releases held PC movement',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ const input=app.context.VeilpointInput;
+ app.emit('keydown',{code:'KeyW'});assert.equal(input.forward,true);
+ app.emit('keydown',{code:'ControlLeft',ctrlKey:true});
+ assert.equal(input.forward,false);
+ app.emit('keyup',{code:'KeyW'});
+});

@@ -994,3 +994,13 @@ test('PC BR ignores Korean IME and OS chords without blocking shifted fire',()=>
  assert.equal(game.player.charges,ammo-1);
  app.emit('keyup',{code:'Space'});
 });
+
+test('PC BR OS shortcut transition releases held fire and movement',()=>{
+ const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
+ const input=app.context.VeilpointInput;
+ app.emit('keydown',{code:'Space'});app.emit('keydown',{code:'KeyW'});
+ assert.equal(input.fireHeld,true);assert.equal(input.forward,true);
+ app.emit('keydown',{code:'ControlLeft',ctrlKey:true});
+ assert.equal(input.fireHeld,false);assert.equal(input.forward,false);
+ app.emit('keyup',{code:'Space'});app.emit('keyup',{code:'KeyW'});
+});

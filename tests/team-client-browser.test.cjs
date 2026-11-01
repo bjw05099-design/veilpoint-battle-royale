@@ -1427,3 +1427,16 @@ test('PC team client sends no commands for IME composition and OS chords',async(
  assert.equal(player.ammo,11);
  a.doc('keyup',{code:'Space'});
 });
+
+test('PC team OS shortcut releases server-held movement and trigger',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const player=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.doc('keydown',{code:'KeyD'});a.doc('keydown',{code:'Space'});await settle();
+ assert.equal(player.direction.x,1);assert.equal(player.triggerHeld,true);
+ a.doc('keydown',{code:'ControlLeft',ctrlKey:true});await settle();
+ assert.equal(player.direction.x,0);assert.equal(player.triggerHeld,false);
+ a.doc('keyup',{code:'KeyD'});a.doc('keyup',{code:'Space'});
+});
