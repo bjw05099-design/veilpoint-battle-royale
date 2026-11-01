@@ -115,3 +115,8 @@ The browser graphics panel now displays bounded sample counts and P50/P95/P99 fo
 ### 2026-10-31 GPU timing disjoint recovery (browser candidate)
 
 WebGL2 disjoint timer events now end/delete any active query, discard pending invalid results and pause query creation until the disjoint state clears. The renderer notifies the BR controller once per event, clearing old CPU/GPU/render-interval telemetry before the opt-in resolution governor can act on fresh samples. Two deterministic Node tests exercise pending and active query invalidation, recovery, and stale-sample rejection. This improves **integrity of prototype performance diagnostics**, not measured QHD 165FPS, native Unreal rendering, GPU performance, or user-device validation.
+
+
+## 2026-11-01 browser PC benchmark instrumentation (candidate)
+
+The BR graphics panel now provides a **user-armed** 5-second warmup plus 120-second capture that exports a local JSON report. This records actual rendered callback intervals and CPU renderer-draw calls; asynchronous WebGL2 GPU timer samples are exported only when supported and valid. A GPU timer disjoint invalidates the GPU sample series. The report includes output viewport dimensions, selected frame cap and observed render-scale range, but the app cannot verify physical monitor 165 Hz, exact CPU/GPU model or system RAM. Loss of focus/pause creates an explicitly incomplete run. The 60 Hz game simulation remains unchanged. This is a browser code and test milestone, **not** a native UE5, QHD 165 FPS, end-to-end latency or RTX 3070 benchmark result. Real Windows measurements remain required.

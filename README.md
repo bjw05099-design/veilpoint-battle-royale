@@ -112,3 +112,10 @@ The **local 2D rules prototype** now has server-owned low cover collision and co
 ### Offline battle-royale checkpoint (browser candidate)
 
 During an active BR match, progress is saved locally after important actions, on pause/tab exit and periodically in simulated time. Reopening `index.html` offers **저장 경기 이어하기**; **새 경기 시작** discards the old match and starts a new one. Win/loss clears the old checkpoint. This uses browser localStorage (separate from CH01), not a cloud save; blocked or cleared storage prevents resume. An on-screen warning indicates save failure. Resume/replay is regression-tested in Node DOM mocks; real browser/device QA remains outstanding.
+
+
+## Windows PC browser benchmark (opt-in development candidate)
+
+In the offline battle-royale page, open **그래픽 설정 → PC 자동 벤치마크 → 측정 준비**. Start/resume a match, play continuously for a 5-second warmup plus 120 seconds, then reopen settings and click **JSON 결과 저장**. The measurement is recorded only during an active, focused match; pausing, switching tabs, a large timing gap or changing graphics settings ends the run as incomplete. The browser does not upload any diagnostics. Save the JSON locally and share it voluntarily for analysis.
+
+The report distinguishes rendered callback interval statistics, **CPU renderer-draw time only**, and optional WebGL2 GPU timer data. An estimated 1% low and stutter counts are labelled with their calculation methods. It also records the chosen FPS cap, rendering scale and browser viewport, **not** verified physical display Hz or exact GPU/CPU identity. Even a successful run is *not* proof of sustained native QHD 165 FPS, Unreal Engine performance or end-to-end input latency. Use the actual RTX 3070 / **16 GB system RAM** Windows PC for the final benchmarks. The user must run the candidate locally; CI and remote development cannot measure that machine.
