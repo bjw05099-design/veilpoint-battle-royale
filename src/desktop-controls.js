@@ -8,7 +8,9 @@
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
  const RESERVED=new Set(['Escape','Enter','KeyG','KeyM','Digit1','Digit2']);
- const VALID_CODE=/^(?:Key[A-Z]|Digit[0-9]|Shift(?:Left|Right)|Control(?:Left|Right)|Alt(?:Left|Right)|Space|Arrow(?:Up|Down|Left|Right)|Numpad[0-9])$/;
+ // Ctrl/Alt are OS/IME modifiers filtered from gameplay keydown. Offering
+ // them as remappable keys would silently save an unusable action binding.
+ const VALID_CODE=/^(?:Key[A-Z]|Digit[0-9]|Shift(?:Left|Right)|Space|Arrow(?:Up|Down|Left|Right)|Numpad[0-9])$/;
  const DEFAULT=Object.freeze({sensitivity:1,invertY:false,bindings:DEFAULT_BINDINGS});
  const validCode=code=>typeof code==='string'&&VALID_CODE.test(code)&&!RESERVED.has(code);
  function normalize(value){
@@ -73,7 +75,7 @@
  // Shift alone remains valid for sprint; keyup still releases held keys.
  function isGameplayShortcut(event){
   return !!event&&(event.isComposing===true||event.key==='Process'||
-   event.keyCode===229||event.key==='Dead'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
+   event.keyCode===229||event.key==='Dead'||event.key==='AltGraph'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
    (typeof event.getModifierState==='function'&&event.getModifierState('AltGraph')));
  }
  function isInteractiveTarget(target){
