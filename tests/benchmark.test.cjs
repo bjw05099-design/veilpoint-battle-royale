@@ -14,7 +14,7 @@ test('starts only at an actual rendered frame and ignores warmup',()=>{
  assert.equal(r.renderedFrameCount,10);
  assert.equal(r.observedFps,10);
  assert.equal(r.estimatedOnePercentLowFps,10);
- assert.equal(r.cpuRendererDrawMs.count,11);
+ assert.equal(r.cpuRendererDrawMs.count,10);
  assert.equal(r.webglGpuTimerMs.count,0);
  assert.equal(r.settings.fpsCap,60);
  assert.equal(r.gpuTimerInvalidated,false);
@@ -51,4 +51,28 @@ test('rejects invalid configuration and never exceeds bounded sample limit',()=>
  assert.equal(b.report().reason,'sample-limit');
  assert.equal(b.report().renderedFrameCount,30000);
  assert.equal(b.report().activeMeasuredMs,30000);
+});
+
+
+test('warmup boundary excludes CPU and scale samples; canvas backing resolution is observed',()=>{
+ const b=createBenchmark({durationMs:1000,warmupMs:250});
+ b.arm({fpsCap:165});
+ b.frame(0,9,1.25,{width:1280,height:720});
+ b.frame(100,9,1.25,{width:1280,height:720});
+ b.frame(200,9,1.25,{width:1280,height:720});
+ b.frame(300,9,1.25,{width:1280,height:720}); // interval straddles warmup
+ b.frame(400,3,.8,{width:1920,height:1080});
+ b.frame(500,4,.85,{width:0,height:1080}); // invalid backing dimensions
+ b.frame(600,5,.9,{width:2560,height:1440});
+ const r=b.report();
+ assert.equal(r.renderedFrameCount,3);
+ assert.equal(r.cpuRendererDrawMs.count,3);
+ assert.equal(r.cpuRendererDrawMs.p50,4);
+ assert.deepEqual(r.effectiveRenderScale,{min:.8,max:.9});
+ assert.deepEqual(r.canvasBackingPixels,{
+  minWidth:1920,maxWidth:2560,minHeight:1080,maxHeight:1440,samples:2
+ });
+ b.finish('manual');
+ b.arm({fpsCap:60});
+ assert.equal(b.report().canvasBackingPixels,null,'rearming must clear prior run resolution evidence');
 });
