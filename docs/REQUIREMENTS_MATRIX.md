@@ -1,3 +1,8 @@
+## 2026-11-01 offline demo ZIP closure / archive integrity (R-01 / R-23 / demo P0)
+
+- **Partial packaging/QA improvement (PR #210):** The offline ZIP verifier now rejects missing HTML-referenced local scripts/assets even if its per-file manifest hashes are internally consistent, rejects missing README/delivery documents, and requires contiguous non-aliased local ZIP records. Packager and verifier share the same direct HTML reference policy. Regression fixtures exercise missing dependencies, missing documentation, remote scripts and untracked ZIP padding.
+- **Evidence boundary:** GitHub Actions `npm run check`, `npm test` and `npm run package:demo` must pass at the final PR head before merge. Archive integrity does not prove actual Windows browser launch or full BR gameplay completion. 2026-11-27 demo delivery, native UE5, 3-mode final release, RTX 3070 QHD 165Hz with **16GB system RAM**, licensed photoreal assets and independent QA remain **unverified**. PC keyboard/mouse scope only.
+
 ## 2026-11-01 BR boundary disqualification health integrity (R-14 / R-23 / P0)
 
 - **Partial realism correction, CI pending:** At a published BR boundary deadline, a rival is now marked administratively disqualified without zeroing physical health. A separate checkpoint flag distinguishes disqualification from combat incapacitation; existing saves without the flag migrate to the previous combat-elimination semantics. The same 60Hz rule still applies to player and opponents, and finite ammunition is unchanged.
