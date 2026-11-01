@@ -225,3 +225,56 @@ test('loopback HTTP sends 413 before an oversized chunked upload ends', async ()
     await server.close();
   }
 });
+
+test('readJson times out an unfinished under-limit upload without accepting late data', async () => {
+  const stream = new EventEmitter();
+  let drained = false;
+  stream.resume = () => {drained = true;};
+  const pending = readJson(stream, 2048, 25);
+  stream.emit('data', Buffer.from('{"name":"'));
+  await assert.rejects(pending, /request_timeout/);
+  assert.equal(drained, true);
+  stream.emit('data', Buffer.from('late"}'));
+  stream.emit('end');
+  await assert.rejects(pending, /request_timeout/);
+});
+
+test('readJson validates its upload deadline and still accepts complete JSON', async () => {
+  assert.throws(() => readJson(new EventEmitter(), 2048, 0), /invalid_body_timeout/);
+  const good = await readJson(Readable.from([Buffer.from('{"name":"나흐린"}')]), 2048, 500);
+  assert.deepEqual(good, {name: '나흐린'});
+});
+
+test('local HTTP times out a stalled partial join, frees the seat and accepts a fresh client', async () => {
+  const http = require('node:http');
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false, bodyTimeoutMs: 120});
+  const {port} = await server.listen();
+  let request;
+  try {
+    const response = await new Promise((resolve, reject) => {
+      request = http.request({hostname: '127.0.0.1', port, path: '/join',
+        method: 'POST', headers: {'content-type': 'application/json'}}, res => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => {body += chunk;});
+        res.on('end', () => {clearTimeout(guard);resolve({status: res.statusCode, body: JSON.parse(body)});});
+      });
+      const guard = setTimeout(() => {request.destroy();reject(new Error('stalled join was not timed out'));}, 2500);
+      request.on('error', reject);
+      request.write('{"name":"'); // Keep the HTTP request unfinished and below the byte limit.
+    });
+    assert.equal(response.status, 408);
+    assert.deepEqual(response.body, {error: 'request_timeout'});
+    assert.equal(server.match.players.size, 0);
+    const fresh = await fetch('http://127.0.0.1:' + port + '/join', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({name: '조현지'})
+    });
+    assert.equal(fresh.status, 201);
+    assert.equal(server.match.players.size, 1);
+  } finally {
+    request?.destroy();
+    await server.close();
+  }
+});
