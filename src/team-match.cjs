@@ -428,6 +428,9 @@ class TeamMatch {
     // no client can claim extra time or a victory from an unconfirmed capture.
     const winner = this.score.red > this.score.blue ? 'red' :
       this.score.blue > this.score.red ? 'blue' : null;
+    // Incomplete progress never survives the result screen or a rematch.
+    this.progress.red = 0;
+    this.progress.blue = 0;
     this.finish(winner, 'time_limit');
     return true;
   }
