@@ -384,7 +384,7 @@
       status(participants < 2
         ? '상대 입장 대기 · 양쪽 플레이어가 준비해야 시작합니다.'
         : displayedReady
-          ? `준비 요청/확인 중 (${ready}/2) · 상대 준비 대기 · 준비 취소 가능`
+          ? `${readyIntent === null ? '준비 완료' : '준비 요청/확인 중'} (${ready}/2) · 상대 준비 대기 · 준비 취소 가능`
           : `양쪽 플레이어가 준비 버튼을 눌러야 시작합니다. (${ready}/2)`);
     }
     else {
@@ -620,8 +620,11 @@
     try {
       const nextState = await request('/state', undefined, polledToken);
       if (token !== polledToken) return;
+      // A fresh server sequence is authoritative even if a newly joined peer
+      // revoked an earlier solo ready vote. Do not leave a stale optimistic
+      // consent stuck on screen when the server legitimately reset it.
       if (readyIntent !== null && (nextState.phase === 'playing' ||
-          (nextState.self.seq >= readyIntentSeq && nextState.self.ready === readyIntent)))
+          nextState.self.seq >= readyIntentSeq))
         readyIntent = null;
       state = nextState;render();updateInput();
       // Recompute aim against the latest server-owned player position while
