@@ -190,3 +190,88 @@ test('HTTP replacement guests never inherit an expired previous match result', a
     await server.close();
   }
 });
+
+test('new opponent starts a clean lobby while a previous result survivor keeps their identity', () => {
+  let now = 0;
+  const match = new TeamMatch({now: () => now});
+  match.join('old-a', 'A');
+  match.join('old-b', 'B');
+  match.command('old-a', {seq: 1, type: 'ready'});
+  match.command('old-b', {seq: 1, type: 'ready'});
+  const survivor = match.players.get('old-a');
+  survivor.health = 20;
+  survivor.ammo = 1;
+  survivor.reserve = 3;
+  survivor.stress = 80;
+  match.score.blue = 2;
+  match.finish('blue', 'opponent_incapacitated');
+  now = 25000;
+  match.command('old-a', {seq: 2, type: 'heartbeat'});
+  now = 30001;
+  assert.equal(match.snapshot('old-a').phase, 'ended',
+    'a still-connected guest can inspect their own finished result');
+  assert.throws(() => match.join('invalid', '  '), /invalid_name/);
+  assert.equal(match.phase, 'ended', 'an invalid join cannot erase the old result');
+  match.join('new-b', 'New B');
+  const oldView = match.snapshot('old-a');
+  const newView = match.snapshot('new-b');
+  assert.equal(oldView.phase, 'lobby');
+  assert.equal(newView.phase, 'lobby');
+  assert.deepEqual(newView.score, {red: 0, blue: 0});
+  assert.equal(newView.winner, null);
+  assert.equal(newView.reason, null);
+  assert.equal(newView.tick, 0);
+  assert.equal(newView.round.remainingTicks, newView.round.limitTicks);
+  assert.equal(oldView.self.health, 100);
+  assert.equal(oldView.self.ammo, 12);
+  assert.equal(oldView.self.reserve, 24);
+  assert.equal(oldView.self.stress, 0);
+  assert.equal(oldView.self.seq, 2, 'authenticated sequence must survive pairing');
+  assert.equal(oldView.self.ready, false);
+  match.command('new-b', {seq: 1, type: 'ready'});
+  assert.equal(match.phase, 'lobby', 'newcomer cannot force the survivor into a round');
+  match.command('old-a', {seq: 3, type: 'ready'});
+  assert.equal(match.phase, 'playing');
+  assert.equal(match.ticks, 0);
+});
+
+test('HTTP replacement guest sees a fresh lobby instead of a surviving peer old result', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (route, body, token) => {
+    const response = await fetch(base + route, {method: 'POST', headers: {
+      'content-type': 'application/json', ...(token ? {'x-player-token': token} : {})
+    }, body: JSON.stringify(body)});
+    return {status: response.status, data: await response.json()};
+  };
+  try {
+    const a = (await post('/join', {name: 'A'})).data;
+    await post('/join', {name: 'B'});
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    const oldB = [...server.match.players.keys()].find(token => token !== a.token);
+    await post('/command', {seq: 1, type: 'ready'}, oldB);
+    server.match.score.red = 2;
+    server.match.finish('red', 'objective_score');
+    now = 25000;
+    assert.equal((await post('/command', {seq: 2, type: 'heartbeat'}, a.token)).status, 200);
+    now = 30001;
+    const newcomer = await post('/join', {name: 'C'});
+    assert.equal(newcomer.status, 201);
+    const response = await fetch(base + '/state', {
+      headers: {'x-player-token': newcomer.data.token}
+    });
+    assert.equal(response.status, 200);
+    const view = await response.json();
+    assert.equal(view.phase, 'lobby');
+    assert.deepEqual(view.score, {red: 0, blue: 0});
+    assert.equal(view.winner, null);
+    assert.equal(view.reason, null);
+    assert.equal(view.tick, 0);
+    assert.equal((await post('/command', {seq: 1, type: 'ready'}, newcomer.data.token)).status, 200);
+    assert.equal(server.match.phase, 'lobby');
+  } finally {
+    await server.close();
+  }
+});
