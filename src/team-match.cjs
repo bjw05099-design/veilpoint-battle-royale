@@ -5,6 +5,9 @@ const {moveEntity, lineBlocked, injuryMobility} = require('./simulation.js');
 const {performance} = require('node:perf_hooks');
 const STEP = 1 / 60;
 const SPEED = 4.5;
+// A lower stance is a slower, server-owned PC movement state, not a stealth buff.
+// Match the BR/CH01 3.1:6.1 crouch/walk ratio; actual motion is still a 2D proxy.
+const CROUCH_SPEED_FACTOR = 3.1 / 6.1;
 const CAPTURE_RADIUS = 2.6;
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
@@ -151,7 +154,8 @@ class TeamMatch {
     const player = {id: this.nextPlayerId++, name: displayName, team,
       x: team === 'red' ? -8 : 8, z: 0, ready: false,
       direction: {x: 0, z: 0}, facing: {x: team === 'red' ? 1 : -1, z: 0},
-      aiming: false, capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
+      aiming: false, crouching: false, lastCrouchTick: 0,
+      capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
@@ -191,7 +195,7 @@ class TeamMatch {
       typeof data.type !== 'string') throw new RangeError('invalid_sequence');
     const keys = Object.keys(data);
     const expected = ['move', 'aim'].includes(data.type) ? ['seq', 'type', 'direction'] :
-      data.type === 'capture' || data.type === 'trigger' ? ['seq', 'type', 'active'] :
+      data.type === 'capture' || data.type === 'trigger' || data.type === 'crouch' ? ['seq', 'type', 'active'] :
       data.type === 'assist' ? ['seq', 'type', 'enabled'] :
        data.type === 'loadout' ? ['seq', 'type', 'weaponId'] :
       ['ready', 'unready', 'leave', 'heartbeat', 'fire', 'reload', 'aimRelease', 'resetInput'].includes(data.type) ? ['seq', 'type'] : null;
@@ -203,9 +207,10 @@ class TeamMatch {
       throw new RangeError('invalid_direction');
     if (data.type === 'capture' && typeof data.active !== 'boolean') throw new RangeError('invalid_capture');
     if (data.type === 'trigger' && typeof data.active !== 'boolean') throw new RangeError('invalid_trigger');
+    if (data.type === 'crouch' && typeof data.active !== 'boolean') throw new RangeError('invalid_crouch');
     if (data.type === 'assist' && typeof data.enabled !== 'boolean') throw new RangeError('invalid_assist');
     if (data.type === 'loadout' && (typeof data.weaponId !== 'string' || !Object.prototype.hasOwnProperty.call(LOADOUTS, data.weaponId))) throw new RangeError('invalid_loadout');
-    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger'].includes(data.type))
+    if (this.phase !== 'playing' && ['move', 'aim', 'aimRelease', 'capture', 'fire', 'reload', 'trigger', 'crouch'].includes(data.type))
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
@@ -231,6 +236,8 @@ class TeamMatch {
       // across four separate HTTP round trips. Clear all held intents in
       // one authenticated, sequenced command without altering finite ammo.
       p.direction = {x: 0, z: 0};
+      p.crouching = false;
+      p.lastCrouchTick = this.ticks;
       p.aiming = false;
       p.lastAimTick = this.ticks;
       p.lastMoveTick = this.ticks;
@@ -264,6 +271,13 @@ class TeamMatch {
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
       }
       return {ok: true};
+    }
+    if (data.type === 'crouch') {
+      // A held crouch key must be explicitly renewed; losing PC focus cannot
+      // leave a permanently reduced movement profile on the authoritative server.
+      p.crouching = data.active;
+      p.lastCrouchTick = this.ticks;
+      return {ok: true, crouching: p.crouching};
     }
     if (data.type === 'aimRelease') {
       // Leaving the aim surface restores keyboard/touch movement-facing control.
@@ -411,6 +425,8 @@ class TeamMatch {
       p.direction = {x: 0, z: 0};
       p.facing = {x: p.team === 'red' ? 1 : -1, z: 0};
       p.aiming = false;
+      p.crouching = false;
+      p.lastCrouchTick = 0;
       p.lastAimTick = 0;
       p.capturing = false;
       p.captureHeld = false;
@@ -445,6 +461,8 @@ class TeamMatch {
       p.direction = {x: 0, z: 0};
       p.aiming = false;
       p.lastAimTick = 0;
+      p.crouching = false;
+      p.lastCrouchTick = 0;
       p.capturing = false;
       p.captureHeld = false;
       p.captureArmed = false;
@@ -482,6 +500,7 @@ class TeamMatch {
         if (len > 0) p.facing = {x: p.direction.x / len, z: p.direction.z / len};
       }
       if (this.ticks - p.lastMoveTick > INPUT_LEASE_TICKS) p.direction = {x: 0, z: 0};
+      if (this.ticks - p.lastCrouchTick > INPUT_LEASE_TICKS) p.crouching = false;
       if (this.ticks - p.lastCaptureTick > INPUT_LEASE_TICKS) {
         // A suspended/abandoned PC tab cannot preserve an armed physical relay
         // press after its authoritative intent lease has expired. Keep
@@ -502,7 +521,8 @@ class TeamMatch {
       const from = {x: p.x, z: p.z};
       const next = {...from};
       // Carried equipment affects traversal as well as the server-owned shot rules.
-      const speed = SPEED * LOADOUTS[p.weaponId].mobility * injuryMobility(p);
+      const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : 1) *
+        LOADOUTS[p.weaponId].mobility * injuryMobility(p);
       moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
         COVER, PLAYER_RADIUS);
       next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
@@ -652,10 +672,10 @@ class TeamMatch {
       self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z, facing: {...me.facing},
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
-        ready: me.ready, captureArmed: me.captureArmed, seq: me.seq},
+        ready: me.ready, crouching: me.crouching, captureArmed: me.captureArmed, seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
-        incapacitated: p.health === 0}))};
+        incapacitated: p.health === 0, crouching: p.crouching}))};
   }
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
