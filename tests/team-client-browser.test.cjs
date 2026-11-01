@@ -1628,3 +1628,29 @@ test('PC lobby accepts server revocation of a solo ready vote when a peer joins'
   assert.equal(a.node('ready').textContent, '준비 / 재대전');
   assert.equal(server.match.phase, 'lobby');
 });
+
+test('PC crouch key press/release and focus loss are reconciled with server stance', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  a.doc('keydown', {code: 'KeyC'});
+  await settle();
+  assert.equal(player.crouching, true, 'physical PC crouch press reaches authority');
+  a.doc('keydown', {code: 'KeyD'});
+  await settle();
+  assert.equal(player.direction.x, 1, 'crouch does not replace normal movement');
+  a.doc('keyup', {code: 'KeyC'});
+  await settle();
+  assert.equal(player.crouching, false, 'releasing crouch must reach authority');
+  a.doc('keydown', {code: 'KeyC'});
+  await settle();
+  assert.equal(player.crouching, true);
+  a.blur();
+  await settle();
+  assert.equal(player.crouching, false, 'lost focus clears held crouch without waiting for lease');
+  assert.equal(player.direction.x, 0, 'lost focus clears held movement too');
+});
