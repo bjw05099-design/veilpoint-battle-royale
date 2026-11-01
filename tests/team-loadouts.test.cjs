@@ -104,3 +104,37 @@ test('short-range equipment cannot hit a distant actor through a range bonus', (
   assert.equal(target.health,100);
   assert.equal(m.players.get('a').ammo,5);
 });
+
+test('two loopback HTTP clients select a new class before ready and receive server-owned movement', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const fs = require('node:fs');
+  const html = fs.readFileSync(require('node:path').join(__dirname,'..','team.html'),'utf8');
+  for (const id of Object.keys(LOADOUTS))
+    assert.match(html,new RegExp('<option value="'+id+'">'),'missing PC selector: '+id);
+  const server=createTeamServer({port:0,autoTick:false,now:()=>0});
+  const {port}=await server.listen();
+  const base='http://127.0.0.1:'+port;
+  const post=async (route,body,token)=>{
+    const res=await fetch(base+route,{method:'POST',headers:{
+      'content-type':'application/json',...(token?{'x-player-token':token}:{})
+    },body:JSON.stringify(body)});
+    return {status:res.status,data:await res.json()};
+  };
+  try {
+    const a=(await post('/join',{name:'A'})).data;
+    const b=(await post('/join',{name:'B'})).data;
+    const selection=await post('/command',{seq:1,type:'loadout',weaponId:'sidearm'},a.token);
+    assert.deepEqual(selection,{status:200,data:{ok:true,weaponId:'sidearm'}});
+    await post('/command',{seq:2,type:'ready'},a.token);
+    await post('/command',{seq:1,type:'ready'},b.token);
+    const blocked=await post('/command',{seq:3,type:'loadout',weaponId:'support'},a.token);
+    assert.equal(blocked.data.reason,'loadout_locked');
+    await post('/command',{seq:4,type:'move',direction:{x:1,z:0}},a.token);
+    for(let i=0;i<60;i++)server.match.step();
+    const res=await fetch(base+'/state',{headers:{'x-player-token':a.token}});
+    const state=await res.json();
+    assert.equal(state.self.weaponId,'sidearm');
+    assert.equal(state.self.ammo,LOADOUTS.sidearm.magazine);
+    assert.ok(Math.abs(state.self.x-(-8+4.5*LOADOUTS.sidearm.mobility))<1e-6);
+  } finally {await server.close();}
+});
