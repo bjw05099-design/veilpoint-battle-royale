@@ -81,10 +81,36 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
           return send(res, 415, {error: 'json_required'});
         const body = await readJson(req);
         if (url.pathname === '/join') {
-          if (!body || Object.keys(body).length !== 1 || typeof body.name !== 'string')
+          // A lost join response must not occupy a second lobby seat when the
+          // same PC tab retries after its bounded HTTP timeout. The 128-bit
+          // client request ID is an unguessable idempotency key, not a player
+          // token; the server still creates and owns the 192-bit auth token.
+          const keys = body && typeof body === 'object' && !Array.isArray(body)
+            ? Object.keys(body) : [];
+          const hasRequestId = keys.includes('requestId');
+          if (typeof body?.name !== 'string' ||
+              keys.length !== (hasRequestId ? 2 : 1) ||
+              keys.some(key => key !== 'name' && key !== 'requestId') ||
+              (hasRequestId && (typeof body.requestId !== 'string' ||
+                !/^[a-f0-9]{32}$/.test(body.requestId))))
             throw new RangeError('invalid_join');
+          if (hasRequestId) {
+            match.expirePlayingLeases();
+            match.pruneIdleWaitingPlayers();
+            for (const [existingToken, existing] of match.players) {
+              if (existing.joinRequestId !== body.requestId) continue;
+              if (existing.joinOriginalName !== body.name)
+                throw new RangeError('join_conflict');
+              return send(res, 201, {token: existingToken, id: existing.id, team: existing.team});
+            }
+          }
           const token = crypto.randomBytes(24).toString('hex');
           const player = match.join(token, body.name);
+          if (hasRequestId) {
+            const joined = match.players.get(token);
+            joined.joinRequestId = body.requestId;
+            joined.joinOriginalName = body.name;
+          }
           return send(res, 201, {token, ...player});
         }
         const result = match.command(req.headers['x-player-token'], body);
