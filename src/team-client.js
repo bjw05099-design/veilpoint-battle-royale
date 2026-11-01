@@ -25,6 +25,10 @@
   // Fire, release, capture and other commands remain strict ordering barriers.
   let queuedInput = null;
   let previousPhase = null;
+  // A rapid second PC click must cancel the *last requested* lobby consent,
+  // not resend "ready" because the 150ms authoritative snapshot is stale.
+  // The sequence ID keeps optimistic UI state until the server acknowledges it.
+  let readyIntent = null, readyIntentSeq = 0, readyIntentGeneration = 0;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
@@ -67,6 +71,7 @@
     // A restarted local server may forget the token while this tab stays open.
     // Drop all held PC input and old snapshots before enabling a fresh join.
     token = null; seq = 0; state = null; previousPhase = null;
+    readyIntent = null; readyIntentSeq = 0; readyIntentGeneration++;
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
@@ -308,6 +313,11 @@
   };
   const render = () => {
     if (!state) return;
+    if (state.phase === 'playing') {
+      // Server has accepted both participants; an older lobby intent cannot
+      // overwrite the new round's controls or the ready button label.
+      readyIntent = null;
+    }
     if (state.phase !== previousPhase) {
       // A new round resets the server's direction; never retain a stale input cache.
       // A held key from the lobby/previous round is not fresh gameplay input.
@@ -356,9 +366,10 @@
       ? (state.self.reloadHesitation ? '긴장으로 지연 · R 재입력' : '재장전 중') : '준비';
     el('stress').textContent = Math.round(state.self.stress);
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
+    const displayedReady = readyIntent === null ? state.self.ready : readyIntent;
     el('ready').disabled = state.phase === 'playing';
     el('ready').textContent = state.phase === 'playing' ? '대전 중' :
-      state.self.ready ? '준비 취소' : '준비 / 재대전';
+      displayedReady ? '준비 취소' : '준비 / 재대전';
     if (state.phase === 'ended') {
       const outcome = state.winner ? '승리 팀 ' + state.winner :
         state.reason === 'mutual_incapacitation' ? '동시 전투 불능 · 무승부' :
@@ -372,8 +383,8 @@
       const ready = state.lobby?.ready ?? (state.self.ready ? 1 : 0);
       status(participants < 2
         ? '상대 입장 대기 · 양쪽 플레이어가 준비해야 시작합니다.'
-        : state.self.ready
-          ? `준비 완료 (${ready}/2) · 상대 준비 대기 · 준비 취소 가능`
+        : displayedReady
+          ? `${readyIntent === null ? '준비 완료' : '준비 요청/확인 중'} (${ready}/2) · 상대 준비 대기 · 준비 취소 가능`
           : `양쪽 플레이어가 준비 버튼을 눌러야 시작합니다. (${ready}/2)`);
     }
     else {
@@ -439,6 +450,7 @@
       if (result?.ok !== true) throw new Error('leave_unacknowledged');
       if (token !== departingToken) return;
       token = null;seq = 0;state = null;previousPhase = null;queuedInput = null;
+      readyIntent = null;readyIntentSeq = 0;readyIntentGeneration++;
       lastMoveRefreshTick = -Infinity;lastCaptureRefreshTick = -Infinity;
       lastTriggerRefreshTick = -Infinity;
       try {window.sessionStorage.removeItem(SESSION_KEY);} catch (_) {}
@@ -460,8 +472,24 @@
     } finally {leaving = false;}
   });
   el('ready').addEventListener('click', () => {
-    if (!token || state?.phase === 'playing') return;
-    void send(state?.self?.ready ? 'unready' : 'ready');
+    if (!token || restoring || leaving || state?.phase === 'playing') return;
+    const desired = !(readyIntent === null ? !!state?.self?.ready : readyIntent);
+    readyIntent = desired;
+    const generation = ++readyIntentGeneration, sessionToken = token;
+    // send() allocates the monotonically increasing sequence synchronously,
+    // then queues the request. Both clicks therefore preserve their order.
+    const acknowledgement = send(desired ? 'ready' : 'unready');
+    readyIntentSeq = seq;
+    el('ready').textContent = desired ? '준비 취소' : '준비 / 재대전';
+    void acknowledgement.then(result => {
+      if (token !== sessionToken || generation !== readyIntentGeneration) return;
+      if (!result?.ok) {
+        // A rejected/timed-out command cannot leave the UI permanently
+        // optimistic. The next authoritative poll reconciles actual consent.
+        readyIntent = null;
+        if (state) render();
+      }
+    });
   });
   el('loadout').addEventListener('change', () => {
     if (token && state?.phase !== 'playing') void send('loadout', {weaponId: el('loadout').value});
@@ -592,6 +620,12 @@
     try {
       const nextState = await request('/state', undefined, polledToken);
       if (token !== polledToken) return;
+      // A fresh server sequence is authoritative even if a newly joined peer
+      // revoked an earlier solo ready vote. Do not leave a stale optimistic
+      // consent stuck on screen when the server legitimately reset it.
+      if (readyIntent !== null && (nextState.phase === 'playing' ||
+          nextState.self.seq >= readyIntentSeq))
+        readyIntent = null;
       state = nextState;render();updateInput();
       // Recompute aim against the latest server-owned player position while
       // the pointer stays over a fixed world point (no stale direction drift).

@@ -1573,3 +1573,58 @@ test('PC lobby shows authoritative ready count and supports consent withdrawal',
   assert.equal(a.node('ready').disabled, true);
   assert.ok(server.requests.some(r => r.body?.type === 'unready'));
 });
+
+test('rapid PC ready then cancel preserves last consent before the next server snapshot', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('name').value = 'Alpha'; b.node('name').value = 'Bravo';
+  a.node('join').click(); b.node('join').click(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  // The first HTTP request has not yet updated state.self.ready. A second
+  // click must queue unready rather than duplicating ready.
+  a.node('ready').click();
+  assert.equal(a.node('ready').textContent, '준비 취소');
+  a.node('ready').click();
+  assert.equal(a.node('ready').textContent, '준비 / 재대전');
+  await settle();
+  const commands = server.requests.filter(r => r.route === '/command' && r.token === token)
+    .map(r => r.body.type);
+  assert.deepEqual(commands, ['ready', 'unready']);
+  assert.equal(server.match.players.get(token).ready, false);
+  // The peer's genuine ready vote cannot start a round on a canceled vote.
+  b.node('ready').click(); await settle();
+  assert.equal(server.match.phase, 'lobby');
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').textContent, '준비 / 재대전');
+  a.node('ready').click(); await settle();
+  assert.equal(server.match.phase, 'playing');
+});
+
+test('stale PC team state polling cannot override a queued ready cancellation', async () => {
+  const server = backend(), ui = boot(server);
+  ui.node('join').click(); await settle();
+  ui.node('ready').click();
+  ui.node('ready').click();
+  // A poll may run before the queued commands settle; the visible button
+  // must continue to reflect the most recent physical PC click.
+  await ui.poll();
+  assert.equal(ui.node('ready').textContent, '준비 / 재대전');
+  await settle();
+  await ui.poll(); await settle();
+  const token = ui.storage.get('veilpoint.team.tabSession');
+  assert.equal(server.match.players.get(token).ready, false);
+  assert.equal(ui.node('ready').textContent, '준비 / 재대전');
+});
+
+test('PC lobby accepts server revocation of a solo ready vote when a peer joins', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); await settle();
+  a.node('ready').click(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  assert.equal(server.match.players.get(token).ready, true);
+  // The peer joins before the original tab sees a confirming state poll.
+  b.node('join').click(); await settle();
+  assert.equal(server.match.players.get(token).ready, false);
+  await a.poll(); await settle();
+  assert.equal(a.node('ready').textContent, '준비 / 재대전');
+  assert.equal(server.match.phase, 'lobby');
+});

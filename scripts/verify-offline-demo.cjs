@@ -5,14 +5,23 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {crc32, referencedAssets} = require('./package-offline-demo.cjs');
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+// The candidate is a small static offline demo, never an arbitrary ZIP bundle.
+// Bounds apply before any entry parsing or checksum work on untrusted bytes.
+const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES = 128;
+const REQUIRED = ['index.html', 'story.html', 'README.md',
+  'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
+
 function invalid(reason) {throw new Error('invalid_demo_zip:' + reason);}
 function inspectZip(bytes) {
   if (!Buffer.isBuffer(bytes) || bytes.length < 22) invalid('truncated');
+  if (bytes.length > MAX_ARCHIVE_BYTES) invalid('archive_too_large');
   const end = bytes.length - 22;
   if (bytes.readUInt32LE(end) !== 0x06054b50 || bytes.readUInt16LE(end + 20) !== 0)
     invalid('end_record');
   const count = bytes.readUInt16LE(end + 10);
-  if (count === 0 || count !== bytes.readUInt16LE(end + 8) ||
+  if (count === 0 || count > MAX_ARCHIVE_ENTRIES ||
+      count !== bytes.readUInt16LE(end + 8) ||
       bytes.readUInt16LE(end + 4) !== 0 || bytes.readUInt16LE(end + 6) !== 0)
     invalid('entry_count');
   const offset = bytes.readUInt32LE(end + 16);
@@ -65,19 +74,25 @@ function inspectZip(bytes) {
 function verifyArchive(bytes) {
   const entries = inspectZip(bytes);
   if (!entries.has('MANIFEST.sha256') || !entries.has('NOTICE.txt') ||
-      !entries.has('index.html') || !entries.has('story.html') ||
-      !entries.has('README.md') || !entries.has('docs/DEMO_DELIVERY_GATES.md') ||
-      !entries.has('docs/GRAPHICS_PROFILES.md'))
+      REQUIRED.some(name => !entries.has(name)))
     invalid('required_files');
+  // The manifest is not an allowlist. A self-consistent archive could include
+  // an unreferenced script or other executable payload and still pass SHA256.
+  // Accept exactly the shipped pages, documentation and their local assets.
+  const allowed = new Set([...REQUIRED, 'MANIFEST.sha256', 'NOTICE.txt']);
   // A valid checksum alone does not prove the browser can load: reject missing
   // local scripts, images and other directly referenced assets in either page.
   for (const page of ['index.html', 'story.html']) {
     let references;
     try {references = referencedAssets(page, entries.get(page).toString('utf8'));}
     catch {invalid('html_assets:' + page);}
-    for (const asset of references) if (!entries.has(asset))
-      invalid('missing_asset:' + asset);
+    for (const asset of references) {
+      if (!entries.has(asset)) invalid('missing_asset:' + asset);
+      allowed.add(asset);
+    }
   }
+  for (const name of entries.keys()) if (!allowed.has(name))
+    invalid('unexpected_file:' + name);
   // The packager writes its manifest in code-point order, while ZIP entries
   // use locale-aware sorting; compare against the original manifest contract.
   const expected = [...entries].filter(([name]) =>
