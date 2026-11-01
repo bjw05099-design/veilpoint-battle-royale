@@ -8,7 +8,9 @@
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
  const RESERVED=new Set(['Escape','Enter','KeyG','KeyM','Digit1','Digit2']);
- const VALID_CODE=/^(?:Key[A-Z]|Digit[0-9]|Shift(?:Left|Right)|Control(?:Left|Right)|Alt(?:Left|Right)|Space|Arrow(?:Up|Down|Left|Right)|Numpad[0-9])$/;
+ // Ctrl/Alt are OS/IME modifiers filtered from gameplay keydown. Offering
+ // them as remappable keys would silently save an unusable action binding.
+ const VALID_CODE=/^(?:Key[A-Z]|Digit[0-9]|Shift(?:Left|Right)|Space|Arrow(?:Up|Down|Left|Right)|Numpad[0-9])$/;
  const DEFAULT=Object.freeze({sensitivity:1,invertY:false,bindings:DEFAULT_BINDINGS});
  const validCode=code=>typeof code==='string'&&VALID_CODE.test(code)&&!RESERVED.has(code);
  function normalize(value){
@@ -21,6 +23,17 @@
    const candidate=ACTIONS.map(a=>source.bindings[a]);
    if(candidate.every(validCode)&&new Set(candidate).size===candidate.length)
     for(const action of ACTIONS)bindings[action]=source.bindings[action];
+   else {
+    // Migrate only obsolete Ctrl/Alt bindings when possible, preserving
+    // unrelated valid custom keys. If fallback defaults would collide with
+    // another remap, reset the entire map rather than create duplicate actions.
+    const obsolete=/^(?:Control|Alt)(?:Left|Right)$/;
+    if(candidate.every(code=>validCode(code)||(typeof code==='string'&&obsolete.test(code)))){
+     const migrated=ACTIONS.map((action,i)=>validCode(candidate[i])?candidate[i]:DEFAULT_BINDINGS[action]);
+     if(new Set(migrated).size===ACTIONS.length)
+      for(let i=0;i<ACTIONS.length;i++)bindings[ACTIONS[i]]=migrated[i];
+    }
+   }
   }
   return {sensitivity,invertY,bindings};
  }
@@ -73,7 +86,7 @@
  // Shift alone remains valid for sprint; keyup still releases held keys.
  function isGameplayShortcut(event){
   return !!event&&(event.isComposing===true||event.key==='Process'||
-   event.keyCode===229||event.key==='Dead'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
+   event.keyCode===229||event.key==='Dead'||event.key==='AltGraph'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
    (typeof event.getModifierState==='function'&&event.getModifierState('AltGraph')));
  }
  function isInteractiveTarget(target){

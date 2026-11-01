@@ -319,3 +319,46 @@ test('PC key remapping leaves IME and browser shortcuts untouched',()=>{
  assert.equal(ui.captureKey({code:'KeyT',preventDefault(){prevented++;}}),true);
  assert.equal(prevented,1);assert.equal(ui.get().bindings.fire,'KeyT');
 });
+
+test('Ctrl/Alt cannot be saved as dead PC bindings; legacy preferences safely fall back',()=>{
+ const defaults=C.normalize({});
+ for(const code of ['ControlLeft','ControlRight','AltLeft','AltRight']){
+  assert.equal(C.bind(defaults,'reload',code).reason,'reserved-key',code);
+  assert.equal(C.actionFor(code,defaults),null,code);
+ }
+ const legacy={...C.DEFAULT_BINDINGS,fire:'ControlLeft'};
+ const saved={getItem(){return JSON.stringify({sensitivity:1.5,bindings:legacy});}};
+ const restored=C.load(saved);
+ assert.equal(restored.sensitivity,1.5,'valid independent sensitivity survives migration');
+ assert.deepEqual(restored.bindings,C.DEFAULT_BINDINGS,'invalid legacy bindings cannot strand fire');
+ assert.equal(C.actionFor('Space',restored),'fire');
+ const preserved=C.normalize({bindings:{...C.DEFAULT_BINDINGS,fire:'ControlLeft',reload:'KeyT'}});
+ assert.equal(preserved.bindings.fire,'Space');
+ assert.equal(preserved.bindings.reload,'KeyT','unrelated custom reload binding survives migration');
+ const conflict=C.normalize({bindings:{...C.DEFAULT_BINDINGS,fire:'ControlLeft',reload:'Space'}});
+ assert.deepEqual(conflict.bindings,C.DEFAULT_BINDINGS,
+  'fallback may not duplicate another custom action key');
+ assert.equal(C.isGameplayShortcut({key:'AltGraph',code:'AltRight'}),true,
+  'AltGraph must remain an IME modifier even if a browser omits modifier flags');
+});
+
+test('PC remapping UI rejects bare OS modifiers and still accepts a later valid key',()=>{
+ // Synthetic modifier keydown may lack ctrlKey/altKey; validation must still reject it.
+ const events=new Map(),elements=new Map();
+ const doc2={getElementById(id){
+  if(!elements.has(id))elements.set(id,{value:id==='desktopBindAction'?'fire':'',
+   checked:false,textContent:'',addEventListener(name,fn){events.set(id+':'+name,fn);}});
+  return elements.get(id);
+ }};
+ const editor=C.attach(doc2,{getItem(){return null;},setItem(){}});
+ events.get('desktopBindKey:click')();
+ let prevented=0;
+ assert.equal(editor.captureKey({code:'ControlLeft',preventDefault(){prevented++;}}),true);
+ assert.equal(editor.get().bindings.fire,'Space');
+ assert.equal(editor.captureKey({code:'AltLeft',preventDefault(){prevented++;}}),true);
+ assert.match(elements.get('desktopBindStatus').textContent,/사용할 수 없는 키/);
+ assert.equal(editor.get().bindings.fire,'Space');
+ assert.equal(editor.captureKey({code:'KeyT',preventDefault(){prevented++;}}),true);
+ assert.equal(editor.get().bindings.fire,'KeyT');
+ assert.equal(prevented,3);
+});

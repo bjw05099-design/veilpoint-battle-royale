@@ -1,3 +1,7 @@
+## 2026-11-01 PC modifier remapping integrity (R-08 / R-14 / R-23 / R-25)
+- **Partial P0 fix candidate:** The shared Windows keyboard remapper no longer accepts bare Ctrl/Alt as action bindings because the gameplay shortcut/IME isolation intentionally filters those modifiers. Older persisted invalid bindings fall back to working defaults while preserving unrelated valid custom keys and sensitivity when fallback keys remain unique; conflicting mappings reset safely to defaults. Bare AltGraph is also excluded even if a browser omits its modifier flags.
+- **Regression scope:** New Node tests cover rejected Ctrl/Alt assignments, legacy preferences and an invalid-then-valid remapping interaction. GitHub CI at PR head and real Windows Korean/Arabic IME plus physical keyboard verification remain separate gates. No touch/mobile changes; RTX 3070 QHD 165Hz with **16GB system RAM**, UE5 and full three-mode release remain **unverified**.
+
 ## 2026-11-01 PC held-input release on IME/OS shortcut transition (R-08 / R-14 / R-23 / R-25)
 - **Partial, CI required:** BR and CH01 clear already held keyboard/mouse movement and fire when a composing/OS chord begins. Team browser sends neutral movement, trigger and capture/aim releases to the authoritative local server rather than leaving intents active. Fresh keydown is required to resume.
 - **Evidence:** Three browser-controller regressions. Actual Windows Korean IME, AltGraph, pointer-lock behavior, network latency and RTX 3070 QHD 165Hz / **16GB system RAM** remain unverified. No touch/mobile work.
