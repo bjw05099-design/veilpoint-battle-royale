@@ -589,7 +589,11 @@
       (data.phase==='failed'&&p.health!==0)||
       (data.phase!=='failed'&&p.health===0))
       throw new RangeError('Invalid combat checkpoint');
-    if((data.phase==='terminal'&&(data.found.length!==0||data.choice!==null))||
+    // Records and route choices are acquired only AFTER clearing CH01 combat.
+    // An engagement/failure checkpoint must not smuggle future knowledge or
+    // an already-authorized exit into an earlier playable mission phase.
+    if((['terminal','engagement','failed'].includes(data.phase)&&
+        (data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
       (data.choice==='verification'&&data.found.length!==2)||
