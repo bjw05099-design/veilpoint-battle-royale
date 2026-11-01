@@ -213,7 +213,8 @@ test('out-of-bounds rival is disqualified at phase deadline without firing',()=>
  b.health=.001;b.actionTime=0;b.moveTime=999;b.skill=1;
  g.elapsed=89.98;Object.assign(g.zone,S.phaseAt(g.elapsed));
  S.tick(g,0.05,{});
- assert.equal(b.alive,false);assert.equal(b.health,0);
+ assert.equal(b.alive,false);assert.equal(b.health,.001);
+ assert.equal(b.disqualified,true,'boundary ruling is not a wound');
  assert.equal(p.health,100);assert.equal(b.charges,36);
 });
 
