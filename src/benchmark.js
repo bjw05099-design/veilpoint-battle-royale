@@ -19,6 +19,7 @@
      !Number.isInteger(warmupMs)||warmupMs<0||warmupMs>30000)throw new RangeError('Invalid benchmark duration');
   let state='idle',reason=null,metadata=null,startedAt=null,lastFrameAt=null,measuredMs=0;
   let intervals=[],cpuDraw=[],gpuTimer=[],scales=[],gpuInvalidated=false;
+  let canvasRange=null,canvasSamples=0;
   function arm(settings={}){
    if(state==='running'||state==='armed')throw new Error('Benchmark already active');
    if(!settings||typeof settings!=='object'||Array.isArray(settings))throw new TypeError('Invalid benchmark settings');
@@ -26,12 +27,13 @@
    metadata=JSON.parse(JSON.stringify(settings));
    state='armed';reason=null;startedAt=null;lastFrameAt=null;measuredMs=0;
    intervals=[];cpuDraw=[];gpuTimer=[];scales=[];gpuInvalidated=false;
+   canvasRange=null;canvasSamples=0;
   }
   function finish(why='manual'){
    if(state==='running'||state==='armed'){state='finished';reason=why;}
    return report();
   }
-  function frame(nowMs,drawMs,scale){
+  function frame(nowMs,drawMs,scale,canvasSize){
    if(state==='armed'){
     if(!Number.isFinite(nowMs))return false;
     state='running';startedAt=nowMs;lastFrameAt=nowMs;return true;
@@ -41,9 +43,23 @@
    const elapsed=nowMs-startedAt,delta=nowMs-lastFrameAt;
    lastFrameAt=nowMs;
    if(elapsed>=warmupMs&&elapsed<=warmupMs+durationMs&&intervals.length<MAX_SAMPLES){
-    if(elapsed-delta>=warmupMs){intervals.push(delta);measuredMs+=delta;}
-    if(Number.isFinite(drawMs)&&drawMs>0&&drawMs<10000)cpuDraw.push(drawMs);
-    if(Number.isFinite(scale)&&scale>.1&&scale<=2)scales.push(scale);
+    // Only complete post-warmup intervals contribute to any per-frame metric.
+    // Otherwise CPU and resolution samples could silently include warmup work.
+    if(elapsed-delta>=warmupMs){
+     intervals.push(delta);measuredMs+=delta;
+     if(Number.isFinite(drawMs)&&drawMs>0&&drawMs<10000)cpuDraw.push(drawMs);
+     if(Number.isFinite(scale)&&scale>.1&&scale<=2)scales.push(scale);
+     // Browser canvas backing pixels are measurable; OS monitor resolution is not.
+     if(canvasSize&&Number.isSafeInteger(canvasSize.width)&&Number.isSafeInteger(canvasSize.height)&&
+        canvasSize.width>0&&canvasSize.height>0&&canvasSize.width<=16384&&canvasSize.height<=16384){
+      const {width,height}=canvasSize;
+      canvasRange=canvasRange?{
+       minWidth:Math.min(canvasRange.minWidth,width),maxWidth:Math.max(canvasRange.maxWidth,width),
+       minHeight:Math.min(canvasRange.minHeight,height),maxHeight:Math.max(canvasRange.maxHeight,height)
+      }:{minWidth:width,maxWidth:width,minHeight:height,maxHeight:height};
+      canvasSamples++;
+     }
+    }
    }
    if(elapsed>=warmupMs+durationMs||intervals.length>=MAX_SAMPLES)finish(elapsed>=warmupMs+durationMs?'completed':'sample-limit');
    return true;
@@ -71,7 +87,8 @@
     renderCallbackIntervalMs:stats(intervals),cpuRendererDrawMs:stats(cpuDraw),
     webglGpuTimerMs:gpuInvalidated?stats([]):stats(gpuTimer),gpuTimerInvalidated:gpuInvalidated,
     stutterThresholdMs:threshold,stutterIntervals:intervals.filter(ms=>ms>threshold).length,
-    effectiveRenderScale:scales.length?{min:Math.min(...scales),max:Math.max(...scales)}:null
+    effectiveRenderScale:scales.length?{min:Math.min(...scales),max:Math.max(...scales)}:null,
+    canvasBackingPixels:canvasRange?{...canvasRange,samples:canvasSamples}:null
    };
   }
   return {arm,frame,gpu,invalidateGpu,finish,getStatus,report};
