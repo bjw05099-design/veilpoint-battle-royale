@@ -87,7 +87,7 @@ function boot(server, storage = new Map()) {
     addEventListener: (name, callback) => on(windowListeners, name, callback)
   };
   vm.runInNewContext(clientSource, {
-    document, window, fetch: server.fetchLocal,
+    document, window, fetch: server.fetchLocal, AbortController,
     setInterval: callback => (intervals.push(callback), intervals.length),
     setTimeout: (callback, delay) => {
       const id = ++timerId;
@@ -1329,4 +1329,66 @@ test('PC tab blocks new input while waiting for the reset acknowledgement', asyn
   assert.equal(resumed.node('join').disabled, true);
   assert.equal(server.requests.filter(r =>
     r.token === token && r.body?.type === 'resetInput').length, 1);
+});
+
+test('stalled PC state poll times out, aborts and permits a fresh authoritative snapshot', async () => {
+  const server = backend();
+  let stall = true, aborted = 0, attempts = 0;
+  const transport = {fetchLocal(route, options = {}) {
+    if (route === '/state') {
+      attempts++;
+      if (stall) return new Promise((_, reject) => {
+        options.signal.addEventListener('abort', () => {
+          aborted++;
+          reject(Object.assign(new Error('aborted'), {name: 'AbortError'}));
+        }, {once: true});
+      });
+    }
+    return server.fetchLocal(route, options);
+  }};
+  const ui = boot(transport);
+  ui.node('join').click();
+  await settle();
+  const firstPoll = ui.poll();
+  await settle();
+  ui.advanceTime(8001);
+  await firstPoll;
+  await settle();
+  assert.equal(aborted, 1, 'timed-out snapshot must abort its transport');
+  assert.match(ui.node('status').textContent, /request_timeout/);
+  stall = false;
+  await ui.poll();
+  await settle();
+  assert.equal(attempts, 2, 'poll guard must clear after timeout');
+  assert.match(ui.node('status').textContent, /양쪽 플레이어/);
+});
+
+test('stalled ready command cannot freeze the PC command queue after timeout', async () => {
+  const server = backend();
+  let stall = true, aborted = 0;
+  const transport = {fetchLocal(route, options = {}) {
+    if (route === '/command' && stall) return new Promise((_, reject) => {
+      options.signal.addEventListener('abort', () => {
+        aborted++;
+        reject(Object.assign(new Error('aborted'), {name: 'AbortError'}));
+      }, {once: true});
+    });
+    return server.fetchLocal(route, options);
+  }};
+  const ui = boot(transport);
+  ui.node('join').click();
+  await settle();
+  const token = ui.storage.get('veilpoint.team.tabSession');
+  ui.node('ready').click();
+  await settle();
+  ui.advanceTime(8001);
+  await settle();
+  assert.equal(aborted, 1);
+  assert.match(ui.node('status').textContent, /request_timeout/);
+  stall = false;
+  ui.node('ready').click();
+  await settle();
+  assert.equal(server.match.players.get(token).ready, true,
+    'next higher sequence is accepted after the earlier command was aborted');
+  assert.equal(server.match.players.get(token).seq, 2);
 });
