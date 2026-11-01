@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const {crc32} = require('./package-offline-demo.cjs');
+const {crc32, referencedAssets} = require('./package-offline-demo.cjs');
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 function invalid(reason) {throw new Error('invalid_demo_zip:' + reason);}
 function inspectZip(bytes) {
@@ -18,6 +18,7 @@ function inspectZip(bytes) {
   const offset = bytes.readUInt32LE(end + 16);
   if (offset + bytes.readUInt32LE(end + 12) !== end) invalid('directory_bounds');
   let cursor = offset;
+  let nextLocal = 0;
   const entries = new Map();
   for (let i = 0; i < count; i++) {
     if (cursor + 46 > end || bytes.readUInt32LE(cursor) !== 0x02014b50)
@@ -36,8 +37,11 @@ function inspectZip(bytes) {
     if (!/^[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\.[a-z0-9]+$/i.test(name) ||
         entries.has(name)) invalid('entry_name');
     const local = bytes.readUInt32LE(cursor + 42);
-    if (local + 30 > offset || bytes.readUInt32LE(local) !== 0x04034b50)
-      invalid('local_header');
+    // Canonical stored ZIP: every local record occurs once, in directory order,
+    // with no hidden gaps, aliases, or untracked bytes before the directory.
+    if (local !== nextLocal || local + 30 > offset ||
+        bytes.readUInt32LE(local) !== 0x04034b50)
+      invalid('local_layout');
     if (bytes.readUInt16LE(local + 6) !== flags ||
         bytes.readUInt16LE(local + 8) !== method ||
         bytes.readUInt32LE(local + 14) !== crc ||
@@ -51,16 +55,29 @@ function inspectZip(bytes) {
     const content = bytes.subarray(dataStart, dataStart + size);
     if (crc32(content) !== crc) invalid('crc:' + name);
     entries.set(name, content);
+    nextLocal = dataStart + size;
     cursor = next;
   }
   if (cursor !== end) invalid('directory_length');
+  if (nextLocal !== offset) invalid('local_layout');
   return entries;
 }
 function verifyArchive(bytes) {
   const entries = inspectZip(bytes);
   if (!entries.has('MANIFEST.sha256') || !entries.has('NOTICE.txt') ||
-      !entries.has('index.html') || !entries.has('story.html'))
+      !entries.has('index.html') || !entries.has('story.html') ||
+      !entries.has('README.md') || !entries.has('docs/DEMO_DELIVERY_GATES.md') ||
+      !entries.has('docs/GRAPHICS_PROFILES.md'))
     invalid('required_files');
+  // A valid checksum alone does not prove the browser can load: reject missing
+  // local scripts, images and other directly referenced assets in either page.
+  for (const page of ['index.html', 'story.html']) {
+    let references;
+    try {references = referencedAssets(page, entries.get(page).toString('utf8'));}
+    catch {invalid('html_assets:' + page);}
+    for (const asset of references) if (!entries.has(asset))
+      invalid('missing_asset:' + asset);
+  }
   // The packager writes its manifest in code-point order, while ZIP entries
   // use locale-aware sorting; compare against the original manifest contract.
   const expected = [...entries].filter(([name]) =>
