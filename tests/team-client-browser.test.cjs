@@ -830,6 +830,18 @@ test('PC team UI focus stops held movement, capture and fire without window blur
   a.doc('focusin', {target: {tagName: 'CANVAS'}});
   await settle();
   assert.equal(player.direction.x, -1, 'game canvas focus must not clear valid movement');
+  // Help links and custom ARIA menu controls must release the same server
+  // intents as native buttons, including nested icon/text focus targets.
+  const helpText = {tagName: 'SPAN', parentElement: {tagName: 'A', href: '#help'}};
+  a.doc('focusin', {target: helpText});
+  await settle();
+  assert.equal(player.direction.x, 0, 'help-link focus releases movement');
+  a.doc('keydown', {code: 'Space', target: helpText});
+  await settle();
+  assert.equal(player.triggerHeld, false, 'Space on a help link cannot start firing');
+  a.doc('keydown', {code: 'KeyD', target: {tagName: 'DIV', role: 'button'}});
+  await settle();
+  assert.equal(player.direction.x, 0, 'ARIA button focus cannot start movement');
   a.doc('keyup', {code: 'KeyA'});
 });
 

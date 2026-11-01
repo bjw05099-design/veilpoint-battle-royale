@@ -61,6 +61,14 @@ test('PC UI focus excludes form controls and buttons from gameplay key handling'
   assert.equal(C.isInteractiveTarget({tagName}),true);
  assert.equal(C.isInteractiveTarget({tagName:'DIV',isContentEditable:true}),true);
  assert.equal(C.isInteractiveTarget({tagName:'CANVAS'}),false);
+ assert.equal(C.isInteractiveTarget({tagName:'A',href:'#help'}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'A'}),false,'noninteractive anchors are not menu controls');
+ assert.equal(C.isInteractiveTarget({tagName:'SUMMARY'}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',role:'button'}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',getAttribute:key=>key==='role'?'slider':null}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',getAttribute:key=>key==='contenteditable'?'plaintext-only':null}),true);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',getAttribute:key=>key==='contenteditable'?'false':null}),false);
+ assert.equal(C.isInteractiveTarget({tagName:'DIV',role:'presentation'}),false);
  assert.equal(C.isInteractiveTarget(null),false);
 });
 
@@ -79,6 +87,10 @@ test('nested PC menu and editable descendants never dispatch gameplay hotkeys',(
  assert.equal(C.isInteractiveTarget({tagName:'SPAN',parentNode:shadowRoot}),true,
   'shadow-root descendants inherit host button protection');
  assert.equal(C.isInteractiveTarget({tagName:'CANVAS',parentElement:{tagName:'MAIN'}}),false);
+ const nestedLink={tagName:'SPAN',parentElement:{tagName:'A',href:'#instructions'}};
+ assert.equal(C.isInteractiveTarget(nestedLink),true,'nested help-link text owns keyboard focus');
+ const nestedRole={tagName:'SPAN',parentElement:{tagName:'DIV',role:'button'}};
+ assert.equal(C.isInteractiveTarget(nestedRole),true,'nested custom ARIA button owns keyboard focus');
  const cyclic={tagName:'SPAN'};cyclic.parentNode=cyclic;
  assert.equal(C.isInteractiveTarget(cyclic),false,'malformed event target cannot loop');
 });
