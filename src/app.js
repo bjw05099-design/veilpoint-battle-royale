@@ -202,7 +202,7 @@ $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else
 $('newMatch').addEventListener('click',start);
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
-  if(Desktop.isGameplayShortcut(e))return;
+  if(Desktop.isGameplayShortcut(e)){clearInput();return;}
  // Escape must cancel even a pending/denied mouse-capture request. The game
  // cannot act until locked, but the player must always be able to pause.
  if(e.code==='Escape'&&running&&!suspended){

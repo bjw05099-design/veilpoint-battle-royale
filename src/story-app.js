@@ -242,7 +242,7 @@
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
-     if(Desktop.isGameplayShortcut(e))return;
+     if(Desktop.isGameplayShortcut(e)){clearInput();return;}
     // Focused menu and settings controls own their keyboard events.
     if(Desktop.isInteractiveTarget(e.target))return;
     const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
