@@ -332,6 +332,12 @@ test('Ctrl/Alt cannot be saved as dead PC bindings; legacy preferences safely fa
  assert.equal(restored.sensitivity,1.5,'valid independent sensitivity survives migration');
  assert.deepEqual(restored.bindings,C.DEFAULT_BINDINGS,'invalid legacy bindings cannot strand fire');
  assert.equal(C.actionFor('Space',restored),'fire');
+ const preserved=C.normalize({bindings:{...C.DEFAULT_BINDINGS,fire:'ControlLeft',reload:'KeyT'}});
+ assert.equal(preserved.bindings.fire,'Space');
+ assert.equal(preserved.bindings.reload,'KeyT','unrelated custom reload binding survives migration');
+ const conflict=C.normalize({bindings:{...C.DEFAULT_BINDINGS,fire:'ControlLeft',reload:'Space'}});
+ assert.deepEqual(conflict.bindings,C.DEFAULT_BINDINGS,
+  'fallback may not duplicate another custom action key');
  assert.equal(C.isGameplayShortcut({key:'AltGraph',code:'AltRight'}),true,
   'AltGraph must remain an IME modifier even if a browser omits modifier flags');
 });
