@@ -17,7 +17,7 @@ small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
 <main><section><canvas id="arena" width="500" height="500" aria-label="팀 목표 구역 및 가시 범위 지도"></canvas>
 <p id="status" role="status" aria-live="polite">서버 연결 대기</p><p><small>PC 공통 키 설정 적용(기본 WASD/방향키 이동 · E 점령 유지 · SPACE 발사, 기존 F 별칭 · R 재장전). 지도 클릭/드래그로 조준하고 밖으로 이동하거나 Q로 해제. 서버가 이동·명중·탄약을 검증합니다. 원형 목표에서 적이 함께 있으면 점령 불가. 두 탭에서 서로 다른 이름으로 접속하세요.</small></p></section>
 <section class="panel"><label for="name">플레이어 이름</label><p><input id="name" maxlength="24" value="Player" autocomplete="off"></p>
-<button id="join">서버 입장</button><button id="ready" disabled>준비 / 재대전</button>
+<button id="join">서버 입장</button><button id="ready" disabled>준비 / 재대전</button><button id="leave" disabled aria-label="서버에서 퇴장">퇴장</button>
 <p><label for="loadout">서버 검증 장비 선택 (준비 전)</label>
 <select id="loadout" disabled aria-label="장비 유형"><option value="carbine">CARBINE · 균형형</option><option value="compact">COMPACT · 기동형</option><option value="marksman">MARKSMAN · 장거리형</option><option value="shotgun">SHOTGUN · 근거리형</option><option value="support">SUPPORT · 중장비형</option><option value="sidearm">SIDEARM · 경량형</option><option value="precision">PRECISION · 정밀형</option></select></p>
 <p>상태: <strong id="phase">LOBBY</strong></p><p>팀: <strong id="team">—</strong></p>
