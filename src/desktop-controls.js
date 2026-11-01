@@ -187,6 +187,12 @@
    status.textContent='다른 탭의 PC 조작 설정을 적용했습니다.';
    refresh();
   });
+  // Focusing a PC settings field does not blur the window. Discard any
+  // movement/held-fire latch immediately, rather than letting the offline
+  // 60Hz world keep acting on an old keydown while the player edits a menu.
+  if(typeof document.addEventListener==='function')document.addEventListener('focusin',event=>{
+   if(isInteractiveTarget(event.target)&&typeof onChange==='function')onChange();
+  });
   fullscreen.addEventListener('click',()=>{
    const element=document.documentElement||get('app');
    try{
