@@ -7,9 +7,9 @@ const create = () => {
   m.join('a','A');m.join('b','B');
   return m;
 };
-test('three original loadouts are server-validated and locked after ready', () => {
+test('seven original loadouts are server-validated and locked after ready', () => {
   const m=create();
-  assert.deepEqual(Object.keys(LOADOUTS),['carbine','compact','precision']);
+  assert.deepEqual(Object.keys(LOADOUTS),['carbine','compact','marksman','shotgun','support','sidearm','precision']);
   assert.throws(() => m.command('a',{seq:1,type:'loadout',weaponId:'invalid'}),/invalid_loadout/);
   assert.throws(() => m.command('a',{seq:1,type:'loadout',weaponId:'precision',ammo:999}),/invalid_command/);
   assert.equal(m.command('a',{seq:1,type:'loadout',weaponId:'precision'}).ok,true);
@@ -64,4 +64,43 @@ test('same-tick held fire uses each weapon damage without first-join advantage',
   assert.equal(m.players.get('a').ammo,5);
   assert.equal(m.players.get('b').ammo,17);
   assert.equal(m.phase,'playing');
+});
+
+test('all seven server-owned equipment profiles conserve finite rounds', () => {
+  for (const [id, weapon] of Object.entries(LOADOUTS)) {
+    const m = create();
+    assert.equal(m.command('a',{seq:1,type:'loadout',weaponId:id}).ok,true);
+    m.command('a',{seq:2,type:'ready'});m.command('b',{seq:1,type:'ready'});
+    const player = m.players.get('a');
+    const before = player.ammo + player.reserve;
+    assert.equal(before,weapon.magazine+weapon.reserve);
+    assert.equal(m.command('a',{seq:3,type:'fire'}).ok,true);
+    assert.equal(player.ammo+player.reserve,before-1);
+    assert.equal(m.command('a',{seq:4,type:'reload'}).ok,true);
+    for(let tick=0;tick<weapon.reloadTicks;tick++)m.step();
+    assert.equal(player.ammo+player.reserve,before-1);
+    assert.equal(player.ammo,weapon.magazine);
+    assert.equal(m.snapshot('a').self.weaponId,id);
+  }
+});
+test('equipment mobility changes actual server-owned 60Hz traversal, not only UI labels', () => {
+  for (const id of Object.keys(LOADOUTS)) {
+    const m=create();
+    m.command('a',{seq:1,type:'loadout',weaponId:id});
+    m.command('a',{seq:2,type:'ready'});m.command('b',{seq:1,type:'ready'});
+    m.command('a',{seq:3,type:'move',direction:{x:1,z:0}});
+    for(let tick=0;tick<60;tick++)m.step();
+    const expected=-8+4.5*LOADOUTS[id].mobility;
+    assert.ok(Math.abs(m.players.get('a').x-expected)<1e-6,id);
+  }
+});
+test('short-range equipment cannot hit a distant actor through a range bonus', () => {
+  const m=create();
+  m.command('a',{seq:1,type:'loadout',weaponId:'shotgun'});
+  m.command('a',{seq:2,type:'ready'});m.command('b',{seq:1,type:'ready'});
+  const target=m.players.get('b');
+  target.x=20;
+  assert.equal(m.command('a',{seq:3,type:'fire'}).ok,true);
+  assert.equal(target.health,100);
+  assert.equal(m.players.get('a').ammo,5);
 });
