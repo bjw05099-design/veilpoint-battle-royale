@@ -1,3 +1,8 @@
+## 2026-11-01 PC silent pointer-lock permission watchdog (R-08 / R-23 / R-25)
+
+- **Partial P0 desktop input reliability candidate:** A Windows/desktop browser that never resolves or rejects a pointer-lock permission request now returns the offline BR to an explicit, resumable pause after four seconds of animation-frame time. The fixed 60Hz match remains frozen and the existing local checkpoint is preserved; a fresh user click retries permission. A successful lock observed without a dispatched browser event cancels the timeout, while a stale permission grant after pause cannot reclaim the mouse.
+- **Verification scope:** Three deterministic Node browser-controller regressions cover the silent timeout, canceled late grant and eventless success. GitHub CI at the PR head and actual Windows Chrome/Edge permission prompts, OS focus behavior, QHD 165Hz RTX 3070 with **16GB system RAM**, Unreal native play and three complete modes remain separate **unverified** gates. No new mobile or touch functionality.
+
 ## 2026-11-01 PC benchmark sample integrity / actual canvas backing size (R-08 / R-23 / R-25)
 
 - **Partial P0 measurement integrity candidate:** The offline BR benchmark now records CPU draw times, effective render scale and actual canvas backing dimensions only for complete post-warmup render intervals. Changing graphics settings while a benchmark is merely armed now terminates it explicitly, preventing an exported JSON report from silently describing a different preset. The JSON exposes observed min/max backing pixel width and height, not the operating system's verified QHD output or physical 165Hz refresh.
