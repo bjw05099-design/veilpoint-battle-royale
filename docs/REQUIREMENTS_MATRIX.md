@@ -1,3 +1,8 @@
+## 2026-11-02 CH01 PC silent pointer-lock watchdog (R-08 / R-14 / R-23 / R-25)
+
+- **Partial P0 reliability fix:** CH01 now pauses and saves if desktop pointer-lock permission stays silent for four seconds of animation-frame time, or if a previously observed lock disappears without an event. A lock acquired without an event cancels the watchdog. A late grant after pause is rejected by the existing attempt guard. No hidden 60Hz hostile simulation advances without desktop mouse capture.
+- **Evidence boundary:** Four new Node browser-controller regressions cover silent timeout, eventless success, silent loss and late-grant cancellation. GitHub CI must pass at this PR head. Actual Windows browser permission behavior, 2026-11-27 end-to-end demo, native UE5, real QHD 165Hz RTX 3070 with **16GB system RAM**, human realism and final three-mode release remain **unverified**. PC-only scope; no touch development.
+
 ## 2026-11-01 PC silent pointer-lock permission watchdog (R-08 / R-23 / R-25)
 
 - **Partial P0 desktop input reliability candidate:** A Windows/desktop browser that never resolves or rejects a pointer-lock permission request now returns the offline BR to an explicit, resumable pause after four seconds of animation-frame time. The fixed 60Hz match remains frozen and the existing local checkpoint is preserved; a fresh user click retries permission. A successful lock observed without a dispatched browser event cancels the timeout; a subsequently lost lock without an event also pauses before another hostile simulation tick, while a stale permission grant after pause cannot reclaim the mouse.
