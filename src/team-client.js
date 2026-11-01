@@ -35,13 +35,31 @@
   const physicalTrigger = Desktop.createTriggerLatch();
   // Capture the identity when a request is queued: an old command must never
   // be sent using a newly joined tab's token after an expired-session reset.
+  // Bound both network and JSON-response waits. One stalled local HTTP call
+  // must not block every later PC key release, ready vote or reconnection.
+  // A timeout rejects the queued command; subsequent higher sequences remain
+  // valid server-side. Abort the transport when supported, without requiring it.
+  const REQUEST_TIMEOUT_MS = 8000;
   const request = async (path, body, authToken = token) => {
-    const response = await fetch(path, {method: body ? 'POST' : 'GET',
-      headers: {...(body ? {'Content-Type': 'application/json'} : {}), ...(authToken ? {'X-Player-Token': authToken} : {})},
-      ...(body ? {body: JSON.stringify(body)} : {})});
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-    return data;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error('request_timeout'));
+        if (controller) controller.abort();
+      }, REQUEST_TIMEOUT_MS);
+    });
+    try {
+      const response = await Promise.race([fetch(path, {method: body ? 'POST' : 'GET',
+        headers: {...(body ? {'Content-Type': 'application/json'} : {}), ...(authToken ? {'X-Player-Token': authToken} : {})},
+        ...(body ? {body: JSON.stringify(body)} : {}),
+        ...(controller ? {signal: controller.signal} : {})}), timeout]);
+      const data = await Promise.race([response.json(), timeout]);
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      return data;
+    } finally {
+      clearTimeout(timer);
+    }
   };
   const status = msg => {el('status').textContent = msg;};
   function invalidateSession(expiredToken, retryable = false) {
