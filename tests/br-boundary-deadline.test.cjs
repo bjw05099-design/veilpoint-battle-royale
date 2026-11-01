@@ -58,7 +58,8 @@ test('BR rival outside retains health until deadline then cannot fire',()=>{
   S.tick(g,0.05,{});
   S.tick(g,0.05,{});
   assert.equal(b.alive,false);
-  assert.equal(b.health,0);
+  assert.equal(b.health,20,'boundary ruling must not invent a physical injury');
+  assert.equal(b.disqualified,true);
   assert.equal(b.charges,36);
   assert.equal(g.player.health,100);
 });
@@ -154,4 +155,47 @@ test('final-boundary expiry is deterministic after a checkpoint restore',()=>{
     if(g.status==='playing')assert.equal(S.snapshotMatch(g),S.snapshotMatch(restored));
   }
   assert.equal(g.status,'lost');
+});
+
+
+test('BR boundary-disqualified rival retains health across checkpoint and 60Hz replay',()=>{
+  const g=beforeDeadline(8121,2),removed=g.bots[0],remaining=g.bots[1];
+  g.player.x=0;g.player.z=0;
+  removed.x=171;removed.z=0;removed.health=47;removed.actionTime=9;
+  remaining.x=0;remaining.z=-25;remaining.actionTime=9;
+  for(let i=0;i<3;i++)S.tick(g,0.05,{});
+  assert.equal(g.status,'playing');
+  assert.equal(removed.alive,false);
+  assert.equal(removed.disqualified,true);
+  assert.equal(removed.health,47);
+  const saved=S.snapshotMatch(g),restored=S.restoreMatch(saved);
+  assert.equal(restored.bots[0].health,47);
+  assert.equal(restored.bots[0].alive,false);
+  assert.equal(restored.bots[0].disqualified,true);
+  assert.equal(S.snapshotMatch(restored),saved);
+  for(let i=0;i<15;i++){
+    S.tick(g,1/60,{});S.tick(restored,1/60,{});
+    if(g.status!=='playing')break;
+    assert.equal(S.snapshotMatch(restored),S.snapshotMatch(g));
+  }
+});
+
+test('BR checkpoint rejects fabricated boundary flags but migrates earlier combat saves',()=>{
+  const g=beforeDeadline(8122,2);
+  const base=JSON.parse(S.snapshotMatch(g));
+  const invalid=fn=>{
+    const value=structuredClone(base);fn(value);
+    assert.throws(()=>S.restoreMatch(value),RangeError);
+  };
+  invalid(s=>{s.bots[0].disqualified=true;});
+  invalid(s=>{s.bots[0].disqualified='true';});
+  invalid(s=>{s.bots[0].alive=false;s.bots[0].health=40;s.bots[0].disqualified=false;});
+  invalid(s=>{s.bots[0].x=0;s.bots[0].z=-25;
+    s.bots[0].alive=false;s.bots[0].health=40;s.bots[0].disqualified=true;});
+  const legacy=structuredClone(base);
+  for(const bot of legacy.bots)delete bot.disqualified;
+  legacy.bots[0].alive=false;legacy.bots[0].health=0;
+  const restored=S.restoreMatch(legacy);
+  assert.equal(restored.bots[0].disqualified,false);
+  assert.equal(restored.bots[0].health,0);
 });
