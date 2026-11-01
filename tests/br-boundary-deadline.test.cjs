@@ -161,8 +161,8 @@ test('final-boundary expiry is deterministic after a checkpoint restore',()=>{
 test('BR boundary-disqualified rival retains health across checkpoint and 60Hz replay',()=>{
   const g=beforeDeadline(8121,2),removed=g.bots[0],remaining=g.bots[1];
   g.player.x=0;g.player.z=0;
-  removed.x=171;removed.z=0;removed.health=47;removed.actionTime=999;
-  remaining.x=0;remaining.z=-25;remaining.actionTime=999;
+  removed.x=171;removed.z=0;removed.health=47;removed.actionTime=9;
+  remaining.x=0;remaining.z=-25;remaining.actionTime=9;
   for(let i=0;i<3;i++)S.tick(g,0.05,{});
   assert.equal(g.status,'playing');
   assert.equal(removed.alive,false);
