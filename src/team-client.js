@@ -329,7 +329,15 @@
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
-    el('tick').textContent = String(state.tick);
+    // The remaining time comes from the server's 60Hz simulation, not the
+    // browser's wall clock. Keep older mock/protocol snapshots compatible.
+    const remainingTicks = state.round?.remainingTicks;
+    if (Number.isSafeInteger(remainingTicks) && remainingTicks >= 0) {
+      const seconds = Math.ceil(remainingTicks / 60);
+      const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const ss = String(seconds % 60).padStart(2, '0');
+      el('tick').textContent = state.tick + ' · 남은 시간 ' + mm + ':' + ss;
+    } else el('tick').textContent = String(state.tick);
     // Public server event, identical for both teams; never display hidden actor locations.
     const weatherLabels = {clear: '맑음', incoming: '해안 안개 접근 예보',
       active: '해안 안개 · 시야 제한', clearing: '안개 약화 중 · 시야 제한'};
@@ -348,6 +356,7 @@
     if (state.phase === 'ended') {
       const outcome = state.winner ? '승리 팀 ' + state.winner :
         state.reason === 'mutual_incapacitation' ? '동시 전투 불능 · 무승부' :
+        state.reason === 'time_limit' ? '제한 시간 종료 · 동점 무승부' :
         state.reason === 'player_left' ? '승리 팀 없음 (퇴장 시 상대 연결 만료)' :
         '승리 팀 없음 (양측 연결 종료)';
       status(`종료 · ${outcome} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);

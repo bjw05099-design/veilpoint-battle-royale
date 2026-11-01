@@ -1440,3 +1440,20 @@ test('PC team OS shortcut releases server-held movement and trigger',async()=>{
  assert.equal(player.direction.x,0);assert.equal(player.triggerHeld,false);
  a.doc('keyup',{code:'KeyD'});a.doc('keyup',{code:'Space'});
 });
+
+
+test('PC team HUD shows the server-owned 60Hz countdown and tied timeout', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  await a.poll(); await b.poll(); await settle();
+  assert.match(a.node('tick').textContent, /남은 시간 05:00/);
+  server.match.ticks = 17999;
+  server.match.step();
+  await a.poll(); await b.poll(); await settle();
+  assert.match(a.node('tick').textContent, /남은 시간 00:00/);
+  assert.match(a.node('status').textContent, /제한 시간 종료 · 동점 무승부/);
+  assert.equal(b.node('tick').textContent, a.node('tick').textContent);
+});

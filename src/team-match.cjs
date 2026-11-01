@@ -8,6 +8,9 @@ const SPEED = 4.5;
 const CAPTURE_RADIUS = 2.6;
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
+// The local competitive round has a deterministic 5-minute simulation deadline.
+// A connected but inactive pair must not hold a match open indefinitely.
+const ROUND_LIMIT_TICKS = 5 * 60 * 60;
 const MAX_PLAYERS = 2;
 // Shared grounded geometry: the server owns cover, collision and visibility.
 // Clear central access keeps the original two-player capture route playable.
@@ -419,6 +422,18 @@ class TeamMatch {
       p.ready = false;
     }
   }
+  finishIfDeadline() {
+    if (this.phase !== 'playing' || this.ticks < ROUND_LIMIT_TICKS) return false;
+    // The server owns both the clock and the score. A tied round is a draw;
+    // no client can claim extra time or a victory from an unconfirmed capture.
+    const winner = this.score.red > this.score.blue ? 'red' :
+      this.score.blue > this.score.red ? 'blue' : null;
+    // Incomplete progress never survives the result screen or a rematch.
+    this.progress.red = 0;
+    this.progress.blue = 0;
+    this.finish(winner, 'time_limit');
+    return true;
+  }
   step() {
     if (this.phase !== 'playing') {this.pruneIdleWaitingPlayers();return;}
     // Reuse the exact pre-command lease rule for authoritative tick fairness.
@@ -551,6 +566,7 @@ class TeamMatch {
     if (teams.size !== 1 || !operator) {
       this.progress.red = 0;
       this.progress.blue = 0;
+      this.finishIfDeadline();
       return;
     }
     const team = nearby[0].team;
@@ -564,6 +580,9 @@ class TeamMatch {
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= WIN_SCORE) this.finish(team, 'objective_score');
     }
+    // A valid objective completed on the final tick wins before the timer
+    // adjudicates a lower score or tie. All other rounds end at the deadline.
+    this.finishIfDeadline();
   }
   snapshot(token) {
     // Read-only lobby polling cannot reserve abandoned seats. Finished match
@@ -592,7 +611,9 @@ class TeamMatch {
           !lineBlocked(me.x, me.z, x, z, COVER);
       });
     });
-    return {phase: this.phase, tick: this.ticks, score: {...this.score},
+    return {phase: this.phase, tick: this.ticks,
+      round: {limitTicks: ROUND_LIMIT_TICKS, remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
+      score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER, weather,
       self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z, facing: {...me.facing},
@@ -606,4 +627,5 @@ class TeamMatch {
 }
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, LOADOUTS,
-  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK};
+  RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK,
+  ROUND_LIMIT_TICKS};
