@@ -278,3 +278,19 @@ test('local HTTP times out a stalled partial join, frees the seat and accepts a 
     await server.close();
   }
 });
+
+test('abandoned JSON requests never inspect or buffer late chunks after settling', async () => {
+  for (const scenario of ['timeout', 'aborted', 'oversized']) {
+    const stream = new EventEmitter();
+    const pending = readJson(stream, 4, 15);
+    if (scenario === 'aborted') stream.emit('aborted');
+    if (scenario === 'oversized') stream.emit('data', Buffer.from('12345'));
+    await assert.rejects(pending, scenario === 'timeout' ? /request_timeout/ :
+      scenario === 'aborted' ? /request_aborted/ : /body_too_large/);
+    // A malicious peer may keep sending after the handler has rejected.
+    // Reading the chunk's length would throw, proving the stale data path ran.
+    const poison = {get length() {throw new Error('late_chunk_was_inspected');}};
+    assert.doesNotThrow(() => stream.emit('data', poison), scenario);
+    assert.doesNotThrow(() => stream.emit('end'), scenario);
+  }
+});
