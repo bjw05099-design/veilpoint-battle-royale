@@ -29,6 +29,7 @@ function inspectZip(bytes) {
   let cursor = offset;
   let nextLocal = 0;
   const entries = new Map();
+  const foldedNames = new Set();
   for (let i = 0; i < count; i++) {
     if (cursor + 46 > end || bytes.readUInt32LE(cursor) !== 0x02014b50)
       invalid('directory_entry');
@@ -42,9 +43,18 @@ function inspectZip(bytes) {
     const next = cursor + 46 + nameLength + extraLength + commentLength;
     if (next > end || flags !== 0x0800 || method !== 0 ||
         size !== bytes.readUInt32LE(cursor + 20)) invalid('entry_header');
+    // This packager emits only canonical stored entries. Hidden ZIP extra
+    // fields, per-file comments and alternate versions are not payload data
+    // covered by the manifest; accepting them would make verification ambiguous.
+    if (extraLength !== 0 || commentLength !== 0 ||
+        bytes.readUInt16LE(cursor + 4) !== 20 ||
+        bytes.readUInt16LE(cursor + 6) !== 20 ||
+        bytes.readUInt16LE(cursor + 34) !== 0) invalid('directory_metadata');
     const name = bytes.toString('utf8', cursor + 46, cursor + 46 + nameLength);
+    const folded = name.toLowerCase();
     if (!/^[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\.[a-z0-9]+$/i.test(name) ||
-        entries.has(name)) invalid('entry_name');
+        foldedNames.has(folded)) invalid('entry_name');
+    foldedNames.add(folded);
     const local = bytes.readUInt32LE(cursor + 42);
     // Canonical stored ZIP: every local record occurs once, in directory order,
     // with no hidden gaps, aliases, or untracked bytes before the directory.
@@ -57,7 +67,11 @@ function inspectZip(bytes) {
         bytes.readUInt32LE(local + 18) !== size ||
         bytes.readUInt32LE(local + 22) !== size) invalid('local_metadata');
     const localNameLength = bytes.readUInt16LE(local + 26);
-    const dataStart = local + 30 + localNameLength + bytes.readUInt16LE(local + 28);
+    // The local record must match the directory's exact filename length and
+    // contain no untracked extra bytes (including a disguised local payload).
+    if (localNameLength !== nameLength || bytes.readUInt16LE(local + 28) !== 0 ||
+        bytes.readUInt16LE(local + 4) !== 20) invalid('local_metadata');
+    const dataStart = local + 30 + localNameLength;
     if (dataStart + size > offset ||
         bytes.toString('utf8', local + 30, local + 30 + localNameLength) !== name)
       invalid('local_bounds');

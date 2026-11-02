@@ -66,3 +66,21 @@ test('offline packager closes direct HTML asset references and rejects remote de
     }
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
+
+test('offline page navigation is allowed but HTML pages cannot masquerade as scripts or media', () => {
+  const dir = fixture();
+  try {
+    const valid = '<script src="src/game.js"></script><a href="story.html">Story</a><a href="#help">Help</a>';
+    fs.writeFileSync(path.join(dir, 'index.html'), valid);
+    assert.doesNotThrow(() => collectFiles(dir));
+    for (const invalid of [
+      '<script src="story.html"></script>',
+      '<img src="index.html">',
+      '<video poster="story.html"></video>',
+      '<img src="#help">'
+    ]) {
+      fs.writeFileSync(path.join(dir, 'index.html'), valid + invalid);
+      assert.throws(() => collectFiles(dir), /Unsafe\/external asset/);
+    }
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});

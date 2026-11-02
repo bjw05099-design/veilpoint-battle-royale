@@ -23,15 +23,22 @@ function referencedAssets(page, html) {
     throw new Error('Missing browser scripts in ' + page);
   if (/@import\b|url\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
-  const refs = [...html.matchAll(/\b(?:src|href|poster|srcset)\s*=\s*(["'])(.*?)\1/gi)]
-    .map(match => match[2]);
-  return refs.filter(ref => {
-    if (ref.startsWith('#') || PAGES.includes(ref)) return false;
+  const refs = [...html.matchAll(/\b(src|href|poster|srcset)\s*=\s*(["'])(.*?)\2/gi)]
+    .map(match => ({attribute: match[1].toLowerCase(), ref: match[3]}));
+  return refs.filter(({attribute, ref}) => {
+    // Navigation links can target another bundled page or a local anchor.
+    // An HTML page is not a JavaScript, image, poster or srcset asset; treating
+    // <script src="story.html"> as a navigation link falsely certifies launch.
+    if (ref.startsWith('#') || PAGES.includes(ref)) {
+      if (attribute !== 'href')
+        throw new Error('Unsafe/external asset in ' + page + ': ' + ref);
+      return false;
+    }
     // Reject network URLs, path traversal, queries and unsupported srcset lists.
     if (!/^(?:src|assets)\/(?:[a-z0-9_-]+\/)*[a-z0-9_-]+\.(?:js|css|png|jpe?g|webp|svg|ogg|wav)$/i.test(ref))
       throw new Error('Unsafe/external asset in ' + page + ': ' + ref);
     return true;
-  });
+  }).map(({ref}) => ref);
 }
 function collectFiles(root = ROOT) {
   const files = new Set([...PAGES, ...DOCUMENTS]);

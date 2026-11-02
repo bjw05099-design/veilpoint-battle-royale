@@ -107,3 +107,38 @@ test('ZIP inspection bounds archive bytes and directory entries before parsing',
   })));
   assert.throws(() => inspectZip(many), /invalid_demo_zip:entry_count/);
 });
+
+test('ZIP inspection rejects hidden local and directory extras even with intact file CRC', () => {
+  const zip = buildZip([{name:'a.txt', data:Buffer.from('abc')}]);
+  const end = zip.length - 22;
+  const directoryOffset = zip.readUInt32LE(end + 16);
+  const localDataStart = 30 + zip.readUInt16LE(26);
+  const localExtra = Buffer.concat([zip.subarray(0, localDataStart),
+    Buffer.from([0x7f]), zip.subarray(localDataStart)]);
+  localExtra.writeUInt16LE(1, 28);
+  localExtra.writeUInt32LE(directoryOffset + 1, localExtra.length - 22 + 16);
+  assert.throws(() => inspectZip(localExtra), /invalid_demo_zip:local_metadata/);
+
+  const centralNameEnd = directoryOffset + 46 + zip.readUInt16LE(directoryOffset + 28);
+  const directoryExtra = Buffer.concat([zip.subarray(0, centralNameEnd),
+    Buffer.from([0x7f]), zip.subarray(centralNameEnd)]);
+  directoryExtra.writeUInt16LE(1, directoryOffset + 30);
+  directoryExtra.writeUInt32LE(zip.readUInt32LE(end + 12) + 1,
+    directoryExtra.length - 22 + 12);
+  assert.throws(() => inspectZip(directoryExtra), /invalid_demo_zip:directory_metadata/);
+  assert.equal(inspectZip(zip).get('a.txt').toString(), 'abc');
+});
+
+test('ZIP inspection rejects alternate versions and Windows case-folding aliases', () => {
+  const zip = buildZip([{name:'a.txt', data:Buffer.from('abc')}]);
+  const badLocalVersion = Buffer.from(zip);
+  badLocalVersion.writeUInt16LE(45, 4);
+  assert.throws(() => inspectZip(badLocalVersion), /invalid_demo_zip:local_metadata/);
+  const directoryOffset = zip.readUInt32LE(zip.length - 22 + 16);
+  const badCentralVersion = Buffer.from(zip);
+  badCentralVersion.writeUInt16LE(45, directoryOffset + 6);
+  assert.throws(() => inspectZip(badCentralVersion), /invalid_demo_zip:directory_metadata/);
+  const aliases = buildZip([{name:'src/Map.js', data:Buffer.from('one')},
+    {name:'src/map.js', data:Buffer.from('two')}]);
+  assert.throws(() => inspectZip(aliases), /invalid_demo_zip:entry_name/);
+});
