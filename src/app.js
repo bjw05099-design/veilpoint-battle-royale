@@ -24,7 +24,7 @@ function benchmarkUi(){
   info.state==='running'?'측정 중 · '+seconds+'/'+info.durationMs/1000+'초 (초기 예열 제외)':
   info.state==='finished'?(info.reason==='completed'
    ?'측정 완료 · '+info.durationMs/1000+'초 · JSON을 저장하세요.'
-   :'부분 측정 · '+seconds+'/'+info.durationMs/1000+'초 · 중단 원인: '+info.reason+' · 120초 결과가 아닙니다. JSON 저장 또는 다시 측정하세요.'):
+   :'측정 종료 · 부분 측정 · '+seconds+'/'+info.durationMs/1000+'초 · 중단 원인: '+info.reason+' · 120초 결과가 아닙니다. JSON 저장 또는 다시 측정하세요.'):
   '미측정 · 클릭해서 준비한 뒤 게임을 플레이하세요. 측정 데이터는 외부 전송되지 않습니다.';
 }
 if(benchmark){
