@@ -395,9 +395,8 @@
     el('stress').textContent = Math.round(state.self.stress);
     // The server reports actual posture; never infer it from an unacknowledged key.
     el('stress').textContent += state.self.crouching ? ' · 낮은 자세' : '';
-    el('stress').textContent += ' · 지구력 ' + Math.round(state.self.stamina ?? 100) + '/100';
-    if (state.self.sprintExhausted) el('stress').textContent += ' · 질주 회복 중';
-    else if (state.self.sprinting) el('stress').textContent += ' · 질주 중';
+    el('stamina').textContent = Math.round(state.self.stamina ?? 100) + '/100' +
+      (state.self.sprintExhausted ? ' · 질주 회복 중' : state.self.sprinting ? ' · 질주 중' : '');
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     const displayedReady = readyIntent === null ? state.self.ready : readyIntent;
     el('ready').disabled = state.phase === 'playing';
