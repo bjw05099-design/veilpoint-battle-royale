@@ -31,9 +31,11 @@ test('lost lobby join response can recover the same seat near lease expiry', asy
     const attemptId = 'a'.repeat(32);
     const first = await post('/join', {name: 'Captain A', attemptId});
     assert.equal(first.status, 201);
+    assert.equal(first.body.resumed, undefined, 'fresh join has no recovery handshake');
     setNow(29000);
     const retry = await post('/join', {name: 'Ignored rename', attemptId});
     assert.equal(retry.status, 200);
+    assert.equal(retry.body.resumed, true, 'retry must tell PC client to reset stale intent');
     assert.equal(retry.body.token, first.body.token);
     assert.equal(retry.body.name, 'Captain A');
     assert.equal(match.players.size, 1);
