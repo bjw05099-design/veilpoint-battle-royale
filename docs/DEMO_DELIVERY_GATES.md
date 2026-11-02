@@ -72,3 +72,7 @@ The BR HUD now displays a proximity warning within 12 world units of the shrinki
 ## 2026-10-31 GPU context-loss continuity candidate
 
 BR and CH01 PC browser controllers now pause/checkpoint on WebGL context loss, recreate the renderer on restoration, and require explicit manual resume. Recovery failures leave game controls disabled instead of advancing an invisible match. Desktop DOM-mock regressions cover successful restoration and failure-to-recreate paths. This is **not** a real-GPU context-loss playtest, QHD 165Hz benchmark or Unreal acceptance result; the release checklist remains unchecked.
+
+## 2026-11-02 offline delivery verifier hardening candidate
+
+The zero-dependency ZIP inspector now rejects noncanonical local/central ZIP extra fields, per-entry comments, alternate record versions and case-folded duplicate paths that can alias on Windows. The packager and independent verifier also reject HTML pages referenced as executable/media assets (while preserving ordinary navigation links). These checks protect archive structure and directly referenced browser dependencies; they **do not** establish authenticity against a party able to rewrite the archive and checksum, nor prove that the demo actually launches on Windows. Regression tests and final PR-head GitHub CI are required before acceptance. The November 27 offline end-to-end launch, RTX 3070/QHD 165Hz/16GB system RAM performance, UE5 native execution and full three-mode release remain unverified.
