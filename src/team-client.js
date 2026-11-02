@@ -14,6 +14,9 @@
   // Throttle changed directions to 60Hz; the next poll flushes a final
   // movement that arrived inside the throttle window. Simulation stays 60Hz.
   const AIM_DIRECTION_EPSILON = .0025;
+  // A lost PC aim packet should recover from authoritative self state well
+  // before the normal 20-tick stationary lease refresh (no opponent data).
+  const AIM_RETRY_TICKS = 6;
   let lastAimSentAt = -Infinity;
   let aimFlushTimer = null;
   const cancelAimFlush = () => {
@@ -172,7 +175,7 @@
       Number(held('forward') || keys.has('up'));
     return {x, z};
   };
-  const aimAtWorld = (tx, tz) => {
+  const aimAtWorld = (tx, tz, forceRetry = false) => {
     if (leaving || !token || state?.phase !== 'playing') return;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
@@ -187,10 +190,10 @@
     // A 0.035 direction deadband (~2 degrees) swallowed one-pixel PC mouse
     // corrections for up to 20 server ticks. Keep a small noise floor instead;
     // the independent 60Hz send throttle still bounds network traffic.
-    if (change < AIM_DIRECTION_EPSILON && state.tick - lastAimTick < 20) return;
+    if (change < AIM_DIRECTION_EPSILON && !forceRetry && state.tick - lastAimTick < 20) return;
     const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now() : Date.now();
-    if (change >= AIM_DIRECTION_EPSILON && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
+    if ((change >= AIM_DIRECTION_EPSILON || forceRetry) && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
       // A quick final flick must not wait up to 150ms for the next snapshot.
       // Keep only one trailing timer; it always reads the latest world point.
       if (aimFlushTimer === null) {
@@ -710,7 +713,18 @@
       state = nextState;render();updateInput();
       // Recompute aim against the latest server-owned player position while
       // the pointer stays over a fixed world point (no stale direction drift).
-      if (lastAimPoint) aimAtWorld(lastAimPoint.x,lastAimPoint.z);
+      if (lastAimPoint) {
+        // An HTTP aim request can be lost even while the local pointer remains
+        // stationary. The server's own aiming/facing state is the evidence:
+        // retry promptly when it disagrees, without an omniscient target feed.
+        // Allow six authoritative ticks for in-flight snapshots to settle.
+        const retryAim = state.phase === 'playing' && lastAimVector &&
+          state.tick - lastAimTick >= AIM_RETRY_TICKS &&
+          (!state.self.aiming ||
+            Math.hypot(state.self.facing.x - lastAimVector.x,
+              state.self.facing.z - lastAimVector.z) > AIM_DIRECTION_EPSILON);
+        aimAtWorld(lastAimPoint.x,lastAimPoint.z,!!retryAim);
+      }
       // A lost pointer-leave/keyup release must not lock PC keyboard facing
       // for the full 90-tick server lease. Reconcile only the player's own aim.
       if (!lastAimPoint && state.phase === 'playing' && state.self.aiming &&
