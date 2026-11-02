@@ -130,7 +130,7 @@ class Renderer {
  this.static.upload(this.gl);this.static.data=[];
  }
  buildDynamic(state){
- const mesh=this.dynamic,t=state.elapsed;mesh.data=[];
+ const mesh=this.dynamic,t=state.elapsed;mesh.data.length=0;
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
  // Static geometry is generated from the BR base world. Story-specific route
