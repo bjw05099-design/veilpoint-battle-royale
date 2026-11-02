@@ -437,6 +437,65 @@ test('lost PC aim-release packet cannot lock keyboard-facing until the full inpu
  assert.equal(server.match.phase,'playing');
 });
 
+test('lost initial PC mouse aim is retried from own authoritative state before 20-tick lease refresh',async()=>{
+ const server=backend();let dropped=false;
+ const flaky={fetchLocal:async (route,options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  if(route==='/command'&&body?.type==='aim'&&!dropped){
+   dropped=true;throw new Error('lost_initial_aim');
+  }
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();
+ assert.equal(dropped,true);
+ assert.equal(p.aiming,false,'first aim packet never reached authority');
+ for(let i=0;i<8;i++)server.match.step();
+ // The fake monotonic clock must advance with server ticks: the real PC
+ // still obeys the independent 60Hz aim-send throttle on recovery.
+ a.advanceTime(8*1000/60);
+ await a.poll();await settle();
+ assert.equal(p.aiming,true,'self-state mismatch should trigger a new aim command');
+ assert.ok(p.facing.z<-.5,'recovered direction follows actual PC pointer');
+ assert.equal(server.match.phase,'playing');
+});
+
+test('lost PC mouse direction update is retried without reverting to stale facing',async()=>{
+ const server=backend();let aimCount=0;
+ const flaky={fetchLocal:async (route,options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  if(route==='/command'&&body?.type==='aim'&&++aimCount===2)
+   throw new Error('lost_aim_update');
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();assert.equal(p.aiming,true);
+ const oldFacing={...p.facing};
+ a.advanceTime(25);
+ a.node('arena').dispatch('pointermove',{clientX:355,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCount,2,'second aim command was attempted and lost');
+ assert.deepEqual({...p.facing},oldFacing,'authority still has the earlier facing');
+ for(let i=0;i<8;i++)server.match.step();
+ // The fake monotonic clock must advance with server ticks: the real PC
+ // still obeys the independent 60Hz aim-send throttle on recovery.
+ a.advanceTime(8*1000/60);
+ await a.poll();await settle();
+ assert.ok(aimCount>=3,'authoritative facing mismatch retries changed mouse aim');
+ assert.ok(p.facing.x>.99&&Math.abs(p.facing.z)<.02,'server receives final pointer direction');
+ assert.equal(server.match.phase,'playing');
+});
+
 test('team tab refresh releases a stale server aim override before keyboard input',async()=>{
  const server=backend(),storage=new Map(),first=boot(server,storage),other=boot(server);
  first.node('join').click();other.node('join').click();await settle();
@@ -1895,4 +1954,32 @@ test('PC pointer at own avatar releases an undefined aim ray instead of locking 
   assert.equal(player.aiming, false, 'undefined zero-length aim is released immediately');
   assert.deepEqual({...player.facing}, {x: -1, z: 0});
   assert.ok(server.requests.some(r => r.token === token && r.body?.type === 'aimRelease'));
+});
+
+test('PC click on own avatar does not spend finite ammunition or latch stale trigger', async () => {
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ const before=p.ammo;
+ // Red spawn x=-8,z=0 projects exactly to canvas (174,250).
+ a.node('arena').dispatch('pointerdown',{clientX:174,clientY:250,pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.aiming,false,'self-position has no valid facing ray');
+ assert.equal(p.ammo,before,'invalid click cannot consume a carried round');
+ assert.equal(p.triggerHeld,false,'invalid click cannot latch automatic fire');
+ assert.equal(server.requests.filter(r=>r.token===token&&r.body?.type==='fire').length,0);
+ for(let i=0;i<25;i++)server.match.step();
+ assert.equal(p.ammo,before,'invalid click must not fire on later 60Hz ticks');
+ // A later valid click remains playable and uses the normal finite-ammo path.
+ a.advanceTime(500);
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.ammo,before-1,'valid PC pointer click still fires once');
+ assert.equal(p.triggerHeld,true);
+ a.node('arena').dispatch('pointerup',{pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.triggerHeld,false);
 });
