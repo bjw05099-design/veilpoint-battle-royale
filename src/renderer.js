@@ -177,7 +177,7 @@ class Renderer {
  }
  }
  resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4)*(this.adaptiveScale||this.resolutionScale);const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
- draw(state){if(this.fallback){this.fallback.draw(state);return;}this.gpuTimer.poll();const timerStarted=this.gpuTimer.begin(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);this.resize();const g=this.gl,l=this.loc,p=state.player;
+ draw(state){if(this.fallback){this.fallback.draw(state);return;}this.gpuTimer.poll(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);const timerStarted=this.gpuTimer.begin(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);this.resize();const g=this.gl,l=this.loc,p=state.player;
  g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);
  g.useProgram(this.prog);const eye=[p.x,1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0),p.z];
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
