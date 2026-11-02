@@ -76,3 +76,21 @@ test('warmup boundary excludes CPU and scale samples; canvas backing resolution 
  b.arm({fpsCap:60});
  assert.equal(b.report().canvasBackingPixels,null,'rearming must clear prior run resolution evidence');
 });
+
+test('completed and interrupted reports explicitly distinguish 120-second evidence from partial data',()=>{
+ const b=createBenchmark({durationMs:1000,warmupMs:0});
+ b.arm({fpsCap:60});b.frame(0,1,1);b.frame(100,1,1);b.finish('match-ended');
+ const partial=b.report();
+ assert.equal(partial.completed,false);
+ assert.equal(partial.measurementStatus,'partial');
+ assert.equal(partial.measuredPercent,10);
+ assert.equal(partial.renderedFrameCount,1);
+ b.arm({fpsCap:60});b.frame(0,1,1);
+ for(let t=100;t<=1000;t+=100)b.frame(t,1,1);
+ const complete=b.report();
+ assert.equal(complete.completed,true);
+ assert.equal(complete.measurementStatus,'complete');
+ assert.equal(complete.measuredPercent,100);
+ b.arm({fpsCap:60});
+ assert.equal(b.report().measurementStatus,'incomplete','rearm must not inherit a completed result');
+});
