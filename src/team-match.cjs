@@ -719,7 +719,9 @@ class TeamMatch {
       score: {...this.score},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS}, cover: COVER, weather,
-      self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
+      // Only the authenticated player's own canonical lobby identity is sent.
+      // A restored PC tab must not display its HTML default as another name.
+      self: {id: me.id, name: me.name, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
         facing: {...me.facing}, direction: {...me.direction},
         triggerHeld: me.triggerHeld, captureHeld: me.captureHeld, sprintHeld: me.sprintHeld,
         aiming: me.aiming,

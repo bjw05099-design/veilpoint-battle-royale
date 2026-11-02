@@ -2120,3 +2120,25 @@ test('PC lobby explains a duplicate normalized name and permits a distinct retry
   assert.equal(server.match.players.size, 2);
   assert.equal(second.node('join').disabled, true);
 });
+
+test('PC tab resume restores the canonical server-owned player name, not the HTML default', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('name').value = '  이수혁  ';
+  b.node('name').value = 'Other player';
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  assert.equal(server.match.players.get(token).name, '이수혁');
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  assert.equal(server.match.phase, 'playing');
+  const resumed = boot(server, a.storage);
+  assert.notEqual(resumed.node('name').value, '이수혁',
+    'a fresh document initially displays an unrelated default');
+  await settle();
+  assert.equal(resumed.node('name').value, '이수혁');
+  assert.equal(resumed.node('name').disabled, true);
+  assert.equal(server.match.players.size, 2, 'resume must not reserve another seat');
+  assert.equal(server.match.snapshot(token).self.name, '이수혁');
+  assert.equal(a.storage.get('veilpoint.team.tabSession'), token);
+});
