@@ -1683,3 +1683,49 @@ test('remapped PC crouch binding replaces the default key without ghost posture'
   await settle();
   assert.equal(player.crouching, false);
 });
+
+test('PC team Shift sprint is a held server intent and blur releases it with movement', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  a.doc('keydown', {code: 'KeyD'}); a.doc('keydown', {code: 'ShiftLeft'});
+  await settle();
+  assert.equal(player.sprintHeld, true);
+  for (let i = 0; i < 30; i++) server.match.step();
+  assert.ok(player.stamina < 100);
+  await a.poll(); await settle();
+  assert.ok(a.node('stamina').textContent.includes('/100'));
+  assert.ok(Number(a.node('stress').textContent) >= 0, 'stress remains independently numeric');
+  a.doc('keyup', {code: 'ShiftLeft'}); await settle();
+  assert.equal(player.sprintHeld, false);
+  a.doc('keydown', {code: 'ShiftLeft'}); await settle();
+  assert.equal(player.sprintHeld, true);
+  a.blur(); await settle();
+  assert.equal(player.sprintHeld, false);
+  assert.equal(player.direction.x, 0);
+});
+
+test('remapped PC team sprint uses new key and rejects the former Shift binding', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await settle();
+  const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+  const localStorage = {
+    getItem: key => a.storage.get(key) ?? null,
+    setItem: (key, value) => a.storage.set(key, value)
+  };
+  const changed = Desktop.bind(Desktop.load(localStorage), 'sprint', 'KeyV');
+  assert.equal(changed.ok, true);
+  Desktop.save(localStorage, changed.value);
+  a.storageEvent({key: Desktop.STORAGE_KEY}); await settle();
+  a.doc('keydown', {code: 'ShiftLeft'}); await settle();
+  assert.equal(player.sprintHeld, false);
+  a.doc('keyup', {code: 'ShiftLeft'});
+  a.doc('keydown', {code: 'KeyV'}); await settle();
+  assert.equal(player.sprintHeld, true);
+  a.doc('keyup', {code: 'KeyV'}); await settle();
+  assert.equal(player.sprintHeld, false);
+});

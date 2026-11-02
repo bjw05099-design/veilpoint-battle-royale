@@ -1,3 +1,7 @@
+## 2026-11-02 local team PC sprint / server-owned finite exertion (R-08 / R-12 / R-14 / R-23)
+- **Partial implementation candidate:** Remappable keyboard Shift hold now requests sprint; the localhost authoritative 60Hz server owns its movement multiplier, finite stamina drain only on actual movement, crouch precedence, fatigue recovery, stale-input lease and round/reset clearing. Only the owning player sees stamina; an opponent's hidden exertion is not disclosed. Sprint does not restore health or create ammunition.
+- **Evidence gates:** Pure 60Hz, two-client HTTP, PC browser input/focus/remap regressions are in `tests/team-pc-sprint.test.cjs` and `tests/team-client-browser.test.cjs`; final PR-head CI and Windows browser play must be checked before merge or acceptance. This is a small 2D localhost team prototype, **not** production online multiplayer, native Unreal FPS, verified realism, measured RTX 3070 QHD 165Hz with **16GB system RAM**, or completed three-mode release. No touch-specific work was added.
+
 ## 2026-11-02 local PC team lobby consent and visibility (R-12 / R-14 / R-23)
 
 - **Partial P0 UX/authority:** Waiting participants can explicitly withdraw a sequenced ready vote before the round starts. The server publishes only lobby participant/ready counts; the PC UI displays opponent wait and cancel feedback. Late cancellation cannot undo an active round. This avoids accidental starts after a stale vote and clarifies the local two-client loop.
