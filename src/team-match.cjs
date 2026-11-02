@@ -327,6 +327,11 @@ class TeamMatch {
       return {ok: true};
     }
     if (data.type === 'reload') {
+      // A rejected reload is also a weapon-handling intent, not a valid
+      // simultaneous hands-free console interaction.
+      p.capturing = false;
+      p.captureArmed = false;
+      this.progress[p.team] = 0;
       if (p.reloadTicks > 0) {
         if (!p.reloadHesitation) return {ok: false, reason: 'already_reloading'};
         // A second deliberate input can recover from a visible hesitation, but
@@ -379,14 +384,16 @@ class TeamMatch {
   fireShot(p, deferredHits = null) {
     const weapon = LOADOUTS[p.weaponId];
     if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
+    // A rejected trigger attempt still interrupts a physical relay operation:
+    // empty magazines, cooldown and active reload cannot bank a score.
+    p.capturing = false;
+    p.captureArmed = false;
+    this.progress[p.team] = 0;
       if (p.reloadTicks > 0) return {ok: false, reason: 'reloading'};
       if (p.ammo === 0) return {ok: false, reason: 'empty_magazine'};
       if (this.ticks - p.lastShotTick < weapon.intervalTicks) return {ok: false, reason: 'cooldown'};
       p.lastShotTick = this.ticks;
       p.ammo--;
-      p.capturing = false;
-      p.captureArmed = false;
-      this.progress[p.team] = 0;
       // A shot follows the server-owned facing ray, never an auto-selected target.
       // Visibility affects what the client KNOWS, not whether a shot can travel
       // through mist. The opponent's 2D collision radius is a simple hit proxy.
