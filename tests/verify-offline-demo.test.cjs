@@ -76,6 +76,17 @@ test('verified ZIP cannot silently omit referenced scripts despite a valid manif
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 
+test('self-consistent ZIP cannot omit an unquoted browser asset reference', () => {
+  const dir = fixture();
+  try {
+    const files = collectFiles(dir).map(file => file.name === 'index.html'
+      ? {...file, data: Buffer.from('<script src="src/game.js"></script><img src=assets/missing.webp>')}
+      : file);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(files)),
+      /invalid_demo_zip:html_assets:index.html/);
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});
+
 test('ZIP verification rejects untracked local-record padding even with valid CRCs', () => {
   const zip = buildZip([{name:'a.txt', data:Buffer.from('abc')},
     {name:'b.txt', data:Buffer.from('def')}]);
