@@ -101,3 +101,36 @@ test('six or more overdue ticks still discard the stale backlog safely', () => {
   assert.equal(advance(120), 1, 'new elapsed time still advances the simulation');
   assert.equal(ticks, 6);
 });
+
+test('faulting server tick is consumed and cannot replay a partial world mutation', () => {
+  let mutations = 0;
+  const failure = new Error('simulated partial authoritative tick');
+  const advance = createFixedStepClock(() => {
+    mutations++;
+    if (mutations === 1) throw failure;
+  });
+  advance(0);
+  assert.throws(() => advance(50), error => error === failure);
+  assert.equal(mutations, 1, 'one failed tick mutated the world once');
+  assert.equal(advance(50), 0, 'the same wakeup cannot replay the failed tick');
+  assert.equal(advance(50 + 1000 / 60), 1,
+    'a fresh elapsed tick still progresses the authoritative match');
+  assert.equal(mutations, 2, 'queued stale ticks were discarded after the fault');
+});
+
+test('fault on a later catch-up tick does not replay earlier or queued steps', () => {
+  let attempts = 0;
+  const failure = new Error('third tick failed');
+  const advance = createFixedStepClock(() => {
+    attempts++;
+    if (attempts === 3) throw failure;
+  });
+  advance(0);
+  assert.throws(() => advance(90), error => error === failure);
+  assert.equal(attempts, 3);
+  assert.equal(advance(90), 0);
+  // 90ms includes a 6.67ms fractional remainder. The next 10ms finishes
+  // only one NEW tick, never the two discarded whole ticks.
+  assert.equal(advance(100), 1);
+  assert.equal(attempts, 4);
+});
