@@ -222,3 +222,50 @@ test('WebGL dynamic geometry reuses CPU staging and uploads only populated float
  assert.equal(writes.at(-1).count,initialCount*9);
  assert.equal(renderer.dynamic.data.length,0);
 });
+
+test('dynamic mesh triangle preserves exact positions, winding, normals and colors without temporary vectors',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const mesh=renderer.dynamic;
+ mesh.data.length=0;
+ const color=[.2,.4,.6];
+ const a=[0,0,0],b=[2,0,0],c=[0,3,0];
+ mesh.tri(a,b,c,color);
+ assert.deepEqual(Array.from(mesh.data),[
+  0,0,0,0,0,1,.2,.4,.6,
+  2,0,0,0,0,1,.2,.4,.6,
+  0,3,0,0,0,1,.2,.4,.6
+ ],'front-facing triangle must retain interleaved WebGL vertex data');
+ mesh.data.length=0;
+ mesh.tri(c,b,a,color);
+ assert.deepEqual(Array.from(mesh.data).filter((_,i)=>i%9>=3&&i%9<6),[0,0,-1,0,0,-1,0,0,-1],
+  'reversing winding must reverse every vertex normal');
+ mesh.data.length=0;
+ mesh.tri(a,a,a,color);
+ assert.deepEqual(Array.from(mesh.data).filter((_,i)=>i%9>=3&&i%9<6),[0,0,0,0,0,0,0,0,0],
+  'degenerate geometry retains the old finite zero-normal behavior');
+ assert.deepEqual(color,[.2,.4,.6],'drawing must not mutate shared material colors');
+});
+
+test('WebGL box geometry reuses face tint scratch without corrupting prior triangles',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const mesh=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null}).dynamic;
+ const tintScratch=mesh.faceColor;
+ const originalColor=[.2,.4,.6];
+ mesh.box(0,0,0,2,2,2,originalColor);
+ const firstBox=Array.from(mesh.data);
+ assert.equal(firstBox.length,36*9,'six faces retain twelve triangles');
+ assert.deepEqual(firstBox.slice(0,3),[-1,0,-1]);
+ assert.deepEqual(firstBox.slice(6,9),originalColor.map(c=>c*.81));
+ assert.deepEqual(firstBox.slice(5*54+6,5*54+9),originalColor.map(c=>c*.72));
+ mesh.box(3,0,0,1,1,1,[.9,.7,.5]);
+ assert.equal(mesh.faceColor,tintScratch,'all faces and boxes reuse one tint scratch array');
+ assert.equal(mesh.data.length,72*9);
+ assert.deepEqual(Array.from(mesh.data.slice(0,36*9)),firstBox,
+  'later tint changes must not recolor previously staged vertices');
+ assert.deepEqual(originalColor,[.2,.4,.6],'original material must stay unchanged');
+});
