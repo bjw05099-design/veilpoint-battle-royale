@@ -126,7 +126,7 @@ test('DEFLATE payload cannot hide trailing bytes behind a valid end marker and C
   altered.writeUInt32LE(zip.readUInt32LE(18) + tail.length, 18);
   altered.writeUInt32LE(zip.readUInt32LE(18) + tail.length, oldDirectory + tail.length + 20);
   altered.writeUInt32LE(oldDirectory + tail.length, altered.length - 22 + 16);
-  assert.throws(() => inspectZip(altered), /invalid_demo_zip:deflate_trailing:a\\.txt/);
+  assert.throws(() => inspectZip(altered), /invalid_demo_zip:deflate_trailing:a\.txt/);
   assert.deepEqual(inspectZip(zip).get('a.txt'), original);
 });
 
