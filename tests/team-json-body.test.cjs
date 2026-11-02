@@ -294,3 +294,41 @@ test('abandoned JSON requests never inspect or buffer late chunks after settling
     assert.doesNotThrow(() => stream.emit('end'), scenario);
   }
 });
+
+
+test('team lobby rejects invisible joiners and filler-only aliases without reserving seats', () => {
+  const {TeamMatch} = require('../src/team-match.cjs');
+  const match = new TeamMatch();
+  const hidden = ['\\u200d', '\\u200c', '\\u034f', '\\u061c', '\\u3164', '\\u115f', '\\u1160', '\\uffa0'];
+  for (const [i, escaped] of hidden.entries()) {
+    const name = JSON.parse('"' + escaped + '"');
+    assert.throws(() => match.join('hidden-' + i, name), /invalid_name/);
+    assert.throws(() => match.join('spoof-' + i, 'A' + name + 'B'), /invalid_name/);
+  }
+  assert.equal(match.players.size, 0);
+  match.join('korean', '조현지 🛰️');
+  match.join('arabic', 'نهرين');
+  assert.equal(match.players.size, 2, 'visible multilingual player names still work');
+});
+
+test('HTTP invisible-only join cannot occupy either local team slot', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false});
+  const {port} = await server.listen();
+  try {
+    for (const name of ['\\u200d', '\\u3164', '\\u061c']) {
+      const response = await fetch('http://127.0.0.1:' + port + '/join', {
+        method: 'POST', headers: {'content-type': 'application/json'},
+        body: JSON.stringify({name: JSON.parse('"' + name + '"')})
+      });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error, 'invalid_name');
+      assert.equal(server.match.players.size, 0);
+    }
+    const valid = await fetch('http://127.0.0.1:' + port + '/join', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({name: '이수혁'})});
+    assert.equal(valid.status, 201);
+    assert.equal(server.match.players.size, 1);
+  } finally {await server.close();}
+});
