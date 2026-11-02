@@ -41,6 +41,10 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
   // This proof must never silently bind to a publicly reachable interface.
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
   const match = new TeamMatch({now});
+  // A lost /join response must not occupy another lobby seat on retry.
+  // Attempt IDs are unpredictable, tab-scoped and only retained while the
+  // corresponding server-owned seat exists; legacy {name} joins still work.
+  const joinAttempts = new Map();
   const send = (res, status, value) => {
     res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -89,11 +93,28 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
           return send(res, 415, {error: 'json_required'});
         const body = await readJson(req, 2048, bodyTimeoutMs);
         if (url.pathname === '/join') {
-          if (!body || Object.keys(body).length !== 1 || typeof body.name !== 'string')
+          const keys = body && typeof body === 'object' && !Array.isArray(body)
+            ? Object.keys(body) : [];
+          if (typeof body?.name !== 'string' ||
+              !((keys.length === 1 && keys[0] === 'name') ||
+                (keys.length === 2 && keys.includes('name') && keys.includes('attemptId') &&
+                  typeof body.attemptId === 'string' && /^[a-f0-9]{32}$/.test(body.attemptId))))
             throw new RangeError('invalid_join');
+          // Reclaim expired lobby seats before retry lookup. Remove stale IDs
+          // rather than allowing an unbounded map of abandoned attempts.
+          match.pruneIdleWaitingPlayers();
+          for (const [id, token] of joinAttempts)
+            if (!match.players.has(token)) joinAttempts.delete(id);
+          const previousToken = body.attemptId && joinAttempts.get(body.attemptId);
+          if (previousToken) {
+            const previous = match.players.get(previousToken);
+            return send(res, 200, {token: previousToken, id: previous.id,
+              team: previous.team, name: previous.name});
+          }
           const token = crypto.randomBytes(24).toString('hex');
           const player = match.join(token, body.name);
-          return send(res, 201, {token, ...player});
+          if (body.attemptId) joinAttempts.set(body.attemptId, token);
+          return send(res, 201, {token, ...player, name: match.players.get(token).name});
         }
         const result = match.command(req.headers['x-player-token'], body);
         // The server resolves hits authoritatively, but a remote client must

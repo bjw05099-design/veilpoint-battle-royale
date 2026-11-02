@@ -68,6 +68,43 @@ test('two independent HTTP clients join, ready, move, observe authoritative obje
   } finally {await server.close();}
 });
 
+test('lost join responses retry the same seat and reclaim expired attempt IDs', async () => {
+  let now = 0;
+  const server = createTeamServer({port: 0, autoTick: false, now: () => now});
+  const {port} = await server.listen();
+  const base = `http://127.0.0.1:${port}`;
+  const post = async body => {
+    const res = await fetch(base + '/join', {method: 'POST',
+      headers: {'content-type': 'application/json'}, body: JSON.stringify(body)});
+    return {status: res.status, data: await res.json()};
+  };
+  try {
+    const attemptId = 'a'.repeat(32);
+    const first = await post({name: 'Original', attemptId});
+    assert.equal(first.status, 201);
+    const retry = await post({name: 'Changed after timeout', attemptId});
+    assert.equal(retry.status, 200);
+    assert.equal(retry.data.token, first.data.token);
+    assert.equal(retry.data.name, 'Original');
+    assert.equal(server.match.players.size, 1);
+    const second = await post({name: 'Second', attemptId: 'b'.repeat(32)});
+    assert.equal(second.status, 201);
+    assert.notEqual(second.data.token, first.data.token);
+    assert.equal((await post({name: 'Third', attemptId: 'c'.repeat(32)})).status, 400);
+    assert.equal((await post({name: 'Original', attemptId})).data.token, first.data.token,
+      'full lobby must still allow the existing attempt to recover its token');
+    for (const invalid of ['short', 'g'.repeat(32), '', null]) {
+      assert.equal((await post({name: 'Invalid', attemptId: invalid})).status, 400);
+    }
+    assert.equal((await post({name: 'Invalid', attemptId, extra: 1})).status, 400);
+    now = 31001;
+    const fresh = await post({name: 'New owner', attemptId});
+    assert.equal(fresh.status, 201);
+    assert.notEqual(fresh.data.token, first.data.token);
+    assert.equal(server.match.players.size, 1);
+  } finally {await server.close();}
+});
+
 test('HTTP heartbeat renews the authoritative lease while state reads do not', async () => {
   let now = 0;
   const server = createTeamServer({port: 0, autoTick: false, now: () => now});

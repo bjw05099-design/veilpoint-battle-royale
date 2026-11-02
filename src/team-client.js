@@ -33,6 +33,27 @@
   let readyIntent = null, readyIntentSeq = 0, readyIntentGeneration = 0;
   let actionFeedback = '', feedbackUntil = 0;
   const SESSION_KEY = 'veilpoint.team.tabSession';
+  const JOIN_ATTEMPT_KEY = 'veilpoint.team.pendingJoin';
+  let joinAttemptId = null;
+  function pendingJoinId() {
+    if (joinAttemptId) return joinAttemptId;
+    try {
+      const saved = window.sessionStorage.getItem(JOIN_ATTEMPT_KEY);
+      if (saved && /^[a-f0-9]{32}$/.test(saved)) return (joinAttemptId = saved);
+    } catch (_) { /* Private storage may be unavailable. */ }
+    // A retry identifier is a secret capability, never a timestamp or Math.random.
+    if (!window.crypto || typeof window.crypto.getRandomValues !== 'function')
+      throw new Error('secure_random_unavailable');
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    joinAttemptId = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    try {window.sessionStorage.setItem(JOIN_ATTEMPT_KEY, joinAttemptId);} catch (_) {}
+    return joinAttemptId;
+  }
+  function clearPendingJoin() {
+    joinAttemptId = null;
+    try {window.sessionStorage.removeItem(JOIN_ATTEMPT_KEY);} catch (_) {}
+  }
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
   // The server remains authoritative for all movement and gameplay commands.
   const Desktop = window.VeilpointDesktopControls;
@@ -450,7 +471,11 @@
     }
     joining = true;el('join').disabled = true;
     try {
-      const result = await request('/join', {name: el('name').value});
+      const result = await request('/join', {name: el('name').value, attemptId: pendingJoinId()});
+      // The first response may have been lost: the server returns the original
+      // seat and canonical display name instead of allocating a second player.
+      if (typeof result.name === 'string') el('name').value = result.name;
+      clearPendingJoin();
       token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
        el('loadout').disabled = false;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
