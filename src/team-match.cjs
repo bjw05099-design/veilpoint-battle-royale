@@ -149,13 +149,6 @@ class TeamMatch {
         hasLoneSurrogate(name)) throw new RangeError('invalid_name');
     const displayName = name.trim().normalize('NFC');
     if (!displayName || displayName.length > 24) throw new RangeError('invalid_name');
-    // The local two-player HUD must never show two indistinguishable names.
-    // Compare canonical display identities, including fullwidth Latin aliases,
-    // without rewriting the original Korean/Arabic/emoji name on screen.
-    const identity = displayName.normalize('NFKC').toLowerCase();
-    if ([...this.players.values()].some(other =>
-      other.name.normalize('NFKC').toLowerCase() === identity))
-      throw new RangeError('duplicate_name');
     if (this.phase === 'ended') {
       // A newly paired guest is not a participant in the previous result.
       // Reset old scores, clock and survivor health before publishing a lobby
