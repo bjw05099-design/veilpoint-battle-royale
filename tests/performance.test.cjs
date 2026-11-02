@@ -51,9 +51,11 @@ test('resolution governor refuses stale GPU samples even after ring capacity sat
  assert.equal(g.update(evidence(4000,2,61,61)),1.1,
   'replayed good evidence must not count as another low-load window');
  assert.equal(g.update(evidence(5000,2,62,62)),1.1);
- assert.equal(g.update(evidence(6000,2,63,63)),1.25,
-  'three independent low-load windows can restore the selected quality ceiling');
- assert.equal(g.update(evidence(7000,12,64,63)),1.25,
+ assert.equal(g.update(evidence(6000,2,63,63)),1.1,
+  'a stale intervening window breaks the consecutive low-load streak');
+ assert.equal(g.update(evidence(7000,2,64,64)),1.25,
+  'three consecutive fresh low-load windows restore the selected quality ceiling');
+ assert.equal(g.update(evidence(8000,12,65,64)),1.25,
   'fresh GPU evidence without new CPU work is insufficient');
 });
 
@@ -74,6 +76,22 @@ test('fresh evidence is required after a resolution change or telemetry reset',(
  t.record('gpu',2);t.record('cpu',2);gpu=t.stats('gpu');cpu=t.stats('cpu');
  assert.equal(g.update({nowMs:3000,gpuP95:gpu.p95,cpuP95:cpu.p95,
   gpuSamples:gpu.count,cpuSamples:cpu.count,gpuTotal:gpu.total,cpuTotal:cpu.total}),1.1);
+});
+
+test('late asynchronous WebGL queries from the previous quality scale are ignored',()=>{
+ const {createGpuEvidenceGate}=require('../src/performance.js');
+ const gate=createGpuEvidenceGate();
+ assert.equal(gate.accepts(NaN),false);
+ assert.equal(gate.accepts(100),true);
+ gate.reset(125);
+ assert.equal(gate.accepts(124.999),false,'old draw cannot pollute new resolution telemetry');
+ assert.equal(gate.accepts(125),true);
+ assert.equal(gate.accepts(126),true);
+ gate.reset(120);
+ assert.equal(gate.accepts(124),false,'backward timestamps cannot reopen stale evidence');
+ assert.throws(()=>gate.reset(Infinity),RangeError);
+ gate.reset(200);
+ assert.equal(gate.accepts(199),false,'a second graphics change invalidates the previous epoch');
 });
 
 test('unsupported GPU timer is disabled rather than estimating GPU timing',()=>{

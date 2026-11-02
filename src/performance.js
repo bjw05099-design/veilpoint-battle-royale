@@ -85,6 +85,17 @@ function createGpuTimer(gl,onSample,onInvalidated){
  }
  return {supported:true,begin,end,poll,dispose};
 }
+// A WebGL timer result can arrive several frames after its draw. A query
+// issued at the OLD render scale must not seed a fresh quality decision.
+function createGpuEvidenceGate(){
+ let minimumIssuedAt=-Infinity;
+ function reset(nowMs){
+  if(!Number.isFinite(nowMs))throw new RangeError('Invalid GPU evidence epoch');
+  minimumIssuedAt=Math.max(minimumIssuedAt,nowMs);
+ }
+ function accepts(issuedAt){return Number.isFinite(issuedAt)&&issuedAt>=minimumIssuedAt;}
+ return {reset,accepts};
+}
 function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxScale,targetFps=165,cooldownMs=2500}={}){
  if(!RESOLUTIONS.includes(minScale)||!RESOLUTIONS.includes(maxScale)||minScale>maxScale||!RESOLUTIONS.includes(initialScale)||initialScale<minScale||initialScale>maxScale)throw new RangeError('Invalid resolution bounds');
  if(!Number.isFinite(targetFps)||targetFps<30||targetFps>240||!Number.isFinite(cooldownMs)||cooldownMs<0)throw new RangeError('Invalid timing configuration');
@@ -128,5 +139,5 @@ function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxSca
  }
  return {update,getScale:()=>scale,resetEvidence};
 }
-return {RESOLUTIONS,TARGET_FRAME_MS,percentile,createTelemetry,createGpuTimer,createResolutionGovernor};
+return {RESOLUTIONS,TARGET_FRAME_MS,percentile,createTelemetry,createGpuTimer,createGpuEvidenceGate,createResolutionGovernor};
 });

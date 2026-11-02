@@ -1,5 +1,5 @@
 ## 2026-11-02 browser adaptive-resolution evidence freshness (R-08 / R-25 / R-26)
-- **Candidate:** GPU and CPU telemetry now expose accepted-sample totals beyond the bounded 180-frame ring. Auto-resolution refuses repeated/stale windows; every scale change and BR restart clears stale timing history and requires at least 30 new CPU/GPU samples. Existing opt-in behavior and fixed 60Hz simulation remain unchanged.
+- **Candidate:** GPU and CPU telemetry now expose accepted-sample totals beyond the bounded 180-frame ring. Auto-resolution refuses repeated/stale windows; every scale change and BR restart clears stale timing history and requires at least 30 new CPU/GPU samples. A monotonic draw-time gate also rejects late asynchronous WebGL results issued at the previous resolution, rather than contaminating the new telemetry window. Existing opt-in behavior and fixed 60Hz simulation remain unchanged.
 - **Gate:** Node regression plus PR-head `npm run verify`/Actions are required. No actual FPS, VRAM, Windows/RTX 3070/QHD 165Hz, UE5 or visual A/B improvement is claimed without real-device evidence.
 
 ## 2026-11-02 GPU timer provenance for opt-in browser benchmark (R-08 / R-25 / R-26)

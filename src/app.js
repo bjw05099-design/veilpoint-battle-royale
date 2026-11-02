@@ -8,6 +8,7 @@ const graphics=global.VeilpointGraphics;
 const perf=global.VeilpointPerformance;
 const Desktop=global.VeilpointDesktopControls;
 const telemetry=perf.createTelemetry();
+const gpuEvidenceGate=perf.createGpuEvidenceGate();
 const benchmark=global.VeilpointBenchmark?global.VeilpointBenchmark.createBenchmark():null;
 const benchmarkStart=$('benchmarkStart'),benchmarkStop=$('benchmarkStop'),benchmarkExport=$('benchmarkExport'),benchmarkStatus=$('benchmarkStatus');
 function benchmarkUi(){
@@ -63,7 +64,7 @@ function applyGraphicsSettings(){
  if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))benchmark.finish('graphics-settings-changed');
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
  governor=perf.createResolutionGovernor({minScale:Math.min(.7,graphicsSettings.resolutionScale),maxScale:graphicsSettings.resolutionScale,initialScale:graphicsSettings.resolutionScale,targetFps:graphicsSettings.fpsCap});
- telemetry.clear();lastRenderTime=null;lastGovernorCheck=0;
+ telemetry.clear();gpuEvidenceGate.reset(performance.now());lastRenderTime=null;lastGovernorCheck=0;
  if(renderer&&renderer.setGraphicsQuality)renderer.setGraphicsQuality(graphicsSettings);
  profileSelect.value=graphicsSettings.preset;
  fpsSelect.value=String(graphicsSettings.fpsCap);
@@ -144,8 +145,14 @@ function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 function initializeRenderer(){
  const next=new global.VeilpointRenderer(canvas);
- next.onGpuTime=(ms,issuedAt)=>{telemetry.record('gpu',ms);if(benchmark)benchmark.gpu(ms,issuedAt);};
- next.onGpuInvalidated=()=>{telemetry.clear();if(benchmark)benchmark.invalidateGpu();if(governor)governor.resetEvidence();};
+ next.onGpuTime=(ms,issuedAt)=>{
+  if(gpuEvidenceGate.accepts(issuedAt))telemetry.record('gpu',ms);
+  if(benchmark)benchmark.gpu(ms,issuedAt);
+ };
+ next.onGpuInvalidated=()=>{
+  telemetry.clear();gpuEvidenceGate.reset(performance.now());
+  if(benchmark)benchmark.invalidateGpu();if(governor)governor.resetEvidence();
+ };
  renderer=next;applyGraphicsSettings();
  const supported=!!(renderer.gpuTimer&&renderer.gpuTimer.supported);
  autoResolutionCheckbox.disabled=!supported;
@@ -291,7 +298,7 @@ function resetInactiveClock(){
  // A lost touch pointer may never emit pointerup; discard held stick and camera
  // gestures so resuming cannot move or rotate the player without fresh input.
  joyId=null;lookId=null;previousLook=null;thumb.x=0;thumb.y=0;nub.style.transform='';
- clock.reset();fpsLimiter.reset();telemetry.clear();if(governor)governor.resetEvidence();lastRenderTime=null;last=performance.now();
+ clock.reset();fpsLimiter.reset();telemetry.clear();gpuEvidenceGate.reset(performance.now());if(governor)governor.resetEvidence();lastRenderTime=null;last=performance.now();
  updateHud();
 }
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
@@ -440,7 +447,7 @@ function frame(now){requestAnimationFrame(frame);
    renderer.setAdaptiveResolution(nextScale);
    if(nextScale!==previousScale){
     // Do not apply a previous resolution's GPU costs to the next quality step.
-    telemetry.clear();governor.resetEvidence();
+    telemetry.clear();gpuEvidenceGate.reset(performance.now());governor.resetEvidence();
    }
    lastGovernorCheck=now;
   }
