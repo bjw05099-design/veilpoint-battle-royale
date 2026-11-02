@@ -29,10 +29,24 @@
       accumulator += Math.min(elapsedSeconds, maxFrameSeconds);
       let executed = 0;
       while (accumulator + epsilon >= stepSeconds && executed < maxSteps) {
-        onStep(stepSeconds);
+        // Account for this tick before invoking user simulation code. If a
+        // callback partially mutates game state then throws, replaying the same
+        // tick on the next animation frame can duplicate ammo/damage/loot.
         accumulator = Math.max(0, accumulator - stepSeconds);
         executed++;
         totalSteps++;
+        try {
+          onStep(stepSeconds);
+        } catch (error) {
+          // Fail closed on stale queued inputs after a logic exception; retain
+          // only the fractional remainder, exactly as for a normal long stall.
+          if (accumulator >= stepSeconds) {
+            const remainder = accumulator % stepSeconds;
+            discardedSeconds += accumulator - remainder;
+            accumulator = remainder;
+          }
+          throw error;
+        }
       }
       // A stalled tab must not spend seconds replaying obsolete inputs.
       if (accumulator >= stepSeconds) {
