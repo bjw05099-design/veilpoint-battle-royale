@@ -333,35 +333,28 @@ test('HTTP invisible-only join cannot occupy either local team slot', async () =
   } finally {await server.close();}
 });
 
-test('team lobby rejects visually blank Braille and canonical duplicate identities without reserving seats', () => {
+test('team lobby rejects invisible Braille blank aliases without reserving a seat', () => {
   const {TeamMatch} = require('../src/team-match.cjs');
   const match = new TeamMatch();
-  for (const name of ['\u2800', 'A\u2800B'])
-    assert.throws(() => match.join('blank-' + name.length, name), /invalid_name/);
-  match.join('first', '  이수혁  ');
-  assert.throws(() => match.join('second', '이수혁'), /duplicate_name/);
-  assert.equal(match.players.size, 1);
+  for (const [i, name] of ['\u2800', 'A\u2800B', '이수혁\u2800'].entries())
+    assert.throws(() => match.join('blank-' + i, name), /invalid_name/);
+  assert.equal(match.players.size, 0);
+  match.join('first', '이수혁');
   match.join('second', '조현지');
   assert.equal(match.players.size, 2);
-  const latin = new TeamMatch();
-  latin.join('first', 'Alpha');
-  assert.throws(() => latin.join('second', 'ＡＬＰＨＡ'), /duplicate_name/);
-  assert.equal(latin.players.size, 1);
 });
 
-test('HTTP duplicate display identity cannot occupy the remaining local competitive seat', async () => {
+test('HTTP join rejects visually blank Braille names without allocating a seat', async () => {
   const {createTeamServer} = require('../server/team-server.cjs');
   const server = createTeamServer({port: 0, autoTick: false});
   const {port} = await server.listen();
-  const base = 'http://127.0.0.1:' + port;
-  const join = name => fetch(base + '/join', {method: 'POST',
-    headers: {'content-type': 'application/json'}, body: JSON.stringify({name})});
   try {
-    assert.equal((await join('Alpha')).status, 201);
-    const duplicate = await join('ＡＬＰＨＡ');
-    assert.equal(duplicate.status, 400);
-    assert.equal((await duplicate.json()).error, 'duplicate_name');
-    assert.equal(server.match.players.size, 1);
-    assert.equal((await join('조현지')).status, 201);
+    const response = await fetch('http://127.0.0.1:' + port + '/join', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({name: '\u2800'})
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, 'invalid_name');
+    assert.equal(server.match.players.size, 0);
   } finally {await server.close();}
 });
