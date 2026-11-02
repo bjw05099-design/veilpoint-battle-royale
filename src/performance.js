@@ -7,10 +7,13 @@
 'use strict';
 const RESOLUTIONS=Object.freeze([.5,.6,.7,.8,.9,1,1.1,1.25]);
 const TARGET_FRAME_MS=1000/165;
-function percentile(values,p){
- if(!values.length)return null;
- const a=[...values].sort((x,y)=>x-y),i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);
+function percentileSorted(a,p){
+ if(!a.length)return null;
+ const i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);
  return a[lo]+(a[hi]-a[lo])*(i-lo);
+}
+function percentile(values,p){
+ return percentileSorted([...values].sort((x,y)=>x-y),p);
 }
 function createTelemetry(size=180){
  if(!Number.isInteger(size)||size<8||size>10000)throw new RangeError('Invalid sample window');
@@ -27,8 +30,11 @@ function createTelemetry(size=180){
  }
  function stats(type){
   if(!Object.prototype.hasOwnProperty.call(samples,type))throw new RangeError('Unknown timing type');
-  const a=samples[type].values;
-  return {count:a.length,p50:percentile(a,.5),p95:percentile(a,.95),p99:percentile(a,.99)};
+  // One sorted snapshot serves P50/P95/P99; avoid sorting three copies
+  // on every 250ms HUD update or adaptive-resolution check.
+  const a=samples[type].values,sorted=[...a].sort((x,y)=>x-y);
+  return {count:a.length,p50:percentileSorted(sorted,.5),
+   p95:percentileSorted(sorted,.95),p99:percentileSorted(sorted,.99)};
  }
  function clear(){for(const window of Object.values(samples)){window.values.length=0;window.next=0;}}
  return {record,stats,clear};
