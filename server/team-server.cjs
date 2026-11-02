@@ -28,8 +28,24 @@ function createFixedStepClock(onStep) {
     previous = now;
     const pendingSteps = Math.floor((remainder + 1e-8) / STEP_MS);
     const steps = Math.min(MAX_CATCHUP_STEPS, pendingSteps);
-    for (let i = 0; i < steps; i++) onStep();
-    remainder -= steps * STEP_MS;
+    for (let i = 0; i < steps; i++) {
+      // Consume each authoritative tick BEFORE executing its callback.
+      // If a simulation exception occurs after mutating the world, replaying
+      // this tick on the next wakeup would duplicate shots or relay progress.
+      remainder = Math.max(0, remainder - STEP_MS);
+      try {
+        onStep();
+      } catch (error) {
+        // The failed tick is spent; drop stale whole-tick input backlog while
+        // preserving only a fractional remainder for the next valid wakeup.
+        // Floating-point subtraction can leave a remainder infinitesimally
+        // below a whole tick (e.g. 2*STEP_MS - epsilon). Treat such stale
+        // whole ticks as spent rather than carrying a phantom extra step.
+        const staleTicks = Math.floor((remainder + 1e-8) / STEP_MS);
+        remainder = Math.max(0, remainder - staleTicks * STEP_MS);
+        throw error;
+      }
+    }
     // Five legitimate ticks may leave a fractional tick to carry into the
     // next wakeup. Drop only *excess* full ticks after a real process stall;
     // clearing the fraction at exactly five silently slows active rounds.

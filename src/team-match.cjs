@@ -73,6 +73,10 @@ const hasLoneSurrogate = value => [...value].some(char => {
   const point = char.codePointAt(0);
   return point >= 0xd800 && point <= 0xdfff;
 });
+// Marks, variation selectors and punctuation without a visible base cannot
+// identify an opponent in a two-seat lobby. Keep letters, digits and ordinary
+// pictographic emoji valid, including Korean and Arabic player names.
+const VISIBLE_NAME_BASE = /[\p{L}\p{N}\p{Extended_Pictographic}]/u;
 const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
@@ -148,7 +152,13 @@ class TeamMatch {
     if (typeof name !== 'string' || INVALID_NAME_CONTROL.test(name) ||
         hasLoneSurrogate(name)) throw new RangeError('invalid_name');
     const displayName = name.trim().normalize('NFC');
-    if (!displayName || displayName.length > 24) throw new RangeError('invalid_name');
+    if (!displayName || displayName.length > 24 || !VISIBLE_NAME_BASE.test(displayName))
+      throw new RangeError('invalid_name');
+    // A player must not impersonate the other local seat using case changes,
+    // whitespace or canonically equivalent Unicode spellings.
+    const identity = displayName.toLowerCase();
+    if ([...this.players.values()].some(p => p.name.toLowerCase() === identity))
+      throw new RangeError('name_in_use');
     if (this.phase === 'ended') {
       // A newly paired guest is not a participant in the previous result.
       // Reset old scores, clock and survivor health before publishing a lobby
