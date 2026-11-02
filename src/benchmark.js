@@ -65,7 +65,11 @@
    return true;
   }
   function gpu(ms,issuedAt){
-   if(state!=='running'||gpuInvalidated||gpuTimer.length>=MAX_SAMPLES)return false;
+   // WebGL timer queries finish asynchronously, often *after* the final
+   // measured frame has completed. Preserve valid draw-time evidence for a
+   // naturally completed run, but never reopen interrupted measurements.
+   const acceptsLateResult=state==='finished'&&(reason==='completed'||reason==='sample-limit');
+   if((state!=='running'&&!acceptsLateResult)||gpuInvalidated||gpuTimer.length>=MAX_SAMPLES)return false;
    // WebGL timer queries resolve asynchronously. A result from a previous
    // benchmark, pre-warmup draw or later measurement window must never be
    // misattributed merely because it was polled during this run.
@@ -81,7 +85,10 @@
    const slowest=[...intervals].sort((a,b)=>b-a).slice(0,slowCount);
    const avgSlow=slowest.reduce((a,b)=>a+b,0)/slowest.length;
    const cap=metadata&&metadata.fpsCap;
-   const threshold=Number.isFinite(cap)&&cap>0?Math.max(50,2*1000/cap):50;
+   // A fixed 50ms floor hides several missed refresh opportunities at
+   // 120/144/165Hz. Flag intervals longer than two selected frame budgets;
+   // retain 50ms only when no valid FPS cap is supplied.
+   const threshold=Number.isFinite(cap)&&cap>=30&&cap<=240?2*1000/cap:50;
    return {
     schema:'veilpoint.browser-benchmark.v1',mode:'offline-battle-royale',state,reason,
     note:'Opt-in local browser measurements only. No remote upload. GPU and CPU hardware identity, native QHD output, 165Hz refresh, input-to-photon latency and Unreal performance are NOT verified.',
@@ -92,6 +99,8 @@
     renderCallbackIntervalMs:stats(intervals),cpuRendererDrawMs:stats(cpuDraw),
     webglGpuTimerMs:gpuInvalidated?stats([]):stats(gpuTimer),gpuTimerInvalidated:gpuInvalidated,
     stutterThresholdMs:threshold,stutterIntervals:intervals.filter(ms=>ms>threshold).length,
+    stutterMethod:'rendered callback interval > 2 selected FPS-cap frame budgets (50ms fallback); not GPU frametime or input latency',
+    gpuTimerSampleNote:'WebGL timer queries are asynchronous; re-export after pending results resolve. Sample count is not guaranteed to match rendered frames.',
     effectiveRenderScale:scales.length?{min:Math.min(...scales),max:Math.max(...scales)}:null,
     canvasBackingPixels:canvasRange?{...canvasRange,samples:canvasSamples}:null
    };
