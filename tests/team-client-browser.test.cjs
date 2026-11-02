@@ -1955,3 +1955,31 @@ test('PC pointer at own avatar releases an undefined aim ray instead of locking 
   assert.deepEqual({...player.facing}, {x: -1, z: 0});
   assert.ok(server.requests.some(r => r.token === token && r.body?.type === 'aimRelease'));
 });
+
+test('PC click on own avatar does not spend finite ammunition or latch stale trigger', async () => {
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const p=server.match.players.get(token);
+ const before=p.ammo;
+ // Red spawn x=-8,z=0 projects exactly to canvas (174,250).
+ a.node('arena').dispatch('pointerdown',{clientX:174,clientY:250,pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.aiming,false,'self-position has no valid facing ray');
+ assert.equal(p.ammo,before,'invalid click cannot consume a carried round');
+ assert.equal(p.triggerHeld,false,'invalid click cannot latch automatic fire');
+ assert.equal(server.requests.filter(r=>r.token===token&&r.body?.type==='fire').length,0);
+ for(let i=0;i<25;i++)server.match.step();
+ assert.equal(p.ammo,before,'invalid click must not fire on later 60Hz ticks');
+ // A later valid click remains playable and uses the normal finite-ammo path.
+ a.advanceTime(500);
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.ammo,before-1,'valid PC pointer click still fires once');
+ assert.equal(p.triggerHeld,true);
+ a.node('arena').dispatch('pointerup',{pointerType:'mouse',button:0});
+ await settle();
+ assert.equal(p.triggerHeld,false);
+});
