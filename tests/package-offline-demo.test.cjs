@@ -71,6 +71,24 @@ test('offline packager closes direct HTML asset references and rejects remote de
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 
+test('unquoted HTML assets fail closed instead of silently disappearing from the offline ZIP', () => {
+  const dir = fixture();
+  try {
+    for (const unsafe of [
+      '<img src=assets/sign.webp>',
+      '<a href=story.html>Story</a>',
+      '<video poster=assets/poster.webp></video>',
+      '<img srcset=assets/sign.webp>'
+    ]) {
+      fs.writeFileSync(path.join(dir, 'index.html'), '<script src="src/game.js"></script>' + unsafe);
+      assert.throws(() => collectFiles(dir), /Unquoted offline asset/);
+    }
+    fs.writeFileSync(path.join(dir, 'index.html'),
+      '<script src="src/game.js"></script><img data-src=assets/sign.webp>');
+    assert.doesNotThrow(() => collectFiles(dir), 'data attributes are not browser-loaded assets');
+  } finally {fs.rmSync(dir, {recursive:true, force:true});}
+});
+
 test('offline page navigation is allowed but HTML pages cannot masquerade as scripts or media', () => {
   const dir = fixture();
   try {
