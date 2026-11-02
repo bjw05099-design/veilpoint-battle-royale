@@ -34,8 +34,8 @@ test('interrupted or invalid timings never invent a completed benchmark',()=>{
 test('WebGL disjoint invalidates GPU timings and keeps CPU/interval evidence',()=>{
  const b=createBenchmark({durationMs:1500,warmupMs:0});
  b.arm({fpsCap:60});b.frame(0,1,1);b.frame(100,2,.9);
- assert.equal(b.gpu(3),true);assert.equal(b.report().webglGpuTimerMs.count,1);
- b.invalidateGpu();assert.equal(b.gpu(4),false);
+ assert.equal(b.gpu(3,100),true);assert.equal(b.report().webglGpuTimerMs.count,1);
+ b.invalidateGpu();assert.equal(b.gpu(4,200),false);
  b.frame(200,2,.8);b.finish('manual');
  assert.equal(b.report().webglGpuTimerMs.count,0);
  assert.equal(b.report().gpuTimerInvalidated,true);

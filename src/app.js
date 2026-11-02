@@ -144,7 +144,7 @@ function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 function initializeRenderer(){
  const next=new global.VeilpointRenderer(canvas);
- next.onGpuTime=ms=>{telemetry.record('gpu',ms);if(benchmark)benchmark.gpu(ms);};
+ next.onGpuTime=(ms,issuedAt)=>{telemetry.record('gpu',ms);if(benchmark)benchmark.gpu(ms,issuedAt);};
  next.onGpuInvalidated=()=>{telemetry.clear();if(benchmark)benchmark.invalidateGpu();if(governor)governor.resetEvidence();};
  renderer=next;applyGraphicsSettings();
  const supported=!!(renderer.gpuTimer&&renderer.gpuTimer.supported);
