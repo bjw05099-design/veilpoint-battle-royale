@@ -456,6 +456,9 @@ test('lost initial PC mouse aim is retried from own authoritative state before 2
  assert.equal(dropped,true);
  assert.equal(p.aiming,false,'first aim packet never reached authority');
  for(let i=0;i<8;i++)server.match.step();
+ // The fake monotonic clock must advance with server ticks: the real PC
+ // still obeys the independent 60Hz aim-send throttle on recovery.
+ a.advanceTime(8*1000/60);
  await a.poll();await settle();
  assert.equal(p.aiming,true,'self-state mismatch should trigger a new aim command');
  assert.ok(p.facing.z<-.5,'recovered direction follows actual PC pointer');
@@ -484,6 +487,9 @@ test('lost PC mouse direction update is retried without reverting to stale facin
  assert.equal(aimCount,2,'second aim command was attempted and lost');
  assert.deepEqual({...p.facing},oldFacing,'authority still has the earlier facing');
  for(let i=0;i<8;i++)server.match.step();
+ // The fake monotonic clock must advance with server ticks: the real PC
+ // still obeys the independent 60Hz aim-send throttle on recovery.
+ a.advanceTime(8*1000/60);
  await a.poll();await settle();
  assert.ok(aimCount>=3,'authoritative facing mismatch retries changed mouse aim');
  assert.ok(p.facing.x>.99&&Math.abs(p.facing.z)<.02,'server receives final pointer direction');
