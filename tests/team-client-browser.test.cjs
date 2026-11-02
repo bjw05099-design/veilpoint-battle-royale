@@ -409,6 +409,34 @@ test('team pointer leave releases aim and restores keyboard-facing without stale
  assert.ok(p.facing.z<0,'keyboard-only direction must regain control after pointer leaves');
 });
 
+test('lost PC aim-release packet cannot lock keyboard-facing until the full input lease',async()=>{
+ const server=backend();let dropped=false;
+ const flaky={fetchLocal:async (route,options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  if(route==='/command'&&body?.type==='aimRelease'&&!dropped){
+   dropped=true;throw new Error('lost_aim_release');
+  }
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();assert.equal(p.aiming,true);
+ a.doc('keydown',{code:'KeyA'});await settle();
+ assert.equal(p.direction.x,-1);
+ a.node('arena').dispatch('pointerleave',{pointerType:'mouse'});await settle();
+ assert.equal(dropped,true);assert.equal(p.aiming,true,'first release never reached server');
+ assert.ok(p.facing.x>=0,'old aim still owns facing before reconciliation');
+ for(let i=0;i<20;i++)server.match.step();
+ await a.poll();await settle();
+ assert.equal(p.aiming,false);
+ assert.deepEqual({...p.facing},{x:-1,z:0},'PC keyboard regains facing without waiting 90 ticks');
+ assert.equal(server.match.phase,'playing');
+});
+
 test('team tab refresh releases a stale server aim override before keyboard input',async()=>{
  const server=backend(),storage=new Map(),first=boot(server,storage),other=boot(server);
  first.node('join').click();other.node('join').click();await settle();

@@ -9,6 +9,7 @@
   let lastSprintIntent = false, lastSprintRefreshTick = -Infinity;
   let triggering = false, lastTriggerRefreshTick = -Infinity;
   let lastAimTick = -Infinity, lastAimVector = null, lastAimPoint = null;
+  let lastAimReleaseRefreshTick = -Infinity;
   // Mouse input must not wait for the next 150ms server snapshot to change aim.
   // Throttle changed directions to 60Hz; the next poll flushes a final
   // movement that arrived inside the throttle window. Simulation stays 60Hz.
@@ -100,6 +101,7 @@
     lastSprintIntent = false; lastSprintRefreshTick = -Infinity;
     lastCaptureRefreshTick = -Infinity; lastTriggerRefreshTick = -Infinity;
     lastAimTick = -Infinity; lastAimSentAt = -Infinity; lastAimVector = null; lastAimPoint = null;
+    lastAimReleaseRefreshTick = -Infinity;
     cancelAimFlush();queuedInput = null;activeTouchAimPointer = null; keys.clear(); physicalTrigger.clear();
     capturing = false; triggering = false; actionFeedback = '';
     // A transient reset/network failure must not strand a still-valid server
@@ -220,6 +222,7 @@
     cancelAimFlush();
     if (!lastAimPoint) return;
     lastAimPoint = null;lastAimVector = null;lastAimTick = -Infinity;lastAimSentAt = -Infinity;
+    lastAimReleaseRefreshTick = state?.tick ?? -Infinity;
     if (token && state?.phase === 'playing') void send('aimRelease');
   };
   canvas.addEventListener('pointerdown', event => {
@@ -386,6 +389,7 @@
       physicalTrigger.clear();
       triggering = false;
       lastAimTick = -Infinity;lastAimVector = null;lastAimPoint = null;
+      lastAimReleaseRefreshTick = -Infinity;
       cancelAimFlush();activeTouchAimPointer = null;
       // Clear held capture on *both* edges: lobby -> playing is especially
       // important because the old client could auto-capture after the first poll.
@@ -695,6 +699,13 @@
       // Recompute aim against the latest server-owned player position while
       // the pointer stays over a fixed world point (no stale direction drift).
       if (lastAimPoint) aimAtWorld(lastAimPoint.x,lastAimPoint.z);
+      // A lost pointer-leave/keyup release must not lock PC keyboard facing
+      // for the full 90-tick server lease. Reconcile only the player's own aim.
+      if (!lastAimPoint && state.phase === 'playing' && state.self.aiming &&
+          state.tick - lastAimReleaseRefreshTick >= 20) {
+        lastAimReleaseRefreshTick = state.tick;
+        void send('aimRelease');
+      }
       if (triggering && state.phase === 'playing' &&
           state.tick - lastTriggerRefreshTick >= 20) {
         lastTriggerRefreshTick = state.tick;

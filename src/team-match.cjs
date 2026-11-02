@@ -709,6 +709,7 @@ class TeamMatch {
       self: {id: me.id, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
         facing: {...me.facing}, direction: {...me.direction},
         triggerHeld: me.triggerHeld, captureHeld: me.captureHeld, sprintHeld: me.sprintHeld,
+        aiming: me.aiming,
         health: me.health, ammo: me.ammo, reserve: me.reserve, reloadTicks: me.reloadTicks,
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
         ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
