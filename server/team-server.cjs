@@ -100,14 +100,21 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
                 (keys.length === 2 && keys.includes('name') && keys.includes('attemptId') &&
                   typeof body.attemptId === 'string' && /^[a-f0-9]{32}$/.test(body.attemptId))))
             throw new RangeError('invalid_join');
-          // Reclaim expired lobby seats before retry lookup. Remove stale IDs
-          // rather than allowing an unbounded map of abandoned attempts.
+          // A retry is not a heartbeat for an expired combatant. Settle
+          // active-round timeouts BEFORE looking up a reusable join attempt,
+          // then reclaim expired lobby/finished seats and their attempt IDs.
+          match.expirePlayingLeases();
           match.pruneIdleWaitingPlayers();
           for (const [id, token] of joinAttempts)
             if (!match.players.has(token)) joinAttempts.delete(id);
           const previousToken = body.attemptId && joinAttempts.get(body.attemptId);
           if (previousToken) {
             const previous = match.players.get(previousToken);
+            // A delayed/lost join response is genuine lobby activity: renew
+            // that seat's lease instead of expiring it seconds after recovery.
+            // Never extend an active match via a join retry; only authenticated
+            // gameplay commands can keep a playing participant connected.
+            if (match.phase !== 'playing') previous.lastSeen = match.now();
             return send(res, 200, {token: previousToken, id: previous.id,
               team: previous.team, name: previous.name});
           }
