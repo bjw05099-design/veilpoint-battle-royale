@@ -66,7 +66,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // Zero-width joiners, Arabic Letter Mark and Hangul filler code points can
 // otherwise create an entirely invisible player name or a visually identical
 // alias for another opponent. Keep visible Korean/Arabic text and emoji valid.
-const INVALID_NAME_CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u180b-\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\u3164\ufeff\uffa0]/u;
+const INVALID_NAME_CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u180b-\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\u2800\u3164\ufeff\uffa0]/u;
 // Escaped JSON may contain a lone UTF-16 surrogate even when the HTTP bytes
 // are valid UTF-8. Reject malformed display text without banning emoji pairs.
 const hasLoneSurrogate = value => [...value].some(char => {
@@ -149,6 +149,13 @@ class TeamMatch {
         hasLoneSurrogate(name)) throw new RangeError('invalid_name');
     const displayName = name.trim().normalize('NFC');
     if (!displayName || displayName.length > 24) throw new RangeError('invalid_name');
+    // The local two-player HUD must never show two indistinguishable names.
+    // Compare canonical display identities, including fullwidth Latin aliases,
+    // without rewriting the original Korean/Arabic/emoji name on screen.
+    const identity = displayName.normalize('NFKC').toLowerCase();
+    if ([...this.players.values()].some(other =>
+      other.name.normalize('NFKC').toLowerCase() === identity))
+      throw new RangeError('duplicate_name');
     if (this.phase === 'ended') {
       // A newly paired guest is not a participant in the previous result.
       // Reset old scores, clock and survivor health before publishing a lobby
