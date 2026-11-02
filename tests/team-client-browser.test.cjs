@@ -2064,3 +2064,40 @@ test('PC walking under a stationary held mouse cursor stops stale automatic fire
   assert.equal(player.ammo, remaining, 'no stale auto-fire after crossing the cursor');
   a.doc('keyup', {code: 'KeyW'}); await settle();
 });
+
+
+test('PC rapid flick-click sends the current aim before spending finite ammunition', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  const canvas = a.node('arena');
+  const beforeAmmo = player.ammo;
+  const aimRequests = () => server.requests.filter(r => r.token === token && r.body?.type === 'aim');
+  // The initial direction is sent, but a quick pointer flick is still inside
+  // the 16.67ms move throttle and therefore has only a pending trailing timer.
+  canvas.dispatch('pointermove', {pointerType: 'mouse', clientX: 350, clientY: 250});
+  await settle();
+  assert.equal(aimRequests().length, 1);
+  canvas.dispatch('pointermove', {pointerType: 'mouse', clientX: 250, clientY: 155});
+  await settle();
+  assert.equal(aimRequests().length, 1, 'ordinary pointer moves remain rate-limited');
+  // Click in a third direction before the trailing timer: old code sent fire
+  // with the first facing and only updated aim on a later timer callback.
+  canvas.dispatch('pointerdown', {pointerType: 'mouse', button: 0,
+    clientX: 250, clientY: 345});
+  await settle();
+  const ordered = server.requests.filter(r => r.token === token && r.body &&
+    ['aim', 'fire', 'trigger'].includes(r.body.type));
+  assert.deepEqual(ordered.map(r => r.body.type), ['aim', 'aim', 'fire', 'trigger']);
+  assert.ok(ordered[1].body.direction.z > 0, 'clicked sight ray points to the new world position');
+  assert.ok(player.facing.z > 0, 'the server resolves the shot with the latest facing');
+  assert.equal(player.ammo, beforeAmmo - 1, 'exactly one finite round was spent');
+  a.advanceTime(20); await settle();
+  assert.equal(aimRequests().length, 2, 'priority click cancels the stale trailing aim timer');
+  canvas.dispatch('pointerup', {pointerType: 'mouse', button: 0});
+  await settle();
+  assert.equal(player.triggerHeld, false);
+});
