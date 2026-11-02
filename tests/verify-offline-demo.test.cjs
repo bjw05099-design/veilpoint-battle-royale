@@ -99,6 +99,28 @@ test('self-consistent archive cannot smuggle unreferenced executable files', () 
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 
+test('lossless DEFLATE reduces repetitive demo data and verifier restores exact bytes', () => {
+  const original = Buffer.from('VEILPOINT offline source and assets\\n'.repeat(500));
+  const entries = [{name: 'src/scene.js', data: original}];
+  const compact = buildZip(entries);
+  const baseline = buildZip(entries, {compress: false});
+  assert.equal(compact.readUInt16LE(8), 8);
+  assert.ok(compact.length < baseline.length / 2);
+  assert.deepEqual(inspectZip(compact).get('src/scene.js'), original);
+  const tampered = Buffer.from(compact);
+  tampered[30 + Buffer.byteLength('src/scene.js') + 1] ^= 0xff;
+  assert.throws(() => inspectZip(tampered), /invalid_demo_zip:(?:deflate|crc)/);
+});
+
+test('DEFLATE entry sizes are bounded before inflation', () => {
+  const compact = buildZip([{name: 'a.txt', data: Buffer.from('x'.repeat(4000))}]);
+  const fake = Buffer.from(compact);
+  const directory = fake.readUInt32LE(fake.length - 22 + 16);
+  fake.writeUInt32LE(2 * 1024 * 1024 + 1, directory + 24);
+  fake.writeUInt32LE(2 * 1024 * 1024 + 1, 22);
+  assert.throws(() => inspectZip(fake), /invalid_demo_zip:entry_uncompressed_too_large/);
+});
+
 test('ZIP inspection bounds archive bytes and directory entries before parsing', () => {
   assert.throws(() => inspectZip(Buffer.alloc(16 * 1024 * 1024 + 1)),
     /invalid_demo_zip:archive_too_large/);
