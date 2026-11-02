@@ -94,6 +94,8 @@
     }
   };
   const status = msg => {el('status').textContent = msg;};
+  const readableError = err => err.message === 'simulation_unavailable'
+    ? '서버 시뮬레이션이 중단되었습니다. 로컬 서버를 재시작한 뒤 재연결하세요.' : err.message;
   function invalidateSession(expiredToken, retryable = false) {
     if (!expiredToken || token !== expiredToken) return;
     // A restarted local server may forget the token while this tab stays open.
@@ -156,7 +158,7 @@
     }).catch(err => {
       if (token !== sessionToken) return;
       if (err.message === 'unknown_player') invalidateSession(sessionToken);
-      else status(`명령 실패: ${err.message}`);
+      else status(`명령 실패: ${readableError(err)}`);
     });
     if (inputSlot) {
       inputSlot.promise = pending;
@@ -545,7 +547,7 @@
         ? '이름에 줄바꿈·보이지 않는 문자만 있거나 길이가 맞지 않습니다. 보이는 글자·숫자·이모지를 포함하세요.'
         : err.message === 'name_in_use'
           ? '다른 참가자가 사용 중인 이름입니다. 구별되는 이름으로 다시 입력하세요.'
-          : `입장 실패: ${err.message}`);
+          : `입장 실패: ${readableError(err)}`);
     } finally {joining = false;}
   });
   // A participant must be able to vacate a local server seat immediately, not
@@ -801,7 +803,7 @@
     catch (err) {
       if (token !== polledToken) return;
       if (err.message === 'unknown_player') invalidateSession(polledToken);
-      else status(`연결 확인 필요: ${err.message}`);
+      else status(`연결 확인 필요: ${readableError(err)}`);
     }
     finally {polling = false;}
   }, 150);
