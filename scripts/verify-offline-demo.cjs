@@ -87,8 +87,16 @@ function inspectZip(bytes) {
     if (method === 0 && packedSize !== rawSize) invalid('stored_size:' + name);
     let content = payload;
     if (method === 8) {
-      try {content = zlib.inflateRawSync(payload, {maxOutputLength: Math.max(1, rawSize)});}
-      catch {invalid('deflate:' + name);}
+      // inflateRawSync normally accepts bytes after the DEFLATE end marker.
+      // Reject hidden compressed-entry tails even when CRC and SHA256 match.
+      let decoded;
+      try {
+        decoded = zlib.inflateRawSync(payload, {
+          maxOutputLength: Math.max(1, rawSize), info: true
+        });
+      } catch {invalid('deflate:' + name);}
+      if (decoded.engine.bytesWritten !== packedSize) invalid('deflate_trailing:' + name);
+      content = decoded.buffer;
       if (content.length !== rawSize) invalid('deflate_size:' + name);
     }
     if (crc32(content) !== crc) invalid('crc:' + name);
