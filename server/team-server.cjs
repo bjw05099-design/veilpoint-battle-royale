@@ -26,10 +26,14 @@ function createFixedStepClock(onStep) {
     if (now <= previous) return 0;
     remainder += Math.min(250, now - previous);
     previous = now;
-    const steps = Math.min(MAX_CATCHUP_STEPS, Math.floor((remainder + 1e-8) / STEP_MS));
+    const pendingSteps = Math.floor((remainder + 1e-8) / STEP_MS);
+    const steps = Math.min(MAX_CATCHUP_STEPS, pendingSteps);
     for (let i = 0; i < steps; i++) onStep();
     remainder -= steps * STEP_MS;
-    if (steps === MAX_CATCHUP_STEPS) remainder = 0; // Discard stale backlog.
+    // Five legitimate ticks may leave a fractional tick to carry into the
+    // next wakeup. Drop only *excess* full ticks after a real process stall;
+    // clearing the fraction at exactly five silently slows active rounds.
+    if (pendingSteps > MAX_CATCHUP_STEPS) remainder = 0;
     return steps;
   };
 }
