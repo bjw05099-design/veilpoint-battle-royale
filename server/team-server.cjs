@@ -38,7 +38,11 @@ function createFixedStepClock(onStep) {
       } catch (error) {
         // The failed tick is spent; drop stale whole-tick input backlog while
         // preserving only a fractional remainder for the next valid wakeup.
-        remainder %= STEP_MS;
+        // Floating-point subtraction can leave a remainder infinitesimally
+        // below a whole tick (e.g. 2*STEP_MS - epsilon). Treat such stale
+        // whole ticks as spent rather than carrying a phantom extra step.
+        const staleTicks = Math.floor((remainder + 1e-8) / STEP_MS);
+        remainder = Math.max(0, remainder - staleTicks * STEP_MS);
         throw error;
       }
     }
