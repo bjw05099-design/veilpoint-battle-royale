@@ -561,6 +561,13 @@
     // No RNG, extra ammunition or automatic recentering: checkpointed pitch is
     // already part of the deterministic 60Hz BR and CH01 player state.
     p.pitch=clamp(p.pitch+firearm.recoilPitch,-.35,.35);
+    // Resolve the last confirmed elimination before another 60Hz tick. A
+    // pending checkpoint must not persist a live round with no rivals.
+    if(target&&!target.alive&&p.alive&&getAliveCount(game)===1){
+      game.status='won';
+      game.message='YOU ARE THE LAST SIGNAL';
+      game.messageTime=2.2;
+    }
     return {ok:true,hit:!!target,elimination:!!target&&!target.alive};
   }
   // Only authored automatic classes respond to a continuously held PC trigger.

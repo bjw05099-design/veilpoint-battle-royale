@@ -1133,3 +1133,21 @@ test('CH01 restores overlapping legacy or tampered saves to a deterministic coll
   assert.equal(story.restore(JSON.stringify(legacy)).phase,'engagement',
     'older v2 checkpoints without actor positions remain supported');
 });
+
+test('CH01 final opponent clearance does not prematurely complete the mission',()=>{
+  const state=story.createState();
+  go(state,'terminal');
+  assert.equal(story.interact(state).ok,true);
+  clearEncounter(state);
+  assert.equal(state.phase,'records');
+  assert.equal(state.world.status,'playing','the BR last-shot rule must not finish CH01');
+  const saved=story.serialize(state);
+  const restored=story.restore(saved);
+  assert.equal(restored.phase,'records');
+  assert.equal(restored.world.status,'playing');
+  go(restored,'decision');
+  assert.equal(story.interact(restored).ok,true,'the player can still choose an exit');
+  assert.equal(story.choose(restored,'evacuation').ok,true);
+  assert.equal(restored.phase,'exit');
+  assert.equal(restored.world.status,'playing');
+});

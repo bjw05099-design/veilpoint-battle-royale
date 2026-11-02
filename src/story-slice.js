@@ -337,6 +337,10 @@
       state.subtitle='이수혁 대위(무전): 현장에서 확인한 위협 인원 '+(3-remaining)+'/3. 상황을 계속 보고하겠습니다.';
       state.message='무장 대치자 '+remaining+'기 남음';
       if(remaining===0){
+        // BR's final-shot victory is not CH01 mission completion. The story
+        // still requires player-led evidence, a route decision and an exit.
+        // Keep the shared world live until the authored mission actually ends.
+        state.world.status='playing';
         state.phase='records';state.combat.cleared=true;
         state.subtitle='조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 중계 기록을 확인할 수 있어요.';
         state.message='안전 확보 · 기록 확인은 선택 사항';

@@ -107,12 +107,29 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
   const sourceBytes = entries.reduce((sum, entry) => sum + entry.data.length, 0);
   const largestSources = [...entries].sort((a, b) => b.data.length - a.data.length)
     .slice(0, 5).map(entry => ({name: entry.name, bytes: entry.data.length}));
+  // Diagnose byte-identical source paths without removing filenames required
+  // by browser navigation. A shared script referenced by both pages is already
+  // included only once by collectFiles().
+  const byDigest = new Map();
+  for(const {name,data} of files){
+    const hash=checksum(data);
+    if(!byDigest.has(hash))byDigest.set(hash,{files:[],bytesEach:data.length});
+    byDigest.get(hash).files.push(name);
+  }
+  const duplicateSources=[...byDigest.values()].filter(g=>g.files.length>1)
+    .map(g=>({...g,redundantBytes:(g.files.length-1)*g.bytesEach}));
+  const duplicateContentBytes=duplicateSources.reduce((sum,g)=>sum+g.redundantBytes,0);
+  // Exact byte arithmetic, not observed filesystem free space: block size,
+  // temporary extraction files and actual update strategy are environment-specific.
+  const downloadAndExtractBytes=zip.length+sourceBytes;
+  const twoArchiveStagingBytes=2*zip.length+sourceBytes;
   fs.mkdirSync(path.dirname(output), {recursive: true});
   fs.writeFileSync(output, zip);
   fs.writeFileSync(output + '.sha256', `${checksum(zip)}  ${path.basename(output)}\n`);
   return {output, files: entries.length, bytes: zip.length, sourceBytes,
     storedBaselineBytes, savedBytes: storedBaselineBytes - zip.length,
-    largestSources, sha256: checksum(zip)};
+    largestSources, duplicateSources, duplicateContentBytes,
+    downloadAndExtractBytes, twoArchiveStagingBytes, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
 module.exports = {collectFiles, referencedAssets, buildZip, packageDemo, crc32};
