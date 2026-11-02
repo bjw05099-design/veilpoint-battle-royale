@@ -1983,3 +1983,84 @@ test('PC click on own avatar does not spend finite ammunition or latch stale tri
  await settle();
  assert.equal(p.triggerHeld,false);
 });
+
+test('PC held mouse fire stops when the pointer reaches the own-player marker', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.node('arena').dispatch('pointerdown', {
+    clientX: 250, clientY: 155, pointerType: 'mouse', button: 0
+  });
+  await settle();
+  assert.equal(player.triggerHeld, true);
+  assert.equal(player.aiming, true);
+  const ammoAfterClick = player.ammo;
+  // The red player is at (-8, 0), projected to (174, 250).
+  a.advanceTime(20);
+  a.node('arena').dispatch('pointermove', {
+    clientX: 174, clientY: 250, pointerType: 'mouse', buttons: 1
+  });
+  await settle();
+  assert.equal(player.aiming, false);
+  assert.equal(player.triggerHeld, false,
+    'a held mouse must not keep firing after its aim ray becomes undefined');
+  for (let i = 0; i < 45; i++) server.match.step();
+  assert.equal(player.ammo, ammoAfterClick,
+    'later fixed 60Hz ticks must not consume more finite rounds');
+  assert.ok(server.requests.some(r => r.token === token && r.body?.type === 'trigger' &&
+    r.body.active === false), 'the authoritative server receives a trigger release');
+});
+
+test('invalid PC mouse aim releases only mouse fire, not a held keyboard trigger', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  a.doc('keydown', {code: 'Space'}); await settle();
+  assert.equal(player.triggerHeld, true);
+  a.node('arena').dispatch('pointerdown', {
+    clientX: 250, clientY: 155, pointerType: 'mouse', button: 0
+  });
+  await settle();
+  a.advanceTime(20);
+  a.node('arena').dispatch('pointermove', {
+    clientX: 174, clientY: 250, pointerType: 'mouse', buttons: 1
+  });
+  await settle();
+  assert.equal(player.aiming, false);
+  assert.equal(player.triggerHeld, true,
+    'an independent keyboard fire hold must survive mouse-only cancellation');
+  a.doc('keyup', {code: 'Space'}); await settle();
+  assert.equal(player.triggerHeld, false, 'keyboard keyup still releases the final trigger');
+});
+
+test('PC walking under a stationary held mouse cursor stops stale automatic fire', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  // Red spawn (-8,0), stationary cursor points one world meter forward (-8,-1).
+  a.node('arena').dispatch('pointerdown', {
+    clientX: 174, clientY: 240.5, pointerType: 'mouse', button: 0
+  });
+  await settle();
+  assert.equal(player.aiming, true);
+  assert.equal(player.triggerHeld, true);
+  a.doc('keydown', {code: 'KeyW'}); await settle();
+  for (let i = 0; i < 13; i++) server.match.step(); // 13 * 4.5/60 = 0.975m
+  assert.ok(Math.abs(player.z + 1) < 0.1);
+  const remaining = player.ammo;
+  await a.poll(); await settle(); // no new mousemove event; only server-owned self position
+  assert.equal(player.aiming, false, 'stationary cursor no longer supplies a valid ray');
+  assert.equal(player.triggerHeld, false, 'held mouse trigger must release on the poll');
+  for (let i = 0; i < 30; i++) server.match.step();
+  assert.equal(player.ammo, remaining, 'no stale auto-fire after crossing the cursor');
+  a.doc('keyup', {code: 'KeyW'}); await settle();
+});
