@@ -72,3 +72,21 @@ test('sequential steps are deterministic independently of frame grouping', () =>
   for (let i=0;i<20;i++) b.advance(1/20, dt => outputB.push(dt));
   assert.deepEqual(outputA, outputB);
 });
+
+test('a partially applied throwing 60Hz callback is never replayed after recovery', () => {
+  const clock = createClock({hz:60, maxFrameSeconds:.25, maxSteps:8});
+  let gameActions = 0;
+  const failure = new Error('simulated gameplay fault');
+  assert.throws(() => clock.advance(3/60, () => {
+    gameActions++;
+    throw failure;
+  }), error => error === failure);
+  assert.equal(gameActions, 1, 'the failed callback was entered exactly once');
+  assert.equal(clock.stats().totalSteps, 1, 'the attempted tick is consumed');
+  assert.ok(clock.stats().discardedSeconds >= 2/60 - 1e-9,
+    'stale full-tick backlog is discarded on failure');
+  assert.ok(clock.stats().alpha < 1e-9, 'only floating-point remainder may remain');
+  assert.equal(clock.advance(1/60, () => gameActions++), 1);
+  assert.equal(gameActions, 2, 'the next frame executes only its own new tick');
+  assert.equal(clock.stats().totalSteps, 2);
+});
