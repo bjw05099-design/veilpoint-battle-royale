@@ -14,17 +14,23 @@ function percentile(values,p){
 }
 function createTelemetry(size=180){
  if(!Number.isInteger(size)||size<8||size>10000)throw new RangeError('Invalid sample window');
- const samples={cpu:[],gpu:[],raf:[]};
+ // Fixed-capacity ring buffers avoid O(window size) Array.shift() per frame.
+ // Percentiles sort a copy, so physical ring order is immaterial.
+ const samples={cpu:{values:[],next:0},gpu:{values:[],next:0},raf:{values:[],next:0}};
  function record(type,value){
   if(!Object.prototype.hasOwnProperty.call(samples,type))throw new RangeError('Unknown timing type');
   if(!Number.isFinite(value)||value<=0||value>10000)return false;
-  const a=samples[type];a.push(value);if(a.length>size)a.shift();return true;
+  const window=samples[type],a=window.values;
+  if(a.length<size)a.push(value);
+  else {a[window.next]=value;window.next=(window.next+1)%size;}
+  return true;
  }
  function stats(type){
   if(!Object.prototype.hasOwnProperty.call(samples,type))throw new RangeError('Unknown timing type');
-  const a=samples[type];return {count:a.length,p50:percentile(a,.5),p95:percentile(a,.95),p99:percentile(a,.99)};
+  const a=samples[type].values;
+  return {count:a.length,p50:percentile(a,.5),p95:percentile(a,.95),p99:percentile(a,.99)};
  }
- function clear(){for(const a of Object.values(samples))a.length=0;}
+ function clear(){for(const window of Object.values(samples)){window.values.length=0;window.next=0;}}
  return {record,stats,clear};
 }
 // Timer queries are asynchronous. No gl.finish(), no synthetic GPU measurement.
@@ -73,12 +79,20 @@ function createGpuTimer(gl,onSample,onInvalidated){
 function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxScale,targetFps=165,cooldownMs=2500}={}){
  if(!RESOLUTIONS.includes(minScale)||!RESOLUTIONS.includes(maxScale)||minScale>maxScale||!RESOLUTIONS.includes(initialScale)||initialScale<minScale||initialScale>maxScale)throw new RangeError('Invalid resolution bounds');
  if(!Number.isFinite(targetFps)||targetFps<30||targetFps>240||!Number.isFinite(cooldownMs)||cooldownMs<0)throw new RangeError('Invalid timing configuration');
- let scale=initialScale,lastChange=-Infinity,goodWindows=0;
+ let scale=initialScale,lastChange=-Infinity,goodWindows=0,lastEvidenceAt=-Infinity;
  // A GPU disjoint or invalid measurement breaks consecutive low-load evidence.
  // Preserve the current scale and cooldown when invalidating timing history.
  function resetEvidence(){goodWindows=0;}
  function update({nowMs,gpuP95,cpuP95,gpuSamples=0,cpuSamples=0}){
-  if(!Number.isFinite(nowMs)||gpuSamples<30||cpuSamples<30||!Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0){resetEvidence();return scale;}
+  // NaN/fractional/forged sample counts and duplicate or backward windows
+  // must not trigger quality changes without fresh, ordered CPU/GPU evidence.
+  if(!Number.isFinite(nowMs)||nowMs<=lastEvidenceAt||
+     !Number.isSafeInteger(gpuSamples)||gpuSamples<30||
+     !Number.isSafeInteger(cpuSamples)||cpuSamples<30||
+     !Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0){
+   resetEvidence();return scale;
+  }
+  lastEvidenceAt=nowMs;
   const budget=1000/targetFps;
   if(nowMs-lastChange<cooldownMs)return scale;
   const index=RESOLUTIONS.indexOf(scale);
