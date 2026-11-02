@@ -35,6 +35,12 @@ test('package is byte-identical across runs and has a manifest/checksum', () => 
     assert.equal(first.savedBytes, first.storedBaselineBytes - first.bytes);
     assert.ok(first.sourceBytes > 0);
     assert.ok(first.largestSources.length > 0);
+    assert.equal(first.downloadAndExtractBytes,first.bytes+first.sourceBytes);
+    assert.equal(first.twoArchiveStagingBytes,2*first.bytes+first.sourceBytes);
+    assert.equal(first.duplicateContentBytes,
+      first.duplicateSources.reduce((sum,g)=>sum+g.redundantBytes,0));
+    assert.ok(first.duplicateSources.some(g=>g.files.includes('index.html')&&
+      g.files.includes('story.html')),'identical page paths are reported but retained');
     assert.match(fs.readFileSync(first.output+'.sha256','utf8'), /^[a-f0-9]{64}  veilpoint-offline-demo.zip\n$/);
     assert.deepEqual(collectFiles(dir).filter(f=>f.name.startsWith('src/')).map(f=>f.name), ['src/game.js']);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}

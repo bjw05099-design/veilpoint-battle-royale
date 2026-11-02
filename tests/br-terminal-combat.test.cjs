@@ -77,3 +77,33 @@ test('BR published boundary deadline still evaluates every rival after player di
   assert.equal(first.alive,false,'first out-of-bounds rival is disqualified');
   assert.equal(second.alive,false,'later out-of-bounds rival is not skipped');
 });
+
+test('BR final confirmed shot ends the round without another 60Hz simulation step',()=>{
+  const game=S.newMatch(9205,1);
+  game.status='playing';game.elapsed=1;game.obstacles=[];
+  Object.assign(game.player,{x:0,z:0,yaw:0,pitch:0});
+  const rival=game.bots[0];
+  Object.assign(rival,{x:0,z:-12,health:1,alive:true,actionTime:-1,moveTime:999});
+  const ammo=game.player.charges;
+  const shot=S.tag(game);
+  assert.deepEqual({ok:shot.ok,hit:shot.hit,elimination:shot.elimination},
+    {ok:true,hit:true,elimination:true});
+  assert.equal(game.status,'won','UI sees the result immediately');
+  assert.equal(game.kills,1);
+  assert.equal(game.player.charges,ammo-1,'finite ammunition is conserved');
+  const frozen={elapsed:game.elapsed,ammo:game.player.charges,position:[rival.x,rival.z]};
+  S.tick(game,1/60,{forward:true});
+  assert.deepEqual({elapsed:game.elapsed,ammo:game.player.charges,position:[rival.x,rival.z]},frozen);
+});
+
+test('BR earlier elimination does not falsely end a multi-opponent match',()=>{
+  const game=S.newMatch(9206,2);
+  game.status='playing';game.elapsed=1;game.obstacles=[];
+  Object.assign(game.player,{x:0,z:0,yaw:0,pitch:0});
+  Object.assign(game.bots[0],{x:0,z:-12,health:1,alive:true});
+  Object.assign(game.bots[1],{x:45,z:45,health:100,alive:true});
+  assert.equal(S.tag(game).elimination,true);
+  assert.equal(game.status,'playing');
+  assert.equal(game.kills,1);
+  assert.equal(S.getAliveCount(game),2);
+});
