@@ -112,6 +112,24 @@ test('lossless DEFLATE reduces repetitive demo data and verifier restores exact 
   assert.throws(() => inspectZip(tampered), /invalid_demo_zip:(?:deflate|crc)/);
 });
 
+test('DEFLATE payload cannot hide trailing bytes behind a valid end marker and CRC', () => {
+  const original = Buffer.from('VEILPOINT local source '.repeat(500));
+  const zip = buildZip([{name: 'a.txt', data: original}]);
+  assert.equal(zip.readUInt16LE(8), 8, 'fixture must be a compressed ZIP entry');
+  const localEnd = 30 + zip.readUInt16LE(26) + zip.readUInt32LE(18);
+  const oldDirectory = zip.readUInt32LE(zip.length - 22 + 16);
+  assert.equal(localEnd, oldDirectory);
+  const tail = Buffer.from([0x01, 0x02, 0x03, 0x04]);
+  const altered = Buffer.concat([zip.subarray(0, localEnd), tail, zip.subarray(localEnd)]);
+  // Forge a self-consistent packed length and directory offset. Uncompressed
+  // content, CRC32 and SHA256 stay unchanged; a normal inflate ignores the tail.
+  altered.writeUInt32LE(zip.readUInt32LE(18) + tail.length, 18);
+  altered.writeUInt32LE(zip.readUInt32LE(18) + tail.length, oldDirectory + tail.length + 20);
+  altered.writeUInt32LE(oldDirectory + tail.length, altered.length - 22 + 16);
+  assert.throws(() => inspectZip(altered), /invalid_demo_zip:deflate_trailing:a\\.txt/);
+  assert.deepEqual(inspectZip(zip).get('a.txt'), original);
+});
+
 test('DEFLATE entry sizes are bounded before inflation', () => {
   const compact = buildZip([{name: 'a.txt', data: Buffer.from('x'.repeat(4000))}]);
   const fake = Buffer.from(compact);
