@@ -49,7 +49,15 @@ function createFixedStepClock(onStep) {
     // Five legitimate ticks may leave a fractional tick to carry into the
     // next wakeup. Drop only *excess* full ticks after a real process stall;
     // clearing the fraction at exactly five silently slows active rounds.
-    if (pendingSteps > MAX_CATCHUP_STEPS) remainder = 0;
+    if (pendingSteps > MAX_CATCHUP_STEPS) {
+      // Drop only stale WHOLE ticks. A 101ms stall includes six full ticks
+      // and a real 1ms fraction: losing that fraction on every overloaded
+      // wakeup slows the authoritative match clock and skews input leases.
+      // The sixth overdue tick remains discarded; only newly elapsed time
+      // can complete the fractional step on a later wakeup.
+      const staleTicks = Math.floor((remainder + 1e-8) / STEP_MS);
+      remainder = Math.max(0, remainder - staleTicks * STEP_MS);
+    }
     return steps;
   };
 }
