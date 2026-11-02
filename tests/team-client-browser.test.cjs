@@ -68,7 +68,7 @@ function boot(server, storage = new Map()) {
     if (nodes.has(id)) return nodes.get(id);
     const events = new Map();
     const value = {
-      id, value: id === 'name' ? 'Player' : '', textContent: '', disabled: false,
+      id, value: id === 'name' ? guestName : '', textContent: '', disabled: false,
       dataset: {}, width: 500, height: 500, getContext: () => ctx,
       getBoundingClientRect: () => ({left: 0, top: 0, width: 500, height: 500}),
       focus() {document.activeElement = this;},
