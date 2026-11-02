@@ -1149,6 +1149,8 @@ test('Windows graphics panel stays reachable above initial and paused overlays',
   assert.ok(z(/\.graphics-panel\{[^}]+\}/)>overlay,
     'opened settings controls must not be blocked by the overlay');
   const app=boot({windows:true});
+  // The lightweight DOM mock does not parse initial HTML class attributes.
+  app.node('graphicsPanel').classList.add('hidden');
   assert.equal(app.node('overlay').classList.contains('hidden'),false);
   app.node('graphicsOpen').click();
   assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
