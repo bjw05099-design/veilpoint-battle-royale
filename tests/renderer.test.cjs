@@ -222,3 +222,29 @@ test('WebGL dynamic geometry reuses CPU staging and uploads only populated float
  assert.equal(writes.at(-1).count,initialCount*9);
  assert.equal(renderer.dynamic.data.length,0);
 });
+
+test('dynamic mesh triangle preserves exact positions, winding, normals and colors without temporary vectors',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const mesh=renderer.dynamic;
+ mesh.data.length=0;
+ const color=[.2,.4,.6];
+ const a=[0,0,0],b=[2,0,0],c=[0,3,0];
+ mesh.tri(a,b,c,color);
+ assert.deepEqual(Array.from(mesh.data),[
+  0,0,0,0,0,1,.2,.4,.6,
+  2,0,0,0,0,1,.2,.4,.6,
+  0,3,0,0,0,1,.2,.4,.6
+ ],'front-facing triangle must retain interleaved WebGL vertex data');
+ mesh.data.length=0;
+ mesh.tri(c,b,a,color);
+ assert.deepEqual(Array.from(mesh.data).filter((_,i)=>i%9>=3&&i%9<6),[0,0,-1,0,0,-1,0,0,-1],
+  'reversing winding must reverse every vertex normal');
+ mesh.data.length=0;
+ mesh.tri(a,a,a,color);
+ assert.deepEqual(Array.from(mesh.data).filter((_,i)=>i%9>=3&&i%9<6),[0,0,0,0,0,0,0,0,0],
+  'degenerate geometry retains the old finite zero-normal behavior');
+ assert.deepEqual(color,[.2,.4,.6],'drawing must not mutate shared material colors');
+});
