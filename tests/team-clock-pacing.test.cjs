@@ -102,6 +102,24 @@ test('six or more overdue ticks still discard the stale backlog safely', () => {
   assert.equal(ticks, 6);
 });
 
+test('overloaded 60Hz wakeup drops stale ticks but retains real fractional elapsed time', () => {
+  const replay = () => {
+    let ticks = 0;
+    const advance = createFixedStepClock(() => ticks++);
+    assert.equal(advance(0), 0);
+    assert.equal(advance(105), 5, 'six full overdue ticks are capped at five');
+    assert.equal(advance(105), 0, 'the sixth stale tick cannot replay');
+    // 105ms is six 16.667ms steps plus 5ms. The old overflow branch
+    // zeroed the entire remainder and lost that legitimate 5ms.
+    assert.equal(advance(116), 0, '11ms more is still short of a fresh tick');
+    assert.equal(advance(117), 1, '12ms more completes the retained 5ms');
+    assert.equal(advance(117), 0, 'no duplicate tick at an identical timestamp');
+    assert.equal(ticks, 6);
+    return ticks;
+  };
+  assert.equal(replay(), replay(), 'identical overloads must remain deterministic');
+});
+
 test('faulting server tick is consumed and cannot replay a partial world mutation', () => {
   let mutations = 0;
   const failure = new Error('simulated partial authoritative tick');
