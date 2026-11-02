@@ -179,7 +179,18 @@
     if (leaving || !token || state?.phase !== 'playing') return;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
-    if (!Number.isFinite(len) || len < 0.1) return;
+    if (!Number.isFinite(len)) return;
+    if (len < 0.1) {
+      // Even with a stationary cursor, moving the avatar onto that cursor's
+      // world point destroys the aim ray. A later server poll must stop held
+      // mouse fire rather than endlessly renewing the stale trigger.
+      // Leave touch-only behavior unchanged in this PC-focused fix.
+      if (lastAimPoint?.pointerType === 'mouse') {
+        setTrigger(physicalTrigger.release('mouse'));
+        releaseAim();
+      }
+      return;
+    }
     const aim = {x: dx / len, z: dz / len};
     // Stationary aim renews only after 20 server ticks, before the 90-tick
     // lease expires. Changed PC pointer aim is instead limited by a monotonic
@@ -233,7 +244,7 @@
       releaseAim();
       return;
     }
-    lastAimPoint = {x: tx, z: tz};
+    lastAimPoint = {x: tx, z: tz, pointerType: event.pointerType};
     aimAtWorld(tx, tz);
     return true;
   };
