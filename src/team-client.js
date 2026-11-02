@@ -524,15 +524,21 @@
       // The first response may have been lost: the server returns the original
       // seat and canonical display name instead of allocating a second player.
       if (typeof result.name === 'string') el('name').value = result.name;
-      // A lost /join response may be retried AFTER the other player starts
-      // the round. The recovered seat can already have a high sequence and
-      // held movement/fire: never enable PC input with seq=0 or ghost intent.
+      // A retried /join may recover an already-playing seat with a high
+      // sequence and stale held fire. Fresh joins must NOT pay for an extra
+      // state round trip; only the server-marked retry needs reconciliation.
       token = result.token;seq = 0;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
-      await restoreTabSession(result.token);
-      // Keep the same join attempt if the authenticated reset was not
-      // acknowledged, so a storage-blocked tab can still recover its seat.
-      if (token === result.token) clearPendingJoin();
+      if (result.resumed === true) {
+        await restoreTabSession(result.token);
+        // Keep the same attempt if reset was not acknowledged.
+        if (token === result.token) clearPendingJoin();
+      } else {
+        clearPendingJoin();
+        el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
+        el('loadout').disabled = false;
+        el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
+      }
     } catch (err) {
       el('join').disabled = false;
       status(err.message === 'invalid_name'
@@ -722,6 +728,9 @@
       if (typeof state.self?.name === 'string') el('name').value = state.self.name;
       el('leave').disabled = false;
       render();
+      // A failed recovered-join reset may have preserved this attempt. Clear
+      // it only after an authenticated state/reset handshake succeeds.
+      clearPendingJoin();
     } catch (err) {
       invalidateSession(saved, err.message !== 'unknown_player' &&
         err.message !== 'connection_timeout');
