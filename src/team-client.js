@@ -230,6 +230,7 @@
     }
     lastAimPoint = {x: tx, z: tz};
     aimAtWorld(tx, tz);
+    return true;
   };
   const releaseAim = () => {
     // A canceled touch must not keep renewing a server-side aim override.
@@ -250,9 +251,11 @@
       if (activeTouchAimPointer !== null) return;
       activeTouchAimPointer = event.pointerId ?? -1;
     }
-    aimFromPointer(event);
-    if (event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
-      // PC mouse aim and fire share the canvas; server still owns shot cadence.
+    const validAim = aimFromPointer(event);
+    if (validAim && event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
+      // A click exactly on the local avatar has no physical aim ray: do not
+      // spend finite rounds or latch automatic fire in the previous direction.
+      // Valid PC pointer aim and fire still share the canvas and server cadence.
       void send('fire');
       setTrigger(physicalTrigger.press('mouse'));
     }
