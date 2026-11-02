@@ -13,7 +13,7 @@ function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safe
 function shader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
 function program(gl,vs,fs){const p=gl.createProgram();gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
 class Mesh {
- constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;}
+ constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;this.cpuBuffer=null;}
  vertex(p,n,c){this.data.push(...p,...n,...c);}
  tri(a,b,c,color){const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];const n=safeNorm([u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]]);this.vertex(a,n,color);this.vertex(b,n,color);this.vertex(c,n,color);}
  quad(a,b,c,d,color){this.tri(a,b,c,color);this.tri(a,c,d,color);}
@@ -24,13 +24,23 @@ class Mesh {
  upload(gl,usage=gl.STATIC_DRAW){
   if(!this.buffer)this.buffer=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
-  const vertices=new Float32Array(this.data);
-  if(vertices.byteLength>this.capacityBytes){
-   this.capacityBytes=Math.max(1024,2**Math.ceil(Math.log2(vertices.byteLength)));
+  // Dynamic geometry changes every rendered frame. Reuse the CPU staging
+  // allocation instead of allocating a large Float32Array on every draw.
+  // WebGL2's srcOffset/length overload uploads only the populated prefix.
+  const floats=this.data.length,usedBytes=floats*Float32Array.BYTES_PER_ELEMENT;
+  let vertices;
+  if(usage===gl.DYNAMIC_DRAW){
+   if(!this.cpuBuffer||this.cpuBuffer.length<floats)
+    this.cpuBuffer=new Float32Array(Math.max(256,2**Math.ceil(Math.log2(Math.max(1,floats)))));
+   this.cpuBuffer.set(this.data);
+   vertices=this.cpuBuffer;
+  }else vertices=new Float32Array(this.data);
+  if(usedBytes>this.capacityBytes){
+   this.capacityBytes=Math.max(1024,2**Math.ceil(Math.log2(usedBytes)));
    gl.bufferData(gl.ARRAY_BUFFER,this.capacityBytes,usage);
   }
-  gl.bufferSubData(gl.ARRAY_BUFFER,0,vertices);
-  this.count=this.data.length/9;
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,vertices,0,floats);
+  this.count=floats/9;
  }
  draw(gl,p){if(!this.buffer)return;gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.vertexAttribPointer(p.pos,3,gl.FLOAT,false,36,0);gl.vertexAttribPointer(p.normal,3,gl.FLOAT,false,36,12);gl.vertexAttribPointer(p.color,3,gl.FLOAT,false,36,24);gl.drawArrays(gl.TRIANGLES,0,this.count);}
 }
@@ -157,7 +167,7 @@ class Renderer {
   if(e.type==='hit')mesh.box(e.x,.025,e.z,.22,.06,.22,[.36,.33,.28]);
   else if(e.type==='hostile')mesh.box(e.x,1.18,e.z,.16,.12,.16,[.68,.45,.24]);
  }
- mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data=[];
+ mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data.length=0;
  }
  setAdaptiveResolution(scale){
   if(!Number.isFinite(scale)||scale<.5||scale>1.25)throw new RangeError('Invalid adaptive resolution');
