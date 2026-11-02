@@ -346,9 +346,6 @@ class TeamMatch {
       if (p.reserve === 0) return {ok: false, reason: 'no_reserve'};
       p.reloadHesitation = p.stress >= STRESS_THRESHOLD && !p.reloadAssist;
       p.reloadTicks = LOADOUTS[p.weaponId].reloadTicks + (p.reloadHesitation ? RELOAD_HESITATION_TICKS : 0);
-      p.capturing = false;
-      p.captureArmed = false;
-      this.progress[p.team] = 0;
       return {ok: true, reloadTicks: p.reloadTicks, hesitation: p.reloadHesitation};
     }
     if (data.type === 'move') {
