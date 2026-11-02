@@ -15,7 +15,22 @@ function program(gl,vs,fs){const p=gl.createProgram();gl.attachShader(p,shader(g
 class Mesh {
  constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;this.cpuBuffer=null;}
  vertex(p,n,c){this.data.push(...p,...n,...c);}
- tri(a,b,c,color){const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];const n=safeNorm([u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]]);this.vertex(a,n,color);this.vertex(b,n,color);this.vertex(c,n,color);}
+ tri(a,b,c,color){
+  // A dynamic box calls this twelve times per frame. Avoid allocating three
+  // transient vectors and invoking vertex() three times for every triangle.
+  // Preserve the exact cross-product winding, normal and interleaved layout.
+  const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2];
+  const vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+  let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+  const magnitude=Math.hypot(nx,ny,nz)||1;
+  nx/=magnitude;ny/=magnitude;nz/=magnitude;
+  const r=color[0],g=color[1],bl=color[2];
+  this.data.push(
+   a[0],a[1],a[2],nx,ny,nz,r,g,bl,
+   b[0],b[1],b[2],nx,ny,nz,r,g,bl,
+   c[0],c[1],c[2],nx,ny,nz,r,g,bl
+  );
+ }
  quad(a,b,c,d,color){this.tri(a,b,c,color);this.tri(a,c,d,color);}
  box(x,y,z,w,h,d,col){const X=x-w/2,Y=y,Z=z-d/2,W=x+w/2,H=y+h,D=z+d/2;const p=[V3(X,Y,Z),V3(W,Y,Z),V3(W,H,Z),V3(X,H,Z),V3(X,Y,D),V3(W,Y,D),V3(W,H,D),V3(X,H,D)];const face=[[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]];for(let i=0;i<6;i++){const [a,b,c,d]=face[i];const tint= i===4?1.06:i===5?0.72:i===0?0.81:i===2?0.7:1;this.quad(p[a],p[b],p[c],p[d],col.map(x=>x*tint));}}
  // Vertical low-poly plant silhouette, dark at the roots and glossy on leaves.
