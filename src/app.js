@@ -10,15 +10,21 @@ const Desktop=global.VeilpointDesktopControls;
 const telemetry=perf.createTelemetry();
 const gpuEvidenceGate=perf.createGpuEvidenceGate();
 const benchmark=global.VeilpointBenchmark?global.VeilpointBenchmark.createBenchmark():null;
-const benchmarkStart=$('benchmarkStart'),benchmarkStop=$('benchmarkStop'),benchmarkExport=$('benchmarkExport'),benchmarkStatus=$('benchmarkStatus');
+const benchmarkStart=$('benchmarkStart'),benchmarkStop=$('benchmarkStop'),benchmarkExport=$('benchmarkExport'),benchmarkStatus=$('benchmarkStatus'),benchmarkQuickExport=$('benchmarkQuickExport');
 function benchmarkUi(){
  if(!benchmark){benchmarkStart.disabled=true;benchmarkStop.disabled=true;benchmarkExport.disabled=true;benchmarkStatus.textContent='측정 모듈을 불러오지 못했습니다.';return;}
  const info=benchmark.getStatus(),active=info.state==='armed'||info.state==='running';
  benchmarkStart.disabled=active;benchmarkStop.disabled=!active;
- benchmarkExport.disabled=info.state!=='finished'||info.frames<2;
+ const canExport=info.state==='finished'&&info.frames>=2;
+ benchmarkExport.disabled=!canExport;
+ benchmarkQuickExport.classList.toggle('hidden',!canExport);
+ benchmarkQuickExport.textContent=info.reason==='completed'?'120초 측정 JSON 저장':'부분 측정 JSON 저장';
+ const seconds=Math.min(info.durationMs/1000,Math.max(0,Math.floor((info.elapsedMs-info.warmupMs)/1000)));
  benchmarkStatus.textContent=info.state==='armed'?'준비됨 · 설정을 닫고 게임 시작/이어하기를 누르면 자동 측정됩니다.':
-  info.state==='running'?'측정 중 · '+Math.min(120,Math.max(0,Math.floor((info.elapsedMs-info.warmupMs)/1000)))+'/120초 (초기 5초 예열 제외)':
-  info.state==='finished'?'측정 종료 ('+info.reason+') · 결과 JSON을 저장할 수 있습니다.':
+  info.state==='running'?'측정 중 · '+seconds+'/'+info.durationMs/1000+'초 (초기 예열 제외)':
+  info.state==='finished'?(info.reason==='completed'
+   ?'측정 완료 · '+info.durationMs/1000+'초 · JSON을 저장하세요.'
+   :'부분 측정 · '+seconds+'/'+info.durationMs/1000+'초 · 중단 원인: '+info.reason+' · 120초 결과가 아닙니다. JSON 저장 또는 다시 측정하세요.'):
   '미측정 · 클릭해서 준비한 뒤 게임을 플레이하세요. 측정 데이터는 외부 전송되지 않습니다.';
 }
 if(benchmark){
@@ -31,13 +37,17 @@ benchmarkStart.addEventListener('click',()=>{
  benchmarkUi();
 });
 benchmarkStop.addEventListener('click',()=>{benchmark.finish('manual');benchmarkUi();});
-benchmarkExport.addEventListener('click',()=>{
- if(benchmark.getStatus().state!=='finished')return;
- const blob=new Blob([JSON.stringify(benchmark.report(),null,2)+'\n'],{type:'application/json'});
+const saveBenchmark=()=>{
+ if(benchmark.getStatus().state!=='finished'||benchmark.getStatus().frames<2)return;
+ const report=benchmark.report();
+ const blob=new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download='veilpoint-browser-benchmark.json';document.body.appendChild(a);a.click();a.remove();
+ a.href=url;a.download=report.completed?'veilpoint-browser-benchmark.json':'veilpoint-browser-benchmark-partial.json';
+ document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),2000);
-});
+};
+benchmarkExport.addEventListener('click',saveBenchmark);
+benchmarkQuickExport.addEventListener('click',saveBenchmark);
 }
 benchmarkUi();
 let governor=null,autoResolution=false,lastGovernorCheck=0,lastRenderTime=null;
