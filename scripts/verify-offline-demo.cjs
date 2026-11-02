@@ -1,14 +1,17 @@
 'use strict';
-// Independent verification of the offline demo's stored ZIP entries.
+// Independent verification of the offline demo's stored and DEFLATE ZIP entries.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const {crc32, referencedAssets} = require('./package-offline-demo.cjs');
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 // The candidate is a small static offline demo, never an arbitrary ZIP bundle.
 // Bounds apply before any entry parsing or checksum work on untrusted bytes.
 const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 128;
+const MAX_UNCOMPRESSED_ENTRY_BYTES = 2 * 1024 * 1024;
+const MAX_UNCOMPRESSED_TOTAL_BYTES = 16 * 1024 * 1024;
 const REQUIRED = ['index.html', 'story.html', 'README.md',
   'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
 
@@ -28,6 +31,7 @@ function inspectZip(bytes) {
   if (offset + bytes.readUInt32LE(end + 12) !== end) invalid('directory_bounds');
   let cursor = offset;
   let nextLocal = 0;
+  let totalUncompressed = 0;
   const entries = new Map();
   const foldedNames = new Set();
   for (let i = 0; i < count; i++) {
@@ -36,13 +40,17 @@ function inspectZip(bytes) {
     const flags = bytes.readUInt16LE(cursor + 8);
     const method = bytes.readUInt16LE(cursor + 10);
     const crc = bytes.readUInt32LE(cursor + 16);
-    const size = bytes.readUInt32LE(cursor + 24);
+    const packedSize = bytes.readUInt32LE(cursor + 20);
+    const rawSize = bytes.readUInt32LE(cursor + 24);
     const nameLength = bytes.readUInt16LE(cursor + 28);
     const extraLength = bytes.readUInt16LE(cursor + 30);
     const commentLength = bytes.readUInt16LE(cursor + 32);
     const next = cursor + 46 + nameLength + extraLength + commentLength;
-    if (next > end || flags !== 0x0800 || method !== 0 ||
-        size !== bytes.readUInt32LE(cursor + 20)) invalid('entry_header');
+    if (next > end || flags !== 0x0800 || (method !== 0 && method !== 8))
+      invalid('entry_header');
+    if (rawSize > MAX_UNCOMPRESSED_ENTRY_BYTES) invalid('entry_uncompressed_too_large');
+    totalUncompressed += rawSize;
+    if (totalUncompressed > MAX_UNCOMPRESSED_TOTAL_BYTES) invalid('total_uncompressed_too_large');
     // This packager emits only canonical stored entries. Hidden ZIP extra
     // fields, per-file comments and alternate versions are not payload data
     // covered by the manifest; accepting them would make verification ambiguous.
@@ -64,21 +72,28 @@ function inspectZip(bytes) {
     if (bytes.readUInt16LE(local + 6) !== flags ||
         bytes.readUInt16LE(local + 8) !== method ||
         bytes.readUInt32LE(local + 14) !== crc ||
-        bytes.readUInt32LE(local + 18) !== size ||
-        bytes.readUInt32LE(local + 22) !== size) invalid('local_metadata');
+        bytes.readUInt32LE(local + 18) !== packedSize ||
+        bytes.readUInt32LE(local + 22) !== rawSize) invalid('local_metadata');
     const localNameLength = bytes.readUInt16LE(local + 26);
     // The local record must match the directory's exact filename length and
     // contain no untracked extra bytes (including a disguised local payload).
     if (localNameLength !== nameLength || bytes.readUInt16LE(local + 28) !== 0 ||
         bytes.readUInt16LE(local + 4) !== 20) invalid('local_metadata');
     const dataStart = local + 30 + localNameLength;
-    if (dataStart + size > offset ||
+    if (dataStart + packedSize > offset ||
         bytes.toString('utf8', local + 30, local + 30 + localNameLength) !== name)
       invalid('local_bounds');
-    const content = bytes.subarray(dataStart, dataStart + size);
+    const payload = bytes.subarray(dataStart, dataStart + packedSize);
+    if (method === 0 && packedSize !== rawSize) invalid('stored_size:' + name);
+    let content = payload;
+    if (method === 8) {
+      try {content = zlib.inflateRawSync(payload, {maxOutputLength: Math.max(1, rawSize)});}
+      catch {invalid('deflate:' + name);}
+      if (content.length !== rawSize) invalid('deflate_size:' + name);
+    }
     if (crc32(content) !== crc) invalid('crc:' + name);
     entries.set(name, content);
-    nextLocal = dataStart + size;
+    nextLocal = dataStart + packedSize;
     cursor = next;
   }
   if (cursor !== end) invalid('directory_length');

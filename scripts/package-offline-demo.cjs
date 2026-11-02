@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const ROOT = path.resolve(__dirname, '..');
 const PAGES = ['index.html', 'story.html'];
 const DOCUMENTS = ['README.md', 'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
@@ -54,26 +55,33 @@ function collectFiles(root = ROOT) {
     return {name, data: fs.readFileSync(full)};
   });
 }
-function buildZip(entries) {
+function buildZip(entries, {compress = true} = {}) {
   const locals = [], central = [];
   let offset = 0;
   for (const {name, data} of entries) {
     const filename = Buffer.from(name, 'utf8');
     if (filename.length > 65535 || data.length > 0xffffffff) throw new RangeError('ZIP entry too large');
     const crc = crc32(data);
+    // ZIP method 8 (raw DEFLATE) is lossless and supported by standard extractors.
+    // Keep already-compressed assets stored when DEFLATE would make them larger.
+    const candidate = compress ? zlib.deflateRawSync(data, {level: 9}) : data;
+    const payload = candidate.length < data.length ? candidate : data;
+    const method = payload === data ? 0 : 8;
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(0x0800, 6); // UTF-8; stored, not compressed.
-    local.writeUInt32LE(crc, 14);local.writeUInt32LE(data.length, 18);local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(0x0800, 6); // UTF-8, no data descriptor.
+    local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(crc, 14);local.writeUInt32LE(payload.length, 18);local.writeUInt32LE(data.length, 22);
     local.writeUInt16LE(filename.length, 26);
-    locals.push(local, filename, data);
+    locals.push(local, filename, payload);
     const directory = Buffer.alloc(46);
     directory.writeUInt32LE(0x02014b50, 0);directory.writeUInt16LE(20, 4);
     directory.writeUInt16LE(20, 6);directory.writeUInt16LE(0x0800, 8);
-    directory.writeUInt32LE(crc, 16);directory.writeUInt32LE(data.length, 20);directory.writeUInt32LE(data.length, 24);
+    directory.writeUInt16LE(method, 10);
+    directory.writeUInt32LE(crc, 16);directory.writeUInt32LE(payload.length, 20);directory.writeUInt32LE(data.length, 24);
     directory.writeUInt16LE(filename.length, 28);directory.writeUInt32LE(offset, 42);
     central.push(directory, filename);
-    offset += local.length + filename.length + data.length;
+    offset += local.length + filename.length + payload.length;
   }
   const directorySize = central.reduce((n, b) => n + b.length, 0);
   const end = Buffer.alloc(22);
@@ -89,10 +97,16 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
   const entries = [...files, {name: 'MANIFEST.sha256', data: Buffer.from(manifest)},
     {name: 'NOTICE.txt', data: Buffer.from(notice)}].sort((a,b) => a.name.localeCompare(b.name, 'en'));
   const zip = buildZip(entries);
+  const storedBaselineBytes = buildZip(entries, {compress: false}).length;
+  const sourceBytes = entries.reduce((sum, entry) => sum + entry.data.length, 0);
+  const largestSources = [...entries].sort((a, b) => b.data.length - a.data.length)
+    .slice(0, 5).map(entry => ({name: entry.name, bytes: entry.data.length}));
   fs.mkdirSync(path.dirname(output), {recursive: true});
   fs.writeFileSync(output, zip);
   fs.writeFileSync(output + '.sha256', `${checksum(zip)}  ${path.basename(output)}\n`);
-  return {output, files: entries.length, bytes: zip.length, sha256: checksum(zip)};
+  return {output, files: entries.length, bytes: zip.length, sourceBytes,
+    storedBaselineBytes, savedBytes: storedBaselineBytes - zip.length,
+    largestSources, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
 module.exports = {collectFiles, referencedAssets, buildZip, packageDemo, crc32};
