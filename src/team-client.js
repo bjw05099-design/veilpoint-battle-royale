@@ -175,7 +175,7 @@
       Number(held('forward') || keys.has('up'));
     return {x, z};
   };
-  const aimAtWorld = (tx, tz, forceRetry = false) => {
+  const aimAtWorld = (tx, tz, forceRetry = false, beforeClick = false) => {
     if (leaving || !token || state?.phase !== 'playing') return;
     const dx = tx - state.self.x, dz = tz - state.self.z;
     const len = Math.hypot(dx, dz);
@@ -204,7 +204,7 @@
     if (change < AIM_DIRECTION_EPSILON && !forceRetry && state.tick - lastAimTick < 20) return;
     const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now() : Date.now();
-    if ((change >= AIM_DIRECTION_EPSILON || forceRetry) && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
+    if (!beforeClick && (change >= AIM_DIRECTION_EPSILON || forceRetry) && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
       // A quick final flick must not wait up to 150ms for the next snapshot.
       // Keep only one trailing timer; it always reads the latest world point.
       if (aimFlushTimer === null) {
@@ -223,7 +223,7 @@
     lastAimTick = state.tick;lastAimVector = aim;
     void send('aim', {direction: aim});
   };
-  const aimFromPointer = event => {
+  const aimFromPointer = (event, beforeClick = false) => {
     if (!token || state?.phase !== 'playing') return;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -245,7 +245,11 @@
       return;
     }
     lastAimPoint = {x: tx, z: tz, pointerType: event.pointerType};
-    aimAtWorld(tx, tz);
+    // A discrete PC click must enqueue its current sight ray before the shot.
+    // Bypass only the pointer-move send throttle on this edge: otherwise a
+    // fast flick-click fires along the previous direction and spends a round.
+    // The server still owns shot cadence, ammunition, cover and hit resolution.
+    aimAtWorld(tx, tz, false, beforeClick);
     return true;
   };
   const releaseAim = () => {
@@ -267,7 +271,7 @@
       if (activeTouchAimPointer !== null) return;
       activeTouchAimPointer = event.pointerId ?? -1;
     }
-    const validAim = aimFromPointer(event);
+    const validAim = aimFromPointer(event, event.pointerType === 'mouse' && event.button === 0);
     if (validAim && event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
       // A click exactly on the local avatar has no physical aim ray: do not
       // spend finite rounds or latch automatic fire in the previous direction.
