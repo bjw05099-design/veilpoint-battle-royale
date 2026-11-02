@@ -1,3 +1,7 @@
+## 2026-11-02 PC local team lost-keyup reconciliation (R-12 / R-14 / R-23)
+- **Candidate P0:** The server returns only the authenticated player's held movement, crouch, sprint, trigger and relay intents. The PC client retries a released key/button after 20 authoritative ticks if the latest snapshot still shows the stale held state; retries are sequenced, rate-limited and do not disclose opponent input. This prevents lost HTTP keyup requests from maintaining ghost motion, fire or relay capture for the full 90-tick lease.
+- **Gate:** Mocked two-client lost-release regressions and PR-head `npm run verify`/Actions required. Real Windows browser, public internet transport, UE5 and RTX 3070 QHD 165Hz with 16GB RAM remain unverified.
+
 ## 2026-11-02 browser adaptive-resolution evidence freshness (R-08 / R-25 / R-26)
 - **Candidate:** GPU and CPU telemetry now expose accepted-sample totals beyond the bounded 180-frame ring. Auto-resolution refuses repeated/stale windows; every scale change and BR restart clears stale timing history and requires at least 30 new CPU/GPU samples. A monotonic draw-time gate also rejects late asynchronous WebGL results issued at the previous resolution, rather than contaminating the new telemetry window. Existing opt-in behavior and fixed 60Hz simulation remain unchanged.
 - **Gate:** Node regression plus PR-head `npm run verify`/Actions are required. No actual FPS, VRAM, Windows/RTX 3070/QHD 165Hz, UE5 or visual A/B improvement is claimed without real-device evidence.

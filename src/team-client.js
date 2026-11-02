@@ -271,8 +271,15 @@
   const updateInput = () => {
     if (leaving || !token || !state || state.phase !== 'playing') return;
     const d = direction(), key = `${d.x},${d.z}`;
-    // Renew only active movement at a bounded interval. Server expires intent after 90 ticks.
-    if (key !== lastDirection || (key !== '0,0' && state.tick - lastMoveRefreshTick >= 20)) {
+    // A lost keyup must not leave the server walking for its full 90-tick lease.
+    // Read only this player's authoritative direction, never an opponent input.
+    const serverMoving = state.self?.direction &&
+      Math.hypot(state.self.direction.x, state.self.direction.z) > 1e-6;
+    const lostStop = key === '0,0' && serverMoving &&
+      state.tick - lastMoveRefreshTick >= 20;
+    // Renew active movement, or retry a physically released input only if the
+    // latest server snapshot still disagrees with the local PC keyboard.
+    if (key !== lastDirection || (key !== '0,0' && state.tick - lastMoveRefreshTick >= 20) || lostStop) {
       lastDirection = key;lastMoveRefreshTick = state.tick;
       void send('move', {direction: d});
     }
@@ -280,7 +287,7 @@
     // renew while held so an abandoned tab cannot remain crouched forever.
     const crouch = held('crouch');
     if (crouch !== lastCrouchIntent ||
-        (crouch && state.tick - lastCrouchRefreshTick >= 20)) {
+        ((crouch || state.self?.crouching) && state.tick - lastCrouchRefreshTick >= 20)) {
       lastCrouchIntent = crouch;
       lastCrouchRefreshTick = state.tick;
       void send('crouch', {active: crouch});
@@ -289,7 +296,7 @@
     // speed, exertion, fatigue lockout and crouch precedence at fixed 60Hz.
     const sprint = held('sprint');
     if (sprint !== lastSprintIntent ||
-        (sprint && state.tick - lastSprintRefreshTick >= 20)) {
+        ((sprint || state.self?.sprintHeld) && state.tick - lastSprintRefreshTick >= 20)) {
       lastSprintIntent = sprint;
       lastSprintRefreshTick = state.tick;
       void send('sprint', {active: sprint});
@@ -697,6 +704,18 @@
           state.tick - lastCaptureRefreshTick >= 20) {
         lastCaptureRefreshTick = state.tick;
         void send('capture', {active: true});
+      }
+      // Lost release packets are reconciled from server-owned SELF intent,
+      // not from a stale optimistic client flag or hidden opponent data.
+      if (!triggering && state.phase === 'playing' && state.self.triggerHeld &&
+          state.tick - lastTriggerRefreshTick >= 20) {
+        lastTriggerRefreshTick = state.tick;
+        void send('trigger', {active: false});
+      }
+      if (!capturing && state.phase === 'playing' && state.self.captureHeld &&
+          state.tick - lastCaptureRefreshTick >= 20) {
+        lastCaptureRefreshTick = state.tick;
+        void send('capture', {active: false});
       }
     }
     catch (err) {
