@@ -184,3 +184,41 @@ test('WebGL draws a low-LOD 210m precision target and its brief impact cue',()=>
  renderer.draw(state);
  assert.ok(boxes.some(b=>b.y===.025&&b.w===.22),'distant physical impact cue must be drawn');
 });
+
+test('WebGL dynamic geometry reuses CPU staging and uploads only populated floats',()=>{
+ const fake=fakeGl(),writes=[];
+ fake.gl.bufferSubData=(target,offset,source,start,count)=>{
+  assert.equal(target,fake.gl.ARRAY_BUFFER);
+  assert.equal(offset,0);
+  assert.equal(start,0,'WebGL2 upload starts at the first staged float');
+  assert.ok(Number.isInteger(count)&&count>=0&&count<=source.length);
+  writes.push({source,count,first:Array.from(source.subarray(0,Math.min(9,count)))});
+ };
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(123,0);
+ renderer.draw(state);
+ const staging=renderer.dynamic.cpuBuffer;
+ const list=renderer.dynamic.data;
+ assert.ok(staging&&staging.length>=renderer.dynamic.count*9);
+ assert.equal(writes.at(-1).source,staging);
+ assert.equal(writes.at(-1).count,renderer.dynamic.count*9);
+ assert.equal(list.length,0,'staging input list is cleared, not replaced');
+ const initialCount=renderer.dynamic.count;
+ for(let i=0;i<10;i++)renderer.draw(state);
+ assert.equal(renderer.dynamic.cpuBuffer,staging,'identical scene must not allocate a new typed staging buffer each frame');
+ assert.equal(renderer.dynamic.data,list,'dynamic JS geometry list must also be reused');
+ assert.equal(renderer.dynamic.count,initialCount);
+ assert.equal(writes.at(-1).count,initialCount*9);
+ // More actors may grow the buffer once, but shrinking the scene must not
+ // upload stale vertices left in the reusable allocation.
+ const populated=Sim.newMatch(123,18);
+ renderer.draw(populated);
+ const expanded=renderer.dynamic.cpuBuffer;
+ assert.ok(expanded.length>=renderer.dynamic.count*9);
+ renderer.draw(state);
+ assert.equal(renderer.dynamic.cpuBuffer,expanded);
+ assert.equal(writes.at(-1).count,initialCount*9);
+ assert.equal(renderer.dynamic.data.length,0);
+});

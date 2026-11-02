@@ -1106,3 +1106,30 @@ test('PC BR a silently lost acquired pointer lock pauses before another hostile 
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
  assert.ok(game.elapsed>before);
 });
+
+test('an early BR match end exposes an explicitly partial benchmark JSON on the end screen',()=>{
+ const app=boot({windows:true});
+ app.node('benchmarkStart').click();
+ app.node('play').click();
+ app.frame(1000/60);
+ // Keep this UI regression deterministic: it measures a live render loop
+ // without depending on unrelated AI combat timing.
+ for(const bot of app.game.bots)bot.actionTime=999;
+ for(let i=2;i<=390;i++)app.frame(i*1000/60);
+ assert.match(app.node('benchmarkStatus').textContent,/측정 중/);
+ app.context.VeilpointSim.receiveDamage(app.game,100);
+ app.frame(391*1000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.node('benchmarkQuickExport').classList.contains('hidden'),false);
+ assert.match(app.node('benchmarkQuickExport').textContent,/부분 측정/);
+ assert.match(app.node('benchmarkStatus').textContent,/120초 결과가 아닙니다/);
+ let downloadName=null;
+ app.context.Blob=Blob;
+ app.context.URL={createObjectURL:()=> 'blob:local',revokeObjectURL:()=>{}};
+ app.context.document.body={appendChild(){}};
+ app.context.document.createElement=()=>({
+  click(){downloadName=this.download;},remove(){}
+ });
+ app.node('benchmarkQuickExport').click();
+ assert.equal(downloadName,'veilpoint-browser-benchmark-partial.json');
+});

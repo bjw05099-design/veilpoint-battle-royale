@@ -93,6 +93,11 @@
     schema:'veilpoint.browser-benchmark.v1',mode:'offline-battle-royale',state,reason,
     note:'Opt-in local browser measurements only. No remote upload. GPU and CPU hardware identity, native QHD output, 165Hz refresh, input-to-photon latency and Unreal performance are NOT verified.',
     settings:metadata,durationTargetMs:durationMs,warmupMs,activeMeasuredMs:measuredMs,
+    completed:state==='finished'&&reason==='completed',
+    measuredPercent:Math.min(100,Math.round(10000*measuredMs/durationMs)/100),
+    // An early match end, pause or graphics change is a partial sample, never
+    // a completed 120-second performance certificate.
+    measurementStatus:state==='finished'?(reason==='completed'?'complete':'partial'):'incomplete',
     renderedFrameCount:intervals.length,observedFps:measuredMs>0?1000*intervals.length/measuredMs:null,
     estimatedOnePercentLowFps:slowest.length?1000/avgSlow:null,
     onePercentLowMethod:'reciprocal of mean slowest 1% rendered callback intervals; not a native GPU benchmark',
