@@ -22,6 +22,12 @@ const crc32 = data => {
 function referencedAssets(page, html) {
   if (!/<script\b[^>]*\bsrc=["'][^"']+["']/i.test(html))
     throw new Error('Missing browser scripts in ' + page);
+  // Browsers load unquoted src/href/poster/srcset values, but the allowlist
+  // below intentionally parses quoted values only. Fail closed instead of
+  // silently omitting a browser-visible asset from the offline ZIP.
+  if (/(?:^|[\s<])(?:src|href|poster|srcset)\s*=\s*[^"'\s>]/i.test(html))
+    throw new Error('Unquoted offline asset in ' + page);
+
   if (/@import\b|url\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
   const refs = [...html.matchAll(/\b(src|href|poster|srcset)\s*=\s*(["'])(.*?)\2/gi)]
