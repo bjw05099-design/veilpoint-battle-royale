@@ -532,7 +532,7 @@
     } catch (err) {
       el('join').disabled = false;
       status(err.message === 'invalid_name'
-        ? '이름에 보이는 글자 또는 이모지가 필요하며, 제어문자나 너무 긴 이름은 사용할 수 없습니다.'
+        ? '이름에 줄바꿈·보이지 않는 문자만 있거나 길이가 맞지 않습니다. 보이는 글자·숫자·이모지를 포함하세요.'
         : err.message === 'name_in_use'
           ? '다른 참가자가 사용 중인 이름입니다. 구별되는 이름으로 다시 입력하세요.'
           : `입장 실패: ${err.message}`);
