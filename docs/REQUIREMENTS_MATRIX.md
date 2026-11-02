@@ -1,3 +1,7 @@
+## 2026-11-02 PC team lost aim-release reconciliation (R-12 / R-14 / R-23)
+- **Candidate P0:** A mouse pointer leaving the aim surface can lose its `aimRelease` request; the server's previous aim would otherwise override fresh keyboard facing until the 90-tick lease. The authenticated self snapshot now exposes only `aiming`, and the PC client retries release after 20 authoritative ticks if no pointer aim remains.
+- **Gate:** Two-client mock drops the first release and verifies keyboard facing recovers; PR-head `npm run verify`/CI must pass. No touch-specific development or real Windows/UE/GPU performance claim.
+
 ## 2026-11-02 PC local team lost-keyup reconciliation (R-12 / R-14 / R-23)
 - **Candidate P0:** The server returns only the authenticated player's held movement, crouch, sprint, trigger and relay intents. The PC client retries a released key/button after 20 authoritative ticks if the latest snapshot still shows the stale held state; retries are sequenced, rate-limited and do not disclose opponent input. This prevents lost HTTP keyup requests from maintaining ghost motion, fire or relay capture for the full 90-tick lease.
 - **Gate:** Mocked two-client lost-release regressions and PR-head `npm run verify`/Actions required. Real Windows browser, public internet transport, UE5 and RTX 3070 QHD 165Hz with 16GB RAM remain unverified.
