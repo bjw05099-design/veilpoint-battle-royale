@@ -171,6 +171,52 @@ test('two client UIs join, ready, send bounded movement and release capture on b
   assert.equal(player.seq, seq + 1, 'returning focus renews with validated server sequence');
 });
 
+test('PC lost release packets reconcile movement, stance, sprint, trigger and relay from server snapshots', async () => {
+ const server=backend(), dropped=new Set();
+ const flaky={fetchLocal:async (route, options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  const p=server.match.players.get(options.headers?.['X-Player-Token']);
+  const key=body?.type;
+  const held=p && (key==='move' ? Math.hypot(p.direction.x,p.direction.z)>0 :
+   key==='crouch'?p.crouching:key==='sprint'?p.sprintHeld:
+   key==='trigger'?p.triggerHeld:key==='capture'?p.captureHeld:false);
+  const released=key==='move' ? body.direction.x===0&&body.direction.z===0 :
+   ['crouch','sprint','trigger','capture'].includes(key)&&body.active===false;
+  if(route==='/command'&&held&&released&&!dropped.has(key)){
+   dropped.add(key);throw new Error('lost_release_packet');
+  }
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ const reconcile=async()=>{
+  for(let i=0;i<20;i++)server.match.step();
+  await a.poll();await settle();
+ };
+ a.doc('keydown',{code:'KeyA'});await settle();assert.equal(p.direction.x,-1);
+ a.doc('keyup',{code:'KeyA'});await settle();assert.equal(p.direction.x,-1);
+ await reconcile();assert.deepEqual(p.direction,{x:0,z:0});
+ a.doc('keydown',{code:'KeyC'});await settle();assert.equal(p.crouching,true);
+ a.doc('keyup',{code:'KeyC'});await settle();assert.equal(p.crouching,true);
+ await reconcile();assert.equal(p.crouching,false);
+ a.doc('keydown',{code:'ShiftLeft'});await settle();assert.equal(p.sprintHeld,true);
+ a.doc('keyup',{code:'ShiftLeft'});await settle();assert.equal(p.sprintHeld,true);
+ await reconcile();assert.equal(p.sprintHeld,false);
+ a.doc('keydown',{code:'Space'});await settle();assert.equal(p.triggerHeld,true);
+ a.doc('keyup',{code:'Space'});await settle();assert.equal(p.triggerHeld,true);
+ await reconcile();assert.equal(p.triggerHeld,false);
+ p.x=0;p.z=0;
+ a.node('capture').dispatch('pointerdown');await settle();assert.equal(p.captureHeld,true);
+ a.node('capture').dispatch('pointerup');await settle();assert.equal(p.captureHeld,true);
+ await reconcile();assert.equal(p.captureHeld,false);
+ assert.equal(server.match.progress.red,0,'lost release cannot keep banking relay progress');
+ assert.deepEqual([...dropped].sort(),['capture','crouch','move','sprint','trigger']);
+ assert.equal(server.match.phase,'playing','reconciliation does not restart or alter the match');
+});
+
 test('PC join retries a lost response without consuming the second local lobby seat', async () => {
   const server = backend(), storage = new Map();
   let dropFirstResponse = true;
