@@ -106,10 +106,17 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         return res.end(body);
       }
       if (req.method === 'GET' && url.pathname === '/health') {
-        // Keep the public diagnostic phase consistent with authoritative state.
+        // A failed authoritative tick is not a healthy server merely because
+        // the HTTP listener still responds. Never advertise a live match.
+        if (simulationFault) return send(res, 503, {status: 'degraded', protocol: 1,
+          phase: 'ended', error: 'simulation_unavailable'});
         match.expirePlayingLeases();
         return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase});
       }
+      // No state snapshot or game command may use a partially mutated world.
+      // Static assets remain readable so the client can display an error.
+      if (simulationFault && ['/state', '/join', '/command'].includes(url.pathname))
+        return send(res, 503, {error: 'simulation_unavailable'});
       if (req.method === 'GET' && url.pathname === '/state')
         return send(res, 200, match.snapshot(req.headers['x-player-token']));
       if (req.method === 'POST' && ['/join', '/command'].includes(url.pathname)) {
@@ -161,7 +168,7 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         {error: err instanceof RangeError ? err.message : 'internal_error'});
     }
   });
-  let timer;
+  let timer, simulationFault = false;
   return {
     match,
     async listen() {
@@ -172,7 +179,20 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
       if (autoTick) {
         const advance = createFixedStepClock(() => match.step());
         advance(performance.now());
-        timer = setInterval(() => advance(performance.now()), 8);
+        timer = setInterval(() => {
+          if (simulationFault) return;
+          try {advance(performance.now());}
+          catch (error) {
+            // An uncaught timer exception would terminate the Node process.
+            // A partially applied tick must never be replayed, published as
+            // authoritative, or followed by another competitive round.
+            simulationFault = true;
+            clearInterval(timer);timer = null;
+            try {match.finish(null, 'simulation_error');}
+            catch (finishError) {console.error('VEILPOINT failed to settle damaged match:', finishError);}
+            console.error('VEILPOINT authoritative simulation halted:', error);
+          }
+        }, 8);
         timer.unref();
       }
       return server.address();
