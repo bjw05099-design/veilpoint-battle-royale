@@ -31,6 +31,10 @@ test('package is byte-identical across runs and has a manifest/checksum', () => 
     assert.equal(first.sha256, second.sha256);
     assert.deepEqual(bytes, fs.readFileSync(second.output));
     assert.equal(first.files, 8); // two pages, one shared script, three docs, manifest, notice
+    assert.ok(first.storedBaselineBytes >= first.bytes);
+    assert.equal(first.savedBytes, first.storedBaselineBytes - first.bytes);
+    assert.ok(first.sourceBytes > 0);
+    assert.ok(first.largestSources.length > 0);
     assert.match(fs.readFileSync(first.output+'.sha256','utf8'), /^[a-f0-9]{64}  veilpoint-offline-demo.zip\n$/);
     assert.deepEqual(collectFiles(dir).filter(f=>f.name.startsWith('src/')).map(f=>f.name), ['src/game.js']);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
