@@ -23,9 +23,9 @@ test('large CPU/GPU/RAF telemetry windows retain exactly the newest samples acro
   assert.equal(telemetry.stats('raf').count, 0);
   telemetry.clear();
   assert.equal(telemetry.stats('gpu').p95, null);
-  for (let i = 1; i <= size + 1; i++) telemetry.record('gpu', i);
-  assert.equal(telemetry.stats('gpu').p50, (size + 3) / 2);
-  assert.equal(telemetry.stats('gpu').p99, percentile(Array.from({length: size}, (_, i) => i + 2), .99));
+  for (let i = 1; i <= size + 1; i++) telemetry.record('gpu', i / 2);
+  assert.equal(telemetry.stats('gpu').p50, (size + 3) / 4);
+  assert.equal(telemetry.stats('gpu').p99, percentile(Array.from({length: size}, (_, i) => (i + 2) / 2), .99));
 });
 
 test('invalid GPU or CPU sample counts never authorize adaptive quality changes', () => {
