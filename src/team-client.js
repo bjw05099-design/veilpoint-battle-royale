@@ -711,6 +711,10 @@
         if (reset?.ok !== true) throw new Error('reset_unacknowledged');
       }
       state = await request('/state');
+      // A refreshed PC tab starts with the HTML default name. The token's
+      // canonical server identity is authoritative, including normalized
+      // Korean/Arabic spelling; never show a different player name on resume.
+      if (typeof state.self?.name === 'string') el('name').value = state.self.name;
       el('leave').disabled = false;
       render();
     } catch (err) {
