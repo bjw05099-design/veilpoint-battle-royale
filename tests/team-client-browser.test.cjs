@@ -7,12 +7,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const {TeamMatch} = require('../src/team-match.cjs');
+const {webcrypto} = require('node:crypto');
 const clientSource = fs.readFileSync(path.join(__dirname, '../src/team-client.js'), 'utf8');
 const Desktop = require('../src/desktop-controls.js');
 
 function backend() {
   const match = new TeamMatch({now: () => 0});
   let id = 0;
+  const attempts = new Map();
   const requests = [];
   async function fetchLocal(route, options = {}) {
     const token = options.headers?.['X-Player-Token'];
@@ -21,8 +23,16 @@ function backend() {
     try {
       let result;
       if (route === '/join') {
-        const newToken = (++id).toString(16).padStart(48, '0');
-        result = {token: newToken, ...match.join(newToken, body.name)};
+        const existingToken = body.attemptId && attempts.get(body.attemptId);
+        const existing = existingToken && match.players.get(existingToken);
+        if (existing) result = {token: existingToken, id: existing.id,
+          team: existing.team, name: existing.name};
+        else {
+          const newToken = (++id).toString(16).padStart(48, '0');
+          result = {token: newToken, ...match.join(newToken, body.name),
+            name: match.players.get(newToken).name};
+          if (body.attemptId) attempts.set(body.attemptId, newToken);
+        }
       } else if (route === '/state') result = match.snapshot(token);
       else if (route === '/command') {
         result = match.command(token, body);
@@ -84,6 +94,7 @@ function boot(server, storage = new Map()) {
       setItem: (key, value) => storage.set(key, String(value))
     },
     VeilpointDesktopControls: Desktop,
+    crypto: webcrypto,
     addEventListener: (name, callback) => on(windowListeners, name, callback)
   };
   vm.runInNewContext(clientSource, {
@@ -158,6 +169,38 @@ test('two client UIs join, ready, send bounded movement and release capture on b
   assert.equal(player.seq, seq, 'unfocused PC window cannot renew its server session');
   a.focus(); await settle();
   assert.equal(player.seq, seq + 1, 'returning focus renews with validated server sequence');
+});
+
+test('PC join retries a lost response without consuming the second local lobby seat', async () => {
+  const server = backend(), storage = new Map();
+  let dropFirstResponse = true;
+  const flaky = {fetchLocal: async (...args) => {
+    const response = await server.fetchLocal(...args);
+    if (args[0] === '/join' && dropFirstResponse) {
+      dropFirstResponse = false;
+      throw new Error('lost_response');
+    }
+    return response;
+  }};
+  const ui = boot(flaky, storage);
+  ui.node('name').value = 'Original';
+  ui.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 1, 'first request reached the server');
+  assert.equal(ui.node('join').disabled, false, 'failed response permits retry');
+  const attemptId = storage.get('veilpoint.team.pendingJoin');
+  assert.match(attemptId, /^[a-f0-9]{32}$/);
+  ui.node('name').value = 'Changed after timeout';
+  ui.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 1, 'retry must not allocate another seat');
+  assert.equal(ui.node('name').value, 'Original', 'original server-owned identity wins');
+  assert.equal(storage.has('veilpoint.team.pendingJoin'), false);
+  assert.equal(storage.get('veilpoint.team.tabSession'), [...server.match.players.keys()][0]);
+  const joins = server.requests.filter(r => r.route === '/join');
+  assert.equal(joins.length, 2);
+  assert.equal(joins[0].body.attemptId, joins[1].body.attemptId);
+  const peer = boot(server);
+  peer.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 2, 'second legitimate client still has a seat');
 });
 
 test('tab refresh resumes the same player and clears ghost movement and capture', async () => {
