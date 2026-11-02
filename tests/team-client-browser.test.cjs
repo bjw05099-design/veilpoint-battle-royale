@@ -2105,3 +2105,18 @@ test('PC rapid flick-click sends the current aim before spending finite ammuniti
   await settle();
   assert.equal(player.triggerHeld, false);
 });
+
+test('PC lobby explains a duplicate normalized name and permits a distinct retry', async () => {
+  const server = backend(), first = boot(server), second = boot(server);
+  first.node('name').value = 'Alpha';
+  second.node('name').value = ' ALPHA ';
+  first.node('join').click(); await settle();
+  second.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 1, 'duplicate cannot reserve the second seat');
+  assert.equal(second.node('join').disabled, false);
+  assert.match(second.node('status').textContent, /다른 참가자가 사용 중인 이름/);
+  second.node('name').value = 'Bravo';
+  second.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 2);
+  assert.equal(second.node('join').disabled, true);
+});
