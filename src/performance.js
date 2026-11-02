@@ -45,7 +45,10 @@ function createGpuTimer(gl,onSample,onInvalidated){
  const ext=gl&&gl.getExtension&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
  if(!ext)return {supported:false,begin:()=>false,end:()=>{},poll:()=>{},dispose:()=>{}};
  let active=null,activeTag=null;const pending=[];let disposed=false,disjointActive=false;
- function poll(){
+ // An unavailable WebGL result must not occupy the four-query ring forever.
+ // A timeout only invalidates GPU evidence; it never fabricates a frame time.
+ // Pass the draw clock from the renderer so age is measured in real milliseconds.
+ function poll(nowMs=null){
   if(disposed)return;
   const disjoint=!!gl.getParameter(ext.GPU_DISJOINT_EXT);
   if(disjoint){
@@ -63,7 +66,16 @@ function createGpuTimer(gl,onSample,onInvalidated){
   disjointActive=false;
   while(pending.length){
    const {query:q,tag}=pending[0];
-   if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))break;
+   if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE)){
+    // A lost/never-completing query otherwise blocks every newer GPU sample.
+    // Only timestamped draws with a valid monotonic age may expire. Discard
+    // the whole dependent batch and reset telemetry rather than mixing epochs.
+    if(Number.isFinite(nowMs)&&Number.isFinite(tag)&&nowMs-tag>2500){
+     while(pending.length)gl.deleteQuery(pending.shift().query);
+     if(typeof onInvalidated==='function')onInvalidated();
+    }
+    break;
+   }
    pending.shift();
    const ns=gl.getQueryParameter(q,gl.QUERY_RESULT);
    gl.deleteQuery(q);
