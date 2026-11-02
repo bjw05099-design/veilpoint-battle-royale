@@ -47,7 +47,11 @@ function backend() {
   return {match, requests, fetchLocal};
 }
 
+let nextMockGuest = 0;
 function boot(server, storage = new Map()) {
+  // Each simulated browser tab represents a different person. A shared
+  // default name would now be correctly rejected by the authoritative lobby.
+  const guestName = 'Player ' + (++nextMockGuest);
   const nodes = new Map(), documentListeners = new Map(), windowListeners = new Map();
   const intervals = [];
   let monotonicMs = 1000, timerId = 0;
