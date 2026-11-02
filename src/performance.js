@@ -19,13 +19,14 @@ function createTelemetry(size=180){
  if(!Number.isInteger(size)||size<8||size>10000)throw new RangeError('Invalid sample window');
  // Fixed-capacity ring buffers avoid O(window size) Array.shift() per frame.
  // Percentiles sort a copy, so physical ring order is immaterial.
- const samples={cpu:{values:[],next:0},gpu:{values:[],next:0},raf:{values:[],next:0}};
+ const samples={cpu:{values:[],next:0,total:0},gpu:{values:[],next:0,total:0},raf:{values:[],next:0,total:0}};
  function record(type,value){
   if(!Object.prototype.hasOwnProperty.call(samples,type))throw new RangeError('Unknown timing type');
   if(!Number.isFinite(value)||value<=0||value>10000)return false;
   const window=samples[type],a=window.values;
   if(a.length<size)a.push(value);
   else {a[window.next]=value;window.next=(window.next+1)%size;}
+  window.total++;
   return true;
  }
  function stats(type){
@@ -33,10 +34,10 @@ function createTelemetry(size=180){
   // One sorted snapshot serves P50/P95/P99; avoid sorting three copies
   // on every 250ms HUD update or adaptive-resolution check.
   const a=samples[type].values,sorted=[...a].sort((x,y)=>x-y);
-  return {count:a.length,p50:percentileSorted(sorted,.5),
+  return {count:a.length,total:samples[type].total,p50:percentileSorted(sorted,.5),
    p95:percentileSorted(sorted,.95),p99:percentileSorted(sorted,.99)};
  }
- function clear(){for(const window of Object.values(samples)){window.values.length=0;window.next=0;}}
+ function clear(){for(const window of Object.values(samples)){window.values.length=0;window.next=0;window.total=0;}}
  return {record,stats,clear};
 }
 // Timer queries are asynchronous. No gl.finish(), no synthetic GPU measurement.
@@ -84,23 +85,43 @@ function createGpuTimer(gl,onSample,onInvalidated){
  }
  return {supported:true,begin,end,poll,dispose};
 }
+// A WebGL timer result can arrive several frames after its draw. A query
+// issued at the OLD render scale must not seed a fresh quality decision.
+function createGpuEvidenceGate(){
+ let minimumIssuedAt=-Infinity;
+ function reset(nowMs){
+  if(!Number.isFinite(nowMs))throw new RangeError('Invalid GPU evidence epoch');
+  minimumIssuedAt=Math.max(minimumIssuedAt,nowMs);
+ }
+ function accepts(issuedAt){return Number.isFinite(issuedAt)&&issuedAt>=minimumIssuedAt;}
+ return {reset,accepts};
+}
 function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxScale,targetFps=165,cooldownMs=2500}={}){
  if(!RESOLUTIONS.includes(minScale)||!RESOLUTIONS.includes(maxScale)||minScale>maxScale||!RESOLUTIONS.includes(initialScale)||initialScale<minScale||initialScale>maxScale)throw new RangeError('Invalid resolution bounds');
  if(!Number.isFinite(targetFps)||targetFps<30||targetFps>240||!Number.isFinite(cooldownMs)||cooldownMs<0)throw new RangeError('Invalid timing configuration');
  let scale=initialScale,lastChange=-Infinity,goodWindows=0,lastEvidenceAt=-Infinity;
+ let lastGpuTotal=null,lastCpuTotal=null;
  // A GPU disjoint or invalid measurement breaks consecutive low-load evidence.
  // Preserve the current scale and cooldown when invalidating timing history.
- function resetEvidence(){goodWindows=0;}
- function update({nowMs,gpuP95,cpuP95,gpuSamples=0,cpuSamples=0}){
+ function resetEvidence(){goodWindows=0;lastGpuTotal=null;lastCpuTotal=null;}
+ function update({nowMs,gpuP95,cpuP95,gpuSamples=0,cpuSamples=0,gpuTotal=null,cpuTotal=null}){
   // NaN/fractional/forged sample counts and duplicate or backward windows
   // must not trigger quality changes without fresh, ordered CPU/GPU evidence.
+  const tracked=gpuTotal!==null||cpuTotal!==null;
   if(!Number.isFinite(nowMs)||nowMs<=lastEvidenceAt||
      !Number.isSafeInteger(gpuSamples)||gpuSamples<30||
      !Number.isSafeInteger(cpuSamples)||cpuSamples<30||
-     !Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0){
-   resetEvidence();return scale;
+     !Number.isFinite(gpuP95)||!Number.isFinite(cpuP95)||gpuP95<=0||cpuP95<=0||
+     (tracked&&(!Number.isSafeInteger(gpuTotal)||gpuTotal<gpuSamples||
+       !Number.isSafeInteger(cpuTotal)||cpuTotal<cpuSamples||
+       (lastGpuTotal!==null&&gpuTotal<=lastGpuTotal)||
+       (lastCpuTotal!==null&&cpuTotal<=lastCpuTotal)))){
+   // A repeated telemetry window is not a second independent GPU/CPU sample.
+   // Preserve last accepted totals so stale data cannot be counted as fresh later.
+   goodWindows=0;return scale;
   }
   lastEvidenceAt=nowMs;
+  if(tracked){lastGpuTotal=gpuTotal;lastCpuTotal=cpuTotal;}
   const budget=1000/targetFps;
   if(nowMs-lastChange<cooldownMs)return scale;
   const index=RESOLUTIONS.indexOf(scale);
@@ -118,5 +139,5 @@ function createResolutionGovernor({minScale=.7,maxScale=1.25,initialScale=maxSca
  }
  return {update,getScale:()=>scale,resetEvidence};
 }
-return {RESOLUTIONS,TARGET_FRAME_MS,percentile,createTelemetry,createGpuTimer,createResolutionGovernor};
+return {RESOLUTIONS,TARGET_FRAME_MS,percentile,createTelemetry,createGpuTimer,createGpuEvidenceGate,createResolutionGovernor};
 });

@@ -14,10 +14,10 @@ test('telemetry rejects invalid timings, keeps a bounded sliding window and clea
  assert.equal(t.record('gpu',0),false);
  assert.equal(t.record('gpu',Infinity),false);
  for(let i=1;i<=12;i++)t.record('gpu',i);
- const stats=t.stats('gpu');assert.equal(stats.count,8);assert.equal(stats.p50,8.5);assert.ok(Math.abs(stats.p95-11.65)<1e-10);assert.ok(Math.abs(stats.p99-11.93)<1e-10);
+ const stats=t.stats('gpu');assert.equal(stats.count,8);assert.equal(stats.total,12);assert.equal(stats.p50,8.5);assert.ok(Math.abs(stats.p95-11.65)<1e-10);assert.ok(Math.abs(stats.p99-11.93)<1e-10);
  assert.equal(t.stats('cpu').p95,null);
  assert.throws(()=>t.record('__proto__',1),RangeError);
- t.clear();assert.equal(t.stats('gpu').count,0);
+ t.clear();assert.equal(t.stats('gpu').count,0);assert.equal(t.stats('gpu').total,0);
  assert.throws(()=>createTelemetry(1),RangeError);
 });
 test('resolution governor requires measured GPU+CPU evidence and respects bounds',()=>{
@@ -40,6 +40,60 @@ test('resolution governor has cooldown and no jitter near target',()=>{
  assert.equal(g.update(data(6000,5)),1);
  assert.throws(()=>createResolutionGovernor({minScale:1.25,maxScale:.7}),RangeError);
 });
+test('resolution governor refuses stale GPU samples even after ring capacity saturates',()=>{
+ const g=createResolutionGovernor({minScale:.7,maxScale:1.25,initialScale:1.25,cooldownMs:0});
+ const evidence=(nowMs,gpuP95,gpuTotal,cpuTotal)=>({nowMs,gpuP95,cpuP95:2,
+  gpuSamples:60,cpuSamples:60,gpuTotal,cpuTotal});
+ assert.equal(g.update(evidence(1000,12,60,60)),1.1);
+ assert.equal(g.update(evidence(2000,12,60,60)),1.1,
+  'repeated over-budget evidence cannot lower the render scale twice');
+ assert.equal(g.update(evidence(3000,2,61,61)),1.1);
+ assert.equal(g.update(evidence(4000,2,61,61)),1.1,
+  'replayed good evidence must not count as another low-load window');
+ assert.equal(g.update(evidence(5000,2,62,62)),1.1);
+ assert.equal(g.update(evidence(6000,2,63,63)),1.1,
+  'a stale intervening window breaks the consecutive low-load streak');
+ assert.equal(g.update(evidence(7000,2,64,64)),1.25,
+  'three consecutive fresh low-load windows restore the selected quality ceiling');
+ assert.equal(g.update(evidence(8000,12,65,64)),1.25,
+  'fresh GPU evidence without new CPU work is insufficient');
+});
+
+test('fresh evidence is required after a resolution change or telemetry reset',()=>{
+ const t=createTelemetry(32);
+ const g=createResolutionGovernor({minScale:.7,maxScale:1.25,initialScale:1.25,cooldownMs:0});
+ for(let i=0;i<40;i++){t.record('gpu',12);t.record('cpu',2);}
+ const firstGpu=t.stats('gpu'),firstCpu=t.stats('cpu');
+ assert.equal(g.update({nowMs:1000,gpuP95:firstGpu.p95,cpuP95:firstCpu.p95,
+  gpuSamples:firstGpu.count,cpuSamples:firstCpu.count,
+  gpuTotal:firstGpu.total,cpuTotal:firstCpu.total}),1.1);
+ // App clears this telemetry on a scale change: the new scale needs 30 new samples.
+ t.clear();g.resetEvidence();
+ for(let i=0;i<29;i++){t.record('gpu',2);t.record('cpu',2);}
+ let gpu=t.stats('gpu'),cpu=t.stats('cpu');
+ assert.equal(g.update({nowMs:2000,gpuP95:gpu.p95,cpuP95:cpu.p95,
+  gpuSamples:gpu.count,cpuSamples:cpu.count,gpuTotal:gpu.total,cpuTotal:cpu.total}),1.1);
+ t.record('gpu',2);t.record('cpu',2);gpu=t.stats('gpu');cpu=t.stats('cpu');
+ assert.equal(g.update({nowMs:3000,gpuP95:gpu.p95,cpuP95:cpu.p95,
+  gpuSamples:gpu.count,cpuSamples:cpu.count,gpuTotal:gpu.total,cpuTotal:cpu.total}),1.1);
+});
+
+test('late asynchronous WebGL queries from the previous quality scale are ignored',()=>{
+ const {createGpuEvidenceGate}=require('../src/performance.js');
+ const gate=createGpuEvidenceGate();
+ assert.equal(gate.accepts(NaN),false);
+ assert.equal(gate.accepts(100),true);
+ gate.reset(125);
+ assert.equal(gate.accepts(124.999),false,'old draw cannot pollute new resolution telemetry');
+ assert.equal(gate.accepts(125),true);
+ assert.equal(gate.accepts(126),true);
+ gate.reset(120);
+ assert.equal(gate.accepts(124),false,'backward timestamps cannot reopen stale evidence');
+ assert.throws(()=>gate.reset(Infinity),RangeError);
+ gate.reset(200);
+ assert.equal(gate.accepts(199),false,'a second graphics change invalidates the previous epoch');
+});
+
 test('unsupported GPU timer is disabled rather than estimating GPU timing',()=>{
  const t=createGpuTimer({getExtension:()=>null},()=>{throw Error('Must not be called');});
  assert.equal(t.supported,false);assert.equal(t.begin(),false);t.end();t.poll();t.dispose();
