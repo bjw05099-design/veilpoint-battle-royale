@@ -437,6 +437,59 @@ test('lost PC aim-release packet cannot lock keyboard-facing until the full inpu
  assert.equal(server.match.phase,'playing');
 });
 
+test('lost initial PC mouse aim is retried from own authoritative state before 20-tick lease refresh',async()=>{
+ const server=backend();let dropped=false;
+ const flaky={fetchLocal:async (route,options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  if(route==='/command'&&body?.type==='aim'&&!dropped){
+   dropped=true;throw new Error('lost_initial_aim');
+  }
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();
+ assert.equal(dropped,true);
+ assert.equal(p.aiming,false,'first aim packet never reached authority');
+ for(let i=0;i<8;i++)server.match.step();
+ await a.poll();await settle();
+ assert.equal(p.aiming,true,'self-state mismatch should trigger a new aim command');
+ assert.ok(p.facing.z<-.5,'recovered direction follows actual PC pointer');
+ assert.equal(server.match.phase,'playing');
+});
+
+test('lost PC mouse direction update is retried without reverting to stale facing',async()=>{
+ const server=backend();let aimCount=0;
+ const flaky={fetchLocal:async (route,options={})=>{
+  const body=options.body?JSON.parse(options.body):null;
+  if(route==='/command'&&body?.type==='aim'&&++aimCount===2)
+   throw new Error('lost_aim_update');
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ const p=server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
+ a.node('arena').dispatch('pointerdown',{clientX:250,clientY:155,pointerType:'mouse'});
+ await settle();assert.equal(p.aiming,true);
+ const oldFacing={...p.facing};
+ a.advanceTime(25);
+ a.node('arena').dispatch('pointermove',{clientX:355,clientY:250,pointerType:'mouse'});
+ await settle();
+ assert.equal(aimCount,2,'second aim command was attempted and lost');
+ assert.deepEqual({...p.facing},oldFacing,'authority still has the earlier facing');
+ for(let i=0;i<8;i++)server.match.step();
+ await a.poll();await settle();
+ assert.ok(aimCount>=3,'authoritative facing mismatch retries changed mouse aim');
+ assert.ok(p.facing.x>.99&&Math.abs(p.facing.z)<.02,'server receives final pointer direction');
+ assert.equal(server.match.phase,'playing');
+});
+
 test('team tab refresh releases a stale server aim override before keyboard input',async()=>{
  const server=backend(),storage=new Map(),first=boot(server,storage),other=boot(server);
  first.node('join').click();other.node('join').click();await settle();
