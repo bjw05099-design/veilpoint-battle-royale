@@ -524,11 +524,21 @@
       // The first response may have been lost: the server returns the original
       // seat and canonical display name instead of allocating a second player.
       if (typeof result.name === 'string') el('name').value = result.name;
-      clearPendingJoin();
-      token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
-       el('loadout').disabled = false;
+      // A retried /join may recover an already-playing seat with a high
+      // sequence and stale held fire. Fresh joins must NOT pay for an extra
+      // state round trip; only the server-marked retry needs reconciliation.
+      token = result.token;seq = 0;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
-      el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
+      if (result.resumed === true) {
+        await restoreTabSession(result.token);
+        // Keep the same attempt if reset was not acknowledged.
+        if (token === result.token) clearPendingJoin();
+      } else {
+        clearPendingJoin();
+        el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
+        el('loadout').disabled = false;
+        el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
+      }
     } catch (err) {
       el('join').disabled = false;
       status(err.message === 'invalid_name'
@@ -688,9 +698,10 @@
   for (const event of ['pointerup','pointercancel','pointerleave']) el('capture').addEventListener(event, () => setCapture(false));
   // A reload can resume the same guest identity within the server lease window.
   // Clear old held movement/capture on resume so a refresh cannot ghost-capture.
-  const restoreTabSession = async () => {
-    let saved = null;
-    try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
+  const restoreTabSession = async (authenticatedToken = null) => {
+    // Explicitly supplied token also works when sessionStorage is blocked.
+    let saved = authenticatedToken;
+    if (!saved) try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
     if (!saved || !/^[a-f0-9]{48}$/.test(saved)) return;
     restoring = true;
     token = saved;
@@ -717,6 +728,9 @@
       if (typeof state.self?.name === 'string') el('name').value = state.self.name;
       el('leave').disabled = false;
       render();
+      // A failed recovered-join reset may have preserved this attempt. Clear
+      // it only after an authenticated state/reset handshake succeeds.
+      clearPendingJoin();
     } catch (err) {
       invalidateSession(saved, err.message !== 'unknown_player' &&
         err.message !== 'connection_timeout');

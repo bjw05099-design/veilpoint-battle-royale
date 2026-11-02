@@ -139,8 +139,10 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
             // Never extend an active match via a join retry; only authenticated
             // gameplay commands can keep a playing participant connected.
             if (match.phase !== 'playing') previous.lastSeen = match.now();
+            // The client must reconcile server-owned seq and clear any
+            // ghost held input before accepting controls for this old seat.
             return send(res, 200, {token: previousToken, id: previous.id,
-              team: previous.team, name: previous.name});
+              team: previous.team, name: previous.name, resumed: true});
           }
           const token = crypto.randomBytes(24).toString('hex');
           const player = match.join(token, body.name);

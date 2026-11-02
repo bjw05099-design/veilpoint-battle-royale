@@ -26,7 +26,7 @@ function backend() {
         const existingToken = body.attemptId && attempts.get(body.attemptId);
         const existing = existingToken && match.players.get(existingToken);
         if (existing) result = {token: existingToken, id: existing.id,
-          team: existing.team, name: existing.name};
+          team: existing.team, name: existing.name, resumed: true};
         else {
           const newToken = (++id).toString(16).padStart(48, '0');
           result = {token: newToken, ...match.join(newToken, body.name),
@@ -251,6 +251,82 @@ test('PC join retries a lost response without consuming the second local lobby s
   const peer = boot(server);
   peer.node('join').click(); await settle();
   assert.equal(server.match.players.size, 2, 'second legitimate client still has a seat');
+});
+
+test('lost join response recovered during active round resets stale trigger and resumes server sequence', async () => {
+  const server = backend(), storage = new Map();
+  let lost = false;
+  const flaky = {fetchLocal: async (...args) => {
+    const response = await server.fetchLocal(...args);
+    if (args[0] === '/join' && !lost) {
+      lost = true;
+      throw new Error('lost_join_response');
+    }
+    return response;
+  }};
+  const ui = boot(flaky, storage);
+  ui.node('name').value = 'Captain A';
+  ui.node('join').click(); await settle();
+  assert.equal(ui.node('join').disabled, false);
+  const token = [...server.match.players.keys()][0];
+  const peer = boot(server);
+  peer.node('join').click(); await settle();
+  const peerToken = [...server.match.players.keys()].find(key => key !== token);
+  server.match.command(token, {seq: 1, type: 'ready'});
+  server.match.command(peerToken, {seq: 1, type: 'ready'});
+  assert.equal(server.match.phase, 'playing');
+  server.match.command(token, {seq: 2, type: 'move', direction: {x: 1, z: 0}});
+  server.match.command(token, {seq: 3, type: 'trigger', active: true});
+  const player = server.match.players.get(token);
+  assert.equal(player.triggerHeld, true);
+  ui.node('join').click(); await settle();
+  assert.equal(server.match.players.size, 2, 'retry reuses the original combatant');
+  assert.equal(player.seq, 4, 'resetInput follows the server-owned sequence');
+  assert.equal(player.triggerHeld, false, 'recovered tab cannot ghost-fire');
+  assert.deepEqual({...player.direction}, {x: 0, z: 0}, 'stale movement is released');
+  assert.equal(ui.node('join').disabled, true);
+  assert.equal(ui.node('name').value, 'Captain A');
+  assert.equal(storage.has('veilpoint.team.pendingJoin'), false);
+  assert.ok(server.requests.some(r => r.route === '/command' && r.token === token &&
+    r.body?.type === 'resetInput' && r.body.seq === 4));
+  ui.doc('keydown', {code: 'KeyD'}); await settle();
+  assert.equal(player.seq, 5, 'new PC input uses the restored sequence');
+  assert.equal(player.direction.x, 1);
+});
+
+test('failed recovered-join input reset keeps retry capability and blocks PC control', async () => {
+  const server = backend(), storage = new Map();
+  let lostJoin = false, lostReset = false;
+  const flaky = {fetchLocal: async (...args) => {
+    const response = await server.fetchLocal(...args);
+    const command = args[1]?.body && JSON.parse(args[1].body);
+    if (args[0] === '/join' && !lostJoin) {
+      lostJoin = true;
+      throw new Error('lost_join_response');
+    }
+    if (args[0] === '/command' && command?.type === 'resetInput' && !lostReset) {
+      lostReset = true;
+      throw new Error('lost_reset_ack');
+    }
+    return response;
+  }};
+  const ui = boot(flaky, storage);
+  ui.node('join').click(); await settle();
+  const token = [...server.match.players.keys()][0];
+  const peer = boot(server); peer.node('join').click(); await settle();
+  const peerToken = [...server.match.players.keys()].find(key => key !== token);
+  server.match.command(token, {seq: 1, type: 'ready'});
+  server.match.command(peerToken, {seq: 1, type: 'ready'});
+  ui.node('join').click(); await settle();
+  assert.equal(lostReset, true);
+  assert.equal(ui.node('join').disabled, false, 'reset uncertainty must fail closed');
+  assert.equal(storage.get('veilpoint.team.tabSession'), token, 'token retained for explicit retry');
+  assert.match(ui.node('status').textContent, /재연결/);
+  ui.node('join').click(); await settle();
+  assert.equal(ui.node('join').disabled, true);
+  assert.equal(server.match.players.size, 2);
+  assert.equal(storage.has('veilpoint.team.pendingJoin'), false);
+  assert.equal(server.match.players.get(token).seq, 3, 'reconnect replays reset at next server sequence');
 });
 
 test('tab refresh resumes the same player and clears ghost movement and capture', async () => {
