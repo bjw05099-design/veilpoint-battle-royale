@@ -12,8 +12,10 @@ function m4Perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),a=1/(near-
 function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safeNorm([up[1]*z[2]-up[2]*z[1],up[2]*z[0]-up[0]*z[2],up[0]*z[1]-up[1]*z[0]]),y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-(x[0]*e[0]+x[1]*e[1]+x[2]*e[2]),-(y[0]*e[0]+y[1]*e[1]+y[2]*e[2]),-(z[0]*e[0]+z[1]*e[1]+z[2]*e[2]),1]);}
 function shader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
 function program(gl,vs,fs){const p=gl.createProgram();gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
+// Fixed winding of the six faces, shared by every static and dynamic box.
+const BOX_FACES=[[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]];
 class Mesh {
- constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;this.cpuBuffer=null;}
+ constructor(){this.data=[];this.buffer=null;this.capacityBytes=0;this.count=0;this.cpuBuffer=null;this.faceColor=[0,0,0];}
  vertex(p,n,c){this.data.push(...p,...n,...c);}
  tri(a,b,c,color){
   // A dynamic box calls this twelve times per frame. Avoid allocating three
@@ -32,7 +34,18 @@ class Mesh {
   );
  }
  quad(a,b,c,d,color){this.tri(a,b,c,color);this.tri(a,c,d,color);}
- box(x,y,z,w,h,d,col){const X=x-w/2,Y=y,Z=z-d/2,W=x+w/2,H=y+h,D=z+d/2;const p=[V3(X,Y,Z),V3(W,Y,Z),V3(W,H,Z),V3(X,H,Z),V3(X,Y,D),V3(W,Y,D),V3(W,H,D),V3(X,H,D)];const face=[[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]];for(let i=0;i<6;i++){const [a,b,c,d]=face[i];const tint= i===4?1.06:i===5?0.72:i===0?0.81:i===2?0.7:1;this.quad(p[a],p[b],p[c],p[d],col.map(x=>x*tint));}}
+ box(x,y,z,w,h,d,col){
+  const X=x-w/2,Y=y,Z=z-d/2,W=x+w/2,H=y+h,D=z+d/2;
+  const p=[V3(X,Y,Z),V3(W,Y,Z),V3(W,H,Z),V3(X,H,Z),V3(X,Y,D),V3(W,Y,D),V3(W,H,D),V3(X,H,D)];
+  // Face topology is identical for every prop; the tint scratch is consumed
+  // synchronously by tri() and never retained in vertex data.
+  const tinted=this.faceColor;
+  for(let i=0;i<6;i++){
+   const [a,b,c,d]=BOX_FACES[i],tint=i===4?1.06:i===5?0.72:i===0?0.81:i===2?0.7:1;
+   tinted[0]=col[0]*tint;tinted[1]=col[1]*tint;tinted[2]=col[2]*tint;
+   this.quad(p[a],p[b],p[c],p[d],tinted);
+  }
+ }
  // Vertical low-poly plant silhouette, dark at the roots and glossy on leaves.
  tree(x,z,h,green){const r=h*0.13;this.box(x,0,z,r*0.9,h*0.45,r*0.9,[0.17,0.16,0.12]);for(let n=0;n<3;n++){const hh=h*(0.37+n*0.21),rr=h*(0.19-n*0.045);this.cone(x,hh*0.15,z,rr,hh,7,green.map(c=>c*(0.95+n*0.05)));}}
  cone(x,y,z,r,h,s,col){for(let i=0;i<s;i++){const a=i/s*Math.PI*2,b=(i+1)/s*Math.PI*2;this.tri([x+r*Math.cos(a),y,z+r*Math.sin(a)],[x+r*Math.cos(b),y,z+r*Math.sin(b)],[x,y+h,z],col);}}
