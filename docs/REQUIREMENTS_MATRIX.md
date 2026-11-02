@@ -1,3 +1,7 @@
+## 2026-11-02 PC mouse fine-aim input latency (R-12 / R-14 / R-23)
+- **P0 candidate:** The localhost team client previously ignored small mouse direction changes below 0.035 (~2 degrees) until a 20-tick renewal. A 0.0025 direction noise floor permits fine corrections while preserving the 60Hz network send cap and final trailing pointer flush. This is a 2D browser input fix, **not** a verified native first-person aim/latency improvement.
+- **Verification gate:** Browser-client mock reproduces one-pixel correction and bounded sends; PR-head `npm run verify`/CI required. Real Windows input-to-photon latency, RTX 3070 QHD 165Hz, RAM/VRAM and UE5 remain unmeasured.
+
 ## 2026-11-02 browser GPU timer starvation recovery (R-08 / R-25 / R-26)
 - **P0 candidate:** A never-completing WebGL timer query previously occupied the four-slot GPU query ring indefinitely, preventing new GPU evidence. The renderer now passes a monotonic draw clock to the timer. An unavailable oldest query older than 2500ms invalidates and frees the entire pending batch once; a ready query is consumed even if late, and missing timestamps cannot authorize a timeout.
 - **Verification gate:** Deterministic GPU-mock regressions, full `npm run verify`, PR-head Actions and a real browser/WebGL run are distinct. This repairs measurement availability; it does **not** establish an FPS gain, 165FPS, GPU/VRAM results or a UE5/Windows benchmark.

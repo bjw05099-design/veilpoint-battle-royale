@@ -183,7 +183,10 @@
     // position is retained and retried by the next state poll if throttled.
     const change = lastAimVector
       ? Math.hypot(aim.x - lastAimVector.x, aim.z - lastAimVector.z) : Infinity;
-    if (change < .035 && state.tick - lastAimTick < 20) return;
+    // A 0.035 direction deadband (~2 degrees) swallowed one-pixel PC mouse
+    // corrections for up to 20 server ticks. Keep a small noise floor instead;
+    // the independent 60Hz send throttle still bounds network traffic.
+    if (change < .0025 && state.tick - lastAimTick < 20) return;
     const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now() : Date.now();
     if (change >= .035 && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
