@@ -217,6 +217,14 @@
     const tx = ((event.clientX - rect.left) / rect.width * canvas.width - canvas.width / 2) / 9.5;
     const tz = ((event.clientY - rect.top) / rect.height * canvas.height - canvas.height / 2) / 9.5;
     if (!Number.isFinite(tx) || !Number.isFinite(tz)) return;
+    // The local map cannot define a facing ray at the player's own position.
+    // For a PC mouse, release a stale aim override immediately so keyboard
+    // facing is not blocked for the 90-tick server lease. Do not change touch.
+    if (event.pointerType === 'mouse' &&
+        Math.hypot(tx - state.self.x, tz - state.self.z) < 0.1) {
+      releaseAim();
+      return;
+    }
     lastAimPoint = {x: tx, z: tz};
     aimAtWorld(tx, tz);
   };

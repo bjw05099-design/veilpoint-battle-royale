@@ -1,5 +1,6 @@
 ## 2026-11-02 PC mouse fine-aim input latency (R-12 / R-14 / R-23)
 - **P0 candidate:** The localhost team client previously ignored small mouse direction changes below 0.035 (~2 degrees) until a 20-tick renewal. A 0.0025 direction noise floor permits fine corrections while preserving the 60Hz network send cap and final trailing pointer flush. This is a 2D browser input fix, **not** a verified native first-person aim/latency improvement.
+- **Additional PC defect:** Moving the mouse over the player's exact local map position used to leave the old server aim active even though the new ray had zero length. The mouse-only path now releases that stale override and restores keyboard facing; separate deterministic mock covers this transition.
 - **Verification gate:** Browser-client mock reproduces one-pixel correction and bounded sends; PR-head `npm run verify`/CI required. Real Windows input-to-photon latency, RTX 3070 QHD 165Hz, RAM/VRAM and UE5 remain unmeasured.
 
 ## 2026-11-02 browser GPU timer starvation recovery (R-08 / R-25 / R-26)

@@ -1873,3 +1873,26 @@ test('PC one-pixel aim correction reaches server without waiting for a 20-tick l
   a.advanceTime(20); await settle();
   assert.equal(aimRequests().length, before + 2, 'trailing aim flush keeps the latest PC pointer');
 });
+
+test('PC pointer at own avatar releases an undefined aim ray instead of locking keyboard facing', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  assert.equal(player.x, -8);
+  a.node('arena').dispatch('pointermove', {clientX: 250, clientY: 155, pointerType: 'mouse'});
+  await settle();
+  assert.equal(player.aiming, true);
+  a.doc('keydown', {code: 'KeyA'}); await settle();
+  assert.equal(player.direction.x, -1);
+  assert.ok(player.facing.x > 0, 'mouse aim currently owns facing');
+  // Server red spawn is x=-8, z=0; projection is 250 + x*9.5, 250 + z*9.5.
+  a.advanceTime(20);
+  a.node('arena').dispatch('pointermove', {clientX: 174, clientY: 250, pointerType: 'mouse'});
+  await settle();
+  assert.equal(player.aiming, false, 'undefined zero-length aim is released immediately');
+  assert.deepEqual({...player.facing}, {x: -1, z: 0});
+  assert.ok(server.requests.some(r => r.token === token && r.body?.type === 'aimRelease'));
+});
