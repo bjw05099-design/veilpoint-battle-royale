@@ -225,6 +225,11 @@
     // facing is not blocked for the 90-tick server lease. Do not change touch.
     if (event.pointerType === 'mouse' &&
         Math.hypot(tx - state.self.x, tz - state.self.z) < 0.1) {
+      // Dragging a held mouse trigger onto the player's own marker also loses
+      // its physical firing ray. Release only the mouse latch: a separately
+      // held PC keyboard trigger must remain active until its own keyup.
+      // Otherwise automatic fire continues in the last stale direction.
+      setTrigger(physicalTrigger.release('mouse'));
       releaseAim();
       return;
     }
