@@ -48,10 +48,10 @@ test('GPU timer samples asynchronously and releases queries',()=>{
  let next=0,available=false,disjoint=false;const deleted=[],samples=[];
  const gl={QUERY_RESULT_AVAILABLE:1,QUERY_RESULT:2,getExtension:()=>({TIME_ELAPSED_EXT:3,GPU_DISJOINT_EXT:4}),getParameter:()=>disjoint,
   createQuery:()=>({id:++next}),beginQuery:()=>{},endQuery:()=>{},getQueryParameter:(q,p)=>p===1?available:4200000,deleteQuery:q=>deleted.push(q.id)};
- const t=createGpuTimer(gl,ms=>samples.push(ms));
- assert.equal(t.supported,true);assert.equal(t.begin(),true);t.end();t.poll();assert.deepEqual(samples,[]);
- available=true;t.poll();assert.deepEqual(samples,[4.2]);assert.deepEqual(deleted,[1]);
- t.begin();t.end();disjoint=true;t.poll();assert.deepEqual(samples,[4.2]);
+ const t=createGpuTimer(gl,(ms,tag)=>samples.push({ms,tag}));
+ assert.equal(t.supported,true);assert.equal(t.begin(1234),true);t.end();t.poll();assert.deepEqual(samples,[]);
+ available=true;t.poll();assert.deepEqual(samples,[{ms:4.2,tag:1234}]);assert.deepEqual(deleted,[1]);
+ t.begin(5678);t.end();disjoint=true;t.poll();assert.deepEqual(samples,[{ms:4.2,tag:1234}]);
  assert.equal(t.begin(),false,'GPU disjoint must pause new timing queries');
  disjoint=false;t.poll();
  assert.equal(t.begin(),true);t.end();t.dispose();assert.deepEqual(deleted,[1,2,3]);

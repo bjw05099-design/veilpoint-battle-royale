@@ -1,3 +1,7 @@
+## 2026-11-02 GPU timer provenance for opt-in browser benchmark (R-08 / R-25 / R-26)
+- **Measurement integrity fix (PR candidate):** Tag asynchronous WebGL GPU queries with the monotonic timestamp of the draw that issued them. Exclude queries from earlier benchmark runs, warmup, unknown provenance or outside the measurement window; retain disjoint invalidation and fixed 60Hz gameplay.
+- **Evidence gate:** Node regression tests and PR-head CI must pass before treating this as merged. This prevents timing misattribution, **not** an observed FPS/VRAM/latency improvement. RTX 3070 QHD 165Hz with 16GB RAM, native UE5 and real-browser GPU results remain unmeasured.
+
 ## 2026-11-02 immediate BR terminal result and offline distribution footprint (R-01 / R-14 / R-23 / R-26)
 - **Candidate fix:** The last confirmed BR shot settles the win without waiting for another 60Hz simulation tick; an earlier elimination does not end a live round. CH01 clears its encounter without prematurely finishing the separate evidence/exit mission. Regression tests cover finite rounds, terminal freeze, surviving rivals and CH01 checkpoint/route continuation.
 - **Distribution diagnostics:** The browser ZIP packaging report now lists same-content source paths and exact byte arithmetic for ZIP + unpacked payload and optional two-archive staging. These values are not observed OS free-space requirements, actual update disk usage or the native 120–150GB target.

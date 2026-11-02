@@ -43,7 +43,7 @@ function createTelemetry(size=180){
 function createGpuTimer(gl,onSample,onInvalidated){
  const ext=gl&&gl.getExtension&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
  if(!ext)return {supported:false,begin:()=>false,end:()=>{},poll:()=>{},dispose:()=>{}};
- let active=null;const pending=[];let disposed=false,disjointActive=false;
+ let active=null,activeTag=null;const pending=[];let disposed=false,disjointActive=false;
  function poll(){
   if(disposed)return;
   const disjoint=!!gl.getParameter(ext.GPU_DISJOINT_EXT);
@@ -51,8 +51,8 @@ function createGpuTimer(gl,onSample,onInvalidated){
    // A disjoint invalidates *every* query spanning the event, including one
    // currently open. End the active WebGL query before deleting it so a later
    // frame cannot accidentally consume a stale/invalid GPU timing result.
-   if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;}
-   while(pending.length)gl.deleteQuery(pending.shift());
+   if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;activeTag=null;}
+   while(pending.length)gl.deleteQuery(pending.shift().query);
    // Notify the UI once per disjoint episode; old timing windows must not
    // drive adaptive resolution after a GPU reset or timing discontinuity.
    if(!disjointActive&&typeof onInvalidated==='function')onInvalidated();
@@ -61,24 +61,26 @@ function createGpuTimer(gl,onSample,onInvalidated){
   }
   disjointActive=false;
   while(pending.length){
-   const q=pending[0];
+   const {query:q,tag}=pending[0];
    if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))break;
    pending.shift();
    const ns=gl.getQueryParameter(q,gl.QUERY_RESULT);
    gl.deleteQuery(q);
-   if(Number.isFinite(ns)&&ns>0&&typeof onSample==='function')onSample(ns/1e6);
+   // Return the original draw's monotonic timestamp, not the later poll time.
+   if(Number.isFinite(ns)&&ns>0&&typeof onSample==='function')onSample(ns/1e6,tag);
   }
  }
- function begin(){
+ function begin(tag=null){
   if(disposed||disjointActive||active||pending.length>=4)return false;
   active=gl.createQuery();if(!active)return false;
+  activeTag=tag;
   gl.beginQuery(ext.TIME_ELAPSED_EXT,active);return true;
  }
- function end(){if(!active||disposed)return;gl.endQuery(ext.TIME_ELAPSED_EXT);pending.push(active);active=null;}
+ function end(){if(!active||disposed)return;gl.endQuery(ext.TIME_ELAPSED_EXT);pending.push({query:active,tag:activeTag});active=null;activeTag=null;}
  function dispose(){
   if(disposed)return;
-  if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;}
-  for(const q of pending)gl.deleteQuery(q);pending.length=0;disposed=true;
+  if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;activeTag=null;}
+  for(const {query} of pending)gl.deleteQuery(query);pending.length=0;disposed=true;
  }
  return {supported:true,begin,end,poll,dispose};
 }

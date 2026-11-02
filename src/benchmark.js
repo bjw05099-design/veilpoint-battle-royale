@@ -64,8 +64,13 @@
    if(elapsed>=warmupMs+durationMs||intervals.length>=MAX_SAMPLES)finish(elapsed>=warmupMs+durationMs?'completed':'sample-limit');
    return true;
   }
-  function gpu(ms){
-   if(state!=='running'||gpuInvalidated||lastFrameAt-startedAt<warmupMs||gpuTimer.length>=MAX_SAMPLES)return false;
+  function gpu(ms,issuedAt){
+   if(state!=='running'||gpuInvalidated||gpuTimer.length>=MAX_SAMPLES)return false;
+   // WebGL timer queries resolve asynchronously. A result from a previous
+   // benchmark, pre-warmup draw or later measurement window must never be
+   // misattributed merely because it was polled during this run.
+   if(!Number.isFinite(issuedAt)||issuedAt<startedAt+warmupMs||
+      issuedAt>startedAt+warmupMs+durationMs)return false;
    if(!Number.isFinite(ms)||ms<=0||ms>10000)return false;
    gpuTimer.push(ms);return true;
   }
