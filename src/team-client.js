@@ -524,11 +524,15 @@
       // The first response may have been lost: the server returns the original
       // seat and canonical display name instead of allocating a second player.
       if (typeof result.name === 'string') el('name').value = result.name;
-      clearPendingJoin();
-      token = result.token;seq = 0;el('join').disabled = true;el('ready').disabled = false;el('leave').disabled = false;
-       el('loadout').disabled = false;
+      // A lost /join response may be retried AFTER the other player starts
+      // the round. The recovered seat can already have a high sequence and
+      // held movement/fire: never enable PC input with seq=0 or ghost intent.
+      token = result.token;seq = 0;
       try {window.sessionStorage.setItem(SESSION_KEY, token);} catch (_) { /* Optional storage. */ }
-      el('name').disabled = true;status('입장 완료 · 다른 탭의 참가자를 기다립니다.');
+      await restoreTabSession(result.token);
+      // Keep the same join attempt if the authenticated reset was not
+      // acknowledged, so a storage-blocked tab can still recover its seat.
+      if (token === result.token) clearPendingJoin();
     } catch (err) {
       el('join').disabled = false;
       status(err.message === 'invalid_name'
@@ -688,9 +692,10 @@
   for (const event of ['pointerup','pointercancel','pointerleave']) el('capture').addEventListener(event, () => setCapture(false));
   // A reload can resume the same guest identity within the server lease window.
   // Clear old held movement/capture on resume so a refresh cannot ghost-capture.
-  const restoreTabSession = async () => {
-    let saved = null;
-    try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
+  const restoreTabSession = async (authenticatedToken = null) => {
+    // Explicitly supplied token also works when sessionStorage is blocked.
+    let saved = authenticatedToken;
+    if (!saved) try {saved = window.sessionStorage.getItem(SESSION_KEY);} catch (_) {return;}
     if (!saved || !/^[a-f0-9]{48}$/.test(saved)) return;
     restoring = true;
     token = saved;
