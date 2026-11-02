@@ -13,6 +13,7 @@
   // Mouse input must not wait for the next 150ms server snapshot to change aim.
   // Throttle changed directions to 60Hz; the next poll flushes a final
   // movement that arrived inside the throttle window. Simulation stays 60Hz.
+  const AIM_DIRECTION_EPSILON = .0025;
   let lastAimSentAt = -Infinity;
   let aimFlushTimer = null;
   const cancelAimFlush = () => {
@@ -183,10 +184,13 @@
     // position is retained and retried by the next state poll if throttled.
     const change = lastAimVector
       ? Math.hypot(aim.x - lastAimVector.x, aim.z - lastAimVector.z) : Infinity;
-    if (change < .035 && state.tick - lastAimTick < 20) return;
+    // A 0.035 direction deadband (~2 degrees) swallowed one-pixel PC mouse
+    // corrections for up to 20 server ticks. Keep a small noise floor instead;
+    // the independent 60Hz send throttle still bounds network traffic.
+    if (change < AIM_DIRECTION_EPSILON && state.tick - lastAimTick < 20) return;
     const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now() : Date.now();
-    if (change >= .035 && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
+    if (change >= AIM_DIRECTION_EPSILON && now >= lastAimSentAt && now - lastAimSentAt < 1000 / 60) {
       // A quick final flick must not wait up to 150ms for the next snapshot.
       // Keep only one trailing timer; it always reads the latest world point.
       if (aimFlushTimer === null) {
@@ -213,6 +217,14 @@
     const tx = ((event.clientX - rect.left) / rect.width * canvas.width - canvas.width / 2) / 9.5;
     const tz = ((event.clientY - rect.top) / rect.height * canvas.height - canvas.height / 2) / 9.5;
     if (!Number.isFinite(tx) || !Number.isFinite(tz)) return;
+    // The local map cannot define a facing ray at the player's own position.
+    // For a PC mouse, release a stale aim override immediately so keyboard
+    // facing is not blocked for the 90-tick server lease. Do not change touch.
+    if (event.pointerType === 'mouse' &&
+        Math.hypot(tx - state.self.x, tz - state.self.z) < 0.1) {
+      releaseAim();
+      return;
+    }
     lastAimPoint = {x: tx, z: tz};
     aimAtWorld(tx, tz);
   };

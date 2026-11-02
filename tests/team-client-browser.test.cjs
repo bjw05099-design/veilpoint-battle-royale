@@ -1846,3 +1846,53 @@ test('remapped PC team sprint uses new key and rejects the former Shift binding'
   a.doc('keyup', {code: 'KeyV'}); await settle();
   assert.equal(player.sprintHeld, false);
 });
+
+test('PC one-pixel aim correction reaches server without waiting for a 20-tick lease refresh', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  const aimRequests = () => server.requests.filter(r => r.token === token && r.body?.type === 'aim');
+  a.node('arena').dispatch('pointermove', {clientX: 250, clientY: 155, pointerType: 'mouse'});
+  await settle();
+  const before = aimRequests().length, oldFacing = {...player.facing};
+  assert.equal(before, 1);
+  a.advanceTime(20); // A genuine new PC input slot after the 60Hz send interval.
+  a.node('arena').dispatch('pointermove', {clientX: 251, clientY: 155, pointerType: 'mouse'});
+  await settle();
+  assert.equal(aimRequests().length, before + 1,
+    'one map pixel (~0.37 degrees here) must not wait 333ms for a lease refresh');
+  assert.ok(Math.hypot(player.facing.x - oldFacing.x, player.facing.z - oldFacing.z) > .0025);
+  // Several additional events in the same 16.67ms slot must not flood HTTP.
+  a.node('arena').dispatch('pointermove', {clientX: 252, clientY: 155, pointerType: 'mouse'});
+  a.node('arena').dispatch('pointermove', {clientX: 253, clientY: 155, pointerType: 'mouse'});
+  await settle();
+  assert.equal(aimRequests().length, before + 1, '60Hz throttle still applies');
+  a.advanceTime(20); await settle();
+  assert.equal(aimRequests().length, before + 2, 'trailing aim flush keeps the latest PC pointer');
+});
+
+test('PC pointer at own avatar releases an undefined aim ray instead of locking keyboard facing', async () => {
+  const server = backend(), a = boot(server), b = boot(server);
+  a.node('join').click(); b.node('join').click(); await settle();
+  a.node('ready').click(); b.node('ready').click(); await settle();
+  await a.poll(); await b.poll(); await settle();
+  const token = a.storage.get('veilpoint.team.tabSession');
+  const player = server.match.players.get(token);
+  assert.equal(player.x, -8);
+  a.node('arena').dispatch('pointermove', {clientX: 250, clientY: 155, pointerType: 'mouse'});
+  await settle();
+  assert.equal(player.aiming, true);
+  a.doc('keydown', {code: 'KeyA'}); await settle();
+  assert.equal(player.direction.x, -1);
+  assert.ok(player.facing.x > 0, 'mouse aim currently owns facing');
+  // Server red spawn is x=-8, z=0; projection is 250 + x*9.5, 250 + z*9.5.
+  a.advanceTime(20);
+  a.node('arena').dispatch('pointermove', {clientX: 174, clientY: 250, pointerType: 'mouse'});
+  await settle();
+  assert.equal(player.aiming, false, 'undefined zero-length aim is released immediately');
+  assert.deepEqual({...player.facing}, {x: -1, z: 0});
+  assert.ok(server.requests.some(r => r.token === token && r.body?.type === 'aimRelease'));
+});
