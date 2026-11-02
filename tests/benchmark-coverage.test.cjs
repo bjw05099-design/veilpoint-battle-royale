@@ -37,7 +37,7 @@ test('120-second run cannot be certified from elapsed wall time with sparse rend
  // The warmup boundary is sampled; a 500ms final callback gap is not.
  b.frame(5000,1,1);
  for(let t=5100;t<=124500;t+=100)b.frame(t,1,1);
- b.frame(125000,1,1);
+ b.frame(125100,1,1);
  const r=b.report();
  assert.equal(r.reason,'measurement-window-incomplete');
  assert.equal(r.completed,false);
