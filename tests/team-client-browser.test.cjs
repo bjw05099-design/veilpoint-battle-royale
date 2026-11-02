@@ -2218,3 +2218,28 @@ test('PC tab resume restores the canonical server-owned player name, not the HTM
   assert.equal(server.match.snapshot(token).self.name, '이수혁');
   assert.equal(a.storage.get('veilpoint.team.tabSession'), token);
 });
+
+test('PC team client explains fatal server outage on poll and join without discarding its token', async () => {
+  const offline = {ok: false, status: 503,
+    json: async () => ({error: 'simulation_unavailable'})};
+  const server = backend(), normal = server.fetchLocal;
+  server.fetchLocal = (route, options) => route === '/state'
+    ? Promise.resolve(offline) : normal(route, options);
+  const a = boot(server);
+  a.node('join').click();
+  await settle();
+  const saved = a.storage.get('veilpoint.team.tabSession');
+  assert.ok(saved, 'successful join keeps its original session capability');
+  await a.poll(); await settle();
+  assert.match(a.node('status').textContent, /서버 시뮬레이션이 중단/);
+  assert.match(a.node('status').textContent, /재시작/);
+  assert.equal(a.storage.get('veilpoint.team.tabSession'), saved,
+    'temporary server failure must not silently allocate another seat');
+
+  const rejectedJoin = backend();
+  rejectedJoin.fetchLocal = async () => offline;
+  const b = boot(rejectedJoin);
+  b.node('join').click(); await settle();
+  assert.match(b.node('status').textContent, /서버 시뮬레이션이 중단/);
+  assert.equal(b.node('join').disabled, false, 'join remains retryable after restart');
+});
