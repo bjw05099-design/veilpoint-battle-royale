@@ -7,6 +7,7 @@ test('a completed run retains asynchronously resolved GPU samples from its measu
  const b=createBenchmark({durationMs:1000,warmupMs:100});
  b.arm({fpsCap:165});
  b.frame(0,1,1);
+ b.frame(100,2,1); // explicit warmup boundary; full measurement coverage
  b.frame(200,2,1);
  b.frame(500,3,1);
  b.frame(1000,4,1);

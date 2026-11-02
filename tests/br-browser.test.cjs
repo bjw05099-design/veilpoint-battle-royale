@@ -1133,3 +1133,35 @@ test('an early BR match end exposes an explicitly partial benchmark JSON on the 
  app.node('benchmarkQuickExport').click();
  assert.equal(downloadName,'veilpoint-browser-benchmark-partial.json');
 });
+
+test('Windows graphics panel stays reachable above initial and paused overlays',()=>{
+  const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+  const z=selector=>{
+    const rule=html.match(selector);
+    assert.ok(rule,'missing CSS rule '+selector);
+    const match=rule[0].match(/z-index:\s*(\d+)/);
+    assert.ok(match,'missing z-index');
+    return Number(match[1]);
+  };
+  const overlay=z(/\.overlay\{[^}]+\}/);
+  assert.ok(z(/#topbar\{[^}]+\}/)>overlay,
+    'settings trigger must not be obscured by the start/pause/end overlay');
+  assert.ok(z(/\.graphics-panel\{[^}]+\}/)>overlay,
+    'opened settings controls must not be blocked by the overlay');
+  const app=boot({windows:true});
+  // The lightweight DOM mock does not parse initial HTML class attributes.
+  app.node('graphicsPanel').classList.add('hidden');
+  assert.equal(app.node('overlay').classList.contains('hidden'),false);
+  app.node('graphicsOpen').click();
+  assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+  app.node('graphicsClose').click();
+  assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+  app.node('play').click();
+  assert.equal(app.node('overlay').classList.contains('hidden'),true);
+  app.node('graphicsOpen').click();
+  assert.equal(app.node('overlay').classList.contains('hidden'),false,
+    'opening settings must safely pause live PC gameplay');
+  assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+  app.node('graphicsClose').click();
+  assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+});

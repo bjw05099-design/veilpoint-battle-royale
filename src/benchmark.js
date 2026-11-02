@@ -61,7 +61,17 @@
      }
     }
    }
-   if(elapsed>=warmupMs+durationMs||intervals.length>=MAX_SAMPLES)finish(elapsed>=warmupMs+durationMs?'completed':'sample-limit');
+   if(elapsed>=warmupMs+durationMs||intervals.length>=MAX_SAMPLES){
+    // A timer crossing the deadline does not prove that the entire interval
+    // was sampled. In particular, a long final callback gap can otherwise
+    // label a 90%-covered run as a complete 120-second benchmark while hiding
+    // the missing stutter. Allow at most 100ms (or 1% for short test runs)
+    // for the last incomplete callback; never invent samples to fill it.
+    const toleranceMs=Math.min(100,durationMs*.01);
+    const covered=measuredMs>=durationMs-toleranceMs;
+    finish(elapsed>=warmupMs+durationMs
+      ?(covered?'completed':'measurement-window-incomplete'):'sample-limit');
+   }
    return true;
   }
   function gpu(ms,issuedAt){
