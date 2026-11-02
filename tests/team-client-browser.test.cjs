@@ -26,7 +26,7 @@ function backend() {
         const existingToken = body.attemptId && attempts.get(body.attemptId);
         const existing = existingToken && match.players.get(existingToken);
         if (existing) result = {token: existingToken, id: existing.id,
-          team: existing.team, name: existing.name};
+          team: existing.team, name: existing.name, resumed: true};
         else {
           const newToken = (++id).toString(16).padStart(48, '0');
           result = {token: newToken, ...match.join(newToken, body.name),
