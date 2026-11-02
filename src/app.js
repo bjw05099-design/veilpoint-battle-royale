@@ -291,7 +291,7 @@ function resetInactiveClock(){
  // A lost touch pointer may never emit pointerup; discard held stick and camera
  // gestures so resuming cannot move or rotate the player without fresh input.
  joyId=null;lookId=null;previousLook=null;thumb.x=0;thumb.y=0;nub.style.transform='';
- clock.reset();fpsLimiter.reset();telemetry.clear();lastRenderTime=null;last=performance.now();
+ clock.reset();fpsLimiter.reset();telemetry.clear();if(governor)governor.resetEvidence();lastRenderTime=null;last=performance.now();
  updateHud();
 }
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
@@ -434,7 +434,14 @@ function frame(now){requestAnimationFrame(frame);
   }
   if(autoResolution&&renderer.gpuTimer&&renderer.gpuTimer.supported&&now-lastGovernorCheck>=1250){
    const gpu=telemetry.stats('gpu'),cpu=telemetry.stats('cpu');
-   renderer.setAdaptiveResolution(governor.update({nowMs:now,gpuP95:gpu.p95,cpuP95:cpu.p95,gpuSamples:gpu.count,cpuSamples:cpu.count}));
+   const previousScale=governor.getScale();
+   const nextScale=governor.update({nowMs:now,gpuP95:gpu.p95,cpuP95:cpu.p95,
+     gpuSamples:gpu.count,cpuSamples:cpu.count,gpuTotal:gpu.total,cpuTotal:cpu.total});
+   renderer.setAdaptiveResolution(nextScale);
+   if(nextScale!==previousScale){
+    // Do not apply a previous resolution's GPU costs to the next quality step.
+    telemetry.clear();governor.resetEvidence();
+   }
    lastGovernorCheck=now;
   }
  }}
