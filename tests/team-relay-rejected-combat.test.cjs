@@ -67,3 +67,38 @@ test('an invalid reload attempt still interrupts the relay without consuming amm
     assertDisarmed(match, player, reason + ' reload');
   }
 });
+
+test('two PC HTTP clients see a server-owned relay interruption after rejected fire', async () => {
+  const {createTeamServer} = require('../server/team-server.cjs');
+  const server = createTeamServer({port: 0, autoTick: false, now: () => 0});
+  const {port} = await server.listen();
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (path, body, token) => {
+    const response = await fetch(base + path, {method: 'POST',
+      headers: {'content-type': 'application/json',
+        ...(token ? {'x-player-token': token} : {})},
+      body: JSON.stringify(body)});
+    assert.equal(response.status, path === '/join' ? 201 : 200);
+    return response.json();
+  };
+  try {
+    const a = await post('/join', {name: 'A'});
+    const b = await post('/join', {name: 'B'});
+    await post('/command', {seq: 1, type: 'ready'}, a.token);
+    await post('/command', {seq: 1, type: 'ready'}, b.token);
+    server.match.players.get(a.token).x = 0;
+    await post('/command', {seq: 2, type: 'capture', active: true}, a.token);
+    for (let i = 0; i < 60; i++) server.match.step();
+    assert.ok(server.match.progress.red > .9);
+    server.match.players.get(a.token).ammo = 0;
+    assert.deepEqual(await post('/command', {seq: 3, type: 'fire'}, a.token),
+      {ok: false, reason: 'empty_magazine'});
+    const response = await fetch(base + '/state',
+      {headers: {'x-player-token': a.token}});
+    assert.equal(response.status, 200);
+    const state = await response.json();
+    assert.equal(state.progress.red, 0);
+    assert.equal(state.self.captureArmed, false);
+    assert.equal(state.self.ammo, 0);
+  } finally {await server.close();}
+});
