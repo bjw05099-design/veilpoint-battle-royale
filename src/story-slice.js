@@ -20,6 +20,19 @@
   // speed after the local aid coordinator approves clearance; it never vanishes.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:.6,h:2.5,type:'gate',routeId:'east-checkpoint'});
   const GATE_TRAVEL = -12;
+  // Authored, original harbor district shells. Each visible building/container
+  // has the same footprint in the 60Hz collision world and the WebGL scene.
+  // Keep the playable relay, evidence and two exits unobstructed.
+  const STORY_STRUCTURES = Object.freeze([
+    {x:-42,z:-38,w:15,d:20,h:8,type:'story-building'},
+    {x:42,z:-38,w:16,d:20,h:9,type:'story-building'},
+    {x:-44,z:-73,w:20,d:12,h:6,type:'story-warehouse'},
+    {x:47,z:-77,w:18,d:15,h:7,type:'story-warehouse'},
+    {x:-63,z:-53,w:12,d:3,h:2.6,type:'story-container'},
+    {x:64,z:-53,w:12,d:3,h:2.6,type:'story-container'},
+    {x:79,z:-81,w:5,d:5,h:14,type:'story-crane'},
+    {x:55,z:-9,w:12,d:14,h:7,type:'story-building'}
+  ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
@@ -34,6 +47,7 @@
     recordA: Object.freeze({id:'recordA', x:17, z:-30, kind:'evidence', label:'항구 기록'}),
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
+    relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'evac', label:'안전한 안뜰'}),
     exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'})
   });
@@ -50,14 +64,19 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
+    world.scene='nahrin';
+    world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }
   function gateOpen(state) {
     return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
   }
   function gateGeometry(state) {
+    // An optional, physically restored radio link allows the local coordinator
+    // to begin a shorter clearance cycle; the gate still travels over time.
+    const duration=state.relayRestored?4:GATE_CLEARANCE_SECONDS;
     const fraction=state.choice==='verification'
-      ?clamp((state.world.elapsed-state.gateReadyAt+GATE_CLEARANCE_SECONDS)/GATE_CLEARANCE_SECONDS,0,1):0;
+      ?clamp((state.world.elapsed-state.gateReadyAt+duration)/duration,0,1):0;
     return {...EAST_CHECKPOINT,x:EAST_CHECKPOINT.x+GATE_TRAVEL*fraction};
   }
   function syncRoute(state) {
@@ -82,6 +101,26 @@
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
     return true;
   }
+  function recoverSceneOverlap(state) {
+    // Older CH01 checkpoints predate the authored harbor buildings. Move a
+    // player who was saved inside a newly solid structure to its nearest safe
+    // outside edge once on restore; never teleport during live gameplay.
+    const p=state.world.player;
+    const building=state.world.obstacles.find(o=>o.type&&o.type.startsWith('story-')&&
+      Sim.blocked(p.x,p.z,.85,[o]));
+    if(!building)return false;
+    const edge=.95;
+    const candidates=[
+      {x:building.x-building.w/2-edge,z:p.z},
+      {x:building.x+building.w/2+edge,z:p.z},
+      {x:p.x,z:building.z-building.d/2-edge},
+      {x:p.x,z:building.z+building.d/2+edge}
+    ].filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles));
+    if(!candidates.length)throw new RangeError('No safe harbor checkpoint recovery');
+    candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+    p.x=candidates[0].x;p.z=candidates[0].z;
+    return true;
+  }
   function recoverActorOverlap(state) {
     // Historic v2 saves can predate standing-body collision. Resolve only on
     // restore; never teleport an actor during live 60Hz gameplay. Keep the
@@ -104,7 +143,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
@@ -115,7 +154,8 @@
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
-      POINTS.decision
+      POINTS.decision,
+      ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[])
     ];
     if (state.phase==='exit') return [state.choice==='verification'?POINTS.exitVerify:POINTS.exitEvac];
     return [];
@@ -397,6 +437,12 @@
       state.message=state.found.length===2
         ?'SIGNAL ECHO: 04:07과 04:12 기록은 5분 차이입니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
+    }else if(marker.id==='relay'&&state.phase==='records'&&state.found.length===2){
+      // Optional physical action: the local generator is connected to the
+      // civilian radio repeater. No remote control or supernatural signal.
+      state.relayRestored=true;
+      state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 유수프 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
+      state.message='현지 무전 복구 · 동쪽 통제문 개방 대기 8초 → 4초';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
@@ -417,7 +463,7 @@
     if(choice!=='evacuation'&&choice!=='verification')return {ok:false,reason:'invalid_choice'};
     if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
     state.choice=choice;state.phase='exit';
-    state.gateReadyAt=choice==='verification'?state.world.elapsed+GATE_CLEARANCE_SECONDS:0;
+    state.gateReadyAt=choice==='verification'?state.world.elapsed+(state.relayRestored?4:GATE_CLEARANCE_SECONDS):0;
     state.subtitle=choice==='verification'
       ?'마라(기술자): 두 기록을 전달했어. 유수프 구조단이 동쪽 통제물을 치우는 동안 기다려야 해. 원인은 아직 미확정이야.'
       :'마라(기술자): 현지 구조단이 확인한 남쪽 대피 통로로 가자. 동쪽 통제소는 계속 닫혀 있어.';
@@ -441,6 +487,7 @@
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
+      radio:state.relayRestored?'현지 비상 무전 복구 완료 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       civilianConsequence:state.choice==='evacuation'
         ?'유수프 구조단: 남쪽 대피 인원 확인 우선 · 동쪽 기록 확인 보류'
@@ -461,6 +508,7 @@
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
+      emergencyRadioRestored:state.relayRestored,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:conflict?'unresolved':'not-cross-checked',
       civilianOutcome:verified?'east-clearance-confirmed':'south-evacuation-prioritized',
@@ -478,7 +526,8 @@
           ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'
           :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
-      case 'records':return '선택: 양쪽 기록을 조사하세요. 또는 중앙 콘솔에서 바로 대피 경로를 선택하세요.';
+      case 'records':return '선택: 양쪽 기록을 조사하거나 중앙 콘솔에서 대피 경로를 선택하세요.'+
+        (state.found.length===2&&!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
@@ -490,7 +539,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,gateReadyAt:state.gateReadyAt,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -509,8 +558,9 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(![expectedKeys.length,expectedKeys.length+1].includes(Object.keys(data).length)||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+2||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored').includes(k))||
+      (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
         data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
         (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
@@ -596,7 +646,9 @@
     // Records and route choices are acquired only AFTER clearing CH01 combat.
     // An engagement/failure checkpoint must not smuggle future knowledge or
     // an already-authorized exit into an earlier playable mission phase.
-    if((['terminal','engagement','failed'].includes(data.phase)&&
+    if((hasOwn(data,'relayRestored')&&data.relayRestored&&
+        (data.found.length!==2||['terminal','engagement','failed'].includes(data.phase)))||
+      (['terminal','engagement','failed'].includes(data.phase)&&
         (data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
@@ -631,6 +683,8 @@
     const weaponId=hasOwn(data.player,'weaponId')?data.player.weaponId:'carbine';
     const state=createState(weaponId);
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
+    // Existing v1/v2 checkpoints predate the optional emergency radio action.
+    state.relayRestored=hasOwn(data,'relayRestored')?data.relayRestored:false;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
     for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];
@@ -666,6 +720,7 @@
     state.message='CH01 / 이어하기';
     syncRoute(state);
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
+    if(recoverSceneOverlap(state))state.message='CH01 / 이전 저장 위치를 새 항구 건물 밖으로 안전하게 복구했습니다.';
     if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
     return syncMarkers(state);
   }
