@@ -69,7 +69,8 @@ function assertLocalAssetContent(name, data) {
   if (name.toLowerCase().endsWith('.js') &&
       (/\b(?:fetch|importScripts|WebSocket|EventSource|XMLHttpRequest|Worker|SharedWorker|sendBeacon)\s*\(/.test(source) ||
        /\bimport\s*(?:\(|\{|["'*]|[A-Za-z_$])/.test(source) ||
-       /\bserviceWorker\s*\.\s*register\s*\(/.test(source)))
+       /\bserviceWorker\s*\.\s*register\s*\(/.test(source) ||
+       /["'`]\s*(?:https?:\/\/|wss?:\/\/|\/\/)/i.test(source)))
     throw new Error('Unsupported JavaScript dependency in ' + name);
 }
 function collectFiles(root = ROOT) {
