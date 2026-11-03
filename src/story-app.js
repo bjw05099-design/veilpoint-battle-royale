@@ -40,7 +40,9 @@
   const canAct=()=>running&&!graphicsContextLost&&!!renderer&&!document.hidden&&(isTouch||document.pointerLockElement===canvas);
   const trigger=Desktop.createTriggerLatch();
   const clearInput=()=>{trigger.clear();for(const key in input)input[key]=false;};
-  const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
+  // A denied localStorage getter must not prevent offline CH01 from launching.
+  const desktopStorage=(()=>{try{return global.localStorage;}catch(_){return null;}})();
+  const desktopUi=Desktop.attach(document,desktopStorage,clearInput);
   const storage={
     get(key){try{return global.localStorage.getItem(key);}catch(_){return null;}},
     set(key,value){try{global.localStorage.setItem(key,value);return true;}catch(_){return false;}},

@@ -62,7 +62,10 @@
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
   // The server remains authoritative for all movement and gameplay commands.
   const Desktop = window.VeilpointDesktopControls;
-  let controls = Desktop.load(window.localStorage);
+  // Browser privacy policy can deny the localStorage property itself, before
+  // Desktop.load() has a chance to catch getItem failures.
+  const desktopStorage = (() => {try {return window.localStorage;} catch (_) {return null;}})();
+  let controls = Desktop.load(desktopStorage);
   const keys = new Set();
   const physicalTrigger = Desktop.createTriggerLatch();
   // Capture the identity when a request is queued: an old command must never
@@ -674,9 +677,9 @@
   // must not leave this tab using stale keys or a stale held-fire command.
   window.addEventListener('storage', event => {
     if (event.key !== Desktop.STORAGE_KEY && event.key !== null) return;
-    if (event.storageArea && event.storageArea !== window.localStorage) return;
+    if (event.storageArea && event.storageArea !== desktopStorage) return;
     releaseHeldInput();
-    controls = Desktop.load(window.localStorage);
+    controls = Desktop.load(desktopStorage);
     refreshControlLabels();
     if (state) render();
   });

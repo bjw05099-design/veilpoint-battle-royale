@@ -116,7 +116,10 @@ const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
 const trigger=Desktop.createTriggerLatch();
 function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
-const desktopUi=Desktop.attach(document,global.localStorage,clearInput);
+// file:// and privacy-restricted desktop browsers may throw on the storage getter.
+// Control defaults must still initialize so an offline match can start.
+const desktopStorage=(()=>{try{return global.localStorage;}catch(_){return null;}})();
+const desktopUi=Desktop.attach(document,desktopStorage,clearInput);
 // Pausing freezes both fixed-step simulation and every player-authored action.
 // The live world still has status 'playing' while the pause overlay is open.
 // A browser may never resolve or reject a pointer-lock permission request.
