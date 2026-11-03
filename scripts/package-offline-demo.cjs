@@ -30,6 +30,13 @@ function referencedAssets(page, html) {
 
   if (/@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
+  // A locally referenced script is not enough for an offline certificate if
+  // the page itself runs inline code, inline event handlers or redirects.
+  // These pages intentionally use only reviewed, bundled external scripts.
+  if (/<script\b(?![^>]*\bsrc\s*=)[^>]*>/i.test(html) ||
+      /\s+on[a-z]+\s*=/i.test(html) ||
+      /<meta\b[^>]*\bhttp-equiv\s*=\s*(?:"refresh"|'refresh'|refresh\b)/i.test(html))
+    throw new Error('Unsupported inline script/redirect in ' + page);
   const refs = [...html.matchAll(/\b(src|href|poster|srcset)\s*=\s*(["'])(.*?)\2/gi)]
     .map(match => ({attribute: match[1].toLowerCase(), ref: match[3]}));
   return refs.filter(({attribute, ref}) => {
@@ -51,9 +58,20 @@ function referencedAssets(page, html) {
 // a ZIP can appear self-contained while silently fetching a remote font/image.
 // Keep this release candidate strict until a recursive local CSS bundler exists.
 function assertLocalAssetContent(name, data) {
+  const source = data.toString('utf8');
   if (name.toLowerCase().endsWith('.css') &&
-      /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(data.toString('utf8')))
+      /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(source))
     throw new Error('Unsupported CSS dependency in ' + name);
+  // An offline ZIP can have valid hashes yet load external code at runtime.
+  // Classic browser demo scripts have no dynamic network/worker/module
+  // dependency: reject those constructs until they are explicitly bundled
+  // and verified. This is a conservative source audit, not a browser proof.
+  if (name.toLowerCase().endsWith('.js') &&
+      (/\b(?:fetch|importScripts|WebSocket|EventSource|XMLHttpRequest|Worker|SharedWorker|sendBeacon)\s*\(/.test(source) ||
+       /\bimport\s*(?:\(|\{|["'*]|[A-Za-z_$])/.test(source) ||
+       /\bserviceWorker\s*\.\s*register\s*\(/.test(source) ||
+       /["'`]\s*(?:https?:\/\/|wss?:\/\/|\/\/)/i.test(source)))
+    throw new Error('Unsupported JavaScript dependency in ' + name);
 }
 function collectFiles(root = ROOT) {
   const realRoot = fs.realpathSync(root);
