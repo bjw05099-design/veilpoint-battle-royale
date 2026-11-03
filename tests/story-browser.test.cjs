@@ -1001,3 +1001,59 @@ test('PC CH01 cargo exit denial immediately explains the physical handoff requir
   assert.equal(app.element('menu').classList.contains('hidden'),true,'blocked exit keeps live gameplay active');
   assert.equal(store.get('veilpoint.story.ch01'),before,'blocked exit must not forge a completion checkpoint');
 });
+
+test('CH01 defeat retries the last alive checkpoint without losing finite supplies or replaying the mission intro',()=>{
+  const Story=require('../src/story-slice.js');
+  const s=Story.createState('carbine');
+  s.world.player.x=Story.POINTS.terminal.x;
+  s.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(s).ok,true);
+  // A valid near-failure save is the player's last safe checkpoint, not
+  // an invented post-death recovery or a fresh mission with replenished ammo.
+  s.world.player.health=4;
+  s.world.player.charges=24;
+  s.world.player.loaded=12;
+  const saved=Story.serialize(s);
+  const store=new Map([['veilpoint.story.ch01',saved]]);
+  const app=boot(store);
+  app.element('continue').click();
+  assert.match(app.element('objective').textContent,/무장 대치자/);
+  let failed=false;
+  for(let i=1;i<=2400;i++){
+    app.frame(i*1000/60);
+    if(app.element('menuText').textContent.includes('교전 중 임무가 중단')){failed=true;break;}
+  }
+  assert.equal(failed,true,'a visible finite hostile encounter must be able to end the mission');
+  assert.equal(app.element('continue').textContent,'마지막 체크포인트 재시도');
+  assert.equal(store.get('veilpoint.story.ch01'),saved,
+    'defeat must not overwrite the last alive checkpoint with an unrecoverable failed state');
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/무장 대치자/,
+    'retry restores the active encounter rather than silently starting a new CH01');
+  assert.match(app.element('healthStatus').textContent,/4\/100/);
+  assert.match(app.element('combatStatus').textContent,/탄창 12 \/ 예비 12/,
+    'retry preserves finite magazine and reserve counts');
+  assert.equal(store.get('veilpoint.story.ch01'),saved,
+    'retry itself must not fabricate ammunition or write a new state');
+  app.element('pauseButton').click();
+  app.element('newGame').click();
+  assert.match(app.element('objective').textContent,/중계기/,
+    'explicit New Game remains a separate full restart');
+});
+
+test('CH01 historical failed checkpoint cannot soft-lock the resume action',()=>{
+  const Story=require('../src/story-slice.js');
+  const s=Story.createState();
+  s.world.player.x=Story.POINTS.terminal.x;
+  s.world.player.z=Story.POINTS.terminal.z;
+  Story.interact(s);
+  s.world.player.health=0;s.world.player.alive=false;
+  s.world.status='lost';s.phase='failed';
+  const store=new Map([['veilpoint.story.ch01',Story.serialize(s)]]);
+  const app=boot(store);
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/중계기/,
+    'an old failed-only save must fall back to a fresh playable mission');
+});
