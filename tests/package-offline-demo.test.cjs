@@ -132,3 +132,18 @@ test('offline CSS dependencies fail closed instead of making hidden network requ
     }
   } finally {fs.rmSync(dir, {recursive: true, force: true});}
 });
+
+test('offline package cannot follow an asset-directory symlink outside its source root', () => {
+  const dir = fixture();
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), 'veilpoint-external-'));
+  try {
+    fs.writeFileSync(path.join(external, 'secret.js'), 'private fixture data');
+    fs.symlinkSync(external, path.join(dir, 'assets'), process.platform === 'win32' ? 'junction' : 'dir');
+    fs.writeFileSync(path.join(dir, 'index.html'),
+      '<script src="src/game.js"></script><script src="assets/secret.js"></script>');
+    assert.throws(() => collectFiles(dir), /Invalid demo source file/);
+  } finally {
+    fs.rmSync(dir, {recursive: true, force: true});
+    fs.rmSync(external, {recursive: true, force: true});
+  }
+});
