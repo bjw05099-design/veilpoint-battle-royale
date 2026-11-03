@@ -47,6 +47,14 @@ function referencedAssets(page, html) {
     return true;
   }).map(({ref}) => ref);
 }
+// CSS is loaded by the browser after the HTML parser. Without auditing it,
+// a ZIP can appear self-contained while silently fetching a remote font/image.
+// Keep this release candidate strict until a recursive local CSS bundler exists.
+function assertLocalAssetContent(name, data) {
+  if (name.toLowerCase().endsWith('.css') &&
+      /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(data.toString('utf8')))
+    throw new Error('Unsupported CSS dependency in ' + name);
+}
 function collectFiles(root = ROOT) {
   const files = new Set([...PAGES, ...DOCUMENTS]);
   for (const page of PAGES) {
@@ -58,7 +66,9 @@ function collectFiles(root = ROOT) {
     const stat = fs.lstatSync(full);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024)
       throw new Error(`Invalid demo source file: ${name}`);
-    return {name, data: fs.readFileSync(full)};
+    const data = fs.readFileSync(full);
+    assertLocalAssetContent(name, data);
+    return {name, data};
   });
 }
 function buildZip(entries, {compress = true} = {}) {
@@ -132,4 +142,4 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
     downloadAndExtractBytes, twoArchiveStagingBytes, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
-module.exports = {collectFiles, referencedAssets, buildZip, packageDemo, crc32};
+module.exports = {collectFiles, referencedAssets, assertLocalAssetContent, buildZip, packageDemo, crc32};

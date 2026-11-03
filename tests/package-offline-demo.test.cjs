@@ -112,3 +112,23 @@ test('offline page navigation is allowed but HTML pages cannot masquerade as scr
     }
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
+
+test('offline CSS dependencies fail closed instead of making hidden network requests', () => {
+  const dir = fixture();
+  try {
+    fs.writeFileSync(path.join(dir, 'index.html'),
+      '<script src="src/game.js"></script><link rel="stylesheet" href="src/theme.css">');
+    const stylesheet = path.join(dir, 'src/theme.css');
+    fs.writeFileSync(stylesheet, 'body { color: white; }');
+    assert.ok(collectFiles(dir).some(file => file.name === 'src/theme.css'));
+    for (const css of [
+      '@import "https://example.com/tracker.css";',
+      'body { background: url(https://example.com/track.png); }',
+      'body { background-image: image-set("https://example.com/x.png" 1x); }',
+      'body { background-image: -webkit-image-set("https://example.com/x.png" 1x); }'
+    ]) {
+      fs.writeFileSync(stylesheet, css);
+      assert.throws(() => collectFiles(dir), /Unsupported CSS dependency/);
+    }
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});

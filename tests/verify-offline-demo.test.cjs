@@ -193,3 +193,19 @@ test('ZIP inspection rejects alternate versions and Windows case-folding aliases
     {name:'src/map.js', data:Buffer.from('two')}]);
   assert.throws(() => inspectZip(aliases), /invalid_demo_zip:entry_name/);
 });
+
+test('self-consistent ZIP with remote CSS dependency cannot pass offline verification', () => {
+  const dir = fixture();
+  try {
+    fs.writeFileSync(path.join(dir, 'index.html'),
+      '<script src="src/game.js"></script><link rel="stylesheet" href="src/theme.css">');
+    fs.writeFileSync(path.join(dir, 'src/theme.css'), 'body { color: white; }');
+    const safe = collectFiles(dir);
+    assert.doesNotThrow(() => verifyArchive(archiveWithValidManifest(safe)));
+    const unsafe = safe.map(file => file.name === 'src/theme.css'
+      ? {...file, data: Buffer.from('@import "https://example.com/remote.css";')}
+      : file);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(unsafe)),
+      /invalid_demo_zip:asset_dependencies:src\\/theme\\.css/);
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});
