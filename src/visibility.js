@@ -91,7 +91,13 @@ function planVisible(state,aspect=16/9){
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=lodForDistance(distance);
   bots.push({entity,lod});boxes+=lod==='high'?6:lod==='medium'?3:1;
  }
- for(const entity of state.loot){
+ // Render the same finite field pouch that PC E can collect from a defeated
+ // BR rival. Administrative boundary disqualification creates no physical loot.
+ const fieldPouches=state.scene?[]:state.bots.filter(b=>!b.alive&&!b.disqualified&&
+   b.health===0&&Number.isInteger(b.charges)&&Number.isInteger(b.loaded)&&b.charges>b.loaded)
+   .map(b=>({id:'field-'+b.id,x:b.x,z:b.z,kind:'ammo',weaponId:'carbine',
+     remaining:Math.min(12,b.charges-b.loaded),picked:false}));
+ for(const entity of state.loot.concat(fieldPouches)){
   if(entity.picked)continue;
   lootTotal++;
   if(!inView(p,entity.x,entity.z,1,MAX_DISTANCE,halfFov)||
