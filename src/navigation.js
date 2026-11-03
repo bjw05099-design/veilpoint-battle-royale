@@ -7,7 +7,6 @@
   else root.VeilpointNavigation=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
-  const TAU=Math.PI*2;
   function direction(player,target){
     if(!player||!target||![player.x,player.z,player.yaw,target.x,target.z].every(Number.isFinite))return null;
     const dx=target.x-player.x,dz=target.z-player.z;
@@ -20,7 +19,7 @@
       angle<=Math.PI/3?side+' 앞':angle<=2*Math.PI/3?side:'뒤쪽';
     return Object.freeze({meters,delta,label});
   }
-  function story(player,markers){
+  function story(player,markers,selectedIndex=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
     let nearest=null,best=Infinity;
     for(const marker of markers){
@@ -28,8 +27,11 @@
       if(nav&&nav.meters<best){nearest={marker,nav};best=nav.meters;}
     }
     if(!nearest)return '현재 안내할 임무 표식 없음';
+    const selected=Number.isInteger(selectedIndex)&&selectedIndex>=0&&selectedIndex<markers.length
+      ?{marker:markers[selectedIndex],nav:direction(player,markers[selectedIndex])}:null;
+    if(selected&&selected.nav)nearest=selected;
     // Straight-line distance is not a pathfinding claim; physical obstacles still apply.
-    return '가장 가까운 임무 표식 · '+nearest.marker.label+' · '+nearest.nav.label+
+    return (selected&&selected.nav?'선택한 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
       ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m (장애물 우회 필요 가능)';
   }
   function zone(player,zone){
