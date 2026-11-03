@@ -201,6 +201,12 @@ class Renderer {
   mesh.box(p.x+Math.sin(p.yaw)*.9,.72,p.z-Math.cos(p.yaw)*.9,
     .62,.4,.48,[.46,.40,.31]);
  }
+ // The single physical crate remains visible on the original staging table
+ // until it is picked up again. It is never drawn both here and in hand.
+ if(state.scene==='nahrin'&&state.aidStaged){
+  mesh.box(-7,.36,-55,.9,.2,.72,[.30,.31,.29]);
+  mesh.box(-7,.66,-55,.62,.4,.48,[.46,.40,.31]);
+ }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
  // Static geometry is generated from the BR base world. Story-specific route

@@ -401,6 +401,8 @@
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':'[E] 필요한 만큼 확보')
       :nearby.id==='aidPickup'?'[E] '+nearby.label+' 들기 · 운반 중 달리기 제한'
       :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
+      :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
+      :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
