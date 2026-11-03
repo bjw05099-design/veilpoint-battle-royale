@@ -127,7 +127,8 @@ class SoftwareRenderer {
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
   type:o.type==='story-desk'?'report-desk':'building'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
- for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
+ for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch?.24:.9,
+  w:l.fieldPouch?.4:.75,d:l.fieldPouch?.32:.75,type:l.fieldPouch?'field-pouch':l.kind});
   if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
  for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
@@ -144,7 +145,7 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='med'?'#62ca9d':'#f4bc72';
+ const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
@@ -295,6 +296,12 @@ class Renderer {
   mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
  }
  for(const {entity:item,lod} of plan.loot){
+  if(item.fieldPouch){
+   // Small, grounded cloth-equipment proxy; never a hovering loot marker.
+   mesh.box(item.x,.045,item.z,.4,.09,.32,[.35,.35,.31]);
+   if(lod==='high')mesh.box(item.x,.105,item.z,.28,.035,.22,[.23,.24,.22]);
+   continue;
+  }
   // Grounded, stationary physical prop placeholders. Hovering neon cubes
   // would contradict the project's realism-only rule in every mode.
   const c=item.kind==='evac'?[.38,.44,.37]:(item.kind==='evidence'||item.kind==='verify')?[.34,.39,.43]:item.kind==='magazine'?[.40,.42,.39]:[.49,.43,.34];
