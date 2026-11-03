@@ -4,7 +4,8 @@
  const STORAGE_KEY='veilpoint.desktopControls.v1';
  const DEFAULT_BINDINGS=Object.freeze({
   forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',
-  crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyE',assist:'KeyH',support:'KeyQ'
+  crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyE',assist:'KeyH',support:'KeyQ',
+  headlamp:'KeyL',guidance:'KeyB'
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
  const RESERVED=new Set(['Escape','Enter','KeyG','KeyM','Digit1','Digit2']);
@@ -20,9 +21,19 @@
   const invertY=typeof source.invertY==='boolean'?source.invertY:false;
   const bindings={...DEFAULT_BINDINGS};
   if(source.bindings&&typeof source.bindings==='object'&&!Array.isArray(source.bindings)){
-   const candidate=ACTIONS.map(a=>source.bindings[a]);
+   // Old saved layouts predate CH01's remappable headlamp and objective guide.
+   // Preserve every existing PC binding, even when it already uses L or B.
+   const expanded={...source.bindings};
+   const used=new Set(ACTIONS.filter(a=>a!=='headlamp'&&a!=='guidance').map(a=>expanded[a]));
+   for(const extra of ['headlamp','guidance']){
+    if(expanded[extra]===undefined)
+     expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyP','KeyO','KeyJ','KeyK','KeyU']
+      .find(code=>!used.has(code));
+    used.add(expanded[extra]);
+   }
+   const candidate=ACTIONS.map(a=>expanded[a]);
    if(candidate.every(validCode)&&new Set(candidate).size===candidate.length)
-    for(const action of ACTIONS)bindings[action]=source.bindings[action];
+    for(const action of ACTIONS)bindings[action]=expanded[action];
    else {
     // Migrate only obsolete Ctrl/Alt bindings when possible, preserving
     // unrelated valid custom keys. If fallback defaults would collide with
@@ -56,7 +67,8 @@
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
   // Preserve original alternate PC movement keys until the primary key is remapped.
-  const aliases={ArrowUp:'forward',ArrowDown:'back',ArrowLeft:'left',ArrowRight:'right',ShiftRight:'sprint'};
+  const aliases={ArrowUp:'forward',ArrowDown:'back',ArrowLeft:'left',ArrowRight:'right',ShiftRight:'sprint',
+   KeyF:'headlamp',KeyN:'guidance'};
   const alias=aliases[code];
   return alias&&bindings[alias]===DEFAULT_BINDINGS[alias]?alias:null;
  }

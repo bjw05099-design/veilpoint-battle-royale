@@ -648,7 +648,7 @@
     keys.add(e.code);
     if (!e.repeat && state?.phase === 'playing') {
       // F is a legacy alias only while the default Space fire binding is active.
-      if (action === 'fire' || (e.code === 'KeyF' && action === null && controls.bindings.fire === 'Space')) {
+      if (action === 'fire' || (e.code === 'KeyF' && (action === null || action === 'headlamp') && controls.bindings.fire === 'Space')) {
         void send('fire'); // Immediate click feedback; the authority enforces cooldown.
         setTrigger(physicalTrigger.press('keyboard'));
       }
@@ -664,7 +664,7 @@
     if (Desktop.actionFor(e.code, controls) === 'interact') setCapture(false);
     if (Desktop.actionFor(e.code, controls) === 'fire' ||
         (e.code === 'KeyF' && controls.bindings.fire === 'Space' &&
-         Desktop.actionFor(e.code, controls) === null)) setTrigger(physicalTrigger.release('keyboard'));
+         ['headlamp',null].includes(Desktop.actionFor(e.code, controls)))) setTrigger(physicalTrigger.release('keyboard'));
     updateInput();
   });
   const releaseHeldInput = () => {physicalTrigger.clear();setTrigger(false);keys.clear();setCapture(false);updateInput();releaseAim();};

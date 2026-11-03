@@ -301,12 +301,12 @@
     if(action==='support'){e.preventDefault();support();}
     if(action==='reload'){e.preventDefault();reload();}
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
-    if(!action&&e.code==='KeyF'){
+    if(action==='headlamp'){
       e.preventDefault();
       if(Story.toggleFlashlight(state).ok){audio.play('interact');persist();}
       updateHud();
     }
-    if(!action&&e.code==='KeyN'){
+    if(action==='guidance'){
       e.preventDefault();
       const count=Story.markers(state).length;
       guidanceIndex=count===0||guidanceIndex===count-1?null:guidanceIndex===null?0:guidanceIndex+1;
@@ -409,11 +409,16 @@
   function updateHud(){
     $('objective').textContent=Story.objective(state);
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),guidanceIndex)+
-      (Story.markers(state).length>1?' · [N] 표식 변경 / 자동 선택':'');
+      (Story.markers(state).length>1?' · ['+
+         (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
+           ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+
+         '] 표식 변경 / 자동 선택':'');
     $('status').textContent=state.message+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=state.subtitle;
-    $('flashlightStatus').textContent=Story.situation(state).headlamp+' · [F] 켜기/끄기';
+    const lampKey=Desktop.actionFor('KeyF',desktopUi.get())==='headlamp'
+       ?'F':desktopUi.get().bindings.headlamp.replace(/^Key/,'');
+     $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
     const situation=Story.situation(state);
     $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
