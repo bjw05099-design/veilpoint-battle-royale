@@ -229,7 +229,7 @@
     // physically carried to the aid team: no instant remote delivery or sprint.
     const sprint=!state.world.carryingAid&&Sim.canSprint(p,input,iz);
     const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*
-      Sim.injuryMobility(p)*(state.world.carryingAid?.72:1);
+      Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     const beforeX=p.x,beforeZ=p.z;
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
