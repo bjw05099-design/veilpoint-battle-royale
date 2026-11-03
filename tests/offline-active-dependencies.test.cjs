@@ -39,7 +39,7 @@ test('active HTML embeds and submission endpoints cannot hide network requiremen
     const baseline = fs.readFileSync(path.join(root,'index.html'),'utf8');
     for (const unsafe of [
       '<object data="https://example.invalid/remote.svg"></object>',
-      '<iframe srcdoc="&lt;img src=https://example.invalid/x&gt;"></iframe>',
+      '<iframe srcdoc="&lt;script&gt;fetch(\'https://example.invalid/x\')&lt;/script&gt;"></iframe>',
       '<embed src="assets/mark.svg">',
       '<form action="https://example.invalid/post"><button>Send</button></form>',
       '<button formaction="https://example.invalid/post">Send</button>',
