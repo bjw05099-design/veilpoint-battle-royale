@@ -158,7 +158,12 @@
     }).catch(err => {
       if (token !== sessionToken) return;
       if (err.message === 'unknown_player') invalidateSession(sessionToken);
-      else status(`명령 실패: ${readableError(err)}`);
+      else if (err.message === 'simulation_unavailable') {
+        // Fatal server state is not a retryable input failure. Stop all PC
+        // intents and drop the old tab token before a new server is launched.
+        invalidateSession(sessionToken);
+        status(readableError(err));
+      } else status(`명령 실패: ${readableError(err)}`);
     });
     if (inputSlot) {
       inputSlot.promise = pending;
@@ -734,7 +739,10 @@
       // it only after an authenticated state/reset handshake succeeds.
       clearPendingJoin();
     } catch (err) {
-      invalidateSession(saved, err.message !== 'unknown_player' &&
+      if (err.message === 'simulation_unavailable') {
+        invalidateSession(saved);
+        status(readableError(err));
+      } else invalidateSession(saved, err.message !== 'unknown_player' &&
         err.message !== 'connection_timeout');
     } finally {restoring = false;}
   };
@@ -803,7 +811,10 @@
     catch (err) {
       if (token !== polledToken) return;
       if (err.message === 'unknown_player') invalidateSession(polledToken);
-      else status(`연결 확인 필요: ${readableError(err)}`);
+      else if (err.message === 'simulation_unavailable') {
+        invalidateSession(polledToken);
+        status(readableError(err));
+      } else status(`연결 확인 필요: ${readableError(err)}`);
     }
     finally {polling = false;}
   }, 150);
