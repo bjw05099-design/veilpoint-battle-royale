@@ -153,6 +153,7 @@
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
+    state.world.aidPickedUp=false;state.world.aidDelivered=false;
     syncRoute(state);syncMarkers(state);
     return state;
   }
@@ -461,7 +462,7 @@
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if(marker.id==='aidPickup'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.aidPickedUp){
-      state.aidPickedUp=true;state.world.carryingAid=true;
+      state.aidPickedUp=true;state.world.aidPickedUp=true;state.world.carryingAid=true;
       state.subtitle='유수프(현지 구조단): 민간 구조 물품을 직접 운반해 줘. 상자를 들고 있는 동안 뛰기는 어려워.';
       state.message='비상 물품 운반 중 · 남쪽 구조단 인계 지점으로 이동';
     }else if(marker.id==='aidStage'&&state.phase==='exit'&&state.choice==='evacuation'&&
@@ -477,7 +478,7 @@
       state.message='비상 물품 운반 재개 · 달리기 제한';
     }else if(marker.id==='aidDrop'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.aidPickedUp&&!state.aidDelivered&&!state.aidStaged){
-      state.aidDelivered=true;state.world.carryingAid=false;
+      state.aidDelivered=true;state.world.aidDelivered=true;state.world.carryingAid=false;
       state.subtitle='유수프(현지 구조단): 비상 물품을 현장에서 인수했어. 주민 지원은 우리 구조단이 맡을게.';
       state.message='민간 구조단 물품 인계 완료 · 안전한 안뜰로 이동';
     }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
@@ -716,8 +717,9 @@
     // an already-authorized exit into an earlier playable mission phase.
     if((data.aidPickedUp===true&&
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
-      (data.phase==='complete'&&data.choice==='evacuation'&&data.aidPickedUp===true&&
-        data.aidDelivered!==true&&data.aidStaged!==true)||
+      // Historical checkpoints could finish with undelivered cargo in hand.
+      // Keep those finished saves readable; live exits now require staging or delivery.
+
       (hasOwn(data,'musterConfirmed')&&data.musterConfirmed&&
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
       (hasOwn(data,'relayRestored')&&data.relayRestored&&
@@ -766,6 +768,7 @@
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
     state.world.carryingAid=state.aidPickedUp&&!state.aidDelivered&&!state.aidStaged;
     state.world.aidStaged=state.aidStaged;
+    state.world.aidPickedUp=state.aidPickedUp;state.world.aidDelivered=state.aidDelivered;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
     for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];

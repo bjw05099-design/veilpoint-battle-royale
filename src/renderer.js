@@ -169,6 +169,9 @@ class Renderer {
   m.box(-9,.008,-53.4,3.4,.005,.12,musterPaint);
   m.box(-10.7,.008,-55,.12,.005,3.3,musterPaint);
   m.box(-7.3,.008,-55,.12,.005,3.3,musterPaint);
+  // The separate aid staging pad exists before the crate arrives and remains
+  // after it leaves. Flat paint has no fictional solid collision footprint.
+  m.box(-7,.012,-55,1.3,.012,1.05,[.45,.40,.30]);
   for(const o of this.sceneObstacles){
    const container=o.type==='story-container',crane=o.type==='story-crane';
    const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];
@@ -194,18 +197,22 @@ class Renderer {
  }
  buildDynamic(state){
  const mesh=this.dynamic,t=state.elapsed;mesh.data.length=0;
- // CH01's optional relief crate remains visibly in the captain's hands while
- // carried; it is not a hovering pickup, a teleporting reward or a UI-only flag.
+ // The one authored crate occupies exactly one physical place: pickup pad,
+ // captain's hands, staging pad, or the aid-team handoff point.
+ if(state.scene==='nahrin'&&!state.aidPickedUp){
+  mesh.box(-7,.25,-47,.62,.5,.48,[.46,.40,.31]);
+ }
+ if(state.scene==='nahrin'&&state.aidDelivered){
+  mesh.box(-12,.25,-60,.62,.5,.48,[.46,.40,.31]);
+ }
  if(state.scene==='nahrin'&&state.carryingAid){
   const p=state.player;
   mesh.box(p.x+Math.sin(p.yaw)*.9,.72,p.z-Math.cos(p.yaw)*.9,
     .62,.4,.48,[.46,.40,.31]);
  }
- // The single physical crate remains visible on the original staging table
- // until it is picked up again. It is never drawn both here and in hand.
+ // A staged crate rests on the ground pad, never simultaneously in hand.
  if(state.scene==='nahrin'&&state.aidStaged){
-  mesh.box(-7,.36,-55,.9,.2,.72,[.30,.31,.29]);
-  mesh.box(-7,.66,-55,.62,.4,.48,[.46,.40,.31]);
+  mesh.box(-7,.25,-55,.62,.5,.48,[.46,.40,.31]);
  }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
