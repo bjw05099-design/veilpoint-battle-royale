@@ -409,7 +409,7 @@
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=state.subtitle;
     const situation=Story.situation(state);
-    $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio+
+    $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
@@ -442,6 +442,7 @@
       :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
        :nearby.id==='gateLog'?'[E] '+nearby.label+' 열람 · 최초 수신/재전송 대조'
       :nearby.id==='reportDesk'?'[E] '+nearby.label+'에 현장 기록 전달'
+      :nearby.id==='beacon'?'[E] '+nearby.label+' 작동 · 현장 전원 연결 후 가능'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
