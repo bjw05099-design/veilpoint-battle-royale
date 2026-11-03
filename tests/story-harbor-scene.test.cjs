@@ -9,10 +9,10 @@ const Graphics=require('../src/graphics.js');
 const Perf=require('../src/performance.js');
 const Visibility=require('../src/visibility.js');
 function fakeGl(){
- let buffers=0;const deleted=[];
+ let buffers=0;const deleted=[],uploads=[];
  const gl={VERTEX_SHADER:1,FRAGMENT_SHADER:2,COMPILE_STATUS:3,LINK_STATUS:4,ARRAY_BUFFER:5,STATIC_DRAW:6,DYNAMIC_DRAW:7,FLOAT:8,TRIANGLES:9,DEPTH_TEST:10,LEQUAL:11,CULL_FACE:12,BACK:13,COLOR_BUFFER_BIT:14,DEPTH_BUFFER_BIT:15,
- createShader:()=>({}),shaderSource:()=>{},compileShader:()=>{},getShaderParameter:()=>true,createProgram:()=>({}),attachShader:()=>{},linkProgram:()=>{},getProgramParameter:()=>true,useProgram:()=>{},getAttribLocation:()=>0,getUniformLocation:()=>({}),enableVertexAttribArray:()=>{},enable:()=>{},depthFunc:()=>{},cullFace:()=>{},createBuffer:()=>({id:++buffers}),bindBuffer:()=>{},bufferData:()=>{},bufferSubData:()=>{},vertexAttribPointer:()=>{},drawArrays:()=>{},deleteBuffer:b=>deleted.push(b.id),viewport:()=>{},clearColor:()=>{},clear:()=>{},uniformMatrix4fv:()=>{},uniform3f:()=>{},uniform1f:()=>{},getExtension:()=>null};
- return {gl,deleted};
+ createShader:()=>({}),shaderSource:()=>{},compileShader:()=>{},getShaderParameter:()=>true,createProgram:()=>({}),attachShader:()=>{},linkProgram:()=>{},getProgramParameter:()=>true,useProgram:()=>{},getAttribLocation:()=>0,getUniformLocation:()=>({}),enableVertexAttribArray:()=>{},enable:()=>{},depthFunc:()=>{},cullFace:()=>{},createBuffer:()=>({id:++buffers}),bindBuffer:()=>{},bufferData:()=>{},bufferSubData:(_target,_offset,vertices,start,count)=>uploads.push(Float32Array.from(vertices.subarray(start,start+count))),vertexAttribPointer:()=>{},drawArrays:()=>{},deleteBuffer:b=>deleted.push(b.id),viewport:()=>{},clearColor:()=>{},clear:()=>{},uniformMatrix4fv:()=>{},uniform3f:()=>{},uniform1f:()=>{},getExtension:()=>null};
+ return {gl,deleted,uploads};
 }
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
@@ -53,4 +53,23 @@ test('pre-harbor CH01 checkpoint inside new building is relocated once to neares
  assert.match(loaded.message,/항구 건물 밖/);
  assert.ok(Math.hypot(loaded.world.player.x+42,loaded.world.player.z+38)<15);
  assert.equal(Story.restore(Story.serialize(loaded)).world.player.x,loaded.world.player.x);
+});
+
+test('CH01 south muster paint and harbor lane markings are original static geometry, not invisible collision',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Graphics,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(__dirname+'/../src/renderer.js','utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:640,clientHeight:360,getContext:t=>t==='webgl2'?fake.gl:null});
+ const story=Story.createState(),before=JSON.stringify(story.world);
+ renderer.draw(story.world);
+ const staticFloats=fake.uploads.findLast(v=>v.length===renderer.static.count*9);
+ assert.ok(staticFloats,'capture static WebGL geometry for Nahrin');
+ let painted=false;
+ for(let i=0;i<staticFloats.length;i+=9){
+  const x=staticFloats[i],y=staticFloats[i+1],z=staticFloats[i+2],r=staticFloats[i+6],g=staticFloats[i+7];
+  if(x>-11&&x<-7&&z>-57&&z<-53&&y>=.007&&y<.014&&r>.45&&g>.38){painted=true;break;}
+ }
+ assert.equal(painted,true,'painted muster boundary must reach the GPU vertex upload');
+ assert.equal(JSON.stringify(story.world),before,'paint must not change 60Hz simulation');
+ assert.equal(Sim.blocked(Story.POINTS.muster.x,Story.POINTS.muster.z,.85,story.world.obstacles),false);
 });
