@@ -84,14 +84,26 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
 void main(){vec3 N=normalize(vNormal),L=normalize(uSun);float lambert=max(dot(N,L),0.);float sky=clamp(N.y*.5+.5,0.,1.);
-vec3 diffuse=vColor*(.18+.47*sky+.68*lambert);
+vec3 diffuse=vColor*mix(.18+.47*sky+.68*lambert,.12+.14*sky+.10*lambert,uNight);
 float highlight=pow(max(dot(reflect(-L,N),vec3(0.,.72, .69)),0.),26.);
-diffuse+=vec3(1.,.87,.63)*highlight*.10;
+diffuse+=vec3(1.,.87,.63)*highlight*mix(.10,.025,uNight);
+// Two original, fixed wall luminaires illuminate the harbor only after the
+// player physically restores the civilian relay. Inverse-square-like falloff,
+// surface-facing response and bounded range prevent an omnipresent glow.
+if(uNight>.5&&uRelayOn>.5){
+ vec3 lamps[2]=vec3[2](vec3(-42.,3.2,-27.82),vec3(42.,3.2,-27.82));
+ for(int i=0;i<2;i++){
+  vec3 delta=lamps[i]-vWorld;
+  float distanceToLamp=length(delta);
+  float attenuation=1./(1.+.035*distanceToLamp*distanceToLamp);
+  diffuse+=vColor*vec3(1.,.74,.43)*max(dot(N,normalize(delta)),0.)*2.*attenuation;
+ }
+}
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
 float fogFactor=1.-exp(-pow(vDistance*.009,1.7));
@@ -105,8 +117,8 @@ class SoftwareRenderer {
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
- const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#536b70');sky.addColorStop(.65,'#89948a');sky.addColorStop(1,'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
- const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,'#5b6551');ground.addColorStop(1,'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
+ const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);const harborNight=state.scene==='nahrin';sky.addColorStop(0,harborNight?'#192a35':'#536b70');sky.addColorStop(.65,harborNight?'#3b4b52':'#89948a');sky.addColorStop(1,harborNight?'#6a6a63':'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+ const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,harborNight?'#343c3d':'#5b6551');ground.addColorStop(1,harborNight?'#1e292c':'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
  const focal=Math.min(w,h)*.98,yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
  const eyeHeight=1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0);
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
@@ -133,13 +145,29 @@ class SoftwareRenderer {
  const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
+ // The Canvas fallback also shows the two physical facade fixtures. Only draw
+ // their front faces from the harbor-road side; do not reveal a light through
+ // the rear of a solid building. This is a low-fidelity fallback, not ray tracing.
+ if(harborNight&&p.z>=-28){
+  for(const x of [-42,42]){
+   const q=proj(x,3.15,-27.72);
+   if(!q||q[2]>90||q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
+   const radius=Math.max(1.5,Math.min(10,45/q[2]));
+   if(state.relayRestored){
+    ctx.fillStyle='rgba(246,187,97,.16)';
+    ctx.fillRect(q[0]-radius*3,q[1]-radius*3,radius*6,radius*6);
+   }
+   ctx.fillStyle=state.relayRestored?'#ffdfa2':'#303d3d';
+   ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
+  }
+ }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -169,6 +197,12 @@ class Renderer {
   m.box(-9,.008,-53.4,3.4,.005,.12,musterPaint);
   m.box(-10.7,.008,-55,.12,.005,3.3,musterPaint);
   m.box(-7.3,.008,-55,.12,.005,3.3,musterPaint);
+  // Both fixtures are wall-mounted on existing solid buildings, so their
+  // physical support never creates invisible collision or obstructs objectives.
+  for(const x of [-42,42]){
+   m.box(x,3.02,-27.86,1.3,.28,.24,[.24,.26,.25]);
+   m.box(x,3.31,-27.87,.14,.34,.14,[.27,.28,.26]);
+  }
   // The separate aid staging pad exists before the crate arrives and remains
   // after it leaves. Flat paint has no fictional solid collision footprint.
   m.box(-7,.012,-55,1.3,.012,1.05,[.45,.40,.30]);
@@ -213,6 +247,12 @@ class Renderer {
  // A staged crate rests on the ground pad, never simultaneously in hand.
  if(state.scene==='nahrin'&&state.aidStaged){
   mesh.box(-7,.25,-55,.62,.5,.48,[.46,.40,.31]);
+ }
+ if(state.scene==='nahrin'){
+  // A dark fixture remains visibly unpowered until the relay interaction;
+  // this changes in the same render frame as the saved mission state.
+  for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
+    state.relayRestored?[1.45,1.12,.65]:[.16,.17,.17]);
  }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
@@ -284,7 +324,12 @@ class Renderer {
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
  const look=[eye[0]+dir[0],eye[1]+dir[1],eye[2]+dir[2]];
  g.uniformMatrix4fv(l.projection,false,m4Perspective(Math.PI/3.25,this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
- g.uniform3f(l.sun,-.50,.88,.20);g.uniform3f(l.fog,.34,.40,.39);g.uniform1f(l.exposure,1.35);g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
+ const night=scene==='nahrin';
+ g.uniform3f(l.sun,night?-.35:-.50,night?.28:.88,night?.10:.20);
+ g.uniform3f(l.fog,night?.065:.34,night?.085:.40,night?.11:.39);
+ g.uniform1f(l.exposure,night?1.25:1.35);g.uniform1f(l.night,night?1:0);
+ g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
+ g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
  this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
