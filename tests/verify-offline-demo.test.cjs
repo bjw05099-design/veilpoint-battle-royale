@@ -225,11 +225,16 @@ test('self-consistent ZIP with hidden JavaScript fetch cannot be certified offli
   const dir = fixture();
   try {
     const complete = collectFiles(dir);
-    const remote = complete.map(file => file.name === 'src/game.js'
-      ? {...file, data: Buffer.from('fetch("https://example.invalid/hidden.js")')}
-      : file);
-    assert.throws(() => verifyArchive(archiveWithValidManifest(remote)),
-      /invalid_demo_zip:asset_dependencies:src\/game\.js/);
+    for (const source of [
+      'fetch("https://example.invalid/hidden.js")',
+      'const img = new Image(); img.src = "https://example.invalid/pixel.png";'
+    ]) {
+      const remote = complete.map(file => file.name === 'src/game.js'
+        ? {...file, data: Buffer.from(source)}
+        : file);
+      assert.throws(() => verifyArchive(archiveWithValidManifest(remote)),
+        /invalid_demo_zip:asset_dependencies:src\/game\.js/);
+    }
     const inline = complete.map(file => file.name === 'index.html'
       ? {...file, data: Buffer.from('<script src="src/game.js"></script><script>fetch("/missing")</script>')}
       : file);
