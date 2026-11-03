@@ -148,3 +148,45 @@ test('offline package cannot follow an asset-directory symlink outside its sourc
     fs.rmSync(external, {recursive: true, force: true});
   }
 });
+
+test('offline packager rejects hidden JavaScript network/module dependencies', () => {
+  const dir = fixture();
+  try {
+    const script = path.join(dir, 'src/game.js');
+    for (const code of [
+      'fetch("https://cdn.example.invalid/runtime.js");',
+      'import("https://cdn.example.invalid/scene.js");',
+      'import {scene} from "./missing-scene.js";',
+      'new Worker("https://cdn.example.invalid/worker.js");',
+      'new WebSocket("wss://example.invalid/socket");',
+      'navigator.serviceWorker.register("/offline-worker.js");',
+      'navigator.sendBeacon("https://example.invalid/metric", "x");'
+    ]) {
+      fs.writeFileSync(script, code);
+      assert.throws(() => collectFiles(dir), /Unsupported JavaScript dependency/,
+        'network-dependent source must not receive an offline certificate: ' + code);
+    }
+    fs.writeFileSync(script, 'const world = {name: "VEILPOINT"}; console.log(world.name);');
+    assert.doesNotThrow(() => collectFiles(dir), 'self-contained browser code remains packagable');
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});
+
+test('offline HTML cannot hide an inline network script, event handler or redirect', () => {
+  const dir = fixture();
+  try {
+    for (const unsafe of [
+      '<script>fetch("https://example.invalid/scene")</script>',
+      '<img src="assets/local.png" onerror="fetch(\'https://example.invalid/x\')">',
+      '<meta http-equiv="refresh" content="0;url=https://example.invalid/">',
+      "<meta content='0;url=https://example.invalid/' http-equiv='refresh'>"
+    ]) {
+      fs.writeFileSync(path.join(dir, 'index.html'),
+        '<script src="src/game.js"></script>' + unsafe);
+      assert.throws(() => collectFiles(dir), /Unsupported inline script\/redirect/,
+        'inline network execution/redirect must fail closed');
+    }
+    fs.writeFileSync(path.join(dir, 'index.html'),
+      '<script src="src/game.js"></script><a href="story.html">Story</a>');
+    assert.doesNotThrow(() => collectFiles(dir));
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});
