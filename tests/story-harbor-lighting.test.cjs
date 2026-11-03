@@ -75,6 +75,8 @@ test('CH01 dusk lighting responds to an actual radio relay interaction and survi
    'lamp illumination must attenuate with distance and surface direction');
  restoreRadio(state);
  assert.equal(state.world.relayRestored,true,'relay interaction must reach renderer state');
+ assert.match(state.message,/벽등 점등/);
+ assert.match(Story.situation(state).radio,/벽등 점등/);
  const checkpoint=Story.serialize(state);
  const loaded=Story.restore(checkpoint);
  assert.equal(loaded.world.relayRestored,true,'saved relay power must restore before drawing');
