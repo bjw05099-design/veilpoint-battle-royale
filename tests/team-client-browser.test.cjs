@@ -2243,3 +2243,60 @@ test('PC team client explains fatal server outage on poll and join without disca
   assert.match(b.node('status').textContent, /서버 시뮬레이션이 중단/);
   assert.equal(b.node('join').disabled, false, 'join remains retryable after restart');
 });
+
+test('fatal server error on PC state poll drops stale tab identity and blocks ghost input', async () => {
+  const server = backend();
+  let failed = false, rejected = 0;
+  const guarded = {fetchLocal: async (...args) => {
+    if (failed) {
+      rejected++;
+      return {ok: false, status: 503,
+        json: async () => ({error: 'simulation_unavailable'})};
+    }
+    return server.fetchLocal(...args);
+  }};
+  const a = boot(guarded), b = boot(guarded);
+  a.node('join').click();b.node('join').click();await settle();
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await settle();
+  assert.equal(server.match.phase, 'playing');
+  assert.ok(a.storage.get('veilpoint.team.tabSession'));
+  failed = true;
+  await a.poll();await settle();
+  assert.equal(a.storage.has('veilpoint.team.tabSession'), false);
+  assert.equal(a.node('join').disabled, false);
+  assert.match(a.node('status').textContent, /시뮬레이션이 중단/);
+  const before = rejected;
+  a.doc('keydown', {code: 'KeyW'});
+  a.heartbeat();
+  await settle();
+  assert.equal(rejected, before, 'a failed authority must not receive more PC inputs');
+});
+
+test('fatal server error on queued PC command stops movement and discards old token', async () => {
+  const server = backend();
+  let failed = false, rejected = 0;
+  const guarded = {fetchLocal: async (...args) => {
+    if (failed) {
+      rejected++;
+      return {ok: false, status: 503,
+        json: async () => ({error: 'simulation_unavailable'})};
+    }
+    return server.fetchLocal(...args);
+  }};
+  const a = boot(guarded), b = boot(guarded);
+  a.node('join').click();b.node('join').click();await settle();
+  a.node('ready').click();b.node('ready').click();await settle();
+  await a.poll();await settle();
+  failed = true;
+  a.doc('keydown', {code: 'KeyA'});
+  await settle();
+  assert.ok(rejected >= 1);
+  assert.equal(a.storage.has('veilpoint.team.tabSession'), false);
+  assert.match(a.node('status').textContent, /시뮬레이션이 중단/);
+  const before = rejected;
+  a.doc('keydown', {code: 'Space'});
+  a.heartbeat();
+  await settle();
+  assert.equal(rejected, before, 'no firing or heartbeat after fatal authority loss');
+});
