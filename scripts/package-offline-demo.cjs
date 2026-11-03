@@ -28,7 +28,7 @@ function referencedAssets(page, html) {
   if (/(?:^|[\s<])(?:src|href|poster|srcset)\s*=\s*[^"'\s>]/i.test(html))
     throw new Error('Unquoted offline asset in ' + page);
 
-  if (/@import\b|url\s*\(/i.test(html))
+  if (/@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
   const refs = [...html.matchAll(/\b(src|href|poster|srcset)\s*=\s*(["'])(.*?)\2/gi)]
     .map(match => ({attribute: match[1].toLowerCase(), ref: match[3]}));
@@ -47,7 +47,16 @@ function referencedAssets(page, html) {
     return true;
   }).map(({ref}) => ref);
 }
+// CSS is loaded by the browser after the HTML parser. Without auditing it,
+// a ZIP can appear self-contained while silently fetching a remote font/image.
+// Keep this release candidate strict until a recursive local CSS bundler exists.
+function assertLocalAssetContent(name, data) {
+  if (name.toLowerCase().endsWith('.css') &&
+      /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(data.toString('utf8')))
+    throw new Error('Unsupported CSS dependency in ' + name);
+}
 function collectFiles(root = ROOT) {
+  const realRoot = fs.realpathSync(root);
   const files = new Set([...PAGES, ...DOCUMENTS]);
   for (const page of PAGES) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
@@ -55,10 +64,18 @@ function collectFiles(root = ROOT) {
   }
   return [...files].sort().map(name => {
     const full = path.join(root, name);
+    // lstat() alone cannot see a symlink in a parent directory. A crafted
+    // assets/ link could otherwise package a file outside the project root.
+    const relative = path.relative(realRoot, fs.realpathSync(full));
+    if (relative === '..' || relative.startsWith('..' + path.sep) ||
+        path.isAbsolute(relative))
+      throw new Error('Invalid demo source file: ' + name);
     const stat = fs.lstatSync(full);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024)
       throw new Error(`Invalid demo source file: ${name}`);
-    return {name, data: fs.readFileSync(full)};
+    const data = fs.readFileSync(full);
+    assertLocalAssetContent(name, data);
+    return {name, data};
   });
 }
 function buildZip(entries, {compress = true} = {}) {
@@ -132,4 +149,4 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
     downloadAndExtractBytes, twoArchiveStagingBytes, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
-module.exports = {collectFiles, referencedAssets, buildZip, packageDemo, crc32};
+module.exports = {collectFiles, referencedAssets, assertLocalAssetContent, buildZip, packageDemo, crc32};

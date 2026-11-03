@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
-const {crc32, referencedAssets} = require('./package-offline-demo.cjs');
+const {crc32, referencedAssets, assertLocalAssetContent} = require('./package-offline-demo.cjs');
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 // The candidate is a small static offline demo, never an arbitrary ZIP bundle.
 // Bounds apply before any entry parsing or checksum work on untrusted bytes.
@@ -125,6 +125,8 @@ function verifyArchive(bytes) {
     catch {invalid('html_assets:' + page);}
     for (const asset of references) {
       if (!entries.has(asset)) invalid('missing_asset:' + asset);
+      try {assertLocalAssetContent(asset, entries.get(asset));}
+      catch {invalid('asset_dependencies:' + asset);}
       allowed.add(asset);
     }
   }
