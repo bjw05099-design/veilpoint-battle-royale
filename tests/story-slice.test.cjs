@@ -1151,3 +1151,43 @@ test('CH01 final opponent clearance does not prematurely complete the mission',(
   assert.equal(restored.phase,'exit');
   assert.equal(restored.world.status,'playing');
 });
+
+
+test('CH01 east record is physically handed to local staff after log review and survives 60Hz replay',()=>{
+  const state=reachDecision();
+  go(state,'recordA');assert.equal(story.interact(state).ok,true);
+  go(state,'recordB');assert.equal(story.interact(state).ok,true);
+  assert.equal(story.choose(state,'verification').ok,true);
+  go(state,'reportDesk');
+  assert.equal(story.nearest(state),null,'report cannot be submitted before physical log review');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(state,1/60,{});
+  go(state,'gateLog');assert.equal(story.interact(state).event,'gateLog');
+  assert.equal(story.markers(state).some(m=>m.id==='reportDesk'),true);
+  const checkpoint=story.serialize(state);
+  const resumed=story.restore(checkpoint);
+  assert.equal(resumed.logHandedOff,false);
+  go(resumed,'reportDesk');
+  assert.equal(story.nearest(resumed).id,'reportDesk');
+  assert.equal(story.interact(resumed).event,'reportDesk');
+  assert.equal(resumed.logHandedOff,true);
+  assert.equal(story.markers(resumed).some(m=>m.id==='reportDesk'),false);
+  assert.match(story.situation(resumed).evidence,/접수 완료/);
+  const delivered=story.serialize(resumed);
+  assert.equal(story.serialize(story.restore(delivered)),delivered);
+  go(resumed,'exitVerify');assert.equal(story.interact(resumed).ok,true);
+  assert.equal(story.debrief(resumed).logHandedOff,true);
+  assert.match(story.debrief(resumed).summary,/직접 전달/);
+});
+
+test('CH01 optional evidence handoff cannot be forged or block an evacuation ending',()=>{
+  const state=reachDecision();
+  const invalid=JSON.parse(story.serialize(state));
+  invalid.logHandedOff=true;
+  assert.throws(()=>story.restore(JSON.stringify(invalid)),/Invalid checkpoint mission state/);
+  const historical=JSON.parse(story.serialize(state));
+  delete historical.logHandedOff;
+  assert.equal(story.restore(JSON.stringify(historical)).logHandedOff,false);
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'exitEvac');assert.equal(story.interact(state).ok,true);
+  assert.equal(story.debrief(state).logHandedOff,false);
+});
