@@ -160,7 +160,10 @@ test('offline packager rejects hidden JavaScript network/module dependencies', (
       'new Worker("https://cdn.example.invalid/worker.js");',
       'new WebSocket("wss://example.invalid/socket");',
       'navigator.serviceWorker.register("/offline-worker.js");',
-      'navigator.sendBeacon("https://example.invalid/metric", "x");'
+      'navigator.sendBeacon("https://example.invalid/metric", "x");',
+      'const image = new Image(); image.src = "https://example.invalid/pixel.png";',
+      'window.location.href = "https://example.invalid/redirect";',
+      'const icon = "//example.invalid/icon.png";'
     ]) {
       fs.writeFileSync(script, code);
       assert.throws(() => collectFiles(dir), /Unsupported JavaScript dependency/,
