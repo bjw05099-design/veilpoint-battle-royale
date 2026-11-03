@@ -43,6 +43,7 @@
   }
   const INTERACT_RADIUS = 4;
   const SUPPLY_REACH = 1.8; // Physical cache reach; larger radius remains for terminals/route triggers.
+  const SWITCH_REACH = 1.1; // Reach the facade switch, not a remote 4m HUD activation.
   const POINTS = Object.freeze({
     terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'objective', label:'시민 중계기'}),
     supply: Object.freeze({id:'supply', x:5, z:-20, kind:'ammo', label:'현지 구조단 유한 보급 상자'}),
@@ -50,7 +51,7 @@
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
-    beacon: Object.freeze({id:'beacon', x:-42, z:-24.8, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
+    beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
     aidDrop: Object.freeze({id:'aidDrop', x:-12, z:-60, kind:'evac', label:'현지 구조단 비상 물품 인계 지점'}),
@@ -230,7 +231,7 @@
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
-      if(d<best&&d<(marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
+      if(d<best&&d<(marker.id==='beacon'?SWITCH_REACH:marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;candidate=marker;
       }
