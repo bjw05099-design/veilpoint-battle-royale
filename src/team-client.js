@@ -161,7 +161,9 @@
       else if (err.message === 'simulation_unavailable') {
         // Fatal server state is not a retryable input failure. Stop all PC
         // intents and drop the old tab token before a new server is launched.
-        invalidateSession(sessionToken);
+        // Keep a waiting lobby seat recoverable on a transient outage;
+        // an already-running round with a fatal authority cannot continue.
+        if (state?.phase === 'playing') invalidateSession(sessionToken);
         status(readableError(err));
       } else status(`명령 실패: ${readableError(err)}`);
     });
@@ -740,7 +742,7 @@
       clearPendingJoin();
     } catch (err) {
       if (err.message === 'simulation_unavailable') {
-        invalidateSession(saved);
+        invalidateSession(saved, state?.phase !== 'playing');
         status(readableError(err));
       } else invalidateSession(saved, err.message !== 'unknown_player' &&
         err.message !== 'connection_timeout');
@@ -812,7 +814,7 @@
       if (token !== polledToken) return;
       if (err.message === 'unknown_player') invalidateSession(polledToken);
       else if (err.message === 'simulation_unavailable') {
-        invalidateSession(polledToken);
+        if (state?.phase === 'playing') invalidateSession(polledToken);
         status(readableError(err));
       } else status(`연결 확인 필요: ${readableError(err)}`);
     }
