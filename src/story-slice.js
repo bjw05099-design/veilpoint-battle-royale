@@ -457,8 +457,8 @@
       // Optional physical action: the local generator is connected to the
       // civilian radio repeater. No remote control or supernatural signal.
       state.relayRestored=true;
-      state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 유수프 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
-      state.message='현지 무전 복구 · 동쪽 통제문 개방 대기 8초 → 4초';
+      state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
+      state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
@@ -536,7 +536,7 @@
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
-      radio:state.relayRestored?'현지 비상 무전 복구 완료 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
+      radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       aidSupply:state.aidDelivered?'현지 구조단: 비상 물품 현장 인수 완료':
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
