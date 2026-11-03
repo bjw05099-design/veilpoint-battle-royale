@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false){
+function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false,storageBlocked=false){
   const listeners=new Map(),nodes=new Map();
   let grantPointerLock=null;
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
@@ -71,6 +71,9 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     VeilpointRenderer:class{constructor(canvas){if(this.constructor.failNext){this.constructor.failNext=false;throw new Error('GPU restore unavailable');}this.canvas=canvas;}setGraphicsQuality(){}draw(){}}
   };
   context.globalThis=context;
+  if(storageBlocked)Object.defineProperty(context,'localStorage',{
+    get(){throw new Error('storage_denied');}
+  });
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
     'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js',
     'src/story-slice.js','src/story-audio.js','src/desktop-controls.js','src/story-app.js'];
@@ -927,4 +930,13 @@ test('CH01 late pointer-lock grant after watchdog timeout cannot recapture the m
  assert.equal(app.context.document.pointerLockElement,null);
  assert.equal(app.element('menu').classList.contains('hidden'),false);
  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).elapsed,0);
+});
+
+test('offline CH01 still starts when browser denies the localStorage getter', () => {
+  const app=boot(new Map(),false,'granted',true,true,true);
+  assert.match(app.element('objective').textContent,/중계기/);
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  app.frame(1000/60);
+  assert.equal(app.context.VeilpointInput.fireHeld,false);
 });
