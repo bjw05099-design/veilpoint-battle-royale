@@ -56,6 +56,7 @@ function assertLocalAssetContent(name, data) {
     throw new Error('Unsupported CSS dependency in ' + name);
 }
 function collectFiles(root = ROOT) {
+  const realRoot = fs.realpathSync(root);
   const files = new Set([...PAGES, ...DOCUMENTS]);
   for (const page of PAGES) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
@@ -63,6 +64,12 @@ function collectFiles(root = ROOT) {
   }
   return [...files].sort().map(name => {
     const full = path.join(root, name);
+    // lstat() alone cannot see a symlink in a parent directory. A crafted
+    // assets/ link could otherwise package a file outside the project root.
+    const relative = path.relative(realRoot, fs.realpathSync(full));
+    if (relative === '..' || relative.startsWith('..' + path.sep) ||
+        path.isAbsolute(relative))
+      throw new Error('Invalid demo source file: ' + name);
     const stat = fs.lstatSync(full);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024)
       throw new Error(`Invalid demo source file: ${name}`);
