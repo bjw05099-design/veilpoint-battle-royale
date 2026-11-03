@@ -31,7 +31,7 @@
     {x:-63,z:-53,w:12,d:3,h:2.6,type:'story-container'},
     {x:64,z:-53,w:12,d:3,h:2.6,type:'story-container'},
     {x:79,z:-81,w:5,d:5,h:14,type:'story-crane'},
-    {x:55,z:-13,w:12,d:14,h:7,type:'story-building'}
+    {x:55,z:-9,w:12,d:14,h:7,type:'story-building'}
   ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   function makeHostiles(disabled=false) {
@@ -99,6 +99,26 @@
     const north=gate.z+gate.d/2+1;
     const south=gate.z-gate.d/2-1;
     p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
+    return true;
+  }
+  function recoverSceneOverlap(state) {
+    // Older CH01 checkpoints predate the authored harbor buildings. Move a
+    // player who was saved inside a newly solid structure to its nearest safe
+    // outside edge once on restore; never teleport during live gameplay.
+    const p=state.world.player;
+    const building=state.world.obstacles.find(o=>o.type&&o.type.startsWith('story-')&&
+      Sim.blocked(p.x,p.z,.85,[o]));
+    if(!building)return false;
+    const edge=.95;
+    const candidates=[
+      {x:building.x-building.w/2-edge,z:p.z},
+      {x:building.x+building.w/2+edge,z:p.z},
+      {x:p.x,z:building.z-building.d/2-edge},
+      {x:p.x,z:building.z+building.d/2+edge}
+    ].filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles));
+    if(!candidates.length)throw new RangeError('No safe harbor checkpoint recovery');
+    candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+    p.x=candidates[0].x;p.z=candidates[0].z;
     return true;
   }
   function recoverActorOverlap(state) {
@@ -700,6 +720,7 @@
     state.message='CH01 / 이어하기';
     syncRoute(state);
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
+    if(recoverSceneOverlap(state))state.message='CH01 / 이전 저장 위치를 새 항구 건물 밖으로 안전하게 복구했습니다.';
     if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
     return syncMarkers(state);
   }
