@@ -33,7 +33,7 @@
    }
    const candidate=ACTIONS.map(a=>expanded[a]);
    if(candidate.every(validCode)&&new Set(candidate).size===candidate.length)
-    for(const action of ACTIONS)bindings[action]=source.bindings[action];
+    for(const action of ACTIONS)bindings[action]=expanded[action];
    else {
     // Migrate only obsolete Ctrl/Alt bindings when possible, preserving
     // unrelated valid custom keys. If fallback defaults would collide with
