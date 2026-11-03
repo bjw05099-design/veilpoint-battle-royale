@@ -1057,3 +1057,26 @@ test('CH01 historical failed checkpoint cannot soft-lock the resume action',()=>
   assert.match(app.element('objective').textContent,/중계기/,
     'an old failed-only save must fall back to a fresh playable mission');
 });
+
+test('CH01 storage-denied PC browser can retry an encounter from its in-memory alive checkpoint',()=>{
+  const app=boot(new Map(),false,'granted',true,true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  assert.match(app.element('objective').textContent,/무장 대치자/);
+  assert.match(app.element('saveStatus').textContent,/저장 실패/);
+  let failed=false;
+  for(let i=301;i<=4200;i++){
+    app.frame(i*1000/60);
+    if(app.element('menuText').textContent.includes('교전 중 임무가 중단')){failed=true;break;}
+  }
+  assert.equal(failed,true,'finite hostile actions should reach a defeat state without storage');
+  assert.equal(app.store.size,0,'no fake disk checkpoint was written');
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/무장 대치자/,
+    'the most recent safe in-memory snapshot resumes the same mission phase');
+  assert.match(app.element('healthStatus').textContent,/건강 상태 [1-9][0-9]*\/100/,
+    'retry must restore a living player, not an invulnerable or failed state');
+  assert.match(app.element('saveStatus').textContent,/저장 실패/,
+    'storage failure must remain visible and not masquerade as durable recovery');
+});
