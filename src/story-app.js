@@ -11,6 +11,7 @@
   const Audio=global.VeilpointStoryAudio;
   const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
+  const ENCOUNTER_RETRY_KEY='veilpoint.story.ch01EncounterRetry';
   const PREVIEW_KEY='veilpoint.story.ch01PreviewCompleted';
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
   const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:.25,maxSteps:8});
@@ -18,7 +19,7 @@
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
-  let checkpoint=null,saveFailed=false,sessionStarted=false;
+  let checkpoint=null,encounterAnchor=null,saveFailed=false,sessionStarted=false;
   // N cycles only already-published mission markers; it never reveals hidden actors.
   let guidanceIndex=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
@@ -70,6 +71,14 @@
     notice.textContent=saved?'':'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     notice.classList.toggle('hidden',saved);
     return saved;
+  }
+  function captureEncounterAnchor(){
+    // A mission-phase checkpoint, separate from frequent autosaves: a late
+    // near-fatal save must not force the player into a repeated defeat loop.
+    // This is a replay snapshot, not in-world healing or ammunition creation.
+    const raw=Story.serialize(state);
+    encounterAnchor=raw;
+    storage.set(ENCOUNTER_RETRY_KEY,raw);
   }
   function persistShot(){
     if(state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)
@@ -167,11 +176,13 @@
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
       // preserving finite rounds, injury, actor positions and the mission phase.
       let recovered=null;
-      for(const raw of [checkpoint,storage.get(SAVE_KEY)]){
+      for(const raw of [encounterAnchor,storage.get(ENCOUNTER_RETRY_KEY),checkpoint,storage.get(SAVE_KEY)]){
         if(!raw)continue;
         try{
           const candidate=Story.restore(raw);
-          if(candidate.phase!=='failed'&&candidate.phase!=='complete'){
+          if(candidate.phase!=='failed'&&candidate.phase!=='complete'&&
+             candidate.world.player.weaponId===state.world.player.weaponId&&
+             candidate.world.elapsed<=state.world.elapsed+1e-6){
             recovered=candidate;break;
           }
         }catch(_){} // A corrupt or historical failed save cannot trap the menu.
@@ -180,7 +191,9 @@
       $('storyWeapon').value=state.world.player.weaponId;
       guidanceIndex=null;shotSavePending=false;
       lastAutosaveAt=state.world.elapsed;
+      if(recovered)persist(); // The durable save now points to the safe retry phase.
     }else if(state.phase==='complete'){
+      encounterAnchor=null;storage.remove(ENCOUNTER_RETRY_KEY);
       state=Story.createState($('storyWeapon').value);
       lastAutosaveAt=state.world.elapsed;
     }
@@ -197,7 +210,9 @@
       const loaded=readCheckpoint();
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
     }else{
-      state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
+      state=Story.createState($('storyWeapon').value);
+      storage.remove(SAVE_KEY);storage.remove(ENCOUNTER_RETRY_KEY);
+      checkpoint=null;encounterAnchor=null;
     }
     $('storyWeapon').value=state.world.player.weaponId;
     sessionStarted=true;guidanceIndex=null;
@@ -234,6 +249,7 @@
       return;
     }
     guidanceIndex=null;
+    if(result.event==='terminal'&&state.phase==='engagement')captureEncounterAnchor();
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'){showChoices();return;}
@@ -505,6 +521,7 @@
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
   checkpoint=storage.get(SAVE_KEY);
+  encounterAnchor=storage.get(ENCOUNTER_RETRY_KEY);
   const loaded=readCheckpoint();
   if(loaded&&loaded.phase!=='complete'){
     $('continue').textContent='체크포인트 이어하기';
