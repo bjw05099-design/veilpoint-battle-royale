@@ -100,4 +100,8 @@ test('carried supply has a grounded, visible first-person 3D mesh, not a remote 
   const renderer=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
   assert.match(renderer,/state\.scene==='nahrin'&&state\.carryingAid/);
   assert.match(renderer,/mesh\.box\(p\.x\+Math\.sin\(p\.yaw\)\*\.9/);
+  const hud=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  assert.match(hud,/situation\.aidSupply/,'live PC HUD must show delivery state');
+  assert.match(hud,/nearby\.id==='aidPickup'/,'PC E prompt must offer crate pickup');
+  assert.match(hud,/nearby\.id==='aidDrop'/,'PC E prompt must offer physical handoff');
 });
