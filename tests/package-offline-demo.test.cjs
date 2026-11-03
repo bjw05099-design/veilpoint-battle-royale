@@ -68,7 +68,8 @@ test('offline packager closes direct HTML asset references and rejects remote de
       '<script src="../private.js"></script>',
       '<a href="javascript:alert(1)">unsafe</a>',
       '<style>@import "https://example.com/font.css";</style>',
-      '<style>body{background:url(https://example.com/a.png)}</style>'
+      '<style>body{background:url(https://example.com/a.png)}</style>',
+      '<style>body{background:image-set("https://example.com/a.png" 1x)}</style>'
     ]) {
       fs.writeFileSync(path.join(dir, 'index.html'),
         '<script src="src/game.js"></script>' + unsafe);
