@@ -181,10 +181,10 @@
     ];
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
-         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state)]:
+         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])]:
       [POINTS.exitEvac,...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
-        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state)];
+        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])];
     return [];
   }
   function syncMarkers(state) {
@@ -511,6 +511,11 @@
       state.relayRestored=true;
       state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
       state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
+    }else if(marker.id==='relay'&&state.relayRestored&&state.phase==='exit'){
+      // A local, reachable readback of the already restored civilian repeater.
+      // It neither resets the route motor nor grants remote actor knowledge.
+      state.subtitle='마라(기술자): 비상 중계기 전원은 정상입니다. 현지 구조단의 통로 통제 권한은 그대로 유지돼요.';
+      state.message='현장 중계기 확인 · 전원 정상 · 기존 경로 상태 유지';
     }else if(marker.id==='beacon'&&state.relayRestored&&
       ['records','decision','exit'].includes(state.phase)){
       // A reachable mechanical switch controls a powered warning fixture in
