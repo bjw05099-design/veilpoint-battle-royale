@@ -84,7 +84,7 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects,uNight,uRelayOn;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
@@ -103,6 +103,14 @@ if(uNight>.5&&uRelayOn>.5){
   float attenuation=1./(1.+.035*distanceToLamp*distanceToLamp);
   diffuse+=vColor*vec3(1.,.74,.43)*max(dot(N,normalize(delta)),0.)*2.*attenuation;
  }
+}
+// A manually enabled, facade-mounted warning light has a small local pool
+// of warm illumination. It cannot activate without restored relay power.
+if(uNight>.5&&uBeaconOn>.5){
+ vec3 delta=vec3(-42.,4.1,-27.82)-vWorld;
+ float distanceToBeacon=length(delta);
+ diffuse+=vColor*vec3(1.,.55,.16)*max(dot(N,normalize(delta)),0.)*1.1/
+  (1.+.16*distanceToBeacon*distanceToBeacon);
 }
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
@@ -164,13 +172,28 @@ class SoftwareRenderer {
    ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
   }
  }
+ // The separate manual warning lamp is attached to the existing west facade;
+ // the fallback never shows its lens from behind the solid wall.
+ if(harborNight&&p.z>=-28){
+  const q=proj(-42,4.1,-27.72);
+  if(q&&q[2]<=90&&q[0]>=0&&q[0]<=w&&q[1]>=0&&q[1]<=h){
+   const radius=Math.max(1.5,Math.min(10,45/q[2]));
+   ctx.fillStyle=state.beaconEnabled?'#f5b55b':'#343c3b';
+   ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
+  }
+  const switchFace=proj(-42,1.1,-27.65);
+  if(switchFace&&switchFace[2]<=90&&switchFace[0]>=0&&switchFace[0]<=w&&switchFace[1]>=0&&switchFace[1]<=h){
+   ctx.fillStyle=state.beaconEnabled?'#d99b49':'#3a4543';
+   ctx.fillRect(switchFace[0]-2,switchFace[1]-3,4,6);
+  }
+ }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -206,6 +229,11 @@ class Renderer {
    m.box(x,3.02,-27.86,1.3,.28,.24,[.24,.26,.25]);
    m.box(x,3.31,-27.87,.14,.34,.14,[.27,.28,.26]);
   }
+  // Fixed warning-lamp housing sits on the existing west building wall.
+  // The nearby sidewalk switch is a separate E interaction, not a remote HUD toggle.
+  m.box(-42,4.05,-27.86,1,.65,.2,[.25,.26,.25]);
+  // A waist-height, hand-operated switch is visibly reachable from the street.
+  m.box(-42,.88,-27.76,.34,.50,.15,[.24,.27,.27]);
   // The separate aid staging pad exists before the crate arrives and remains
   // after it leaves. Flat paint has no fictional solid collision footprint.
   m.box(-7,.012,-55,1.3,.012,1.05,[.45,.40,.30]);
@@ -269,6 +297,12 @@ class Renderer {
   // Inspecting the physical log changes the cabinet's local status indicator.
   mesh.box(27,1.03,-65.63,.55,.1,.05,
     state.gateLogReviewed?[.23,.48,.36]:[.58,.42,.25]);
+  // The harbor warning light stays off until the captain physically operates
+  // its switch after restoring power; it is not an automatic rescue effect.
+  mesh.box(-42,4.1,-27.72,.7,.35,.13,
+    state.beaconEnabled?[1.4,.78,.26]:[.18,.19,.18]);
+  mesh.box(-42,1.13,-27.66,.16,.09,.04,
+    state.beaconEnabled?[.92,.58,.25]:[.20,.23,.22]);
   // A dark fixture remains visibly unpowered until the relay interaction;
   // this changes in the same render frame as the saved mission state.
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
@@ -355,6 +389,7 @@ class Renderer {
  g.uniform3f(l.fog,night?.065:.34,night?.085:.40,night?.11:.39);
  g.uniform1f(l.exposure,night?1.25:1.35);g.uniform1f(l.night,night?1:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
+ g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
  g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
  this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }

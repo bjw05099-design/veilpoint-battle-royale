@@ -148,3 +148,107 @@ test('Canvas fallback displays a front-facing powered fixture without exposing i
  assert.equal(rects.some(rect=>rect.color==='#ffdfa2'),false,
    'do not draw a facade light through the rear of a solid building');
 });
+
+test('CH01 harbor warning light requires a separate reachable PC E interaction and survives 60Hz replay',()=>{
+ const state=Story.createState();
+ assert.equal(Story.markers(state).some(p=>p.id==='beacon'),false);
+ restoreRadio(state);
+ assert.equal(state.beaconEnabled,false,'restoring the relay must not automatically operate the warning switch');
+ assert.equal(state.world.beaconEnabled,false);
+ assert.equal(Story.markers(state).some(p=>p.id==='beacon'),true);
+ assert.equal(Story.interact(state).ok,false,'distant E cannot remotely operate the switch');
+ state.world.player.x=Story.POINTS.beacon.x;
+ state.world.player.z=Story.POINTS.beacon.z+2.5;
+ assert.equal(Story.nearest(state),null,'the switch must not activate from a few metres away');
+ assert.equal(Story.interact(state).ok,false);
+ go(state,'beacon');
+ assert.equal(Story.nearest(state).id,'beacon');
+ assert.deepEqual(Story.interact(state),{ok:true,event:'beacon',phase:'records'});
+ assert.equal(state.beaconEnabled,true);
+ assert.equal(state.world.beaconEnabled,true);
+ assert.equal(Story.markers(state).some(p=>p.id==='beacon'),false);
+ assert.match(Story.situation(state).warning,/점등/);
+ const saved=Story.serialize(state);
+ const restored=Story.restore(saved);
+ assert.equal(Story.serialize(restored),saved);
+ const a=Story.restore(saved),b=Story.restore(saved);
+ for(let i=0;i<120;i++){Story.step(a,1/60,{forward:true});Story.step(b,1/60,{forward:true});}
+ assert.equal(Story.serialize(a),Story.serialize(b),'same PC input must replay deterministically at 60Hz');
+ go(restored,'decision');assert.equal(Story.interact(restored).ok,true);
+ assert.equal(Story.choose(restored,'evacuation').ok,true);
+ go(restored,'exitEvac');assert.equal(Story.interact(restored).ok,true);
+ assert.equal(Story.debrief(restored).harborWarningEnabled,true);
+ assert.match(Story.debrief(restored).summary,/경고등/);
+});
+
+test('CH01 warning-light saves migrate old checkpoints and reject invented power or early activation',()=>{
+ const state=Story.createState();
+ const early=JSON.parse(Story.serialize(state));
+ early.beaconEnabled=true;
+ assert.throws(()=>Story.restore(JSON.stringify(early)),RangeError);
+ restoreRadio(state);
+ const old=JSON.parse(Story.serialize(state));
+ delete old.beaconEnabled;
+ assert.equal(Story.restore(JSON.stringify(old)).beaconEnabled,false,'old v2 saves default to lamp off');
+ const forged={...old,beaconEnabled:true,relayRestored:false};
+ assert.throws(()=>Story.restore(JSON.stringify(forged)),RangeError);
+ const east=Story.restore(Story.serialize(state));
+ go(east,'decision');assert.equal(Story.interact(east).ok,true);
+ assert.equal(Story.choose(east,'verification').ok,true);
+ assert.equal(Story.markers(east).some(p=>p.id==='beacon'),true,
+   'manual warning remains optional after the player chooses the east route');
+ go(east,'beacon');assert.equal(Story.interact(east).ok,true);
+ assert.equal(Story.restore(Story.serialize(east)).beaconEnabled,true);
+});
+
+test('CH01 WebGL warning lamp changes material and local light only after manual activation; BR stays isolated',()=>{
+ const h=harness(),state=Story.createState();
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uBeaconOn'),0);
+ restoreRadio(state);
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uRelayOn'),1);
+ assert.equal(h.latest('uBeaconOn'),0,'powered facade lighting is separate from manual warning');
+ const before=Array.from(h.uploads.at(-1));
+ go(state,'beacon');assert.equal(Story.interact(state).ok,true);
+ const unchanged=JSON.stringify(state.world);
+ h.renderer.draw(state.world);
+ assert.equal(JSON.stringify(state.world),unchanged,'rendering must not mutate the 60Hz state');
+ assert.equal(h.latest('uBeaconOn'),1);
+ assert.notDeepEqual(Array.from(h.uploads.at(-1)),before,'the physical lens must change material');
+ assert.ok(h.shaders.some(shader=>shader.includes('distanceToBeacon')),
+   'warning light should illuminate only nearby facing surfaces');
+ h.renderer.draw(Sim.newMatch(22,0));
+ assert.equal(h.latest('uBeaconOn'),0,'BR must not inherit campaign warning state');
+});
+
+test('Canvas fallback shows the manual warning lamp only on the street-facing side',()=>{
+ const rects=[];
+ const ctx={
+  createLinearGradient:()=>({addColorStop:()=>{}}),
+  fillRect:(x,y,w,h)=>rects.push({color:ctx.fillStyle,x,y,w,h}),
+  beginPath:()=>{},moveTo:()=>{},lineTo:()=>{},closePath:()=>{},
+  fill:()=>{},stroke:()=>{}
+ };
+ const context=vm.createContext({
+  VeilpointSim:Sim,VeilpointGraphics:Graphics,
+  VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1
+ });
+ vm.runInContext(fs.readFileSync(__dirname+'/../src/renderer.js','utf8'),context);
+ const renderer=new context.VeilpointRenderer({
+  clientWidth:640,clientHeight:360,
+  getContext:type=>type==='webgl2'?null:ctx
+ });
+ const state=Story.createState();
+ state.world.player.x=-42;state.world.player.z=0;state.world.player.yaw=0;
+ renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#f5b55b'),false);
+ restoreRadio(state);
+ go(state,'beacon');assert.equal(Story.interact(state).ok,true);
+ state.world.player.x=-42;state.world.player.z=0;state.world.player.yaw=0;
+ rects.length=0;renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#f5b55b'),true);
+ state.world.player.z=-40;state.world.player.yaw=Math.PI;
+ rects.length=0;renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#f5b55b'),false);
+});
