@@ -157,6 +157,10 @@ test('CH01 harbor warning light requires a separate reachable PC E interaction a
  assert.equal(state.world.beaconEnabled,false);
  assert.equal(Story.markers(state).some(p=>p.id==='beacon'),true);
  assert.equal(Story.interact(state).ok,false,'distant E cannot remotely operate the switch');
+ state.world.player.x=Story.POINTS.beacon.x;
+ state.world.player.z=Story.POINTS.beacon.z+2.5;
+ assert.equal(Story.nearest(state),null,'the switch must not activate from a few metres away');
+ assert.equal(Story.interact(state).ok,false);
  go(state,'beacon');
  assert.equal(Story.nearest(state).id,'beacon');
  assert.deepEqual(Story.interact(state),{ok:true,event:'beacon',phase:'records'});
