@@ -90,3 +90,26 @@ test('a partially applied throwing 60Hz callback is never replayed after recover
   assert.equal(gameActions, 2, 'the next frame executes only its own new tick');
   assert.equal(clock.stats().totalSteps, 2);
 });
+
+
+test('a clock callback cannot recursively advance a partially applied gameplay tick', () => {
+  const clock = createClock({hz:60});
+  let updates = 0;
+  assert.equal(clock.advance(1/60, () => {
+    updates++;
+    assert.throws(() => clock.advance(1/60, () => updates++), /clock_advance_reentrant/);
+  }), 1);
+  assert.equal(updates, 1, 'nested callback never spends a second ammo or movement tick');
+  assert.equal(clock.advance(1/60, () => updates++), 1, 'clock recovers after the callback');
+  assert.equal(updates, 2);
+});
+
+test('a match reset inside a tick cancels old queued frame steps', () => {
+  const clock = createClock({hz:60, maxSteps:8});
+  let oldSession = 0;
+  assert.equal(clock.advance(3/60, () => {oldSession++;clock.reset();}), 1);
+  assert.equal(oldSession, 1, 'no old queued step can enter the restarted match');
+  assert.equal(clock.stats().alpha, 0);
+  assert.equal(clock.advance(1/60, () => oldSession++), 1);
+  assert.equal(oldSession, 2);
+});
