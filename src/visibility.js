@@ -96,7 +96,7 @@ function planVisible(state,aspect=16/9){
  const fieldPouches=state.scene?[]:state.bots.filter(b=>!b.alive&&!b.disqualified&&
    b.health===0&&Number.isInteger(b.charges)&&Number.isInteger(b.loaded)&&b.charges>b.loaded)
    .map(b=>({id:'field-'+b.id,x:b.x,z:b.z,kind:'ammo',weaponId:'carbine',
-     remaining:Math.min(12,b.charges-b.loaded),picked:false}));
+     remaining:Math.min(12,b.charges-b.loaded),picked:false,fieldPouch:true}));
  for(const entity of state.loot.concat(fieldPouches)){
   if(entity.picked)continue;
   lootTotal++;
