@@ -30,9 +30,10 @@ test('BR: defeated rival exposes a visible finite ground pouch; PC E transfers r
   const pouch=Sim.nearestReachablePickup(game);
   assert.equal(pouch.id,'field-'+bot.id);
   assert.equal(pouch.kind,'ammo');
+  assert.equal(pouch.fieldPouch,true);
   assert.equal(pouch.remaining,12);
   const plan=Visibility.planVisible(game);
-  assert.ok(plan.loot.some(item=>item.entity.id===pouch.id),'3D scene must display the interactable pouch');
+  assert.ok(plan.loot.some(item=>item.entity.id===pouch.id&&item.entity.fieldPouch),'3D scene must display the distinct interactable pouch');
   game.player.charges=48;
   const conserved=game.player.charges+bot.charges;
   assert.equal(Sim.pickup(game),'ammo');
