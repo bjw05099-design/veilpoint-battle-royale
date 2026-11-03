@@ -252,7 +252,15 @@
     const t=clamp(dt,0,.05),p=state.world.player;
     // Battery drain follows simulation time, never render FPS or background time.
     if(state.flashlightOn){
+      const previousBattery=state.flashlightTicks;
       state.flashlightTicks=Math.max(0,state.flashlightTicks-Math.round(t*60));
+      // The battery has a finite, player-readable warning before exhaustion.
+      // Crossing the threshold (rather than polling below it) prevents repeated
+      // subtitles and remains deterministic after a checkpoint restore.
+      if(previousBattery>HEADLAMP_TICKS/10&&state.flashlightTicks<=HEADLAMP_TICKS/10){
+        state.subtitle='이수혁 대위: 헤드램프 배터리 잔량이 약 10%입니다. 필요할 때만 사용하겠습니다.';
+        state.message='헤드램프 배터리 부족 · 소등하면 잔량 보존';
+      }
       if(state.flashlightTicks===0){
         state.flashlightOn=false;
         state.message='헤드램프 배터리 소진 · 추가 전원 없음';
