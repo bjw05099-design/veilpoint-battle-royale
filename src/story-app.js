@@ -204,7 +204,12 @@
   function interact(){
     if(!canAct()||state.phase==='complete')return;
     const result=Story.interact(state);
-    if(!result.ok)return;
+    if(!result.ok){
+      // A physically blocked cargo exit changes the mission subtitle/message
+      // even though it must not save a false completion or play a success cue.
+      if(result.reason==='cargo_handoff_required')updateHud();
+      return;
+    }
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'){showChoices();return;}
