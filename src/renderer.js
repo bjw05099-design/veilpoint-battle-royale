@@ -181,6 +181,11 @@ class SoftwareRenderer {
    ctx.fillStyle=state.beaconEnabled?'#f5b55b':'#343c3b';
    ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
   }
+  const switchFace=proj(-42,1.1,-27.65);
+  if(switchFace&&switchFace[2]<=90&&switchFace[0]>=0&&switchFace[0]<=w&&switchFace[1]>=0&&switchFace[1]<=h){
+   ctx.fillStyle=state.beaconEnabled?'#d99b49':'#3a4543';
+   ctx.fillRect(switchFace[0]-2,switchFace[1]-3,4,6);
+  }
  }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
@@ -227,6 +232,8 @@ class Renderer {
   // Fixed warning-lamp housing sits on the existing west building wall.
   // The nearby sidewalk switch is a separate E interaction, not a remote HUD toggle.
   m.box(-42,4.05,-27.86,1,.65,.2,[.25,.26,.25]);
+  // A waist-height, hand-operated switch is visibly reachable from the street.
+  m.box(-42,.88,-27.76,.34,.50,.15,[.24,.27,.27]);
   // The separate aid staging pad exists before the crate arrives and remains
   // after it leaves. Flat paint has no fictional solid collision footprint.
   m.box(-7,.012,-55,1.3,.012,1.05,[.45,.40,.30]);
@@ -294,6 +301,8 @@ class Renderer {
   // its switch after restoring power; it is not an automatic rescue effect.
   mesh.box(-42,4.1,-27.72,.7,.35,.13,
     state.beaconEnabled?[1.4,.78,.26]:[.18,.19,.18]);
+  mesh.box(-42,1.13,-27.66,.16,.09,.04,
+    state.beaconEnabled?[.92,.58,.25]:[.20,.23,.22]);
   // A dark fixture remains visibly unpowered until the relay interaction;
   // this changes in the same render frame as the saved mission state.
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
