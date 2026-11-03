@@ -1,3 +1,8 @@
+## 2026-11-03 CH01 in-memory pause continuation under blocked/stale checkpoint storage (R-01 / R-14 / R-23)
+- **Reproduced PC gameplay defect:** After a playable CH01 session started, the menu's Continue button always reloaded the disk checkpoint. A denied `localStorage` getter restarted the mission from the relay on every pause; an older stored checkpoint could rewind live combat progress.
+- **Code:** Track whether CH01 has started in this page. Continue resumes its live 60Hz world; only the initial launch reads a disk checkpoint. Explicit New Game still resets the mission, and a fresh browser page can still load its durable checkpoint.
+- **Regression:** Actual story browser controller tests exercise a blocked storage getter, a stale checkpoint and explicit restart. Storage failure still warns that a page refresh can lose progress. Local Node DOM-mock testing and GitHub CI do not establish real Windows browser/UE5/RTX 3070 performance or complete demo acceptance.
+
 ## 2026-11-03 denied desktop storage getter / offline playability gate (R-01 / R-14 / R-23)
 - **Reproduced P0:** BR and CH01 passed `global.localStorage` directly into PC controls before a try/catch; the localhost team client read `window.localStorage` before Desktop.load could handle failures. Browsers that throw on property access (privacy policy, restricted local file origins) could abort gameplay initialization even when default PC bindings were available.
 - **Code:** Read the optional storage object behind a guarded getter and fall back to `null` for shared Desktop controls; preserve existing guarded save/checkpoint paths and tab storage-event behavior. No mobile/touch features added.
