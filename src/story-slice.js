@@ -461,7 +461,7 @@
     state.flashlightOn=!state.flashlightOn;
     state.world.flashlightOn=state.flashlightOn;
     state.world.flashlightTicks=state.flashlightTicks;
-    state.message=state.flashlightOn?'휴대 헤드램프 점등 · F로 소등 가능':'휴대 헤드램프 소등 · F로 점등 가능';
+    state.message=state.flashlightOn?'휴대 헤드램프 점등 · 설정된 키로 소등 가능':'휴대 헤드램프 소등 · 설정된 키로 점등 가능';
     return {ok:true,on:state.flashlightOn};
   }
   function interact(state) {
