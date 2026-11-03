@@ -93,17 +93,21 @@ function planVisible(state,aspect=16/9){
  }
  // Render the same finite field pouch that PC E can collect from a defeated
  // BR rival. Administrative boundary disqualification creates no physical loot.
- const fieldPouches=state.scene?[]:state.bots.filter(b=>!b.alive&&!b.disqualified&&
-   b.health===0&&Number.isInteger(b.charges)&&Number.isInteger(b.loaded)&&b.charges>b.loaded)
-   .map(b=>({id:'field-'+b.id,x:b.x,z:b.z,kind:'ammo',weaponId:'carbine',
-     remaining:Math.min(12,b.charges-b.loaded),picked:false,fieldPouch:true}));
- for(const entity of state.loot.concat(fieldPouches)){
-  if(entity.picked)continue;
+ const addVisibleLoot=entity=>{
+  if(entity.picked)return;
   lootTotal++;
   if(!inView(p,entity.x,entity.z,1,MAX_DISTANCE,halfFov)||
-     !hasExposedSilhouette(p,entity,.5,state.obstacles))continue;
+     !hasExposedSilhouette(p,entity,.5,state.obstacles))return;
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=distance<75?'high':'low';
   loot.push({entity,lod});boxes+=lod==='high'?2:1;
+ };
+ for(const entity of state.loot)addVisibleLoot(entity);
+ if(!state.scene)for(const b of state.bots){
+  if(b.alive||b.disqualified||b.health!==0||
+     !Number.isInteger(b.charges)||!Number.isInteger(b.loaded)||b.charges<=b.loaded)continue;
+  // Only eligible pouches allocate a draw entity; no per-frame filter/map/concat.
+  addVisibleLoot({id:'field-'+b.id,x:b.x,z:b.z,kind:'ammo',weaponId:'carbine',
+    remaining:Math.min(12,b.charges-b.loaded),picked:false,fieldPouch:true});
  }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
