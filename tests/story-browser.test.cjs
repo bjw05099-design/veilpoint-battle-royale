@@ -1118,3 +1118,23 @@ test('PC browser shows a reachable manual warning switch and preserves its HUD s
  assert.equal(Story.restore(store.get('veilpoint.story.ch01')).beaconEnabled,true,
    'the powered switch can be operated repeatedly without duplicating resources');
 });
+
+
+test('PC F toggles CH01 finite headlamp and saves through the live browser controller',()=>{
+ const shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ assert.match(app.element('flashlightStatus').textContent,/소등/);
+ app.emit('keydown',{code:'KeyF'});
+ assert.match(app.element('flashlightStatus').textContent,/점등/);
+ assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,true);
+ app.frame(1000/60);
+ assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,true);
+ app.emit('keydown',{code:'KeyF',repeat:true});
+ assert.match(app.element('flashlightStatus').textContent,/점등/);
+ app.emit('keydown',{code:'KeyF'});
+ assert.match(app.element('flashlightStatus').textContent,/소등/);
+ const loaded=boot(shared,false,'granted',true,true);
+ loaded.element('continue').click();
+ assert.match(loaded.element('flashlightStatus').textContent,/소등/);
+ assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,false);
+});
