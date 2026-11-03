@@ -29,6 +29,10 @@ test('CH01 guidance follows playable 60Hz movement and real mission marker chang
   assert.equal(story.interact(a).ok,true);
   assert.match(nav.story(a.world.player,story.markers(a)),/보급 상자/);
   assert.equal(nav.story(a.world.player,[]),'현재 안내할 임무 표식 없음');
+  const markers=[{x:0,z:-3,label:'가까운 기록'},{x:40,z:-3,label:'선택한 기록'}];
+  assert.match(nav.story({x:0,z:0,yaw:0},markers),/가까운 기록/);
+  assert.match(nav.story({x:0,z:0,yaw:0},markers,1),/선택한 임무 표식.*선택한 기록/);
+  assert.match(nav.story({x:0,z:0,yaw:0},markers,99),/가장 가까운 임무 표식.*가까운 기록/);
 });
 test('BR safe-zone guidance distinguishes inside and outside without future zone data',()=>{
   const s=sim.newMatch(20261027,0);
@@ -49,6 +53,7 @@ test('both offline entrypoints load navigation before controller and expose acce
     assert.match(markup,/id="navigation"[^>]*aria-live="off"/);
     const js=fs.readFileSync(path.join(__dirname,'..',controller),'utf8');
     assert.match(js,/VeilpointNavigation/);
+    if(html==='story.html')assert.match(js,/e\.code==='KeyN'/);
     assert.match(js,/\$\('navigation'\)\.textContent/);
   }
 });
