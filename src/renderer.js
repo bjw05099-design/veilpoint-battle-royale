@@ -145,6 +145,22 @@ class SoftwareRenderer {
  const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
+ // The Canvas fallback also shows the two physical facade fixtures. Only draw
+ // their front faces from the harbor-road side; do not reveal a light through
+ // the rear of a solid building. This is a low-fidelity fallback, not ray tracing.
+ if(harborNight&&p.z>=-28){
+  for(const x of [-42,42]){
+   const q=proj(x,3.15,-27.72);
+   if(!q||q[2]>90||q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
+   const radius=Math.max(1.5,Math.min(10,45/q[2]));
+   if(state.relayRestored){
+    ctx.fillStyle='rgba(246,187,97,.16)';
+    ctx.fillRect(q[0]-radius*3,q[1]-radius*3,radius*6,radius*6);
+   }
+   ctx.fillStyle=state.relayRestored?'#ffdfa2':'#303d3d';
+   ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
+  }
+ }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
