@@ -8,7 +8,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..');
 
-function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false} = {}) {
+function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false, storageBlocked = false} = {}) {
   const nodes = new Map(), listeners = new Map();
   let now = 0, frameCallback = null, latestGame = null, grantPointerLock = null;
   const scheduledCallbacks = [];
@@ -92,6 +92,9 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     }
   };
   context.globalThis = context;
+  if (storageBlocked) Object.defineProperty(context, 'localStorage', {
+    get() {throw new Error('storage_denied');}
+  });
   for (const filename of ['src/simulation.js', 'src/visibility.js', 'src/performance.js',
     'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/app.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, filename), 'utf8'),
@@ -1164,4 +1167,13 @@ test('Windows graphics panel stays reachable above initial and paused overlays',
   assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
   app.node('graphicsClose').click();
   assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+});
+
+test('offline BR remains playable when browser denies the localStorage getter', () => {
+  const app = boot({windows: true, storageBlocked: true});
+  app.node('play').click();
+  app.frame(1000 / 60);
+  assert.equal(app.game.status, 'playing');
+  assert.equal(app.node('desktopBindKey').textContent, 'KeyR',
+    'PC controls fall back to defaults without storage');
 });
