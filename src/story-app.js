@@ -63,7 +63,9 @@
     shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
     saveFailed=!saved;
-    if(saved)checkpoint=raw;
+    // Keep the last alive checkpoint in memory even when browser storage is denied.
+    // A failed mission must never overwrite this recovery point.
+    checkpoint=raw;
     const notice=$('saveStatus');
     notice.textContent=saved?'':'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     notice.classList.toggle('hidden',saved);
@@ -143,7 +145,8 @@
     menu.classList.remove('hidden');choices.classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     const completed=state.phase==='complete'||state.phase==='failed';
-    $('continue').textContent=completed?'미션 다시 플레이':'이어하기';
+    $('continue').textContent=state.phase==='failed'?'마지막 체크포인트 재시도':
+      state.phase==='complete'?'미션 다시 플레이':'이어하기';
   }
   function requestAimLock(){
     if(isTouch)return;
@@ -160,7 +163,24 @@
   }
   function resume(){
     if(!renderer||graphicsContextLost)return;
-    if(state.phase==='complete'||state.phase==='failed'){
+    if(state.phase==='failed'){
+      // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
+      // preserving finite rounds, injury, actor positions and the mission phase.
+      let recovered=null;
+      for(const raw of [checkpoint,storage.get(SAVE_KEY)]){
+        if(!raw)continue;
+        try{
+          const candidate=Story.restore(raw);
+          if(candidate.phase!=='failed'&&candidate.phase!=='complete'){
+            recovered=candidate;break;
+          }
+        }catch(_){} // A corrupt or historical failed save cannot trap the menu.
+      }
+      state=recovered||Story.createState($('storyWeapon').value);
+      $('storyWeapon').value=state.world.player.weaponId;
+      guidanceIndex=null;shotSavePending=false;
+      lastAutosaveAt=state.world.elapsed;
+    }else if(state.phase==='complete'){
       state=Story.createState($('storyWeapon').value);
       lastAutosaveAt=state.world.elapsed;
     }
@@ -474,7 +494,9 @@
     if(running&&state.phase!=='complete'&&state.phase!=='failed'&&
        state.world.elapsed-lastAutosaveAt>=AUTOSAVE_SECONDS)persist();
     if(running&&state.phase==='failed'){
-      persist();menuOpen('교전 중 임무가 중단되었습니다. 처음부터 다시 시작할 수 있습니다.');
+      // Never replace a viable save with a terminal failed state. The primary
+      // action now retries the last alive checkpoint; New Game still resets all.
+      menuOpen('교전 중 임무가 중단되었습니다. 마지막 체크포인트에서 재시도하거나 처음부터 다시 시작할 수 있습니다.');
     }
     // The existing finite damageFlash timer is already advanced by the fixed
     // 60Hz story step. Present a brief non-directional edge cue (no enemy radar).
