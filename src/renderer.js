@@ -159,6 +159,16 @@ class Renderer {
  // the story collision map. No external textures, logos or remote dependencies.
  if(this.sceneMode==='nahrin'){
   m.box(0,-.018,-55,160,.025,54,[.30,.29,.27]); // Worn harbor road surface.
+  // Original ground-painted evacuation wayfinding. The paint is a thin surface
+  // layer (not a solid collider), so it never blocks first-person movement.
+  // Static geometry is rebuilt only when the scene or graphics preset changes.
+  const roadPaint=[.61,.57,.43],musterPaint=[.66,.55,.32];
+  for(let z=-76;z<=-28;z+=8)m.box(-2,.008,z,.16,.005,3.4,roadPaint);
+  for(let x=-5;x<=5;x+=2)m.box(x,.008,-58,1,.005,2.1,[.58,.57,.51]);
+  m.box(-9,.008,-56.6,3.4,.005,.12,musterPaint);
+  m.box(-9,.008,-53.4,3.4,.005,.12,musterPaint);
+  m.box(-10.7,.008,-55,.12,.005,3.3,musterPaint);
+  m.box(-7.3,.008,-55,.12,.005,3.3,musterPaint);
   for(const o of this.sceneObstacles){
    const container=o.type==='story-container',crane=o.type==='story-crane';
    const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];

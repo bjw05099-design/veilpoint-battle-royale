@@ -48,6 +48,7 @@
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
+    muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
     exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'evac', label:'안전한 안뜰'}),
     exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'})
   });
@@ -143,7 +144,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,musterConfirmed:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     syncRoute(state);syncMarkers(state);
@@ -157,7 +158,8 @@
       POINTS.decision,
       ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[])
     ];
-    if (state.phase==='exit') return [state.choice==='verification'?POINTS.exitVerify:POINTS.exitEvac];
+    if (state.phase==='exit') return state.choice==='verification'?[POINTS.exitVerify]:
+      [POINTS.exitEvac,...(state.musterConfirmed?[]:[POINTS.muster])];
     return [];
   }
   function syncMarkers(state) {
@@ -447,6 +449,12 @@
       state.phase='decision';
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
+    }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
+      // Optional, physical civilian headcount review. No automatic knowledge,
+      // teleportation, reward or competitive benefit is granted by this choice.
+      state.musterConfirmed=true;
+      state.subtitle='유수프(현지 구조단): 남쪽 집결지의 현장 인원 확인표를 대조했어. 미확인 인원은 후속 구조단에 인계하겠어.';
+      state.message='남쪽 집결지 인원 확인 완료 · 안전한 안뜰로 이동하세요';
     }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
       if(marker.id==='exitVerify'&&!gateOpen(state))return {ok:false,reason:'awaiting_clearance'};
       state.phase='complete';state.world.status='won';
@@ -490,7 +498,7 @@
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       civilianConsequence:state.choice==='evacuation'
-        ?'유수프 구조단: 남쪽 대피 인원 확인 우선 · 동쪽 기록 확인 보류'
+        ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
         :state.choice==='verification'
           ?(gateOpen(state)?'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속'
             :'유수프 구조단: 남쪽 대피 유지 · 동쪽 통제물 해제 대기')
@@ -508,13 +516,16 @@
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
-      emergencyRadioRestored:state.relayRestored,
+      emergencyRadioRestored:state.relayRestored,musterConfirmed:state.musterConfirmed,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:conflict?'unresolved':'not-cross-checked',
-      civilianOutcome:verified?'east-clearance-confirmed':'south-evacuation-prioritized',
+      civilianOutcome:verified?'east-clearance-confirmed':
+        (state.musterConfirmed?'south-headcount-verified':'south-evacuation-prioritized'),
       summary:verified
         ?'유수프 구조단의 동쪽 통로 개방을 확인했습니다. 두 기록의 5분 차이는 여전히 원인 미확정입니다.'
-        :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.'
+        :(state.musterConfirmed
+          ?'남쪽 집결지 인원 확인표를 대조하고 미확인 인원을 후속 구조단에 인계했습니다. 동쪽 통로는 통제 중입니다.'
+          :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')
     });
   }
   function objective(state) {
@@ -533,13 +544,14 @@
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.':state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
-        :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.';
+        :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
+          (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.');
       default:return 'CH01 완료. 캠페인 전체 12시간은 아직 제작 중입니다.';
     }
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,gateReadyAt:state.gateReadyAt,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,musterConfirmed:state.musterConfirmed,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -558,9 +570,10 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+2||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+3||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','musterConfirmed').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+      (hasOwn(data,'musterConfirmed')&&typeof data.musterConfirmed!=='boolean')||
       (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
         data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
         (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
@@ -646,7 +659,9 @@
     // Records and route choices are acquired only AFTER clearing CH01 combat.
     // An engagement/failure checkpoint must not smuggle future knowledge or
     // an already-authorized exit into an earlier playable mission phase.
-    if((hasOwn(data,'relayRestored')&&data.relayRestored&&
+    if((hasOwn(data,'musterConfirmed')&&data.musterConfirmed&&
+        (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
+      (hasOwn(data,'relayRestored')&&data.relayRestored&&
         (data.found.length!==2||['terminal','engagement','failed'].includes(data.phase)))||
       (['terminal','engagement','failed'].includes(data.phase)&&
         (data.found.length!==0||data.choice!==null))||
@@ -685,6 +700,8 @@
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Existing v1/v2 checkpoints predate the optional emergency radio action.
     state.relayRestored=hasOwn(data,'relayRestored')?data.relayRestored:false;
+    // Older v1/v2 checkpoints never included an optional south muster review.
+    state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
     for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];
