@@ -21,10 +21,17 @@
     let accumulator = 0;
     let totalSteps = 0;
     let discardedSeconds = 0;
+    let advancing = false;
+    let generation = 0;
 
     function advance(elapsedSeconds, onStep) {
       if (typeof onStep !== 'function') throw new TypeError('onStep must be a function');
+      // A nested advance can replay the same held input before the outer tick
+      // finishes. This is an invalid clock boundary, not a second render frame.
+      if (advancing) throw new Error('clock_advance_reentrant');
       if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
+      advancing = true;
+      try {
       if (elapsedSeconds > maxFrameSeconds) discardedSeconds += elapsedSeconds - maxFrameSeconds;
       accumulator += Math.min(elapsedSeconds, maxFrameSeconds);
       let executed = 0;
@@ -36,7 +43,11 @@
         executed++;
         totalSteps++;
         try {
+          const tickGeneration = generation;
           onStep(stepSeconds);
+          // A gameplay callback may finish a match and reset the clock.
+          // Never spend its old frame's remaining ticks on a new session.
+          if (generation !== tickGeneration) break;
         } catch (error) {
           // Fail closed on stale queued inputs after a logic exception; retain
           // only the fractional remainder, exactly as for a normal long stall.
@@ -55,9 +66,10 @@
         accumulator = remainder;
       }
       return executed;
+      } finally { advancing = false; }
     }
 
-    function reset() { accumulator = 0; }
+    function reset() { accumulator = 0; generation++; }
     function stats() {
       return { hz, stepSeconds, totalSteps, discardedSeconds, alpha: accumulator / stepSeconds };
     }
