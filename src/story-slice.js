@@ -50,6 +50,7 @@
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
+    beacon: Object.freeze({id:'beacon', x:-42, z:-24.8, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
     aidDrop: Object.freeze({id:'aidDrop', x:-12, z:-60, kind:'evac', label:'현지 구조단 비상 물품 인계 지점'}),
@@ -152,7 +153,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -161,25 +162,32 @@
     syncRoute(state);syncMarkers(state);
     return state;
   }
+  // A fixed facade-mounted warning light requires restored local power and
+  // a separately reached manual switch; it never reveals unseen actors.
+  function warningMarkers(state) {
+    return state.relayRestored&&!state.beaconEnabled?[POINTS.beacon]:[];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[])
+      ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[]),
+      ...warningMarkers(state)
     ];
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
-         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[])]:
+         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state)]:
       [POINTS.exitEvac,...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
-        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[])];
+        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state)];
     return [];
   }
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.relayRestored=state.relayRestored;
+    state.world.beaconEnabled=state.beaconEnabled;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
@@ -468,6 +476,11 @@
       state.relayRestored=true;
       state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
       state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
+    }else if(marker.id==='beacon'&&state.relayRestored&&!state.beaconEnabled&&
+      ['records','decision','exit'].includes(state.phase)){
+      state.beaconEnabled=true;
+      state.subtitle='유수프(현지 구조단): 항구 경고등이 켜진 것을 확인했어. 통로 상태는 우리 구조단이 계속 현장에서 확인할게.';
+      state.message='항구 경고등 수동 점등 · 현지 구조단에 현장 상태 공유';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
@@ -561,6 +574,7 @@
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
+      warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':'항구 수동 경고등 미점등',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       aidSupply:state.aidDelivered?'현지 구조단: 비상 물품 현장 인수 완료':
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
@@ -585,7 +599,7 @@
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
-      emergencyRadioRestored:state.relayRestored,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+      emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -598,7 +612,8 @@
           ?'남쪽 집결지 인원 확인표를 대조하고 미확인 인원을 후속 구조단에 인계했습니다. 동쪽 통로는 통제 중입니다.'
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
         (state.aidDelivered?' 현지 구조단에 비상 물품을 직접 전달했습니다.':
-          state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')
+          state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
+        (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')
     });
   }
   function objective(state) {
@@ -613,7 +628,8 @@
       case 'records':return '선택: 양쪽 기록을 조사하거나 중앙 콘솔에서 대피 경로를 선택하세요.'+
         (state.found.length===2&&!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
-        ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
+        ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'+
+          (state.relayRestored&&!state.beaconEnabled?' 선택: 항구 건물의 수동 경고등을 켤 수 있습니다.':'')
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
@@ -628,7 +644,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
@@ -648,9 +664,10 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+8||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+9||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+      (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
        (hasOwn(data,'gateLogReviewed')&&typeof data.gateLogReviewed!=='boolean')||
        (hasOwn(data,'logHandedOff')&&typeof data.logHandedOff!=='boolean')||
       (hasOwn(data,'musterConfirmed')&&typeof data.musterConfirmed!=='boolean')||
@@ -759,6 +776,8 @@
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
       (hasOwn(data,'relayRestored')&&data.relayRestored&&
         (data.found.length!==2||['terminal','engagement','failed'].includes(data.phase)))||
+      (data.beaconEnabled===true&&
+        (data.relayRestored!==true||['terminal','engagement','failed'].includes(data.phase)))||
       (['terminal','engagement','failed'].includes(data.phase)&&
         (data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
@@ -796,6 +815,7 @@
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Existing v1/v2 checkpoints predate the optional emergency radio action.
     state.relayRestored=hasOwn(data,'relayRestored')?data.relayRestored:false;
+    state.beaconEnabled=hasOwn(data,'beaconEnabled')?data.beaconEnabled:false;
      state.gateLogReviewed=hasOwn(data,'gateLogReviewed')?data.gateLogReviewed:false;
     state.logHandedOff=hasOwn(data,'logHandedOff')?data.logHandedOff:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
