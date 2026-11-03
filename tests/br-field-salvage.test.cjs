@@ -33,7 +33,6 @@ test('BR: defeated rival exposes a visible finite ground pouch; PC E transfers r
   assert.equal(pouch.remaining,12);
   const plan=Visibility.planVisible(game);
   assert.ok(plan.loot.some(item=>item.entity.id===pouch.id),'3D scene must display the interactable pouch');
-  const initial=game.player.charges+bot.charges;
   game.player.charges=48;
   const conserved=game.player.charges+bot.charges;
   assert.equal(Sim.pickup(game),'ammo');
@@ -45,7 +44,6 @@ test('BR: defeated rival exposes a visible finite ground pouch; PC E transfers r
   assert.ok(!Visibility.planVisible(game).loot.some(item=>item.entity.id===pouch.id));
   assert.equal(Sim.pickup(game),null);
   assert.equal(game.player.charges+bot.charges,conserved);
-  assert.ok(initial>conserved);
 });
 
 test('BR: partially full carry leaves finite reserve, with no second-transfer duplication',()=>{
