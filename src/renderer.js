@@ -127,8 +127,8 @@ class SoftwareRenderer {
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
   type:o.type==='story-desk'?'report-desk':'building'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
- for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch?.24:.9,
-  w:l.fieldPouch?.4:.75,d:l.fieldPouch?.32:.75,type:l.fieldPouch?'field-pouch':l.kind});
+ for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
+  w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
   if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
  for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
