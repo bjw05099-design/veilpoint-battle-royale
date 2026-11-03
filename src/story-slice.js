@@ -166,7 +166,7 @@
   // A fixed facade-mounted warning light requires restored local power and
   // a separately reached manual switch; it never reveals unseen actors.
   function warningMarkers(state) {
-    return state.relayRestored&&!state.beaconEnabled?[POINTS.beacon]:[];
+    return state.relayRestored?[POINTS.beacon]:[];
   }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
@@ -477,11 +477,17 @@
       state.relayRestored=true;
       state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
       state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
-    }else if(marker.id==='beacon'&&state.relayRestored&&!state.beaconEnabled&&
+    }else if(marker.id==='beacon'&&state.relayRestored&&
       ['records','decision','exit'].includes(state.phase)){
-      state.beaconEnabled=true;
-      state.subtitle='유수프(현지 구조단): 항구 경고등이 켜진 것을 확인했어. 통로 상태는 우리 구조단이 계속 현장에서 확인할게.';
-      state.message='항구 경고등 수동 점등 · 현지 구조단에 현장 상태 공유';
+      // A reachable mechanical switch controls a powered warning fixture in
+      // both directions. It never changes unseen actor knowledge or resources.
+      state.beaconEnabled=!state.beaconEnabled;
+      state.subtitle=state.beaconEnabled
+        ?'유수프(현지 구조단): 항구 경고등 점등을 확인했어. 통로는 우리가 현장에서 계속 확인할게.'
+        :'유수프(현지 구조단): 항구 경고등 소등을 확인했어. 필요하면 현장 스위치로 다시 켜 줘.';
+      state.message=state.beaconEnabled
+        ?'항구 경고등 수동 점등 · 현지 구조단에 현장 상태 공유'
+        :'항구 경고등 수동 소등 · 현장 스위치로 재점등 가능';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
@@ -575,7 +581,7 @@
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
-      warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':'항구 수동 경고등 미점등',
+      warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       aidSupply:state.aidDelivered?'현지 구조단: 비상 물품 현장 인수 완료':
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
@@ -630,7 +636,7 @@
         (state.found.length===2&&!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'+
-          (state.relayRestored&&!state.beaconEnabled?' 선택: 항구 건물의 수동 경고등을 켤 수 있습니다.':'')
+          (state.relayRestored?' 선택: 항구 건물의 수동 경고등을 E로 켜거나 끌 수 있습니다.':'')
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')

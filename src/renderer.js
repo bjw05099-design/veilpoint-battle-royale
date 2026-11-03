@@ -185,6 +185,8 @@ class SoftwareRenderer {
   if(switchFace&&switchFace[2]<=90&&switchFace[0]>=0&&switchFace[0]<=w&&switchFace[1]>=0&&switchFace[1]<=h){
    ctx.fillStyle=state.beaconEnabled?'#d99b49':'#3a4543';
    ctx.fillRect(switchFace[0]-2,switchFace[1]-3,4,6);
+   ctx.fillStyle='#b2b1a2';
+   ctx.fillRect(switchFace[0]-1,switchFace[1]+(state.beaconEnabled?-4:0),2,3);
   }
  }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
@@ -303,6 +305,9 @@ class Renderer {
     state.beaconEnabled?[1.4,.78,.26]:[.18,.19,.18]);
   mesh.box(-42,1.13,-27.66,.16,.09,.04,
     state.beaconEnabled?[.92,.58,.25]:[.20,.23,.22]);
+  // The same manual switch has a visible lever position in both states.
+  mesh.box(-42,state.beaconEnabled?1.19:1.06,-27.59,.08,.16,.09,
+    state.beaconEnabled?[.80,.70,.42]:[.39,.42,.41]);
   // A dark fixture remains visibly unpowered until the relay interaction;
   // this changes in the same render frame as the saved mission state.
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,

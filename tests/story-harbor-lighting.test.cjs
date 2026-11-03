@@ -166,7 +166,8 @@ test('CH01 harbor warning light requires a separate reachable PC E interaction a
  assert.deepEqual(Story.interact(state),{ok:true,event:'beacon',phase:'records'});
  assert.equal(state.beaconEnabled,true);
  assert.equal(state.world.beaconEnabled,true);
- assert.equal(Story.markers(state).some(p=>p.id==='beacon'),false);
+ assert.equal(Story.markers(state).some(p=>p.id==='beacon'),true,
+   'the powered manual switch stays reachable to turn the warning off');
  assert.match(Story.situation(state).warning,/점등/);
  const saved=Story.serialize(state);
  const restored=Story.restore(saved);
@@ -251,4 +252,30 @@ test('Canvas fallback shows the manual warning lamp only on the street-facing si
  state.world.player.z=-40;state.world.player.yaw=Math.PI;
  rects.length=0;renderer.draw(state.world);
  assert.equal(rects.some(rect=>rect.color==='#f5b55b'),false);
+});
+
+test('CH01 powered harbor warning can be turned off and back on without losing 60Hz checkpoint continuity',()=>{
+ const h=harness(),state=Story.createState();
+ restoreRadio(state);go(state,'beacon');
+ assert.equal(Story.interact(state).event,'beacon');
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uBeaconOn'),1);
+ const on=Story.serialize(state);
+ assert.equal(Story.restore(on).beaconEnabled,true);
+ assert.equal(Story.interact(state).event,'beacon');
+ assert.equal(state.beaconEnabled,false);
+ assert.equal(state.world.beaconEnabled,false,'the world light must go dark in the same interaction');
+ assert.match(Story.situation(state).warning,/소등/);
+ assert.equal(Story.nearest(state).id,'beacon','PC E must still reach the physical switch');
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uBeaconOn'),0);
+ const off=Story.serialize(state),a=Story.restore(off),b=Story.restore(off);
+ for(let i=0;i<120;i++){Story.step(a,1/60,{});Story.step(b,1/60,{});}
+ assert.equal(Story.serialize(a),Story.serialize(b),'replayed light-off state is deterministic');
+ assert.equal(Story.interact(a).event,'beacon');
+ assert.equal(a.beaconEnabled,true);
+ assert.equal(Story.restore(Story.serialize(a)).world.beaconEnabled,true);
+ const br=Sim.newMatch(17,0);
+ h.renderer.draw(br);
+ assert.equal(h.latest('uBeaconOn'),0,'a story-only switch never changes BR lighting');
 });
