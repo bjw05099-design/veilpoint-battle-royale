@@ -407,7 +407,9 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  const nearby=Game.nearestReachablePickup(s);
  $('pickupPrompt').style.display=nearby?'block':'none';
  if(nearby)$('pickupPrompt').textContent=nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
-  :p.charges>=p.maxCharges?'AMMUNITION FULL':'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
+  :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
+   ?'[E] RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
+   :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
  minimap();
 }
 function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
