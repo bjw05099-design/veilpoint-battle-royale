@@ -31,7 +31,7 @@ function referencedAssets(page, html) {
   // These browser features can load a network resource or submit data without
   // using the src/href/poster allowlist. A static offline candidate must not
   // silently certify active embeds, inline frame documents or form endpoints.
-  if (/<\\s*(?:object|embed|iframe|form|base)\\b|\\bsrcdoc\\s*=|\\bformaction\\s*=/i.test(html))
+  if (/<\s*(?:object|embed|iframe|form|base)\b|\bsrcdoc\s*=|\bformaction\s*=/i.test(html))
     throw new Error('Unsupported active HTML dependency in ' + page);
   if (/@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
@@ -73,10 +73,10 @@ function assertLocalAssetContent(name, data) {
   // Permit only self-contained vector shapes until SVG references are bundled
   // and audited recursively; ordinary xmlns declarations remain valid.
   if (name.toLowerCase().endsWith('.svg') &&
-      (/<\\s*(?:script|foreignobject|iframe|object|embed|image|use|feimage)\\b/i.test(source) ||
-       /\\b(?:href|src|srcdoc|xml:base)\\s*=|\\bon[a-z]+\\s*=/i.test(source) ||
-       /@import\\b|\\burl\\s*\\(|(?:-webkit-)?image-set\\s*\\(/i.test(source) ||
-       /<!\\s*(?:DOCTYPE|ENTITY)\\b|<\\?xml-stylesheet\\b/i.test(source)))
+      (/<\s*(?:script|foreignobject|iframe|object|embed|image|use|feimage)\b/i.test(source) ||
+       /\b(?:href|src|srcdoc|xml:base)\s*=|\bon[a-z]+\s*=/i.test(source) ||
+       /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(source) ||
+       /<!\s*(?:DOCTYPE|ENTITY)\b|<\?xml-stylesheet\b/i.test(source)))
     throw new Error('Unsupported SVG dependency in ' + name);
   // An offline ZIP can have valid hashes yet load external code at runtime.
   // Classic browser demo scripts have no dynamic network/worker/module
