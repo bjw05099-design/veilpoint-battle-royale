@@ -308,6 +308,7 @@
       }
       syncRoute(state);
       if(gateOpen(state)){
+        syncMarkers(state);
         state.subtitle='마라(기술자): 현지 구조단이 동쪽 통제문을 완전히 열었다고 확인했어. 이제 통과할 수 있어.';
         state.message='현지 구조단 확인 · 동쪽 통로 개방';
       }
