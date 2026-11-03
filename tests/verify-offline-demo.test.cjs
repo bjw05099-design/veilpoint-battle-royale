@@ -209,3 +209,14 @@ test('self-consistent ZIP with remote CSS dependency cannot pass offline verific
       /invalid_demo_zip:asset_dependencies/);
   } finally {fs.rmSync(dir, {recursive: true, force: true});}
 });
+
+test('valid-manifest ZIP cannot hide remote image-set inside inline page CSS', () => {
+  const dir = fixture();
+  try {
+    const files = collectFiles(dir).map(file => file.name === 'story.html'
+      ? {...file, data: Buffer.from('<script src="src/game.js"></script><style>body{background:image-set("https://example.com/remote.png" 1x)}</style>')}
+      : file);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(files)),
+      /invalid_demo_zip:html_assets:story\.html/);
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});
