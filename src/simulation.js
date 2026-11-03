@@ -586,9 +586,21 @@
   // The same selection governs E/touch and the HUD. A nearby incompatible
   // cache must never block an accessible compatible cache in a crowded pile.
   // One scan, no frame-by-frame allocation or hidden pickups through cover.
+  // A defeated BR rival can leave a finite physical reserve-ammunition pouch.
+  // Rounds are transferred from checkpointed rival inventory, not generated.
+  // Administrative boundary disqualification and CH01 never create pouches.
+  function fieldPouch(game,bot) {
+    if(game.scene || bot.alive || bot.disqualified || bot.health!==0 ||
+       !Number.isInteger(bot.charges) || !Number.isInteger(bot.loaded) ||
+       bot.charges<=bot.loaded)return null;
+    return {id:'field-'+bot.id,x:bot.x,z:bot.z,kind:'ammo',
+      weaponId:'carbine',remaining:Math.min(12,bot.charges-bot.loaded),
+      picked:false,sourceBot:bot};
+  }
   function nearestReachablePickup(game) {
     let selected=null,nearest=Infinity,selectedCompatible=false;
-    for(const item of game.loot){
+    // Static caches and field pouches share physical reach and compatibility.
+    for(const item of game.loot.concat(game.bots.map(b=>fieldPouch(game,b)).filter(Boolean))){
       if(!canReachPickup(game,item)||(item.kind!=='ammo'&&item.kind!=='magazine'))continue;
       const compatible=!item.weaponId||item.weaponId===game.player.weaponId;
       const d=dist(item,game.player);
@@ -616,9 +628,16 @@
     if(remaining<=0)return null;
     const taken=Math.min(remaining,p.maxCharges-p.charges);
     p.charges+=taken;
-    closest.remaining=remaining-taken;
-    closest.picked=closest.remaining===0;
-    game.message=closest.kind.toUpperCase()+' '+taken+' ROUNDS · '+closest.remaining+' LEFT';
+    if(closest.sourceBot){
+      // Transfer reserve only; loaded rounds remain in the defeated equipment.
+      closest.sourceBot.charges-=taken;
+      game.message='FIELD POUCH '+taken+' ROUNDS RECOVERED · '+
+        Math.max(0,closest.sourceBot.charges-closest.sourceBot.loaded)+' RESERVE LEFT';
+    }else{
+      closest.remaining=remaining-taken;
+      closest.picked=closest.remaining===0;
+      game.message=closest.kind.toUpperCase()+' '+taken+' ROUNDS · '+closest.remaining+' LEFT';
+    }
     game.messageTime=2;
     return closest.kind;
   }
