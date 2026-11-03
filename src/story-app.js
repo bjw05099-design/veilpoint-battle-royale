@@ -19,6 +19,8 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false,sessionStarted=false;
+  // N cycles only already-published mission markers; it never reveals hidden actors.
+  let guidanceIndex=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
   const AUTOSAVE_SECONDS=5;
   // Keep CH01 automatic volleys from synchronously serializing the whole
@@ -178,7 +180,7 @@
       state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
     }
     $('storyWeapon').value=state.world.player.weaponId;
-    sessionStarted=true;
+    sessionStarted=true;guidanceIndex=null;
     lastAutosaveAt=state.world.elapsed;
     shotSavePending=false;
     saveFailed=false;
@@ -200,7 +202,7 @@
   function decide(option){
     const result=Story.choose(state,option);
     if(!result.ok){$('choiceHint').textContent='아직 기록이 부족합니다. 조사로 돌아가거나 대피 우선을 선택하세요.';return;}
-    persist();resume();
+    guidanceIndex=null;persist();resume();
   }
   function interact(){
     if(!canAct()||state.phase==='complete')return;
@@ -211,6 +213,7 @@
       if(result.reason==='cargo_handoff_required')updateHud();
       return;
     }
+    guidanceIndex=null;
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'){showChoices();return;}
@@ -252,7 +255,7 @@
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
   $('choiceBack').addEventListener('click',()=>{
-    if(Story.backToRecords(state).ok){persist();resume();}
+    if(Story.backToRecords(state).ok){guidanceIndex=null;persist();resume();}
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
@@ -278,6 +281,12 @@
     if(action==='support'){e.preventDefault();support();}
     if(action==='reload'){e.preventDefault();reload();}
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
+    if(!action&&e.code==='KeyN'){
+      e.preventDefault();
+      const count=Story.markers(state).length;
+      guidanceIndex=count===0||guidanceIndex===count-1?null:guidanceIndex===null?0:guidanceIndex+1;
+      updateHud();
+    }
   });
   global.addEventListener('keyup',e=>{
     const action=Desktop.actionFor(e.code,desktopUi.get());
@@ -374,7 +383,8 @@
   }
   function updateHud(){
     $('objective').textContent=Story.objective(state);
-    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state));
+    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),guidanceIndex)+
+      (Story.markers(state).length>1?' · [N] 표식 변경 / 자동 선택':'');
     $('status').textContent=state.message+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=state.subtitle;
