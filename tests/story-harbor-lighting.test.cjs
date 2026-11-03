@@ -338,3 +338,30 @@ test('CH01 WebGL headlamp light is gated by the saved state and never illuminate
  h.renderer.draw(Sim.newMatch(9,0));
  assert.equal(h.latest('uFlashOn'),0);
 });
+
+
+test('CH01 lit headlamp creates a visible human awareness tradeoff without seeing through cover',()=>{
+ const make=()=>{
+  const s=Story.createState();
+  go(s,'terminal');assert.equal(Story.interact(s).ok,true);
+  s.world.player.x=0;s.world.player.z=20;
+  return s;
+ };
+ const dark=make(),lit=make();
+ Story.step(dark,1/60,{});
+ assert.equal(dark.world.bots[0].investigateUntil,0,
+   'unlit captain outside baseline sight range should not be observed');
+ assert.equal(Story.toggleFlashlight(lit).ok,true);
+ Story.step(lit,1/60,{});
+ assert.ok(lit.world.bots[0].investigateUntil>0,
+   'a visible headlamp within the same facing cone is easier to notice');
+ const obscured=make();
+ obscured.world.obstacles.push({x:0,z:-4,w:6,d:2});
+ Story.toggleFlashlight(obscured);
+ Story.step(obscured,1/60,{});
+ assert.equal(obscured.world.bots[0].investigateUntil,0,
+   'opaque cover still blocks the sightline of a conspicuous headlamp');
+ const saved=Story.serialize(lit),restored=Story.restore(saved);
+ assert.equal(Story.serialize(restored),saved,
+   'saved light and actor awareness must replay without hidden state');
+});

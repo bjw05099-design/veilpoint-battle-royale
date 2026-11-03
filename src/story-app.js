@@ -303,7 +303,7 @@
     if(action==='assist'){e.preventDefault();toggleReloadAssist();}
     if(!action&&e.code==='KeyF'){
       e.preventDefault();
-      if(Story.toggleFlashlight(state).ok)persist();
+      if(Story.toggleFlashlight(state).ok){audio.play('interact');persist();}
       updateHud();
     }
     if(!action&&e.code==='KeyN'){

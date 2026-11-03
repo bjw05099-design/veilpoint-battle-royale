@@ -210,7 +210,10 @@
   function canSeePlayer(state,hostile) {
     const p=state.world.player;
     const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
-    if(distance<.001||distance>HOSTILE_ALERT_RANGE)return false;
+    // An illuminated headlamp is easier to observe from the same human field
+    // of view, but never bypasses walls or grants an all-direction sensor.
+    const sightRange=state.flashlightOn&&state.flashlightTicks>0?54:HOSTILE_ALERT_RANGE;
+    if(distance<.001||distance>sightRange)return false;
     // CH01 uses the same bounded three-point standing silhouette as BR.
     // An exposed shoulder can be observed beside cover, but neither a wall
     // nor another standing person may reveal a completely concealed player.
@@ -219,7 +222,7 @@
     const blockers=state.world.obstacles.concat(actorBlockers(state,hostile));
     const visible=(x,z)=>{
       const vx=x-hostile.x,vz=z-hostile.z,range=Math.hypot(vx,vz);
-      if(range>HOSTILE_ALERT_RANGE||
+      if(range>sightRange||
         Sim.lineBlocked(hostile.x,hostile.z,x,z,blockers))return false;
       const bearing=Math.atan2(vx,-vz);
       const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
@@ -604,7 +607,7 @@
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
-      headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
+      headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등 · 노출 증가':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
        warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       aidSupply:state.aidDelivered?'현지 구조단: 비상 물품 현장 인수 완료':
