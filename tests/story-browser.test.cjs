@@ -1080,3 +1080,32 @@ test('CH01 storage-denied PC browser can retry an encounter from its in-memory a
   assert.match(app.element('saveStatus').textContent,/저장 실패/,
     'storage failure must remain visible and not masquerade as durable recovery');
 });
+
+test('PC browser shows a reachable manual warning switch and preserves its HUD status after reload',()=>{
+ const Story=require('../src/story-slice.js');
+ const s=Story.createState();
+ const go=id=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(s).ok,true);
+ for(const b of s.world.bots)for(let i=0;i<2;i++){
+   s.world.player.yaw=Math.atan2(b.x-s.world.player.x,-(b.z-s.world.player.z));
+   s.world.player.pitch=0;s.world.elapsed+=.21;
+   assert.equal(Story.fire(s).hit,true);
+ }
+ for(const id of ['recordA','recordB']){go(id);assert.equal(Story.interact(s).ok,true);}
+ go('relay');assert.equal(Story.interact(s).ok,true);
+ go('beacon');
+ const store=new Map([['veilpoint.story.ch01',Story.serialize(s)]]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ assert.match(app.element('routeStatus').textContent,/수동 경고등 미점등/,
+   'restored but inactive warning must remain visible in PC route status');
+ assert.match(app.element('interaction').textContent,/경고등.*작동/,
+   'the physical switch should show an action prompt, not an evidence inspection');
+ app.interact();
+ assert.equal(Story.restore(store.get('veilpoint.story.ch01')).beaconEnabled,true);
+ assert.match(app.element('routeStatus').textContent,/수동 경고등 점등/);
+ const reopened=boot(store,false,'granted',true,true);
+ reopened.element('continue').click();
+ assert.match(reopened.element('routeStatus').textContent,/수동 경고등 점등/,
+   'reloading a valid checkpoint must retain the warning state in the live HUD');
+});
