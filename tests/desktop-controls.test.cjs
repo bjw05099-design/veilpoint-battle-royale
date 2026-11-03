@@ -396,6 +396,8 @@ test('CH01 keyboard handlers route remapped light and guidance through shared de
  const source=fs.readFileSync(require('node:path').resolve(__dirname,'../src/story-app.js'),'utf8');
  assert.match(source,/if\(action==='headlamp'\)/);
  assert.match(source,/if\(action==='guidance'\)/);
+ assert.match(source,/bindings\.guidance\.replace/);
+ assert.match(source,/bindings\.headlamp\.replace/);
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyF'\)/);
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyN'\)/);
 });
