@@ -105,3 +105,83 @@ test('carried supply has a grounded, visible first-person 3D mesh, not a remote 
   assert.match(hud,/nearby\.id==='aidPickup'/,'PC E prompt must offer crate pickup');
   assert.match(hud,/nearby\.id==='aidDrop'/,'PC E prompt must offer physical handoff');
 });
+
+// The staging table is a real optional action: it restores hands-free movement
+// but never counts as a delivered crate or a remotely awarded resource.
+test('CH01 player can stage, resume and physically hand off the same finite relief crate',()=>{
+  const s=southRoute();go(s,'aidPickup');Story.interact(s);
+  assert.equal(Story.markers(s).some(p=>p.id==='aidStage'),true);
+  go(s,'aidStage');
+  assert.deepEqual(Story.interact(s),{ok:true,event:'aidStage',phase:'exit'});
+  assert.equal(s.aidStaged,true);
+  assert.equal(s.world.aidPickedUp,true);
+  assert.equal(s.world.carryingAid,false);
+  assert.equal(s.world.aidStaged,true);
+  assert.equal(Story.markers(s).some(p=>p.id==='aidDrop'),false);
+  assert.equal(Story.markers(s).some(p=>p.id==='aidResume'),true);
+  assert.match(Story.situation(s).aidSupply,/임시 적재/);
+  const staged=Story.serialize(s),resumed=Story.restore(staged);
+  assert.equal(Story.serialize(resumed),staged);
+  assert.equal(resumed.world.carryingAid,false);
+  go(resumed,'aidResume');
+  assert.deepEqual(Story.interact(resumed),{ok:true,event:'aidResume',phase:'exit'});
+  assert.equal(resumed.aidStaged,false);
+  assert.equal(resumed.world.carryingAid,true);
+  go(resumed,'aidDrop');assert.equal(Story.interact(resumed).ok,true);
+  assert.equal(resumed.aidDelivered,true);
+  assert.equal(resumed.world.aidDelivered,true);
+  assert.equal(resumed.aidStaged,false);
+  go(resumed,'exitEvac');assert.equal(Story.interact(resumed).ok,true);
+  assert.equal(Story.debrief(resumed).aidDelivered,true);
+});
+test('CH01 blocks finishing with crate in hands but allows optional staged exit',()=>{
+  const s=southRoute();go(s,'aidPickup');Story.interact(s);
+  go(s,'exitEvac');
+  assert.deepEqual(Story.interact(s),{ok:false,reason:'cargo_handoff_required'});
+  assert.equal(s.phase,'exit');
+  go(s,'aidStage');assert.equal(Story.interact(s).ok,true);
+  go(s,'exitEvac');assert.equal(Story.interact(s).ok,true);
+  assert.equal(Story.debrief(s).aidStaged,true);
+  assert.equal(Story.debrief(s).aidDelivered,false);
+  assert.match(Story.debrief(s).summary,/인계는 미완료/);
+  const untouched=southRoute();go(untouched,'exitEvac');
+  assert.equal(Story.interact(untouched).ok,true,'ignoring optional crate must never soft-lock evacuation');
+});
+test('CH01 staged crate is 60Hz replay-stable, checkpoint-compatible and cannot be forged',()=>{
+  const s=southRoute();go(s,'aidPickup');Story.interact(s);
+  go(s,'aidStage');Story.interact(s);
+  const checkpoint=Story.serialize(s),a=Story.restore(checkpoint),b=Story.restore(checkpoint);
+  for(let i=0;i<180;i++){
+    const input={forward:i<90,right:i>=90,sprint:true};
+    Story.step(a,1/60,input);Story.step(b,1/60,input);
+  }
+  assert.equal(Story.serialize(a),Story.serialize(b));
+  const legacy=JSON.parse(checkpoint);delete legacy.aidStaged;
+  const old=Story.restore(JSON.stringify(legacy));
+  assert.equal(old.aidStaged,false,'older saves default to a carried crate');
+  assert.equal(old.world.carryingAid,true);
+  for(const patch of [
+    {aidStaged:'true'}, {aidStaged:true,aidPickedUp:false},
+    {aidStaged:true,aidDelivered:true}, {aidStaged:true,choice:'verification'}
+  ])assert.throws(()=>Story.restore(JSON.stringify({...JSON.parse(checkpoint),...patch})),RangeError);
+  // Pre-staging builds permitted completing CH01 while holding a crate.
+  // A historical completed save remains readable even though new live play
+  // prevents that outcome; no second crate is spawned by migration.
+  const historical=JSON.parse(checkpoint);
+  historical.phase='complete';delete historical.aidStaged;
+  const oldComplete=Story.restore(JSON.stringify(historical));
+  assert.equal(oldComplete.phase,'complete');
+  assert.equal(oldComplete.aidDelivered,false);
+  assert.equal(oldComplete.aidStaged,false);
+  assert.doesNotThrow(()=>Story.serialize(oldComplete));
+});
+test('CH01 staged cargo has a visible stationary scene prop and PC action prompts',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const renderer=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
+  const hud=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
+  assert.match(renderer,/state\.scene==='nahrin'&&state\.aidStaged/);
+  assert.match(renderer,/state\.scene==='nahrin'&&!state\.aidPickedUp/);
+  assert.match(renderer,/state\.scene==='nahrin'&&state\.aidDelivered/);
+  assert.match(hud,/nearby\.id==='aidStage'/);
+  assert.match(hud,/nearby\.id==='aidResume'/);
+});
