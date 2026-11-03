@@ -11,6 +11,8 @@
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   const VERSION = 2;
   const SAVE_LIMIT = 8192;
+  // A finite ten-minute prototype headlamp battery, advanced by fixed 60Hz steps.
+  const HEADLAMP_TICKS = 10 * 60 * 60;
   const HOSTILE_POSITIONS = Object.freeze([{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}]);
   const HOSTILE_ROUNDS = 12;
   const HOSTILE_BODY_RADIUS = .75; // Same authored radius as hostile movement collision.
@@ -154,7 +156,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -189,6 +191,8 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.relayRestored=state.relayRestored;
     state.world.beaconEnabled=state.beaconEnabled;
+    state.world.flashlightOn=state.flashlightOn;
+    state.world.flashlightTicks=state.flashlightTicks;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
@@ -206,7 +210,10 @@
   function canSeePlayer(state,hostile) {
     const p=state.world.player;
     const dx=p.x-hostile.x,dz=p.z-hostile.z,distance=Math.hypot(dx,dz);
-    if(distance<.001||distance>HOSTILE_ALERT_RANGE)return false;
+    // An illuminated headlamp is easier to observe from the same human field
+    // of view, but never bypasses walls or grants an all-direction sensor.
+    const sightRange=state.flashlightOn&&state.flashlightTicks>0?54:HOSTILE_ALERT_RANGE;
+    if(distance<.001||distance>sightRange)return false;
     // CH01 uses the same bounded three-point standing silhouette as BR.
     // An exposed shoulder can be observed beside cover, but neither a wall
     // nor another standing person may reveal a completely concealed player.
@@ -215,7 +222,7 @@
     const blockers=state.world.obstacles.concat(actorBlockers(state,hostile));
     const visible=(x,z)=>{
       const vx=x-hostile.x,vz=z-hostile.z,range=Math.hypot(vx,vz);
-      if(range>HOSTILE_ALERT_RANGE||
+      if(range>sightRange||
         Sim.lineBlocked(hostile.x,hostile.z,x,z,blockers))return false;
       const bearing=Math.atan2(vx,-vz);
       const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
@@ -243,6 +250,16 @@
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
     if(!Number.isFinite(dt)||dt<=0)return state;
     const t=clamp(dt,0,.05),p=state.world.player;
+    // Battery drain follows simulation time, never render FPS or background time.
+    if(state.flashlightOn){
+      state.flashlightTicks=Math.max(0,state.flashlightTicks-Math.round(t*60));
+      if(state.flashlightTicks===0){
+        state.flashlightOn=false;
+        state.message='헤드램프 배터리 소진 · 추가 전원 없음';
+      }
+      state.world.flashlightOn=state.flashlightOn;
+      state.world.flashlightTicks=state.flashlightTicks;
+    }
     const wasGateOpen=gateOpen(state);
     let ix=Number(!!input.right)-Number(!!input.left);
     let iz=Number(!!input.forward)-Number(!!input.back);
@@ -438,6 +455,15 @@
     state.message='출처 명시된 무선 보고 · 현장 검증 필요';
     return {ok:true,event:'support',report:true};
   }
+  function toggleFlashlight(state) {
+    if(state.phase==='failed'||state.phase==='complete')return {ok:false,reason:'inactive'};
+    if(state.flashlightTicks===0)return {ok:false,reason:'battery_empty'};
+    state.flashlightOn=!state.flashlightOn;
+    state.world.flashlightOn=state.flashlightOn;
+    state.world.flashlightTicks=state.flashlightTicks;
+    state.message=state.flashlightOn?'휴대 헤드램프 점등 · F로 소등 가능':'휴대 헤드램프 소등 · F로 점등 가능';
+    return {ok:true,on:state.flashlightOn};
+  }
   function interact(state) {
     if(state.phase==='complete')return {ok:false,reason:'completed'};
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
@@ -581,7 +607,8 @@
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
-      warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
+      headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등 · 노출 증가':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
+       warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
       aidSupply:state.aidDelivered?'현지 구조단: 비상 물품 현장 인수 완료':
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
@@ -651,7 +678,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
@@ -671,10 +698,15 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+9||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+11||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
+       (hasOwn(data,'flashlightOn')!==hasOwn(data,'flashlightTicks'))||
+       (hasOwn(data,'flashlightOn')&&
+         (typeof data.flashlightOn!=='boolean'||!Number.isInteger(data.flashlightTicks)||
+          data.flashlightTicks<0||data.flashlightTicks>HEADLAMP_TICKS||
+          (data.flashlightOn&&data.flashlightTicks===0)))||
        (hasOwn(data,'gateLogReviewed')&&typeof data.gateLogReviewed!=='boolean')||
        (hasOwn(data,'logHandedOff')&&typeof data.logHandedOff!=='boolean')||
       (hasOwn(data,'musterConfirmed')&&typeof data.musterConfirmed!=='boolean')||
@@ -823,6 +855,8 @@
     // Existing v1/v2 checkpoints predate the optional emergency radio action.
     state.relayRestored=hasOwn(data,'relayRestored')?data.relayRestored:false;
     state.beaconEnabled=hasOwn(data,'beaconEnabled')?data.beaconEnabled:false;
+    state.flashlightOn=hasOwn(data,'flashlightOn')?data.flashlightOn:false;
+    state.flashlightTicks=hasOwn(data,'flashlightTicks')?data.flashlightTicks:HEADLAMP_TICKS;
      state.gateLogReviewed=hasOwn(data,'gateLogReviewed')?data.gateLogReviewed:false;
     state.logHandedOff=hasOwn(data,'logHandedOff')?data.logHandedOff:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
@@ -873,7 +907,7 @@
     return syncMarkers(state);
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,fire,autoFire,support,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
     objective,situation,debrief,backToRecords,serialize,restore,validateSnapshot
   });
 });

@@ -279,3 +279,89 @@ test('CH01 powered harbor warning can be turned off and back on without losing 6
  h.renderer.draw(br);
  assert.equal(h.latest('uBeaconOn'),0,'a story-only switch never changes BR lighting');
 });
+
+
+test('CH01 PC headlamp uses finite 60Hz battery, persists and replays without regenerating energy',()=>{
+ const state=Story.createState();
+ assert.equal(state.flashlightOn,false);
+ assert.equal(state.flashlightTicks,36000);
+ assert.deepEqual(Story.toggleFlashlight(state),{ok:true,on:true});
+ for(let i=0;i<60;i++)Story.step(state,1/60,{});
+ assert.equal(state.flashlightTicks,35940);
+ assert.equal(state.world.flashlightTicks,35940);
+ const saved=Story.serialize(state);
+ const restored=Story.restore(saved);
+ assert.equal(Story.serialize(restored),saved);
+ const a=Story.restore(saved),b=Story.restore(saved);
+ for(let i=0;i<180;i++){
+  Story.step(a,1/60,{forward:true});Story.step(b,1/60,{forward:true});
+ }
+ assert.equal(Story.serialize(a),Story.serialize(b));
+ assert.equal(a.flashlightTicks,35760);
+ assert.deepEqual(Story.toggleFlashlight(a),{ok:true,on:false});
+ for(let i=0;i<60;i++)Story.step(a,1/60,{});
+ assert.equal(a.flashlightTicks,35760,'battery must not drain while switched off');
+ a.flashlightTicks=1;a.flashlightOn=true;a.world.flashlightOn=true;
+ Story.step(a,1/60,{});
+ assert.equal(a.flashlightTicks,0);
+ assert.equal(a.flashlightOn,false);
+ assert.equal(Story.toggleFlashlight(a).reason,'battery_empty');
+ assert.equal(Story.restore(Story.serialize(a)).flashlightTicks,0);
+});
+
+test('CH01 headlamp checkpoint migration rejects forged battery and isolates BR',()=>{
+ const state=Story.createState();
+ const old=JSON.parse(Story.serialize(state));
+ delete old.flashlightOn;delete old.flashlightTicks;
+ const migrated=Story.restore(JSON.stringify(old));
+ assert.equal(migrated.flashlightOn,false);
+ assert.equal(migrated.flashlightTicks,36000);
+ for(const patch of [
+  {flashlightOn:true,flashlightTicks:0},
+  {flashlightOn:true,flashlightTicks:36001},
+  {flashlightOn:'yes',flashlightTicks:120},
+  {flashlightOn:false,flashlightTicks:-1},
+  {flashlightOn:true,flashlightTicks:3.5}
+ ])assert.throws(()=>Story.restore(JSON.stringify({...old,...patch})),RangeError);
+ assert.throws(()=>Story.restore(JSON.stringify({...old,flashlightOn:true})),RangeError);
+ assert.equal(Object.hasOwn(Sim.newMatch(42,0),'flashlightOn'),false);
+});
+
+test('CH01 WebGL headlamp light is gated by the saved state and never illuminates BR',()=>{
+ const h=harness(),state=Story.createState();
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uFlashOn'),0);
+ assert.ok(h.shaders.some(shader=>shader.includes('beamDistance<18.')));
+ Story.toggleFlashlight(state);
+ h.renderer.draw(state.world);
+ assert.equal(h.latest('uFlashOn'),1);
+ h.renderer.draw(Sim.newMatch(9,0));
+ assert.equal(h.latest('uFlashOn'),0);
+});
+
+
+test('CH01 lit headlamp creates a visible human awareness tradeoff without seeing through cover',()=>{
+ const make=()=>{
+  const s=Story.createState();
+  go(s,'terminal');assert.equal(Story.interact(s).ok,true);
+  s.world.player.x=0;s.world.player.z=20;
+  return s;
+ };
+ const dark=make(),lit=make();
+ Story.step(dark,1/60,{});
+ assert.equal(dark.world.bots[0].investigateUntil,0,
+   'unlit captain outside baseline sight range should not be observed');
+ assert.equal(Story.toggleFlashlight(lit).ok,true);
+ Story.step(lit,1/60,{});
+ assert.ok(lit.world.bots[0].investigateUntil>0,
+   'a visible headlamp within the same facing cone is easier to notice');
+ const obscured=make();
+ obscured.world.obstacles.push({x:0,z:-4,w:6,d:2});
+ Story.toggleFlashlight(obscured);
+ Story.step(obscured,1/60,{});
+ assert.equal(obscured.world.bots[0].investigateUntil,0,
+   'opaque cover still blocks the sightline of a conspicuous headlamp');
+ const saved=Story.serialize(lit),restored=Story.restore(saved);
+ assert.equal(Story.serialize(restored),saved,
+   'saved light and actor awareness must replay without hidden state');
+});

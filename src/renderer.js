@@ -84,7 +84,8 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn,uFlashOn;
+uniform vec3 uFlashEye,uFlashDir;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
@@ -111,6 +112,19 @@ if(uNight>.5&&uBeaconOn>.5){
  float distanceToBeacon=length(delta);
  diffuse+=vColor*vec3(1.,.55,.16)*max(dot(N,normalize(delta)),0.)*1.1/
   (1.+.16*distanceToBeacon*distanceToBeacon);
+}
+// Player-carried finite-battery headlamp: camera-facing cone on visible surfaces.
+// Prototype forward shading does not yet cast occlusion shadows.
+if(uNight>.5&&uFlashOn>.5){
+ vec3 beamVec=vWorld-uFlashEye;
+ float beamDistance=length(beamVec);
+ if(beamDistance>.05&&beamDistance<18.){
+  vec3 beamDir=beamVec/beamDistance;
+  float cone=smoothstep(.88,.96,dot(beamDir,normalize(uFlashDir)));
+  float facing=max(dot(N,-beamDir),0.);
+  float falloff=1./(1.+.035*beamDistance*beamDistance);
+  diffuse+=vColor*vec3(1.,.94,.78)*cone*facing*2.4*falloff;
+ }
 }
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
@@ -153,7 +167,17 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+ let color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+ // Low-fidelity Canvas fallback: brighten nearby prop faces in the
+ // headlamp's forward cone without drawing a screen-space magic glow.
+ if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
+  const dx=x-p.x,dz=z-p.z,range=Math.hypot(dx,dz);
+  if(range>0&&range<18&&(dx*Math.sin(yaw)-dz*Math.cos(yaw))/range>.90){
+   const lift=.35*(1-range/18),value=parseInt(color.slice(1),16);
+   const channel=v=>Math.round(v+(255-v)*lift).toString(16).padStart(2,'0');
+   color='#'+channel((value>>16)&255)+channel((value>>8)&255)+channel(value&255);
+  }
+ }
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
@@ -195,7 +219,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -395,6 +419,9 @@ class Renderer {
  g.uniform1f(l.exposure,night?1.25:1.35);g.uniform1f(l.night,night?1:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
  g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
+ g.uniform1f(l.flashOn,night&&state.flashlightOn&&state.flashlightTicks>0?1:0);
+ g.uniform3f(l.flashEye,eye[0],eye[1],eye[2]);
+ g.uniform3f(l.flashDir,dir[0],dir[1],dir[2]);
  g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
  this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
