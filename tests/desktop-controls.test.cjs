@@ -362,3 +362,40 @@ test('PC remapping UI rejects bare OS modifiers and still accepts a later valid 
  assert.equal(editor.get().bindings.fire,'KeyT');
  assert.equal(prevented,3);
 });
+
+test('CH01 headlamp and objective guidance use PC remaps without changing fixed-step state',()=>{
+ const defaults=C.normalize({});
+ assert.equal(C.actionFor('KeyF',defaults),'headlamp','legacy F shortcut stays available');
+ assert.equal(C.actionFor('KeyN',defaults),'guidance','legacy N shortcut stays available');
+ assert.equal(C.actionFor('KeyL',defaults),'headlamp');
+ assert.equal(C.actionFor('KeyB',defaults),'guidance');
+ const lamp=C.bind(defaults,'headlamp','KeyT');
+ assert.equal(lamp.ok,true);
+ assert.equal(C.actionFor('KeyT',lamp.value),'headlamp');
+ assert.equal(C.actionFor('KeyF',lamp.value),null,'legacy alias stops when headlamp is remapped');
+ const guide=C.bind(lamp.value,'guidance','KeyY');
+ assert.equal(guide.ok,true);
+ assert.equal(C.actionFor('KeyY',guide.value),'guidance');
+ assert.equal(C.actionFor('KeyN',guide.value),null);
+ assert.equal(C.bind(guide.value,'guidance','KeyT').reason,'key-in-use');
+});
+test('pre-headlamp PC preferences preserve custom fire keys and avoid extra-key collisions',()=>{
+ const old={...C.DEFAULT_BINDINGS};
+ delete old.headlamp;delete old.guidance;
+ old.fire='KeyL';old.reload='KeyB';
+ const migrated=C.normalize({bindings:old});
+ assert.equal(migrated.bindings.fire,'KeyL');
+ assert.equal(migrated.bindings.reload,'KeyB');
+ assert.equal(C.actionFor('KeyL',migrated),'fire');
+ assert.equal(C.actionFor('KeyB',migrated),'reload');
+ assert.notEqual(migrated.bindings.headlamp,migrated.bindings.guidance);
+ assert.equal(new Set(Object.values(migrated.bindings)).size,C.ACTIONS.length);
+});
+test('CH01 keyboard handlers route remapped light and guidance through shared desktop actions',()=>{
+ const fs=require('node:fs');
+ const source=fs.readFileSync(require('node:path').resolve(__dirname,'../src/story-app.js'),'utf8');
+ assert.match(source,/if\(action==='headlamp'\)/);
+ assert.match(source,/if\(action==='guidance'\)/);
+ assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyF'\)/);
+ assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyN'\)/);
+});
