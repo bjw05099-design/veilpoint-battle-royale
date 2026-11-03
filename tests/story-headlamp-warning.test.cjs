@@ -24,7 +24,7 @@ test('CH01 restored checkpoint does not repeat a crossed battery warning',()=>{
   const state=Story.createState();
   state.flashlightTicks=3599;
   assert.equal(Story.toggleFlashlight(state).ok,true);
-  const restored=Story.deserialize(Story.serialize(state));
+  const restored=Story.restore(Story.serialize(state));
   restored.message='기존 안내';
   Story.step(restored,1/60);
   assert.equal(restored.message,'기존 안내');
