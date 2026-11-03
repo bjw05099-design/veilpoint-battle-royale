@@ -17,7 +17,7 @@
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
-  let checkpoint=null,saveFailed=false;
+  let checkpoint=null,saveFailed=false,sessionStarted=false;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
   const AUTOSAVE_SECONDS=5;
   // Keep CH01 automatic volleys from synchronously serializing the whole
@@ -177,6 +177,7 @@
       state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
     }
     $('storyWeapon').value=state.world.player.weaponId;
+    sessionStarted=true;
     lastAutosaveAt=state.world.elapsed;
     shotSavePending=false;
     saveFailed=false;
@@ -237,7 +238,9 @@
     const result=Story.support(state);
     if(result.ok){audio.play('report');persist();updateHud();}
   }
-  $('continue').addEventListener('click',()=>begin(true));
+  // Disk checkpoints are for a fresh page load. A paused session must resume
+  // its live world even when storage is denied, full or contains an older save.
+  $('continue').addEventListener('click',()=>sessionStarted?resume():begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));

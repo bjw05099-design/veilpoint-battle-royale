@@ -940,3 +940,37 @@ test('offline CH01 still starts when browser denies the localStorage getter', ()
   app.frame(1000/60);
   assert.equal(app.context.VeilpointInput.fireHeld,false);
 });
+
+test('CH01 PC pause retains the live encounter when the storage getter is denied',()=>{
+ const app=boot(new Map(),false,'granted',true,true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+ app.element('pauseButton').click();
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.match(app.element('objective').textContent,/무장 대치자/,
+   'continuing a live mission must not restart at the relay when storage is denied');
+ app.frame(301*1000/60);
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+});
+
+test('CH01 PC pause resumes in-memory progress instead of an older disk checkpoint',()=>{
+ const Story=require('../src/story-slice.js');
+ const app=boot();
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+ app.element('pauseButton').click();
+ app.store.set('veilpoint.story.ch01',Story.serialize(Story.createState()));
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+});
+
+test('CH01 explicit new game still resets a storage-denied in-memory mission',()=>{
+ const app=boot(new Map(),false,'granted',true,true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+ app.element('pauseButton').click();app.element('newGame').click();
+ assert.match(app.element('objective').textContent,/중계기/);
+});
