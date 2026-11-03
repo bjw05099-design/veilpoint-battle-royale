@@ -31,7 +31,9 @@
     {x:-63,z:-53,w:12,d:3,h:2.6,type:'story-container'},
     {x:64,z:-53,w:12,d:3,h:2.6,type:'story-container'},
     {x:79,z:-81,w:5,d:5,h:14,type:'story-crane'},
-    {x:55,z:-9,w:12,d:14,h:7,type:'story-building'}
+    {x:55,z:-9,w:12,d:14,h:7,type:'story-building'},
+    // A grounded local records counter: visible geometry matches fixed collision.
+    {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'}
   ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   function makeHostiles(disabled=false) {

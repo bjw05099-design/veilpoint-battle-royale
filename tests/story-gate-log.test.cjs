@@ -103,6 +103,21 @@ test('east cabinet has authored 3D geometry and visibly changes indicator after 
   };
   assert.equal(hasIndicator(off,.58,.42),true,'unreviewed cabinet indicator is amber');
   assert.equal(hasIndicator(on,.23,.48),true,'reviewed cabinet indicator is green');
+  // The new report counter has a matching solid footprint and remains reachable
+  // from its south-side interaction marker without walking through furniture.
+  assert.equal(Sim.blocked(18,-42.9,.85,s.world.obstacles),true);
+  assert.equal(Sim.blocked(Story.POINTS.reportDesk.x,Story.POINTS.reportDesk.z,.85,s.world.obstacles),false);
+  go(s,'reportDesk');renderer.draw(s.world);
+  const pending=uploads.at(-1);
+  assert.equal(Story.interact(s).event,'reportDesk');
+  renderer.draw(s.world);
+  const delivered=uploads.at(-1);
+  const hasDeskInk=(data,r,g)=>{for(let i=0;i<data.length;i+=9)
+    if(Math.abs(data[i]-17.7)<.02&&Math.abs(data[i+6]-r)<.02&&Math.abs(data[i+7]-g)<.02)return true;
+    return false;
+  };
+  assert.equal(hasDeskInk(pending,.60,.46),true,'pending receipt is amber');
+  assert.equal(hasDeskInk(delivered,.22,.49),true,'submitted receipt turns green');
   renderer.draw(Sim.newMatch(3,0));
-  assert.equal(renderer.sceneMode,'br','cabinet geometry must not leak into BR');
+  assert.equal(renderer.sceneMode,'br','cabinet and counter geometry must not leak into BR');
 });
