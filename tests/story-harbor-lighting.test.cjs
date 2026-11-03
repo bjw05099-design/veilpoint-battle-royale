@@ -113,3 +113,38 @@ test('powered CH01 luminaires produce physical dynamic fixture vertices, not hov
  for(const p of Object.values(Story.POINTS))
   assert.equal(Sim.blocked(p.x,p.z,.85,state.world.obstacles),false,p.id);
 });
+
+test('Canvas fallback displays a front-facing powered fixture without exposing it through the rear wall',()=>{
+ const rects=[];
+ const ctx={
+  createLinearGradient:()=>({addColorStop:()=>{}}),
+  fillRect:(x,y,w,h)=>rects.push({x,y,w,h,color:ctx.fillStyle}),
+  beginPath:()=>{},moveTo:()=>{},lineTo:()=>{},closePath:()=>{},
+  fill:()=>{},stroke:()=>{}
+ };
+ const canvas={
+  clientWidth:640,clientHeight:360,
+  getContext:type=>type==='webgl2'?null:ctx
+ };
+ const context=vm.createContext({
+  VeilpointSim:Sim,VeilpointGraphics:Graphics,
+  VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1
+ });
+ vm.runInContext(fs.readFileSync(__dirname+'/../src/renderer.js','utf8'),context);
+ const renderer=new context.VeilpointRenderer(canvas);
+ const state=Story.createState();
+ state.world.player.x=-42;state.world.player.z=0;state.world.player.yaw=0;
+ renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#ffdfa2'),false);
+ restoreRadio(state);
+ state.world.player.x=-42;state.world.player.z=0;state.world.player.yaw=0;
+ rects.length=0;
+ renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#ffdfa2'),true,
+   'powered facade lens must be visible from the harbor road');
+ state.world.player.z=-40;state.world.player.yaw=Math.PI;
+ rects.length=0;
+ renderer.draw(state.world);
+ assert.equal(rects.some(rect=>rect.color==='#ffdfa2'),false,
+   'do not draw a facade light through the rear of a solid building');
+});
