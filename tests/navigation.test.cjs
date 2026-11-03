@@ -53,7 +53,7 @@ test('both offline entrypoints load navigation before controller and expose acce
     assert.match(markup,/id="navigation"[^>]*aria-live="off"/);
     const js=fs.readFileSync(path.join(__dirname,'..',controller),'utf8');
     assert.match(js,/VeilpointNavigation/);
-    if(html==='story.html')assert.match(js,/e\.code==='KeyN'/);
+    if(html==='story.html')assert.match(js,/action==='guidance'/);
     assert.match(js,/\$\('navigation'\)\.textContent/);
   }
 });
