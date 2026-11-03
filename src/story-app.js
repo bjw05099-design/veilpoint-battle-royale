@@ -372,7 +372,8 @@
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=state.subtitle;
     const situation=Story.situation(state);
-    $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio;
+    $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio+
+      (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
     // Self-condition is knowable to the player; never reveal hidden enemy state
@@ -398,6 +399,8 @@
     if(nearby)$('interaction').textContent=nearby.kind==='ammo'
       ?nearby.label+' · 잔량 '+state.combat.supplyRemaining+'발 · '+
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':'[E] 필요한 만큼 확보')
+      :nearby.id==='aidPickup'?'[E] '+nearby.label+' 들기 · 운반 중 달리기 제한'
+      :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';

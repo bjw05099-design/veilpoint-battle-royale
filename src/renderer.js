@@ -194,6 +194,13 @@ class Renderer {
  }
  buildDynamic(state){
  const mesh=this.dynamic,t=state.elapsed;mesh.data.length=0;
+ // CH01's optional relief crate remains visibly in the captain's hands while
+ // carried; it is not a hovering pickup, a teleporting reward or a UI-only flag.
+ if(state.scene==='nahrin'&&state.carryingAid){
+  const p=state.player;
+  mesh.box(p.x+Math.sin(p.yaw)*.9,.72,p.z-Math.cos(p.yaw)*.9,
+    .62,.4,.48,[.46,.40,.31]);
+ }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
  // Static geometry is generated from the BR base world. Story-specific route
