@@ -123,6 +123,12 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         if (!/^application\/json(?:\s*;\s*charset=utf-8)?\s*$/i.test(String(req.headers['content-type'] || '')))
           return send(res, 415, {error: 'json_required'});
         const body = await readJson(req, 2048, bodyTimeoutMs);
+        // Body upload is asynchronous: a 60Hz tick can fail while this request
+        // is awaiting its final bytes. Recheck the fatal fault latch AFTER
+        // decoding, before either route touches the authoritative match.
+        // The earlier pre-read guard alone leaves a partially mutated round
+        // writable by a previously admitted slow POST.
+        if (simulationFault) return send(res, 503, {error: 'simulation_unavailable'});
         if (url.pathname === '/join') {
           const keys = body && typeof body === 'object' && !Array.isArray(body)
             ? Object.keys(body) : [];
