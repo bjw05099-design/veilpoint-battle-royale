@@ -20,6 +20,19 @@
   // speed after the local aid coordinator approves clearance; it never vanishes.
   const EAST_CHECKPOINT = Object.freeze({x:27,z:-53,w:12,d:.6,h:2.5,type:'gate',routeId:'east-checkpoint'});
   const GATE_TRAVEL = -12;
+  // Authored, original harbor district shells. Each visible building/container
+  // has the same footprint in the 60Hz collision world and the WebGL scene.
+  // Keep the playable relay, evidence and two exits unobstructed.
+  const STORY_STRUCTURES = Object.freeze([
+    {x:-42,z:-38,w:15,d:20,h:8,type:'story-building'},
+    {x:42,z:-38,w:16,d:20,h:9,type:'story-building'},
+    {x:-44,z:-73,w:20,d:12,h:6,type:'story-warehouse'},
+    {x:47,z:-77,w:18,d:15,h:7,type:'story-warehouse'},
+    {x:-63,z:-53,w:12,d:3,h:2.6,type:'story-container'},
+    {x:64,z:-53,w:12,d:3,h:2.6,type:'story-container'},
+    {x:79,z:-81,w:5,d:5,h:14,type:'story-crane'},
+    {x:55,z:-13,w:12,d:14,h:7,type:'story-building'}
+  ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
@@ -51,6 +64,8 @@
     world.loot=[];
     world.player.x=0;world.player.z=12;world.player.yaw=0;world.player.pitch=0;
     world.zone.radius=170;
+    world.scene='nahrin';
+    world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }
   function gateOpen(state) {

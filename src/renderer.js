@@ -139,7 +139,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -155,6 +155,31 @@ class Renderer {
  // Individual forest pockets, break up skyline without blocking roads.
  for(let i=0;i<Math.round(330*this.vegetationDensity);i++){const x=(r()-.5)*340,z=(r()-.5)*340;if(Math.abs(x)<15||Math.abs(z)<14)continue;if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];m.tree(x,z,h,leaf);}
  for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
+ // Original Nahrin harbor district: fixed, authored structures are shared with
+ // the story collision map. No external textures, logos or remote dependencies.
+ if(this.sceneMode==='nahrin'){
+  m.box(0,-.018,-55,160,.025,54,[.30,.29,.27]); // Worn harbor road surface.
+  for(const o of this.sceneObstacles){
+   const container=o.type==='story-container',crane=o.type==='story-crane';
+   const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];
+   m.box(o.x,0,o.z,o.w,o.h,o.d,col);
+   if(crane){
+    m.box(o.x-5,o.h-1.3,o.z,18,.75,1.4,[.43,.41,.31]);
+    m.box(o.x-12,o.h-3.8,o.z,.16,5,.16,[.26,.26,.24]);
+   }else if(container){
+    for(let n=-5;n<=5;n+=2)m.box(o.x+n,0,o.z+o.d/2+.035,.10,o.h,.07,[.24,.28,.28]);
+   }else{
+    m.box(o.x,o.h-.3,o.z,o.w+.45,.36,o.d+.45,[.30,.29,.28]);
+    const front=o.z+o.d/2+.05;
+    m.box(o.x,0,front,2.1,2.5,.12,[.21,.23,.22]);
+    for(const sign of [-1,1]){
+     const x=o.x+sign*o.w*.28;
+     m.box(x,o.h*.42,front,1.8,1.9,.13,[.17,.22,.24]);
+     m.box(x,o.h*.42,front+.09,1.4,1.5,.07,[.27,.36,.38]);
+    }
+   }
+  }
+ }
  this.static.upload(this.gl);this.static.data=[];
  }
  buildDynamic(state){
@@ -215,7 +240,15 @@ class Renderer {
  }
  }
  resize(){const c=this.canvas,g=this.gl;const density=Math.min(devicePixelRatio||1,1.4)*(this.adaptiveScale||this.resolutionScale);const w=Math.floor(c.clientWidth*density),h=Math.floor(c.clientHeight*density);if(w!==this.lastWidth||h!==this.lastHeight){c.width=w;c.height=h;g.viewport(0,0,w,h);this.lastWidth=w;this.lastHeight=h;}}
- draw(state){if(this.fallback){this.fallback.draw(state);return;}this.gpuTimer.poll(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);const timerStarted=this.gpuTimer.begin(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);this.resize();const g=this.gl,l=this.loc,p=state.player;
+ draw(state){if(this.fallback){this.fallback.draw(state);return;}
+ const scene=state.scene==='nahrin'?'nahrin':'br';
+ if(scene!==this.sceneMode){
+  this.sceneMode=scene;
+  this.sceneObstacles=scene==='nahrin'?state.obstacles.filter(o=>o.type&&o.type.startsWith('story-')).map(o=>({...o})):[];
+  if(this.static.buffer)this.gl.deleteBuffer(this.static.buffer);
+  this.static=new Mesh();this.generate();
+ }
+ this.gpuTimer.poll(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);const timerStarted=this.gpuTimer.begin(global.performance&&typeof global.performance.now==='function'?global.performance.now():null);this.resize();const g=this.gl,l=this.loc,p=state.player;
  g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);
  g.useProgram(this.prog);const eye=[p.x,1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0),p.z];
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
