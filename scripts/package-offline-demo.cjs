@@ -28,6 +28,11 @@ function referencedAssets(page, html) {
   if (/(?:^|[\s<])(?:src|href|poster|srcset)\s*=\s*[^"'\s>]/i.test(html))
     throw new Error('Unquoted offline asset in ' + page);
 
+  // These browser features can load a network resource or submit data without
+  // using the src/href/poster allowlist. A static offline candidate must not
+  // silently certify active embeds, inline frame documents or form endpoints.
+  if (/<\\s*(?:object|embed|iframe|form|base)\\b|\\bsrcdoc\\s*=|\\bformaction\\s*=/i.test(html))
+    throw new Error('Unsupported active HTML dependency in ' + page);
   if (/@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
   // A locally referenced script is not enough for an offline certificate if
@@ -62,6 +67,17 @@ function assertLocalAssetContent(name, data) {
   if (name.toLowerCase().endsWith('.css') &&
       /@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(source))
     throw new Error('Unsupported CSS dependency in ' + name);
+  // SVG is XML and can embed scripts, frames, external images/styles or
+  // entity declarations. As a static <img> it is usually restricted, but the
+  // offline package must not rely on browser-specific SVG resource policy.
+  // Permit only self-contained vector shapes until SVG references are bundled
+  // and audited recursively; ordinary xmlns declarations remain valid.
+  if (name.toLowerCase().endsWith('.svg') &&
+      (/<\\s*(?:script|foreignobject|iframe|object|embed|image|use|feimage)\\b/i.test(source) ||
+       /\\b(?:href|src|srcdoc|xml:base)\\s*=|\\bon[a-z]+\\s*=/i.test(source) ||
+       /@import\\b|\\burl\\s*\\(|(?:-webkit-)?image-set\\s*\\(/i.test(source) ||
+       /<!\\s*(?:DOCTYPE|ENTITY)\\b|<\\?xml-stylesheet\\b/i.test(source)))
+    throw new Error('Unsupported SVG dependency in ' + name);
   // An offline ZIP can have valid hashes yet load external code at runtime.
   // Classic browser demo scripts have no dynamic network/worker/module
   // dependency: reject those constructs until they are explicitly bundled
