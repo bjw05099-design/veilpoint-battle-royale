@@ -974,3 +974,30 @@ test('CH01 explicit new game still resets a storage-denied in-memory mission',()
  app.element('pauseButton').click();app.element('newGame').click();
  assert.match(app.element('objective').textContent,/중계기/);
 });
+
+
+test('PC CH01 cargo exit denial immediately explains the physical handoff requirement',()=>{
+  const Story=require('../src/story-slice.js');
+  const s=Story.createState();
+  s.world.player.x=Story.POINTS.terminal.x;s.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(s).ok,true);
+  for(const b of s.world.bots)for(let i=0;i<2;i++){
+    s.world.player.yaw=Math.atan2(b.x-s.world.player.x,-(b.z-s.world.player.z));
+    s.world.player.pitch=0;s.world.elapsed+=.21;
+    assert.equal(Story.fire(s).hit,true);
+  }
+  s.world.player.x=Story.POINTS.decision.x;s.world.player.z=Story.POINTS.decision.z;
+  assert.equal(Story.interact(s).ok,true);
+  assert.equal(Story.choose(s,'evacuation').ok,true);
+  s.world.player.x=Story.POINTS.aidPickup.x;s.world.player.z=Story.POINTS.aidPickup.z;
+  assert.equal(Story.interact(s).ok,true);
+  s.world.player.x=Story.POINTS.exitEvac.x;s.world.player.z=Story.POINTS.exitEvac.z;
+  const store=new Map([['veilpoint.story.ch01',Story.serialize(s)]]);
+  const app=boot(store);app.element('continue').click();
+  const before=store.get('veilpoint.story.ch01');
+  app.interact();
+  assert.match(app.element('subtitle').textContent,/상자를 든 채로/);
+  assert.match(app.element('status').textContent,/인계 또는 임시 적재/);
+  assert.equal(app.element('menu').classList.contains('hidden'),true,'blocked exit keeps live gameplay active');
+  assert.equal(store.get('veilpoint.story.ch01'),before,'blocked exit must not forge a completion checkpoint');
+});
