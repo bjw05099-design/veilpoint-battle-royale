@@ -124,7 +124,8 @@ class SoftwareRenderer {
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
- for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,type:'building'});
+ for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
+  type:o.type==='story-desk'?'report-desk':'building'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
   if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
@@ -143,7 +144,7 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='med'?'#62ca9d':'#f4bc72';
+ const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
@@ -212,6 +213,12 @@ class Renderer {
    m.box(27,0,-66,.9,1.25,.55,[.35,.37,.36]);
    m.box(27,1.1,-65.69,.7,.18,.07,[.20,.24,.25]);
   for(const o of this.sceneObstacles){
+   if(o.type==='story-desk'){
+    // This counter uses the same solid footprint as the 60Hz collision body.
+    m.box(o.x,0,o.z,o.w,o.h,o.d,[.37,.34,.30]);
+    m.box(o.x,o.h-.10,o.z,o.w+.10,.12,o.d+.10,[.48,.44,.36]);
+    continue;
+   }
    const container=o.type==='story-container',crane=o.type==='story-crane';
    const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];
    m.box(o.x,0,o.z,o.w,o.h,o.d,col);
@@ -254,6 +261,10 @@ class Renderer {
   mesh.box(-7,.25,-55,.62,.5,.48,[.46,.40,.31]);
  }
  if(state.scene==='nahrin'){
+  // The paper receipt remains on the local counter. Its ink/status strip
+  // changes only after the player physically submits the verified log.
+  mesh.box(18,1.055,-42.53,.6,.035,.20,
+    state.logHandedOff?[.22,.49,.35]:[.60,.46,.27]);
   // Inspecting the physical log changes the cabinet's local status indicator.
   mesh.box(27,1.03,-65.63,.55,.1,.05,
     state.gateLogReviewed?[.23,.48,.36]:[.58,.42,.25]);

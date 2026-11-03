@@ -409,6 +409,7 @@
       :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
       :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
        :nearby.id==='gateLog'?'[E] '+nearby.label+' 열람 · 최초 수신/재전송 대조'
+      :nearby.id==='reportDesk'?'[E] '+nearby.label+'에 현장 기록 전달'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
