@@ -600,14 +600,20 @@
   function nearestReachablePickup(game) {
     let selected=null,nearest=Infinity,selectedCompatible=false;
     // Static caches and field pouches share physical reach and compatibility.
-    for(const item of game.loot.concat(game.bots.map(b=>fieldPouch(game,b)).filter(Boolean))){
-      if(!canReachPickup(game,item)||(item.kind!=='ammo'&&item.kind!=='magazine'))continue;
+    const consider=item=>{
+      if(!canReachPickup(game,item)||(item.kind!=='ammo'&&item.kind!=='magazine'))return;
       const compatible=!item.weaponId||item.weaponId===game.player.weaponId;
       const d=dist(item,game.player);
       if(!selected||(compatible&&!selectedCompatible)||
          (compatible===selectedCompatible&&d<nearest)){
         selected=item;nearest=d;selectedCompatible=compatible;
       }
+    };
+    for(const item of game.loot)consider(item);
+    // No intermediate cache+bot arrays in the HUD's frequent pickup query.
+    for(const bot of game.bots){
+      const pouch=fieldPouch(game,bot);
+      if(pouch)consider(pouch);
     }
     return selected;
   }
