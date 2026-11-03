@@ -48,7 +48,7 @@ function backend() {
 }
 
 let nextMockGuest = 0;
-function boot(server, storage = new Map()) {
+function boot(server, storage = new Map(), storageBlocked = false) {
   // Each simulated browser tab represents a different person. A shared
   // default name would now be correctly rejected by the authoritative lobby.
   const guestName = 'Player ' + (++nextMockGuest);
@@ -101,6 +101,9 @@ function boot(server, storage = new Map()) {
     crypto: webcrypto,
     addEventListener: (name, callback) => on(windowListeners, name, callback)
   };
+  if (storageBlocked) Object.defineProperty(window, 'localStorage', {
+    get() {throw new Error('storage_denied');}
+  });
   vm.runInNewContext(clientSource, {
     document, window, fetch: server.fetchLocal, AbortController,
     setInterval: callback => (intervals.push(callback), intervals.length),
@@ -2299,4 +2302,19 @@ test('fatal server error on queued PC command stops movement and discards old to
   a.heartbeat();
   await settle();
   assert.equal(rejected, before, 'no firing or heartbeat after fatal authority loss');
+});
+
+test('PC team client can join and play with blocked localStorage getter', async () => {
+  const server = backend(), a = boot(server, new Map(), true), b = boot(server);
+  a.node('join').click(); b.node('join').click();
+  await settle();
+  assert.equal(server.match.players.size, 2);
+  a.node('ready').click(); b.node('ready').click();
+  await settle();
+  assert.equal(server.match.phase, 'playing');
+  await a.poll(); await b.poll(); await settle();
+  assert.equal(a.node('phase').textContent, 'PLAYING');
+  a.storageEvent({key: Desktop.STORAGE_KEY, storageArea: null});
+  assert.match(a.node('fire').textContent, /Space/,
+    'PC controls stay readable without storage access');
 });
