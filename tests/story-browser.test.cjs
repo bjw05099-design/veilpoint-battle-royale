@@ -1097,8 +1097,8 @@ test('PC browser shows a reachable manual warning switch and preserves its HUD s
  const store=new Map([['veilpoint.story.ch01',Story.serialize(s)]]);
  const app=boot(store,false,'granted',true,true);
  app.element('continue').click();
- assert.match(app.element('routeStatus').textContent,/수동 경고등 미점등/,
-   'restored but inactive warning must remain visible in PC route status');
+ assert.match(app.element('routeStatus').textContent,/수동 경고등 소등/,
+   'restored but inactive powered warning must remain visible in PC route status');
  assert.match(app.element('interaction').textContent,/경고등.*작동/,
    'the physical switch should show an action prompt, not an evidence inspection');
  app.interact();
@@ -1108,4 +1108,13 @@ test('PC browser shows a reachable manual warning switch and preserves its HUD s
  reopened.element('continue').click();
  assert.match(reopened.element('routeStatus').textContent,/수동 경고등 점등/,
    'reloading a valid checkpoint must retain the warning state in the live HUD');
+ assert.match(reopened.element('interaction').textContent,/경고등.*끄기/,
+   'the same PC E switch must offer a visible off action after a reload');
+ reopened.interact();
+ assert.equal(Story.restore(store.get('veilpoint.story.ch01')).beaconEnabled,false);
+ assert.match(reopened.element('routeStatus').textContent,/수동 경고등 소등/);
+ assert.match(reopened.element('interaction').textContent,/경고등.*작동/);
+ reopened.interact();
+ assert.equal(Story.restore(store.get('veilpoint.story.ch01')).beaconEnabled,true,
+   'the powered switch can be operated repeatedly without duplicating resources');
 });

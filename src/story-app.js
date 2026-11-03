@@ -442,7 +442,7 @@
       :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
        :nearby.id==='gateLog'?'[E] '+nearby.label+' 열람 · 최초 수신/재전송 대조'
       :nearby.id==='reportDesk'?'[E] '+nearby.label+'에 현장 기록 전달'
-      :nearby.id==='beacon'?'[E] '+nearby.label+' 작동 · 현장 전원 연결 후 가능'
+      :nearby.id==='beacon'?'[E] '+nearby.label+(state.beaconEnabled?' 끄기':' 작동')+' · 현장 수동 스위치'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
