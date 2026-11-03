@@ -172,6 +172,8 @@
     return [];
   }
   function syncMarkers(state) {
+    // Renderer consumes the same saved physical relay state as mission rules.
+    state.world.relayRestored=state.relayRestored;
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
