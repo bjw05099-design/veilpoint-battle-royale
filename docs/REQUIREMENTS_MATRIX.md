@@ -1,6 +1,7 @@
 ## 2026-11-03 in-flight HTTP POST vs fatal authoritative tick (R-12 / R-14 / R-23)
 - **Reproduced P0:** The loopback team server admitted JSON POST requests while healthy, then awaited streamed body bytes. A fatal 60Hz tick during that wait could leave an earlier /join or /command request able to mutate the damaged round despite the initial simulation-fault guard.
 - **Code and verification:** Recheck the fatal fault latch immediately after JSON body completion, before touching authoritative match state. Two loopback HTTP regressions delay valid /join and authenticated /command bodies across an injected tick exception, require HTTP 503 and assert no new seat or command-sequence mutation. PR #253 CI includes syntax, deterministic tests and offline ZIP packaging; code-level checks are not a public-network or browser-playthrough signoff.
+- **PC client follow-up:** A fatal `simulation_unavailable` response on a pending command, state poll or tab-resume now clears the stale local identity and all held PC inputs, shows a distinct server-stop message, and blocks further old-session commands. Two actual client-script DOM/network regressions exercise command/poll failure and prevent ghost fire/movement. A server restart still requires a fresh join.
 - **Remaining:** Windows two-tab human gameplay, real RTX 3070/QHD 165Hz/system RAM 16GB frame/memory profiling, UE5 native compilation, and final three-mode/12-hour quality gates remain **unverified**. No touch/mobile development.
 
 ## 2026-11-03 PC two-client lost-join response recovery gate (R-12 / R-14 / R-23)
