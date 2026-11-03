@@ -28,7 +28,7 @@ function referencedAssets(page, html) {
   if (/(?:^|[\s<])(?:src|href|poster|srcset)\s*=\s*[^"'\s>]/i.test(html))
     throw new Error('Unquoted offline asset in ' + page);
 
-  if (/@import\b|url\s*\(/i.test(html))
+  if (/@import\b|\burl\s*\(|(?:-webkit-)?image-set\s*\(/i.test(html))
     throw new Error('Unsupported CSS import/url in ' + page);
   const refs = [...html.matchAll(/\b(src|href|poster|srcset)\s*=\s*(["'])(.*?)\2/gi)]
     .map(match => ({attribute: match[1].toLowerCase(), ref: match[3]}));
