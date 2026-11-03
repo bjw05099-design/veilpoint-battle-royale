@@ -220,3 +220,21 @@ test('valid-manifest ZIP cannot hide remote image-set inside inline page CSS', (
       /invalid_demo_zip:html_assets:story\.html/);
   } finally {fs.rmSync(dir, {recursive: true, force: true});}
 });
+
+test('self-consistent ZIP with hidden JavaScript fetch cannot be certified offline', () => {
+  const dir = fixture();
+  try {
+    const complete = collectFiles(dir);
+    const remote = complete.map(file => file.name === 'src/game.js'
+      ? {...file, data: Buffer.from('fetch("https://example.invalid/hidden.js")')}
+      : file);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(remote)),
+      /invalid_demo_zip:asset_dependencies:src\/game\.js/);
+    const inline = complete.map(file => file.name === 'index.html'
+      ? {...file, data: Buffer.from('<script src="src/game.js"></script><script>fetch("/missing")</script>')}
+      : file);
+    assert.throws(() => verifyArchive(archiveWithValidManifest(inline)),
+      /invalid_demo_zip:html_assets:index\.html/);
+    assert.doesNotThrow(() => verifyArchive(archiveWithValidManifest(complete)));
+  } finally {fs.rmSync(dir, {recursive: true, force: true});}
+});
