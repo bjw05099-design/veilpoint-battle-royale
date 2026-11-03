@@ -397,7 +397,7 @@
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
-      ?entries.map(r=>r.title+' / '+r.time).join(' · ')+(entries.length===2?' / 시간 불일치 확인':'')
+      ?entries.map(r=>r.title+' / '+r.time).join(' · ')+(entries.length===2?(state.gateLogReviewed?' / 현장 재전송 로그 확인':' / 시각 차이 확인'):'')
       :'기록 0/2 · 조사하지 않아도 대피할 수 있습니다.';
     const nearby=running?Story.nearest(state):null;
     $('interaction').classList.toggle('hidden',!nearby);
@@ -408,6 +408,7 @@
       :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
       :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
       :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
+       :nearby.id==='gateLog'?'[E] '+nearby.label+' 열람 · 최초 수신/재전송 대조'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';

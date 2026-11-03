@@ -54,7 +54,8 @@
     aidStage: Object.freeze({id:'aidStage', x:-7, z:-55, kind:'objective', label:'민간 비상 물품 임시 적재대'}),
     aidResume: Object.freeze({id:'aidResume', x:-7, z:-55, kind:'objective', label:'임시 적재된 민간 비상 물품'}),
     exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'evac', label:'안전한 안뜰'}),
-    exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'})
+    exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'}),
+    gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'})
   });
   const RECORDS = Object.freeze({
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
@@ -148,7 +149,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,musterConfirmed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,gateLogReviewed:false,musterConfirmed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -165,7 +166,8 @@
       POINTS.decision,
       ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[])
     ];
-    if (state.phase==='exit') return state.choice==='verification'?[POINTS.exitVerify]:
+    if (state.phase==='exit') return state.choice==='verification'
+      ?[POINTS.exitVerify,...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[])]:
       [POINTS.exitEvac,...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[])];
@@ -174,6 +176,7 @@
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.relayRestored=state.relayRestored;
+    state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
@@ -305,6 +308,7 @@
       }
       syncRoute(state);
       if(gateOpen(state)){
+        syncMarkers(state);
         state.subtitle='마라(기술자): 현지 구조단이 동쪽 통제문을 완전히 열었다고 확인했어. 이제 통과할 수 있어.';
         state.message='현지 구조단 확인 · 동쪽 통로 개방';
       }
@@ -489,7 +493,13 @@
       state.musterConfirmed=true;
       state.subtitle='유수프(현지 구조단): 남쪽 집결지의 현장 인원 확인표를 대조했어. 미확인 인원은 후속 구조단에 인계하겠어.';
       state.message='남쪽 집결지 인원 확인 완료 · 안전한 안뜰로 이동하세요';
-    }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
+    }else if(marker.id==='gateLog'&&state.phase==='exit'&&state.choice==='verification'&&gateOpen(state)){
+       // The captain must reach a physical cabinet after local clearance; this
+       // is a contemporaneous transmission record, not supernatural hindsight.
+       state.gateLogReviewed=true;
+       state.subtitle='조현지(국정원): 현장 기록함에 04:07 최초 수신과 04:12 동일 메시지 재전송이 구분돼 있어요. 두 기록의 시각 차이를 설명할 근거를 확보했습니다.';
+       state.message='현장 중계 기록 대조 완료 · 04:12는 재전송';
+     }else if((marker.id==='exitEvac'||marker.id==='exitVerify')&&state.phase==='exit'){
       // A player cannot finish an evacuation while still holding the bulky
       // crate. Deliver it, or physically leave it at the optional staging table.
       if(marker.id==='exitEvac'&&state.world.carryingAid){
@@ -534,7 +544,8 @@
       mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
       command:'이수혁 대위: 한국 측 파견 지휘관의 승인 범위에서 임무 수행 · 현지 통로 개방은 유수프 구조단 결정 · 국정원은 정보 자문',
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
-      evidence:count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
+      evidence:state.gateLogReviewed?'현장 중계 로그 확인 · 04:07 최초 수신 / 04:12 동일 메시지 재전송':
+         count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       route:state.choice==='verification'?(gateOpen(state)?'동쪽 통로: 현지 구조단 개방 확인':state.gateObstructed?'동쪽 통로: 접근자 감지로 안전 정지':'동쪽 통로: 현지 구조단 개방 작업 중'):'동쪽 통로: 현지 구조단 확인 전 통제 중',
@@ -545,7 +556,7 @@
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
         :state.choice==='verification'
-          ?(gateOpen(state)?'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속'
+          ?(gateOpen(state)?(state.gateLogReviewed?'유수프 구조단: 동쪽 통로 개방 · 현장 재전송 기록 확인':'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속')
             :'유수프 구조단: 남쪽 대피 유지 · 동쪽 통제물 해제 대기')
           :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
@@ -561,14 +572,14 @@
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
-      emergencyRadioRestored:state.relayRestored,musterConfirmed:state.musterConfirmed,
+      emergencyRadioRestored:state.relayRestored,gateLogReviewed:state.gateLogReviewed,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
-      clockDiscrepancy:conflict?'unresolved':'not-cross-checked',
+      clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
       civilianOutcome:verified?'east-clearance-confirmed':
         (state.musterConfirmed?'south-headcount-verified':'south-evacuation-prioritized'),
       summary:verified
-        ?'유수프 구조단의 동쪽 통로 개방을 확인했습니다. 두 기록의 5분 차이는 여전히 원인 미확정입니다.'
+        ?(state.gateLogReviewed?'동쪽 현장 기록함에서 04:07 최초 수신과 04:12 동일 메시지 재전송을 확인했습니다. 통로는 유수프 구조단이 개방했습니다.':'유수프 구조단의 동쪽 통로 개방을 확인했습니다. 두 기록의 5분 차이는 여전히 원인 미확정입니다.')
         :(state.musterConfirmed
           ?'남쪽 집결지 인원 확인표를 대조하고 미확인 인원을 후속 구조단에 인계했습니다. 동쪽 통로는 통제 중입니다.'
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
@@ -591,7 +602,7 @@
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'
         :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
       case 'exit':return state.choice==='verification'
-        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.':state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?' 현장 중계 로그 확인 완료.':' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
@@ -603,7 +614,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,musterConfirmed:state.musterConfirmed,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,gateLogReviewed:state.gateLogReviewed,musterConfirmed:state.musterConfirmed,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
@@ -623,9 +634,10 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+6||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+7||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','gateLogReviewed','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+       (hasOwn(data,'gateLogReviewed')&&typeof data.gateLogReviewed!=='boolean')||
       (hasOwn(data,'musterConfirmed')&&typeof data.musterConfirmed!=='boolean')||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
       (hasOwn(data,'aidDelivered')&&typeof data.aidDelivered!=='boolean')||
@@ -717,7 +729,10 @@
     // Records and route choices are acquired only AFTER clearing CH01 combat.
     // An engagement/failure checkpoint must not smuggle future knowledge or
     // an already-authorized exit into an earlier playable mission phase.
-    if((data.aidPickedUp===true&&
+    if((data.gateLogReviewed===true&&
+         (data.choice!=='verification'||!['exit','complete'].includes(data.phase)||
+           !hasOwn(data,'gateReadyAt')||data.elapsed+1e-6<data.gateReadyAt))||
+       (data.aidPickedUp===true&&
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
       // Historical checkpoints could finish with undelivered cargo in hand.
       // Keep those finished saves readable; live exits now require staging or delivery.
@@ -763,6 +778,7 @@
     state.phase=data.phase;state.found=data.found.slice();state.choice=data.choice;
     // Existing v1/v2 checkpoints predate the optional emergency radio action.
     state.relayRestored=hasOwn(data,'relayRestored')?data.relayRestored:false;
+     state.gateLogReviewed=hasOwn(data,'gateLogReviewed')?data.gateLogReviewed:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
     state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;

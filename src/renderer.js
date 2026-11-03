@@ -127,6 +127,7 @@ class SoftwareRenderer {
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,type:'building'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:.9,w:.75,d:.75,type:l.kind});
+  if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
  for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
  for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);
@@ -142,7 +143,7 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='med'?'#62ca9d':'#f4bc72';
+ const color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='med'?'#62ca9d':'#f4bc72';
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
@@ -206,6 +207,10 @@ class Renderer {
   // The separate aid staging pad exists before the crate arrives and remains
   // after it leaves. Flat paint has no fictional solid collision footprint.
   m.box(-7,.012,-55,1.3,.012,1.05,[.45,.40,.30]);
+   // East checkpoint transmission cabinet: a grounded, authored physical prop.
+   // Its small footprint is outside the traversable route, not a solid wall.
+   m.box(27,0,-66,.9,1.25,.55,[.35,.37,.36]);
+   m.box(27,1.1,-65.69,.7,.18,.07,[.20,.24,.25]);
   for(const o of this.sceneObstacles){
    const container=o.type==='story-container',crane=o.type==='story-crane';
    const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];
@@ -249,6 +254,9 @@ class Renderer {
   mesh.box(-7,.25,-55,.62,.5,.48,[.46,.40,.31]);
  }
  if(state.scene==='nahrin'){
+  // Inspecting the physical log changes the cabinet's local status indicator.
+  mesh.box(27,1.03,-65.63,.55,.1,.05,
+    state.gateLogReviewed?[.23,.48,.36]:[.58,.42,.25]);
   // A dark fixture remains visibly unpowered until the relay interaction;
   // this changes in the same render frame as the saved mission state.
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
