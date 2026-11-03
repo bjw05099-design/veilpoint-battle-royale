@@ -595,7 +595,7 @@
        bot.charges<=bot.loaded)return null;
     return {id:'field-'+bot.id,x:bot.x,z:bot.z,kind:'ammo',
       weaponId:'carbine',remaining:Math.min(12,bot.charges-bot.loaded),
-      picked:false,sourceBot:bot};
+      picked:false,fieldPouch:true,sourceBot:bot};
   }
   function nearestReachablePickup(game) {
     let selected=null,nearest=Infinity,selectedCompatible=false;
