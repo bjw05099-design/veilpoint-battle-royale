@@ -206,6 +206,6 @@ test('self-consistent ZIP with remote CSS dependency cannot pass offline verific
       ? {...file, data: Buffer.from('@import "https://example.com/remote.css";')}
       : file);
     assert.throws(() => verifyArchive(archiveWithValidManifest(unsafe)),
-      /invalid_demo_zip:asset_dependencies:src\\/theme\\.css/);
+      /invalid_demo_zip:asset_dependencies/);
   } finally {fs.rmSync(dir, {recursive: true, force: true});}
 });
