@@ -1528,3 +1528,53 @@ test('CH01 finished review rejects unfinished and invalid saves without forging 
   assert.equal(review.report.eastCheckpointCleared,true);
   assert.equal(story.serialize(review.state),snapshot);
 });
+
+test('CH01 optional guide can be physically handed back to muster before ending evacuation',()=>{
+ const s=reachDecision();assert.equal(story.choose(s,'evacuation').ok,true);
+ go(s,'muster');assert.equal(story.interact(s).event,'muster');
+ assert.equal(story.interact(s).event,'guide');
+ assert.equal(s.guide.active,true);assert.equal(s.guide.released,false);
+ assert.equal(story.markers(s).some(m=>m.id==='guideRelease'),true);
+ const originalPos={x:s.guide.x,z:s.guide.z};
+ const handoff=story.interact(s);
+ assert.equal(handoff.ok,true);assert.equal(handoff.event,'guideRelease');
+ assert.equal(s.guide.active,false);assert.equal(s.guide.released,true);
+ assert.equal(s.guide.x,originalPos.x);assert.equal(s.guide.z,originalPos.z,'handoff never teleports the guide');
+ assert.equal(story.markers(s).some(m=>m.id==='guide'),false,'no duplication or automatic relaunch');
+ assert.match(story.objective(s),/현장 인계/);
+ const snapshot=story.serialize(s),restored=story.restore(snapshot);
+ assert.equal(restored.guide.released,true);
+ assert.equal(restored.world.guide,restored.guide,'renderer and physics share the restored guide pose');
+ for(let i=0;i<180;i++){
+  const input={forward:i%7===0};
+  story.step(s,1/60,input);story.step(restored,1/60,input);
+  assert.equal(story.serialize(restored),story.serialize(s),'handoff world diverged at frame '+i);
+ }
+ go(restored,'exitEvac');
+ assert.equal(story.interact(restored).ok,true,'physical handoff removes unfinished escort completion gate');
+ assert.equal(restored.phase,'complete');
+ const report=story.debrief(restored);
+ assert.equal(report.guideReleased,true);
+ assert.equal(report.guideArrived,false);
+ assert.match(report.summary,/구조단에 직접 인계/);
+});
+
+test('CH01 guide handoff requires the companion physically near muster; old saves remain valid',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');go(s,'muster');
+ story.interact(s);story.interact(s);
+ const old=JSON.parse(story.serialize(s));
+ delete old.guide.released;
+ const migrated=story.restore(JSON.stringify(old));
+ assert.equal(migrated.guide.released,false);
+ assert.equal(story.serialize(story.restore(story.serialize(migrated))),story.serialize(migrated));
+ s.guide.x+=3.5;
+ const denied=story.interact(s);
+ assert.equal(denied.ok,false);
+ assert.equal(denied.reason,'guide_not_at_muster');
+ assert.equal(s.guide.released,false);
+ const forged=JSON.parse(story.serialize(migrated));
+ forged.guide.released=true;forged.guide.active=false;forged.guide.x=-45;
+ assert.throws(()=>story.restore(JSON.stringify(forged)),RangeError);
+ forged.guide.x=-10.5;forged.guide.arrived=true;
+ assert.throws(()=>story.restore(JSON.stringify(forged)),RangeError);
+});
