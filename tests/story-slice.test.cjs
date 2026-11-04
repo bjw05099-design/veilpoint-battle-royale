@@ -1363,8 +1363,8 @@ test('CH01 checkpoint rejects an energized harbor warning fixture with isolated 
  const state=reachDecision();
  go(state,'relay');assert.equal(story.interact(state).ok,true);
  go(state,'beacon');assert.equal(story.interact(state).ok,true);
- const saved=story.snapshot(state);
+ const saved=JSON.parse(story.serialize(state));
  assert.equal(saved.relayRestored,true);assert.equal(saved.beaconEnabled,true);
- assert.throws(()=>story.restore({...saved,relayRestored:false}),/checkpoint/i);
- assert.equal(story.restore(saved).beaconEnabled,true);
+ assert.throws(()=>story.restore(JSON.stringify({...saved,relayRestored:false})),/checkpoint/i);
+ assert.equal(story.restore(JSON.stringify(saved)).beaconEnabled,true);
 });
