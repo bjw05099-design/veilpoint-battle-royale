@@ -107,6 +107,8 @@ test('opponent reload blocks shots for a fixed 60Hz interval without creating am
  const g=S.newMatch(315,1),b=g.bots[0],p=g.player;g.status='playing';
  p.x=0;p.z=0;b.x=0;b.z=-20;b.moveTime=999;b.actionTime=0;b.skill=1;
  b.angle=Math.PI;b.loaded=0;b.charges=2;
+ // Isolate fixed reload timing from the new physical cache-scavenging path.
+ for(const cache of g.loot)if(cache.weaponId==='carbine')cache.remaining=0,cache.picked=true;
  S.tick(g,1/60,{});
  assert.equal(b.reloadRemaining,S.RELOAD_SECONDS);
  for(let i=0;i<100;i++)S.tick(g,1/60,{});
