@@ -53,7 +53,7 @@ test('final published expiry ends a non-unique finish as draw, not an invented f
   assert.equal(Sim.blocked(-1,0,.85,match.obstacles),false);
   assert.equal(Sim.blocked(1,0,.85,match.obstacles),false);
   match.elapsed=total-1/120;
-  match.zone=Sim.phaseAt(match.elapsed);
+  Object.assign(match.zone,Sim.phaseAt(match.elapsed)); // Retain x/z for a meaningful in-bounds draw.
   Sim.tick(match,1/60,{});
   assert.equal(match.zone.phaseRemaining,0);
   assert.equal(Sim.getAliveCount(match),2);
@@ -70,7 +70,7 @@ test('final deadline outside boundary produces loss, never a draw',()=>{
   const total=Sim.ZONE_PHASES.reduce((sum,phase)=>sum+phase.duration,0);
   game.player.x=6;game.player.z=0; // Explicitly outside the 1.5m final radius.
   game.elapsed=total-1/120;
-  game.zone=Sim.phaseAt(game.elapsed);
+  Object.assign(game.zone,Sim.phaseAt(game.elapsed)); // Retain the authored x/z boundary centre.
   assert.equal(Sim.boundaryStatus(game).outside,true,'player begins physically outside final legal circle');
   const previousX=game.player.x;
   Sim.tick(game,1/60,{});
