@@ -105,7 +105,7 @@ test('checkpoint serialization restores player, records and objective without mu
   assert.equal(loaded.phase,'decision');
   assert.deepEqual(loaded.found,['recordA']);
   assert.equal(loaded.world.player.x,story.POINTS.recordA.x);
-  assert.equal(loaded.world.loot.length,2);
+  assert.equal(loaded.world.loot.length,3);
   loaded.found.push('recordB');
   assert.deepEqual(state.found,['recordA']);
   assert.equal(story.serialize(state),saved);
@@ -170,7 +170,7 @@ test('CH01 encounter: cannot fire early; finite rounds disable three grounded ho
   assert.equal(story.fire(state).reason,'cooldown');
   clearEncounter(state);
   assert.equal(story.fire(state).reason,'not_in_encounter');
-  assert.equal(story.markers(state).length,3);
+  assert.equal(story.markers(state).length,4);
 });
 
 test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals completion',()=>{
