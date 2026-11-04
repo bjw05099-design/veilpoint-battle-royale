@@ -26,7 +26,7 @@ test('east dock structures have matching solid footprints in the live BR world',
 });
 
 test('east dock lane is traversable at fixed 60 Hz and replay survives a checkpoint',()=>{
- const game=Sim.newMatch(20261105,0);game.status='playing';
+ const game=Sim.newMatch(20261105,1);game.status='playing';
  game.player.x=110;game.player.z=-121;game.player.yaw=Math.PI/2;
  const restored=Sim.restoreMatch(Sim.snapshotMatch(game));
  for(let i=0;i<180;i++){
