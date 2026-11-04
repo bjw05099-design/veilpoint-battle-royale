@@ -1191,3 +1191,37 @@ test('CH01 malformed backup never changes a valid completed or active primary ch
   resumed.element('continue').click();resumed.frame(1000/60);
   assert.equal(store.get('veilpoint.story.ch01'),valid);
 });
+
+test('CH01 PC exit interaction visibly refuses to abandon an active guide and preserves saved mission',()=>{
+ const Story=require('../src/story-slice.js');
+ const s=Story.createState();
+ s.world.player.x=Story.POINTS.terminal.x;s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).ok,true);
+ for(const b of s.world.bots)for(let i=0;i<2;i++){
+  s.world.player.yaw=Math.atan2(b.x-s.world.player.x,-(b.z-s.world.player.z));
+  s.world.player.pitch=0;s.world.elapsed+=.21;
+  assert.equal(Story.fire(s).hit,true);
+ }
+ s.world.player.x=Story.POINTS.decision.x;s.world.player.z=Story.POINTS.decision.z;
+ assert.equal(Story.interact(s).ok,true);
+ assert.equal(Story.choose(s,'evacuation').ok,true);
+ s.world.player.x=Story.POINTS.muster.x;s.world.player.z=Story.POINTS.muster.z;
+ assert.equal(Story.interact(s).event,'muster');
+ assert.equal(Story.interact(s).event,'guide');
+ s.world.player.x=Story.POINTS.exitEvac.x;s.world.player.z=Story.POINTS.exitEvac.z;
+ const checkpoint=Story.serialize(s);
+ const store=new Map([['veilpoint.story.ch01',checkpoint],['veilpoint.brCheckpoint.v1','br-independent']]);
+ const app=boot(store);app.element('continue').click();app.interact();
+ assert.match(app.element('subtitle').textContent,/안내원이 아직 안뜰/);
+ assert.match(app.element('status').textContent,/안내원 도착 전/);
+ assert.match(app.element('objective').textContent,/반드시 안뜰까지/);
+ assert.equal(app.element('menu').classList.contains('hidden'),true,'PC must remain in active mission');
+ assert.equal(store.get('veilpoint.story.ch01'),checkpoint,'early exit never writes false completion');
+ assert.equal(store.has('veilpoint.story.ch01PreviewCompleted'),false);
+ app.element('pauseButton').click();
+ const paused=Story.restore(store.get('veilpoint.story.ch01'));
+ assert.equal(paused.phase,'exit');
+ assert.equal(paused.guide.active,true);
+ assert.equal(paused.guide.arrived,false);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'br-independent');
+});

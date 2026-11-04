@@ -257,7 +257,7 @@
     if(!result.ok){
       // A physically blocked cargo exit changes the mission subtitle/message
       // even though it must not save a false completion or play a success cue.
-      if(result.reason==='cargo_handoff_required')updateHud();
+      if(result.reason==='cargo_handoff_required'||result.reason==='guide_not_arrived')updateHud();
       return;
     }
     guidanceIndex=null;

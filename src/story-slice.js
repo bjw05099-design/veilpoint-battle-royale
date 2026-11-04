@@ -643,6 +643,15 @@
         state.message='운반 중 · 인계 또는 임시 적재 후 대피 가능';
         return {ok:false,reason:'cargo_handoff_required'};
       }
+      // An opted-in local escort is a real mission obligation: pressing E at
+      // the finish marker cannot silently strand the still-walking guide.
+      // This only gates the OPTIONAL escort branch. Historic saves and the
+      // standard evacuation exit remain immediately completable.
+      if(marker.id==='exitEvac'&&state.guide.active&&!state.guide.arrived){
+        state.subtitle='유수프(현지 구조단): 안내원이 아직 안뜰에 도착하지 못했어. 가까운 거리에서 천천히 동행해 줘.';
+        state.message='동행 중 · 안내원 도착 전에는 대피 완료로 기록할 수 없습니다';
+        return {ok:false,reason:'guide_not_arrived'};
+      }
       if(marker.id==='exitVerify'&&!gateOpen(state))return {ok:false,reason:'awaiting_clearance'};
       state.phase='complete';state.world.status='won';
       state.subtitle=state.choice==='verification'
@@ -768,7 +777,7 @@
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
           (state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
-            ?' 대피 안내원이 걸어서 동행 중입니다. 가까운 거리에서 안내하세요.':state.musterConfirmed
+            ?' 안내원 동행을 시작했습니다. 반드시 안뜰까지 함께 도착한 후 E로 완료하세요. 멀어지면 안내원이 대기합니다.':state.musterConfirmed
             ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
             ?' 상자가 임시 적재대에 있습니다. E로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp

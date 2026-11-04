@@ -1450,3 +1450,46 @@ test('CH01 escort checkpoint replays at 60Hz and legacy saves remain loadable',(
   assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
   assert.equal(Sim.newMatch(20261105,1).guide,undefined,'BR has no story escort state');
 });
+
+test('CH01 opted-in escort cannot finish early; 60Hz saved route remains playable',()=>{
+ const s=reachDecision();
+ assert.equal(story.choose(s,'evacuation').ok,true);
+ go(s,'muster');
+ assert.equal(story.interact(s).event,'muster');
+ assert.equal(story.interact(s).event,'guide');
+ assert.equal(s.guide.active,true);
+ const saved=story.serialize(s);
+ const resumed=story.restore(saved);
+ go(s,'exitEvac');
+ go(resumed,'exitEvac');
+ const blocked=story.interact(s);
+ assert.equal(blocked.ok,false);
+ assert.equal(blocked.reason,'guide_not_arrived');
+ assert.equal(s.phase,'exit');
+ assert.equal(s.world.status,'playing');
+ assert.match(s.message,/안내원 도착 전/);
+ assert.equal(story.interact(resumed).reason,'guide_not_arrived');
+ for(let i=0;i<120;i++){
+   story.step(s,1/60,{});
+   story.step(resumed,1/60,{});
+   assert.equal(story.serialize(s),story.serialize(resumed),'fixed-step guide state diverged');
+ }
+ assert.equal(s.guide.arrived,false,'standing at the exit cannot teleport a distant guide');
+ assert.equal(story.interact(s).reason,'guide_not_arrived');
+ const previous=story.serialize(s);
+ const reloaded=story.restore(previous);
+ assert.equal(reloaded.phase,'exit');
+ assert.equal(story.interact(reloaded).reason,'guide_not_arrived');
+});
+
+test('CH01 non-escort evacuation and historical checkpoint can still finish normally',()=>{
+ const s=reachDecision();
+ assert.equal(story.choose(s,'evacuation').ok,true);
+ const raw=JSON.parse(story.serialize(s));
+ delete raw.guide; // Older v2 checkpoints omitted local guide.
+ const legacy=story.restore(JSON.stringify(raw));
+ go(legacy,'exitEvac');
+ assert.equal(story.interact(legacy).ok,true,'optional guide must not block historical saves');
+ assert.equal(legacy.phase,'complete');
+ assert.equal(story.debrief(legacy).guideArrived,false);
+});
