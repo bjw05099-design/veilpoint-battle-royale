@@ -370,6 +370,11 @@ addEventListener('keydown',e=>{
   e.preventDefault();const result=Game.depositReserve(simulation);
   if(result.ok){persistMatch();updateHud();}
  }
+ // H physically shifts one nearby finite cache; no resource duplication.
+ if(e.code==='KeyH'&&!action&&canAct()){
+  e.preventDefault();const moved=Game.repositionCache(simulation);
+  if(moved.ok){persistMatch();updateHud();}
+ }
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
