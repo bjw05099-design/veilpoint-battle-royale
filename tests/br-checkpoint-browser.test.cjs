@@ -379,3 +379,28 @@ test('BR offline HTML contains PC bookmark and guarded reset controls',()=>{
  assert.match(html,/id="restoreCheckpoint"[^>]*>P키 현장 기록으로 되돌리기/);
  assert.match(html,/id="restartArena"[^>]*>같은 경기장 처음부터/);
 });
+
+
+test('BR PC Escape toggles pause and resume without resetting finite resources',()=>{
+ const app=boot(new Map());app.node('play').click();app.frame(1000/60);
+ const game=app.game;app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(game.player.charges,47);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Escape',repeat:true});
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Escape'});app.frame(2000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.game,game);
+ assert.equal(app.game.player.charges,47);
+});
+test('BR PC Escape cannot resume behind graphics settings',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ app.node('graphicsPanel').classList.remove('hidden');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.node('graphicsPanel').classList.add('hidden');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
