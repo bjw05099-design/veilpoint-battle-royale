@@ -248,7 +248,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
  const rivals=[1,4,18].includes(rosterOverride)?rosterOverride:selectedRoster();
- simulation=Game.newMatch(seed,rivals,weaponId);simulation.status='playing';running=true;suspended=false;
+ simulation=Game.newMatch(seed,rivals,weaponId,rivals===1);simulation.status='playing';running=true;suspended=false;
  rosterSelect.value=String(rivals);
  lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
  $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
