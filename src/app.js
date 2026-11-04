@@ -358,7 +358,8 @@ addEventListener('keydown',e=>{
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
- if(e.code==='KeyP'&&canAct()){
+ // Do not steal P from a user-remapped movement or interaction action.
+ if(e.code==='KeyP'&&!action&&canAct()){
   e.preventDefault();manualCheckpoint=Game.snapshotMatch(simulation);
   simulation.message='FIELD BOOKMARK RECORDED · PAUSE TO RESTORE';simulation.messageTime=3;
   persistMatch();updateHud();
