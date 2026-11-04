@@ -147,7 +147,9 @@ class SoftwareRenderer {
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-  type:o.type==='story-desk'?'report-desk':'building'});
+  type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
+    o.type==='yard-fence'?'yard-fence':'building'});
+ if(!harborNight)objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
   w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
@@ -167,7 +169,8 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- let color=o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+ let color=o.type==='yard-gate'?'#b6a16c':o.type==='yard-fence'?'#596866':
+   o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -229,9 +232,22 @@ class Renderer {
  for(let z=-175;z<175;z+=15)m.box(0,.006,z,0.20,.02,5.2,[.67,.59,.40]);
  for(let x=-175;x<175;x+=15)m.box(x,-.01,0,5.2,.024,.18,[.54,.48,.33]);
  const sim=global.VeilpointSim.newMatch(1,0);
- sim.obstacles.forEach((o,i)=>{const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
+ sim.obstacles.forEach((o,i)=>{
+  // A sliding gate must not remain as a solid closed panel in the static mesh:
+  // it is drawn once from the live world by the dynamic geometry planner.
+  if(o.routeId==='br-service-gate')return;
+  if(o.type==='yard-fence'){
+   if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
+   return;
+  }
+  const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
+ if(this.sceneMode==='br'){
+  // The service gate is opened by a grounded, fixed wall-mounted control.
+  m.box(30,0,-21.8,.55,1.3,.4,[.28,.31,.29]);
+  m.box(30,1.12,-21.54,.37,.14,.07,[.80,.57,.23]);
+ }
  // Individual forest pockets, break up skyline without blocking roads.
  for(let i=0;i<Math.round(330*this.vegetationDensity);i++){const x=(r()-.5)*340,z=(r()-.5)*340;if(Math.abs(x)<15||Math.abs(z)<14)continue;if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];m.tree(x,z,h,leaf);}
  for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
@@ -339,6 +355,10 @@ class Renderer {
  }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
  this.lastVisibilityStats=plan.stats;
+ // BR gate collision and the visible 3D panel share the same live X position.
+ // Culling already budgets this exact one-box dynamic mesh contribution.
+ for(const gate of plan.serviceGates||[])mesh.box(gate.x,0,gate.z,
+   gate.w,gate.h,gate.d,[.55,.47,.32]);
  // Static geometry is generated from the BR base world. Story-specific route
  // blockers must also be rendered from the live world or the player collides
  // with an invisible checkpoint. A cleared route removes this mesh on the
