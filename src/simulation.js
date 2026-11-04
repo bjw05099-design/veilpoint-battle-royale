@@ -207,6 +207,13 @@
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
   }
+  // A completed open panel is quiet despite keeping the engaged controller
+  // latch for the next local closing interaction. This derives exclusively
+  // from saved 60Hz gate progress and needs no unbounded noise timer.
+  function gateMotorActive(game) {
+    const gate=game?.yardGate;
+    return !!(gate?.engaged&&(gate.closing===true||gate.progress<1));
+  }
   function serviceGateStatus(game) {
     const gate=game.yardGate||{engaged:false,progress:0};
     const p=game.player;
@@ -214,7 +221,7 @@
     const near=distance<=2.1&&!lineBlocked(p.x,p.z,SERVICE_YARD.switchX,
       SERVICE_YARD.switchZ,game.obstacles.filter(o=>o.routeId!=='br-service-gate'));
     return {near,engaged:gate.engaged,open:gate.progress>=1,closing:gate.closing===true,
-      progress:gate.progress,x:SERVICE_YARD.x,z:SERVICE_YARD.z};
+      motorActive:gateMotorActive(game),progress:gate.progress,x:SERVICE_YARD.x,z:SERVICE_YARD.z};
   }
   // A local E interaction starts the yard panel once. A motorized slide takes
   // time and stops rather than passing through a living actor on the rail.
@@ -447,7 +454,7 @@
         // current field of view. No hidden live coordinates are consulted.
         b.lastSeenX=target.x;b.lastSeenZ=target.z;
         b.lastSeenUntil=game.elapsed+2.5;
-      } else if(!outsideBot&&game.yardGate?.engaged&&
+      } else if(!outsideBot&&gateMotorActive(game)&&
         // An operating gate motor is a local audible event, not a global AI alert.
         // A fence or building between the motor and listener attenuates it.
         Math.hypot(b.x-SERVICE_YARD.x,b.z-SERVICE_YARD.z)<=
@@ -1077,5 +1084,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });
