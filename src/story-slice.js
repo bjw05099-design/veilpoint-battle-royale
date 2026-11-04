@@ -638,7 +638,7 @@
         state.gateLogReviewed?'현장 중계 로그 확인 · 04:07 최초 수신 / 04:12 동일 메시지 재전송':
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
-      eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60)/60):0,
+      eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60-1e-8)/60):0,
       routeReviewAvailable:state.phase==='exit'&&markers(state).some(m=>m.id==='decision'),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등 · 노출 증가':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
