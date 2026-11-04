@@ -343,7 +343,12 @@
       // A player standing in the gate's travel path pauses the mechanism instead
       // of being pushed, teleported, or passed through by an animated collider.
       const nextGate=gateGeometry(state);
-      if(Sim.blocked(p.x,p.z,GATE_SAFETY_RADIUS,[nextGate])){
+      const currentGate=state.world.obstacles.find(o=>o.routeId==='east-checkpoint')||EAST_CHECKPOINT;
+      // The whole motor travel is solid during this step, not just its final
+      // footprint: a coarse catch-up frame must not sweep through the player.
+      const sweptGate={...nextGate,x:(currentGate.x+nextGate.x)/2,
+        w:nextGate.w+Math.abs(nextGate.x-currentGate.x)};
+      if(Sim.blocked(p.x,p.z,GATE_SAFETY_RADIUS,[sweptGate])){
         state.gateObstructed=true;
         state.gateReadyAt+=t;
         state.subtitle='마라(기술자): 이동식 통제문이 접근자를 감지해 멈췄어. 문 이동 경로에서 벗어나 줘.';
