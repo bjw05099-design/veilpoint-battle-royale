@@ -5,6 +5,11 @@ const Story=require('../src/story-slice.js');
 
 function prepared() {
   const state=Story.createState();
+  state.world.player.x=0;
+  state.world.player.z=-18;
+  assert.equal(Story.interact(state).ok,true);
+  for(const bot of state.world.bots){bot.health=0;bot.alive=false;}
+  state.combat.cleared=true;
   state.phase='exit';
   state.choice='verification';
   state.found=['recordA','recordB'];
