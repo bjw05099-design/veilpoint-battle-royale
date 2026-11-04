@@ -240,6 +240,32 @@ class Renderer {
    if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
    return;
   }
+  // East dock architecture is driven by the same simulation obstacle array:
+  // the facade and crane are visible, but all additional detail stays inside
+  // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='dock-warehouse'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.35,.36,.34]);
+   m.box(o.x,o.h-.18,o.z,o.w+.4,.3,o.d+.4,[.23,.26,.27]);
+   const front=o.z+o.d/2+.02;
+   for(const offset of [-7,0,7]){
+    m.box(o.x+offset,1.8,front,3.5,3.5,.08,[.15,.19,.20]);
+    m.box(o.x+offset,3.45,front+.07,3.5,.14,.08,[.52,.47,.32]);
+   }
+   m.box(o.x,o.h-.75,front+.04,17,.5,.09,[.47,.48,.43]);
+   return;
+  }
+  if(o.type==='dock-container'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.22,.31,.32]);
+   for(let x=-3.5;x<=3.5;x+=.7)
+    m.box(o.x+x,0,o.z+o.d/2+.045,.09,o.h,.06,[.16,.24,.25]);
+   return;
+  }
+  if(o.type==='dock-crane'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.43,.42,.32]);
+   m.box(o.x,o.h-1,o.z,4.8,.65,4.8,[.27,.29,.28]);
+   // Upper structure is architectural scenery, not a climbable platform.
+   return;
+  }
   const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );

@@ -80,7 +80,7 @@
     world.scene='nahrin';
     // BR's newly authored service-yard barrier exists only in the BR map.
     // CH01 has its own independent harbor checkpoint and authored route.
-    world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence');
+    world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&!o.type.startsWith('dock-'));
     world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }

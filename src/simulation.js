@@ -139,6 +139,15 @@
       o.push({ x: x+30, z: z+14, w: 10, d: 9, h: 4.5, type: 'shed' });
       o.push({ x: x-24, z: z+23, w: 5, d: 12, h: 3, type: 'container' });
     });
+    // East-dock district: an authored, navigable industrial yard. Every solid
+    // structure is shared with the WebGL world and the 60 Hz collision map.
+    // Keep a clear pedestrian/service lane along z=-121 and a 4 m central
+    // access gap; avoid placing decorative invisible colliders.
+    o.push({x:113,z:-137,w:24,d:10,h:9,type:'dock-warehouse'});
+    o.push({x:113,z:-102,w:24,d:10,h:8,type:'dock-warehouse'});
+    o.push({x:143,z:-137,w:9,d:5,h:2.6,type:'dock-container'});
+    o.push({x:143,z:-103,w:9,d:5,h:2.6,type:'dock-container'});
+    o.push({x:132,z:-154,w:5,d:5,h:12,type:'dock-crane'});
     // Two fixed perimeter segments flank the movable service gate. The gate
     // itself stays in the world array so both player and AI use its live body.
     o.push({x:SERVICE_YARD.x-10.5,z:SERVICE_YARD.z,w:15,d:.6,h:2.2,type:'yard-fence'});
