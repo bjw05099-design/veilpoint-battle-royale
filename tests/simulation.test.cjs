@@ -689,3 +689,35 @@ test('automatic trigger replay and checkpoint continuation preserve 60Hz finite 
  assert.equal(S.snapshotMatch(a),S.snapshotMatch(b));
  assert.ok(a.player.charges>=a.player.loaded&&a.player.loaded>=0);
 });
+
+test('BR PC field-cache deposit conserves finite reserve and survives a checkpoint',()=>{
+ const g=S.newMatch(812,0);g.status='playing';
+ g.loot.forEach(item=>{item.x=100;item.z=100;});
+ const cache=g.loot.find(item=>item.weaponId===g.player.weaponId);
+ cache.x=g.player.x;cache.z=g.player.z;cache.remaining=0;cache.picked=true;
+ const before=g.player.charges;
+ const result=S.depositReserve(g);
+ assert.equal(result.ok,true);assert.equal(result.moved,12);
+ assert.equal(g.player.charges,before-12);assert.equal(cache.remaining,12);
+ assert.equal(cache.picked,false);
+ assert.equal(S.depositReserve(g).reason,'no_cache_space');
+ const restored=S.restoreMatch(S.snapshotMatch(g));
+ assert.equal(restored.loot[cache.id].remaining,12);
+ assert.equal(restored.player.charges,before-12);
+ const recovered=S.pickup(restored);
+ assert.equal(recovered,'ammo');
+ assert.equal(restored.player.charges,before);
+ assert.equal(restored.loot[cache.id].remaining,0);
+});
+test('BR reserve deposit rejects cover, distant cache and loaded rounds',()=>{
+ const g=S.newMatch(813,0);g.status='playing';
+ g.loot.forEach(item=>{item.x=100;item.z=100;});
+ const cache=g.loot.find(item=>item.weaponId===g.player.weaponId);
+ cache.x=0;cache.z=-1;cache.remaining=0;cache.picked=true;
+ g.obstacles.push({x:0,z:-0.5,w:2,d:0.1,h:2,type:'cover'});
+ assert.equal(S.depositReserve(g).reason,'no_cache_space');
+ g.obstacles.pop();cache.z=-4;
+ assert.equal(S.depositReserve(g).reason,'no_cache_space');
+ cache.z=0;g.player.charges=g.player.loaded;
+ assert.equal(S.depositReserve(g).reason,'no_reserve');
+});

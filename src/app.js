@@ -365,6 +365,11 @@ addEventListener('keydown',e=>{
   else desktopUi.cancel();
  }
  if(action==='interact'){e.preventDefault();collectAmmo();}
+ // V is a separate physical cache action, not a shortcut that creates rounds.
+ if(e.code==='KeyV'&&!action&&canAct()){
+  e.preventDefault();const result=Game.depositReserve(simulation);
+  if(result.ok){persistMatch();updateHud();}
+ }
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
@@ -503,11 +508,17 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const nearby=Game.nearestReachablePickup(s);
- $('pickupPrompt').style.display=nearby?'block':'none';
- if(nearby)$('pickupPrompt').textContent=nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
+ const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
+   item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
+   Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
+   !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
+ $('pickupPrompt').style.display=nearby||restock?'block':'none';
+ if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
    ?'[E] RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
-   :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
+   :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
+   (restock?' · [V] RETURN SPARE ROUNDS':'');
+ else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
 function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();

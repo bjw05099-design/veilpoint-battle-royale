@@ -647,6 +647,31 @@
     game.messageTime=2;
     return closest.kind;
   }
+  // Return spare rounds to a physically reachable, matching fixed supply cache.
+  // Loaded rounds cannot be deposited; the original finite cache capacity is
+  // an absolute ceiling, so repeated deposits and withdrawals create nothing.
+  function depositReserve(game) {
+    if(game.status!=='playing')return {ok:false,reason:'inactive'};
+    const p=game.player;
+    const spare=p.charges-p.loaded;
+    if(spare<=0)return {ok:false,reason:'no_reserve'};
+    let chosen=null,best=Infinity;
+    for(const item of game.loot){
+      if(item.weaponId!==p.weaponId)continue;
+      const cap=item.kind==='ammo'?12:24;
+      if(item.remaining>=cap||dist(item,p)>=PICKUP_REACH||
+         lineBlocked(p.x,p.z,item.x,item.z,game.obstacles))continue;
+      const d=dist(item,p);
+      if(d<best){chosen=item;best=d;}
+    }
+    if(!chosen)return {ok:false,reason:'no_cache_space'};
+    const capacity=(chosen.kind==='ammo'?12:24)-chosen.remaining;
+    const moved=Math.min(spare,capacity);
+    p.charges-=moved;chosen.remaining+=moved;chosen.picked=false;
+    game.message='CACHE RESTOCKED '+moved+' ROUNDS · '+chosen.remaining+' STORED';
+    game.messageTime=2;
+    return {ok:true,moved,remaining:chosen.remaining};
+  }
   // Offline BR checkpoints preserve the random stream as well as the visible world.
   // All persisted fields are explicitly bounded; old or modified localStorage cannot
   // reintroduce shield fields or out-of-range resources. This is not anti-tamper security.
@@ -865,5 +890,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });

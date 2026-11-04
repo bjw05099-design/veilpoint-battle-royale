@@ -1195,7 +1195,7 @@ test('CH01 optional evidence handoff cannot be forged or block an evacuation end
   assert.equal(story.debrief(state).logHandedOff,false);
 });
 
-test('powered civilian repeater supports physical readback during both exit routes without changing clearance',()=>{
+test('civilian repeater can be disconnected during either exit route without resetting local clearance',()=>{
   for(const route of ['evacuation','verification']){
     const state=reachDecision();
     go(state,'recordA');story.interact(state);
@@ -1211,11 +1211,13 @@ test('powered civilian repeater supports physical readback during both exit rout
     const checkpoint=story.serialize(state);
     const result=story.interact(state);
     assert.equal(result.ok,true);
-    assert.match(state.message,/전원 정상/);
+    assert.match(state.message,/전원 차단/);
+    assert.equal(state.relayRestored,false);
     assert.equal(state.gateReadyAt,deadline);
-    assert.equal(story.serialize(state),checkpoint);
-    const restored=story.restore(checkpoint);
+    assert.notEqual(story.serialize(state),checkpoint);
+    const restored=story.restore(story.serialize(state));
     assert.ok(story.markers(restored).some(m=>m.id==='relay'));
+    assert.equal(restored.relayRestored,false);
     assert.equal(restored.gateReadyAt,deadline);
     assert.notEqual(before,checkpoint);
   }
@@ -1336,4 +1338,23 @@ test('CH01 finite supply cache remains physically available after the encounter 
   assert.equal(state.combat.supplyRemaining,0);
   assert.equal(story.markers(state).some(marker=>marker.id==='supply'),false);
   assert.equal(story.serialize(story.restore(story.serialize(state))),story.serialize(state));
+});
+
+test('CH01 exit relay power can be physically isolated and restored without resetting route clearance',()=>{
+ const state=reachDecision();
+ assert.equal(story.choose(state,'evacuation').ok,true);
+ go(state,'relay');
+ assert.equal(story.interact(state).ok,true);
+ assert.equal(state.relayRestored,true);
+ go(state,'beacon');assert.equal(story.interact(state).ok,true);
+ assert.equal(state.beaconEnabled,true);
+ go(state,'relay');assert.equal(story.interact(state).ok,true);
+ assert.equal(state.relayRestored,false);
+ assert.equal(state.beaconEnabled,false,'warning fixture cannot remain powered after isolation');
+ const restored=story.restore(story.serialize(state));
+ assert.equal(restored.relayRestored,false);
+ assert.equal(restored.beaconEnabled,false);
+ go(restored,'relay');assert.equal(story.interact(restored).ok,true);
+ assert.equal(restored.relayRestored,true);
+ assert.equal(story.markers(restored).some(m=>m.id==='beacon'),true);
 });
