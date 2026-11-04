@@ -536,7 +536,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   ?'SERVICE YARD GATE CLOSING · '+Math.round(yardGate.progress*100)+'%'
   :yardGate.open?'[E] CLOSE SERVICE YARD GATE · CHECK TRACK'
   :yardGate.engaged?'SERVICE YARD GATE OPENING · '+Math.round(yardGate.progress*100)+'%'
-  :'[E] OPEN SERVICE YARD SLIDING GATE';
+  :'[E] OPERATE SERVICE YARD SLIDING GATE · OPEN';
  else if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
    ?'[E] RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
