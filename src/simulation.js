@@ -547,17 +547,29 @@
       // Only local collision is queried; no hidden target position or teleport.
       const initialStep=Math.hypot(b.x-startX,b.z-startZ);
       if(initialStep<botSpeed*dt*0.2){
+        // Probe nearby traversable directions using only local solid geometry.
+        // This avoids indefinitely pressing into a wall while pursuing a
+        // visible actor or returning to the shrinking legal play area.
+        // The probe is a collision query, not a teleport or hidden-path radar.
         const side=b.id%2===0?1:-1;
-        // Even if both sides are tested, cumulative travel cannot exceed the
-        // original single-step distance budget.
         let travelled=initialStep;
         for(const direction of [side,-side]){
-          const previousX=b.x,previousZ=b.z;
           const remainingDt=Math.max(0,dt-travelled/botSpeed);
+          if(remainingDt<=0)break;
+          const previousX=b.x,previousZ=b.z;
           moveEntity(b,-vz*direction,vx*direction,remainingDt,movementObstacles);
           const sideStep=Math.hypot(b.x-previousX,b.z-previousZ);
           travelled+=sideStep;
           if(sideStep>=botSpeed*dt*0.2)break;
+        }
+        // When a perpendicular sidestep also fails, try a bounded diagonal
+        // retreat from the obstacle. Its movement budget is the unused part
+        // of this same simulation tick, never an extra displacement.
+        if(travelled<botSpeed*dt*0.2){
+          const remainingDt=Math.max(0,dt-travelled/botSpeed);
+          const diagonal=1/Math.SQRT2;
+          moveEntity(b,(-vx+side*-vz)*diagonal,
+            (-vz+side*vx)*diagonal,remainingDt,movementObstacles);
         }
       }
       const movedBot=Math.hypot(b.x-startX,b.z-startZ);
