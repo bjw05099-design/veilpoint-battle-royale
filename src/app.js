@@ -133,6 +133,7 @@ const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!documen
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
+let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
 const SHOT_SAVE_INTERVAL_SECONDS=1;
@@ -143,11 +144,15 @@ function clearStoredMatch(){
  else global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
 }
 function persistMatch(){
- if(!running)return;
- if(simulation.status!=='playing'){clearStoredMatch();return;}
+ if(!running)return false;
+ if(simulation.status!=='playing'){clearStoredMatch();return false;}
  try{global.localStorage.setItem(MATCH_SAVE_KEY,Game.snapshotMatch(simulation));
   lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;saveWarning=false;
- }catch(_){if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}}
+  return true;
+ }catch(_){
+  if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}
+  return false;
+ }
 }
 function storedMatch(){
  try{const raw=global.localStorage.getItem(MATCH_SAVE_KEY);return raw?Game.restoreMatch(raw):null;}
@@ -219,11 +224,15 @@ function requestAimLock(){
   });
  }catch(_){suspendMatch('pointer');resetInactiveClock();}
 }
-function start(){
+function start(seedOverride=null,weaponOverride=null){
  if(graphicsContextLost||!renderer)return;
  clearStoredMatch();saveWarning=false;
- const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
- simulation=Game.newMatch(20261027+(Math.random()*10000|0),18,weaponId);simulation.status='playing';running=true;suspended=false;
+ const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
+ const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
+ const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
+ simulation=Game.newMatch(seed,18,weaponId);simulation.status='playing';running=true;suspended=false;
+ lastFinishedMatch=null;loadoutSelect.value=weaponId;
+ $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
  desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
@@ -237,6 +246,7 @@ function resumeStoredMatch(){
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ lastFinishedMatch=null;$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
@@ -258,6 +268,26 @@ function resumeMatch(){
 }
 $('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
 $('newMatch').addEventListener('click',start);
+// Explicit PC save-and-exit is only possible after a durable local checkpoint.
+// If browser storage is blocked, stay paused and let the player resume instead.
+$('saveExit').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing')return;
+ if(!persistMatch()){
+  document.querySelector('.tagline').textContent='저장 공간에 기록할 수 없어 메뉴로 나가지 않았습니다. 이어하기로 경기를 계속할 수 있습니다.';
+  return;
+ }
+ running=false;suspended=false;
+ desktopUi.cancel();resetInactiveClock();
+ $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ $('play').textContent='저장 경기 이어하기';
+ document.querySelector('.eyebrow').textContent='OFFLINE CHECKPOINT / SAVED';
+ document.querySelector('h1').textContent='VEILPOINT.';
+ document.querySelector('.tagline').textContent='경기가 저장되었습니다. 이어하기는 같은 경기로, 새 경기는 처음부터 시작합니다.';
+});
+$('retryArena').addEventListener('click',()=>{
+ if(running||!lastFinishedMatch||simulation.status==='playing')return;
+ start(lastFinishedMatch.seed,lastFinishedMatch.weaponId);
+});
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
@@ -300,6 +330,7 @@ function suspendMatch(reason='background'){
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
+ $('saveExit').classList.remove('hidden');$('retryArena').classList.add('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
  document.querySelector('.tagline').textContent=reason==='graphics'?'그래픽 장치가 끊어졌습니다. 복구 후 이어하기를 누르세요.':reason==='pointer'
@@ -414,7 +445,10 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
    :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT';
  minimap();
 }
-function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
+function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();
+ lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId};
+ running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
+ $('saveExit').classList.add('hidden');$('retryArena').classList.remove('hidden');
  const won=simulation.status==='won';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':'RE<span>DEPLOY.</span>';
  document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getFinalPlacement(simulation)}위`;
