@@ -3,8 +3,9 @@ const assert=require('node:assert/strict');
 const Story=require('../src/story-slice.js');
 
 function atRelay(){
- const s=Story.createState();s.phase='records';s.combat.cleared=true;
+ const s=Story.createState();Story.interact(s);
  s.world.bots.forEach(b=>{b.alive=false;b.health=0;});
+ s.combat.cleared=true;s.phase='decision';
  s.world.player.x=8;s.world.player.z=-42;
  return s;
 }
