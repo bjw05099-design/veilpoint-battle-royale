@@ -4,10 +4,10 @@ const assert=require('node:assert/strict');
 const Sim=require('../src/simulation.js');
 function blockedCache(){
  const s=Sim.newMatch(4401,1);
- s.status='playing';s.obstacles=[];
+ s.status='playing';
  s.player.x=0;s.player.z=0;
  s.bots[0].x=.4;s.bots[0].z=-1.7;s.bots[0].alive=true;
- s.loot=[{id:0,x:0,z:-1.79,kind:'ammo',weaponId:'carbine',remaining:6,picked:false}];
+ Object.assign(s.loot[0],{x:0,z:-1.79,kind:'ammo',weaponId:'carbine',remaining:6,picked:false});
  return s;
 }
 test('BR living actor blocks physical pickup; moving actor away permits finite transfer',()=>{
@@ -33,6 +33,6 @@ test('BR living actor blocks cache deposit, preserving reserves until line of ac
  assert.equal(result.moved,6);
  assert.equal(s.player.charges,initial-6);
  assert.equal(s.loot[0].remaining,12);
- const raw=JSON.stringify(Sim.snapshotMatch(s));
- assert.equal(JSON.stringify(Sim.snapshotMatch(Sim.restoreMatch(raw))),raw);
+ const raw=Sim.snapshotMatch(s);
+ assert.equal(Sim.snapshotMatch(Sim.restoreMatch(raw)),raw);
 });
