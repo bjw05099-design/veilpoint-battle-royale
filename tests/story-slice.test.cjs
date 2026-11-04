@@ -1578,3 +1578,20 @@ test('CH01 guide handoff requires the companion physically near muster; old save
  forged.guide.x=-10.5;forged.guide.arrived=true;
  assert.throws(()=>story.restore(JSON.stringify(forged)),RangeError);
 });
+
+test('CH01 guide stays solid after being returned to muster and a new checkpoint restores that pose',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');go(s,'muster');
+ story.interact(s);story.interact(s);
+ assert.equal(story.interact(s).event,'guideRelease');
+ const saved=story.serialize(s);
+ const restored=story.restore(saved),guide=restored.guide;
+ const p=restored.world.player;
+ p.x=guide.x;p.z=guide.z+3.5;p.yaw=0;
+ const body={x:guide.x,z:guide.z,w:1.1,d:1.1};
+ for(let i=0;i<120;i++)story.step(restored,1/60,{forward:true});
+ assert.equal(Sim.blocked(p.x,p.z,.85,[body]),false,
+   'released NPC remains a solid occupant after escort movement ends');
+ assert.equal(restored.guide.released,true);
+ assert.equal(restored.guide.x,guide.x);
+ assert.equal(restored.guide.z,guide.z);
+});
