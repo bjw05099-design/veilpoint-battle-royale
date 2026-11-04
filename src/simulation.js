@@ -688,11 +688,20 @@
     const item=available[0];
     // A short hand-carried shift, not a remote teleport or a through-wall pickup.
     const nx=item.x+Math.sin(p.yaw)*1.1,nz=item.z-Math.cos(p.yaw)*1.1;
-    if(blocked(nx,nz,.85,game.obstacles)||
-       lineBlocked(item.x,item.z,nx,nz,game.obstacles)||
-       [p,...game.bots].some(actor=>actor.alive&&Math.hypot(actor.x-nx,actor.z-nz)<1.7)||
-       game.loot.some(other=>other!==item&&Math.hypot(other.x-nx,other.z-nz)<1.2))
-      return {ok:false,reason:'destination_blocked'};
+    // Check the entire hand-carried path, not just the destination. A moving
+    // rival or another cache may occupy the middle of the short transfer.
+    // The source point is already reachable, but a blocking body anywhere
+    // along the transfer must prevent the object passing through it.
+    const steps=12;
+    for(let step=1;step<=steps;step++){
+      const fraction=step/steps;
+      const cx=item.x+(nx-item.x)*fraction,cz=item.z+(nz-item.z)*fraction;
+      if(blocked(cx,cz,.85,game.obstacles)||
+         (Math.hypot(p.x-nx,p.z-nz)<1.7 ||
+         game.bots.some(actor=>actor.alive&&Math.hypot(actor.x-cx,actor.z-cz)<1.7))||
+         game.loot.some(other=>other!==item&&Math.hypot(other.x-cx,other.z-cz)<1.2))
+        return {ok:false,reason:'path_blocked'};
+    }
     item.x=nx;item.z=nz;
     game.message='FIELD CACHE MOVED · '+item.remaining+' ROUNDS REMAIN';
     game.messageTime=2;
