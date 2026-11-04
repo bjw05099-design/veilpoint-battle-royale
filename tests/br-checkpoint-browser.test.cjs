@@ -178,3 +178,82 @@ test('opt-in PC benchmark starts only with active rendering and stops on match p
  assert.equal(stop.disabled,true);
  assert.equal(download.disabled,true,'less than warmup must not invent performance evidence');
 });
+
+
+test('BR paused save-and-exit returns to the PC menu and restores the exact active checkpoint',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(game.player.charges,47);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('saveExit').classList.contains('hidden'),false);
+ app.node('saveExit').click();
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.node('saveExit').classList.contains('hidden'),true);
+ assert.equal(app.node('play').textContent,'저장 경기 이어하기');
+ assert.equal(JSON.parse(store.get(KEY)).player.charges,47);
+ assert.match(app.node('selector-.tagline').textContent,/저장되었습니다/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.seed,game.seed);
+ assert.equal(app.game.player.charges,47);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
+
+test('BR save-and-exit refuses to abandon a paused game when local checkpoint writes fail',()=>{
+ const store={get:()=>null,set:()=>{throw new Error('quota exceeded');},delete:()=>{}};
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const before=app.game;
+ app.emit('keydown',{code:'Escape'});
+ app.node('saveExit').click();
+ assert.equal(app.node('play').textContent,'이어하기');
+ assert.match(app.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,before,'storage failure must not silently abandon the active round');
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+});
+
+test('BR defeat offers reproducible same-arena retry distinct from a saved checkpoint',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const first=app.game,seed=first.seed,originalWeapon=first.player.weaponId;
+ const originalSpawn={x:first.bots[0].x,z:first.bots[0].z};
+ app.global.VeilpointSim.receiveDamage(first,100);app.frame(2000/60);
+ assert.equal(app.node('retryArena').classList.contains('hidden'),false);
+ assert.equal(store.has(KEY),false,'terminal match must not survive as an active checkpoint');
+ app.node('weaponClass').value='compact';
+ app.node('retryArena').click();app.frame(3000/60);
+ assert.notEqual(app.game,first);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.seed,seed);
+ assert.equal(app.game.player.weaponId,originalWeapon);
+ assert.equal(app.game.player.charges,48);
+ assert.equal(app.game.bots[0].x,originalSpawn.x);
+ assert.equal(app.game.bots[0].z,originalSpawn.z);
+ assert.equal(app.node('retryArena').classList.contains('hidden'),true);
+ assert.ok(store.has(KEY),'the new active round receives its own recoverable save');
+});
+
+test('BR victory also allows a same-arena restart while the PC menu keeps New Match available',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ const first=app.game,seed=first.seed;
+ first.bots.forEach(b=>{b.alive=false;});
+ app.global.VeilpointSim.tick(first,1/60,{});
+ assert.equal(first.status,'won');
+ app.frame(2000/60);
+ assert.equal(app.node('retryArena').classList.contains('hidden'),false);
+ app.node('retryArena').click();app.frame(3000/60);
+ assert.equal(app.game.seed,seed);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.global.VeilpointSim.getAliveCount(app.game),19);
+ assert.equal(app.node('newMatch').disabled,false);
+});
+
+test('offline BR HTML ships the explicit PC pause and retry controls',()=>{
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/id="saveExit"[^>]*>체크포인트 저장 후 메뉴로/);
+ assert.match(html,/id="retryArena"[^>]*>같은 경기장 다시 도전/);
+});
