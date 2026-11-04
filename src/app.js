@@ -136,8 +136,24 @@ const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!documen
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
+const LAST_RESULT_KEY='veilpoint.brLastResult.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
-let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
+let lastFinishedMatch=null; // Same-arena retry metadata, never an active checkpoint.
+function clearLastResult(){
+ try{global.localStorage.removeItem(LAST_RESULT_KEY);}
+ catch(_){try{global.localStorage.setItem(LAST_RESULT_KEY,'');}catch(_){}}
+}
+function readLastResult(){
+ try{const raw=global.localStorage.getItem(LAST_RESULT_KEY);
+  return raw?Game.restoreLastResult(raw):null;
+ }catch(_){clearLastResult();return null;}
+}
+function archiveLastResult(){
+ try{const report=Game.createLastResult(simulation);
+  global.localStorage.setItem(LAST_RESULT_KEY,JSON.stringify(report));
+  return report;
+ }catch(_){return null;}
+}
 let pauseRestartArmed=false,forfeitArmed=false,manualCheckpoint=null;
 // Keep the optional P-key field bookmark separately from the newest autosave.
 // It is restored only for the same active arena and cleared on a new/ended match.
@@ -288,7 +304,7 @@ function requestAimLock(){
 }
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  if(graphicsContextLost||!renderer)return;
- clearStoredMatch();clearFieldBookmark();saveWarning=false;
+ clearStoredMatch();clearFieldBookmark();clearLastResult();saveWarning=false;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -324,6 +340,20 @@ function resumeStoredMatch(){
  requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
+else {
+ const archived=readLastResult();
+ if(archived){
+  lastFinishedMatch={seed:archived.seed,weaponId:archived.weaponId,rivals:archived.rivals};
+  $('play').textContent='새 경기 시작';
+  $('retryArena').classList.remove('hidden');
+  document.querySelector('.eyebrow').textContent='OFFLINE BR / LAST RESULT';
+  document.querySelector('.tagline').textContent=
+   '지난 경기 '+(archived.outcome==='won'?'승리':archived.outcome==='draw'?'공동 종료':'종료')+
+   ' · 생존 '+Math.floor(archived.elapsed)+'초 · 제거 '+archived.kills+'명'+
+   (archived.placement===null?' · 공동 종료':' · 순위 '+archived.placement+'위')+
+   ' · 같은 경기장 다시 도전 또는 새 경기 시작';
+ }
+}
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
  if(!running||!suspended||graphicsContextLost||!renderer)return;
@@ -623,7 +653,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();clearFieldBookmark();
+function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}archiveLastResult();clearStoredMatch();clearFieldBookmark();
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
