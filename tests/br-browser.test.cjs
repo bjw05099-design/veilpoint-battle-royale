@@ -1177,3 +1177,29 @@ test('offline BR remains playable when browser denies the localStorage getter', 
   assert.equal(app.node('desktopBindKey').textContent, 'KeyR',
     'PC controls fall back to defaults without storage');
 });
+
+test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume agree',()=>{
+ const store=new Map(),app=boot({store});
+ app.node('play').click();
+ app.frame(1000/60);
+ const game=app.game;
+ assert.equal(game.status,'playing');
+ game.player.x=30;game.player.z=-21.8;game.player.yaw=0;
+ const at=500;
+ app.frame(at); // Force the quarter-second HUD refresh after relocating in the test.
+ assert.match(app.node('pickupPrompt').textContent,/\[E\] OPERATE SERVICE YARD/);
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(game.yardGate.engaged,true);
+ assert.ok(store.get('veilpoint.brCheckpoint.v1'),'operating physical controls saves the world');
+ app.frame(at+1000/60);
+ assert.match(app.node('pickupPrompt').textContent,/SERVICE YARD GATE OPENING/);
+ for(let i=2;i<=140;i++)app.frame(at+i*1000/60);
+ assert.equal(game.yardGate.progress,1);
+ assert.match(app.node('pickupPrompt').textContent,/GATE OPEN · PASSAGE CLEAR/);
+ app.emit('blur');
+ const resumed=boot({store});
+ resumed.node('play').click();
+ resumed.frame(1000/60);
+ assert.equal(resumed.game.yardGate.progress,1);
+ assert.equal(resumed.game.obstacles.find(o=>o.routeId==='br-service-gate').x,37.2);
+});

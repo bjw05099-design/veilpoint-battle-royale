@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -109,13 +109,21 @@ function planVisible(state,aspect=16/9){
   addVisibleLoot({id:'field-'+b.id,x:b.x,z:b.z,kind:'ammo',weaponId:'carbine',
     remaining:Math.min(12,b.charges-b.loaded),picked:false,fieldPouch:true});
  }
+ // Live BR yard panels are dynamic collision geometry; render exactly one
+ // moving metal panel whenever it occupies the player's current view.
+ // A story scene has no BR service yard.
+ if(!state.scene)for(const item of state.obstacles||[]){
+  if(item.routeId==='br-service-gate'&&inView(p,item.x,item.z,3.2,MAX_DISTANCE,halfFov)){
+   serviceGates.push(item);boxes++;
+  }
+ }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
