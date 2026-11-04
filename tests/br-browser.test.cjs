@@ -888,7 +888,7 @@ test('PC BR HUD separates magazine digits from reload and stress feedback', () =
   app.node('play').click();
   app.frame(1000 / 60);
   assert.equal(app.node('charges').innerHTML, '12<span> / 36</span>');
-  assert.match(app.node('ammoStatus').textContent, /^READY · STRESS 0 · MOBILITY 100% · ASSIST OFF$/);
+  assert.match(app.node('ammoStatus').textContent, /^READY · STRESS 0 · MOBILITY 100% · FIELD LOAD 100% · ASSIST OFF$/);
   app.emit('keydown', {code: 'Space'});
   app.emit('keyup', {code: 'Space'});
   assert.equal(app.node('charges').innerHTML, '11<span> / 36</span>');

@@ -240,6 +240,15 @@
   function injuryMobility(player) {
     return 1-0.22*clamp((100-player.health)/100,0,1);
   }
+  // Optional field supplies have a finite carrying trade-off. Initial loadouts
+  // remain unchanged; picking up extra stock can reduce mobility by at most
+  // 12%, and returning that stock to a cache restores the original movement.
+  // This is calculated from saved inventory, with no new checkpoint version.
+  function supplyLoadMobility(player) {
+    const kit=FIREARMS[player.weaponId]||FIREARMS.carbine;
+    const capacity=Math.max(1,kit.maxRounds-kit.initialRounds);
+    return 1-0.12*clamp((player.charges-kit.initialRounds)/capacity,0,1);
+  }
   function updateStress(player, dt, sprinting) {
     const t=clamp(Number.isFinite(dt)?dt:0,0,.05);
     player.stress=clamp((player.stress||0)+(sprinting?9:-3)*t,0,100);
@@ -311,7 +320,8 @@
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
     const wantsSprint=canSprint(p,input,iz);
-    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p);
+    const loadMobility=supplyLoadMobility(p);
+    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     const beforeX=p.x,beforeZ=p.z;
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
@@ -320,7 +330,9 @@
     // resolved displacement, not a held key, while unobstructed movement is unchanged.
     const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
     const sprinting=wantsSprint&&movedDistance>1e-7;
-    p.stamina=clamp(p.stamina+(sprinting?-20:13)*dt,0,100);
+    // Extra finite inventory increases effort only when actual sprint travel occurs.
+    const sprintCost=20+8*(1-loadMobility)/0.12;
+    p.stamina=clamp(p.stamina+(sprinting?-sprintCost:13)*dt,0,100);
     updateStress(p,dt,sprinting);
     const previousPhase=game.zone.phase;
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
@@ -670,7 +682,7 @@
     const capacity=(chosen.kind==='ammo'?12:24)-chosen.remaining;
     const moved=Math.min(spare,capacity);
     p.charges-=moved;chosen.remaining+=moved;chosen.picked=false;
-    game.message='CACHE RESTOCKED '+moved+' ROUNDS · '+chosen.remaining+' STORED';
+    game.message='CACHE RESTOCKED '+moved+' ROUNDS · '+chosen.remaining+' STORED · MOBILITY '+Math.round(supplyLoadMobility(p)*100)+'%';
     game.messageTime=2;
     return {ok:true,moved,remaining:chosen.remaining};
   }
@@ -925,5 +937,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });
