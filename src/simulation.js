@@ -189,7 +189,7 @@
     return {
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
-      yardGate:{engaged:false,progress:0},
+      yardGate:{engaged:false,progress:0,closing:false},
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
@@ -201,7 +201,7 @@
     const distance=Math.hypot(p.x-SERVICE_YARD.switchX,p.z-SERVICE_YARD.switchZ);
     const near=distance<=2.1&&!lineBlocked(p.x,p.z,SERVICE_YARD.switchX,
       SERVICE_YARD.switchZ,game.obstacles.filter(o=>o.routeId!=='br-service-gate'));
-    return {near,engaged:gate.engaged,open:gate.progress>=1,
+    return {near,engaged:gate.engaged,open:gate.progress>=1,closing:gate.closing===true,
       progress:gate.progress,x:SERVICE_YARD.x,z:SERVICE_YARD.z};
   }
   // A local E interaction starts the yard panel once. A motorized slide takes
@@ -210,16 +210,19 @@
     if(game.status!=='playing')return {ok:false,reason:'inactive'};
     const state=serviceGateStatus(game);
     if(!state.near)return {ok:false,reason:'out_of_reach'};
-    if(game.yardGate.engaged)return {ok:false,reason:'already_engaged'};
+    if(game.yardGate.engaged&&game.yardGate.progress<1)return {ok:false,reason:'already_engaged'};
+    const closing=game.yardGate.progress>=1;
     game.yardGate.engaged=true;
-    game.message='SERVICE GATE MOTOR STARTED · WAIT FOR PASSAGE';
+    game.yardGate.closing=closing;
+    game.message=closing?'SERVICE GATE CLOSING · KEEP TRACK CLEAR':'SERVICE GATE MOTOR STARTED · WAIT FOR PASSAGE';
     game.messageTime=3;
     return {ok:true,progress:game.yardGate.progress};
   }
   function advanceServiceGate(game,dt) {
     const gate=game.yardGate;
-    if(!gate?.engaged||gate.progress>=1)return;
-    const next=Math.min(1,gate.progress+dt/SERVICE_YARD.seconds);
+    if(!gate?.engaged||(!gate.closing&&gate.progress>=1))return;
+    const next=gate.closing?Math.max(0,gate.progress-dt/SERVICE_YARD.seconds):
+      Math.min(1,gate.progress+dt/SERVICE_YARD.seconds);
     const body=game.obstacles.find(o=>o.routeId==='br-service-gate');
     if(!body)return;
     const futureX=SERVICE_YARD.x+SERVICE_YARD.slide*next;
@@ -229,6 +232,8 @@
     gate.progress=next;
     body.x=futureX;
     if(next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
+    if(next===0&&gate.closing){gate.engaged=false;gate.closing=false;
+      game.message='SERVICE GATE CLOSED · LOCAL CONTROL READY';game.messageTime=3;}
   }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
   // The shrinking area is a published match rule, not a supernatural source of
@@ -871,7 +876,7 @@
       ['lastTagAt',-2,3600],['recentDamage',0,100]]);
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
-      yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress},
+      yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
         reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
@@ -889,7 +894,8 @@
       lastTagAt:game.lastTagAt,recentDamage:game.recentDamage};
     if(typeof checkpoint.yardGate.engaged!=='boolean' ||
        !finite(checkpoint.yardGate.progress,0,1) ||
-       (!checkpoint.yardGate.engaged&&checkpoint.yardGate.progress!==0))
+       (!checkpoint.yardGate.engaged&&checkpoint.yardGate.progress!==0) ||
+       (checkpoint.yardGate.closing&&(!checkpoint.yardGate.engaged||checkpoint.yardGate.progress<=0)))
       throw new RangeError('Invalid service-yard gate checkpoint');
     // Refuse to overwrite a usable save with internally contradictory actor
     // state. The restore path already rejects these, but autosave must too.
@@ -965,9 +971,11 @@
     // closed until a player operates it. Never accept invented open progress.
     const oldGate=saved.yardGate===undefined?{engaged:false,progress:0}:saved.yardGate;
     if(!oldGate||typeof oldGate.engaged!=='boolean'||
-      !finite(oldGate.progress,0,1)||(!oldGate.engaged&&oldGate.progress!==0))
+      !finite(oldGate.progress,0,1)||(!oldGate.engaged&&oldGate.progress!==0)||
+      (oldGate.closing!==undefined&&typeof oldGate.closing!=='boolean')||
+      (oldGate.closing===true&&(!oldGate.engaged||oldGate.progress<=0)))
       throw new RangeError('Invalid restored service-yard gate');
-    game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress};
+    game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress,closing:oldGate.closing===true};
     const gateBody=game.obstacles.find(o=>o.routeId==='br-service-gate');
     gateBody.x=SERVICE_YARD.x+SERVICE_YARD.slide*oldGate.progress;
     // Reject malformed checkpoint flags instead of silently coercing strings,
