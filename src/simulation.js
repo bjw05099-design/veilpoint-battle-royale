@@ -398,6 +398,9 @@
     updateStress(p,dt,sprinting);
     const previousPhase=game.zone.phase;
     const next=phaseAt(game.elapsed); Object.assign(game.zone,next);
+    // A published finite final deadline ends the offline competition even
+    // if two eligible rivals survive. Never fabricate an outright winner.
+    const finalLimitReached=next.phase===ZONE_PHASES.length-1&&next.phaseRemaining===0;
     // The final announced phase also has an expiry: after its clock reaches
     // zero, crossing the final boundary is an immediate eligibility loss.
     // Otherwise a survivor could wait outside forever with no later phase edge.
@@ -616,6 +619,11 @@
     }
     game.effects.forEach(e=>e.t-=dt);game.effects=game.effects.filter(e=>e.t>0);
     if(getAliveCount(game)===1&&p.alive){game.status='won';game.message='YOU ARE THE LAST SIGNAL';}
+    else if(finalLimitReached&&p.alive&&getAliveCount(game)>1){
+      game.status='draw';
+      game.message='FINAL DEADLINE · NO SOLE SURVIVOR';
+      game.messageTime=3;
+    }
     return game;
   }
   function tag(game, crouching=false) {
