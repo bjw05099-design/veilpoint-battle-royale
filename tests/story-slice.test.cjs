@@ -1195,7 +1195,7 @@ test('CH01 optional evidence handoff cannot be forged or block an evacuation end
   assert.equal(story.debrief(state).logHandedOff,false);
 });
 
-test('powered civilian repeater supports physical readback during both exit routes without changing clearance',()=>{
+test('civilian repeater can be disconnected during either exit route without resetting local clearance',()=>{
   for(const route of ['evacuation','verification']){
     const state=reachDecision();
     go(state,'recordA');story.interact(state);
@@ -1211,11 +1211,13 @@ test('powered civilian repeater supports physical readback during both exit rout
     const checkpoint=story.serialize(state);
     const result=story.interact(state);
     assert.equal(result.ok,true);
-    assert.match(state.message,/전원 정상/);
+    assert.match(state.message,/전원 차단/);
+    assert.equal(state.relayRestored,false);
     assert.equal(state.gateReadyAt,deadline);
-    assert.equal(story.serialize(state),checkpoint);
-    const restored=story.restore(checkpoint);
+    assert.notEqual(story.serialize(state),checkpoint);
+    const restored=story.restore(story.serialize(state));
     assert.ok(story.markers(restored).some(m=>m.id==='relay'));
+    assert.equal(restored.relayRestored,false);
     assert.equal(restored.gateReadyAt,deadline);
     assert.notEqual(before,checkpoint);
   }
