@@ -248,8 +248,15 @@
     const body=game.obstacles.find(o=>o.routeId==='br-service-gate');
     if(!body)return;
     const futureX=SERVICE_YARD.x+SERVICE_YARD.slide*next;
+    // Check the entire rail swept by this tick, not only its destination.
+    // Otherwise a low-frequency/catch-up step can tunnel a sliding solid
+    // panel through a standing player or rival without ever overlapping at
+    // the final sample. The expanded AABB is conservative and deterministic.
+    const startX=body.x;
+    const swept={...body,x:(startX+futureX)/2,
+      w:body.w+Math.abs(futureX-startX)};
     const occupied=[game.player,...game.bots].some(actor=>actor.alive&&
-      intersectsCircleAABB(actor.x,actor.z,ACTOR_RADIUS,{...body,x:futureX}));
+      intersectsCircleAABB(actor.x,actor.z,ACTOR_RADIUS,swept));
     if(occupied){game.message='SERVICE GATE STOPPED · TRACK OBSTRUCTED';game.messageTime=1.5;return;}
     gate.progress=next;
     body.x=futureX;
