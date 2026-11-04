@@ -138,7 +138,7 @@ const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
-let pauseRestartArmed=false,manualCheckpoint=null;
+let pauseRestartArmed=false,forfeitArmed=false,manualCheckpoint=null;
 // Keep the optional P-key field bookmark separately from the newest autosave.
 // It is restored only for the same active arena and cleared on a new/ended match.
 function clearFieldBookmark(){
@@ -295,8 +295,8 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  const rivals=[1,4,18].includes(rosterOverride)?rosterOverride:selectedRoster();
  simulation=Game.newMatch(seed,rivals,weaponId,rivals===1);simulation.status='playing';running=true;suspended=false;
  rosterSelect.value=String(rivals);
- lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
- $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
+ $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
  desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
@@ -312,7 +312,7 @@ function resumeStoredMatch(){
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
@@ -388,6 +388,16 @@ $('restartArena').addEventListener('click',()=>{
  }
  const seed=simulation.seed,weapon=simulation.player.weaponId,rivals=simulation.bots.length;
  start(seed,weapon,rivals);
+});
+$('forfeitMatch').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing')return;
+ if(!forfeitArmed){
+  forfeitArmed=true;pauseRestartArmed=false;
+  document.querySelector('.tagline').textContent='경기 포기는 저장된 진행을 삭제하고 현재 순위로 종료합니다. 포기 버튼을 다시 누르면 확정됩니다.';
+  return;
+ }
+ const result=Game.forfeitMatch(simulation);
+ if(result.ok){end();document.querySelector('.tagline').textContent='경기를 자발적으로 포기했습니다. '+`순위 ${result.placement}위 · 제거 ${simulation.kills}명`+' · 같은 경기장 재도전 또는 새 경기 시작이 가능합니다.';}
 });
 $('retryArena').addEventListener('click',()=>{
  if(running||!lastFinishedMatch||simulation.status==='playing')return;
@@ -469,11 +479,11 @@ addEventListener('keyup',e=>{
 function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- persistMatch();suspended=true;pauseRestartArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
+ persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
- $('saveExit').classList.remove('hidden');$('retryArena').classList.add('hidden');
+ $('saveExit').classList.remove('hidden');$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
@@ -616,7 +626,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
 function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();clearFieldBookmark();
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
- $('saveExit').classList.add('hidden');$('retryArena').classList.remove('hidden');
+ $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  const won=simulation.status==='won',draw=simulation.status==='draw';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':draw?'FINAL DEADLINE / DRAW':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':draw?'DRAW.':'RE<span>DEPLOY.</span>';
