@@ -176,7 +176,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...(!state.relayRestored?[POINTS.relay]:[]),
+      POINTS.relay,
       ...warningMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
@@ -506,23 +506,18 @@
       state.message=state.found.length===2
         ?'SIGNAL ECHO: 04:07과 04:12 기록은 5분 차이입니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
-    }else if(marker.id==='relay'&&['records','decision'].includes(state.phase)){
-      // Optional physical action: the local generator is connected to the
-      // civilian radio repeater. No remote control or supernatural signal.
-      state.relayRestored=true;
-      state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
-      state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
-    }else if(marker.id==='relay'&&state.phase==='exit'){
-      // A physical generator switch can isolate and restore the local repeater.
-      // Already-authorized gate motion remains local and is never reset remotely.
+    }else if(marker.id==='relay'&&['records','decision','exit'].includes(state.phase)){
+      // The local generator can be isolated before the route is approved.
+      // This changes the subsequent authorization delay, but never retroactively
+      // changes the motor cycle of an already approved east checkpoint.
       state.relayRestored=!state.relayRestored;
       if(!state.relayRestored)state.beaconEnabled=false;
       state.subtitle=state.relayRestored
-        ?'마라(기술자): 현장 비상 전원을 다시 연결했어. 항구 통신과 경고등 스위치가 복구됐어.'
-        :'마라(기술자): 현장 전원을 분리했어. 경고등도 꺼졌지만 이미 승인된 통제문은 현장 작업자가 관리해.';
+        ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어.'
+        :'마라(기술자): 현장 전원을 분리했어. 경고등은 꺼지고 아직 요청하지 않은 통제문 준비에는 시간이 더 필요해.';
       state.message=state.relayRestored
-        ?'현장 중계기 재연결 · 경고등 수동 조작 가능'
-        :'현장 중계기 전원 차단 · 경고등 소등';
+        ?'현지 중계기 전원 연결 · 신규 통제문 요청 준비 4초'
+        :'현지 중계기 전원 분리 · 신규 통제문 요청 준비 8초';
     }else if(marker.id==='beacon'&&state.relayRestored&&
       ['records','decision','exit'].includes(state.phase)){
       // A reachable mechanical switch controls a powered warning fixture in
