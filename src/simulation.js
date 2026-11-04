@@ -313,9 +313,19 @@
     return {phase:ZONE_PHASES.length-1,radius:1.5,phaseRemaining:0};
   }
   function moveEntity(entity, vx, vz, dt, obstacles, radius=0.85) {
-    const nx=entity.x+vx*dt, nz=entity.z+vz*dt;
-    if (!blocked(nx,entity.z,radius,obstacles)) entity.x=nx;
-    if (!blocked(entity.x,nz,radius,obstacles)) entity.z=nz;
+    // Sweep large displacements in bounded increments so a frame catch-up or
+    // fast actor cannot tunnel through thin physical cover. Retain axis-wise
+    // sliding at each increment, including deterministic corner behavior.
+    if (!Number.isFinite(dt) || dt <= 0) return;
+    const dx=vx*dt, dz=vz*dt;
+    if (!Number.isFinite(dx) || !Number.isFinite(dz)) return;
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dz))/Math.max(.1,radius*.5)));
+    const sx=dx/steps, sz=dz/steps;
+    for(let i=0;i<steps;i++){
+      const nx=entity.x+sx, nz=entity.z+sz;
+      if (!blocked(nx,entity.z,radius,obstacles)) entity.x=nx;
+      if (!blocked(entity.x,nz,radius,obstacles)) entity.z=nz;
+    }
   }
 
   // Lightweight collision bodies for living actors. Pre-existing overlaps are ignored
