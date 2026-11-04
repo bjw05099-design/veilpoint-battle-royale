@@ -296,7 +296,19 @@
       if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
-    if(e.code==='Escape'&&running){e.preventDefault();menuOpen('일시정지됨. 이어하기를 눌러 재개하세요.');return;}
+    if(e.code==='Escape'){
+      e.preventDefault();
+      if(e.repeat)return;
+      if(running){menuOpen('일시정지됨. Esc 또는 이어하기를 눌러 재개하세요.');}
+      else if(sessionStarted&&!menu.classList.contains('hidden')&&
+        choices.classList.contains('hidden')&&state.phase!=='failed'&&state.phase!=='complete'&&
+        !graphicsContextLost&&renderer&&quality.classList.contains('hidden')){
+        // Escape resumes only a paused, already-started CH01 session. Never
+        // bypass the opening menu, mission result or graphics recovery.
+        resume();
+      }
+      return;
+    }
     if(!canAct())return;
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
