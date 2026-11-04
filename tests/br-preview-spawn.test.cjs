@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const Sim=require('../src/simulation.js');
 
 function demo(seed){
-  const state=Sim.newMatch(seed,1,'carbine');
+  const state=Sim.newMatch(seed,1,'carbine',true);
   state.status='playing';
   return state;
 }
@@ -45,7 +45,7 @@ test('existing older one-rival saves may legitimately resume farther from spawn'
 });
 
 test('normal 4/18-rival rosters and zero-rival CH01 base remain distinct',()=>{
-  for(const count of [0,4,18]){
+  for(const count of [0,1,4,18]){
     const a=Sim.newMatch(20261104,count),b=Sim.newMatch(20261104,count);
     assert.equal(a.bots.length,count);
     assert.deepEqual(a.bots,b.bots,'seeded opponent spawn is deterministic');
