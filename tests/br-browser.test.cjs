@@ -1185,14 +1185,15 @@ test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume 
  const game=app.game;
  assert.equal(game.status,'playing');
  game.player.x=30;game.player.z=-21.8;game.player.yaw=0;
- app.frame(2*1000/60);
+ const at=500;
+ app.frame(at); // Force the quarter-second HUD refresh after relocating in the test.
  assert.match(app.node('pickupPrompt').textContent,/\[E\] OPERATE SERVICE YARD/);
  app.emit('keydown',{code:'KeyE'});
  assert.equal(game.yardGate.engaged,true);
  assert.ok(store.get('veilpoint.brCheckpoint.v1'),'operating physical controls saves the world');
- app.frame(3*1000/60);
+ app.frame(at+1000/60);
  assert.match(app.node('pickupPrompt').textContent,/SERVICE YARD GATE OPENING/);
- for(let i=4;i<=130;i++)app.frame(i*1000/60);
+ for(let i=2;i<=140;i++)app.frame(at+i*1000/60);
  assert.equal(game.yardGate.progress,1);
  assert.match(app.node('pickupPrompt').textContent,/GATE OPEN · PASSAGE CLEAR/);
  app.emit('blur');
