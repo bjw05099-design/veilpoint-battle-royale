@@ -467,3 +467,37 @@ test('BR terminal outcome and explicit new arena remove the durable field bookma
  app.global.VeilpointSim.receiveDamage(app.game,100);app.frame(3000/60);
  assert.equal(store.has(key),false,'finished competitions cannot retain rewindable active checkpoints');
 });
+
+test('BR PC reload recovers a previous valid world after corrupt latest autosave',()=>{
+ const key='veilpoint.brCheckpoint.v1',previousKey=key+'.previous';
+ const store=new Map([['veilpoint.story.ch01','independent-story-save']]);
+ const first=boot(store);first.node('play').click();first.frame(1000/60);
+ const initial=JSON.parse(store.get(key));
+ first.emit('keydown',{code:'Space'});first.emit('keyup',{code:'Space'});
+ assert.equal(JSON.parse(store.get(key)).player.charges,initial.player.charges-1);
+ const previous=store.get(previousKey);
+ assert.ok(previous,'previous generation exists after real PC input changes the world');
+ store.set(key,'{interrupted-write');
+ const recovered=boot(store);
+ assert.equal(recovered.node('play').textContent,'저장 경기 이어하기');
+ assert.equal(store.get(key),previous,'validated previous world is promoted');
+ recovered.node('play').click();recovered.frame(1000/60);
+ assert.equal(recovered.game.player.charges,initial.player.charges);
+ assert.equal(recovered.game.seed,initial.seed);
+ assert.equal(store.get('veilpoint.story.ch01'),'independent-story-save');
+ recovered.node('newMatch').click();recovered.frame(2000/60);
+ assert.equal(store.has(previousKey),false,'new match removes fallback from old world');
+});
+
+test('BR terminal loss discards primary and backup so finished rounds cannot be reopened',()=>{
+ const key='veilpoint.brCheckpoint.v1',backup=key+'.previous';
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.ok(store.get(backup));
+ app.global.VeilpointSim.receiveDamage(app.game,100);app.frame(2000/60);
+ assert.equal(store.has(key),false);
+ assert.equal(store.has(backup),false);
+ const next=boot(store);next.node('play').click();next.frame(1000/60);
+ assert.equal(next.game.player.charges,48,'fresh round starts with finite initial resources');
+});
