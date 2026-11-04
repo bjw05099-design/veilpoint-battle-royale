@@ -707,6 +707,8 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
+      guideStatus:state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':'대피 안내원 동행 중 · 멀어지면 대기'):
+        state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
         :state.choice==='verification'
@@ -728,6 +730,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
+      guideArrived:state.guide.arrived,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
       civilianOutcome:verified?'east-clearance-confirmed':
@@ -740,6 +743,7 @@
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
         (state.aidDelivered?' 현지 구조단에 비상 물품을 직접 전달했습니다.':
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
+        (state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')
     });
   }
@@ -763,6 +767,9 @@
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
+          (state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
+            ?' 대피 안내원이 걸어서 동행 중입니다. 가까운 거리에서 안내하세요.':state.musterConfirmed
+            ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
             ?' 상자가 임시 적재대에 있습니다. E로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp
             ?' 상자를 운반 중입니다. 구조단에 인계하거나 임시 적재대에 E로 내려놓으세요.'
@@ -773,7 +780,8 @@
   function snapshot(state) {
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
-      aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
+      aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
+      guide:{active:state.guide.active,arrived:state.guide.arrived,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -792,8 +800,8 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+12||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged','gateClearanceDuration').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+13||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -811,6 +819,18 @@
       (hasOwn(data,'aidStaged')&&typeof data.aidStaged!=='boolean')||
       (data.aidStaged===true&&(data.aidPickedUp!==true||data.aidDelivered===true))||
       (data.aidDelivered===true&&data.aidPickedUp!==true)||
+      // Legacy saves without this optional escort field retain their old route.
+      (hasOwn(data,'guide')&&(!data.guide||typeof data.guide!=='object'||Array.isArray(data.guide)||
+        Object.keys(data.guide).sort().join(',')!=='active,arrived,x,z'||
+        typeof data.guide.active!=='boolean'||typeof data.guide.arrived!=='boolean'||
+        !Number.isFinite(data.guide.x)||!Number.isFinite(data.guide.z)||
+        Math.hypot(data.guide.x-GUIDE_START.x,data.guide.z-GUIDE_START.z)>19||
+        (data.guide.arrived&&(!data.guide.active||
+          Math.hypot(data.guide.x-POINTS.exitEvac.x,data.guide.z-POINTS.exitEvac.z)>2.4))||
+        (data.guide.active&&(data.choice!=='evacuation'||data.musterConfirmed!==true||
+          !['exit','complete'].includes(data.phase)))||
+        (!data.guide.active&&(data.guide.arrived||data.guide.x!==GUIDE_START.x||
+          data.guide.z!==GUIDE_START.z))))||
       (hasOwn(data,'gateClearanceDuration')&&![4,GATE_CLEARANCE_SECONDS].includes(data.gateClearanceDuration))||
        (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
         data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
@@ -961,6 +981,7 @@
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
+    state.guide=hasOwn(data,'guide')?{...data.guide}:{active:false,arrived:false,x:GUIDE_START.x,z:GUIDE_START.z};
     state.world.carryingAid=state.aidPickedUp&&!state.aidDelivered&&!state.aidStaged;
     state.world.aidStaged=state.aidStaged;
     state.world.aidPickedUp=state.aidPickedUp;state.world.aidDelivered=state.aidDelivered;
