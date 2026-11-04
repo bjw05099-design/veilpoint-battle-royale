@@ -38,6 +38,7 @@
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'}
   ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
+  const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -55,6 +56,7 @@
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
+    guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
     aidDrop: Object.freeze({id:'aidDrop', x:-12, z:-60, kind:'evac', label:'현지 구조단 비상 물품 인계 지점'}),
     aidStage: Object.freeze({id:'aidStage', x:-7, z:-55, kind:'objective', label:'민간 비상 물품 임시 적재대'}),
@@ -160,7 +162,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -187,12 +189,14 @@
       ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+        ...(state.musterConfirmed&&!state.guide.active?[POINTS.guide]:[]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
   }
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
+    state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.relayRestored=state.relayRestored;
     state.world.beaconEnabled=state.beaconEnabled;
     state.world.flashlightOn=state.flashlightOn;
@@ -282,6 +286,10 @@
     const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
+    if(state.choice==='evacuation'&&state.guide.active){
+      const body={x:state.guide.x,z:state.guide.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     const beforeX=p.x,beforeZ=p.z;
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
@@ -292,6 +300,24 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // The optional local evacuation guide follows at walking speed, within
+    // observation distance and through the same real harbor collision world.
+    // Leaving the guide behind pauses the escort; no teleportation or map-wide
+    // knowledge is used to manufacture an arrival.
+    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived){
+      const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
+      if(range>1.7&&range<7&&!Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles)){
+        const distance=Math.min(1.65*t,range-1.7);
+        if(distance>1e-8)Sim.moveEntity(g,dx/range*distance/t,dz/range*distance/t,t,
+          state.world.obstacles.concat([{x:p.x,z:p.z,w:1.7,d:1.7}]),.55);
+      }
+      if(Math.hypot(g.x-POINTS.exitEvac.x,g.z-POINTS.exitEvac.z)<2.4&&
+         Math.hypot(p.x-POINTS.exitEvac.x,p.z-POINTS.exitEvac.z)<4){
+        g.arrived=true;
+        state.subtitle='유수프(현지 구조단): 안내원이 남쪽 안뜰에 직접 도착했어. 나머지 주민은 구조단이 인계할게.';
+        state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
+      }
+    }
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
     // shot/impact visuals and damage feedback here, or they persist indefinitely.
     state.world.damageFlash=Math.max(0,state.world.damageFlash-t*2.4);
@@ -591,6 +617,11 @@
       state.musterConfirmed=true;
       state.subtitle='유수프(현지 구조단): 남쪽 집결지의 현장 인원 확인표를 대조했어. 미확인 인원은 후속 구조단에 인계하겠어.';
       state.message='남쪽 집결지 인원 확인 완료 · 안전한 안뜰로 이동하세요';
+    }else if(marker.id==='guide'&&state.phase==='exit'&&state.choice==='evacuation'&&
+      state.musterConfirmed&&!state.guide.active){
+      state.guide.active=true;
+      state.subtitle='유수프(현지 구조단): 안내원이 함께 이동할 거야. 멀어지면 기다릴 테니 천천히 안뜰로 가 줘.';
+      state.message='현지 대피 안내원 동행 시작 · 걸어서 남쪽 안뜰로 이동';
     }else if(marker.id==='gateLog'&&state.phase==='exit'&&state.choice==='verification'&&gateOpen(state)){
        // The captain must reach a physical cabinet after local clearance; this
        // is a contemporaneous transmission record, not supernatural hindsight.
