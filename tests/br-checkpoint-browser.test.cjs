@@ -434,3 +434,36 @@ test('BR desktop V returns finite spare rounds to a visible physical cache and p
  assert.equal(saved.player.charges,before-12);
  assert.equal(saved.loot[cache.id].remaining,12);
 });
+
+test('BR P-key field bookmark survives browser refresh and rewinds the actual saved world',()=>{
+ const store=new Map(),one=boot(store);
+ one.node('play').click();one.frame(1000/60);
+ one.emit('keydown',{code:'KeyP'});
+ const bookmarked=store.get('veilpoint.brFieldBookmark.v1');
+ assert.ok(bookmarked,'physical P-key creates a separate durable bookmark');
+ const savedPosition=JSON.parse(bookmarked).player;
+ one.emit('keydown',{code:'Space'});one.emit('keyup',{code:'Space'});
+ assert.equal(one.game.player.charges,savedPosition.charges-1);
+ one.emit('blur');
+ const two=boot(store);
+ two.node('play').click();two.frame(1000/60);
+ assert.equal(two.game.player.charges,savedPosition.charges-1,'regular autosave resumes most recent play');
+ two.emit('keydown',{code:'Escape'});
+ two.node('restoreCheckpoint').click();
+ assert.match(two.node('selector-.tagline').textContent,/복원했습니다/);
+ two.node('play').click();two.frame(2000/60);
+ assert.equal(two.game.player.charges,savedPosition.charges,'rewind restores complete previous finite world');
+ assert.equal(JSON.parse(store.get(KEY)).player.charges,savedPosition.charges,
+  'a refresh immediately after rewind must reopen the restored world');
+});
+
+test('BR terminal outcome and explicit new arena remove the durable field bookmark',()=>{
+ const store=new Map(),app=boot(store),key='veilpoint.brFieldBookmark.v1';
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'KeyP'});assert.ok(store.get(key));
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(store.has(key),false,'new arena must discard old rewind points');
+ app.emit('keydown',{code:'KeyP'});assert.ok(store.get(key));
+ app.global.VeilpointSim.receiveDamage(app.game,100);app.frame(3000/60);
+ assert.equal(store.has(key),false,'finished competitions cannot retain rewindable active checkpoints');
+});

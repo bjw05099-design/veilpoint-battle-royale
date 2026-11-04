@@ -118,3 +118,31 @@ test('BR checkpoint size limit protects offline resume without rejecting 20-oppo
  assert.throws(()=>Sim.restoreMatch(padded),/BR checkpoint too large/);
  assert.throws(()=>Sim.restoreMatch(' '.repeat(65537)),/BR checkpoint too large/);
 });
+
+test('BR field bookmark rewinds RNG, actors, zone and finite inventory with fixed 60Hz replay',()=>{
+ const original=active(20261105,1);
+ for(let i=0;i<45;i++)Sim.tick(original,1/60,{forward:i%4===0});
+ assert.equal(original.status,'playing');
+ const bookmark=Sim.snapshotMatch(original);
+ const expected=Sim.restoreMatch(bookmark);
+ for(let i=0;i<80;i++)Sim.tick(original,1/60,{right:i%5===0});
+ const rewound=Sim.restoreFieldBookmark(original,bookmark);
+ assert.equal(Sim.snapshotMatch(rewound),bookmark,'all world state, including RNG, is restored');
+ for(let i=0;i<90;i++){
+  const input={forward:i%3===0,left:i%7===0};
+  Sim.tick(rewound,1/60,input);Sim.tick(expected,1/60,input);
+  assert.equal(Sim.snapshotMatch(rewound),Sim.snapshotMatch(expected),'replay diverged at step '+i);
+  if(rewound.status!=='playing')break;
+ }
+});
+
+test('BR field bookmark refuses other arena, future timeline and finished matches',()=>{
+ const live=active(20261106,1),foreign=active(20261107,1);
+ assert.throws(()=>Sim.restoreFieldBookmark(live,Sim.snapshotMatch(foreign)),/another round/);
+ const later=Sim.snapshotMatch(live);
+ Sim.tick(live,1/60,{forward:true});
+ assert.throws(()=>Sim.restoreFieldBookmark(Sim.restoreMatch(later),Sim.snapshotMatch(live)),/future step/);
+ const over=active(20261108,1);
+ Sim.receiveDamage(over,100);
+ assert.throws(()=>Sim.restoreFieldBookmark(over,later),/active BR/);
+});
