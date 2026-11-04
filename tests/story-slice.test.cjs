@@ -641,7 +641,10 @@ test('CH01 empty-fire instructions respect whether the finite cache remains avai
  assert.equal(story.fire(loaded).reason,'empty');
  assert.match(loaded.message,/재시작/);
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
- assert.match(app,/situation.route\+' · '\+situation.civilianConsequence/);
+ assert.match(app,/situation.route\+/);
+ assert.match(app,/situation.civilianConsequence/);
+ assert.match(app,/eastGateRemainingSeconds/);
+ assert.match(app,/routeReviewAvailable/);
 });
 
 
