@@ -68,6 +68,7 @@ test('final published expiry ends a non-unique finish as draw, not an invented f
 test('final deadline outside boundary produces loss, never a draw',()=>{
   const game=live(20261105,1);
   const total=Sim.ZONE_PHASES.reduce((sum,phase)=>sum+phase.duration,0);
+  game.player.x=6;game.player.z=0; // Explicitly outside the 1.5m final radius.
   game.elapsed=total-1/120;
   game.zone=Sim.phaseAt(game.elapsed);
   Sim.tick(game,1/60,{});
