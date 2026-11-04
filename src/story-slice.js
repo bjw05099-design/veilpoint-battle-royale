@@ -976,8 +976,29 @@
     if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
     return syncMarkers(state);
   }
+  // Durable checkpoint recovery is a world-state transition, not a bypass of
+  // the CH01 save validator: each candidate is restored through the complete
+  // existing schema, physical collision, phase and finite-resource checks.
+  // A corrupt latest save may fall back to the previous valid world; a valid
+  // completed mission is never rolled back to an older playable checkpoint.
+  function recoverCheckpoint(primary, backup) {
+    let failedPrimary=null,firstError=null;
+    for(const [source,raw] of [['primary',primary],['backup',backup]]) {
+      if(typeof raw!=='string'||raw.length===0)continue;
+      try {
+        const state=restore(raw);
+        if(source==='primary'&&state.phase==='failed'){
+          failedPrimary={source,state};continue;
+        }
+        return {source,state};
+      } catch(error){if(!firstError)firstError=error;}
+    }
+    if(failedPrimary)return failedPrimary;
+    if(firstError)throw firstError;
+    return null;
+  }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,debrief,backToRecords,serialize,restore,validateSnapshot
+    objective,situation,debrief,backToRecords,serialize,restore,recoverCheckpoint,validateSnapshot
   });
 });

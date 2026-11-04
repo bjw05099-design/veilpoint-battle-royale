@@ -1157,3 +1157,37 @@ test('CH01 Escape on the initial menu cannot bypass mission start',()=>{
  app.emit('keydown',{code:'Escape'});
  assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
+
+test('CH01 browser recovers an earlier physically valid save after a truncated recent checkpoint',()=>{
+  const store=new Map([['veilpoint.brCheckpoint.v1','separate-br-save']]),app=boot(store);
+  app.element('continue').click();
+  for(let i=1;i<=690;i++)app.frame(i*1000/60);
+  const backup=store.get('veilpoint.story.ch01.previous');
+  const newest=store.get('veilpoint.story.ch01');
+  assert.ok(backup&&newest,'at least two playable automatic generations exist');
+  const older=JSON.parse(backup),latest=JSON.parse(newest);
+  assert.ok(older.elapsed<latest.elapsed,'backup is an earlier 60Hz world, not a duplicate');
+  store.set('veilpoint.story.ch01','{interrupted-write');
+  const recovered=boot(store);
+  assert.match(recovered.element('menuText').textContent,/이전 정상 체크포인트를 복구/);
+  assert.equal(store.get('veilpoint.story.ch01'),backup,'restore promotes validated backup');
+  recovered.element('continue').click();recovered.frame(1000/60);
+  const after=JSON.parse(store.get('veilpoint.story.ch01'));
+  assert.equal(after.player.z,older.player.z,'same mission location remains after recovery');
+  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'separate-br-save','BR save is isolated');
+  recovered.element('newGame').click();
+  assert.equal(store.has('veilpoint.story.ch01'),false);
+  assert.equal(store.has('veilpoint.story.ch01.previous'),false,'new mission deletes both generations');
+});
+
+test('CH01 malformed backup never changes a valid completed or active primary checkpoint',()=>{
+  const store=new Map(),app=boot(store);
+  app.element('continue').click();
+  for(let i=1;i<=360;i++)app.frame(i*1000/60);
+  const valid=store.get('veilpoint.story.ch01');
+  store.set('veilpoint.story.ch01.previous','{invalid');
+  const resumed=boot(store);
+  assert.doesNotMatch(resumed.element('menuText').textContent,/손상되어/);
+  resumed.element('continue').click();resumed.frame(1000/60);
+  assert.equal(store.get('veilpoint.story.ch01'),valid);
+});

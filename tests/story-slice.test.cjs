@@ -1371,3 +1371,32 @@ test('CH01 checkpoint rejects an energized harbor warning fixture with isolated 
  assert.throws(()=>story.restore(JSON.stringify({...saved,relayRestored:false})),/checkpoint/i);
  assert.equal(story.restore(JSON.stringify(saved)).beaconEnabled,true);
 });
+
+test('CH01 recovery falls back to a fully validated previous world and replays at fixed 60Hz',()=>{
+  const original=story.createState();
+  for(let i=0;i<75;i++)story.step(original,1/60,{forward:i%5!==0});
+  const previous=story.serialize(original);
+  const selected=story.recoverCheckpoint('{truncated',previous);
+  assert.equal(selected.source,'backup');
+  assert.equal(story.serialize(selected.state),previous,'recovered world is the exact prior physical state');
+  for(let i=0;i<120;i++){
+    const input={forward:i%7===0,right:i%3===0};
+    story.step(original,1/60,input);story.step(selected.state,1/60,input);
+    assert.equal(story.serialize(selected.state),story.serialize(original));
+  }
+  assert.throws(()=>story.recoverCheckpoint('{broken','{also broken'),SyntaxError);
+  assert.equal(story.recoverCheckpoint(null,null),null);
+});
+
+test('CH01 valid primary including completed mission overrides an older playable backup',()=>{
+  const previous=story.serialize(story.createState());
+  const finished=reachDecision();
+  story.choose(finished,'evacuation');
+  go(finished,'exitEvac');story.interact(finished);
+  assert.equal(finished.phase,'complete');
+  const saved=story.serialize(finished);
+  const result=story.recoverCheckpoint(saved,previous);
+  assert.equal(result.source,'primary');
+  assert.equal(result.state.phase,'complete');
+  assert.equal(story.serialize(result.state),saved);
+});
