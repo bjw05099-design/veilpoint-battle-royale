@@ -150,6 +150,7 @@ class SoftwareRenderer {
   type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
     o.type==='yard-fence'?'yard-fence':'building'});
  if(!harborNight)objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
+ for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
   w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
@@ -170,7 +171,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -385,6 +386,12 @@ class Renderer {
  // Culling already budgets this exact one-box dynamic mesh contribution.
  for(const gate of plan.serviceGates||[])mesh.box(gate.x,0,gate.z,
    gate.w,gate.h,gate.d,global.VeilpointSim.gateMotorActive(state)?[.75,.49,.19]:[.55,.47,.32]);
+ // A single physical navigation sign follows the saved match world state.
+ // Its narrow post and cloth flag require two cull-accounted boxes.
+ for(const mark of plan.trailMarkers||[]){
+  mesh.box(mark.x,0,mark.z,.11,.9,.11,[.42,.37,.30]);
+  mesh.box(mark.x,.67,mark.z,.55,.24,.09,[.69,.53,.19]);
+ }
  // Static geometry is generated from the BR base world. Story-specific route
  // blockers must also be rendered from the live world or the player collides
  // with an invisible checkpoint. A cleared route removes this mesh on the

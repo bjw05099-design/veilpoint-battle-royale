@@ -202,6 +202,8 @@
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
+      // One physical route sign is carried or planted, never duplicated.
+      trailMarker:null,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
@@ -254,6 +256,28 @@
     if(next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
     if(next===0&&gate.closing){gate.engaged=false;gate.closing=false;
       game.message='SERVICE GATE CLOSED · LOCAL CONTROL READY';game.messageTime=3;}
+  }
+  // PC J places or recovers one tangible field marker for self-navigation.
+  // The marker is not a radar or teleport destination and cannot be recalled
+  // remotely: recover it at arm's reach with an unobstructed path.
+  function toggleTrailMarker(game) {
+    if(!game||game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
+    const p=game.player,mark=game.trailMarker;
+    if(mark){
+      if(dist(p,mark)>=PICKUP_REACH||lineBlocked(p.x,p.z,mark.x,mark.z,game.obstacles))
+        return {ok:false,reason:'out_of_reach'};
+      game.trailMarker=null;
+      game.message='ROUTE SIGN RECOVERED · READY TO PLACE';game.messageTime=2;
+      return {ok:true,action:'recovered'};
+    }
+    const spot={x:p.x+Math.sin(p.yaw)*.9,z:p.z-Math.cos(p.yaw)*.9};
+    if(Math.abs(spot.x)>WORLD-.5||Math.abs(spot.z)>WORLD-.5||
+       blocked(spot.x,spot.z,.22,game.obstacles)||
+       game.bots.some(b=>b.alive&&dist(spot,b)<ACTOR_RADIUS+.22))
+      return {ok:false,reason:'blocked'};
+    game.trailMarker=spot;
+    game.message='PHYSICAL ROUTE SIGN SET · ONE SIGN CARRIED';game.messageTime=2;
+    return {ok:true,action:'placed',...spot};
   }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
   // The shrinking area is a published match rule, not a supernatural source of
@@ -914,6 +938,7 @@
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
+      trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
         reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
@@ -934,6 +959,17 @@
        (!checkpoint.yardGate.engaged&&checkpoint.yardGate.progress!==0) ||
        (checkpoint.yardGate.closing&&(!checkpoint.yardGate.engaged||checkpoint.yardGate.progress<=0)))
       throw new RangeError('Invalid service-yard gate checkpoint');
+    // The sign is a single physical authored prop. Legacy saves may omit it,
+    // but new saves must reject impossible coordinates, arbitrary keys or
+    // placement inside actual solid cover before overwriting localStorage.
+    if(checkpoint.trailMarker!==null){
+      const mark=checkpoint.trailMarker;
+      if(!mark||typeof mark!=='object'||Array.isArray(mark)||
+         Object.keys(mark).sort().join(',')!=='x,z'||
+         !finite(mark.x,-WORLD,WORLD)||!finite(mark.z,-WORLD,WORLD)||
+         blocked(mark.x,mark.z,.22,game.obstacles))
+        throw new RangeError('Invalid BR route sign');
+    }
     // Refuse to overwrite a usable save with internally contradictory actor
     // state. The restore path already rejects these, but autosave must too.
     if (checkpoint.player.alive !== true || checkpoint.player.health <= 0 ||
@@ -998,12 +1034,20 @@
         !Array.isArray(saved.effects) || saved.effects.length>256 ||
         typeof saved.message!=='string' || saved.message.length>120)
       throw new RangeError('Invalid BR checkpoint');
+    const rawMarker=saved.trailMarker===undefined?null:saved.trailMarker;
+    if(rawMarker!==null&&(!rawMarker||typeof rawMarker!=='object'||
+       Array.isArray(rawMarker)||Object.keys(rawMarker).sort().join(',')!=='x,z'||
+       !finite(rawMarker.x,-WORLD,WORLD)||!finite(rawMarker.z,-WORLD,WORLD)))
+      throw new RangeError('Invalid restored BR route sign');
     const weaponId=saved.player && saved.player.weaponId;
     if (!Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)) throw new RangeError('Unknown saved firearm');
     const firearm=FIREARMS[weaponId];
     // Recreate authored cover once; saved positions are untrusted and must not
     // resume inside a wall or beyond the playable boundary.
     const game=newMatch(saved.seed,saved.bots.length,weaponId);
+    if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
+      throw new RangeError('Route sign inside solid cover');
+    game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
     // Old checkpoints predate the service gate, so the new physical gate is
     // closed until a player operates it. Never accept invented open progress.
     const oldGate=saved.yardGate===undefined?{engaged:false,progress:0}:saved.yardGate;
@@ -1084,5 +1128,5 @@
     game.random.setState(saved.rngState);
     return game;
   }
-  return {gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch};
 });

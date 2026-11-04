@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[],serviceGates=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[],trailMarkers=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -117,13 +117,20 @@ function planVisible(state,aspect=16/9){
    serviceGates.push(item);boxes++;
   }
  }
+ // A locally placed one-use physical route sign uses the same occlusion and
+ // geometry accounting as other small world props. No location reveals AI.
+ if(!state.scene&&state.trailMarker&&
+    inView(p,state.trailMarker.x,state.trailMarker.z,.5,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.trailMarker,.25,state.obstacles)){
+   trailMarkers.push(state.trailMarker);boxes+=2;
+ }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,serviceGates,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,trailMarkers,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
