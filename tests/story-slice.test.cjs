@@ -641,7 +641,10 @@ test('CH01 empty-fire instructions respect whether the finite cache remains avai
  assert.equal(story.fire(loaded).reason,'empty');
  assert.match(loaded.message,/재시작/);
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
- assert.match(app,/situation.route\+' · '\+situation.civilianConsequence/);
+ assert.match(app,/situation.route\+/);
+ assert.match(app,/situation.civilianConsequence/);
+ assert.match(app,/eastGateRemainingSeconds/);
+ assert.match(app,/routeReviewAvailable/);
 });
 
 
@@ -1281,4 +1284,33 @@ test('CH01 committed aid cargo, confirmed headcount and inspected log cannot be 
   assert.equal(story.markers(headcount).some(m=>m.id==='decision'),false);
   go(headcount,'decision');
   assert.equal(story.choose(headcount,'verification').reason,'not_near_desk');
+});
+
+test('CH01 published clearance countdown decreases in deterministic 60Hz steps and survives save restore',()=>{
+  const state=reachDecision();
+  go(state,'recordA');story.interact(state);
+  go(state,'recordB');story.interact(state);
+  assert.equal(story.choose(state,'verification').ok,true);
+  const initial=story.situation(state);
+  assert.equal(initial.eastGateOpen,false);
+  assert.equal(initial.eastGateRemainingSeconds,story.GATE_CLEARANCE_SECONDS);
+  assert.equal(initial.routeReviewAvailable,true);
+  for(let i=0;i<120;i++)story.step(state,1/60,{});
+  const remaining=story.situation(state).eastGateRemainingSeconds;
+  assert.ok(Math.abs(remaining-(story.GATE_CLEARANCE_SECONDS-2))<.001);
+  const restored=story.restore(story.serialize(state));
+  assert.ok(Math.abs(story.situation(restored).eastGateRemainingSeconds-remaining)<.001);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60;i++)story.step(restored,1/60,{});
+  assert.equal(story.situation(restored).eastGateOpen,true);
+  assert.equal(story.situation(restored).eastGateRemainingSeconds,0);
+});
+test('CH01 route review availability reflects irreversible physical evidence and cargo commitment',()=>{
+  const state=reachDecision();
+  go(state,'recordA');story.interact(state);
+  go(state,'recordB');story.interact(state);
+  story.choose(state,'evacuation');
+  assert.equal(story.situation(state).routeReviewAvailable,true);
+  go(state,'aidPickup');assert.equal(story.interact(state).ok,true);
+  assert.equal(story.situation(state).routeReviewAvailable,false);
+  assert.equal(story.situation(story.restore(story.serialize(state))).routeReviewAvailable,false);
 });
