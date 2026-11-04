@@ -216,7 +216,7 @@
     const revisiting=state.phase==='exit';
     $('choiceBack').textContent=revisiting?'취소 · 기존 경로 유지':'돌아가서 조사';
     $('choiceHint').textContent=revisiting
-      ?'현장 결정 콘솔에서 다시 선택합니다. 취소하면 현재 경로와 통제문 진행 상태가 그대로 유지됩니다.'
+      ?'현재 '+(state.choice==='verification'?'동쪽 확인 경로':'남쪽 대피 경로')+' · '+(state.choice==='verification'&&!Story.situation(state).eastGateOpen?'통제문 개방까지 약 '+Math.ceil(Story.situation(state).eastGateRemainingSeconds)+'초 · ':'')+'현장 콘솔에서 변경할 수 있습니다. 취소하면 현재 경로와 진행 상태를 유지합니다.'
       :canVerify?'기록 2/2: 항구 04:12 · 대피소 04:07. 두 경로 모두 선택할 수 있습니다.'
       :'기록 '+state.found.length+'/2: 대피 우선은 즉시 선택 가능하며, 추가 확인 경로는 기록 2개가 필요합니다.';
     if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -424,7 +424,7 @@
        ?'F':desktopUi.get().bindings.headlamp.replace(/^Key/,'');
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
     const situation=Story.situation(state);
-    $('routeStatus').textContent=situation.route+' · '+situation.civilianConsequence+' · '+situation.radio+' · '+situation.warning+
+    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
@@ -451,6 +451,7 @@
     if(nearby)$('interaction').textContent=nearby.kind==='ammo'
       ?nearby.label+' · 잔량 '+state.combat.supplyRemaining+'발 · '+
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':'[E] 필요한 만큼 확보')
+      :nearby.id==='decision'&&state.phase==='exit'?'[E] '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
       :nearby.id==='aidPickup'?'[E] '+nearby.label+' 들기 · 운반 중 달리기 제한'
       :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
       :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
