@@ -180,9 +180,9 @@
       ...warningMarkers(state)
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,POINTS.decision,...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])]:
-      [POINTS.exitEvac,...(!state.aidPickedUp&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+      [POINTS.exitEvac,...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])];
     return [];
@@ -532,23 +532,12 @@
       state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='exit'){
-      // Reconsidering a route requires physically returning to the same desk.
-      // A crate already removed from storage cannot be abandoned by changing routes.
-      if(state.choice==='evacuation'&&state.aidPickedUp)
-        return {ok:false,reason:'cargo_committed'};
-      state.choice=state.choice==='verification'?'evacuation':'verification';
-      // A fresh local clearance request takes real elapsed time; it cannot
-      // inherit a nearly finished gate motor from an earlier decision.
-      state.gateReadyAt=state.choice==='verification'
-        ?state.world.elapsed+(state.relayRestored?4:GATE_CLEARANCE_SECONDS):0;
-      state.gateObstructed=false;
-      state.subtitle=state.choice==='verification'
-        ?'마라(기술자): 동쪽 통로를 다시 요청했어. 현지 구조단이 현장에서 통제물을 이동할 때까지 기다려.'
-        :'유수프(현지 구조단): 동쪽 요청을 취소하고 남쪽 안뜰 대피를 다시 안내하겠어.';
-      state.message=state.choice==='verification'
-        ?'동쪽 통로 재요청 · 현장 개방 대기'
-        :'남쪽 안뜰 대피 경로 재선택';
-      syncRoute(state);
+      // A physical desk opens explicit choice UI: simply pressing E must never
+      // silently change a route, clearance timer or saved consequences.
+      if((state.choice==='evacuation'&&(state.aidPickedUp||state.musterConfirmed))||
+         (state.choice==='verification'&&state.gateLogReviewed))
+        return {ok:false,reason:'route_committed'};
+      return {ok:true,event:'reconsider',phase:state.phase};
     }else if(marker.id==='aidPickup'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.aidPickedUp){
       state.aidPickedUp=true;state.world.aidPickedUp=true;state.world.carryingAid=true;
       state.subtitle='유수프(현지 구조단): 민간 구조 물품을 직접 운반해 줘. 상자를 들고 있는 동안 뛰기는 어려워.';
@@ -607,15 +596,27 @@
     return {ok:true,event:marker.id,phase:state.phase};
   }
   function choose(state, choice) {
-    if(state.phase!=='decision')return {ok:false,reason:'not_choosing'};
+    const reconsider=state.phase==='exit';
+    if(!reconsider&&state.phase!=='decision')return {ok:false,reason:'not_choosing'};
     if(choice!=='evacuation'&&choice!=='verification')return {ok:false,reason:'invalid_choice'};
     if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
+    if(reconsider){
+      // A menu cannot grant remote clearance or undo carried aid and confirmed
+      // records. Use the same physically reachable marker as the PC E key.
+      if(nearest(state)?.id!=='decision')return {ok:false,reason:'not_near_desk'};
+      if((state.choice==='evacuation'&&(state.aidPickedUp||state.musterConfirmed))||
+         (state.choice==='verification'&&state.gateLogReviewed))
+        return {ok:false,reason:'route_committed'};
+      // Reconfirming the current route must not reset its running gate motor.
+      if(choice===state.choice)return {ok:true,event:'choice_unchanged',choice};
+    }
     state.choice=choice;state.phase='exit';
     state.gateReadyAt=choice==='verification'?state.world.elapsed+(state.relayRestored?4:GATE_CLEARANCE_SECONDS):0;
+    state.gateObstructed=false;
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 두 기록을 전달했어. 유수프 구조단이 동쪽 통제물을 치우는 동안 기다려야 해. 원인은 아직 미확정이야.'
-      :'마라(기술자): 현지 구조단이 확인한 남쪽 대피 통로로 가자. 동쪽 통제소는 계속 닫혀 있어.';
-    state.message=choice==='verification'?'현지 구조단 요청 수락 · 동쪽 통로 개방 작업 중':'남쪽 대피 통로 유지 · 동쪽 통제소 차단';
+      ?'마라(기술자): 현지 통제소에 동쪽 통로 개방을 요청했습니다. 실제 작업 시간이 필요해요.'
+      :'유수프(현지 구조단): 남쪽 대피 통로를 현장에서 안내하겠어. 동쪽 개방 요청은 중단했어.';
+    state.message=choice==='verification'?'현지 통제소 요청 · 동쪽 통로 개방 대기':'남쪽 대피 통로 선택 · 동쪽 통제소 차단';
     syncRoute(state);syncMarkers(state);
     return {ok:true,event:'choice',choice};
   }
