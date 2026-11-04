@@ -167,7 +167,14 @@ function storedMatch(){
  catch(_){clearStoredMatch();return null;}
 }
 
-function collectAmmo(){if(!canAct())return;Game.pickup(simulation);persistMatch();updateHud();}
+function collectAmmo(){
+ if(!canAct())return;
+ // The same PC E interaction operates a physical service-yard control when
+ // the player stands beside it. Otherwise E retains normal finite loot use.
+ const gate=Game.operateServiceGate(simulation);
+ if(gate.ok){persistMatch();updateHud();return;}
+ Game.pickup(simulation);persistMatch();updateHud();
+}
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
 function toggleReloadAssist(){if(!canAct())return;Game.setReloadAssist(simulation,!simulation.player.reloadAssist);persistMatch();updateHud();}
 function initializeRenderer(){
@@ -490,6 +497,12 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
  for(let i=0;i<9;i++){let a=w*i/8;ctx.beginPath();ctx.moveTo(a,0);ctx.lineTo(a,h);ctx.moveTo(0,a);ctx.lineTo(w,a);ctx.stroke();}
  ctx.strokeStyle='#a8d8fc';ctx.lineWidth=2;ctx.beginPath();ctx.arc(tx(simulation.zone.x),tz(simulation.zone.z),simulation.zone.radius/z*w/2,0,Math.PI*2);ctx.stroke();
  ctx.fillStyle='#758785';for(const o of simulation.obstacles)ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/z*w/2,o.d/z*h/2);
+ // The service yard is fixed public map infrastructure, not enemy tracking.
+ const gate=Game.serviceGateStatus(simulation);
+ if(!simulation.scene){
+  ctx.fillStyle=gate.open?'#89c6a1':'#d5b478';
+  ctx.fillRect(tx(gate.x)-3,tz(gate.z)-3,6,6);
+ }
  // No omniscient opponent positions: the map is a local map, not a live enemy tracker.
  const p=simulation.player;ctx.fillStyle='#eaffbd';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#eaffbd';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*15,tz(p.z)-Math.cos(p.yaw)*15);ctx.stroke();
 }
@@ -512,13 +525,18 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  // Keep reload and other event feedback readable alongside the boundary warning.
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [boundaryMessage,eventMessage].filter(Boolean).join(' · ');
+ const yardGate=Game.serviceGateStatus(s);
  const nearby=Game.nearestReachablePickup(s);
  const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
    item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
- $('pickupPrompt').style.display=nearby||restock?'block':'none';
- if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
+ $('pickupPrompt').style.display=yardGate.near||nearby||restock?'block':'none';
+ if(yardGate.near)$('pickupPrompt').textContent=yardGate.open
+  ?'SERVICE YARD GATE OPEN · PASSAGE CLEAR'
+  :yardGate.engaged?'SERVICE YARD GATE OPENING · '+Math.round(yardGate.progress*100)+'%'
+  :'[E] OPERATE SERVICE YARD SLIDING GATE';
+ else if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
    ?'[E] RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
    :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
