@@ -107,6 +107,8 @@ $('graphicsOpen').addEventListener('click',()=>{
 $('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');desktopUi.cancel();});
 
 const loadoutSelect=$('weaponClass');
+const rosterSelect=$('brRoster');
+const selectedRoster=()=>[1,4,18].includes(Number(rosterSelect.value))?Number(rosterSelect.value):18;
 try{const saved=global.localStorage.getItem('veilpoint.weaponClass');loadoutSelect.value=Object.prototype.hasOwnProperty.call(Game.FIREARMS,saved)?saved:'carbine';}
 catch(_){loadoutSelect.value='carbine';}
 loadoutSelect.addEventListener('change',()=>{
@@ -239,13 +241,15 @@ function requestAimLock(){
   });
  }catch(_){suspendMatch('pointer');resetInactiveClock();}
 }
-function start(seedOverride=null,weaponOverride=null){
+function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  if(graphicsContextLost||!renderer)return;
  clearStoredMatch();saveWarning=false;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
- simulation=Game.newMatch(seed,18,weaponId);simulation.status='playing';running=true;suspended=false;
+ const rivals=[1,4,18].includes(rosterOverride)?rosterOverride:selectedRoster();
+ simulation=Game.newMatch(seed,rivals,weaponId);simulation.status='playing';running=true;suspended=false;
+ rosterSelect.value=String(rivals);
  lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
  $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -261,6 +265,7 @@ function resumeStoredMatch(){
  const restored=storedMatch();
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
+ if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
  lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -333,12 +338,12 @@ $('restartArena').addEventListener('click',()=>{
   document.querySelector('.tagline').textContent='같은 경기장을 처음부터 다시 시작하려면 버튼을 한 번 더 누르세요. 현재 진행은 삭제됩니다.';
   return;
  }
- const seed=simulation.seed,weapon=simulation.player.weaponId;
- start(seed,weapon);
+ const seed=simulation.seed,weapon=simulation.player.weaponId,rivals=simulation.bots.length;
+ start(seed,weapon,rivals);
 });
 $('retryArena').addEventListener('click',()=>{
  if(running||!lastFinishedMatch||simulation.status==='playing')return;
- start(lastFinishedMatch.seed,lastFinishedMatch.weaponId);
+ start(lastFinishedMatch.seed,lastFinishedMatch.weaponId,lastFinishedMatch.rivals);
 });
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
@@ -546,13 +551,13 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  minimap();
 }
 function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();
- lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId};manualCheckpoint=null;
+ lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('retryArena').classList.remove('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
- const won=simulation.status==='won';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':'SIGNAL LOST / MATCH FINISHED';
- document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':'RE<span>DEPLOY.</span>';
- document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getFinalPlacement(simulation)}위`;
+ const won=simulation.status==='won',draw=simulation.status==='draw';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':draw?'FINAL DEADLINE / DRAW':'SIGNAL LOST / MATCH FINISHED';
+ document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':draw?'DRAW.':'RE<span>DEPLOY.</span>';
+ document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':draw?'최종 제한시간이 끝났지만 단독 생존자가 없어 공동 종료되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명`+(draw?' · 공동 종료':` · 순위 ${Game.getFinalPlacement(simulation)}위`);
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function frame(now){requestAnimationFrame(frame);
