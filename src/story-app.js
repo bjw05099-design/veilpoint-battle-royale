@@ -11,6 +11,7 @@
   const Audio=global.VeilpointStoryAudio;
   const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
+  const BACKUP_KEY='veilpoint.story.ch01.previous';
   const PREVIEW_KEY='veilpoint.story.ch01PreviewCompleted';
   const canvas=$('scene'),menu=$('menu'),choices=$('choices'),quality=$('quality');
   const clock=global.VeilpointClock.createClock({hz:60,maxFrameSeconds:.25,maxSteps:8});
@@ -18,7 +19,7 @@
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
-  let checkpoint=null,saveFailed=false,sessionStarted=false;
+  let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
   // N cycles only already-published mission markers; it never reveals hidden actors.
   let guidanceIndex=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
@@ -52,13 +53,34 @@
     remove(key){try{global.localStorage.removeItem(key);}catch(_){}}
   };
   function readCheckpoint(){
-    const saved=storage.get(SAVE_KEY);
-    if(!saved)return null;
-    try{return Story.restore(saved);}catch(_){storage.remove(SAVE_KEY);return null;}
+    const primary=storage.get(SAVE_KEY),backup=storage.get(BACKUP_KEY);
+    try{
+      const recovered=Story.recoverCheckpoint(primary,backup);
+      if(!recovered)return null;
+      if(recovered.source==='backup'){
+        recoveredFromBackup=true;
+        // Restore the last validated checkpoint to the primary slot, even if
+        // its newest generation was truncated by an interrupted disk write.
+        storage.set(SAVE_KEY,backup);
+      }
+      return recovered.state;
+    }catch(_){
+      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);return null;
+    }
   }
   $('saveStatus').classList.add('hidden');
   function persist(){
     const raw=Story.serialize(state);
+    const previous=storage.get(SAVE_KEY);
+    // Keep the prior valid playable generation before updating the primary.
+    // A corrupt current slot must never be copied into the safety slot.
+    if(previous&&previous!==raw){
+      try{
+        const priorState=Story.restore(previous);
+        if(priorState.phase!=='failed'&&priorState.phase!=='complete')
+          storage.set(BACKUP_KEY,previous);
+      }catch(_){}
+    }
     lastAutosaveAt=state.world.elapsed;
     shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
@@ -167,7 +189,7 @@
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
       // preserving finite rounds, injury, actor positions and the mission phase.
       let recovered=null;
-      for(const raw of [checkpoint,storage.get(SAVE_KEY)]){
+      for(const raw of [checkpoint,storage.get(SAVE_KEY),storage.get(BACKUP_KEY)]){
         if(!raw)continue;
         try{
           const candidate=Story.restore(raw);
@@ -196,8 +218,10 @@
     if(fromCheckpoint){
       const loaded=readCheckpoint();
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
+      checkpoint=storage.get(SAVE_KEY);
     }else{
-      state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);checkpoint=null;
+      state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);checkpoint=null;
+      recoveredFromBackup=false;
     }
     $('storyWeapon').value=state.world.player.weaponId;
     sessionStarted=true;guidanceIndex=null;
@@ -533,11 +557,13 @@
     if(renderer&&limiter.shouldRender(now))renderer.draw(state.world);
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
-  checkpoint=storage.get(SAVE_KEY);
   const loaded=readCheckpoint();
+  checkpoint=storage.get(SAVE_KEY);
   if(loaded&&loaded.phase!=='complete'){
     $('continue').textContent='체크포인트 이어하기';
-    $('menuText').textContent='이전 진행 기록이 있습니다. 이어하기를 누르면 마지막 자동 저장 위치부터 시작합니다.';
+    $('menuText').textContent=recoveredFromBackup
+      ?'최근 저장 파일이 손상되어 이전 정상 체크포인트를 복구했습니다. 이어하기로 임무를 계속하세요.'
+      :'이전 진행 기록이 있습니다. 이어하기를 누르면 마지막 자동 저장 위치부터 시작합니다.';
   }
   $('app').classList.toggle('reduced',$('reducedMotion').checked);
   updateHud();global.requestAnimationFrame(frame);
