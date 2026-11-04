@@ -1217,3 +1217,42 @@ test('powered civilian repeater supports physical readback during both exit rout
     assert.notEqual(before,checkpoint);
   }
 });
+
+
+test('CH01 physical desk allows route reconsideration with renewed timed clearance and checkpoint replay',()=>{
+  const state=reachDecision();
+  go(state,'recordA');assert.equal(story.interact(state).ok,true);
+  go(state,'recordB');assert.equal(story.interact(state).ok,true);
+  assert.equal(story.choose(state,'verification').ok,true);
+  for(let i=0;i<180;i++)story.step(state,1/60,{});
+  go(state,'decision');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(state.choice,'evacuation');
+  assert.equal(state.gateReadyAt,0);
+  assert.equal(story.markers(state)[0].id,'exitEvac');
+  const resumed=story.restore(story.serialize(state));
+  assert.equal(resumed.choice,'evacuation');
+  go(resumed,'decision');
+  assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.choice,'verification');
+  assert.ok(resumed.gateReadyAt-resumed.world.elapsed>=story.GATE_CLEARANCE_SECONDS-0.001);
+  go(resumed,'exitVerify');
+  assert.equal(story.interact(resumed).reason,'awaiting_clearance');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+2;i++)story.step(resumed,1/60,{});
+  go(resumed,'exitVerify');
+  assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.phase,'complete');
+});
+test('CH01 route reconsideration cannot discard an already collected physical aid crate',()=>{
+  const state=reachDecision();
+  go(state,'recordA');story.interact(state);
+  go(state,'recordB');story.interact(state);
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'aidPickup');assert.equal(story.interact(state).ok,true);
+  assert.equal(story.markers(state).some(m=>m.id==='decision'),false);
+  // Even if the player returns to the desk, the crate remains physically carried.
+  go(state,'decision');
+  assert.equal(story.interact(state).reason,'too_far');
+  assert.equal(state.choice,'evacuation');
+  assert.equal(state.world.carryingAid,true);
+});
