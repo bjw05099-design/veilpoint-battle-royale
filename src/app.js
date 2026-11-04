@@ -391,6 +391,14 @@ addEventListener('keydown',e=>{
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
  // Do not steal P from a user-remapped movement or interaction action.
+ if(e.code==='KeyJ'&&!action&&canAct()){
+  e.preventDefault();
+  const result=Game.toggleTrailMarker(simulation);
+  if(result.ok){persistMatch();updateHud();}
+  else if(result.reason==='out_of_reach'){
+   simulation.message='ROUTE SIGN TOO FAR · WALK BACK TO RETRIEVE';simulation.messageTime=2;updateHud();
+  }
+ }
  if(e.code==='KeyP'&&!action&&canAct()){
   e.preventDefault();manualCheckpoint=Game.snapshotMatch(simulation);
   simulation.message='FIELD BOOKMARK RECORDED · PAUSE TO RESTORE';simulation.messageTime=3;
@@ -508,6 +516,11 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
   ctx.fillStyle=gate.open?'#89c6a1':'#d5b478';
   ctx.fillRect(tx(gate.x)-3,tz(gate.z)-3,6,6);
  }
+ // Show only the survivor's own manually placed physical navigation sign.
+ if(simulation.trailMarker){
+  ctx.fillStyle='#e7b852';ctx.beginPath();
+  ctx.arc(tx(simulation.trailMarker.x),tz(simulation.trailMarker.z),3.6,0,Math.PI*2);ctx.fill();
+ }
  // No omniscient opponent positions: the map is a local map, not a live enemy tracker.
  const p=simulation.player;ctx.fillStyle='#eaffbd';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#eaffbd';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*15,tz(p.z)-Math.cos(p.yaw)*15);ctx.stroke();
 }
@@ -520,7 +533,8 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
- if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.zone(p,s.zone);
+ if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.zone(p,s.zone)+
+  (s.trailMarker?' · FIELD SIGN '+Math.round(Math.hypot(s.trailMarker.x-p.x,s.trailMarker.z-p.z))+'m · [J] RECOVER NEARBY':' · [J] PLACE ROUTE SIGN');
  const boundary=Game.boundaryStatus(s);
  const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
  // Every published phase, including the last one, has a real deadline.
