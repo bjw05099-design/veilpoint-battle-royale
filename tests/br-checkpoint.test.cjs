@@ -186,3 +186,51 @@ test('BR voluntary withdrawal ends eligibility without changing health or finite
  assert.equal(resumed.status,'playing','pre-withdrawal checkpoint is a real active world');
  assert.equal(Sim.forfeitMatch(resumed).ok,true);
 });
+
+test('BR terminal report is deterministic at 60Hz and never an active checkpoint',()=>{
+ const game=active(20261105,1);
+ for(let i=0;i<90;i++)Sim.tick(game,1/60,{forward:i%2===0});
+ game.bots[0].alive=false;game.bots[0].health=0;
+ Sim.tick(game,1/60,{});
+ assert.equal(game.status,'won');
+ const report=Sim.createLastResult(game);
+ assert.equal(report.outcome,'won');
+ assert.equal(report.placement,1);
+ assert.equal(report.seed,game.seed);
+ assert.equal(report.weaponId,game.player.weaponId);
+ assert.equal(report.elapsed,game.elapsed);
+ assert.equal(report.kills,game.kills);
+ assert.deepEqual(Sim.restoreLastResult(JSON.stringify(report)),report);
+ assert.throws(()=>Sim.restoreMatch(JSON.stringify(report)),RangeError,
+  'a completed result cannot be loaded as an active BR world');
+});
+
+test('BR local result distinguishes elimination, voluntary withdrawal and draw without changing finite resources',()=>{
+ const defeated=active(20261106,2);
+ Sim.receiveDamage(defeated,100);
+ assert.equal(Sim.createLastResult(defeated).placement,3);
+ const withdrawn=active(20261107,1),before=withdrawn.player.charges;
+ assert.equal(Sim.forfeitMatch(withdrawn).ok,true);
+ assert.equal(withdrawn.player.charges,before);
+ assert.equal(Sim.createLastResult(withdrawn).outcome,'lost');
+ const tied=active(20261108,1);tied.status='draw';
+ const result=Sim.createLastResult(tied);
+ assert.equal(result.placement,null);
+ assert.equal(Sim.restoreLastResult(JSON.stringify(result)).outcome,'draw');
+});
+
+test('BR archived results reject invalid schema, fabricated ranking and oversized storage',()=>{
+ const game=active(20261109,1);
+ Sim.forfeitMatch(game);
+ const valid=Sim.createLastResult(game);
+ const changes=[
+   {version:2},{mode:'story'},{outcome:'won',placement:2},
+   {outcome:'lost',placement:1},{outcome:'draw',placement:5},
+   {rivals:1,kills:99},{weaponId:'unsupported'},{seed:-1},{elapsed:Infinity},
+   {competitiveVerified:true}
+ ];
+ for(const change of changes)assert.throws(()=>Sim.restoreLastResult(
+  JSON.stringify({...valid,...change})),RangeError);
+ assert.throws(()=>Sim.restoreLastResult('{broken'),RangeError);
+ assert.throws(()=>Sim.restoreLastResult(' '.repeat(1025)),RangeError);
+});
