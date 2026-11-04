@@ -1358,3 +1358,13 @@ test('CH01 exit relay power can be physically isolated and restored without rese
  assert.equal(restored.relayRestored,true);
  assert.equal(story.markers(restored).some(m=>m.id==='beacon'),true);
 });
+
+test('CH01 checkpoint rejects an energized harbor warning fixture with isolated relay',()=>{
+ const state=reachDecision();
+ go(state,'relay');assert.equal(story.interact(state).ok,true);
+ go(state,'beacon');assert.equal(story.interact(state).ok,true);
+ const saved=story.snapshot(state);
+ assert.equal(saved.relayRestored,true);assert.equal(saved.beaconEnabled,true);
+ assert.throws(()=>story.restore({...saved,relayRestored:false}),/checkpoint/i);
+ assert.equal(story.restore(saved).beaconEnabled,true);
+});
