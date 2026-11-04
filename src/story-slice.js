@@ -174,15 +174,16 @@
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
+      ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
       ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[]),
       ...warningMarkers(state)
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])]:
-      [POINTS.exitEvac,...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+      [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])];
     return [];
@@ -483,7 +484,7 @@
       state.world.bots=makeHostiles();
       state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
-    }else if(marker.id==='supply'&&state.phase==='engagement'){
+    }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
       // Remaining rounds stay at the same reachable location until collected.
       const p=state.world.player;
@@ -694,6 +695,7 @@
           :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하거나 중앙 콘솔에서 대피 경로를 선택하세요.'+
+        (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
         (state.found.length===2&&!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'+
