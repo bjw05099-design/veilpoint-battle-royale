@@ -134,6 +134,7 @@ let pointerLockAttempt=0,pointerLockPendingSince=null,aimLockObserved=false;
 const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!document.hidden&&simulation.status==='playing'&&
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
+const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
@@ -165,20 +166,32 @@ const SHOT_SAVE_INTERVAL_SECONDS=1;
 const SHOT_HUD_INTERVAL_SECONDS=0.25;
 let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
- // A privacy-restricted browser may reject deletion while still allowing an
- // empty overwrite. Do not leave a resumable terminal save after a failed remove.
- let removed=false;
- try{
-  if(typeof global.localStorage.removeItem==='function'){
-   global.localStorage.removeItem(MATCH_SAVE_KEY);removed=true;
-  }
- }catch(_){}
- if(!removed)try{global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
+ // Clearing both generations is required on a fresh arena or terminal result:
+ // an older fallback must never resurrect a finished match.
+ for(const key of [MATCH_SAVE_KEY,MATCH_BACKUP_KEY]){
+  let removed=false;
+  try{
+   if(typeof global.localStorage.removeItem==='function'){
+    global.localStorage.removeItem(key);removed=true;
+   }
+  }catch(_){}
+  if(!removed)try{global.localStorage.setItem(key,'');}catch(_){}
+ }
 }
 function persistMatch(){
  if(!running)return false;
  if(simulation.status!=='playing'){clearStoredMatch();return false;}
- try{global.localStorage.setItem(MATCH_SAVE_KEY,Game.snapshotMatch(simulation));
+ try{
+  const raw=Game.snapshotMatch(simulation);
+  let previous=null;
+  try{previous=global.localStorage.getItem(MATCH_SAVE_KEY);}catch(_){}
+  if(previous&&previous!==raw){
+   try{
+    Game.restoreMatch(previous); // Never propagate malformed storage to backup.
+    global.localStorage.setItem(MATCH_BACKUP_KEY,previous);
+   }catch(_){} // Keep writing the current valid world if backup is unavailable.
+  }
+  global.localStorage.setItem(MATCH_SAVE_KEY,raw);
   lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;saveWarning=false;
   return true;
  }catch(_){
@@ -187,8 +200,18 @@ function persistMatch(){
  }
 }
 function storedMatch(){
- try{const raw=global.localStorage.getItem(MATCH_SAVE_KEY);return raw?Game.restoreMatch(raw):null;}
- catch(_){clearStoredMatch();return null;}
+ let primary=null,backup=null;
+ try{
+  primary=global.localStorage.getItem(MATCH_SAVE_KEY);
+  backup=global.localStorage.getItem(MATCH_BACKUP_KEY);
+  const result=Game.recoverMatch(primary,backup);
+  if(!result)return null;
+  if(result.source==='backup'){
+   // Keep playing even when write protection prevents primary repair.
+   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);}catch(_){}
+  }
+  return result.state;
+ }catch(_){clearStoredMatch();return null;}
 }
 
 function collectAmmo(){
