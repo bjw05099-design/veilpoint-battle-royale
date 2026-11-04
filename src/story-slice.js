@@ -1058,8 +1058,21 @@
     if(firstError)throw firstError;
     return null;
   }
+  // The PC review action re-enters the exact completed physical mission world
+  // instead of inventing a new outcome from an untrusted summary string. The
+  // restored world, evidence, 60Hz clock and escort position are read-only.
+  // Neither a failed nor an unfinished mission is a valid completion.
+  function reviewCompletedMission(raw) {
+    const state=restore(raw);
+    if(state.phase!=='complete'||state.world.status!=='won')
+      throw new RangeError('Only completed CH01 missions can be reviewed');
+    const report=debrief(state);
+    if(!report||report.previewOnly!==true||report.campaignUnlocked!==false)
+      throw new RangeError('Invalid CH01 completion');
+    return {state,report};
+  }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,debrief,backToRecords,serialize,restore,recoverCheckpoint,validateSnapshot
+    objective,situation,debrief,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });

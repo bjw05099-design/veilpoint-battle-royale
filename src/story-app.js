@@ -218,11 +218,19 @@
     if(fromCheckpoint){
       const loaded=readCheckpoint();
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
+      if(loaded&&loaded.phase==='complete'){
+        // Explicit replay begins a fresh mission; an old completed world must
+        // not reappear as a resumable checkpoint after an interrupted restart.
+        storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
+      }
       checkpoint=storage.get(SAVE_KEY);
     }else{
-      state=Story.createState($('storyWeapon').value);storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);checkpoint=null;
+      state=Story.createState($('storyWeapon').value);
+      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);checkpoint=null;
       recoveredFromBackup=false;
     }
+    $('reviewCompleted').classList.add('hidden');
+    $('debriefReview').classList.add('hidden');
     $('storyWeapon').value=state.world.player.weaponId;
     sessionStarted=true;guidanceIndex=null;
     lastAutosaveAt=state.world.elapsed;
@@ -298,6 +306,27 @@
   // its live world even when storage is denied, full or contains an older save.
   $('continue').addEventListener('click',()=>sessionStarted?resume():begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
+  $('reviewCompleted').addEventListener('click',()=>{
+    if(running||sessionStarted||graphicsContextLost||!renderer)return;
+    try{
+      const reviewed=Story.reviewCompletedMission(storage.get(SAVE_KEY));
+      // This does not advance the world clock, grant ammunition or start play.
+      // The scene and debrief reflect one validated completed CH01 snapshot.
+      state=reviewed.state;
+      const report=reviewed.report;
+      $('debriefReview').textContent='CH01 완료 · 경로: '+
+        (report.route==='verification'?'동쪽 기록 검증':'남쪽 대피')+
+        ' · 조사 기록 '+report.records.length+'/2 · '+report.summary;
+      $('debriefReview').classList.remove('hidden');
+      $('menuText').textContent='저장된 CH01 종료 당시의 세계 상태와 분기 결과를 확인 중입니다. 결과를 확인한 뒤 새 미션을 시작할 수 있습니다.';
+      $('continue').textContent='CH01 다시 시작';
+      updateHud();
+    }catch(_){
+      $('reviewCompleted').classList.add('hidden');
+      $('debriefReview').classList.add('hidden');
+      $('menuText').textContent='완료 기록을 검증할 수 없습니다. 처음부터 다시 시작할 수 있습니다.';
+    }
+  });
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
@@ -571,6 +600,12 @@
     $('menuText').textContent=recoveredFromBackup
       ?'최근 저장 파일이 손상되어 이전 정상 체크포인트를 복구했습니다. 이어하기로 임무를 계속하세요.'
       :'이전 진행 기록이 있습니다. 이어하기를 누르면 마지막 자동 저장 위치부터 시작합니다.';
+  }else if(loaded&&loaded.phase==='complete'){
+    // Completion is terminal. Never auto-respawn or interpret its world as an
+    // active checkpoint. Review is a deliberate read-only PC menu action.
+    $('continue').textContent='CH01 새 미션 시작';
+    $('reviewCompleted').classList.remove('hidden');
+    $('menuText').textContent='이전 CH01 임무의 완료 기록이 있습니다. 결과 다시 보기를 선택하면 당시의 실제 세계 상태와 분기 결과를 확인할 수 있습니다.';
   }
   $('app').classList.toggle('reduced',$('reducedMotion').checked);
   updateHud();global.requestAnimationFrame(frame);
