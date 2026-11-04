@@ -424,7 +424,7 @@ test('BR desktop V returns finite spare rounds to a visible physical cache and p
  g.loot.forEach(item=>{item.x=120;item.z=120;});
  const cache=g.loot.find(item=>item.weaponId===g.player.weaponId);
  cache.x=g.player.x;cache.z=g.player.z;cache.remaining=0;cache.picked=true;
- app.frame(2000/60);
+ app.frame(500);
  assert.match(app.node('pickupPrompt').textContent,/V.*RETURN/);
  const before=g.player.charges;
  app.emit('keydown',{code:'KeyV'});
