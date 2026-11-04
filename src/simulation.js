@@ -337,6 +337,18 @@
           {x:other.x,z:other.z,w:ACTOR_RADIUS*2,d:ACTOR_RADIUS*2})))
       .map(other=>({x:other.x,z:other.z,w:ACTOR_RADIUS*2,d:ACTOR_RADIUS*2}));
   }
+  // Voluntary withdrawal is a competition result, not physical damage.
+  // The captain remains at the last real position with unchanged finite
+  // inventory and health, but is no longer eligible for the BR ranking.
+  function forfeitMatch(game) {
+    if(!game||game.status!=='playing'||!game.player?.alive)
+      return {ok:false,reason:'inactive'};
+    game.player.alive=false;
+    game.status='lost';
+    game.message='MATCH WITHDRAWN · ROUND ENDED';
+    game.messageTime=3;
+    return {ok:true,placement:getFinalPlacement(game)};
+  }
   function receiveDamage(game, damage) {
     if (!game.player.alive || damage<=0) return;
     // Discard any injected legacy shield state; no shield exists in the live world.
@@ -1185,5 +1197,5 @@
     if(firstError)throw firstError;
     return null;
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch};
 });
