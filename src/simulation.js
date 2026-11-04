@@ -581,7 +581,8 @@
   // between the player and the item. Shared by E/touch interaction and the HUD.
   function canReachPickup(game,item) {
     if(!item||item.picked||item.remaining===0||dist(item,game.player)>=PICKUP_REACH)return false;
-    return !lineBlocked(game.player.x,game.player.z,item.x,item.z,game.obstacles);
+    return !lineBlocked(game.player.x,game.player.z,item.x,item.z,
+      game.obstacles.concat(actorObstacles(game,game.player,null,false)));
   }
   // The same selection governs E/touch and the HUD. A nearby incompatible
   // cache must never block an accessible compatible cache in a crowded pile.
@@ -660,7 +661,8 @@
       if(item.weaponId!==p.weaponId)continue;
       const cap=item.kind==='ammo'?12:24;
       if(item.remaining>=cap||dist(item,p)>=PICKUP_REACH||
-         lineBlocked(p.x,p.z,item.x,item.z,game.obstacles))continue;
+         lineBlocked(p.x,p.z,item.x,item.z,
+            game.obstacles.concat(actorObstacles(game,p,null,false))))continue;
       const d=dist(item,p);
       if(d<best){chosen=item;best=d;}
     }
