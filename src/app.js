@@ -351,7 +351,7 @@ $('restoreCheckpoint').addEventListener('click',()=>{
  pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
  const saved=persistMatch();updateHud();
  document.querySelector('.tagline').textContent=saved
-  ?'P키로 기록한 현장 지점으로 복원하고 저장했습니다. 이어하기를 누르면 그 상태에서 진행합니다.'
+  ?'P키로 기록한 현장 지점으로 복원했습니다. 현재 상태도 저장했습니다. 이어하기를 누르면 진행합니다.'
   :'P키의 현장 지점으로 복원했지만 저장 공간이 거부되었습니다. 이 탭에서는 계속할 수 있으나 새로고침하면 복원 이전 상태가 열릴 수 있습니다.';
 });
 // A deliberate two-click confirmation prevents accidental loss of an active
@@ -426,7 +426,7 @@ addEventListener('keydown',e=>{
  }
  if(e.code==='KeyP'&&!action&&canAct()){
   e.preventDefault();const durable=recordFieldBookmark();
-  simulation.message=durable?'FIELD BOOKMARK SAVED · PAUSE TO REWIND'
+  simulation.message=durable?'FIELD BOOKMARK RECORDED · SAVED FOR RESUME'
     :'FIELD BOOKMARK IN MEMORY ONLY · STORAGE UNAVAILABLE';simulation.messageTime=3;
   persistMatch();updateHud();
  }
