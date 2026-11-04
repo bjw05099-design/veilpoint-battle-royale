@@ -213,15 +213,18 @@
     choices.classList.remove('hidden');menu.classList.add('hidden');
     const canVerify=state.found.length===2;
     $('choiceVerified').disabled=!canVerify;
-    $('choiceHint').textContent=canVerify
-      ?'기록 2/2: 항구 04:12 · 대피소 04:07. 두 경로 모두 선택할 수 있습니다.'
+    const revisiting=state.phase==='exit';
+    $('choiceBack').textContent=revisiting?'취소 · 기존 경로 유지':'돌아가서 조사';
+    $('choiceHint').textContent=revisiting
+      ?'현장 결정 콘솔에서 다시 선택합니다. 취소하면 현재 경로와 통제문 진행 상태가 그대로 유지됩니다.'
+      :canVerify?'기록 2/2: 항구 04:12 · 대피소 04:07. 두 경로 모두 선택할 수 있습니다.'
       :'기록 '+state.found.length+'/2: 대피 우선은 즉시 선택 가능하며, 추가 확인 경로는 기록 2개가 필요합니다.';
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     updateHud();
   }
   function decide(option){
     const result=Story.choose(state,option);
-    if(!result.ok){$('choiceHint').textContent='아직 기록이 부족합니다. 조사로 돌아가거나 대피 우선을 선택하세요.';return;}
+    if(!result.ok){$('choiceHint').textContent='경로를 변경할 수 없습니다. 현장 콘솔 접근과 진행 상태를 확인하세요.';return;}
     guidanceIndex=null;persist();resume();
   }
   function interact(){
@@ -236,7 +239,7 @@
     guidanceIndex=null;
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
-    if(state.phase==='decision'){showChoices();return;}
+    if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete'){
       const report=recordCompletion();
       menuOpen('CH01 완료 — '+state.subtitle+' '+(report?report.summary+' ':'')+'현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
@@ -275,6 +278,7 @@
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
   $('choiceBack').addEventListener('click',()=>{
+    if(state.phase==='exit'){resume();return;}
     if(Story.backToRecords(state).ok){guidanceIndex=null;persist();resume();}
   });
   global.addEventListener('keydown',e=>{

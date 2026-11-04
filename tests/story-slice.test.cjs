@@ -1219,40 +1219,66 @@ test('powered civilian repeater supports physical readback during both exit rout
 });
 
 
-test('CH01 physical desk allows route reconsideration with renewed timed clearance and checkpoint replay',()=>{
+test('CH01 route review opens a choice without involuntary switching and respects finite gate time',()=>{
   const state=reachDecision();
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(story.choose(state,'verification').ok,true);
   for(let i=0;i<180;i++)story.step(state,1/60,{});
+  const deadline=state.gateReadyAt;
+  assert.equal(story.choose(state,'evacuation').reason,'not_near_desk',
+    'route selections cannot be made remotely');
   go(state,'decision');
-  assert.equal(story.interact(state).ok,true);
+  const checkpoint=story.serialize(state);
+  assert.equal(story.interact(state).event,'reconsider','E only opens the route menu');
+  assert.equal(story.serialize(state),checkpoint,'opening the menu leaves saved game untouched');
+  assert.equal(story.choose(state,'verification').event,'choice_unchanged');
+  assert.equal(state.gateReadyAt,deadline,'reconfirming a route cannot reset its gate motor');
+  assert.equal(story.choose(state,'evacuation').ok,true);
   assert.equal(state.choice,'evacuation');
   assert.equal(state.gateReadyAt,0);
   assert.equal(story.markers(state)[0].id,'exitEvac');
   const resumed=story.restore(story.serialize(state));
-  assert.equal(resumed.choice,'evacuation');
   go(resumed,'decision');
-  assert.equal(story.interact(resumed).ok,true);
-  assert.equal(resumed.choice,'verification');
+  assert.equal(story.interact(resumed).event,'reconsider');
+  assert.equal(story.choose(resumed,'verification').ok,true);
   assert.ok(resumed.gateReadyAt-resumed.world.elapsed>=story.GATE_CLEARANCE_SECONDS-0.001);
   go(resumed,'exitVerify');
   assert.equal(story.interact(resumed).reason,'awaiting_clearance');
   for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+2;i++)story.step(resumed,1/60,{});
-  go(resumed,'exitVerify');
-  assert.equal(story.interact(resumed).ok,true);
+  go(resumed,'exitVerify');assert.equal(story.interact(resumed).ok,true);
   assert.equal(resumed.phase,'complete');
 });
-test('CH01 route reconsideration cannot discard an already collected physical aid crate',()=>{
-  const state=reachDecision();
-  go(state,'recordA');story.interact(state);
-  go(state,'recordB');story.interact(state);
-  assert.equal(story.choose(state,'evacuation').ok,true);
-  go(state,'aidPickup');assert.equal(story.interact(state).ok,true);
-  assert.equal(story.markers(state).some(m=>m.id==='decision'),false);
-  // Even if the player returns to the desk, the crate remains physically carried.
-  go(state,'decision');
-  assert.equal(story.interact(state).reason,'too_far');
-  assert.equal(state.choice,'evacuation');
-  assert.equal(state.world.carryingAid,true);
+test('CH01 committed aid cargo, confirmed headcount and inspected log cannot be erased by route review',()=>{
+  const evac=reachDecision();
+  go(evac,'recordA');story.interact(evac);
+  go(evac,'recordB');story.interact(evac);
+  story.choose(evac,'evacuation');
+  go(evac,'aidPickup');assert.equal(story.interact(evac).ok,true);
+  assert.equal(story.markers(evac).some(m=>m.id==='decision'),false);
+  go(evac,'decision');
+  assert.equal(story.choose(evac,'verification').reason,'not_near_desk');
+  assert.equal(evac.world.carryingAid,true);
+  assert.equal(story.serialize(story.restore(story.serialize(evac))),story.serialize(evac));
+
+  const verified=reachDecision();
+  go(verified,'recordA');story.interact(verified);
+  go(verified,'recordB');story.interact(verified);
+  story.choose(verified,'verification');
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verified,1/60,{});
+  go(verified,'gateLog');assert.equal(story.interact(verified).ok,true);
+  assert.equal(story.markers(verified).some(m=>m.id==='decision'),false);
+  go(verified,'decision');
+  assert.equal(story.choose(verified,'evacuation').reason,'not_near_desk');
+  assert.equal(verified.gateLogReviewed,true);
+  assert.equal(story.serialize(story.restore(story.serialize(verified))),story.serialize(verified));
+
+  const headcount=reachDecision();
+  go(headcount,'recordA');story.interact(headcount);
+  go(headcount,'recordB');story.interact(headcount);
+  story.choose(headcount,'evacuation');
+  go(headcount,'muster');assert.equal(story.interact(headcount).ok,true);
+  assert.equal(story.markers(headcount).some(m=>m.id==='decision'),false);
+  go(headcount,'decision');
+  assert.equal(story.choose(headcount,'verification').reason,'not_near_desk');
 });
