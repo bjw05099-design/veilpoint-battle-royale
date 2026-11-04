@@ -71,7 +71,12 @@ test('final deadline outside boundary produces loss, never a draw',()=>{
   game.player.x=6;game.player.z=0; // Explicitly outside the 1.5m final radius.
   game.elapsed=total-1/120;
   game.zone=Sim.phaseAt(game.elapsed);
+  assert.equal(Sim.boundaryStatus(game).outside,true,'player begins physically outside final legal circle');
+  const previousX=game.player.x;
   Sim.tick(game,1/60,{});
+  assert.equal(game.player.x,previousX,'an idle tick cannot move the player inside the circle');
+  assert.equal(game.zone.phaseRemaining,0,'fixed-step crosses the last published deadline');
+  assert.equal(game.player.alive,false,'boundary ruling must disqualify the outside player before tie logic');
   assert.equal(game.status,'lost');
   assert.notEqual(Sim.getFinalPlacement(game),1);
 });
