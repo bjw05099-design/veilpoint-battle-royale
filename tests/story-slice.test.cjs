@@ -1493,3 +1493,38 @@ test('CH01 non-escort evacuation and historical checkpoint can still finish norm
  assert.equal(legacy.phase,'complete');
  assert.equal(story.debrief(legacy).guideArrived,false);
 });
+
+test('CH01 finished world reopens for read-only review without replaying elapsed world time',()=>{
+  const completed=reachDecision();
+  assert.equal(story.choose(completed,'evacuation').ok,true);
+  go(completed,'exitEvac');
+  assert.equal(story.interact(completed).ok,true);
+  assert.equal(completed.phase,'complete');
+  const raw=story.serialize(completed),review=story.reviewCompletedMission(raw);
+  assert.equal(review.state.phase,'complete');
+  assert.equal(review.state.world.status,'won');
+  assert.equal(review.report.route,'evacuation');
+  assert.equal(review.report.campaignUnlocked,false);
+  assert.equal(story.serialize(review.state),raw,'completed pose, finite supplies, branch and world clock survive');
+  const before=story.serialize(review.state);
+  for(let i=0;i<600;i++)story.step(review.state,1/60,{forward:true,right:true});
+  assert.equal(story.serialize(review.state),before,'review cannot advance a terminated CH01 world');
+  assert.equal(story.serialize(completed),raw,'review cannot alter the original mission');
+});
+
+test('CH01 finished review rejects unfinished and invalid saves without forging a campaign unlock',()=>{
+  const playing=story.createState();
+  assert.throws(()=>story.reviewCompletedMission(story.serialize(playing)),RangeError);
+  assert.throws(()=>story.reviewCompletedMission('{malformed'),SyntaxError);
+  const verify=reachDecision();
+  for(const id of ['recordA','recordB']){go(verify,id);story.interact(verify);}
+  assert.equal(story.choose(verify,'verification').ok,true);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+1;i++)story.step(verify,1/60,{});
+  go(verify,'exitVerify');assert.equal(story.interact(verify).ok,true);
+  const snapshot=story.serialize(verify);
+  const review=story.reviewCompletedMission(snapshot);
+  assert.equal(review.report.route,'verification');
+  assert.equal(review.report.campaignUnlocked,false);
+  assert.equal(review.report.eastCheckpointCleared,true);
+  assert.equal(story.serialize(review.state),snapshot);
+});
