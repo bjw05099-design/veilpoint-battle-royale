@@ -161,7 +161,7 @@
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
     { duration: 70, radius: 12 }, { duration: 999, radius: 1.5 }
   ];
-  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine') {
+  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false) {
     const firearm=Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)?FIREARMS[weaponId]:null;
     if(!firearm)throw new RangeError('Unknown firearm class');
     const random = rngFromSeed(seed);
@@ -184,8 +184,8 @@
     const bots = Array.from({ length: clamp(botCount, 0, MAX_BOTS) }, (_, i) => {
       // The single-rival PC demo begins within a traversable on-foot radius.
       // Placement happens only at creation: no mid-match teleport or enemy radar.
-      // Full 4/18-rival matches preserve their existing wide-world distribution.
-      const pos = safeSpot(36, ACTOR_RADIUS*2+0.2, occupiedActors,botCount===1?65:Infinity);
+      // The regular seeded 1/4/18-rival worlds and existing tests retain their historical distribution.
+      const pos = safeSpot(36, ACTOR_RADIUS*2+0.2, occupiedActors,botCount===1&&previewEncounter===true?65:Infinity);
       occupiedActors.push(pos);
       return { id:i, ...pos, health:100, alive:true, angle:random()*Math.PI*2, moveTime:random()*4, actionTime:2+random()*3, skill:0.28+random()*0.65, loaded:MAGAZINE_SIZE, charges:36, reloadRemaining:0, disqualified:false,
         lastSeenX:pos.x,lastSeenZ:pos.z,lastSeenUntil:0 };
