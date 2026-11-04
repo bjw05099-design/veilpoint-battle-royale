@@ -111,6 +111,9 @@ test('BR yard panel is rendered at the live collider position without changing s
  assert.equal(JSON.stringify(state.yardGate),before,'drawing never advances the panel');
  assert.equal(Sim.operateServiceGate(state).ok,true);
  for(let i=0;i<120;i++)Sim.tick(state,1/60,{});
+ // The parked gate has moved to the player's right. Turn the camera to
+ // physically face it before asserting that its new 3D mesh is in frame.
+ state.player.yaw=Math.atan2(panel(state).x-state.player.x,state.player.z-panel(state).z);
  renderer.draw(state);
  assert.deepEqual(observed.at(-1),{x:panel(state).x,z:-24});
  assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
