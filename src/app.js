@@ -134,6 +134,7 @@ const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!documen
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
+let pauseRestartArmed=false,manualCheckpoint=null;
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
 const SHOT_SAVE_INTERVAL_SECONDS=1;
@@ -238,8 +239,9 @@ function start(seedOverride=null,weaponOverride=null){
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
  simulation=Game.newMatch(seed,18,weaponId);simulation.status='playing';running=true;suspended=false;
- lastFinishedMatch=null;loadoutSelect.value=weaponId;
+ lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
  $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
  desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
@@ -253,7 +255,8 @@ function resumeStoredMatch(){
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- lastFinishedMatch=null;$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
@@ -267,7 +270,8 @@ if(storedMatch())$('play').textContent='저장 경기 이어하기';
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
  if(!running||!suspended||graphicsContextLost||!renderer)return;
- suspended=false;desktopUi.cancel();resetInactiveClock();
+ suspended=false;pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');$('saveExit').classList.add('hidden');
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
  Desktop.focusGameplay(document,canvas);
@@ -293,10 +297,37 @@ $('saveExit').addEventListener('click',()=>{
  running=false;suspended=false;
  desktopUi.cancel();resetInactiveClock();
  $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  $('play').textContent='저장 경기 이어하기';
  document.querySelector('.eyebrow').textContent='OFFLINE CHECKPOINT / SAVED';
  document.querySelector('h1').textContent='VEILPOINT.';
  document.querySelector('.tagline').textContent='경기가 저장되었습니다. 이어하기는 같은 경기로, 새 경기는 처음부터 시작합니다.';
+});
+// Rewind a paused offline round to the explicit in-session field bookmark. Never
+// silently replace the current round when the saved data is missing/invalid.
+$('restoreCheckpoint').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing')return;
+ let checkpoint=null;
+ try{checkpoint=manualCheckpoint?Game.restoreMatch(manualCheckpoint):null;}catch(_){checkpoint=null;}
+ if(!checkpoint||checkpoint.seed!==simulation.seed){
+  document.querySelector('.tagline').textContent='이 경기에서 P키로 기록한 지점이 없습니다. 현재 경기를 유지합니다.';
+  return;
+ }
+ simulation=checkpoint;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();updateHud();
+ document.querySelector('.tagline').textContent='P키로 기록한 현장 지점으로 복원했습니다. 이어하기를 누르면 그 상태에서 진행합니다.';
+});
+// A deliberate two-click confirmation prevents accidental loss of an active
+// offline round. Restart reuses the arena seed and original loadout, not ammo.
+$('restartArena').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing')return;
+ if(!pauseRestartArmed){
+  pauseRestartArmed=true;
+  document.querySelector('.tagline').textContent='같은 경기장을 처음부터 다시 시작하려면 버튼을 한 번 더 누르세요. 현재 진행은 삭제됩니다.';
+  return;
+ }
+ const seed=simulation.seed,weapon=simulation.player.weaponId;
+ start(seed,weapon);
 });
 $('retryArena').addEventListener('click',()=>{
  if(running||!lastFinishedMatch||simulation.status==='playing')return;
@@ -328,6 +359,12 @@ addEventListener('keydown',e=>{
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
+ // Do not steal P from a user-remapped movement or interaction action.
+ if(e.code==='KeyP'&&!action&&canAct()){
+  e.preventDefault();manualCheckpoint=Game.snapshotMatch(simulation);
+  simulation.message='FIELD BOOKMARK RECORDED · PAUSE TO RESTORE';simulation.messageTime=3;
+  persistMatch();updateHud();
+ }
  if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}}
  if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){
   if(lastFinishedMatch)start();
@@ -344,11 +381,12 @@ addEventListener('keyup',e=>{
 function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- persistMatch();suspended=true;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
+ persistMatch();suspended=true;pauseRestartArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
  $('saveExit').classList.remove('hidden');$('retryArena').classList.add('hidden');
+ $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
  document.querySelector('.tagline').textContent=reason==='graphics'?'그래픽 장치가 끊어졌습니다. 복구 후 이어하기를 누르세요.':reason==='pointer'
@@ -464,9 +502,10 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  minimap();
 }
 function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();
- lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId};
+ lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('retryArena').classList.remove('hidden');
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  const won=simulation.status==='won';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':'RE<span>DEPLOY.</span>';
  document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명 · 순위 ${Game.getFinalPlacement(simulation)}위`;
