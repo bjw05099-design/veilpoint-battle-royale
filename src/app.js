@@ -134,9 +134,31 @@ let pointerLockAttempt=0,pointerLockPendingSince=null,aimLockObserved=false;
 const canAct=()=>running&&!suspended&&!graphicsContextLost&&!!renderer&&!document.hidden&&simulation.status==='playing'&&
   (isTouch||document.pointerLockElement===canvas);
 const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
+const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
 let lastFinishedMatch=null; // Session-only retry target; never a resurrectable checkpoint.
 let pauseRestartArmed=false,manualCheckpoint=null;
+// Keep the optional P-key field bookmark separately from the newest autosave.
+// It is restored only for the same active arena and cleared on a new/ended match.
+function clearFieldBookmark(){
+ manualCheckpoint=null;
+ try{global.localStorage.removeItem(FIELD_BOOKMARK_KEY);}
+ catch(_){try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,'');}catch(_){}}
+}
+function loadFieldBookmark(){
+ try{
+  const saved=global.localStorage.getItem(FIELD_BOOKMARK_KEY);
+  if(!saved)return null;
+  Game.restoreFieldBookmark(simulation,saved);
+  return saved;
+ }catch(_){clearFieldBookmark();return null;}
+}
+function recordFieldBookmark(){
+ const raw=Game.snapshotMatch(simulation);
+ manualCheckpoint=raw;
+ try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);return true;}
+ catch(_){return false;} // This session can still rewind when storage is denied.
+}
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
 const SHOT_SAVE_INTERVAL_SECONDS=1;
@@ -243,7 +265,7 @@ function requestAimLock(){
 }
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  if(graphicsContextLost||!renderer)return;
- clearStoredMatch();saveWarning=false;
+ clearStoredMatch();clearFieldBookmark();saveWarning=false;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -267,7 +289,7 @@ function resumeStoredMatch(){
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=null;$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ lastFinishedMatch=null;pauseRestartArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
@@ -320,14 +342,17 @@ $('saveExit').addEventListener('click',()=>{
 $('restoreCheckpoint').addEventListener('click',()=>{
  if(!running||!suspended||simulation.status!=='playing')return;
  let checkpoint=null;
- try{checkpoint=manualCheckpoint?Game.restoreMatch(manualCheckpoint):null;}catch(_){checkpoint=null;}
+ try{checkpoint=manualCheckpoint?Game.restoreFieldBookmark(simulation,manualCheckpoint):null;}catch(_){checkpoint=null;clearFieldBookmark();}
  if(!checkpoint||checkpoint.seed!==simulation.seed){
   document.querySelector('.tagline').textContent='이 경기에서 P키로 기록한 지점이 없습니다. 현재 경기를 유지합니다.';
   return;
  }
  simulation=checkpoint;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();updateHud();
- document.querySelector('.tagline').textContent='P키로 기록한 현장 지점으로 복원했습니다. 이어하기를 누르면 그 상태에서 진행합니다.';
+ pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
+ const saved=persistMatch();updateHud();
+ document.querySelector('.tagline').textContent=saved
+  ?'P키로 기록한 현장 지점으로 복원하고 저장했습니다. 이어하기를 누르면 그 상태에서 진행합니다.'
+  :'P키의 현장 지점으로 복원했지만 저장 공간이 거부되었습니다. 이 탭에서는 계속할 수 있으나 새로고침하면 복원 이전 상태가 열릴 수 있습니다.';
 });
 // A deliberate two-click confirmation prevents accidental loss of an active
 // offline round. Restart reuses the arena seed and original loadout, not ammo.
@@ -400,8 +425,9 @@ addEventListener('keydown',e=>{
   }
  }
  if(e.code==='KeyP'&&!action&&canAct()){
-  e.preventDefault();manualCheckpoint=Game.snapshotMatch(simulation);
-  simulation.message='FIELD BOOKMARK RECORDED · PAUSE TO RESTORE';simulation.messageTime=3;
+  e.preventDefault();const durable=recordFieldBookmark();
+  simulation.message=durable?'FIELD BOOKMARK SAVED · PAUSE TO REWIND'
+    :'FIELD BOOKMARK IN MEMORY ONLY · STORAGE UNAVAILABLE';simulation.messageTime=3;
   persistMatch();updateHud();
  }
  if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}}
@@ -564,7 +590,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();
+function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}clearStoredMatch();clearFieldBookmark();
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('retryArena').classList.remove('hidden');
