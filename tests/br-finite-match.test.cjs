@@ -86,7 +86,7 @@ test('PC BR menu and replay code expose genuine match sizes and keep the roster 
   const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
   for(const size of [1,4,18])assert.match(html,new RegExp('<option value="'+size+'"'));
   assert.match(html,/id="brRoster"/);
-  assert.match(app,/Game\.newMatch\(seed,rivals,weaponId\)/);
+  assert.match(app,/Game\.newMatch\(seed,rivals,weaponId,rivals===1\)/);
   assert.match(app,/start\(lastFinishedMatch\.seed,lastFinishedMatch\.weaponId,lastFinishedMatch\.rivals\)/);
   assert.match(app,/start\(seed,weapon,rivals\)/);
   assert.match(app,/draw\?'FINAL DEADLINE \/ DRAW'/);
