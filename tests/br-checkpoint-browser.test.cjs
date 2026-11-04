@@ -404,3 +404,15 @@ test('BR PC Escape cannot resume behind graphics settings',()=>{
  app.emit('keydown',{code:'Escape'});
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
 });
+
+test('BR Escape dismisses the graphics dialog before unpausing the live match',()=>{
+ const app=boot();app.node('play').click();app.frame(1000/60);
+ const active=app.game;app.emit('keydown',{code:'Escape'});
+ app.node('graphicsPanel').classList.remove('hidden');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false,'closing settings cannot resume combat');
+ app.emit('keydown',{code:'Escape'});app.frame(2000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.game,active);
+});

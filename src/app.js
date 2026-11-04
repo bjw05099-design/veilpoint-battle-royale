@@ -342,9 +342,11 @@ addEventListener('keydown',e=>{
   e.preventDefault();
   if(e.repeat)return;
   if(suspended){
-   // Escape is a PC pause toggle, but never resume behind open graphics settings
-   // or after a lost rendering context. Reclaim pointer lock through resumeMatch.
-   if(!graphicsContextLost&&renderer&&$('graphicsPanel').classList.contains('hidden'))resumeMatch();
+   // First Escape closes the graphics dialog without silently resuming a match.
+   // The following Escape can reclaim mouse lock only when the dialog is gone.
+   if(!$('graphicsPanel').classList.contains('hidden')){
+    $('graphicsPanel').classList.add('hidden');desktopUi.cancel();
+   }else if(!graphicsContextLost&&renderer)resumeMatch();
   }else{suspendMatch();resetInactiveClock();}
   return;
  }
