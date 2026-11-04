@@ -11,7 +11,7 @@ function nearCache(seed){
    !Sim.blocked(c.x+1,c.z,0.85,g.obstacles)&&
    Math.hypot(c.x+1,c.z)>12);
  assert.ok(cache,'seed supplies a physical reachable carbine cache');
- b.x=cache.x+1;b.z=cache.z;b.moveTime=100;b.actionTime=100;
+ b.x=cache.x+1;b.z=cache.z;b.moveTime=2;b.actionTime=100;
  b.charges=12;b.loaded=12;b.lastSeenUntil=0;
  return {g,b,cache};
 }
