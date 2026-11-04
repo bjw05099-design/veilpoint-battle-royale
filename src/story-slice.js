@@ -288,7 +288,9 @@
     const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
-    if(state.choice==='evacuation'&&state.guide.active){
+    // The guide remains a solid person while waiting at muster and after
+    // the physical handoff, not an intangible prop when following stops.
+    if(state.choice==='evacuation'&&state.musterConfirmed){
       const body={x:state.guide.x,z:state.guide.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
