@@ -657,7 +657,7 @@
     if(spare<=0)return {ok:false,reason:'no_reserve'};
     let chosen=null,best=Infinity;
     for(const item of game.loot){
-      if(item.weaponId!==p.weaponId||item.picked&&item.remaining===0)continue;
+      if(item.weaponId!==p.weaponId)continue;
       const cap=item.kind==='ammo'?12:24;
       if(item.remaining>=cap||dist(item,p)>=PICKUP_REACH||
          lineBlocked(p.x,p.z,item.x,item.z,game.obstacles))continue;
