@@ -21,7 +21,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el={
       id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(id==='choices'||id==='interaction'),
+      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
@@ -1224,4 +1224,57 @@ test('CH01 PC exit interaction visibly refuses to abandon an active guide and pr
  assert.equal(paused.guide.active,true);
  assert.equal(paused.guide.arrived,false);
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'br-independent');
+});
+
+test('CH01 PC refresh reopens the exact finished branch report without starting a new mission',()=>{
+ const Story=require('../src/story-slice.js');
+ const finished=Story.createState();
+ const go=id=>{finished.world.player.x=Story.POINTS[id].x;finished.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(finished).ok,true);
+ for(const bot of finished.world.bots)for(let i=0;i<2;i++){
+  finished.world.player.yaw=Math.atan2(bot.x-finished.world.player.x,-(bot.z-finished.world.player.z));
+  finished.world.player.pitch=0;finished.world.elapsed+=.21;
+  assert.equal(Story.fire(finished).hit,true);
+ }
+ go('decision');assert.equal(Story.interact(finished).ok,true);
+ assert.equal(Story.choose(finished,'evacuation').ok,true);
+ go('exitEvac');assert.equal(Story.interact(finished).ok,true);
+ const saved=Story.serialize(finished),store=new Map([
+  ['veilpoint.story.ch01',saved],
+  ['veilpoint.story.ch01PreviewCompleted',JSON.stringify(Story.debrief(finished))],
+  ['veilpoint.brCheckpoint.v1','independent-BR-checkpoint']
+ ]);
+ const app=boot(store,false,'granted',true,true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('reviewCompleted').classList.contains('hidden'),false);
+ assert.match(app.element('menuText').textContent,/완료 기록/);
+ app.element('reviewCompleted').click();
+ assert.match(app.element('debriefReview').textContent,/CH01 완료.*남쪽 대피/);
+ assert.match(app.element('debriefReview').textContent,/유수프 구조단/);
+ assert.equal(app.element('debriefReview').classList.contains('hidden'),false);
+ assert.equal(app.element('menu').classList.contains('hidden'),false,'read-only review must never start game input');
+ assert.equal(app.element('continue').textContent,'CH01 다시 시작');
+ for(let i=1;i<=120;i++)app.frame(i*1000/60);
+ assert.equal(store.get('veilpoint.story.ch01'),saved,'review does not rewrite the terminal world');
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR-checkpoint');
+ app.element('continue').click();app.frame(3000);
+ assert.match(app.element('objective').textContent,/중계기/,'explicit replay begins from the first real mission objective');
+ assert.equal(store.has('veilpoint.story.ch01PreviewCompleted'),false,'replay clears obsolete completion');
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR-checkpoint');
+});
+
+test('CH01 invalidated completed save cannot present a forged review',()=>{
+ const Story=require('../src/story-slice.js');
+ const completed=Story.createState();
+ const store=new Map([['veilpoint.story.ch01',Story.serialize(completed)]]);
+ const app=boot(store,false,'granted',true,true);
+ assert.equal(app.element('reviewCompleted').classList.contains('hidden'),true,
+  'active checkpoint does not unlock terminal review');
+ // A completed save can be deleted or invalidated by another local tab.
+ const valid=Story.createState();
+ valid.phase='complete';valid.world.status='won'; // Not a genuine authored exit.
+ store.set('veilpoint.story.ch01','{tampered');
+ app.element('reviewCompleted').click();
+ assert.equal(app.element('debriefReview').classList.contains('hidden'),true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
