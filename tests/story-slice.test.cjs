@@ -414,7 +414,10 @@ test('CH01 physical east checkpoint is evidence-gated and reconstructs from old 
   assert.equal(Sim.blocked(27,-53,.85,restored.world.obstacles),false);
   assert.equal(story.serialize(restored),story.serialize(verified));
   const blocked={x:27,z:-48};Sim.moveEntity(blocked,0,-6,1,evacuation.world.obstacles);
-  assert.equal(blocked.z,-48);
+  // Swept movement advances up to the closed gate rather than tunnelling
+  // through it or freezing the entire requested step at the start.
+  assert.ok(blocked.z < -48 && blocked.z > -53, `closed gate must stop the actor before crossing: ${blocked.z}`);
+  assert.equal(Sim.blocked(blocked.x,blocked.z,.85,evacuation.world.obstacles),false);
   const open={x:27,z:-48};Sim.moveEntity(open,0,-6,1,restored.world.obstacles);
   assert.equal(open.z,-54);
   go(restored,'exitVerify');assert.equal(story.interact(restored).ok,true);
