@@ -416,3 +416,21 @@ test('BR Escape dismisses the graphics dialog before unpausing the live match',(
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
  assert.equal(app.game,active);
 });
+
+test('BR desktop V returns finite spare rounds to a visible physical cache and persists',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const g=app.game;
+ g.loot.forEach(item=>{item.x=120;item.z=120;});
+ const cache=g.loot.find(item=>item.weaponId===g.player.weaponId);
+ cache.x=g.player.x;cache.z=g.player.z;cache.remaining=0;cache.picked=true;
+ app.frame(2000/60);
+ assert.match(app.node('pickupPrompt').textContent,/V.*RETURN/);
+ const before=g.player.charges;
+ app.emit('keydown',{code:'KeyV'});
+ assert.equal(g.player.charges,before-12);
+ assert.equal(cache.remaining,12);
+ const saved=JSON.parse(store.get(KEY));
+ assert.equal(saved.player.charges,before-12);
+ assert.equal(saved.loot[cache.id].remaining,12);
+});
