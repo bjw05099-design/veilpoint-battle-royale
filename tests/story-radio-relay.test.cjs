@@ -13,7 +13,7 @@ function cleared(){
  assert.equal(s.phase,'records');return s;
 }
 test('optional CH01 radio objective becomes reachable after records and changes gate clearance timing',()=>{
- const s=cleared();assert.equal(Story.markers(s).length,4);
+ const s=cleared();assert.equal(Story.markers(s).length,5);
  go(s,'recordA');Story.interact(s);go(s,'recordB');Story.interact(s);
  assert.equal(Story.markers(s).some(m=>m.id==='relay'),true);
  s.world.player.x=8;s.world.player.z=-34;s.world.player.yaw=0;
@@ -51,4 +51,23 @@ test('old checkpoints default radio off and forged early restoration is rejected
  forged.relayRestored='true';assert.throws(()=>Story.restore(JSON.stringify(forged)),RangeError);
  const noRadio=cleared();go(noRadio,'decision');Story.interact(noRadio);Story.choose(noRadio,'evacuation');
  assert.equal(Story.debrief(noRadio),null);
+});
+
+test('CH01 physical relay restoration is an independent post-encounter choice before evidence collection',()=>{
+ const s=cleared();
+ assert.deepEqual(s.found,[]);
+ assert.ok(Story.markers(s).some(m=>m.id==='relay'));
+ go(s,'relay');
+ assert.equal(Story.interact(s).ok,true);
+ assert.equal(s.relayRestored,true);
+ assert.deepEqual(s.found,[]);
+ const restored=Story.restore(Story.serialize(s));
+ assert.equal(restored.relayRestored,true);
+ assert.deepEqual(restored.found,[]);
+ assert.equal(Story.serialize(restored),Story.serialize(s));
+ go(restored,'decision');assert.equal(Story.interact(restored).ok,true);
+ assert.equal(Story.choose(restored,'verification').reason,'missing_evidence');
+ assert.equal(Story.choose(restored,'evacuation').ok,true);
+ assert.equal(restored.relayRestored,true);
+ assert.equal(Story.situation(restored).eastGateOpen,false);
 });
