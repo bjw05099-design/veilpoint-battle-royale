@@ -440,6 +440,13 @@
       ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
       ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
     }
+    // The local walking guide is a known companion, but only shown when the
+    // captain can directly observe them; never plot unseen opponents or actors.
+    const escort=state.world.guide,player=state.world.player;
+    if(escort&&Math.hypot(escort.x-player.x,escort.z-player.z)<20&&
+       !Sim.lineBlocked(player.x,player.z,escort.x,escort.z,state.world.obstacles)){
+      ctx.fillStyle='#c6d4de';ctx.beginPath();ctx.arc(tx(escort.x),tz(escort.z),3.6,0,Math.PI*2);ctx.fill();
+    }
     // Map depicts accessible objectives and the player's location, not unseen opponents.
     const p=state.world.player;
     ctx.fillStyle='#faffd4';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4,0,Math.PI*2);ctx.fill();
@@ -460,7 +467,7 @@
        ?'F':desktopUi.get().bindings.headlamp.replace(/^Key/,'');
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
     const situation=Story.situation(state);
-    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+' · '+situation.radio+' · '+situation.warning+
+    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
