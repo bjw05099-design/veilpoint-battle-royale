@@ -271,6 +271,7 @@ if(storedMatch())$('play').textContent='저장 경기 이어하기';
 function resumeMatch(){
  if(!running||!suspended||graphicsContextLost||!renderer)return;
  suspended=false;pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
+ $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');$('saveExit').classList.add('hidden');
  $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
  $('mobileControls').classList.toggle('active',isTouch);
  Desktop.focusGameplay(document,canvas);
