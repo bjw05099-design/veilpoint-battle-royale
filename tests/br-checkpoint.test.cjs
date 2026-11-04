@@ -146,3 +146,25 @@ test('BR field bookmark refuses other arena, future timeline and finished matche
  Sim.receiveDamage(over,100);
  assert.throws(()=>Sim.restoreFieldBookmark(over,later),/active BR/);
 });
+
+test('BR previous-generation recovery retains seeded world and never accepts malformed saves',()=>{
+ const live=active(20261109,1);
+ for(let i=0;i<110;i++)Sim.tick(live,1/60,{forward:i%9===0});
+ const older=Sim.snapshotMatch(live);
+ for(let i=0;i<90;i++)Sim.tick(live,1/60,{left:i%13===0});
+ const latest=Sim.snapshotMatch(live);
+ const healthy=Sim.recoverMatch(latest,older);
+ assert.equal(healthy.source,'primary');
+ assert.equal(Sim.snapshotMatch(healthy.state),latest);
+ const recovered=Sim.recoverMatch('{broken-json',older);
+ assert.equal(recovered.source,'backup');
+ assert.equal(Sim.snapshotMatch(recovered.state),older);
+ const replay=Sim.restoreMatch(older);
+ for(let i=0;i<75;i++){
+  const input={forward:i%4===0,right:i%6===0};
+  Sim.tick(recovered.state,1/60,input);Sim.tick(replay,1/60,input);
+  assert.equal(Sim.snapshotMatch(recovered.state),Sim.snapshotMatch(replay));
+ }
+ assert.throws(()=>Sim.recoverMatch('corrupt','also corrupt'),RangeError);
+ assert.equal(Sim.recoverMatch(null,null),null);
+});
