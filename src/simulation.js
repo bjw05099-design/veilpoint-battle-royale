@@ -1197,5 +1197,47 @@
     if(firstError)throw firstError;
     return null;
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch};
+  // Terminal match reports are local, noncompetitive history, NEVER an active
+  // checkpoint. A refresh may show the last outcome and allow the same arena
+  // to be replayed, but cannot resurrect finite supplies or undo a result.
+  const LAST_RESULT_VERSION=1, LAST_RESULT_LIMIT=1024;
+  function createLastResult(game) {
+    if(!game||!['won','lost','draw'].includes(game.status)||
+       !Array.isArray(game.bots)||!integer(game.seed,0,Number.MAX_SAFE_INTEGER)||
+       !finite(game.elapsed,0,3600)||!integer(game.kills,0,game.bots.length)||
+       !game.player||!Object.prototype.hasOwnProperty.call(FIREARMS,game.player.weaponId)||
+       game.bots.length>MAX_BOTS)
+      throw new RangeError('Only completed BR rounds can be archived');
+    const placement=getFinalPlacement(game);
+    const outcome=game.status;
+    if((outcome==='won'&&(!game.player.alive||placement!==1))||
+       (outcome==='lost'&&(game.player.alive||!integer(placement,2,game.bots.length+1)))||
+       (outcome==='draw'&&(!game.player.alive||placement!==null)))
+      throw new RangeError('Invalid BR final result');
+    return Object.freeze({version:LAST_RESULT_VERSION,mode:'offline-br',
+      seed:game.seed,weaponId:game.player.weaponId,rivals:game.bots.length,
+      outcome,elapsed:game.elapsed,kills:game.kills,placement});
+  }
+  function restoreLastResult(raw) {
+    if(typeof raw!=='string'||raw.length>LAST_RESULT_LIMIT)
+      throw new RangeError('Invalid BR local result');
+    let data;
+    try{data=JSON.parse(raw);}catch(_){throw new RangeError('Malformed BR local result');}
+    const fields=['version','mode','seed','weaponId','rivals','outcome','elapsed','kills','placement'];
+    if(!data||typeof data!=='object'||Array.isArray(data)||
+       Object.keys(data).length!==fields.length||
+       fields.some(k=>!Object.prototype.hasOwnProperty.call(data,k))||
+       data.version!==LAST_RESULT_VERSION||data.mode!=='offline-br'||
+       !integer(data.seed,0,Number.MAX_SAFE_INTEGER)||
+       !Object.prototype.hasOwnProperty.call(FIREARMS,data.weaponId)||
+       !integer(data.rivals,0,MAX_BOTS)||!finite(data.elapsed,0,3600)||
+       !integer(data.kills,0,data.rivals)||
+       !['won','lost','draw'].includes(data.outcome)||
+       (data.outcome==='won'&&data.placement!==1)||
+       (data.outcome==='draw'&&data.placement!==null)||
+       (data.outcome==='lost'&&!integer(data.placement,2,data.rivals+1)))
+      throw new RangeError('Invalid BR local result fields');
+    return Object.freeze({...data});
+  }
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
