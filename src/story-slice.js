@@ -332,9 +332,26 @@
           const mobility=Sim.injuryMobility({health:hostile.health/90*100});
           const move=Math.min(1.6*mobility*t,remaining);
           const vx=Math.sin(hostile.angle)*move/t,vz=-Math.cos(hostile.angle)*move/t;
-          if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8)
-            Sim.moveEntity(hostile,vx,vz,t,state.world.obstacles.concat(actorBlockers(state,hostile),
-              [{x:p.x,z:p.z,w:1.7,d:1.7}]),HOSTILE_BODY_RADIUS);
+          if(Math.hypot(hostile.x+vx*t-anchor.x,hostile.z+vz*t-anchor.z)<=HOSTILE_CHASE_RADIUS+1e-8){
+            const solids=state.world.obstacles.concat(actorBlockers(state,hostile),
+              [{x:p.x,z:p.z,w:1.7,d:1.7}]);
+            const startX=hostile.x,startZ=hostile.z;
+            Sim.moveEntity(hostile,vx,vz,t,solids,HOSTILE_BODY_RADIUS);
+            // When a solid harbor object blocks pursuit, try a short lateral
+            // path instead of remaining stuck against its face. The alternate
+            // step uses the SAME movement budget, solid geometry and authored
+            // six-metre anchor radius; no knowledge of the player behind cover.
+            if(Math.hypot(hostile.x-startX,hostile.z-startZ)<1e-8){
+              const side=hostile.id%2===0?1:-1;
+              for(const sign of [side,-side]){
+                const sx=-vz*sign,sz=vx*sign;
+                if(Math.hypot(startX+sx*t-anchor.x,startZ+sz*t-anchor.z)>HOSTILE_CHASE_RADIUS+1e-8)
+                  continue;
+                Sim.moveEntity(hostile,sx,sz,t,solids,HOSTILE_BODY_RADIUS);
+                if(Math.hypot(hostile.x-startX,hostile.z-startZ)>1e-8)break;
+              }
+            }
+          }
         }
       }
     }
