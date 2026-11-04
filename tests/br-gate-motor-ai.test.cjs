@@ -6,6 +6,9 @@ const INPUT={forward:false,back:false,left:false,right:false,sprint:false,crouch
 function setup(){
   const game=Sim.newMatch(20261105,1);
   game.status='playing';
+  // Isolate the motor clue: a visible player must legitimately win priority.
+  // Keep the stationary player beyond the rival's 55m sight range.
+  game.player.x=-40;game.player.z=50;
   const bot=game.bots[0];
   bot.x=30;bot.z=-12;bot.angle=Math.PI;bot.moveTime=10;
   bot.lastSeenX=0;bot.lastSeenZ=0;bot.lastSeenUntil=0;
