@@ -525,3 +525,56 @@ test('BR PC pause withdrawal needs two clicks, clears save and allows same-arena
  assert.equal(app.game.player.charges,ammo);
  assert.notEqual(app.game,first);
 });
+
+test('BR offline final victory stays readable after refresh and replays the same arena on PC',()=>{
+ const store=new Map([['veilpoint.story.ch01','separate-story-save']]),first=boot(store);
+ first.node('play').click();first.frame(1000/60);
+ const old=first.game,seed=old.seed;
+ old.bots.forEach(b=>{b.alive=false;b.health=0;});
+ first.global.VeilpointSim.tick(old,1/60,{});
+ first.frame(2000/60);
+ assert.equal(old.status,'won');
+ const key='veilpoint.brLastResult.v1';
+ const report=JSON.parse(store.get(key));
+ assert.equal(report.outcome,'won');
+ assert.equal(report.placement,1);
+ assert.equal(store.has(KEY),false,'terminal result must not save an active match');
+ const revisit=boot(store);
+ assert.match(revisit.node('selector-.tagline').textContent,/지난 경기 승리/);
+ assert.equal(revisit.node('retryArena').classList.contains('hidden'),false);
+ revisit.frame(1000/60);
+ assert.equal(revisit.game.status,'ready','page refresh cannot auto-respawn a completed game');
+ revisit.node('retryArena').click();revisit.frame(2000/60);
+ assert.equal(revisit.game.status,'playing');
+ assert.equal(revisit.game.seed,seed);
+ assert.equal(revisit.game.player.charges,48);
+ assert.equal(store.has(key),false,'fresh arena clears old outcome history');
+ assert.equal(store.get('veilpoint.story.ch01'),'separate-story-save');
+});
+
+test('BR withdrawn result can be reviewed on refresh but never revived as a live checkpoint',()=>{
+ const store=new Map(),first=boot(store);
+ first.node('play').click();first.frame(1000/60);
+ first.emit('keydown',{code:'Escape'});
+ first.node('forfeitMatch').click();first.node('forfeitMatch').click();
+ assert.equal(first.game.status,'lost');
+ const report=JSON.parse(store.get('veilpoint.brLastResult.v1'));
+ assert.equal(report.outcome,'lost');
+ assert.ok(report.placement>=2);
+ assert.equal(store.has(KEY),false);
+ const refreshed=boot(store);
+ assert.match(refreshed.node('selector-.tagline').textContent,/지난 경기 종료/);
+ refreshed.node('play').click();refreshed.frame(1000/60);
+ assert.equal(refreshed.game.status,'playing');
+ assert.equal(refreshed.game.player.charges,48,'new round starts with original finite resources');
+});
+
+test('BR corrupt last-result data is discarded without preventing new game',()=>{
+ const key='veilpoint.brLastResult.v1';
+ const store=new Map([[key,JSON.stringify({version:1,mode:'offline-br',outcome:'won',placement:1,seed:'forged'})]]);
+ const app=boot(store);
+ assert.equal(store.has(key),false);
+ assert.doesNotMatch(app.node('selector-.tagline').textContent,/지난 경기/);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+});
