@@ -389,15 +389,30 @@
       const investigating=!target&&!outsideBot&&b.lastSeenUntil>game.elapsed;
       const lastSeenDistance=investigating
         ?Math.hypot(b.lastSeenX-b.x,b.lastSeenZ-b.z):0;
+      // Only locally visible physical stock can motivate a supply detour.
+      // A rival never reads distant cache coordinates as global navigation data;
+      // boundary safety and an observed opponent retain priority.
+      let supplyTarget=null,supplyDistance=9;
+      if(!outsideBot&&!target&&!investigating&&b.charges<12){
+        for(const cache of game.loot){
+          if(cache.weaponId!=='carbine'||cache.remaining<=0)continue;
+          const distance=dist(b,cache);
+          if(distance>=supplyDistance||
+             lineBlocked(b.x,b.z,cache.x,cache.z,obstacles))continue;
+          supplyTarget=cache;supplyDistance=distance;
+        }
+      }
       let aim=b.angle;
       if(outsideBot)aim=Math.atan2(game.zone.x-b.x,-(game.zone.z-b.z));
       else if(target)aim=targetAngle;
       else if(investigating&&lastSeenDistance>1)
         aim=Math.atan2(b.lastSeenX-b.x,-(b.lastSeenZ-b.z));
+      else if(supplyTarget&&supplyDistance>PICKUP_REACH*.65)
+        aim=Math.atan2(supplyTarget.x-b.x,-(supplyTarget.z-b.z));
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
-        investigating&&lastSeenDistance>3?2.0:1.0)*injuryMobility(b);
+        investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b);
       const movementObstacles=obstacles.concat(actorObstacles(game,b));
       const startX=b.x,startZ=b.z;
       const vx=Math.sin(b.angle)*botSpeed,vz=-Math.cos(b.angle)*botSpeed;
