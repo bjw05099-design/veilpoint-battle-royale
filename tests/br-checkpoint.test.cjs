@@ -168,3 +168,21 @@ test('BR previous-generation recovery retains seeded world and never accepts mal
  assert.throws(()=>Sim.recoverMatch('corrupt','also corrupt'),RangeError);
  assert.equal(Sim.recoverMatch(null,null),null);
 });
+
+test('BR voluntary withdrawal ends eligibility without changing health or finite resources',()=>{
+ const game=active(20261105,4);
+ const before=Sim.snapshotMatch(game),health=game.player.health,charges=game.player.charges;
+ const result=Sim.forfeitMatch(game);
+ assert.equal(result.ok,true);
+ assert.equal(result.placement,5);
+ assert.equal(game.status,'lost');
+ assert.equal(game.player.alive,false);
+ assert.equal(game.player.health,health,'withdrawal is not simulated injury');
+ assert.equal(game.player.charges,charges);
+ assert.equal(Sim.getFinalPlacement(game),5);
+ assert.equal(Sim.forfeitMatch(game).ok,false,'withdrawal is a one-time terminal transition');
+ assert.throws(()=>Sim.snapshotMatch(game),RangeError,'terminal rounds cannot be saved as active');
+ const resumed=Sim.restoreMatch(before);
+ assert.equal(resumed.status,'playing','pre-withdrawal checkpoint is a real active world');
+ assert.equal(Sim.forfeitMatch(resumed).ok,true);
+});
