@@ -176,7 +176,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...(state.phase==='records'&&state.found.length===2&&!state.relayRestored?[POINTS.relay]:[]),
+      ...(state.phase==='records'&&!state.relayRestored?[POINTS.relay]:[]),
       ...warningMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
@@ -506,7 +506,7 @@
       state.message=state.found.length===2
         ?'SIGNAL ECHO: 04:07과 04:12 기록은 5분 차이입니다. 시계 오차 여부는 미확정이며, 동쪽 통로 승인 요청이 가능합니다.'
         :'기록 확보 · 다른 기록도 확인할 수 있습니다.';
-    }else if(marker.id==='relay'&&state.phase==='records'&&state.found.length===2){
+    }else if(marker.id==='relay'&&state.phase==='records'){
       // Optional physical action: the local generator is connected to the
       // civilian radio repeater. No remote control or supernatural signal.
       state.relayRestored=true;
@@ -696,7 +696,7 @@
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return '선택: 양쪽 기록을 조사하거나 중앙 콘솔에서 대피 경로를 선택하세요.'+
         (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
-        (state.found.length===2&&!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
+        (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
         ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'+
           (state.relayRestored?' 선택: 항구 건물의 수동 경고등을 E로 켜거나 끌 수 있습니다.':'')
@@ -850,7 +850,7 @@
       (hasOwn(data,'musterConfirmed')&&data.musterConfirmed&&
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
       (hasOwn(data,'relayRestored')&&data.relayRestored&&
-        (data.found.length!==2||['terminal','engagement','failed'].includes(data.phase)))||
+        (['terminal','engagement','failed'].includes(data.phase)))||
       (data.beaconEnabled===true&&
         (data.relayRestored!==true||['terminal','engagement','failed'].includes(data.phase)))||
       (['terminal','engagement','failed'].includes(data.phase)&&
