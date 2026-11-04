@@ -40,3 +40,21 @@ test('CH01 moving opponent pose survives checkpoints; malformed positions cannot
   assert.equal(migrated.world.bots[1].x,15);
   assert.ok(JSON.parse(Story.serialize(migrated)).combat.drones.every(h=>Number.isFinite(h.angle)));
 });
+
+test('CH01 blocked pursuit respects solid collision, anchor and checkpoint replay at 60Hz',()=>{
+  const a=start();
+  // A freestanding solid obstacle is inserted between the visible opponent
+  // and its goal. The fallback must never cross this collision volume.
+  a.world.obstacles.push({x:15,z:-32,w:3,d:1,h:3,type:'test-solid'});
+  const b=Story.restore(Story.serialize(a));
+  b.world.obstacles.push({x:15,z:-32,w:3,d:1,h:3,type:'test-solid'});
+  for(let frame=0;frame<120;frame++){
+    Story.step(a,1/60);Story.step(b,1/60);
+    assert.deepEqual(a.world.bots.map(h=>[h.x,h.z,h.angle,h.shots]),
+      b.world.bots.map(h=>[h.x,h.z,h.angle,h.shots]));
+  }
+  const h=a.world.bots[1];
+  assert.ok(Math.hypot(h.x-15,h.z+34)<=6+1e-8);
+  assert.ok(!require('../src/simulation.js').blocked(h.x,h.z,.75,
+    [{x:15,z:-32,w:3,d:1}]));
+});
