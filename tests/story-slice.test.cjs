@@ -1337,3 +1337,22 @@ test('CH01 finite supply cache remains physically available after the encounter 
   assert.equal(story.markers(state).some(marker=>marker.id==='supply'),false);
   assert.equal(story.serialize(story.restore(story.serialize(state))),story.serialize(state));
 });
+
+test('CH01 exit relay power can be physically isolated and restored without resetting route clearance',()=>{
+ const state=reachDecision();
+ assert.equal(story.choose(state,'evacuation').ok,true);
+ go(state,'relay');
+ assert.equal(story.interact(state).ok,true);
+ assert.equal(state.relayRestored,true);
+ go(state,'beacon');assert.equal(story.interact(state).ok,true);
+ assert.equal(state.beaconEnabled,true);
+ go(state,'relay');assert.equal(story.interact(state).ok,true);
+ assert.equal(state.relayRestored,false);
+ assert.equal(state.beaconEnabled,false,'warning fixture cannot remain powered after isolation');
+ const restored=story.restore(story.serialize(state));
+ assert.equal(restored.relayRestored,false);
+ assert.equal(restored.beaconEnabled,false);
+ go(restored,'relay');assert.equal(story.interact(restored).ok,true);
+ assert.equal(restored.relayRestored,true);
+ assert.equal(story.markers(restored).some(m=>m.id==='beacon'),true);
+});
