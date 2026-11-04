@@ -87,7 +87,7 @@
   function gateGeometry(state) {
     // An optional, physically restored radio link allows the local coordinator
     // to begin a shorter clearance cycle; the gate still travels over time.
-    const duration=state.relayRestored?4:GATE_CLEARANCE_SECONDS;
+    const duration=state.gateClearanceDuration;
     const fraction=state.choice==='verification'
       ?clamp((state.world.elapsed-state.gateReadyAt+duration)/duration,0,1):0;
     return {...EAST_CHECKPOINT,x:EAST_CHECKPOINT.x+GATE_TRAVEL*fraction};
@@ -157,7 +157,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -618,7 +618,8 @@
       if(choice===state.choice)return {ok:true,event:'choice_unchanged',choice};
     }
     state.choice=choice;state.phase='exit';
-    state.gateReadyAt=choice==='verification'?state.world.elapsed+(state.relayRestored?4:GATE_CLEARANCE_SECONDS):0;
+    state.gateClearanceDuration=state.relayRestored?4:GATE_CLEARANCE_SECONDS;
+    state.gateReadyAt=choice==='verification'?state.world.elapsed+state.gateClearanceDuration:0;
     state.gateObstructed=false;
     state.subtitle=choice==='verification'
       ?'마라(기술자): 현지 통제소에 동쪽 통로 개방을 요청했습니다. 실제 작업 시간이 필요해요.'
@@ -721,7 +722,7 @@
   function snapshot(state) {
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
-      aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,
+      aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -740,8 +741,8 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+11||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+12||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged','gateClearanceDuration').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -759,7 +760,8 @@
       (hasOwn(data,'aidStaged')&&typeof data.aidStaged!=='boolean')||
       (data.aidStaged===true&&(data.aidPickedUp!==true||data.aidDelivered===true))||
       (data.aidDelivered===true&&data.aidPickedUp!==true)||
-      (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
+      (hasOwn(data,'gateClearanceDuration')&&![4,GATE_CLEARANCE_SECONDS].includes(data.gateClearanceDuration))||
+       (hasOwn(data,'gateReadyAt')&&(!Number.isFinite(data.gateReadyAt)||data.gateReadyAt<0||
         data.gateReadyAt>86410||(data.choice!=='verification'&&data.gateReadyAt!==0)||
         (data.choice==='verification'&&data.gateReadyAt>data.elapsed+GATE_CLEARANCE_SECONDS+1e-6))))
       throw new RangeError('Unknown checkpoint fields');
@@ -913,6 +915,10 @@
     state.world.aidPickedUp=state.aidPickedUp;state.world.aidDelivered=state.aidDelivered;
     // Older verification saves already had an open route.
     state.gateReadyAt=hasOwn(data,'gateReadyAt')?data.gateReadyAt:0;
+    // Old saves did not latch the approved gate travel duration. Infer the
+    // historical cycle without changing a previously authorized deadline.
+    state.gateClearanceDuration=hasOwn(data,'gateClearanceDuration')?data.gateClearanceDuration:
+      (data.choice==='verification'&&state.relayRestored?4:GATE_CLEARANCE_SECONDS);
     for(const key of ['x','z','yaw','pitch','stamina','health','charges'])state.world.player[key]=data.player[key];
     // Older v2 checkpoints have no magazine metadata; total saved rounds stay finite.
     state.world.player.loaded=hasOwn(data.player,'loaded')?data.player.loaded:Math.min(Sim.FIREARMS[weaponId].magazine,data.player.charges);
