@@ -312,7 +312,7 @@ function resumeStoredMatch(){
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
@@ -353,7 +353,7 @@ $('saveExit').addEventListener('click',()=>{
  }
  running=false;suspended=false;
  desktopUi.cancel();resetInactiveClock();
- $('saveExit').classList.add('hidden');$('retryArena').classList.add('hidden');
+ $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  $('play').textContent='저장 경기 이어하기';
  document.querySelector('.eyebrow').textContent='OFFLINE CHECKPOINT / SAVED';
