@@ -176,7 +176,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      POINTS.relay,
+      ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
@@ -516,8 +516,8 @@
         ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어.'
         :'마라(기술자): 현장 전원을 분리했어. 경고등은 꺼지고 아직 요청하지 않은 통제문 준비에는 시간이 더 필요해.';
       state.message=state.relayRestored
-        ?'현지 중계기 전원 연결 · 신규 통제문 요청 준비 4초'
-        :'현지 중계기 전원 분리 · 신규 통제문 요청 준비 8초';
+        ?'현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초'
+        :'현장 중계기 전원 차단 · 경고등 소등 · 신규 요청 8초';
     }else if(marker.id==='beacon'&&state.relayRestored&&
       ['records','decision','exit'].includes(state.phase)){
       // A reachable mechanical switch controls a powered warning fixture in
