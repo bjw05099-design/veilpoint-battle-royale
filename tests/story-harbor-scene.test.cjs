@@ -73,3 +73,29 @@ test('CH01 south muster paint and harbor lane markings are original static geome
  assert.equal(JSON.stringify(story.world),before,'paint must not change 60Hz simulation');
  assert.equal(Sim.blocked(Story.POINTS.muster.x,Story.POINTS.muster.z,.85,story.world.obstacles),false);
 });
+
+test('CH01 evacuation guide has real WebGL vertices only when exposed and never appears in BR',()=>{
+ const fake=fakeGl();
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Graphics,
+  VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(__dirname+'/../src/renderer.js','utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:640,clientHeight:360,
+  getContext:type=>type==='webgl2'?fake.gl:null});
+ const s=Story.createState(),p=s.world.player;
+ p.x=-10.5;p.z=-49;p.yaw=0;
+ renderer.draw(s.world);
+ const baseline=renderer.dynamic.count;
+ s.world.guide={active:true,arrived:false,x:-10.5,z:-55};
+ const plan=Visibility.planVisible(s.world,16/9);
+ assert.equal(plan.guides.length,1,'guide is visible directly in the captain field of view');
+ renderer.draw(s.world);
+ assert.equal(renderer.dynamic.count,baseline+72,'WebGL uploads two physical actor boxes');
+ assert.ok(plan.stats.estimatedDynamicVertices>=72);
+ s.world.obstacles.push({x:-10.5,z:-52,w:6,d:1,h:3,type:'cover'});
+ assert.equal(Visibility.planVisible(s.world,16/9).guides.length,0,
+  'solid harbor occlusion must hide guide geometry');
+ renderer.draw(s.world);
+ assert.equal(renderer.dynamic.count,baseline,'hidden guide must not be drawn through walls');
+ const br=Sim.newMatch(20261105,1);
+ assert.equal(Visibility.planVisible(br,16/9).guides.length,0);
+});

@@ -152,6 +152,7 @@ class SoftwareRenderer {
  if(!harborNight)objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
+ for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
   w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
   if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
@@ -171,7 +172,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -399,6 +400,12 @@ class Renderer {
  for(const obstacle of state.obstacles){
   if(obstacle.routeId==='east-checkpoint')
    mesh.box(obstacle.x,0,obstacle.z,obstacle.w,obstacle.h,obstacle.d,[.30,.35,.36]);
+ }
+ // One original neutral-color civilian guide, drawn at the exact 60Hz
+ // collision position and only while visible behind solid harbor occluders.
+ for(const {entity:g} of plan.guides||[]){
+  mesh.box(g.x,.05,g.z,.55,1.18,.4,[.39,.46,.51]);
+  mesh.box(g.x,1.36,g.z,.42,.43,.40,[.58,.48,.39]);
  }
  for(const {entity:b,lod} of plan.bots){
   const c=[.24,.29,.26],x=b.x,z=b.z;

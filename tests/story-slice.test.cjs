@@ -1400,3 +1400,53 @@ test('CH01 valid primary including completed mission overrides an older playable
   assert.equal(result.state.phase,'complete');
   assert.equal(story.serialize(result.state),saved);
 });
+
+test('CH01 optional local guide physically follows a paced evacuation route to the courtyard',()=>{
+  const s=reachDecision();
+  assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');
+  assert.equal(story.interact(s).ok,true);
+  assert.equal(s.musterConfirmed,true);
+  const start={x:s.guide.x,z:s.guide.z};
+  assert.equal(story.interact(s).event,'guide','a second physical PC E interaction starts escort');
+  assert.equal(s.guide.active,true);
+  const destination=story.POINTS.exitEvac;
+  s.world.player.yaw=Math.atan2(destination.x-s.world.player.x,
+    -(destination.z-s.world.player.z));
+  let positionBefore={...s.guide};
+  for(let i=0;i<1200&&!s.guide.arrived;i++){
+    const p=s.world.player,g=s.guide;
+    const toExit=Math.hypot(p.x-destination.x,p.z-destination.z);
+    const spacing=Math.hypot(p.x-g.x,p.z-g.z);
+    story.step(s,1/60,toExit>.2&&spacing<3.1?{forward:true}:{});
+    assert.equal(Sim.blocked(g.x,g.z,.55,s.world.obstacles),false,'guide cannot cross solid harbor cover');
+    assert.ok(Math.hypot(g.x-start.x,g.z-start.z)<=20,'guide cannot teleport outside route');
+  }
+  assert.equal(s.guide.arrived,true,'paced walking should complete actual local escort');
+  assert.ok(Math.hypot(s.guide.x-destination.x,s.guide.z-destination.z)<2.4);
+  go(s,'exitEvac');
+  assert.equal(story.interact(s).ok,true);
+  assert.equal(s.phase,'complete');
+  assert.equal(story.debrief(s).guideArrived,true,'the physical arrival persists into the result');
+});
+
+test('CH01 escort checkpoint replays at 60Hz and legacy saves remain loadable',()=>{
+  const s=reachDecision();story.choose(s,'evacuation');go(s,'muster');
+  story.interact(s);story.interact(s);
+  s.world.player.x=-6;s.world.player.z=-55;
+  for(let i=0;i<90;i++)story.step(s,1/60);
+  const raw=story.serialize(s),copy=story.restore(raw);
+  assert.equal(story.serialize(copy),raw);
+  assert.equal(copy.world.guide,copy.guide);
+  for(let i=0;i<120;i++){
+    const input={forward:i%5===0};
+    story.step(s,1/60,input);story.step(copy,1/60,input);
+    assert.equal(story.serialize(copy),story.serialize(s));
+  }
+  const old=JSON.parse(raw);delete old.guide;
+  const migrated=story.restore(JSON.stringify(old));
+  assert.equal(migrated.guide.active,false,'old v2 checkpoint does not spawn a phantom companion');
+  const bad=JSON.parse(raw);bad.guide.x=200;
+  assert.throws(()=>story.restore(JSON.stringify(bad)),RangeError);
+  assert.equal(Sim.newMatch(20261105,1).guide,undefined,'BR has no story escort state');
+});

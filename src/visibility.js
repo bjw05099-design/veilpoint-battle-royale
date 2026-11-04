@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[],serviceGates=[],trailMarkers=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[],trailMarkers=[],guides=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -90,6 +90,13 @@ function planVisible(state,aspect=16/9){
      !hasExposedSilhouette(p,entity,.85,state.obstacles))continue;
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=lodForDistance(distance);
   bots.push({entity,lod});boxes+=lod==='high'?6:lod==='medium'?3:1;
+ }
+ // The optional, physically moving CH01 local guide is shown only in the
+ // player's finite view and when not occluded by solid harbor buildings.
+ if(state.scene==='nahrin'&&state.guide&&
+    inView(p,state.guide.x,state.guide.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.guide,.5,state.obstacles)){
+   guides.push({entity:state.guide});boxes+=2;
  }
  // Render the same finite field pouch that PC E can collect from a defeated
  // BR rival. Administrative boundary disqualification creates no physical loot.
@@ -130,7 +137,7 @@ function planVisible(state,aspect=16/9){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,serviceGates,trailMarkers,stats:{botsVisible:bots.length,botsTotal:botTotal,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,trailMarkers,guides,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
