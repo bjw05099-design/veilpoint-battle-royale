@@ -125,19 +125,20 @@ test('final boundary deadline applies to rivals and permits a fair match win',()
   assert.equal(g.player.health,hp);
 });
 
-test('after the final clock expires, leaving the boundary cannot stall the match',()=>{
+test('after the final clock expires, two legal survivors draw and the world freezes',()=>{
   const g=beforeFinalDeadline(8112,1);
-  g.player.x=0;g.player.z=0;
-  g.bots[0].x=0;g.bots[0].z=1;
-  for(let i=0;i<3;i++)S.tick(g,0.05,{});
-  assert.equal(g.status,'playing');
-  assert.equal(g.zone.phaseRemaining,0);
+  g.player.x=-1;g.player.z=0;
+  g.bots[0].x=1;g.bots[0].z=0;g.bots[0].actionTime=9;
   const hp=g.player.health;
-  g.player.x=5;
-  S.tick(g,1/60,{});
-  assert.equal(g.status,'lost');
+  for(let i=0;i<3;i++)S.tick(g,0.05,{});
+  assert.equal(g.zone.phaseRemaining,0);
+  assert.equal(g.status,'draw');
   assert.equal(g.player.health,hp);
-  assert.equal(g.player.alive,false);
+  assert.equal(g.player.alive,true);
+  assert.equal(S.getFinalPlacement(g),null);
+  const elapsed=g.elapsed;
+  S.tick(g,1/60,{forward:true});
+  assert.equal(g.elapsed,elapsed,'a completed draw cannot resume advancing AI or movement');
 });
 
 test('final-boundary expiry is deterministic after a checkpoint restore',()=>{
