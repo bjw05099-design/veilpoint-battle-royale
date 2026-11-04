@@ -1191,3 +1191,29 @@ test('CH01 optional evidence handoff cannot be forged or block an evacuation end
   go(state,'exitEvac');assert.equal(story.interact(state).ok,true);
   assert.equal(story.debrief(state).logHandedOff,false);
 });
+
+test('powered civilian repeater supports physical readback during both exit routes without changing clearance',()=>{
+  for(const route of ['evacuation','verification']){
+    const state=reachDecision();
+    go(state,'recordA');story.interact(state);
+    go(state,'recordB');story.interact(state);
+    story.backToRecords(state);
+    go(state,'relay');assert.equal(story.interact(state).ok,true);
+    go(state,'decision');assert.equal(story.interact(state).ok,true);
+    assert.equal(story.choose(state,route).ok,true);
+    const before=story.serialize(state);
+    const deadline=state.gateReadyAt;
+    assert.ok(story.markers(state).some(m=>m.id==='relay'));
+    go(state,'relay');
+    const checkpoint=story.serialize(state);
+    const result=story.interact(state);
+    assert.equal(result.ok,true);
+    assert.match(state.message,/전원 정상/);
+    assert.equal(state.gateReadyAt,deadline);
+    assert.equal(story.serialize(state),checkpoint);
+    const restored=story.restore(checkpoint);
+    assert.ok(story.markers(restored).some(m=>m.id==='relay'));
+    assert.equal(restored.gateReadyAt,deadline);
+    assert.notEqual(before,checkpoint);
+  }
+});
