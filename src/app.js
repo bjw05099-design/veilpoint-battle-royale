@@ -365,6 +365,11 @@ addEventListener('keydown',e=>{
   else desktopUi.cancel();
  }
  if(action==='interact'){e.preventDefault();collectAmmo();}
+ // V is a separate physical cache action, not a shortcut that creates rounds.
+ if(e.code==='KeyV'&&!action&&canAct()){
+  e.preventDefault();const result=Game.depositReserve(simulation);
+  if(result.ok){persistMatch();updateHud();}
+ }
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
