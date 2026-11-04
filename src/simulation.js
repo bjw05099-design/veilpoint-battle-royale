@@ -221,8 +221,9 @@
   function advanceServiceGate(game,dt) {
     const gate=game.yardGate;
     if(!gate?.engaged||(!gate.closing&&gate.progress>=1))return;
-    const next=gate.closing?Math.max(0,gate.progress-dt/SERVICE_YARD.seconds):
-      Math.min(1,gate.progress+dt/SERVICE_YARD.seconds);
+    const candidate=gate.progress+(gate.closing?-1:1)*dt/SERVICE_YARD.seconds;
+    const next=gate.closing?(candidate<=1e-10?0:candidate):
+      (candidate>=1-1e-10?1:candidate);
     const body=game.obstacles.find(o=>o.routeId==='br-service-gate');
     if(!body)return;
     const futureX=SERVICE_YARD.x+SERVICE_YARD.slide*next;
@@ -975,7 +976,8 @@
       (oldGate.closing!==undefined&&typeof oldGate.closing!=='boolean')||
       (oldGate.closing===true&&(!oldGate.engaged||oldGate.progress<=0)))
       throw new RangeError('Invalid restored service-yard gate');
-    game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress,closing:oldGate.closing===true};
+    game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress,
+      ...(oldGate.closing===true?{closing:true}:{})};
     const gateBody=game.obstacles.find(o=>o.routeId==='br-service-gate');
     gateBody.x=SERVICE_YARD.x+SERVICE_YARD.slide*oldGate.progress;
     // Reject malformed checkpoint flags instead of silently coercing strings,
