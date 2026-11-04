@@ -99,7 +99,7 @@ function planVisible(state,aspect=16/9){
   if(!inView(p,entity.x,entity.z,1,MAX_DISTANCE,halfFov)||
      !hasExposedSilhouette(p,entity,.5,state.obstacles))return;
   const distance=Math.hypot(entity.x-p.x,entity.z-p.z),lod=distance<75?'high':'low';
-  loot.push({entity,lod});boxes+=lod==='high'?2:1;
+  loot.push({entity,lod});boxes+=(lod==='high'?2:1)+(Number.isFinite(entity.remaining)&&entity.remaining>0?1:0);
  };
  for(const entity of state.loot)addVisibleLoot(entity);
  if(!state.scene)for(const b of state.bots){

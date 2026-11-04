@@ -434,6 +434,31 @@
       // Still resolve each rival's physical deadline position above so
       // simultaneous boundary rulings remain symmetric.
       if(game.status!=='playing')continue;
+      // Rivals must replenish finite ammunition from the same physical caches
+      // the player can use. No global supply, teleport, or knowledge of hidden
+      // cache positions: a rival can only collect a compatible nearby cache.
+      // Existing charges, cache stock and checkpoint schema remain authoritative.
+      if(b.charges<36){
+        for(const cache of game.loot){
+          if(cache.weaponId!=='carbine'||cache.remaining<=0||
+             Math.hypot(cache.x-b.x,cache.z-b.z)>=PICKUP_REACH||
+             lineBlocked(b.x,b.z,cache.x,cache.z,
+               obstacles.concat(actorObstacles(game,b,null,false))))continue;
+          const taken=Math.min(36-b.charges,cache.remaining);
+          if(taken<=0)continue;
+          b.charges+=taken;
+          cache.remaining-=taken;
+          cache.picked=cache.remaining===0;
+          // Nearby survivors hear the handling and see the changed world stock;
+          // distant survivors get no omniscient notification.
+          if(Math.hypot(p.x-b.x,p.z-b.z)<18&&
+             !lineBlocked(p.x,p.z,b.x,b.z,obstacles)){
+            game.message='RIVAL RECOVERED '+taken+' FIELD ROUNDS';
+            game.messageTime=2;
+          }
+          break;
+        }
+      }
       // Both player and rival encounters consume finite ammunition. Reload completion
       // cannot fire on the same frame, and a missed shot still spends one round.
       const wasReloading=b.reloadRemaining>0;
