@@ -1138,3 +1138,22 @@ test('PC F toggles CH01 finite headlamp and saves through the live browser contr
  assert.match(loaded.element('flashlightStatus').textContent,/소등/);
  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,false);
 });
+
+
+test('CH01 PC Escape toggles a live paused mission without changing saved state',()=>{
+ const store=new Map(),app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ const saved=store.get('veilpoint.story.ch01');
+ app.emit('keydown',{code:'Escape',repeat:true});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.equal(store.get('veilpoint.story.ch01'),saved);
+});
+test('CH01 Escape on the initial menu cannot bypass mission start',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+});
