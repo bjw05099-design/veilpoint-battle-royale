@@ -501,3 +501,27 @@ test('BR terminal loss discards primary and backup so finished rounds cannot be 
  const next=boot(store);next.node('play').click();next.frame(1000/60);
  assert.equal(next.game.player.charges,48,'fresh round starts with finite initial resources');
 });
+
+test('BR PC pause withdrawal needs two clicks, clears save and allows same-arena retry',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const first=app.game,seed=first.seed,health=first.player.health,ammo=first.player.charges;
+ assert.ok(store.get(KEY));
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('forfeitMatch').classList.contains('hidden'),false);
+ app.node('forfeitMatch').click();
+ assert.equal(first.status,'playing','first click only arms withdrawal');
+ assert.ok(store.get(KEY));
+ app.node('forfeitMatch').click();app.frame(2000/60);
+ assert.equal(first.status,'lost');
+ assert.equal(first.player.health,health);
+ assert.equal(first.player.charges,ammo);
+ assert.equal(store.has(KEY),false,'terminal withdrawal cannot resume an active checkpoint');
+ assert.equal(app.node('forfeitMatch').classList.contains('hidden'),true);
+ assert.match(app.node('selector-.tagline').textContent,/자발적으로 포기/);
+ app.node('retryArena').click();app.frame(3000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.seed,seed);
+ assert.equal(app.game.player.charges,ammo);
+ assert.notEqual(app.game,first);
+});
