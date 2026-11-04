@@ -52,3 +52,22 @@ test('old checkpoints default radio off and forged early restoration is rejected
  const noRadio=cleared();go(noRadio,'decision');Story.interact(noRadio);Story.choose(noRadio,'evacuation');
  assert.equal(Story.debrief(noRadio),null);
 });
+
+test('CH01 physical relay restoration is an independent post-encounter choice before evidence collection',()=>{
+ const s=cleared();
+ assert.deepEqual(s.found,[]);
+ assert.ok(Story.markers(s).some(m=>m.id==='relay'));
+ go(s,'relay');
+ assert.equal(Story.interact(s).ok,true);
+ assert.equal(s.relayRestored,true);
+ assert.deepEqual(s.found,[]);
+ const restored=Story.restore(Story.serialize(s));
+ assert.equal(restored.relayRestored,true);
+ assert.deepEqual(restored.found,[]);
+ assert.equal(Story.serialize(restored),Story.serialize(s));
+ go(restored,'decision');assert.equal(Story.interact(restored).ok,true);
+ assert.equal(Story.choose(restored,'verification').reason,'missing_evidence');
+ assert.equal(Story.choose(restored,'evacuation').ok,true);
+ assert.equal(restored.relayRestored,true);
+ assert.equal(Story.situation(restored).eastGateOpen,false);
+});
