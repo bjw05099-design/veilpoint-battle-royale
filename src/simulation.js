@@ -447,6 +447,15 @@
         // current field of view. No hidden live coordinates are consulted.
         b.lastSeenX=target.x;b.lastSeenZ=target.z;
         b.lastSeenUntil=game.elapsed+2.5;
+      } else if(!outsideBot&&game.yardGate?.engaged&&
+        // An operating gate motor is a local audible event, not a global AI alert.
+        // A fence or building between the motor and listener attenuates it.
+        Math.hypot(b.x-SERVICE_YARD.x,b.z-SERVICE_YARD.z)<=
+          (lineBlocked(b.x,b.z,SERVICE_YARD.x,SERVICE_YARD.z,
+            obstacles.filter(o=>o.routeId!=='br-service-gate'))?9:22)) {
+        const heard=approximateSoundPosition(SERVICE_YARD);
+        b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
+        b.lastSeenUntil=game.elapsed+1.5;
       } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
         // Investigate only the last audible footstep position. Quiet movement
         // behind cover cannot continuously update this memory.
