@@ -1276,3 +1276,37 @@ test('CH01 invalidated completed save cannot present a forged review',()=>{
  assert.equal(app.element('debriefReview').classList.contains('hidden'),true);
  assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
+
+test('CH01 PC E at muster returns optional guide to local team and checkpoints the ending consequence',()=>{
+ const Story=require('../src/story-slice.js'),s=Story.createState();
+ const go=id=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(s).ok,true);
+ for(const bot of s.world.bots)for(let i=0;i<2;i++){
+  s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+  s.world.player.pitch=0;s.world.elapsed+=.21;
+  assert.equal(Story.fire(s).hit,true);
+ }
+ go('decision');assert.equal(Story.interact(s).ok,true);
+ assert.equal(Story.choose(s,'evacuation').ok,true);
+ go('muster');assert.equal(Story.interact(s).event,'muster');
+ assert.equal(Story.interact(s).event,'guide');
+ const store=new Map([
+  ['veilpoint.story.ch01',Story.serialize(s)],
+  ['veilpoint.brCheckpoint.v1','unchanged-br-save']
+ ]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();app.interact();
+ assert.match(app.element('status').textContent,/안내원 현장 인계 완료/);
+ assert.match(app.element('routeStatus').textContent,/집결지 현장 인계 완료/);
+ const saved=Story.restore(store.get('veilpoint.story.ch01'));
+ assert.equal(saved.guide.released,true);
+ assert.equal(saved.guide.active,false);
+ assert.equal(saved.world.guide,saved.guide);
+ const reloaded=boot(store,false,'granted',true,true);
+ reloaded.element('continue').click();
+ assert.match(reloaded.element('objective').textContent,/현장 인계/);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'unchanged-br-save');
+ reloaded.element('newGame').click();
+ assert.match(reloaded.element('objective').textContent,/중계기/);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'unchanged-br-save');
+});
