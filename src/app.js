@@ -140,8 +140,15 @@ const SHOT_SAVE_INTERVAL_SECONDS=1;
 const SHOT_HUD_INTERVAL_SECONDS=0.25;
 let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
- try{if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(MATCH_SAVE_KEY);
- else global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
+ // A privacy-restricted browser may reject deletion while still allowing an
+ // empty overwrite. Do not leave a resumable terminal save after a failed remove.
+ let removed=false;
+ try{
+  if(typeof global.localStorage.removeItem==='function'){
+   global.localStorage.removeItem(MATCH_SAVE_KEY);removed=true;
+  }
+ }catch(_){}
+ if(!removed)try{global.localStorage.setItem(MATCH_SAVE_KEY,'');}catch(_){}
 }
 function persistMatch(){
  if(!running)return false;
@@ -266,7 +273,14 @@ function resumeMatch(){
  Desktop.focusGameplay(document,canvas);
  requestAimLock();
 }
-$('play').addEventListener('click',()=>{if(running&&suspended)resumeMatch();else if(!running&&storedMatch())resumeStoredMatch();else start();});
+$('play').addEventListener('click',()=>{
+ if(running&&suspended)resumeMatch();
+ // A terminal result always means a fresh round, even if deletion was denied
+ // and a stale but syntactically valid local checkpoint is still readable.
+ else if(!running&&lastFinishedMatch)start();
+ else if(!running&&storedMatch())resumeStoredMatch();
+ else start();
+});
 $('newMatch').addEventListener('click',start);
 // Explicit PC save-and-exit is only possible after a durable local checkpoint.
 // If browser storage is blocked, stay paused and let the player resume instead.
@@ -315,7 +329,11 @@ addEventListener('keydown',e=>{
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
  if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}}
- if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){if(storedMatch())resumeStoredMatch();else start();}
+ if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){
+  if(lastFinishedMatch)start();
+  else if(storedMatch())resumeStoredMatch();
+  else start();
+ }
 });
 addEventListener('keyup',e=>{
  const action=Desktop.actionFor(e.code,desktopUi.get());

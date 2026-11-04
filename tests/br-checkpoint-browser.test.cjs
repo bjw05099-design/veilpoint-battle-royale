@@ -257,3 +257,65 @@ test('offline BR HTML ships the explicit PC pause and retry controls',()=>{
  assert.match(html,/id="saveExit"[^>]*>체크포인트 저장 후 메뉴로/);
  assert.match(html,/id="retryArena"[^>]*>같은 경기장 다시 도전/);
 });
+
+
+test('BR terminal clearing falls back to an empty checkpoint when removeItem fails',()=>{
+ const data=new Map(),store={
+  get:key=>data.get(key)??null,set:(key,value)=>data.set(key,value),
+  delete:()=>{throw new Error('remove blocked');}
+ };
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(JSON.parse(data.get(KEY)).player.charges,47);
+ app.global.VeilpointSim.receiveDamage(app.game,100);app.frame(2000/60);
+ assert.equal(data.get(KEY),'','fallback must prevent a stale game from resuming after reload');
+ app.node('play').click();app.frame(3000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.player.charges,48);
+});
+
+test('BR PC restart ignores readable stale save if both deletion and overwrite are denied',()=>{
+ const data=new Map();let locked=false;
+ const store={
+  get:key=>data.get(key)??null,
+  set:(key,value)=>{if(locked)throw new Error('storage locked');data.set(key,value);},
+  delete:()=>{throw new Error('storage locked');}
+ };
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ const stale=data.get(KEY);
+ assert.equal(JSON.parse(stale).player.charges,47);
+ locked=true;
+ const finished=app.game;
+ app.global.VeilpointSim.receiveDamage(finished,100);app.frame(2000/60);
+ assert.equal(data.get(KEY),stale,'test must retain the unremovable checkpoint');
+ app.node('play').click();app.frame(3000/60);
+ assert.notEqual(app.game,finished);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.player.charges,48,'restart must never reload the stale 47-round checkpoint');
+});
+
+test('BR Enter from the final victory screen does not resume a stale active checkpoint',()=>{
+ const data=new Map();let locked=false;
+ const store={
+  get:key=>data.get(key)??null,
+  set:(key,value)=>{if(locked)throw new Error('storage locked');data.set(key,value);},
+  delete:()=>{throw new Error('storage locked');}
+ };
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ const old=app.game;
+ locked=true;
+ old.bots.forEach(b=>{b.alive=false;});
+ app.global.VeilpointSim.tick(old,1/60,{});
+ app.frame(2000/60);
+ assert.equal(old.status,'won');
+ app.emit('keydown',{code:'Enter'});
+ app.frame(3000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.player.charges,48);
+ assert.notEqual(app.game,old);
+});
