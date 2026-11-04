@@ -63,7 +63,7 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'terminal');
   assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
   clearEncounter(state);
-  assert.equal(story.markers(state).length,3);
+  assert.equal(story.markers(state).length,4);
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(state.found.length,2);
@@ -105,7 +105,7 @@ test('checkpoint serialization restores player, records and objective without mu
   assert.equal(loaded.phase,'decision');
   assert.deepEqual(loaded.found,['recordA']);
   assert.equal(loaded.world.player.x,story.POINTS.recordA.x);
-  assert.equal(loaded.world.loot.length,2);
+  assert.equal(loaded.world.loot.length,3);
   loaded.found.push('recordB');
   assert.deepEqual(state.found,['recordA']);
   assert.equal(story.serialize(state),saved);
@@ -170,7 +170,7 @@ test('CH01 encounter: cannot fire early; finite rounds disable three grounded ho
   assert.equal(story.fire(state).reason,'cooldown');
   clearEncounter(state);
   assert.equal(story.fire(state).reason,'not_in_encounter');
-  assert.equal(story.markers(state).length,3);
+  assert.equal(story.markers(state).length,4);
 });
 
 test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals completion',()=>{
@@ -1313,4 +1313,27 @@ test('CH01 route review availability reflects irreversible physical evidence and
   go(state,'aidPickup');assert.equal(story.interact(state).ok,true);
   assert.equal(story.situation(state).routeReviewAvailable,false);
   assert.equal(story.situation(story.restore(story.serialize(state))).routeReviewAvailable,false);
+});
+
+
+test('CH01 finite supply cache remains physically available after the encounter and across mission routes',()=>{
+  const state=reachDecision();
+  assert.equal(state.combat.supplyRemaining,12);
+  const player=state.world.player;
+  player.charges=player.maxCharges-4;
+  go(state,'supply');
+  assert.equal(story.nearest(state)?.id,'supply');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(player.charges,player.maxCharges);
+  assert.equal(state.combat.supplyRemaining,8);
+  assert.equal(story.serialize(story.restore(story.serialize(state))),story.serialize(state));
+  go(state,'decision');
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  assert.ok(story.markers(state).some(marker=>marker.id==='supply'));
+  player.charges=player.maxCharges-8;
+  go(state,'supply');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(state.combat.supplyRemaining,0);
+  assert.equal(story.markers(state).some(marker=>marker.id==='supply'),false);
+  assert.equal(story.serialize(story.restore(story.serialize(state))),story.serialize(state));
 });
