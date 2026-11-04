@@ -1271,8 +1271,6 @@ test('CH01 invalidated completed save cannot present a forged review',()=>{
  assert.equal(app.element('reviewCompleted').classList.contains('hidden'),true,
   'active checkpoint does not unlock terminal review');
  // A completed save can be deleted or invalidated by another local tab.
- const valid=Story.createState();
- valid.phase='complete';valid.world.status='won'; // Not a genuine authored exit.
  store.set('veilpoint.story.ch01','{tampered');
  app.element('reviewCompleted').click();
  assert.equal(app.element('debriefReview').classList.contains('hidden'),true);
