@@ -369,6 +369,14 @@ class Renderer {
   // would contradict the project's realism-only rule in every mode.
   const c=item.kind==='evac'?[.38,.44,.37]:(item.kind==='evidence'||item.kind==='verify')?[.34,.39,.43]:item.kind==='magazine'?[.40,.42,.39]:[.49,.43,.34];
   mesh.box(item.x,.09,item.z,.65,.18,.45,c);
+  // The visible stack is a physical proxy for the finite stock remaining in
+  // this same world cache. Rival scavenging and player collection change it
+  // immediately, without glowing icons or a remote information overlay.
+  if(Number.isFinite(item.remaining)){
+   const capacity=item.kind==='ammo'?12:24;
+   const fraction=Math.max(0,Math.min(1,item.remaining/capacity));
+   if(fraction>0)mesh.box(item.x,.28,item.z,.48*fraction,.07,.27,[.32,.31,.27]);
+  }
   if(lod==='high')mesh.box(item.x,0,item.z,.85,.06,.65,[.24,.25,.23]);
  }
  // No 3D eligibility pylons: the boundary is a published rule, not a wall.
