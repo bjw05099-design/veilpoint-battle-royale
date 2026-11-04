@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const Sim=require('../src/simulation.js');
 
 function fixture(){
- const game=Sim.newMatch(2026110417,0,'carbine');game.status='playing';
+ const game=Sim.newMatch(2026110417,1,'carbine');game.status='playing';
  const item=game.loot.find(cache=>{
   const player={x:cache.x-1.3,z:cache.z};
   const next={x:cache.x+1.1,z:cache.z};
