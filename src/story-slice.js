@@ -182,10 +182,10 @@
     ];
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
-         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])]:
+         ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
-        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),...(state.relayRestored?[POINTS.relay]:[])];
+        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
   }
   function syncMarkers(state) {
@@ -512,11 +512,17 @@
       state.relayRestored=true;
       state.subtitle='마라(기술자): 비상 전원 연결을 확인했어. 항구 건물 벽등이 켜졌고, 구조단과 무전이 연결되어 동쪽 통제문을 더 빨리 준비할 수 있어.';
       state.message='현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초';
-    }else if(marker.id==='relay'&&state.relayRestored&&state.phase==='exit'){
-      // A local, reachable readback of the already restored civilian repeater.
-      // It neither resets the route motor nor grants remote actor knowledge.
-      state.subtitle='마라(기술자): 비상 중계기 전원은 정상입니다. 현지 구조단의 통로 통제 권한은 그대로 유지돼요.';
-      state.message='현장 중계기 확인 · 전원 정상 · 기존 경로 상태 유지';
+    }else if(marker.id==='relay'&&state.phase==='exit'){
+      // A physical generator switch can isolate and restore the local repeater.
+      // Already-authorized gate motion remains local and is never reset remotely.
+      state.relayRestored=!state.relayRestored;
+      if(!state.relayRestored)state.beaconEnabled=false;
+      state.subtitle=state.relayRestored
+        ?'마라(기술자): 현장 비상 전원을 다시 연결했어. 항구 통신과 경고등 스위치가 복구됐어.'
+        :'마라(기술자): 현장 전원을 분리했어. 경고등도 꺼졌지만 이미 승인된 통제문은 현장 작업자가 관리해.';
+      state.message=state.relayRestored
+        ?'현장 중계기 재연결 · 경고등 수동 조작 가능'
+        :'현장 중계기 전원 차단 · 경고등 소등';
     }else if(marker.id==='beacon'&&state.relayRestored&&
       ['records','decision','exit'].includes(state.phase)){
       // A reachable mechanical switch controls a powered warning fixture in
