@@ -744,6 +744,8 @@
       Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
+      // An unpowered repeater cannot sustain its locally wired warning fixture.
+      (data.beaconEnabled===true&&data.relayRestored!==true)||
        (hasOwn(data,'flashlightOn')!==hasOwn(data,'flashlightTicks'))||
        (hasOwn(data,'flashlightOn')&&
          (typeof data.flashlightOn!=='boolean'||!Number.isInteger(data.flashlightTicks)||
