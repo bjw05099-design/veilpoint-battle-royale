@@ -419,7 +419,7 @@ test('CH01 physical east checkpoint is evidence-gated and reconstructs from old 
   assert.ok(blocked.z < -48 && blocked.z > -53, `closed gate must stop the actor before crossing: ${blocked.z}`);
   assert.equal(Sim.blocked(blocked.x,blocked.z,.85,evacuation.world.obstacles),false);
   const open={x:27,z:-48};Sim.moveEntity(open,0,-6,1,restored.world.obstacles);
-  assert.equal(open.z,-54);
+  assert.ok(Math.abs(open.z-(-54))<1e-9, `open route must allow the full step: ${open.z}`);
   go(restored,'exitVerify');assert.equal(story.interact(restored).ok,true);
   assert.equal(restored.phase,'complete');
 });
