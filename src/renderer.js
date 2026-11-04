@@ -169,7 +169,7 @@ class SoftwareRenderer {
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
- let color=o.type==='yard-gate'?'#b6a16c':o.type==='yard-fence'?'#596866':
+ let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='yard-switch'?'#caaf70':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
@@ -384,7 +384,7 @@ class Renderer {
  // BR gate collision and the visible 3D panel share the same live X position.
  // Culling already budgets this exact one-box dynamic mesh contribution.
  for(const gate of plan.serviceGates||[])mesh.box(gate.x,0,gate.z,
-   gate.w,gate.h,gate.d,[.55,.47,.32]);
+   gate.w,gate.h,gate.d,global.VeilpointSim.gateMotorActive(state)?[.75,.49,.19]:[.55,.47,.32]);
  // Static geometry is generated from the BR base world. Story-specific route
  // blockers must also be rendered from the live world or the player collides
  // with an invisible checkpoint. A cleared route removes this mesh on the
