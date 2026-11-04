@@ -338,8 +338,15 @@ addEventListener('keydown',e=>{
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
  // Escape must cancel even a pending/denied mouse-capture request. The game
  // cannot act until locked, but the player must always be able to pause.
- if(e.code==='Escape'&&running&&!suspended){
-  e.preventDefault();suspendMatch();resetInactiveClock();return;
+ if(e.code==='Escape'&&running){
+  e.preventDefault();
+  if(e.repeat)return;
+  if(suspended){
+   // Escape is a PC pause toggle, but never resume behind open graphics settings
+   // or after a lost rendering context. Reclaim pointer lock through resumeMatch.
+   if(!graphicsContextLost&&renderer&&$('graphicsPanel').classList.contains('hidden'))resumeMatch();
+  }else{suspendMatch();resetInactiveClock();}
+  return;
  }
  // Menu/settings focus must never start a match or fire a round. In particular,
  // Enter on a focused button is already handled by its native click action.
