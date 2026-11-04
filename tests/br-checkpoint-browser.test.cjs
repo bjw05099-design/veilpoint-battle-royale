@@ -319,3 +319,63 @@ test('BR Enter from the final victory screen does not resume a stale active chec
  assert.equal(app.game.player.charges,48);
  assert.notEqual(app.game,old);
 });
+
+
+test('BR PC P-key creates an in-session bookmark and pause restores finite state without replaying a terminal round',()=>{
+ const app=boot(new Map());app.node('play').click();app.frame(1000/60);
+ const first=app.game,seed=first.seed;
+ app.emit('keydown',{code:'KeyP'});assert.match(first.message,/BOOKMARK RECORDED/);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(first.player.charges,47);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('restoreCheckpoint').classList.contains('hidden'),false);
+ app.node('restoreCheckpoint').click();
+ assert.match(app.node('selector-.tagline').textContent,/복원했습니다/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game.seed,seed);
+ assert.equal(app.game.player.charges,48,'restored bookmark rewinds finite ammo without duplicating the saved state');
+ assert.equal(app.node('restoreCheckpoint').classList.contains('hidden'),true);
+});
+
+test('BR bookmark cannot be restored without a valid P-key record',()=>{
+ const app=boot(new Map());app.node('play').click();app.frame(1000/60);
+ const original=app.game;app.emit('keydown',{code:'Escape'});
+ app.node('restoreCheckpoint').click();
+ assert.match(app.node('selector-.tagline').textContent,/기록한 지점이 없습니다/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,original);
+});
+
+test('BR PC pause same-arena reset requires two deliberate clicks and resets finite resources',()=>{
+ const app=boot(new Map());app.node('play').click();app.frame(1000/60);
+ const first=app.game,seed=first.seed,weapon=first.player.weaponId;
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(first.player.charges,47);
+ app.emit('keydown',{code:'Escape'});
+ app.node('restartArena').click();
+ assert.match(app.node('selector-.tagline').textContent,/한 번 더/);
+ assert.equal(app.game,first,'first click must never discard the active round');
+ app.node('restartArena').click();app.frame(2000/60);
+ assert.notEqual(app.game,first);
+ assert.equal(app.game.seed,seed);
+ assert.equal(app.game.player.weaponId,weapon);
+ assert.equal(app.game.player.charges,48);
+ assert.equal(app.node('restartArena').classList.contains('hidden'),true);
+});
+
+test('BR pause reset confirmation is cancelled by normal resume',()=>{
+ const app=boot(new Map());app.node('play').click();app.frame(1000/60);
+ const first=app.game;app.emit('keydown',{code:'Escape'});
+ app.node('restartArena').click();
+ app.node('play').click();app.frame(2000/60);
+ app.emit('keydown',{code:'Escape'});
+ app.node('restartArena').click();
+ assert.equal(app.game,first);
+ assert.match(app.node('selector-.tagline').textContent,/한 번 더/);
+});
+
+test('BR offline HTML contains PC bookmark and guarded reset controls',()=>{
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/id="restoreCheckpoint"[^>]*>P키 현장 기록으로 되돌리기/);
+ assert.match(html,/id="restartArena"[^>]*>같은 경기장 처음부터/);
+});
