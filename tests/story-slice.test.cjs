@@ -1710,3 +1710,52 @@ test('PC situation HUD reports separated escort and checkpoint restore preserves
   assert.match(story.situation(resumed).guideStatus,/동행 중/);
   assert.equal(resumed.guide.active,true);
 });
+
+test('CH01 close civilian escort walks around a local solid crate rather than freezing at its corner',()=>{
+  const s=reachDecision();assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');assert.equal(story.interact(s).event,'muster');
+  assert.equal(story.interact(s).event,'guide');
+  const crate={x:-8.5,z:-55,w:1,d:1,h:1.2,type:'local-crate'};
+  s.world.obstacles.push(crate);
+  s.world.player.x=-6.5;s.world.player.z=-55;
+  assert.equal(Sim.lineBlocked(s.guide.x,s.guide.z,s.world.player.x,s.world.player.z,s.world.obstacles),true);
+  const initial={x:s.guide.x,z:s.guide.z};
+  let progressed=false;
+  for(let i=0;i<380;i++){
+    const before={x:s.guide.x,z:s.guide.z};
+    story.step(s,1/60,{});
+    const moved=Math.hypot(s.guide.x-before.x,s.guide.z-before.z);
+    assert.ok(moved<=1.65/60+1e-7,'the civilian cannot teleport or exceed walking speed');
+    assert.equal(Sim.blocked(s.guide.x,s.guide.z,.55,s.world.obstacles),false,
+      'the same collision geometry remains solid for the guide');
+    if(s.guide.x>-9.5)progressed=true;
+  }
+  assert.ok(progressed,'the local obstacle detour must clear the leading edge of the crate');
+  assert.ok(Math.hypot(s.guide.x-initial.x,s.guide.z-initial.z)>1,
+    'a short nearby detour must produce real world movement');
+  assert.match(story.situation(s).guideStatus,/동행/);
+});
+
+test('CH01 escort detour is deterministic after checkpoint reload and stops at separation limit',()=>{
+  const a=reachDecision();story.choose(a,'evacuation');go(a,'muster');
+  story.interact(a);story.interact(a);
+  a.world.player.x=-6.5;a.world.player.z=-55;
+  const crate={x:-8.5,z:-55,w:1,d:1,h:1.2,type:'local-crate'};
+  a.world.obstacles.push(crate);
+  for(let i=0;i<45;i++)story.step(a,1/60,{});
+  // Temporary test geometry is reintroduced in the same world after restoring
+  // the v2 checkpoint; no new checkpoint schema or hidden navigation state.
+  const raw=story.serialize(a),b=story.restore(raw);
+  b.world.obstacles.push({...crate});
+  assert.equal(story.serialize(b),raw);
+  for(let i=0;i<150;i++){
+    story.step(a,1/60,{});story.step(b,1/60,{});
+    assert.equal(story.serialize(a),story.serialize(b));
+  }
+  const before={x:a.guide.x,z:a.guide.z};
+  a.world.player.x=12;a.world.player.z=-55;
+  for(let i=0;i<60;i++)story.step(a,1/60,{});
+  assert.equal(a.guide.x,before.x);
+  assert.equal(a.guide.z,before.z);
+  assert.match(story.situation(a).guideStatus,/거리 이탈/);
+});
