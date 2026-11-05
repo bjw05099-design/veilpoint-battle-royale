@@ -183,7 +183,13 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
   fs.mkdirSync(path.dirname(output), {recursive: true});
   fs.writeFileSync(output, zip);
   fs.writeFileSync(output + '.sha256', `${checksum(zip)}  ${path.basename(output)}\n`);
-  return {output, files: entries.length, bytes: zip.length, sourceBytes,
+  // GitHub Actions wraps uploaded artifacts in a second ZIP. Ship this guide
+  // alongside the inner game ZIP so first-time Windows users can read it
+  // immediately after opening the Actions download, without opening both ZIPs.
+  // It must be byte-identical to the manifest-verified inner QUICK_START.txt.
+  const outerGuide = path.join(path.dirname(output), 'START_HERE.txt');
+  fs.writeFileSync(outerGuide, QUICK_START_TEXT, 'utf8');
+  return {output, outerGuide, files: entries.length, bytes: zip.length, sourceBytes,
     storedBaselineBytes, savedBytes: storedBaselineBytes - zip.length,
     largestSources, duplicateSources, duplicateContentBytes,
     downloadAndExtractBytes, twoArchiveStagingBytes, sha256: checksum(zip)};
