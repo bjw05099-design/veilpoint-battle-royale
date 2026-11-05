@@ -142,6 +142,7 @@ const LAST_RESULT_KEY='veilpoint.brLastResult.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRetryAt=0;
 // A storage conflict must remain visible in the HUD after its transient toast fades.
 let saveIssue=null;
+let bookmarkIssue=null;
 // The exact BR generation this PC session last read or successfully wrote.
 // Do not let an older browser tab silently replace a newer offline round.
 let matchDiskGeneration=null;
@@ -199,10 +200,11 @@ function recordFieldBookmark(){
   nextMatchSaveRetryAt=simulation.elapsed+1;
   return false;
  }
- try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);return true;}
+ try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);bookmarkIssue=null;return true;}
  catch(_){
-  saveWarning=true;saveIssue='write-failed';
-  nextMatchSaveRetryAt=simulation.elapsed+1;
+  // The *bookmark* failed, not necessarily the main checkpoint. Keep a
+  // separate persistent HUD warning instead of faking a save recovery.
+  bookmarkIssue='write-failed';
   return false;
  } // This session can still rewind when storage is denied.
 }
@@ -376,7 +378,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  // untouched while allowing a separate memory-only local PC match.
  if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();checkpointInvalidStored=false;}
  memoryOnlyMatch=offlineOnly;saveWarning=false;
- nextMatchSaveRetryAt=0;saveIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
+ nextMatchSaveRetryAt=0;saveIssue=null;bookmarkIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -400,7 +402,7 @@ function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
- running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=null;lastSavedHealth=simulation.player.health;
+ running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=null;bookmarkIssue=null;lastSavedHealth=simulation.player.health;
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
@@ -748,13 +750,15 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  const saveMessage=running&&saveWarning
   ?saveIssue==='conflict'?'SAVE CONFLICT · ANOTHER TAB OWNS THE CHECKPOINT'
    :'SAVE FAILED · PROGRESS ONLY IN THIS TAB': '';
+ const bookmarkMessage=running&&bookmarkIssue==='write-failed'
+  ?'FIELD BOOKMARK NOT SAVED · MEMORY ONLY':'';
  // Every published phase, including the last one, has a real deadline.
  const deadline=s.zone.phaseRemaining>0?' · DEADLINE '+tt+'s':' · FINAL LIMIT ACTIVE';
  const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m'+deadline:
    boundary.near?'BOUNDARY NEARBY · '+boundary.meters+'m'+deadline:'';
  // Keep reload and other event feedback readable alongside the boundary warning.
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
-   [saveMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
+   [saveMessage,bookmarkMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const yardGate=Game.serviceGateStatus(s);
  const nearby=Game.nearestReachablePickup(s);
  const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
