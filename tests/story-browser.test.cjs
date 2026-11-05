@@ -3108,3 +3108,86 @@ test('CH01 autosave never replaces another tab latest checkpoint during backup r
  current.element('pauseButton').click();
  assert.equal(Story.restore(store.get(key)).world.player.x,4);
 });
+
+
+test('CH01 Windows G pauses live 60Hz mission, releases mouse and focuses real graphics selector',()=>{
+ const key='veilpoint.story.ch01',store=new Map(),app=boot(store,false,'granted',true,true);
+ const html=fs.readFileSync(path.join(__dirname,'../story.html'),'utf8');
+ assert.match(html,/id="storyGraphicsOpen"[^>]*aria-controls="settings"[^>]*aria-keyshortcuts="G"/);
+ assert.match(html,/ESC 일시정지[^<]*G 그래픽·키 설정/);
+ app.element('continue').click();
+ app.moveForward(0,60);
+ assert.equal(app.context.document.pointerLockElement,app.element('scene'));
+ app.emit('keydown',{code:'KeyG',target:{tagName:'CANVAS'}});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.context.document.pointerLockElement,null);
+ assert.equal(app.context.document.activeElement,app.element('quality'));
+ assert.match(app.element('menuText').textContent,/그래픽·PC 설정/);
+ const paused=JSON.parse(store.get(key));
+ app.emit('keydown',{code:'Space',target:{tagName:'SELECT'}});
+ for(let i=61;i<=200;i++)app.frame(i*1000/60);
+ const after=JSON.parse(store.get(key));
+ assert.equal(after.elapsed,paused.elapsed,'graphics focus cannot advance time while paused');
+ assert.equal(after.player.charges,paused.player.charges,'graphics controls never spend mission resources');
+ app.emit('keydown',{code:'Escape',target:{tagName:'SELECT'}});
+ assert.equal(app.context.document.activeElement,app.element('continue'));
+ assert.equal(app.element('menu').classList.contains('hidden'),false,
+   'Escape from focused graphics setting only returns to pause menu');
+ app.element('continue').click();
+ app.frame(201*1000/60);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.equal(app.context.document.pointerLockElement,app.element('scene'));
+ app.element('pauseButton').click();
+ assert.ok(JSON.parse(store.get(key)).elapsed>paused.elapsed,
+   'explicit resume continues the exact fixed-step mission');
+});
+
+test('CH01 menu graphics button and repeated G are safe before mission start',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('storyGraphicsOpen').click();
+ assert.equal(app.context.document.activeElement,app.element('quality'));
+ app.emit('keydown',{code:'KeyG',repeat:true,target:{tagName:'SELECT'}});
+ assert.equal(app.context.document.activeElement,app.element('quality'),
+   'OS held-key repeat cannot change menu state');
+ app.emit('keydown',{code:'KeyG',target:{tagName:'SELECT'}});
+ assert.equal(app.context.document.activeElement,app.element('continue'),
+   'G toggles back to main control with graphic selector focused');
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.context.document.pointerLockElement,null);
+ app.emit('keydown',{code:'KeyG'});
+ assert.equal(app.context.document.activeElement,app.element('quality'));
+ app.emit('keydown',{code:'Escape',target:{tagName:'SELECT'}});
+ assert.equal(app.context.document.activeElement,app.element('continue'));
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ assert.equal(app.element('menu').classList.contains('hidden'),false,
+   'Escape must never skip the initial mission start');
+});
+
+test('CH01 route choice modal cannot be bypassed by global G settings shortcut',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ const cleared=app.clearEncounter(300);
+ app.moveForward(cleared,225);app.interact();
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ const focus=app.context.document.activeElement;
+ app.emit('keydown',{code:'KeyG',target:{tagName:'BUTTON'}});
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,focus,
+   'the visible decision retains keyboard priority over settings shortcuts');
+ app.emit('keydown',{code:'Digit1',target:{tagName:'BUTTON'}});
+ assert.equal(app.element('choices').classList.contains('hidden'),true,
+   'existing decision keys still choose the mission branch');
+});
+
+test('CH01 field journal retains modal priority over G graphics shortcut',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('fieldJournalOpen').click();
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),false);
+ const focus=app.context.document.activeElement;
+ app.emit('keydown',{code:'KeyG',target:{tagName:'BUTTON'}});
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,focus);
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+});
