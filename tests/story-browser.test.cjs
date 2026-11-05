@@ -1915,3 +1915,65 @@ test('CH01 replay with temporary disk denial retires old finale only after succe
   assert.equal(shared.has(preview),false,'successful retry retires obsolete report');
   assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'br-kept');
 });
+
+
+test('CH01 remapped Windows report and mission prompts always match the actual physical action',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ let config=Desktop.normalize({});
+ for(const [action,code] of [['interact','KeyT'],['support','KeyU'],['reload','KeyY']]){
+  const changed=Desktop.bind(config,action,code);
+  assert.equal(changed.ok,true);config=changed.value;
+ }
+ const store=new Map([[Desktop.STORAGE_KEY,JSON.stringify(config)]]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,300);
+ app.emit('keydown',{code:'KeyT'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'engagement');
+ assert.match(app.element('objective').textContent,/Y 재장전.*U 상황 보고/);
+ assert.doesNotMatch(app.element('objective').textContent,/R 재장전|Q 상황 보고/);
+ assert.match(app.element('combatStatus').textContent,/동료 보고 U 확인 가능/);
+ app.emit('keydown',{code:'KeyQ'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).combat.supportUsed,false);
+ app.emit('keydown',{code:'KeyU'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).combat.supportUsed,true);
+ const refresh=boot(store,false,'granted',true,true);
+ refresh.element('continue').click();
+ assert.match(refresh.element('objective').textContent,/U 상황 보고/);
+ assert.match(refresh.element('combatStatus').textContent,/동료 보고 확인 완료/);
+});
+
+test('CH01 guide waiting HUD uses the remapped PC companion action after checkpoint restore',()=>{
+ const Story=require('../src/story-slice.js'),Desktop=require('../src/desktop-controls.js');
+ const state=Story.createState();
+ const go=id=>{state.world.player.x=Story.POINTS[id].x;state.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(state).ok,true);
+ for(const bot of state.world.bots)for(let i=0;i<2;i++){
+  state.world.player.yaw=Math.atan2(bot.x-state.world.player.x,-(bot.z-state.world.player.z));
+  state.world.player.pitch=0;state.world.elapsed+=.21;
+  assert.equal(Story.fire(state).hit,true);
+ }
+ go('decision');assert.equal(Story.interact(state).ok,true);
+ assert.equal(Story.choose(state,'evacuation').ok,true);
+ go('muster');assert.equal(Story.interact(state).event,'muster');
+ assert.equal(Story.interact(state).event,'guide');
+ state.world.player.x=state.guide.x-1.6;state.world.player.z=state.guide.z;
+ assert.equal(Story.nearest(state)?.id,'guideControl');
+ assert.equal(Story.interact(state).event,'guideControl');
+ const remapped=Desktop.bind(Desktop.normalize({}),'interact','KeyT');
+ assert.equal(remapped.ok,true);
+ const store=new Map([
+  [Desktop.STORAGE_KEY,JSON.stringify(remapped.value)],
+  ['veilpoint.story.ch01',Story.serialize(state)],
+  ['veilpoint.brCheckpoint.v1','independent-BR']
+ ]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ assert.match(app.element('routeStatus').textContent,/T로 재개 가능/);
+ assert.doesNotMatch(app.element('routeStatus').textContent,/E로 재개 가능/);
+ app.emit('keydown',{code:'KeyT'});
+ const checkpoint=Story.restore(store.get('veilpoint.story.ch01'));
+ assert.equal(checkpoint.guide.waiting,false);
+ assert.equal(checkpoint.guide.active,true);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR');
+});

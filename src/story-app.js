@@ -600,25 +600,33 @@
     const bindings=desktopUi.get().bindings;
     const interactLabel=Desktop.keyLabel(bindings.interact);
     const reloadLabel=Desktop.keyLabel(bindings.reload);
+    const reportLabel=Desktop.keyLabel(bindings.support);
     const interactPrompt='['+interactLabel+']';
-    $('objective').textContent=Story.objective(state)
+    // Every visible CH01 prompt must reflect the actual remapped PC controls,
+    // including a guide's wait/resume cue restored from a disk checkpoint.
+    const controlText=text=>text
       .replaceAll('E로',interactLabel+'로')
       .replaceAll('E를',interactLabel+'를')
-      .replaceAll('E 누르',interactLabel+' 누르');
+      .replaceAll('E 누르',interactLabel+' 누르')
+      .replaceAll('R키',reloadLabel+'키')
+      .replaceAll('R 재장전',reloadLabel+' 재장전')
+      .replaceAll('Q 상황 보고',reportLabel+' 상황 보고');
+    $('objective').textContent=controlText(Story.objective(state));
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),Navigation.markerIndex(Story.markers(state),guidanceId),state.world.obstacles)+
       (Story.markers(state).length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+
          '] 표식 변경 / 자동 선택':'');
-    $('status').textContent=state.message+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
+    $('status').textContent=controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
-    $('subtitle').textContent=state.subtitle;
+    $('subtitle').textContent=controlText(state.subtitle);
     const lampKey=Desktop.actionFor('KeyF',desktopUi.get())==='headlamp'
        ?'F':desktopUi.get().bindings.headlamp.replace(/^Key/,'');
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
     const situation=Story.situation(state);
     $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
+    $('routeStatus').textContent=controlText($('routeStatus').textContent);
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
     // Self-condition is knowable to the player; never reveal hidden enemy state
@@ -633,7 +641,7 @@
     if(combatActive){
       const p=state.world.player;
       $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
-      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · '+reloadLabel+'/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 '+interactLabel+' 확보');
+      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · '+reloadLabel+'/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':reportLabel+' 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 '+interactLabel+' 확보');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
