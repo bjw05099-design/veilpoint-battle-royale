@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const {packageDemo, collectFiles, buildZip} = require('../scripts/package-offline-demo.cjs');
+const {packageDemo, collectFiles, buildZip, QUICK_START_TEXT, NOTICE_TEXT} = require('../scripts/package-offline-demo.cjs');
 const {inspectZip, verifyArchive, verifyPackage} = require('../scripts/verify-offline-demo.cjs');
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veilpoint-verify-'));
@@ -24,8 +24,8 @@ test('independent ZIP inspection validates stored CRCs, per-file SHA256 and side
     const made = packageDemo(dir);
     const checked = verifyPackage(made.output);
     assert.equal(checked.sha256, made.sha256);
-    assert.equal(checked.files, 8);
-    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 8);
+    assert.equal(checked.files, 9);
+    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 9);
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 test('corrupted archive bytes and duplicate paths are rejected', () => {
@@ -54,10 +54,12 @@ test('sidecar mismatch cannot be reported as verified delivery', () => {
 
 function archiveWithValidManifest(files) {
   const digest = data => crypto.createHash('sha256').update(data).digest('hex');
-  const manifest = files.map(f => digest(f.data) + '  ' + f.name).join('\n') + '\n';
-  return buildZip([...files, {name: 'MANIFEST.sha256', data: Buffer.from(manifest)},
-    {name: 'NOTICE.txt', data: Buffer.from('offline candidate')}]
-    .sort((a, b) => a.name.localeCompare(b.name, 'en')));
+  const shipment = [...files, {name:'QUICK_START.txt', data:Buffer.from(QUICK_START_TEXT)}];
+  const manifest = shipment.sort((a,b)=>a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    .map(f => digest(f.data) + '  ' + f.name).join('\n') + '\n';
+  return buildZip([...shipment, {name:'MANIFEST.sha256', data:Buffer.from(manifest)},
+    {name:'NOTICE.txt', data:Buffer.from(NOTICE_TEXT)}]
+    .sort((a,b) => a.name.localeCompare(b.name, 'en')));
 }
 
 test('verified ZIP cannot silently omit referenced scripts despite a valid manifest', () => {
