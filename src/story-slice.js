@@ -254,9 +254,17 @@
     let candidate=null,best=INTERACT_RADIUS;
     for(const marker of markers(state)){
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
+      // The coordinator's fixed desk is not a remote release button:
+      // returning the guide requires arm's-reach contact with BOTH staff and
+      // the actual civilian, with a clear path to each. The local E prompt
+      // uses the same rule, preventing a misleading interaction HUD.
+      const guideInReach=marker.id!=='guideRelease'||(
+        Math.hypot(state.guide.x-p.x,state.guide.z-p.z)<2.1&&
+        !Sim.lineBlocked(p.x,p.z,state.guide.x,state.guide.z,state.world.obstacles));
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
-      if(d<best&&d<(marker.id==='beacon'?SWITCH_REACH:marker.id==='guideControl'?SUPPLY_REACH:
+      if(guideInReach&&d<best&&d<(marker.id==='beacon'?SWITCH_REACH:
+          marker.id==='guideControl'||marker.id==='guideRelease'?SUPPLY_REACH:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;candidate=marker;
