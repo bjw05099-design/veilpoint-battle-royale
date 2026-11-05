@@ -1811,3 +1811,54 @@ test('CH01 PC remapped interact displays T and actual T key operates relay while
  assert.equal(saved.phase,'engagement','actual remapped PC T drives interaction and persistence');
  assert.match(app.element('objective').textContent,/무장 대치자/);
 });
+
+
+test('CH01 backup recovery never overwrites a newer primary saved by another tab',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01', backupKey=key+'.previous';
+  const older=Story.serialize(Story.createState());
+  const newerState=Story.createState();newerState.world.player.x=4;
+  const newer=Story.serialize(newerState);
+  const shared=new Map([[key,'{interrupted-write'],[backupKey,older]]);
+  const get=shared.get.bind(shared);
+  let primaryReads=0;
+  shared.get=(name)=>{
+    if(name===key&&++primaryReads===2){
+      shared.set(key,newer); // another tab finished its write during recovery
+      return newer;
+    }
+    return get(name);
+  };
+  const app=boot(shared,false,'granted',true,true);
+  assert.ok(primaryReads>=2);
+  assert.equal(shared.get(key),newer,'recovery must not replace the newer valid generation');
+  assert.equal(shared.get(backupKey),older,'preserve the validated backup');
+  app.element('continue').click();
+  assert.equal(shared.get(key),newer,'Continue must honor the latest valid generation');
+  app.element('pauseButton').click();
+  assert.equal(Story.restore(shared.get(key)).world.player.x,4);
+});
+
+test('CH01 failed backup promotion keeps disk generations intact through temporary play',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01', backupKey=key+'.previous';
+  const backup=Story.serialize(Story.createState());
+  const corrupted='{incomplete-primary';
+  const shared=new Map([[key,corrupted],[backupKey,backup]]);
+  const set=shared.set.bind(shared);
+  let denied=0;
+  shared.set=(name,value)=>{
+    if(name===key){denied++;throw new Error('storage quota denied');}
+    return set(name,value);
+  };
+  const app=boot(shared,false,'granted',true,true);
+  assert.ok(denied>=1,'promotion of the good backup should have been attempted');
+  assert.equal(shared.get(key),corrupted);
+  assert.equal(shared.get(backupKey),backup);
+  app.element('continue').click();
+  assert.match(app.element('objective').textContent,/중계기/);
+  app.element('pauseButton').click();
+  assert.match(app.element('saveStatus').textContent,/임시 CH01 세션/);
+  assert.equal(shared.get(key),corrupted,'temporary play must never erase corrupted primary');
+  assert.equal(shared.get(backupKey),backup,'temporary play must preserve last valid backup');
+});
