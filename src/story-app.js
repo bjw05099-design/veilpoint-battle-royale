@@ -534,7 +534,7 @@
       :nearby.id==='beacon'?'[E] '+nearby.label+(state.beaconEnabled?' 끄기':' 작동')+' · 현장 수동 스위치'
       :'[E] '+nearby.label+' 조사';
     const f=limiter.stats();
-    $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz';
+    $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz'+(renderer&&renderer.lastStaticVisibilityStats?' · 정적 지형 '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스':'');
     minimap();
   }
   function frame(now){
