@@ -444,9 +444,12 @@
     // observation distance and through the same real harbor collision world.
     // Leaving the guide behind pauses the escort; no teleportation or map-wide
     // knowledge is used to manufacture an arrival.
-    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
+    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived){
+      // A physically present guide and captain can finish a courtyard escort
+      // even if the civilian was asked to wait a step before arrival.
+      // Waiting suppresses motion only, not the objective's real-world proof.
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(range>1.7&&range<11){
+      if(!g.waiting&&range>1.7&&range<11){
         // The guide may briefly need more than the ordinary 7m follow radius
         // to walk around a tall, solid obstacle. This only permits local
         // physical detours when the collision corridor is actually blocked;
@@ -471,6 +474,9 @@
          Math.hypot(p.x-exit.x,p.z-exit.z)<4&&
          !Sim.lineBlocked(g.x,g.z,exit.x,exit.z,state.world.obstacles)&&
          !Sim.lineBlocked(p.x,p.z,exit.x,exit.z,state.world.obstacles)){
+        // Saved arrivals cannot remain in an obsolete waiting state. Clearing
+        // the local hold also keeps v2 checkpoint validation round-trip safe.
+        g.waiting=false;
         g.arrived=true;
         state.subtitle='유수프(현지 구조단): 안내원이 남쪽 안뜰에 직접 도착했어. 나머지 주민은 구조단이 인계할게.';
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
