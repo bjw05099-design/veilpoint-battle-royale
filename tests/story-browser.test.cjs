@@ -2548,9 +2548,9 @@ test('CH01 field journal cannot interrupt an active route-choice dialog',()=>{
 test('CH01 retry checks durable primary before stale session snapshot and preserves backup fallback',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','src/story-app.js'),'utf8');
   const retry=source.slice(source.indexOf("if(state.phase==='failed'){"));
-  const candidates=retry.match(/for\\(const raw of \\[([^\\]]+)\\]\\)/);
-  assert.ok(candidates,'retry must inspect validated checkpoint candidates');
-  assert.match(candidates[1],/^storage\\.get\\(SAVE_KEY\\),checkpoint,storage\\.get\\(BACKUP_KEY\\)$/);
-  assert.match(retry,/Story\\.restore\\(raw\\)/);
-  assert.match(retry,/candidate\\.phase!=='failed'&&candidate\\.phase!=='complete'/);
+  assert.ok(retry.includes('for(const raw of [storage.get(SAVE_KEY),checkpoint,storage.get(BACKUP_KEY)])'),
+    'retry considers durable primary before stale memory and backup');
+  assert.ok(retry.includes('Story.restore(raw)'), 'candidate must be fully restored');
+  assert.ok(retry.includes("candidate.phase!=='failed'&&candidate.phase!=='complete'"),
+    'only playable mission states qualify for retry');
 });
