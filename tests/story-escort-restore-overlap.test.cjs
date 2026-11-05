@@ -68,3 +68,57 @@ test('overlapping paused escort restores with a reachable local resume prompt',(
   assert.equal(story.interact(restored).ok,true);
   assert.equal(restored.guide.waiting,false);
 });
+
+test('arrived courtyard guide remains solid after reload and cannot trap the captain',()=>{
+  const state=escortCheckpoint();
+  state.guide.arrived=true;
+  state.guide.waiting=false;
+  state.guide.x=story.POINTS.exitEvac.x;
+  state.guide.z=story.POINTS.exitEvac.z;
+  state.world.player.x=state.guide.x;
+  state.world.player.z=state.guide.z;
+  const raw=story.serialize(state);
+  const resumed=story.restore(raw),again=story.restore(raw);
+  const body={x:resumed.guide.x,z:resumed.guide.z,w:1.1,d:1.1};
+  assert.equal(resumed.guide.arrived,true);
+  assert.deepEqual([resumed.guide.x,resumed.guide.z],[state.guide.x,state.guide.z]);
+  assert.equal(Sim.blocked(resumed.world.player.x,resumed.world.player.z,.85,[body,...resumed.world.obstacles]),false);
+  assert.deepEqual([resumed.world.player.x,resumed.world.player.z],[again.world.player.x,again.world.player.z]);
+  assert.match(resumed.message,/동행 안내원/);
+  assert.equal(story.nearest(resumed)?.id,'exitEvac');
+  assert.equal(story.interact(resumed).ok,true,'captain can still finish a physically arrived escort');
+  assert.equal(resumed.phase,'complete');
+});
+
+test('locally handed-off escort remains a physical actor and reload separates overlap',()=>{
+  const state=escortCheckpoint();
+  state.guide.active=false;
+  state.guide.released=true;
+  state.guide.waiting=false;
+  state.world.player.x=state.guide.x;
+  state.world.player.z=state.guide.z;
+  const raw=story.serialize(state);
+  const restored=story.restore(raw);
+  const g=restored.guide;
+  assert.equal(g.active,false);
+  assert.equal(g.released,true);
+  assert.deepEqual([g.x,g.z],[state.guide.x,state.guide.z]);
+  assert.equal(Sim.blocked(restored.world.player.x,restored.world.player.z,.85,
+    [{x:g.x,z:g.z,w:1.1,d:1.1},...restored.world.obstacles]),false);
+  const after=story.serialize(restored);
+  const replay=story.restore(after);
+  assert.equal(story.serialize(replay),after,'recovered checkpoint is stable across the next reload');
+  assert.equal(replay.world.status,'playing');
+});
+
+test('already valid physical courtyard saves are never relocated',()=>{
+  const state=escortCheckpoint();
+  state.guide.arrived=true;state.guide.x=story.POINTS.exitEvac.x;
+  state.guide.z=story.POINTS.exitEvac.z;
+  state.world.player.x=state.guide.x+2;
+  state.world.player.z=state.guide.z;
+  const raw=story.serialize(state),restored=story.restore(raw);
+  assert.deepEqual([restored.world.player.x,restored.world.player.z],
+    [state.world.player.x,state.world.player.z]);
+  assert.equal(story.serialize(restored),raw);
+});
