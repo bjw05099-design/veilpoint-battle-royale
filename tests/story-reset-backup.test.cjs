@@ -15,7 +15,7 @@ const execute=new Function('global','storage','diskGeneration','Story',
   'const SAVE_KEY="veilpoint.story.ch01",BACKUP_KEY="veilpoint.story.ch01.previous",PREVIEW_KEY="veilpoint.story.ch01PreviewCompleted";let resetVerified=false,staleReset=false,observedPrimary=null;'+body+
   'return {resetVerified,staleReset};');
 
-function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=false}={}){
+function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=false,onBackupDelete=null}={}){
   const entries=new Map([['veilpoint.story.ch01',primary],
     ['veilpoint.story.ch01.previous',backup]]);
   const localStorage={
@@ -24,6 +24,8 @@ function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=fa
     removeItem(key){
       if(denyPrimaryDelete&&key==='veilpoint.story.ch01')return;
       entries.delete(key);
+      if(key==='veilpoint.story.ch01.previous'&&onBackupDelete)
+        onBackupDelete(entries);
     }
   };
   const storage={remove:key=>localStorage.removeItem(key),
@@ -43,4 +45,42 @@ test('CH01 successful explicit reset removes both generations',()=>{
   assert.equal(result.resetVerified,true);
   assert.equal(entries.has('veilpoint.story.ch01'),false);
   assert.equal(entries.has('veilpoint.story.ch01.previous'),false);
+});
+
+test('CH01 New Game reset refuses to delete primary updated by a second tab during backup clearing',()=>{
+  const newer='newer-tab-verified-checkpoint';
+  const {result,entries}=run({onBackupDelete:store=>{
+    store.set('veilpoint.story.ch01',newer);
+  }});
+  assert.equal(result.resetVerified,false);
+  assert.equal(result.staleReset,true);
+  assert.equal(entries.get('veilpoint.story.ch01'),newer,
+    'New Game may not erase a generation it did not initially observe');
+  assert.equal(entries.get('veilpoint.story.ch01.previous'),'valid-backup',
+    'the original fallback must remain recoverable after an aborted reset');
+});
+
+test('CH01 New Game reset preserves backup independently replaced by a second tab',()=>{
+  const newPrimary='concurrent-primary',newBackup='concurrent-backup';
+  const {result,entries}=run({onBackupDelete:store=>{
+    store.set('veilpoint.story.ch01',newPrimary);
+    store.set('veilpoint.story.ch01.previous',newBackup);
+  }});
+  assert.equal(result.resetVerified,false);
+  assert.equal(result.staleReset,false,
+    'a changed backup already prevents deleting primary before the extra check');
+  assert.equal(entries.get('veilpoint.story.ch01'),newPrimary);
+  assert.equal(entries.get('veilpoint.story.ch01.previous'),newBackup,
+    'rollback cannot replace another tab\'s new backup');
+});
+
+test('CH01 New Game reset cannot remove latest primary if a prior generation was already invalid',()=>{
+  const {result,entries}=run({
+    primary:'{invalid-primary',
+    onBackupDelete:store=>store.set('veilpoint.story.ch01','another-tab-valid-primary')
+  });
+  assert.equal(result.resetVerified,false);
+  assert.equal(result.staleReset,true);
+  assert.equal(entries.get('veilpoint.story.ch01'),'another-tab-valid-primary');
+  assert.equal(entries.get('veilpoint.story.ch01.previous'),'valid-backup');
 });
