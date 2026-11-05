@@ -748,7 +748,7 @@ function frame(now){requestAnimationFrame(frame);
  // These are browser callback/draw/timer-query samples, not end-to-end input latency.
  $('perfDetails').textContent=[timings('렌더 CPU',cpu),timings('GPU 타이머',gpu),
    timings('표시 콜백 간격',raf),'현재 내부 렌더 배율: '+Math.round(scale*100)+'%'+
-   (renderer&&renderer.lastVisibilityStats?' · 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'')].join('\n');
+   (renderer&&renderer.lastVisibilityStats?' · 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'')].concat(renderer&&renderer.lastStaticVisibilityStats?['정적 지형 제출: '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스 · 화면 범위 청크 '+renderer.lastStaticVisibilityStats.visibleChunks+'/'+renderer.lastStaticVisibilityStats.totalChunks]:[]).join('\n');
  lastHud=now;}
 }
 requestAnimationFrame(frame);
