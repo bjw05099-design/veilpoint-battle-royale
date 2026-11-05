@@ -844,6 +844,10 @@
   // explicit exit checkpoint. Pause the UI only after the write so bfcache
   // and keyboard users still return to the existing visible resume menu.
   global.addEventListener('pagehide',()=>{
+    // The route-choice dialog is already paused and has its own keyboard
+    // focus. Do not replace it with the generic resume menu during bfcache
+    // navigation: doing so can silently lose a pending route decision.
+    const routeDialogOpen=!choices.classList.contains('hidden');
     if(sessionStarted&&running&&state.phase!=='failed'&&state.phase!=='complete')
       persist('종료 직전 저장');
     // Never leave held movement or a trigger latched after bfcache restoration.
@@ -851,7 +855,8 @@
     clearInput();
     clock.reset();
     limiter.reset();
-    menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
+    if(!routeDialogOpen&&state.phase!=='complete'&&state.phase!=='failed')
+      menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   });
   // A Windows player can close or navigate away while the page remains
   // visible. The normal five-second checkpoint window would otherwise lose
@@ -868,6 +873,13 @@
     clock.reset();
     limiter.reset();
     last=performance.now();
+    // The dialog still owns choice inputs after a bfcache round-trip.
+    // Mission-complete/failed menus likewise retain their factual report.
+    if(!choices.classList.contains('hidden')){
+      if(typeof $('choiceEvac').focus==='function')$('choiceEvac').focus();
+      return;
+    }
+    if(state.phase==='complete'||state.phase==='failed')return;
     menuOpen('이전 페이지에서 복귀했습니다. 이어하기를 눌러 마우스 잠금을 다시 허용하세요.');
   });
   document.addEventListener('visibilitychange',()=>{
