@@ -34,3 +34,15 @@ The previous PR's exact head SHA was checked against its GitHub Actions jobs and
 ### Preservation and iteration policy
 
 Do not silently drop story characters, original Sahir/Nahrin campaign, finite world state, original art/licensing requirements, or existing saved data. Do not combine BR and CH01 storage namespaces. Keep November 27 browser/offline demo P0 primary while making verified incremental native UE5 changes toward the April 27 goal. A failed or pending exact-HEAD CI must leave its PR open, not be reported as a release. Verify `npm run verify`, `npm run package:demo`, ZIP integrity, and use an `expected_head_sha` guarded squash merge after success.
+
+## 2026-11-05 additional Windows UE5 native P0 — physical pickup accessibility
+
+**Code finding:** The first native `AVPCharacter::ServerTryInteract_Implementation` selected the nearest unconsumed pickup using only a world-distance threshold. An item behind a physically solid building could be selected or even consumed by `AVPPickup::Claim`, because the Claim boundary likewise checked distance but not obstruction. The closest item could also be unusable (full health/supply), preventing interaction with a different useful item.
+
+**Implemented in source candidate:**
+- Server-owned candidate selection checks finite resource need and nearest **unobstructed** candidate inside the existing finite interaction radius.
+- `AVPPickup::Claim` independently rejects occluded transfers, invalid/eliminated characters, and full resource inventory before calling the existing resource transfer. This secures the actual resource boundary even if a new caller is added.
+- Native ground/building instances explicitly block `ECC_Visibility`; non-colliding vegetation continues to be decoration.
+- Regression checks are in `tests/unreal-native-pickup-visibility.test.cjs`. These are static UE code contracts, not executed collision simulations.
+
+**Unverified release gates:** Actual Unreal Engine 5.8 UBT compile, Windows PIE and multiplayer client interaction against obstructed props, client/server pickup consistency, cinematic asset collision profiles, and RTX3070/QHD timings. Do not mark any gate complete solely because Node CI passes; the native source must eventually be compiled and played. BR and CH01 browser game code/saves remain unchanged.
