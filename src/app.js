@@ -378,11 +378,19 @@ function storedMatch(){
    matchDiskGeneration=primary||null;
    try{
     global.localStorage.setItem(MATCH_SAVE_KEY,backup);
-    matchDiskGeneration=backup||null;
+    // A browser extension/storage shim can acknowledge setItem and silently
+    // ignore it, or another tab may replace a slot during this recovery.
+    // Only exact readback of BOTH generations permits later autosaving.
+    if(global.localStorage.getItem(MATCH_SAVE_KEY)!==backup||
+       global.localStorage.getItem(MATCH_BACKUP_KEY)!==backup){
+     checkpointInvalidStored=true;memoryOnlyMatch=true;
+     matchDiskGeneration=null;
+    }else matchDiskGeneration=backup||null;
    }catch(_){
-    // An unpersisted promotion cannot auto-save over a corrupt primary.
-    // Preserve both disk slots and play this validated recovery in memory.
+    // An unverified promotion cannot auto-save over a corrupt primary.
+    // Preserve both slots and play this validated world in memory only.
     checkpointInvalidStored=true;memoryOnlyMatch=true;
+    matchDiskGeneration=null;
    }
   }else matchDiskGeneration=primary||null;
   return result.state;
