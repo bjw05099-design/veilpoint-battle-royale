@@ -272,6 +272,33 @@
     }
     return candidate;
   }
+  // A nearby civilian can walk around a visible harbor obstacle instead of
+  // becoming permanently stuck whenever the player rounds a corner. Use only
+  // real geometry, short local detours and the same physical collision rules.
+  // The waypoint is derived every fixed tick, so it does not alter v2 saves.
+  function guideDetour(state,guide,player) {
+    const obstacles=state.world.obstacles;
+    let best=null,bestDistance=Infinity;
+    for(const wall of obstacles) {
+      if(!Number.isFinite(wall.w)||!Number.isFinite(wall.d)||wall.w<=0||wall.d<=0||
+        !Sim.lineBlocked(guide.x,guide.z,player.x,player.z,[wall]))continue;
+      const margin=.55+.16;
+      for(const sx of [-1,1])for(const sz of [-1,1]) {
+        const target={x:wall.x+sx*(wall.w/2+margin),
+          z:wall.z+sz*(wall.d/2+margin)};
+        const first=Math.hypot(target.x-guide.x,target.z-guide.z);
+        const last=Math.hypot(player.x-target.x,player.z-target.z);
+        // No remote routefinding or magical travel through buildings.
+        if(first<.02||first>6.9||last>6.9||
+          Sim.blocked(target.x,target.z,.55,obstacles)||
+          Sim.lineBlocked(guide.x,guide.z,target.x,target.z,obstacles)||
+          Sim.lineBlocked(target.x,target.z,player.x,player.z,obstacles))continue;
+        const cost=first+last;
+        if(cost<bestDistance-1e-8){best=target;bestDistance=cost;}
+      }
+    }
+    return best;
+  }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
@@ -327,10 +354,18 @@
     // knowledge is used to manufacture an arrival.
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(range>1.7&&range<7&&!Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles)){
-        const distance=Math.min(1.65*t,range-1.7);
-        if(distance>1e-8)Sim.moveEntity(g,dx/range*distance/t,dz/range*distance/t,t,
-          state.world.obstacles.concat([{x:p.x,z:p.z,w:1.7,d:1.7}]),.55);
+      if(range>1.7&&range<7){
+        const blocked=Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles);
+        const detour=blocked?guideDetour(state,g,p):null;
+        const target=blocked?detour:p;
+        if(target){
+          const vx=target.x-g.x,vz=target.z-g.z;
+          const length=Math.hypot(vx,vz);
+          const distance=Math.min(1.65*t,blocked?length:range-1.7);
+          if(distance>1e-8&&length>1e-8)
+            Sim.moveEntity(g,vx/length*distance/t,vz/length*distance/t,t,
+              state.world.obstacles.concat([{x:p.x,z:p.z,w:1.7,d:1.7}]),.55);
+        }
       }
       if(Math.hypot(g.x-POINTS.exitEvac.x,g.z-POINTS.exitEvac.z)<2.4&&
          Math.hypot(p.x-POINTS.exitEvac.x,p.z-POINTS.exitEvac.z)<4){
