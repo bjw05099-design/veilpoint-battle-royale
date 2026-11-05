@@ -2762,3 +2762,61 @@ test('CH01 hidden mode link never overrides a visible route-choice dialog',()=>{
   assert.deepEqual(app.navigations,[]);
   assert.equal(app.element('choices').classList.contains('hidden'),false);
 });
+
+
+test('CH01 old PC tab cannot reset another tab newer durable checkpoint via New Game',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',shared=new Map();
+ const first=boot(shared,false,'granted',true,true);
+ first.element('continue').click();
+ first.moveForward(0,300);first.interact();
+ assert.match(first.element('objective').textContent,/무장 대치자/);
+ const oldest=shared.get(key);
+ const second=boot(shared,false,'granted',true,true);
+ second.element('continue').click();
+ second.moveForward(0,90);
+ second.element('pauseButton').click();
+ const latest=shared.get(key),backup=shared.get('veilpoint.story.ch01.previous');
+ assert.notEqual(latest,oldest,'second PC tab must save a newer world generation');
+ first.element('pauseButton').click();
+ first.element('newGame').click();
+ assert.match(first.element('objective').textContent,/중계기/,
+   'old tab starts an independent new in-memory world');
+ assert.match(first.element('saveStatus').textContent,/다른 창의 최신 CH01 체크포인트 보호 중/,
+   'the player must see that disk saving is deliberately suspended');
+ assert.equal(shared.get(key),latest,'newer tab checkpoint cannot be deleted');
+ assert.equal(shared.get('veilpoint.story.ch01.previous'),backup,
+   'stale reset cannot erase the other tab backup');
+ first.moveForward(300,300);first.interact();
+ assert.equal(shared.get(key),latest,'temporary 60Hz gameplay never replaces latest checkpoint');
+ assert.equal(shared.get('veilpoint.story.ch01.previous'),backup);
+ const restored=boot(shared,false,'granted',true,true);
+ restored.element('continue').click();
+ assert.equal(Story.restore(shared.get(key)).phase,'engagement');
+ assert.match(restored.element('objective').textContent,/무장 대치자/,
+   'the updated mission remains playable in a fresh browser session');
+});
+
+test('CH01 menu New Game on an old page cannot delete unseen recent tab save',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',seed=Story.createState();
+ const shared=new Map([[key,Story.serialize(seed)]]);
+ const oldMenu=boot(shared,false,'granted',true,true);
+ const other=boot(shared,false,'granted',true,true);
+ other.element('continue').click();
+ other.moveForward(0,300);other.interact();
+ const durable=shared.get(key);
+ assert.equal(Story.restore(durable).phase,'engagement');
+ oldMenu.element('newGame').click();
+ assert.match(oldMenu.element('saveStatus').textContent,/다른 창의 최신 CH01 체크포인트 보호 중/);
+ assert.equal(shared.get(key),durable);
+ oldMenu.moveForward(0,300);oldMenu.interact();
+ assert.equal(shared.get(key),durable);
+ const fresh=boot(shared,false,'granted',true,true);
+ fresh.element('newGame').click();
+ assert.equal(shared.has(key),false,
+   'a fresh tab that has observed the current save can explicitly reset it');
+ fresh.moveForward(0,300);fresh.interact();
+ assert.equal(Story.restore(shared.get(key)).phase,'engagement',
+   'verified reset returns to normal durable mission saves');
+});
