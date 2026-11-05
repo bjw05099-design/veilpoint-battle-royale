@@ -926,6 +926,13 @@
       default:return 'CH01 완료. 캠페인 전체 12시간은 아직 제작 중입니다.';
     }
   }
+  // Save once when a civilian actually reaches the physical courtyard.
+  // A normal five-second autosave remains the fallback for other travel.
+  // A frame that has already arrived must not keep writing to localStorage.
+  function escortArrivalCheckpoint(wasArrived,state) {
+    return wasArrived===false&&state.phase==='exit'&&state.choice==='evacuation'&&
+      state.guide.active&&state.guide.arrived&&!state.guide.released;
+  }
   function snapshot(state) {
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
@@ -1227,6 +1234,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,debrief,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
