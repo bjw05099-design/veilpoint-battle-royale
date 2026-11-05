@@ -11,7 +11,7 @@ function extract(start,end){
  assert.ok(i>=0&&j>i,'expected live BR browser controller section '+start);
  return source.slice(i,j);
 }
-const matchReader=extract('let checkpointReadUnavailable=false,memoryOnlyMatch=false;','function collectAmmo(){');
+const matchReader=extract('let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyMatch=false;','function collectAmmo(){');
 const playHandler=extract("$('play').addEventListener('click',()=>{","$('newMatch').addEventListener");
 function fixture({denyReads=0,primary='valid',backup=null}={}){
  const slots=new Map([['veilpoint.brCheckpoint.v1',primary]]);
@@ -102,15 +102,20 @@ test('BR structurally corrupt saved data is distinguished from temporary read fa
  const result=h.controller.read();
  assert.equal(result,null);
  assert.equal(h.controller.getUnavailable(),false);
- assert.ok(h.events.deletes>0,'unrecoverable invalid data follows the existing cleanup rule');
- assert.equal(h.slots.has('veilpoint.brCheckpoint.v1'),false);
+ assert.equal(h.events.deletes,0,'invalid checkpoint bytes must not be destroyed automatically');
+ assert.equal(h.slots.get('veilpoint.brCheckpoint.v1'),'damaged');
+ assert.equal(h.slots.get('veilpoint.brCheckpoint.v1.previous'),'broken');
+ h.controller.click();
+ assert.equal(h.events.starts,1,'BR remains playable in memory-only mode');
+ assert.equal(h.events.memoryOnly,true);
+ assert.equal(h.events.deletes,0);
 });
 
 test('BR PC menu has an explicit New Match control and protects temporarily unreadable checkpoint',()=>{
- assert.match(source,/if\(storedMatch\(\)\)\$\('play'\)\.textContent='저장 경기 이어하기';\s*else if\(checkpointReadUnavailable\)/);
+ assert.match(source,/if\(storedMatch\(\)\)\$\('play'\)\.textContent='저장 경기 이어하기';\s*else if\(checkpointReadUnavailable\|\|checkpointInvalidStored\)/);
  assert.match(source,/\$\('newMatch'\)\.addEventListener\('click',start\)/);
- assert.match(source,/else if\(checkpointReadUnavailable\)\{[\s\S]*?start\(null,null,null,true\)/);
- assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(\);clearLastResult\(\);\}/);
+ assert.match(source,/else if\(checkpointReadUnavailable\|\|checkpointInvalidStored\)\{[\s\S]*?start\(null,null,null,true\)/);
+ assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(\);clearLastResult\(\);checkpointInvalidStored=false;\}/);
  assert.match(source,/if\(!memoryOnlyMatch\)\{archiveLastResult\(\);clearStoredMatch\(\);clearFieldBookmark\(\);\}/);
  assert.match(source,/if\(!running\|\|memoryOnlyMatch\)return false/);
  assert.match(source,/memoryOnlyMatch\)start\(null,null,null,true\)/);

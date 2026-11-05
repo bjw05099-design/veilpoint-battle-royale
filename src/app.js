@@ -230,14 +230,15 @@ function persistMatch(){
 }
 // A temporary privacy/storage read exception must not delete a valid match.
 // Read failure and a structurally corrupt checkpoint are distinct outcomes.
-let checkpointReadUnavailable=false,memoryOnlyMatch=false;
+let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyMatch=false;
 function storedMatch(){
  let primary=null,backup=null;
  try{
   primary=global.localStorage.getItem(MATCH_SAVE_KEY);
   backup=global.localStorage.getItem(MATCH_BACKUP_KEY);
- }catch(_){checkpointReadUnavailable=true;return null;}
+ }catch(_){checkpointReadUnavailable=true;checkpointInvalidStored=false;return null;}
  checkpointReadUnavailable=false;
+ checkpointInvalidStored=false;
  try{
   const result=Game.recoverMatch(primary,backup);
   if(!result)return null;
@@ -246,7 +247,13 @@ function storedMatch(){
    try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);}catch(_){}
   }
   return result.state;
- }catch(_){clearStoredMatch();return null;}
+ }catch(_){
+  // Invalid bytes are not proof the player intended to erase a saved match.
+  // Keep both generations unchanged for later/manual recovery. Continue only
+  // into a distinct offline memory-only round unless New Match is explicit.
+  checkpointInvalidStored=primary!==null||backup!==null;
+  return null;
+ }
 }
 
 function collectAmmo(){
@@ -325,7 +332,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  if(graphicsContextLost||!renderer)return;
  // Storage access may fail temporarily. Keep all existing disk generations
  // untouched while allowing a separate memory-only local PC match.
- if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();}
+ if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();checkpointInvalidStored=false;}
  memoryOnlyMatch=offlineOnly;saveWarning=false;
  nextMatchSaveRetryAt=0;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
@@ -364,9 +371,11 @@ function resumeStoredMatch(restored){
  requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
-else if(checkpointReadUnavailable){
- $('play').textContent='저장소 없이 플레이';
- document.querySelector('.tagline').textContent='저장소를 읽을 수 없습니다. 기존 저장 데이터는 보존하고, 이번 경기는 저장되지 않는 임시 세션으로 실행할 수 있습니다.';
+else if(checkpointReadUnavailable||checkpointInvalidStored){
+ $('play').textContent=checkpointInvalidStored?'기록 보존 · 임시 경기 시작':'저장소 없이 플레이';
+ document.querySelector('.tagline').textContent=checkpointInvalidStored
+  ?'BR 저장 기록을 복구할 수 없습니다. 기존 기록을 그대로 보존하며 임시 경기를 시작합니다. 새 경기를 명시적으로 선택하면 이전 기록을 초기화합니다.'
+  :'저장소를 읽을 수 없습니다. 기존 저장 데이터는 보존하고, 이번 경기는 저장되지 않는 임시 세션으로 실행할 수 있습니다.';
 }else {
  const archived=readLastResult();
  if(archived){
@@ -402,9 +411,9 @@ $('play').addEventListener('click',()=>{
  else if(!running){
   const saved=storedMatch();
   if(saved)resumeStoredMatch(saved);
-  else if(checkpointReadUnavailable){
-   // Play remains usable when storage APIs are blocked. Do not clear or
-   // overwrite a valid on-disk game that may become readable later.
+  else if(checkpointReadUnavailable||checkpointInvalidStored){
+   // An unreadable or invalid disk generation may still contain recoverable
+   // progress: only explicit New Match may discard it.
    start(null,null,null,true);
   }else start();
  }

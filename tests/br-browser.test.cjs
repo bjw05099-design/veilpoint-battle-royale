@@ -1304,3 +1304,59 @@ test('PC BR retry button cannot delete disk checkpoint after memory-only session
   assert.equal(store.get('veilpoint.brCheckpoint.v1'),diskRaw,
     'recovered storage access must not allow a memory-only retry to erase old saves');
 });
+
+test('BR Windows Continue preserves two corrupt disk generations in a playable isolated match',()=>{
+ const key='veilpoint.brCheckpoint.v1',previous='veilpoint.brCheckpoint.v1.previous';
+ const first='{invalid-active-round',backup='{invalid-previous-round';
+ const store=new Map([[key,first],[previous,backup]]);
+ const app=boot({store,windows:true});
+ assert.match(app.node('play').textContent,/기록 보존.*임시 경기/);
+ assert.match(app.context.document.querySelector('.tagline').textContent,/기존 기록/);
+ assert.equal(store.get(key),first);
+ assert.equal(store.get(previous),backup);
+ app.node('play').click();
+ app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+ assert.match(app.game.message,/MEMORY-ONLY/);
+ app.frame(1000);
+ app.emit('blur');
+ assert.equal(store.get(key),first,'offline memory-only play must not replace the original generation');
+ assert.equal(store.get(previous),backup,'failed backup must remain available for manual recovery');
+ const reopened=boot({store,windows:true});
+ assert.match(reopened.node('play').textContent,/기록 보존/);
+ assert.equal(store.get(key),first);
+ assert.equal(store.get(previous),backup);
+});
+
+test('BR explicit New Match resets invalid BR generations without erasing CH01 storage',()=>{
+ const key='veilpoint.brCheckpoint.v1',previous='veilpoint.brCheckpoint.v1.previous';
+ const story='{"savedStory":"CH01 untouched"}';
+ const store=new Map([[key,'{bad-br-primary'],['veilpoint.story.ch01',story]]);
+ const app=boot({store,windows:true});
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ assert.equal(store.get(key),'{bad-br-primary','Continue does not overwrite corrupt BR progress');
+ // This is the user's explicit destructive reset, not an automatic recovery.
+ app.node('newMatch').click();app.frame(2000/60);
+ const restored=app.context.VeilpointSim.restoreMatch(store.get(key));
+ assert.equal(restored.status,'playing');
+ assert.equal(store.get(previous),'','old fallback is invalidated on explicit reset');
+ assert.equal(store.get('veilpoint.story.ch01'),story,'BR resets must leave CH01 independent');
+});
+
+test('BR still restores a validated backup when newest checkpoint is malformed',()=>{
+ const key='veilpoint.brCheckpoint.v1',previous='veilpoint.brCheckpoint.v1.previous';
+ const store=new Map(),original=boot({store,windows:true});
+ original.node('play').click();
+ original.frame(1000/60);
+ original.emit('blur');
+ const backup=store.get(key);
+ assert.ok(backup);
+ store.set(key,'{interrupted-save');
+ store.set(previous,backup);
+ const reopened=boot({store,windows:true});
+ assert.match(reopened.node('play').textContent,/저장 경기 이어하기/);
+ reopened.node('play').click();reopened.frame(1000/60);
+ assert.equal(reopened.game.status,'playing');
+ assert.equal(reopened.game.seed,JSON.parse(backup).seed);
+ assert.notEqual(store.get(key),'{interrupted-save','valid backup can safely repair primary');
+});
