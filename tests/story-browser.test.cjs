@@ -3191,3 +3191,44 @@ test('CH01 field journal retains modal priority over G graphics shortcut',()=>{
  assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
  assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
+
+test('CH01 Windows route dialog survives pagehide/pageshow without silently choosing or stepping',()=>{
+ const store=new Map(),app=boot(store,false,'granted',true,true);
+ enterPCStoryDecision(app);
+ const before=store.get('veilpoint.story.ch01');
+ const chooser=app.element('choiceEvac');
+ assert.equal(app.context.document.activeElement,chooser);
+ app.emit('pagehide');
+ assert.equal(app.element('choices').classList.contains('hidden'),false,
+   'a paused route choice must not disappear behind the generic resume menu');
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ app.emit('pageshow',{persisted:true});
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,chooser,
+   'Windows keyboard focus returns to the original accessible route choice');
+ assert.equal(store.get('veilpoint.story.ch01'),before,
+   'page navigation must not advance the world or decide a route');
+ app.emit('keydown',{code:'Digit1',target:chooser});
+ assert.equal(app.element('choices').classList.contains('hidden'),true);
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).choice,'evacuation');
+});
+
+test('CH01 finished debrief survives bfcache pagehide/pageshow without false resume text',()=>{
+ const fixture=completedBrowserReplayFixture(),key='veilpoint.story.ch01',
+  preview=key+'PreviewCompleted';
+ const store=new Map([[key,fixture.complete],[preview,fixture.debrief],
+   ['veilpoint.brCheckpoint.v1','BR-independent']]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('reviewCompleted').click();
+ const textBefore=app.element('menuText').textContent;
+ const debrief=app.element('debriefReview').textContent;
+ assert.match(textBefore,/종료 당시/);
+ assert.match(debrief,/CH01 완료/);
+ app.emit('pagehide');
+ app.emit('pageshow',{persisted:true});
+ assert.equal(app.element('menuText').textContent,textBefore);
+ assert.equal(app.element('debriefReview').textContent,debrief);
+ assert.equal(store.get(key),fixture.complete);
+ assert.equal(store.get(preview),fixture.debrief);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'BR-independent');
+});
