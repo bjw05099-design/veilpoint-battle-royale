@@ -868,3 +868,30 @@ test('BR memory-only match reports P-key bookmark as non-durable and can still r
  assert.equal(store.get(KEY),previous);
  assert.equal(store.get('veilpoint.brFieldBookmark.v1'),existingBookmark);
 });
+
+test('BR remapped PC T pickup prompt matches actual resource interaction and persists',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ const first=Desktop.bind(Desktop.normalize({}),'interact','KeyT');
+ assert.equal(first.ok,true);
+ const remapped=Desktop.bind(first.value,'reload','KeyY');
+ assert.equal(remapped.ok,true);
+ const store=new Map([[Desktop.STORAGE_KEY,JSON.stringify(remapped.value)]]);
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ game.loot.forEach(item=>{item.x=120;item.z=120;});
+ const cache=game.loot.find(item=>item.weaponId===game.player.weaponId);
+ assert.ok(cache,'a finite local cache exists');
+ cache.x=game.player.x;cache.z=game.player.z;
+ cache.remaining=12;cache.picked=false;
+ app.frame(500);
+ assert.match(app.node('pickupPrompt').textContent,/\[T\]/,
+  'HUD displays actual remapped PC interaction key for reachable finite ammo');
+ assert.doesNotMatch(app.node('pickupPrompt').textContent,/\[E\]/);
+ const ammo=game.player.charges;
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(game.player.charges,ammo,'unbound default E does not collect');
+ app.emit('keydown',{code:'KeyT'});
+ assert.ok(game.player.charges>ammo,'bound T collects a finite nearby resource');
+ assert.equal(JSON.parse(store.get(KEY)).player.charges,game.player.charges);
+});
