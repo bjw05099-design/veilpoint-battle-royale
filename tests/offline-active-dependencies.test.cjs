@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const {collectFiles, buildZip, packageDemo} = require('../scripts/package-offline-demo.cjs');
+const {collectFiles, buildZip, packageDemo, NOTICE_TEXT, QUICK_START_TEXT} = require('../scripts/package-offline-demo.cjs');
 const {verifyArchive} = require('../scripts/verify-offline-demo.cjs');
 
 function fixture() {
@@ -27,9 +27,11 @@ function fixture() {
 
 function forgedArchive(files) {
   const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
-  const manifest = files.map(file => digest(file.data) + '  ' + file.name).join('\n') + '\n';
-  return buildZip([...files, {name:'MANIFEST.sha256', data:Buffer.from(manifest)},
-    {name:'NOTICE.txt', data:Buffer.from('offline demo')}]
+  const shipment = [...files, {name:'QUICK_START.txt', data:Buffer.from(QUICK_START_TEXT)}];
+  const manifest = shipment.sort((a,b)=>a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    .map(file => digest(file.data) + '  ' + file.name).join('\n') + '\n';
+  return buildZip([...shipment, {name:'MANIFEST.sha256', data:Buffer.from(manifest)},
+    {name:'NOTICE.txt', data:Buffer.from(NOTICE_TEXT)}]
     .sort((a,b) => a.name.localeCompare(b.name,'en')));
 }
 
