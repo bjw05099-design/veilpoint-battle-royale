@@ -142,22 +142,31 @@
     return true;
   }
   function recoverSceneOverlap(state) {
-    // Older CH01 checkpoints predate the authored harbor buildings. Move a
-    // player who was saved inside a newly solid structure to its nearest safe
-    // outside edge once on restore; never teleport during live gameplay.
+    // Legacy checkpoints can overlap several newly authored solids at once.
+    // Recover only at load time, with deterministic bounded candidates.
     const p=state.world.player;
-    const building=state.world.obstacles.find(o=>o.type&&o.type.startsWith('story-')&&
-      Sim.blocked(p.x,p.z,.85,[o]));
-    if(!building)return false;
-    const edge=.95;
-    const candidates=[
-      {x:building.x-building.w/2-edge,z:p.z},
-      {x:building.x+building.w/2+edge,z:p.z},
-      {x:p.x,z:building.z-building.d/2-edge},
-      {x:p.x,z:building.z+building.d/2+edge}
-    ].filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles));
+    const structures=state.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
+    if(!structures.some(o=>Sim.blocked(p.x,p.z,.85,[o])))return false;
+    const original={x:p.x,z:p.z},candidates=[];
+    for(const building of structures){
+      if(!Sim.blocked(original.x,original.z,.85,[building]))continue;
+      // Use clearance greater than the player radius; test every candidate
+      // against the complete collision world, not just the first structure.
+      const edge=1;
+      for(const pos of [
+        {x:building.x-building.w/2-edge,z:original.z},
+        {x:building.x+building.w/2+edge,z:original.z},
+        {x:original.x,z:building.z-building.d/2-edge},
+        {x:original.x,z:building.z+building.d/2+edge},
+        {x:building.x-building.w/2-edge,z:building.z-building.d/2-edge},
+        {x:building.x+building.w/2+edge,z:building.z-building.d/2-edge},
+        {x:building.x-building.w/2-edge,z:building.z+building.d/2+edge},
+        {x:building.x+building.w/2+edge,z:building.z+building.d/2+edge}
+      ])if(!Sim.blocked(pos.x,pos.z,.85,state.world.obstacles))candidates.push(pos);
+    }
     if(!candidates.length)throw new RangeError('No safe harbor checkpoint recovery');
-    candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+    candidates.sort((a,b)=>Math.hypot(a.x-original.x,a.z-original.z)-
+      Math.hypot(b.x-original.x,b.z-original.z));
     p.x=candidates[0].x;p.z=candidates[0].z;
     return true;
   }
