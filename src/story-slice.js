@@ -302,7 +302,10 @@
     state.world.flashlightTicks=state.flashlightTicks;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
-    state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
+    // Preserve the authored marker identity separately from the renderer's
+    // numeric id: two objectives can share the same kind and list length while
+    // referring to different physical locations (e.g. aid pickup vs resume).
+    state.world.loot=markers(state).map((p,i)=>({id:i,markerId:p.id,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
   function refreshEscortWorldMarker(state) {
@@ -314,7 +317,8 @@
     if(state.phase!=='exit'||state.choice!=='evacuation'||!state.guide.active)return;
     const visible=markers(state),rendered=state.world.loot;
     if(!Array.isArray(rendered)||rendered.length!==visible.length||
-       visible.some((marker,i)=>!rendered[i]||rendered[i].kind!==marker.kind)){
+       visible.some((marker,i)=>!rendered[i]||rendered[i].kind!==marker.kind||
+         rendered[i].markerId!==marker.id)){
       syncMarkers(state);
       return;
     }
