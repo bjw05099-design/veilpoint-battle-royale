@@ -1784,3 +1784,28 @@ test('CH01 remapped PC interaction key is displayed in HUD and operates a physic
  resumed.emit('keydown',{code:'KeyT'});
  assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'engagement');
 });
+
+test('CH01 PC remapped interact displays T and actual T key operates relay while E does not',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ const base=Desktop.normalize({});
+ const bindInteract=Desktop.bind(base,'interact','KeyT');
+ assert.equal(bindInteract.ok,true);
+ const remapped=Desktop.bind(bindInteract.value,'reload','KeyY');
+ assert.equal(remapped.ok,true);
+ const store=new Map([[Desktop.STORAGE_KEY,JSON.stringify(remapped.value)]]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,300);
+ assert.match(app.element('interaction').textContent,/\[T\]/,
+   'nearby 3D world relay advertises the actual remapped interaction key');
+ assert.doesNotMatch(app.element('interaction').textContent,/\[E\]/);
+ const objective=app.element('objective').textContent;
+ assert.doesNotMatch(objective,/E로|E를/,'mission text must not advertise a dead key');
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'terminal',
+   'old E key cannot advance an input-remapped mission');
+ app.emit('keydown',{code:'KeyT'});
+ const saved=JSON.parse(store.get('veilpoint.story.ch01'));
+ assert.equal(saved.phase,'engagement','actual remapped PC T drives interaction and persistence');
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+});
