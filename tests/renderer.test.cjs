@@ -300,8 +300,8 @@ test('static world chunks retain every original triangle and conservative full-v
  }
  assert.equal(JSON.stringify(partition(original,56)),JSON.stringify({packed,chunks}),
   'chunk ranges and bounds must be deterministic on an identical world');
- assert.throws(()=>partition([1,2,3]),RangeError);
- assert.throws(()=>partition(original,0),RangeError);
+ assert.throws(()=>partition([1,2,3]),e=>e.name==='RangeError');
+ assert.throws(()=>partition(original,0),e=>e.name==='RangeError');
 });
 test('WebGL statics cull out-of-view submissions without changing physics or buffer count',()=>{
  const fake=fakeGl(),calls=[];
