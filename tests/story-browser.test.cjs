@@ -1259,7 +1259,7 @@ test('CH01 PC refresh reopens the exact finished branch report without starting 
  assert.match(app.element('debriefReview').textContent,/유수프 구조단/);
  assert.equal(app.element('debriefReview').classList.contains('hidden'),false);
  assert.equal(app.element('menu').classList.contains('hidden'),false,'read-only review must never start game input');
- assert.equal(app.element('continue').textContent,'CH01 새 미션 시작');
+ assert.equal(app.element('continue').textContent,'CH01 다시 시작');
  for(let i=1;i<=120;i++)app.frame(i*1000/60);
  assert.equal(store.get('veilpoint.story.ch01'),saved,'review does not rewrite the terminal world');
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR-checkpoint');
@@ -2009,7 +2009,7 @@ test('CH01 completed replay after browser refresh writes fresh first checkpoint 
  const store=new Map([[key,fixture.complete],[preview,fixture.debrief],
    [backupKey,fixture.backup],['veilpoint.brCheckpoint.v1','BR-independent']]);
  const app=boot(store,false,'granted',true,true);
- assert.equal(app.element('continue').textContent,'CH01 다시 시작');
+ assert.equal(app.element('continue').textContent,'CH01 새 미션 시작');
  assert.equal(store.get(key),fixture.complete,'read-only completion review must not write');
  app.element('continue').click();
  const replay=Story.restore(store.get(key));
