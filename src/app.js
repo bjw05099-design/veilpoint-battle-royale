@@ -227,11 +227,17 @@ function persistMatch(){
   return false;
  }
 }
+// A temporary privacy/storage read exception must not delete a valid match.
+// Read failure and a structurally corrupt checkpoint are distinct outcomes.
+let checkpointReadUnavailable=false;
 function storedMatch(){
  let primary=null,backup=null;
  try{
   primary=global.localStorage.getItem(MATCH_SAVE_KEY);
   backup=global.localStorage.getItem(MATCH_BACKUP_KEY);
+ }catch(_){checkpointReadUnavailable=true;return null;}
+ checkpointReadUnavailable=false;
+ try{
   const result=Game.recoverMatch(primary,backup);
   if(!result)return null;
   if(result.source==='backup'){
@@ -334,10 +340,8 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  requestAimLock();
  persistMatch();
 }
-function resumeStoredMatch(){
- if(graphicsContextLost||!renderer)return;
- const restored=storedMatch();
- if(!restored){start();return;}
+function resumeStoredMatch(restored){
+ if(graphicsContextLost||!renderer||!restored)return;
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
@@ -353,7 +357,10 @@ function resumeStoredMatch(){
  requestAimLock();
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
-else {
+else if(checkpointReadUnavailable){
+ $('play').textContent='저장된 경기 다시 확인';
+ document.querySelector('.tagline').textContent='브라우저 저장소를 일시적으로 읽을 수 없습니다. 기존 경기를 보호하기 위해 자동으로 새 경기를 시작하지 않습니다.';
+}else {
  const archived=readLastResult();
  if(archived){
   lastFinishedMatch={seed:archived.seed,weaponId:archived.weaponId,rivals:archived.rivals};
@@ -382,8 +389,15 @@ $('play').addEventListener('click',()=>{
  // A terminal result always means a fresh round, even if deletion was denied
  // and a stale but syntactically valid local checkpoint is still readable.
  else if(!running&&lastFinishedMatch)start();
- else if(!running&&storedMatch())resumeStoredMatch();
- else start();
+ else if(!running){
+  const saved=storedMatch();
+  if(saved)resumeStoredMatch(saved);
+  else if(checkpointReadUnavailable){
+   $('play').textContent='저장된 경기 다시 확인';
+   document.querySelector('.tagline').textContent='저장소에 접근할 수 없어 기존 경기 보호를 위해 자동 시작하지 않았습니다. 접근 권한을 확인하고 다시 시도하거나, 새 경기 버튼으로 명시적으로 초기화하세요.';
+   return;
+  }else start();
+ }
  syncMotorSound(true);
 });
 $('newMatch').addEventListener('click',start);
