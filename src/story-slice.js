@@ -762,7 +762,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · E로 동행 재개 가능':'대피 안내원 동행 중 · E로 대기 지시 가능'):
+      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
