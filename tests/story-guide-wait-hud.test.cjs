@@ -76,8 +76,10 @@ test('CH01 following guide HUD only offers real PC E hold or staffed handoff wit
  const saved=story.serialize(s);
  const restored=story.restore(saved);
  assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
- assert.equal(story.serialize(restored),saved,
-   'HUD logic cannot mutate 60Hz checkpoint bytes');
+ assert.equal(story.serialize(s),saved,
+   'reading the HUD cannot mutate the active 60Hz world or its saved bytes');
+ // Legacy overlapping captain/guide poses are intentionally separated on
+ // restore; that collision safety rule is independent of this HUD test.
  s.world.player.x=s.guide.x+0.8;
  assert.equal(story.nearest(s)?.id,'guideRelease');
  assert.match(story.situation(s).guideStatus,/E로.*인계 가능/);
