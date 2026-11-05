@@ -950,8 +950,10 @@ test('BR failed backup repair preserves both disk generations and gives playable
 
 test('BR concurrent backup rotation never promotes a stale checkpoint across two Windows tabs',()=>{
  const Game=require('../src/simulation.js');
- const original=Game.snapshotMatch(Game.newMatch(20261105,1));
- const newBackup=Game.snapshotMatch(Game.newMatch(20261106,1));
+ const originalMatch=Game.newMatch(20261105,1);originalMatch.status='playing';
+ const nextMatch=Game.newMatch(20261106,1);nextMatch.status='playing';
+ const original=Game.snapshotMatch(originalMatch);
+ const newBackup=Game.snapshotMatch(nextMatch);
  const backupKey=KEY+'.previous',damaged='{partial-primary';
  const store=new Map([[KEY,damaged],[backupKey,original],
    ['veilpoint.story.ch01','preserved-story-progress']]);
@@ -974,7 +976,8 @@ test('BR concurrent backup rotation never promotes a stale checkpoint across two
 
 test('BR invalid concurrent backup replacement cannot erase either disk generation or block offline play',()=>{
  const Game=require('../src/simulation.js');
- const original=Game.snapshotMatch(Game.newMatch(20261107,1));
+ const originalMatch=Game.newMatch(20261107,1);originalMatch.status='playing';
+ const original=Game.snapshotMatch(originalMatch);
  const brokenBackup='{another-tab-incomplete',backupKey=KEY+'.previous';
  const damaged='{incomplete-primary',store=new Map([[KEY,damaged],[backupKey,original]]);
  const get=store.get.bind(store);let reads=0;
