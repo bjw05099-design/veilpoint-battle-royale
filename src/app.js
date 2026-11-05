@@ -102,11 +102,36 @@ for(const [node,field] of [[fpsSelect,'fpsCap'],[resolutionSelect,'resolutionSca
  node.addEventListener('change',()=>{try{graphicsSettings=graphics.customize(graphicsSettings,field,Number(node.value));applyGraphicsSettings();}catch(_){applyGraphicsSettings();}});
 }
 autoResolutionCheckbox.addEventListener('change',()=>{autoResolution=autoResolutionCheckbox.checked;applyGraphicsSettings();try{global.localStorage.setItem('veilpoint.autoResolution',String(autoResolution));}catch(_){}});
-$('graphicsOpen').addEventListener('click',()=>{
- const panel=$('graphicsPanel');panel.classList.toggle('hidden');
- if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
-});
-$('graphicsClose').addEventListener('click',()=>{$('graphicsPanel').classList.add('hidden');desktopUi.cancel();});
+// Desktop pointer lock prevents clicking the topbar while aiming. The pause
+// menu and G shortcut must open the same settings panel without advancing
+// the 60Hz world. A close action never resumes gameplay implicitly.
+let graphicsReturnFocus=null;
+function setGraphicsPanelOpen(open,opener=null){
+ if(open&&running&&!suspended){
+  suspendMatch();
+  resetInactiveClock();
+ }
+ const panel=$('graphicsPanel');
+ panel.classList.toggle('hidden',!open);
+ for(const id of ['graphicsOpen','graphicsPauseOpen']){
+  const control=$(id);
+  if(typeof control.setAttribute==='function')
+   control.setAttribute('aria-expanded',String(!!open));
+ }
+ if(open){
+  graphicsReturnFocus=opener||$('graphicsPauseOpen');
+  if(typeof $('graphicsClose').focus==='function')$('graphicsClose').focus();
+ }else{
+  desktopUi.cancel();
+  const restore=graphicsReturnFocus;graphicsReturnFocus=null;
+  if(restore&&(suspended||!running)&&typeof restore.focus==='function')restore.focus();
+ }
+}
+$('graphicsOpen').addEventListener('click',()=>setGraphicsPanelOpen(
+ $('graphicsPanel').classList.contains('hidden'),$('graphicsOpen')));
+$('graphicsPauseOpen').addEventListener('click',()=>setGraphicsPanelOpen(
+ $('graphicsPanel').classList.contains('hidden'),$('graphicsPauseOpen')));
+$('graphicsClose').addEventListener('click',()=>setGraphicsPanelOpen(false));
 
 const loadoutSelect=$('weaponClass');
 const rosterSelect=$('brRoster');
@@ -513,7 +538,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A new round cannot inherit held keyboard, sprint, touch or look pointers.
- desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ desktopUi.cancel();resetInactiveClock();$('overlay').classList.add('hidden');setGraphicsPanelOpen(false);
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  Desktop.focusGameplay(document,canvas);
  requestAimLock();
@@ -538,7 +563,7 @@ function resumeStoredMatch(restored){
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
  desktopUi.cancel();resetInactiveClock();
- $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ $('overlay').classList.add('hidden');setGraphicsPanelOpen(false);
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  // A restored match must reclaim keyboard focus just like a new match.
  // Otherwise the still-focused Resume button consumes Space/arrow controls.
@@ -570,7 +595,7 @@ function resumeMatch(){
  if(!running||!suspended||graphicsContextLost||!renderer)return;
  suspended=false;pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');$('saveExit').classList.add('hidden');
- $('overlay').classList.add('hidden');$('graphicsPanel').classList.add('hidden');
+ $('overlay').classList.add('hidden');setGraphicsPanelOpen(false);
  $('mobileControls').classList.toggle('active',isTouch);
  Desktop.focusGameplay(document,canvas);
  requestAimLock();
@@ -695,6 +720,13 @@ $('retryArena').addEventListener('click',()=>{
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
+ // The pre-match/end menu can open settings too. Escape dismisses that panel
+ // without starting gameplay or requiring a mouse click on its Close button.
+ if(e.code==='Escape'&&!running&&!$('graphicsPanel').classList.contains('hidden')){
+  e.preventDefault();
+  if(!e.repeat)setGraphicsPanelOpen(false);
+  return;
+ }
  // Escape must cancel even a pending/denied mouse-capture request. The game
  // cannot act until locked, but the player must always be able to pause.
  if(e.code==='Escape'&&running){
@@ -704,10 +736,15 @@ addEventListener('keydown',e=>{
    // First Escape closes the graphics dialog without silently resuming a match.
    // The following Escape can reclaim mouse lock only when the dialog is gone.
    if(!$('graphicsPanel').classList.contains('hidden')){
-    $('graphicsPanel').classList.add('hidden');desktopUi.cancel();
+    setGraphicsPanelOpen(false);
    }else if(!graphicsContextLost&&renderer)resumeMatch();
   }else{suspendMatch();resetInactiveClock();}
   return;
+ }
+ // G closes the open settings panel even while a settings select or Close
+ // button has focus. The remapping/capture handler above retains priority.
+ if(e.code==='KeyG'&&!e.repeat&&!$('graphicsPanel').classList.contains('hidden')){
+  e.preventDefault();setGraphicsPanelOpen(false);return;
  }
  // Menu/settings focus must never start a match or fire a round. In particular,
  // Enter on a focused button is already handled by its native click action.
@@ -719,9 +756,9 @@ addEventListener('keydown',e=>{
  if(e.repeat){if(action)e.preventDefault();return;}
  if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
  if(e.code==='KeyG'){
-  e.preventDefault();const panel=$('graphicsPanel');panel.classList.toggle('hidden');
-  if(!panel.classList.contains('hidden')&&canAct())suspendMatch();
-  else desktopUi.cancel();
+  e.preventDefault();
+  setGraphicsPanelOpen($('graphicsPanel').classList.contains('hidden'),$('graphicsPauseOpen'));
+  return;
  }
  if(action==='interact'){e.preventDefault();collectAmmo();}
  // V is a separate physical cache action, not a shortcut that creates rounds.
