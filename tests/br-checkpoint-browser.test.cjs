@@ -946,3 +946,49 @@ test('BR failed backup repair preserves both disk generations and gives playable
  assert.equal(reload.game.seed,20261107);
  assert.equal(reload.game.status,'playing');
 });
+
+
+test('BR concurrent backup rotation never promotes a stale checkpoint across two Windows tabs',()=>{
+ const Game=require('../src/simulation.js');
+ const original=Game.snapshotMatch(Game.newMatch(20261105,1));
+ const newBackup=Game.snapshotMatch(Game.newMatch(20261106,1));
+ const backupKey=KEY+'.previous',damaged='{partial-primary';
+ const store=new Map([[KEY,damaged],[backupKey,original],
+   ['veilpoint.story.ch01','preserved-story-progress']]);
+ const get=store.get.bind(store);
+ let primaryReads=0;
+ store.get=name=>{
+  if(name===KEY&&++primaryReads===2)store.set(backupKey,newBackup);
+  return get(name);
+ };
+ const app=boot(store);
+ assert.ok(primaryReads>=2,'read both generations again immediately before promotion');
+ assert.equal(store.get(KEY),damaged,'old backup was not promoted over another tab change');
+ assert.equal(store.get(backupKey),newBackup);
+ assert.equal(app.node('play').textContent,'저장 경기 이어하기');
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.seed,20261106,'fresh Continue uses newer validated backup');
+ assert.equal(Game.restoreMatch(store.get(KEY)).seed,20261106);
+ assert.equal(store.get('veilpoint.story.ch01'),'preserved-story-progress');
+});
+
+test('BR invalid concurrent backup replacement cannot erase either disk generation or block offline play',()=>{
+ const Game=require('../src/simulation.js');
+ const original=Game.snapshotMatch(Game.newMatch(20261107,1));
+ const brokenBackup='{another-tab-incomplete',backupKey=KEY+'.previous';
+ const damaged='{incomplete-primary',store=new Map([[KEY,damaged],[backupKey,original]]);
+ const get=store.get.bind(store);let reads=0;
+ store.get=name=>{
+  if(name===KEY&&++reads===2)store.set(backupKey,brokenBackup);
+  return get(name);
+ };
+ const app=boot(store);
+ assert.ok(reads>=2);
+ assert.equal(store.get(KEY),damaged);
+ assert.equal(store.get(backupKey),brokenBackup);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing','a failed checkpoint recovery cannot softlock the PC menu');
+ assert.equal(store.get(KEY),damaged,'memory-only round leaves primary unchanged');
+ assert.equal(store.get(backupKey),brokenBackup,'memory-only round leaves backup unchanged');
+ assert.match(app.game.message,/MEMORY-ONLY/);
+});
