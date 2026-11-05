@@ -21,7 +21,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el={
       id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(['choices','fieldJournal','interaction','reviewCompleted','debriefReview','saveExit','saveCheckpoint'].includes(id)),
+      classList:makeClassList(['choices','fieldJournal','interaction','reviewCompleted','debriefReview','saveExit','saveCheckpoint','restorePrevious'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
@@ -2819,4 +2819,99 @@ test('CH01 menu New Game on an old page cannot delete unseen recent tab save',()
  fresh.moveForward(0,300);fresh.interact();
  assert.equal(Story.restore(shared.get(key)).phase,'engagement',
    'verified reset returns to normal durable mission saves');
+});
+
+
+test('CH01 PC pause menu restores the prior durable fixed-step checkpoint and preserves resources',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const app=boot(shared,false,'granted',true,true);
+ assert.equal(app.element('restorePrevious').classList.contains('hidden'),true,
+   'the recovery action does not appear before a mission');
+ app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);
+ app.element('pauseButton').click();
+ assert.equal(app.element('restorePrevious').classList.contains('hidden'),false);
+ const latest=Story.restore(shared.get(key));
+ const previousRaw=shared.get(backup);
+ assert.ok(previousRaw,'a prior valid saved generation must exist');
+ const previous=Story.restore(previousRaw);
+ assert.ok(previous.world.elapsed<latest.world.elapsed);
+ app.element('restorePrevious').click();
+ const restored=Story.restore(shared.get(key));
+ assert.equal(restored.world.elapsed,previous.world.elapsed,
+   'manual recovery replaces the latest snapshot with the validated older 60Hz world');
+ assert.equal(restored.world.player.loaded,previous.world.player.loaded);
+ assert.equal(restored.world.player.charges,previous.world.player.charges);
+ assert.deepEqual(restored.world.player.x,previous.world.player.x);
+ assert.equal(shared.get(backup),Story.serialize(latest),
+   'the former latest state remains the new backup, rather than being deleted');
+ assert.match(app.element('menuText').textContent,/이전 체크포인트를 복구했습니다/);
+ assert.equal(app.element('menu').classList.contains('hidden'),false,
+   'restore does not silently resume or advance the world');
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ const reload=boot(shared,false,'granted',true,true);
+ reload.element('continue').click();
+ assert.match(reload.element('objective').textContent,/무장 대치자/,
+   'a second PC window can continue the verified recovered phase');
+});
+
+test('CH01 PC previous-checkpoint control refuses missing and invalid backups without changing live state',()=>{
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ app.frame(1000/60);
+ app.element('pauseButton').click();
+ const initial=shared.get(key);
+ app.element('restorePrevious').click();
+ assert.equal(shared.get(key),initial);
+ assert.match(app.element('menuText').textContent,/이전에 저장된 정상 체크포인트가 없어/);
+ shared.set(backup,'{invalid-checkpoint');
+ app.element('restorePrevious').click();
+ assert.equal(shared.get(key),initial);
+ assert.equal(shared.get(backup),'{invalid-checkpoint');
+ assert.match(app.element('menuText').textContent,/검증할 수 없거나/);
+});
+
+test('CH01 previous checkpoint restore never overwrites a newer save from another tab',()=>{
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const old=boot(shared,false,'granted',true,true);
+ old.element('continue').click();old.moveForward(0,300);old.interact();
+ old.moveForward(300,65);old.element('pauseButton').click();
+ const fresh=boot(shared,false,'granted',true,true);
+ fresh.element('continue').click();
+ fresh.moveForward(0,50);fresh.element('pauseButton').click();
+ const protectedCurrent=shared.get(key),protectedBackup=shared.get(backup);
+ old.element('restorePrevious').click();
+ assert.equal(shared.get(key),protectedCurrent);
+ assert.equal(shared.get(backup),protectedBackup);
+ assert.match(old.element('menuText').textContent,/다른 창의 최신 저장 기록/);
+});
+
+test('CH01 previous checkpoint write rejection retains paused in-memory world',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);app.element('pauseButton').click();
+ const before=shared.get(key);
+ const snapshot=Story.restore(before);
+ assert.ok(shared.get(backup));
+ const save=shared.set.bind(shared);
+ shared.set=(k,value)=>{
+   if(k===key)throw new Error('checkpoint write blocked');
+   return save(k,value);
+ };
+ app.element('restorePrevious').click();
+ assert.equal(shared.get(key),before);
+ assert.match(app.element('menuText').textContent,/기존 진행으로 돌아왔습니다/);
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+ shared.set=save;
+ app.element('continue').click();
+ app.frame(400*1000/60);
+ app.element('pauseButton').click();
+ assert.ok(Story.restore(shared.get(key)).world.elapsed>=snapshot.world.elapsed,
+   'a failed restore does not replace the live world with an older generation');
 });

@@ -292,6 +292,7 @@
       state.phase==='complete'?'미션 다시 플레이':'이어하기';
     $('saveExit').classList.toggle('hidden',!sessionStarted||completed);
     $('saveCheckpoint').classList.toggle('hidden',!sessionStarted||completed);
+    $('restorePrevious').classList.toggle('hidden',!sessionStarted||completed);
     // PC keyboard users must not remain focused on the now-hidden game canvas.
     // The dialog's primary action is the safe focus target after an Esc pause.
     if(!$('continue').disabled)$('continue').focus();
@@ -518,6 +519,60 @@
     $('menuText').textContent=verified
       ?'체크포인트 저장 확인 완료 · 이어하기로 현재 위치부터 계속하거나 모드 선택으로 나갈 수 있습니다.'
       :'체크포인트 재확인 실패 · 현재 진행을 유지하고 메뉴 이동을 보류하세요.';
+  });
+  // Restore the PREVIOUS verified checkpoint on an explicit PC pause-menu
+  // action. Pausing automatically writes the current checkpoint; the rotated
+  // backup is the last safe recovery point if a route becomes unplayable.
+  // Never roll back another tab's newer primary, or grant an unverified world.
+  $('restorePrevious').addEventListener('click',()=>{
+    if(!sessionStarted||menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden')||
+       state.phase==='complete'||state.phase==='failed')return;
+    let primary,backup;
+    try{
+      primary=global.localStorage.getItem(SAVE_KEY);
+      backup=global.localStorage.getItem(BACKUP_KEY);
+    }catch(_){
+      $('menuText').textContent='이전 체크포인트 읽기 실패 · 현재 진행을 유지합니다.';
+      return;
+    }
+    if(primary!==diskGeneration){
+      $('menuText').textContent='다른 창의 최신 저장 기록이 있습니다. 덮어쓰지 않고 현재 진행을 유지합니다.';
+      return;
+    }
+    if(!backup){
+      $('menuText').textContent='이전에 저장된 정상 체크포인트가 없어 현재 진행을 유지합니다.';
+      return;
+    }
+    let restored;
+    try{
+      restored=Story.restore(backup);
+      if(restored.phase==='failed'||restored.phase==='complete')throw new RangeError('terminal backup');
+      if(global.localStorage.getItem(BACKUP_KEY)!==backup||
+         global.localStorage.getItem(SAVE_KEY)!==primary)
+        throw new RangeError('checkpoint changed during recovery');
+    }catch(_){
+      $('menuText').textContent='이전 체크포인트를 검증할 수 없거나 다른 창에서 변경했습니다. 현재 진행을 유지합니다.';
+      return;
+    }
+    const live=state,oldCheckpoint=checkpoint,oldAutosaveAt=lastAutosaveAt;
+    state=restored;
+    // persist() validates/rotates the latest primary and reads back the exact
+    // restored v2 world. Do not discard the live session if the commit fails.
+    if(!persist('이전 체크포인트 복구')){
+      state=live;
+      checkpoint=oldCheckpoint;
+      lastAutosaveAt=oldAutosaveAt;
+      $('menuText').textContent='이전 체크포인트의 저장을 확인하지 못해 기존 진행으로 돌아왔습니다. 브라우저 저장 공간을 확인하세요.';
+      updateHud();
+      return;
+    }
+    $('storyWeapon').value=state.world.player.weaponId;
+    guidanceId=null;shotSavePending=false;firstShotSaved=false;
+    lastAutosaveAt=state.world.elapsed;
+    clearInput();clock.reset();limiter.reset();last=performance.now();
+    $('menuText').textContent='검증된 이전 체크포인트를 복구했습니다. 이어하기를 눌러 복구 위치부터 재개하세요.';
+    updateHud();
   });
   $('saveExit').addEventListener('click',()=>{
     // Save & Exit is an explicit navigation request, never an implicit
