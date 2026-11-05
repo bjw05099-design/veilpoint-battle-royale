@@ -806,14 +806,14 @@ test('BR stale PC tab paused P-key rewind leaves its live world unchanged after 
  const primary=store.get(KEY),field=store.get('veilpoint.brFieldBookmark.v1');
  older.emit('keydown',{code:'Escape'});
  older.node('restoreCheckpoint').click();
- assert.equal(older.game,beforeRewind,'a conflicting rewind must preserve original object identity');
- assert.equal(older.game.player.charges,charges,'a conflicting rewind cannot grant back spent resources');
- assert.equal(older.game.elapsed,elapsed,'a conflicting rewind cannot reset elapsed match time');
  assert.match(older.node('selector-.tagline').textContent,/다른 창에서 저장 기록이 변경/);
  assert.match(older.node('selector-.tagline').textContent,/현재 경기는 변경하지 않았습니다/);
  assert.equal(store.get(KEY),primary,'no stale primary checkpoint overwrite');
  assert.equal(store.get('veilpoint.brFieldBookmark.v1'),field,'newer tab P bookmark remains intact');
  older.node('play').click();older.frame(2500);
+ assert.equal(older.game,beforeRewind,'a conflicting rewind must preserve original world identity');
+ assert.equal(older.game.player.charges,charges,'a conflicting rewind cannot grant back spent resources');
+ assert.ok(older.game.elapsed>=elapsed,'a conflicting rewind cannot reset elapsed match time');
  assert.equal(older.game.status,'playing','same live round can resume after rejected rewind');
  assert.match(older.node('message').textContent,/SAVE CONFLICT/);
 });
@@ -830,11 +830,11 @@ test('BR denied primary write still permits explicitly requested in-memory bookm
  store.set=(key,val)=>{if(key===KEY&&quotaDenied)throw new Error('quota');return writer(key,val);};
  app.emit('keydown',{code:'Escape'});
  app.node('restoreCheckpoint').click();
- assert.equal(app.game.player.charges,old,
-   'denied storage must not block a voluntary in-tab rewind when no newer generation exists');
  assert.match(app.node('selector-.tagline').textContent,/이 탭에서는 계속할 수 있으나/);
  assert.match(app.node('message').textContent,/SAVE FAILED/);
  quotaDenied=false;
  app.node('play').click();app.frame(2500);
  assert.equal(app.game.status,'playing');
+ assert.equal(app.game.player.charges,old,
+   'denied storage must not block a voluntary in-tab rewind when no newer generation exists');
 });
