@@ -21,7 +21,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el={
       id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview'].includes(id)),
+      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
