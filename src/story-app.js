@@ -712,6 +712,19 @@
     $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     $('routeStatus').textContent=controlText($('routeStatus').textContent);
+    // Compact route progress is an observation of existing 60Hz/interactive
+    // state, never a second completion system. Optional tasks remain optional.
+    const tasks=Story.missionTasks(state);
+    const tracker=$('taskTracker');
+    tracker.classList.toggle('hidden',tasks.length===0);
+    if(tasks.length){
+      const status={done:'완료',available:'진행 가능',following:'동행 중',
+        waiting:'현장 대기',staged:'임시 적재',carrying:'운반 중',
+        blocked:'선행 목표 필요',locked:'준비 중'};
+      tracker.textContent=tasks.map(task=>
+        (task.status==='done'?'✓ ':'○ ')+task.label+
+        (task.optional?' (선택)':'')+' · '+status[task.status]).join('\\n');
+    }else tracker.textContent='';
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
     // Self-condition is knowable to the player; never reveal hidden enemy state
