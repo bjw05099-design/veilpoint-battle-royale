@@ -22,8 +22,6 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     float Health = 100.f;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
-    float Shield = 80.f;
-    UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     int32 Charges = 48;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     bool bEliminated = false;
@@ -38,7 +36,8 @@ public:
     float GetStaminaRatio() const { return FMath::Clamp(Stamina / 100.f, 0.f, 1.f); }
 
     UFUNCTION(BlueprintCallable, Category="Survival")
-    void CollectResource(FName Resource);
+    // A pickup is consumed only when it truly restores a finite resource.
+    bool CollectResource(FName Resource);
     UFUNCTION(BlueprintCallable, Category="Survival")
     bool IsAlive() const { return Health > 0.f && !bEliminated; }
 
