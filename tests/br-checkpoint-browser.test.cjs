@@ -1180,3 +1180,47 @@ test('BR backup promotion read denial keeps an unmodified primary and working te
    'after a fresh successful read, durable saving preserves the real world');
  assert.equal(Game.restoreMatch(store.get(prior)).seed,20261106);
 });
+
+test('BR Windows pause overlay discloses rejected checkpoint while preserving current round',()=>{
+ class DeniedMatchSave extends Map {
+  set(key,value){if(this.deny&&key===KEY)throw new Error('quota');return super.set(key,value);}
+ }
+ const store=new DeniedMatchSave();
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const previous=store.get(KEY);
+ assert.ok(previous,'initial checkpoint was durable before quota failure');
+ store.deny=true;
+ app.emit('blur');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.match(app.node('selector-.tagline').textContent,/체크포인트 저장 실패/);
+ assert.equal(store.get(KEY),previous,'denied primary must not be claimed as saved');
+ assert.equal(app.game.status,'playing','the paused 60Hz game is still resumable');
+ app.node('saveExit').click();
+ assert.match(app.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+});
+
+test('BR PC pause explicitly identifies a changed generation in another tab',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const original=JSON.parse(store.get(KEY));
+ original.elapsed+=3;
+ const newer=JSON.stringify(original);
+ store.set(KEY,newer);
+ app.emit('blur');
+ assert.match(app.node('selector-.tagline').textContent,/다른 창의 최신 체크포인트/);
+ assert.equal(store.get(KEY),newer,'a stale PC tab cannot overwrite the other tab');
+ app.node('play').click();
+ app.frame(2000/60);
+ assert.equal(app.game.status,'playing','resume preserves the local world');
+});
+
+test('BR temporary memory-only match never advertises a durable pause save',()=>{
+ const corrupt='invalid-primary-save';
+ const store=new Map([[KEY,corrupt]]);
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');
+ assert.match(app.node('selector-.tagline').textContent,/임시 경기이므로 현재 진행은 저장되지 않습니다/);
+ assert.equal(store.get(KEY),corrupt,'unrelated checkpoint remains protected');
+});

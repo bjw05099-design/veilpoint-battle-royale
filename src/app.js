@@ -845,7 +845,7 @@ function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
  if(motorSound)motorSound.stop();
- persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
+ const checkpointSaved=persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
@@ -853,9 +853,13 @@ function suspendMatch(reason='background'){
  $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
- document.querySelector('.tagline').textContent=reason==='graphics'?'그래픽 장치가 끊어졌습니다. 복구 후 이어하기를 누르세요.':reason==='pointer'
+ document.querySelector('.tagline').textContent=(reason==='graphics'?'그래픽 장치가 끊어졌습니다. 복구 후 이어하기를 누르세요.':reason==='pointer'
   ?'마우스 포인터 잠금이 해제되었거나 거부되었습니다. 화면을 클릭해 권한을 허용한 뒤 이어하기를 누르세요.'
-  :'경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.';
+  :'경기가 일시중지되었습니다. 이어하기를 눌러 같은 경기로 복귀하세요.')+
+  (simulation.status!=='playing'||checkpointSaved?'':saveIssue==='conflict'
+   ?' · 다른 창의 최신 체크포인트를 보호하고 있습니다. 이 창의 진행은 저장되지 않았습니다.'
+   :memoryOnlyMatch?' · 임시 경기이므로 현재 진행은 저장되지 않습니다.'
+   :' · 체크포인트 저장 실패: 저장 공간을 확인하세요. 현재 진행은 이 창에만 남아 있습니다.');
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function resetInactiveClock(){
