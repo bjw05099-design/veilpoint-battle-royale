@@ -1862,3 +1862,56 @@ test('CH01 failed backup promotion keeps disk generations intact through tempora
   assert.equal(shared.get(key),corrupted,'temporary play must never erase corrupted primary');
   assert.equal(shared.get(backupKey),backup,'temporary play must preserve last valid backup');
 });
+
+
+test('CH01 live completion replay immediately checkpoints the new world and retires stale finale',()=>{
+  const key='veilpoint.story.ch01',preview=key+'PreviewCompleted',backup=key+'.previous';
+  const app=boot(new Map([['veilpoint.brCheckpoint.v1','unchanged']]),false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const cleared=app.clearEncounter(300);
+  app.moveForward(cleared,225);app.interact();app.element('choiceEvac').click();
+  app.moveForward(cleared+225,193);app.interact();
+  assert.equal(JSON.parse(app.store.get(key)).phase,'complete');
+  assert.equal(app.store.has(preview),true);
+  app.element('continue').click(); // Live replay, not a full browser reload.
+  const replay=JSON.parse(app.store.get(key));
+  assert.equal(replay.phase,'terminal','replay must persist before any new movement');
+  assert.equal(replay.player.z,12);
+  assert.equal(app.store.has(preview),false,'old completion cannot outlive a durable replay');
+  assert.equal(app.store.has(backup),false,'completed generation is not a replay backup');
+  const reloaded=boot(app.store,false,'granted',true,true);
+  assert.match(reloaded.element('menuText').textContent,/이전 진행 기록/);
+  reloaded.element('continue').click();
+  assert.match(reloaded.element('objective').textContent,/중계기/);
+  assert.equal(app.store.get('veilpoint.brCheckpoint.v1'),'unchanged');
+});
+
+test('CH01 replay with temporary disk denial retires old finale only after successful 60Hz retry',()=>{
+  const key='veilpoint.story.ch01',preview=key+'PreviewCompleted';
+  const shared=new Map([['veilpoint.brCheckpoint.v1','br-kept']]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();app.moveForward(0,300);app.interact();
+  const cleared=app.clearEncounter(300);
+  app.moveForward(cleared,225);app.interact();app.element('choiceEvac').click();
+  app.moveForward(cleared+225,193);app.interact();
+  const complete=shared.get(key);
+  assert.equal(JSON.parse(complete).phase,'complete');
+  const save=shared.set.bind(shared);
+  let denied=0;
+  shared.set=(name,value)=>{
+    if(name===key){denied++;throw new Error('temporary quota denial');}
+    return save(name,value);
+  };
+  app.element('continue').click();
+  assert.ok(denied>0);
+  assert.equal(shared.get(key),complete,'failed replay write preserves old complete world');
+  assert.equal(shared.has(preview),true,'never retire debrief before successful checkpoint');
+  assert.match(app.element('saveStatus').textContent,/저장 실패/);
+  shared.set=save;
+  const after=cleared+225+193;
+  for(let n=1;n<=370;n++)app.frame((after+n)*1000/60);
+  assert.equal(JSON.parse(shared.get(key)).phase,'terminal');
+  assert.equal(shared.has(preview),false,'successful retry retires obsolete report');
+  assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'br-kept');
+});

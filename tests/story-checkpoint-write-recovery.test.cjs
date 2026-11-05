@@ -8,7 +8,10 @@ const source=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
 test('CH01 failed checkpoint does not acknowledge save or clear dirty shot state',()=>{
   const persist=source.slice(source.indexOf('  function persist(reason='),source.indexOf('  function persistShot()'));
   assert.match(persist,/const saved=storage\.set\(SAVE_KEY,raw\)/);
-  assert.match(persist,/if\(saved\)\{\s*diskGeneration=raw;\s*lastAutosaveAt=state\.world\.elapsed;\s*nextSaveRetryAt=0;\s*shotSavePending=false;/);
+  assert.match(persist,/if\(saved\)\{\s*diskGeneration=raw;/);
+  assert.match(persist,/if\(saved\)\{[\s\S]*?lastAutosaveAt=state\.world\.elapsed;\s*nextSaveRetryAt=0;\s*shotSavePending=false;/,
+    'successful writes retain checkpoint boundaries despite replay metadata cleanup');
+  assert.match(persist,/if\(pendingReplayReset\)\{[\s\S]*?storage\.remove\(PREVIEW_KEY\);[\s\S]*?storage\.remove\(BACKUP_KEY\);[\s\S]*?pendingReplayReset=false;/);
   assert.match(persist,/else\{[\s\S]*?nextSaveRetryAt=state\.world\.elapsed\+1;/);
   assert.match(persist,/saveFailed=!saved/);
   assert.match(persist,/checkpoint=raw/,'memory fallback remains available without localStorage');
