@@ -21,7 +21,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el={
       id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview'].includes(id)),
+      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
@@ -65,8 +65,10 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     removeItem:k=>sharedStore.delete(k)
   };
   let now=0,frameCallback=null;
+  const navigations=[];
   const context={
     document,localStorage:store,
+    location:{assign:url=>navigations.push(url)},
     performance:{now:()=>now},
     matchMedia:query=>({matches:query==='(any-pointer:fine)'?finePointer:touch}),
     navigator:windows?{platform:'Win32',userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}:undefined,
@@ -88,7 +90,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     vm.runInNewContext(source,context,{filename:script,timeout:1500});
   }
   return {
-    element,store:sharedStore,context,
+    element,store:sharedStore,context,navigations,
     grantPointerLock(){assert.equal(typeof grantPointerLock,'function');grantPointerLock();},
     emit(name,event){for(const fn of listeners.get(name)||[])fn({preventDefault(){},...event});},
     frame(ms){now=ms;const callback=frameCallback;assert.equal(typeof callback,'function');callback(ms);},
@@ -2170,4 +2172,79 @@ test('CH01 PC walking pace hint appears only for a nearby visible escort who is 
  assert.match(paused.element('routeStatus').textContent,/시야 내 안내원 간격 6\.3m/);
  assert.doesNotMatch(paused.element('routeStatus').textContent,/천천히 이동해 동행 유지/,
    'a waiting guide should not tell the captain to maintain a follow pace');
+});
+
+
+test('Windows CH01 Save & Exit verifies a durable paused checkpoint before navigating to the mode hub',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01';
+ const shared=new Map([['veilpoint.brCheckpoint.v1','unchanged-BR']]);
+ const app=boot(shared,false,'granted',true,true);
+ assert.equal(app.element('saveExit').classList.contains('hidden'),true,
+  'Save & Exit cannot be used before a playable mission begins');
+ app.element('continue').click();
+ app.moveForward(0,145);
+ app.element('pauseButton').click();
+ const elapsed=Story.restore(shared.get(key)).world.elapsed;
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('saveExit').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.element('continue'),
+  'PC focus must move from the hidden scene to a visible menu action');
+ assert.deepEqual(app.navigations,[]);
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html'],
+  'an explicit successful Save & Exit returns to the offline mode hub');
+ const durable=Story.restore(shared.get(key));
+ assert.equal(durable.phase,'terminal');
+ assert.ok(durable.world.elapsed>=elapsed);
+ const reload=boot(shared,false,'granted',true,true);
+ assert.match(reload.element('menuText').textContent,/이전 진행 기록/);
+ reload.element('continue').click();
+ reload.element('pauseButton').click();
+ assert.ok(Story.restore(shared.get(key)).world.elapsed>=durable.world.elapsed);
+ assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'unchanged-BR');
+});
+
+test('Windows CH01 Save & Exit refuses disk write denial without leaving or losing a valid checkpoint',()=>{
+ const Story=require('../src/story-slice.js'),key='veilpoint.story.ch01';
+ const shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,360);
+ const lastValid=shared.get(key),writer=shared.set.bind(shared);
+ assert.ok(lastValid,'five-second automatic checkpoint exists before storage denial');
+ let failures=0;
+ shared.set=(name,value)=>{
+  if(name===key){failures++;throw new Error('quota exhausted');}
+  return writer(name,value);
+ };
+ app.element('pauseButton').click();
+ app.element('saveExit').click();
+ assert.ok(failures>=2,'pause and explicit exit both attempt guarded saves');
+ assert.equal(shared.get(key),lastValid,'a quota error never damages the prior checkpoint');
+ assert.deepEqual(app.navigations,[]);
+ assert.match(app.element('menuText').textContent,/안전하게 저장되지 않았습니다/);
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ shared.set=writer;
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html'],'a later successful write permits exit');
+ assert.ok(Story.restore(shared.get(key)).world.elapsed>=Story.restore(lastValid).world.elapsed);
+});
+
+test('Windows CH01 Save & Exit keeps an older PC tab in the game when a newer tab owns the save',()=>{
+ const key='veilpoint.story.ch01',shared=new Map();
+ const old=boot(shared,false,'granted',true,true);
+ old.element('continue').click();old.moveForward(0,60);
+ old.element('pauseButton').click();
+ const newest=boot(shared,false,'granted',true,true);
+ newest.element('continue').click();newest.moveForward(0,65);
+ newest.element('pauseButton').click();
+ const current=shared.get(key);
+ old.element('saveExit').click();
+ assert.deepEqual(old.navigations,[],'the old browser tab cannot navigate on a failed save');
+ assert.equal(shared.get(key),current,'the newer checkpoint remains unchanged');
+ assert.match(old.element('menuText').textContent,/기존 기록을 보호/);
+ assert.equal(old.context.document.activeElement,old.element('continue'));
+ old.element('continue').click();
+ assert.equal(old.element('menu').classList.contains('hidden'),true,
+  'failed exit never softlocks the paused mission');
 });
