@@ -18,8 +18,10 @@ void AVPPickup::Claim(AVPCharacter* Character)
 {
     if (!HasAuthority() || bConsumed || !IsValid(Character)) return;
     if (FVector::DistSquared(GetActorLocation(),Character->GetActorLocation())>FMath::Square(275.f)) return;
+    // A full inventory or obsolete pickup grants nothing and must remain
+    // available rather than disappearing as a false successful interaction.
+    if (!Character->CollectResource(Resource)) return;
     bConsumed=true;
-    Character->CollectResource(Resource);
     Destroy();
 }
 void AVPPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
