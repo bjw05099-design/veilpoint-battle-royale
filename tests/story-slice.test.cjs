@@ -2383,3 +2383,65 @@ test('CH01 east verification progress respects evidence, real gate timing and op
   assert.equal(tasks[2].status,'available','optional record review is not granted on mission exit');
   assert.equal(tasks[3].status,'locked','optional handoff remains unavailable without the local record');
 });
+
+
+test('CH01 field journal reveals only investigated records and never presumes a second signal',()=>{
+  const state=reachDecision();
+  let notes=story.fieldJournal(state);
+  assert.equal(Object.isFrozen(notes),true);
+  assert.equal(notes.length,1);
+  assert.equal(notes[0].id,'mission');
+  assert.doesNotMatch(JSON.stringify(notes),/04:07|04:12|재전송/);
+  const before=story.serialize(state);
+  assert.deepEqual(story.fieldJournal(state),notes);
+  assert.equal(story.serialize(state),before,'the notebook is read-only');
+  go(state,'recordA');assert.equal(story.interact(state).ok,true);
+  notes=story.fieldJournal(state);
+  assert.deepEqual(notes.map(n=>n.id),['mission','recordA']);
+  assert.match(JSON.stringify(notes),/04:12/);
+  assert.doesNotMatch(JSON.stringify(notes),/04:07|5분 차이/);
+  go(state,'recordB');assert.equal(story.interact(state).ok,true);
+  notes=story.fieldJournal(state);
+  assert.deepEqual(notes.map(n=>n.id),['mission','recordA','recordB','signal']);
+  assert.match(notes[3].body,/5분 차이/);
+  assert.match(notes[3].body,/원인은 확정할 수 없다/);
+  assert.equal(Object.isFrozen(notes[3]),true);
+  const restored=story.restore(story.serialize(state));
+  assert.deepEqual(story.fieldJournal(restored),notes);
+});
+
+test('CH01 field journal distinguishes a physical radio retransmission from speculation',()=>{
+  const state=reachDecision();
+  go(state,'recordA');story.interact(state);
+  go(state,'recordB');story.interact(state);
+  go(state,'decision');story.choose(state,'verification');
+  let notes=story.fieldJournal(state);
+  assert.ok(notes.some(n=>n.id==='route'&&/동쪽/.test(n.title)));
+  assert.match(notes.find(n=>n.id==='signal').body,/원인은 확정할 수 없다/);
+  state.gateLogReviewed=true;
+  notes=story.fieldJournal(state);
+  assert.match(notes.find(n=>n.id==='signal').body,/같은 메시지의 재전송/);
+  assert.doesNotMatch(notes.find(n=>n.id==='signal').body,/원인은 확정할 수 없다/);
+  assert.equal(notes.some(n=>n.id==='handoff'),false);
+  state.logHandedOff=true;
+  assert.equal(story.fieldJournal(state).at(-1).id,'handoff');
+  assert.equal(story.fieldJournal(state).at(-1).title,'현장 기록 접수 완료');
+});
+
+test('CH01 journal separates a staged civilian crate and an unfinished guide from completed aid',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');
+  assert.equal(story.fieldJournal(state).some(n=>n.id==='guide'||n.id==='aid'),false);
+  go(state,'muster');story.interact(state);story.interact(state);
+  assert.match(story.fieldJournal(state).find(n=>n.id==='guide').body,/아직 확정되지 않았다/);
+  state.guide.waiting=true;
+  assert.match(story.fieldJournal(state).find(n=>n.id==='guide').body,/대기 중/);
+  go(state,'aidPickup');story.interact(state);
+  assert.match(story.fieldJournal(state).find(n=>n.id==='aid').body,/직접 운반/);
+  go(state,'aidStage');story.interact(state);
+  assert.match(story.fieldJournal(state).find(n=>n.id==='aid').body,/임시 적재대/);
+  assert.doesNotMatch(story.fieldJournal(state).find(n=>n.id==='aid').body,/직접 인계했다/);
+  state.guide.released=true;
+  assert.match(story.fieldJournal(state).find(n=>n.id==='guide').body,/직접 인계/);
+  const notes=story.fieldJournal(story.restore(story.serialize(state)));
+  assert.match(notes.find(n=>n.id==='aid').body,/아직 완료되지 않았다/);
+});
