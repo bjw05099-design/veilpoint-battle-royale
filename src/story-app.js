@@ -52,8 +52,16 @@
     set(key,value){try{global.localStorage.setItem(key,value);return true;}catch(_){return false;}},
     remove(key){try{global.localStorage.removeItem(key);}catch(_){}}
   };
+  // A transient read error is not evidence of corrupted checkpoint data.
+  // Preserve both generations and allow a non-persisting offline session.
+  let checkpointReadUnavailable=false,memoryOnlyStory=false;
   function readCheckpoint(){
-    const primary=storage.get(SAVE_KEY),backup=storage.get(BACKUP_KEY);
+    let primary=null,backup=null;
+    try{
+      primary=global.localStorage.getItem(SAVE_KEY);
+      backup=global.localStorage.getItem(BACKUP_KEY);
+    }catch(_){checkpointReadUnavailable=true;return null;}
+    checkpointReadUnavailable=false;
     try{
       const recovered=Story.recoverCheckpoint(primary,backup);
       if(!recovered)return null;
@@ -71,6 +79,19 @@
   $('saveStatus').classList.add('hidden');
   function persist(reason=''){
     const raw=Story.serialize(state);
+    if(memoryOnlyStory){
+      // Do not overwrite a previous disk mission if browser permissions
+      // return while this independent, temporary mission is in progress.
+      checkpoint=raw;
+      lastAutosaveAt=state.world.elapsed;
+      nextSaveRetryAt=0;
+      shotSavePending=false;
+      saveFailed=true;
+      const notice=$('saveStatus');
+      notice.textContent='저장 실패 · 임시 CH01 세션: 현재 진행은 이 탭에서만 보존됩니다. 기존 저장 기록은 변경하지 않았습니다.';
+      notice.classList.remove('hidden');
+      return false;
+    }
     const previous=storage.get(SAVE_KEY);
     // Keep the prior valid playable generation before updating the primary.
     // A corrupt current slot must never be copied into the safety slot.
@@ -113,7 +134,7 @@
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
     // This separate preview key must never unlock competitive or campaign content.
     const report=Story.debrief(state);
-    if(report)storage.set(PREVIEW_KEY,JSON.stringify(report));
+    if(report&&!memoryOnlyStory)storage.set(PREVIEW_KEY,JSON.stringify(report));
     return report;
   }
   const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
@@ -228,14 +249,16 @@
     if(!renderer||graphicsContextLost)return;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
+      memoryOnlyStory=checkpointReadUnavailable;
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
-      if(loaded&&loaded.phase==='complete'){
-        // Explicit replay begins a fresh mission; an old completed world must
-        // not reappear as a resumable checkpoint after an interrupted restart.
+      if(!memoryOnlyStory&&loaded&&loaded.phase==='complete'){
+        // The intentional replay of a verified completed mission is a reset.
         storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
       }
-      checkpoint=storage.get(SAVE_KEY);
+      checkpoint=memoryOnlyStory?null:storage.get(SAVE_KEY);
     }else{
+      // New Game is the explicit user's reset, unlike the protected Continue.
+      memoryOnlyStory=false;
       state=Story.createState($('storyWeapon').value);
       storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);checkpoint=null;
       recoveredFromBackup=false;
@@ -246,9 +269,10 @@
     sessionStarted=true;guidanceIndex=null;
     lastAutosaveAt=state.world.elapsed;
     shotSavePending=false;
-    saveFailed=false;
-    $('saveStatus').textContent='';
-    $('saveStatus').classList.add('hidden');
+    saveFailed=memoryOnlyStory;
+    $('saveStatus').textContent=memoryOnlyStory
+      ?'임시 CH01 세션 · 저장소 접근 불가 · 기존 진행 기록 보호 중':'';
+    $('saveStatus').classList.toggle('hidden',!memoryOnlyStory);
     resume();
   }
   function showChoices(){
@@ -614,8 +638,11 @@
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
   const loaded=readCheckpoint();
-  checkpoint=storage.get(SAVE_KEY);
-  if(loaded&&loaded.phase!=='complete'){
+  checkpoint=loaded?storage.get(SAVE_KEY):null;
+  if(checkpointReadUnavailable){
+    $('continue').textContent='저장소 없이 임시 CH01 시작';
+    $('menuText').textContent='이 브라우저에서 저장된 미션을 읽을 수 없습니다. 기존 임무 기록을 보존하며, 별도 임시 세션으로 플레이할 수 있습니다. 저장소 접근이 복구되면 기존 기록을 다시 불러올 수 있습니다.';
+  }else if(loaded&&loaded.phase!=='complete'){
     $('continue').textContent='체크포인트 이어하기';
     $('menuText').textContent=recoveredFromBackup
       ?'최근 저장 파일이 손상되어 이전 정상 체크포인트를 복구했습니다. 이어하기로 임무를 계속하세요.'

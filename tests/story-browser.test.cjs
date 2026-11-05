@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false,storageBlocked=false){
+function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false,storageBlocked=false,checkpointReadFailures=0){
   const listeners=new Map(),nodes=new Map();
   let grantPointerLock=null;
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
@@ -54,8 +54,13 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     addEventListener:(name,fn)=>{const list=listeners.get(name)||[];list.push(fn);listeners.set(name,list);},
     exitPointerLock(){this.pointerLockElement=null;}
   };
+  let remainingCheckpointReadFailures=checkpointReadFailures;
   const store={
-    getItem:k=>sharedStore.has(k)?sharedStore.get(k):null,
+    getItem:k=>{
+      if(k==='veilpoint.story.ch01'&&remainingCheckpointReadFailures-->0)
+        throw new Error('temporary_story_checkpoint_read_denial');
+      return sharedStore.has(k)?sharedStore.get(k):null;
+    },
     setItem:(k,v)=>sharedStore.set(k,String(v)),
     removeItem:k=>sharedStore.delete(k)
   };
@@ -1366,4 +1371,61 @@ test('CH01 Windows E prompt cannot remotely release an unseen guide at muster',(
  app.interact();
  assert.equal(Story.restore(store.get('veilpoint.story.ch01')).guide.released,false);
  assert.equal(app.element('menu').classList.contains('hidden'),true);
+});
+
+test('CH01 temporary checkpoint read denial starts isolated playable mission and preserves disk generations',()=>{
+  const shared=new Map(),original=boot(shared,false,'granted',true,true);
+  original.element('continue').click();
+  original.moveForward(0,300);
+  original.interact();
+  const stored=shared.get('veilpoint.story.ch01');
+  const backup=shared.get('veilpoint.story.ch01.previous');
+  assert.ok(stored,'original game has a restorable active checkpoint');
+  const isolated=boot(shared,false,'granted',true,true,false,2);
+  assert.match(isolated.element('menuText').textContent,/기존 임무 기록을 보존/);
+  assert.match(isolated.element('continue').textContent,/임시 CH01/);
+  isolated.element('continue').click();
+  assert.equal(isolated.element('menu').classList.contains('hidden'),true);
+  assert.match(isolated.element('objective').textContent,/중계기/,
+    'a separate memory-only mission starts when existing checkpoint is inaccessible');
+  isolated.moveForward(0,300);
+  isolated.interact();
+  assert.match(isolated.element('objective').textContent,/무장 대치자/);
+  assert.match(isolated.element('saveStatus').textContent,/임시 CH01 세션/);
+  assert.equal(isolated.element('saveStatus').classList.contains('hidden'),false);
+  isolated.element('pauseButton').click();
+  assert.equal(shared.get('veilpoint.story.ch01'),stored,
+    'temporary session must never overwrite a previous saved mission');
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),backup,
+    'the existing secondary generation is left untouched');
+  const restored=boot(shared,false,'granted',true,true);
+  assert.match(restored.element('menuText').textContent,/이전 진행 기록/);
+  restored.element('continue').click();
+  assert.match(restored.element('objective').textContent,/무장 대치자/,
+    'once access returns, saved mission resumes exactly where it was');
+});
+
+test('CH01 storage read permission may recover before Continue without forcing a new mission',()=>{
+  const shared=new Map(),first=boot(shared,false,'granted',true,true);
+  first.element('continue').click();first.moveForward(0,300);first.interact();
+  const prior=shared.get('veilpoint.story.ch01');
+  const recovered=boot(shared,false,'granted',true,true,false,1);
+  assert.match(recovered.element('menuText').textContent,/저장된 미션을 읽을 수 없습니다/);
+  recovered.element('continue').click();
+  assert.equal(recovered.element('menu').classList.contains('hidden'),true);
+  assert.match(recovered.element('objective').textContent,/무장 대치자/);
+  assert.equal(recovered.element('saveStatus').classList.contains('hidden'),true,
+    'verified disk checkpoint is resumed rather than entering isolated mode');
+  assert.equal(shared.get('veilpoint.story.ch01'),prior);
+});
+
+test('CH01 a temporary session cannot publish a completed preview over an earlier disk mission',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
+  assert.match(source,/let checkpointReadUnavailable=false,memoryOnlyStory=false/);
+  assert.match(source,/catch\(_\)\{checkpointReadUnavailable=true;return null;\}/);
+  assert.match(source,/if\(memoryOnlyStory\)\{[\s\S]*?checkpoint=raw;/);
+  assert.match(source,/if\(report&&!memoryOnlyStory\)storage\.set\(PREVIEW_KEY/);
+  assert.match(source,/checkpoint=memoryOnlyStory\?null:storage\.get\(SAVE_KEY\)/);
+  assert.match(source,/if\(!memoryOnlyStory&&loaded&&loaded\.phase==='complete'\)/);
+  assert.match(source,/if\(fromCheckpoint\)/);
 });
