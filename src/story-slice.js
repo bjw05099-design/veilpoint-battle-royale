@@ -182,6 +182,37 @@
     p.x=safe[0].x;p.z=safe[0].z;
     return true;
   }
+  function recoverGuideSceneryOverlap(state) {
+    // Historical escort checkpoints may predate a newly authored solid harbor
+    // object. Resolve an actively following/waiting guide once on load, never
+    // during 60Hz gameplay; the normal collision and follow rules still apply.
+    if(state.phase!=='exit'||state.choice!=='evacuation'||
+       !state.guide.active||state.guide.arrived||state.guide.released)return false;
+    const g=state.guide,p=state.world.player;
+    if(!Sim.blocked(g.x,g.z,.55,state.world.obstacles))return false;
+    const occupied=state.world.obstacles.concat(actorBlockers(state),
+      [{x:p.x,z:p.z,w:1.7,d:1.7}]);
+    const directions=[
+      [0,-1],[0,1],[-1,0],[1,0],
+      [-Math.SQRT1_2,-Math.SQRT1_2],[Math.SQRT1_2,-Math.SQRT1_2],
+      [-Math.SQRT1_2,Math.SQRT1_2],[Math.SQRT1_2,Math.SQRT1_2]
+    ];
+    const candidates=[];
+    for(const radius of [1,1.6,2.2,3,4]){
+      for(const [dx,dz] of directions){
+        const next={x:g.x+dx*radius,z:g.z+dz*radius};
+        if(Math.hypot(next.x-GUIDE_START.x,next.z-GUIDE_START.z)>19||
+           Sim.blocked(next.x,next.z,.55,occupied))continue;
+        candidates.push(next);
+      }
+    }
+    if(!candidates.length)throw new RangeError('No collision-free escort guide checkpoint recovery');
+    candidates.sort((a,b)=>
+      Math.hypot(a.x-g.x,a.z-g.z)-Math.hypot(b.x-g.x,b.z-g.z)||
+      Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+    g.x=candidates[0].x;g.z=candidates[0].z;
+    return true;
+  }
   function recoverEscortOverlap(state) {
     // Some older checkpoints can restore the captain exactly on top of the
     // optional guide. Separate these two physical bodies once, at load time;
@@ -1292,6 +1323,8 @@
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
     if(recoverSceneOverlap(state))state.message='CH01 / 이전 저장 위치를 새 항구 건물 밖으로 안전하게 복구했습니다.';
     if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
+    if(recoverGuideSceneryOverlap(state))
+      state.message='CH01 / 새 항구 장애물 안의 동행 안내원을 가까운 안전 위치로 복구했습니다.';
     if(recoverEscortOverlap(state))state.message='CH01 / 이전 저장 위치를 동행 안내원과 겹치지 않게 복구했습니다.';
     return syncMarkers(state);
   }
