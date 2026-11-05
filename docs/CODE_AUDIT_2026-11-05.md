@@ -46,3 +46,11 @@ Do not silently drop story characters, original Sahir/Nahrin campaign, finite wo
 - Regression checks are in `tests/unreal-native-pickup-visibility.test.cjs`. These are static UE code contracts, not executed collision simulations.
 
 **Unverified release gates:** Actual Unreal Engine 5.8 UBT compile, Windows PIE and multiplayer client interaction against obstructed props, client/server pickup consistency, cinematic asset collision profiles, and RTX3070/QHD timings. Do not mark any gate complete solely because Node CI passes; the native source must eventually be compiled and played. BR and CH01 browser game code/saves remain unchanged.
+
+## 2026-11-06 native Windows HUD/replication follow-up
+
+**Elimination state:** UE5 native `AVPCharacter` previously replicated a boolean death state but did not call a client `OnRep` to disable movement. The fix adds authority and receiving-client transition consistency; a later native Win64 two-client PIE session must still confirm movement is actually stopped.
+
+**BR HUD state:** Before this update, the native fallback HUD displayed stamina and health but omitted finite supplies and the publicly replicated safe-zone boundary. `VPHUD.cpp` now displays authoritative replicated `Charges`, `AVPZone` phase/radius/time (cm-to-m conversion shown explicitly), and a physical outside-boundary warning. It does not estimate unseen actors or synthesize zone updates when the replicated actor is absent. `TWeakObjectPtr<AVPZone>` caches zone discovery to avoid a level actor scan on every 165Hz draw frame. When the local pawn's round ends, no stale live zone status is rendered.
+
+**Test boundary:** Native C++ source-contract tests in `tests/unreal-native-elimination.test.cjs` and `tests/unreal-native-live-hud.test.cjs` detect unintentional removals of callback wiring and HUD data sources. Node CI cannot test actual Unreal C++ compilation, rendering, pointer lifetime under travel, cross-client replication latency or real GPU performance. These remain acceptance gates, not completed milestones.
