@@ -22,9 +22,22 @@ function reachEscort() {
 
 test('CH01 paused escort HUD only offers E resume when companion is visible and nearby',()=>{
   const s=reachEscort();
-  s.world.player.x=s.guide.x+0.8;s.world.player.z=s.guide.z;
+  // Behind the guide, the handoff desk is out of arm's reach: E resumes.
+  s.world.player.x=s.guide.x-1;s.world.player.z=s.guide.z;
+  assert.equal(story.nearest(s)?.id,'guideControl');
   assert.notEqual(story.situation(s).visibleEscortDistance,null);
   assert.match(story.situation(s).guideStatus,/E로 재개/);
+  // On the other side, the staffed desk takes interaction priority over resume.
+  s.world.player.x=s.guide.x+0.8;
+  assert.equal(story.nearest(s)?.id,'guideRelease');
+  assert.match(story.situation(s).guideStatus,/E로.*인계/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개/);
+  // Visible from several metres away does not mean the PC E key can reach.
+  s.world.player.x=s.guide.x-3;
+  assert.equal(story.nearest(s),null);
+  assert.notEqual(story.situation(s).visibleEscortDistance,null);
+  assert.match(story.situation(s).guideStatus,/다가가/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개 가능/);
   s.world.player.x=story.POINTS.exitEvac.x;
   s.world.player.z=story.POINTS.exitEvac.z;
   assert.equal(story.situation(s).visibleEscortDistance,null);
@@ -32,4 +45,24 @@ test('CH01 paused escort HUD only offers E resume when companion is visible and 
   assert.match(story.situation(s).guideStatus,/돌아가세요/);
   const restored=story.restore(story.serialize(s));
   assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
+});
+
+test('CH01 fixed-step waiting guide HUD and interaction target survive checkpoint recovery',()=>{
+  const s=reachEscort();
+  s.world.player.x=s.guide.x-3;s.world.player.z=s.guide.z;
+  const checkpoint=story.serialize(s);
+  const recovered=story.restore(checkpoint);
+  assert.equal(story.serialize(recovered),checkpoint);
+  assert.equal(story.situation(recovered).guideStatus,story.situation(s).guideStatus);
+  story.step(recovered,1/60,{});
+  assert.equal(recovered.guide.waiting,true);
+  assert.match(story.situation(recovered).guideStatus,/다가가/);
+  recovered.world.player.x=recovered.guide.x-1;
+  assert.equal(story.nearest(recovered)?.id,'guideControl');
+  assert.equal(story.interact(recovered).event,'guide_resume');
+  assert.equal(recovered.guide.waiting,false);
+  const after=story.serialize(recovered);
+  const reloaded=story.restore(after);
+  assert.equal(reloaded.guide.waiting,false);
+  assert.doesNotMatch(story.situation(reloaded).guideStatus,/현장 대기/);
 });
