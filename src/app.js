@@ -140,6 +140,13 @@ const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 const LAST_RESULT_KEY='veilpoint.brLastResult.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRetryAt=0;
+// The exact BR generation this PC session last read or successfully wrote.
+// Do not let an older browser tab silently replace a newer offline round.
+let matchDiskGeneration=null;
+function ownsStoredMatch(){
+ try{return (global.localStorage.getItem(MATCH_SAVE_KEY)||null)===(matchDiskGeneration||null);}
+ catch(_){return false;}
+}
 // All automatic BR checkpoint writes share the same bounded retry window.
 // Explicit PC Save & Exit remains immediate even while retry is pending.
 function canAutoPersistMatch(){return simulation.elapsed>=nextMatchSaveRetryAt;}
@@ -154,6 +161,8 @@ function readLastResult(){
  }catch(_){clearLastResult();return null;}
 }
 function archiveLastResult(){
+ // An older tab's terminal screen must not overwrite the newer tab's report.
+ if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return null;
  try{const report=Game.createLastResult(simulation);
   global.localStorage.setItem(LAST_RESULT_KEY,JSON.stringify(report));
   return report;
@@ -163,6 +172,8 @@ let pauseRestartArmed=false,forfeitArmed=false,manualCheckpoint=null;
 // Keep the optional P-key field bookmark separately from the newest autosave.
 // It is restored only for the same active arena and cleared on a new/ended match.
 function clearFieldBookmark(){
+ // A stale finished tab does not own another live tab's field bookmark.
+ if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return;
  manualCheckpoint=null;
  try{global.localStorage.removeItem(FIELD_BOOKMARK_KEY);}
  catch(_){try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,'');}catch(_){}}
@@ -188,6 +199,9 @@ const SHOT_SAVE_INTERVAL_SECONDS=1;
 const SHOT_HUD_INTERVAL_SECONDS=0.25;
 let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
+ // A terminal result from a stale tab must not delete another tab's newer
+ // checkpoint. Explicit New Match remains an intentional reset.
+ if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return false;
  // Clearing both generations is required on a fresh arena or terminal result:
  // an older fallback must never resurrect a finished match.
  for(const key of [MATCH_SAVE_KEY,MATCH_BACKUP_KEY]){
@@ -199,21 +213,34 @@ function clearStoredMatch(){
   }catch(_){}
   if(!removed)try{global.localStorage.setItem(key,'');}catch(_){}
  }
+ matchDiskGeneration=null;
+ return true;
 }
 function persistMatch(){
  if(!running||memoryOnlyMatch)return false;
  if(simulation.status!=='playing'){clearStoredMatch();return false;}
  try{
   const raw=Game.snapshotMatch(simulation);
-  let previous=null;
-  try{previous=global.localStorage.getItem(MATCH_SAVE_KEY);}catch(_){}
+  // Fail closed on storage read denial or a changed primary generation.
+  // localStorage has no cross-tab transaction; this is a best-effort
+  // compare-before-write guard, not an atomic distributed lock.
+  const previous=global.localStorage.getItem(MATCH_SAVE_KEY)||null;
+  if(previous!==(matchDiskGeneration||null)){
+   nextMatchSaveRetryAt=simulation.elapsed+1;
+   if(!saveWarning){
+    simulation.message='OFFLINE SAVE CONFLICT · ANOTHER TAB CHANGED CHECKPOINT';
+    simulation.messageTime=4;
+   }
+   saveWarning=true;
+   return false;
+  }
   if(previous&&previous!==raw){
-   try{
-    Game.restoreMatch(previous); // Never propagate malformed storage to backup.
-    global.localStorage.setItem(MATCH_BACKUP_KEY,previous);
-   }catch(_){} // Keep writing the current valid world if backup is unavailable.
+   // If the old primary cannot be validated or backed up, do not erase it.
+   Game.restoreMatch(previous);
+   global.localStorage.setItem(MATCH_BACKUP_KEY,previous);
   }
   global.localStorage.setItem(MATCH_SAVE_KEY,raw);
+  matchDiskGeneration=raw;
   lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
   nextMatchSaveRetryAt=0;
   if(saveWarning){
@@ -243,9 +270,10 @@ function storedMatch(){
   const result=Game.recoverMatch(primary,backup);
   if(!result)return null;
   if(result.source==='backup'){
-   // Keep playing even when write protection prevents primary repair.
-   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);}catch(_){}
-  }
+   // Repair the primary if possible, but never treat a failed write as done.
+   matchDiskGeneration=primary||null;
+   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);matchDiskGeneration=backup||null;}catch(_){}
+  }else matchDiskGeneration=primary||null;
   return result.state;
  }catch(_){
   // Invalid bytes are not proof the player intended to erase a saved match.

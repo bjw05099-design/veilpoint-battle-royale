@@ -581,3 +581,70 @@ test('BR corrupt last-result data is discarded without preventing new game',()=>
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
 });
+
+
+test('BR stale PC tab cannot overwrite a newer live checkpoint or erase it on terminal result',()=>{
+ const store=new Map();
+ const first=boot(store);
+ first.node('play').click();first.frame(1000/60);
+ const old=store.get(KEY);assert.ok(old);
+ const second=boot(store);
+ second.node('play').click();second.frame(1000/60);
+ second.emit('keydown',{code:'Space'});second.emit('keyup',{code:'Space'});
+ const afterFire=store.get(KEY);
+ assert.notEqual(afterFire,old,'second tab has persisted a newer finite-ammo world');
+ second.emit('keydown',{code:'KeyP'});
+ // Recording a field bookmark also commits its HUD state; compare against the
+ // actual latest generation rather than the intermediate post-fire snapshot.
+ const newer=store.get(KEY);
+ const bookmark=store.get('veilpoint.brFieldBookmark.v1');
+ assert.ok(bookmark,'second tab owns a valid field bookmark');
+ store.set('veilpoint.brLastResult.v1','newer-tab-report');
+ first.emit('keydown',{code:'Space'});first.emit('keyup',{code:'Space'});
+ assert.equal(store.get(KEY),newer,'first tab must not overwrite changed generation');
+ assert.match(first.game.message,/SAVE CONFLICT/);
+ first.global.VeilpointSim.receiveDamage(first.game,100);
+ first.frame(2000/60);
+ assert.equal(store.get(KEY),newer,'stale terminal cleanup must not erase another live match');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),bookmark);
+ assert.equal(store.get('veilpoint.brLastResult.v1'),'newer-tab-report');
+});
+
+test('BR paused Save & Exit refuses to claim a durable save after another tab updates it',()=>{
+ const store=new Map();
+ const first=boot(store);
+ first.node('play').click();first.frame(1000/60);
+ first.emit('keydown',{code:'Escape'});
+ const second=boot(store);
+ second.node('play').click();second.frame(1000/60);
+ second.emit('keydown',{code:'Space'});second.emit('keyup',{code:'Space'});
+ const newer=store.get(KEY);
+ first.node('saveExit').click();
+ assert.equal(store.get(KEY),newer);
+ assert.equal(first.node('play').textContent,'이어하기',
+   'Save & Exit remains a paused session on a generation conflict');
+ assert.match(first.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+ first.node('play').click();first.frame(3000/60);
+ assert.equal(first.game.status,'playing','uncommitted live world remains playable');
+});
+
+test('BR denied checkpoint read or backup rotation does not destroy last good primary',()=>{
+ const data=new Map();
+ let denyRead=false,denyBackup=false;
+ const store={
+  get(k){if(denyRead&&k===KEY)throw new Error('SecurityError');return data.get(k);},
+  set(k,v){if(denyBackup&&k===KEY+'.previous')throw new Error('quota');data.set(k,v);},
+  delete(k){data.delete(k);}
+ };
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const old=data.get(KEY);
+ assert.ok(old);
+ denyRead=true;
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(data.get(KEY),old,'read failure cannot authorize clobbering the primary');
+ denyRead=false;denyBackup=true;
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(data.get(KEY),old,'failed backup cannot authorize overwriting the primary');
+ assert.match(app.game.message,/SAVE FAILED/);
+});

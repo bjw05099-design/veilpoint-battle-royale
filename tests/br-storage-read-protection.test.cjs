@@ -36,6 +36,7 @@ function fixture({denyReads=0,primary='valid',backup=null}={}){
   const Game=runtime.Game,global={localStorage:runtime.storage};
   const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1',MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
   let running=false,suspended=false,lastFinishedMatch=null;
+  let matchDiskGeneration=null;
   function clearStoredMatch(){
     runtime.events.deletes+=2;
     runtime.storage.removeItem(MATCH_SAVE_KEY);
