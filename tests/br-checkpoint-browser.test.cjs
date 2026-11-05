@@ -722,15 +722,24 @@ test('BR storage-denied P-key preserves a local bookmark but makes failure visib
  app.node('play').click();app.frame(1000/60);
  const original=store.get('veilpoint.brFieldBookmark.v1');
  const write=store.set.bind(store);
+ let denied=true;
  store.set=(key,value)=>{
-  if(key==='veilpoint.brFieldBookmark.v1')throw new Error('quota');
+  if(key==='veilpoint.brFieldBookmark.v1'&&denied)throw new Error('quota');
   return write(key,value);
  };
  app.emit('keydown',{code:'KeyP'});
  assert.equal(store.get('veilpoint.brFieldBookmark.v1'),original);
  assert.match(app.game.message,/FIELD BOOKMARK IN MEMORY ONLY/);
- assert.match(app.node('message').textContent,/SAVE FAILED/);
+ assert.match(app.node('message').textContent,/FIELD BOOKMARK NOT SAVED/);
+ assert.doesNotMatch(app.node('message').textContent,/SAVE FAILED/,
+   'the primary checkpoint remains writable; only the optional bookmark failed');
  app.emit('keydown',{code:'Escape'});
  app.node('restoreCheckpoint').click();
  assert.equal(app.game.status,'playing','local bookmark remains usable in paused match');
+ app.node('play').click();app.frame(2500);
+ assert.match(app.node('message').textContent,/FIELD BOOKMARK NOT SAVED/);
+ denied=false;
+ app.emit('keydown',{code:'KeyP'});
+ assert.ok(store.get('veilpoint.brFieldBookmark.v1'),'next successful P saves the bookmark');
+ assert.doesNotMatch(app.node('message').textContent,/FIELD BOOKMARK NOT SAVED/);
 });
