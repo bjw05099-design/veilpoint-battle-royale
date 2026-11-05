@@ -81,9 +81,14 @@
           storage.set(BACKUP_KEY,previous);
       }catch(_){}
     }
-    lastAutosaveAt=state.world.elapsed;
-    shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
+    // A failed browser write is not a checkpoint. Keep the last successful
+    // autosave boundary so the next live frame retries instead of silently
+    // postponing recovery for another five simulated seconds.
+    if(saved){
+      lastAutosaveAt=state.world.elapsed;
+      shotSavePending=false;
+    }
     saveFailed=!saved;
     // Keep the last alive checkpoint in memory even when browser storage is denied.
     // A failed mission must never overwrite this recovery point.
