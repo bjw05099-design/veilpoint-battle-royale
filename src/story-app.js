@@ -63,7 +63,7 @@
     }catch(_){checkpointReadUnavailable=true;return null;}
     checkpointReadUnavailable=false;
     try{
-      const recovered=Story.recoverCheckpoint(primary,backup);
+      const recovered=global.VeilpointCheckpointRecovery.recover(primary,backup,Story.restore);
       if(!recovered)return null;
       if(recovered.source==='backup'){
         recoveredFromBackup=true;
@@ -73,7 +73,8 @@
       }
       return recovered.state;
     }catch(_){
-      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);return null;
+      // Preserve both slots for manual recovery: never destroy data on parse failure.
+      return null;
     }
   }
   $('saveStatus').classList.add('hidden');
