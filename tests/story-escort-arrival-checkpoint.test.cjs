@@ -118,3 +118,30 @@ test('CH01 guide does not chase a distant player across unobstructed ground',()=
   assert.equal(s.guide.z,before.z);
   assert.match(Story.situation(s).guideStatus,/거리 이탈/);
 });
+
+test('CH01 escort cannot lose the actual corridor blocker behind cluttered scenery',()=>{
+  function run(blockerFirst){
+    const s=evacuationFromLegacy();
+    s.world.player.x=-5;s.world.player.z=-55;
+    const wall={x:-7.75,z:-55,w:1.5,d:10.5,type:'story-container'};
+    // Thirteen unrelated small fixtures precede a genuine long wall in one
+    // asset order. The world is physically identical in both configurations.
+    const clutter=Array.from({length:13},(_,i)=>({
+      x:-8.8+(i%4)*.3,z:-48.2+(i%3)*.18,w:.15,d:.15,
+      type:'story-container'
+    }));
+    s.world.obstacles.push(...(blockerFirst?[wall,...clutter]:[...clutter,wall]));
+    assert.match(Story.situation(s).guideStatus,/장애물 우회 중/);
+    const beginning={x:s.guide.x,z:s.guide.z};
+    for(let i=0;i<220;i++)Story.step(s,1/60,{});
+    assert.ok(Math.hypot(s.guide.x-beginning.x,s.guide.z-beginning.z)>2,
+      'the guide must actually advance around the relevant physical blocker');
+    assert.equal(s.guide.arrived,false);
+    return {x:s.guide.x,z:s.guide.z,save:Story.serialize(s)};
+  }
+  const early=run(true),late=run(false);
+  assert.ok(Math.abs(early.x-late.x)<1e-6);
+  assert.ok(Math.abs(early.z-late.z)<1e-6,
+    'reversing equivalent scenery order must not change physical escort progress');
+  assert.equal(early.save,late.save,'60Hz checkpoint serialization is order-independent');
+});
