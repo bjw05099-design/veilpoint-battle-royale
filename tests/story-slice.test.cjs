@@ -1789,3 +1789,75 @@ test('CH01 escort arrival requires a physically open courtyard, not radius throu
   assert.equal(story.interact(resumed).ok,true);
   assert.equal(resumed.phase,'complete');
 });
+
+test('CH01 PC escort crosses a two-container blockage by physical bounded waypoints',()=>{
+  const s=reachDecision();
+  assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');assert.equal(story.interact(s).event,'muster');
+  assert.equal(story.interact(s).event,'guide');
+  const obstacles=[
+    {x:-9.2,z:-55,w:1,d:1.3,h:2,type:'route-container-a'},
+    {x:-7.7,z:-55,w:1,d:1.3,h:2,type:'route-container-b'}
+  ];
+  s.world.obstacles.push(...obstacles);
+  s.world.player.x=-5.5;s.world.player.z=-55;
+  assert.equal(Sim.lineBlocked(s.guide.x,s.guide.z,s.world.player.x,s.world.player.z,obstacles),true);
+  assert.match(story.situation(s).guideStatus,/장애물 우회 중/);
+  let moved=0;
+  for(let tick=0;tick<600;tick++){
+    const before={x:s.guide.x,z:s.guide.z};
+    story.step(s,1/60,{});
+    const travelled=Math.hypot(s.guide.x-before.x,s.guide.z-before.z);
+    moved+=travelled;
+    assert.ok(travelled<=1.65/60+1e-7,'civilian speed remains bounded by 60Hz');
+    assert.equal(Sim.blocked(s.guide.x,s.guide.z,.55,s.world.obstacles),false,
+      'the civilian cannot cross either physical container');
+  }
+  assert.ok(moved>3,'guide must meaningfully traverse the obstructed world');
+  assert.ok(Math.hypot(s.guide.x-s.world.player.x,s.guide.z-s.world.player.z)<2.1,
+    'civilian should arrive within natural follow distance of the stationary player');
+  assert.doesNotMatch(story.situation(s).guideStatus,/시야 단절/);
+});
+
+test('CH01 two-container escort reproduces the exact fixed-tick route from saved checkpoint',()=>{
+  const a=reachDecision();story.choose(a,'evacuation');go(a,'muster');
+  story.interact(a);story.interact(a);
+  const obstacles=[
+    {x:-9.2,z:-55,w:1,d:1.3,h:2,type:'route-container-a'},
+    {x:-7.7,z:-55,w:1,d:1.3,h:2,type:'route-container-b'}
+  ];
+  a.world.obstacles.push(...obstacles);
+  a.world.player.x=-5.5;a.world.player.z=-55;
+  for(let i=0;i<65;i++)story.step(a,1/60,{});
+  const raw=story.serialize(a),b=story.restore(raw);
+  b.world.obstacles.push(...obstacles.map(o=>({...o})));
+  assert.equal(story.serialize(b),raw,'new routing needs no saved waypoint schema');
+  for(let i=0;i<250;i++){
+    story.step(a,1/60,{});story.step(b,1/60,{});
+    assert.equal(story.serialize(a),story.serialize(b));
+    assert.equal(story.situation(a).guideStatus,story.situation(b).guideStatus);
+  }
+  const valid=JSON.parse(story.serialize(a));
+  delete valid.guide;
+  assert.equal(story.restore(JSON.stringify(valid)).guide.active,false,
+    'legacy checkpoints never acquire an unrequested companion');
+});
+
+test('CH01 civilian route search will not phase through an enclosing solid barrier',()=>{
+  const s=reachDecision();story.choose(s,'evacuation');go(s,'muster');
+  story.interact(s);story.interact(s);
+  s.world.player.x=-6.5;s.world.player.z=-55;
+  // No walkable body-size path: local navigation must fail closed, not teleport.
+  const wall={x:-8.5,z:-55,w:1.8,d:17,h:2,type:'continuous-wall'};
+  s.world.obstacles.push(wall);
+  const first={x:s.guide.x,z:s.guide.z};
+  for(let i=0;i<60;i++){
+    story.step(s,1/60,{});
+    assert.equal(Sim.blocked(s.guide.x,s.guide.z,.55,s.world.obstacles),false);
+  }
+  assert.ok(s.guide.x<wall.x-wall.w/2-.55+1e-6,
+    'no part of the person passes through a full-height barrier');
+  assert.equal(s.guide.arrived,false);
+  assert.ok(Math.hypot(s.guide.x-first.x,s.guide.z-first.z)<1,
+    'without a local route the companion waits rather than wandering far away');
+});

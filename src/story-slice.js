@@ -276,28 +276,61 @@
   // becoming permanently stuck whenever the player rounds a corner. Use only
   // real geometry, short local detours and the same physical collision rules.
   // The waypoint is derived every fixed tick, so it does not alter v2 saves.
+  function guideBodyPathBlocked(guide,player,obstacles) {
+    // Shared by the fixed-step controller and visible PC mission HUD.
+    const corridor=obstacles.map(o=>({...o,w:o.w+1.1,d:o.d+1.1}));
+    return Sim.lineBlocked(guide.x,guide.z,player.x,player.z,corridor);
+  }
   function guideDetour(state,guide,player) {
-    const obstacles=state.world.obstacles;
-    let best=null,bestDistance=Infinity;
-    for(const wall of obstacles) {
-      if(!Number.isFinite(wall.w)||!Number.isFinite(wall.d)||wall.w<=0||wall.d<=0||
-        !Sim.lineBlocked(guide.x,guide.z,player.x,player.z,[wall]))continue;
-      const margin=.55+.16;
-      for(const sx of [-1,1])for(const sz of [-1,1]) {
-        const target={x:wall.x+sx*(wall.w/2+margin),
-          z:wall.z+sz*(wall.d/2+margin)};
-        const first=Math.hypot(target.x-guide.x,target.z-guide.z);
-        const last=Math.hypot(player.x-target.x,player.z-target.z);
-        // No remote routefinding or magical travel through buildings.
-        if(first<.02||first>6.9||last>6.9||
-          Sim.blocked(target.x,target.z,.55,obstacles)||
-          Sim.lineBlocked(guide.x,guide.z,target.x,target.z,obstacles)||
-          Sim.lineBlocked(target.x,target.z,player.x,player.z,obstacles))continue;
-        const cost=first+last;
-        if(cost<bestDistance-1e-8){best=target;bestDistance=cost;}
+    // A bounded local visibility graph can pass more than one solid container.
+    // Unlike the old one-corner choice, it does not assume the first corner
+    // already has a clear line to the player. It contains no remote actor data.
+    const near=state.world.obstacles.filter(wall=>
+      Number.isFinite(wall.x)&&Number.isFinite(wall.z)&&
+      Number.isFinite(wall.w)&&Number.isFinite(wall.d)&&wall.w>0&&wall.d>0&&
+      Math.abs(wall.x-(guide.x+player.x)/2)<wall.w/2+7&&
+      Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7).slice(0,12);
+    // The margin leaves clearance for the civilian's collision radius.
+    const clearance=.55+.3;
+    const bodyMargin=.55;
+    const blockers=near.map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
+    const nodes=[{x:guide.x,z:guide.z}];
+    for(const wall of near){
+      for(const sx of [-1,1])for(const sz of [-1,1]){
+        const target={x:wall.x+sx*(wall.w/2+clearance),
+          z:wall.z+sz*(wall.d/2+clearance)};
+        if(Math.hypot(target.x-guide.x,target.z-guide.z)>10||
+           Math.hypot(target.x-player.x,target.z-player.z)>10||
+           Sim.blocked(target.x,target.z,.55,state.world.obstacles))continue;
+        nodes.push(target);
       }
     }
-    return best;
+    const goal=nodes.length;
+    nodes.push({x:player.x,z:player.z});
+    const cost=Array(nodes.length).fill(Infinity),previous=Array(nodes.length).fill(-1);
+    const visited=Array(nodes.length).fill(false);
+    cost[0]=0;
+    const clear=(a,b)=>!Sim.lineBlocked(a.x,a.z,b.x,b.z,blockers);
+    for(let tick=0;tick<nodes.length;tick++){
+      let current=-1;
+      for(let i=0;i<nodes.length;i++)
+        if(!visited[i]&&(current<0||cost[i]<cost[current]))current=i;
+      if(current<0||!Number.isFinite(cost[current])||current===goal)break;
+      visited[current]=true;
+      for(let i=1;i<nodes.length;i++){
+        if(i===current||visited[i]||!clear(nodes[current],nodes[i]))continue;
+        const distance=Math.hypot(nodes[current].x-nodes[i].x,
+          nodes[current].z-nodes[i].z);
+        const next=cost[current]+distance;
+        // A bounded detour prevents inexplicable distant wandering.
+        if(next>18||next>=cost[i]-1e-8)continue;
+        cost[i]=next;previous[i]=current;
+      }
+    }
+    if(!Number.isFinite(cost[goal]))return null;
+    let first=goal;
+    while(previous[first]>0)first=previous[first];
+    return previous[first]===0&&first!==goal?nodes[first]:null;
   }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
@@ -355,7 +388,9 @@
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
       if(range>1.7&&range<7){
-        const blocked=Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles);
+        // Body-width clearance matters: centre-point sight alone can
+        // look clear even though the standing civilian cannot pass.
+        const blocked=guideBodyPathBlocked(g,p,state.world.obstacles);
         const detour=blocked?guideDetour(state,g,p):null;
         const target=blocked?detour:p;
         if(target){
@@ -803,7 +838,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':Sim.lineBlocked(state.guide.x,state.guide.z,state.world.player.x,state.world.player.z,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
+      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
