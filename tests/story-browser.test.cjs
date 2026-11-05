@@ -2574,9 +2574,9 @@ test('CH01 defeated PC session adopts a newer valid saved checkpoint and can sav
   shared.set(key,secondTab);
   app.element('continue').click();
   assert.equal(app.element('menu').classList.contains('hidden'),true);
-  assert.match(app.element('healthStatus').textContent,/58\\/100/,
+  assert.match(app.element('healthStatus').textContent,/58[/]100/,
     'retry resumes the validated generation written by the newer tab');
-  assert.match(app.element('combatStatus').textContent,/탄창 7 \\/ 예비 10/,
+  assert.match(app.element('combatStatus').textContent,/탄창 7 [/] 예비 10/,
     'latest finite supplies are not replaced by stale in-memory values');
   assert.equal(shared.get(key),secondTab,'retry must not write a fabricated checkpoint');
   app.element('pauseButton').click();
@@ -2606,7 +2606,7 @@ test('CH01 retry never adopts invalid disk data and preserves the protected prim
   assert.equal(failed,true);
   shared.set(key,'{invalid-checkpoint');
   app.element('continue').click();
-  assert.match(app.element('healthStatus').textContent,/4\\/100/,
+  assert.match(app.element('healthStatus').textContent,/4[/]100/,
     'failed primary validation uses the existing last alive snapshot');
   app.element('pauseButton').click();
   assert.equal(shared.get(key),'{invalid-checkpoint',
