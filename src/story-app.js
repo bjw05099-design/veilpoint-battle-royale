@@ -525,6 +525,19 @@
       $('menuText').textContent='체크포인트 저장 완료 · 메인 메뉴 이동에 실패했습니다. 이 탭에서 이어할 수 있습니다.';
     }
   });
+  // The always-visible menu link must not bypass Save & Exit after a mission
+  // starts. In a live CH01 session, the exact same verified checkpoint and
+  // second readback are required before switching to the offline BR menu.
+  // Before gameplay and after a terminal result the ordinary link stays free.
+  $('modeSelectLink').addEventListener('click',e=>{
+    if(!sessionStarted||state.phase==='complete'||state.phase==='failed')return;
+    e.preventDefault();
+    // The link belongs to the visible pause menu; keep choices and the
+    // running 60Hz world protected from hidden/offscreen navigation events.
+    if(menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden'))return;
+    $('saveExit').click();
+  });
   $('continue').addEventListener('click',()=>sessionStarted?resume():begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
   $('reviewCompleted').addEventListener('click',()=>{
