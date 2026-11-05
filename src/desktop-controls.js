@@ -72,6 +72,19 @@
   if(running)return 'pause';
   return mayResume?'resume':'ignore';
  }
+ // HUD prompts must show the actual remapped physical key, not a
+ // default E/R that no longer performs the advertised action.
+ function keyLabel(code){
+  if(typeof code!=='string')return '?';
+  if(/^Key[A-Z]$/.test(code))return code.slice(3);
+  if(/^Digit[0-9]$/.test(code))return code.slice(5);
+  if(/^Numpad[0-9]$/.test(code))return 'NUM '+code.slice(6);
+  if(code==='Space')return 'SPACE';
+  if(code==='ShiftLeft')return 'SHIFT L';
+  if(code==='ShiftRight')return 'SHIFT R';
+  if(/^Arrow(?:Up|Down|Left|Right)$/.test(code))return code.slice(5).toUpperCase();
+  return code;
+ }
  function actionFor(code,value){
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
@@ -267,7 +280,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

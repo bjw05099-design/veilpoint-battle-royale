@@ -401,3 +401,38 @@ test('CH01 keyboard handlers route remapped light and guidance through shared de
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyF'\)/);
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyN'\)/);
 });
+
+
+test('physical key labels match valid remapped E/R alternatives without changing actions',()=>{
+ for(const [code,label] of [['KeyE','E'],['KeyT','T'],['Digit7','7'],['Numpad3','NUM 3'],
+  ['Space','SPACE'],['ShiftRight','SHIFT R'],['ArrowLeft','LEFT'],['KeyR','R']]){
+  assert.equal(C.keyLabel(code),label);
+ }
+ const remapped=C.bind(C.bind(C.normalize({}),'interact','KeyT').value,'reload','Numpad3');
+ assert.equal(remapped.ok,true);
+ assert.equal(C.actionFor('KeyT',remapped.value),'interact');
+ assert.equal(C.actionFor('Numpad3',remapped.value),'reload');
+ assert.equal(C.actionFor('KeyE',remapped.value),null);
+ assert.equal(C.actionFor('KeyR',remapped.value),null);
+ assert.equal(C.keyLabel(remapped.value.bindings.interact),'T');
+ assert.equal(C.keyLabel(remapped.value.bindings.reload),'NUM 3');
+});
+
+test('PC key labels match remapped physical keyboard codes for honest HUD prompts',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ for(const [physical,label] of [['KeyE','E'],['KeyT','T'],['KeyY','Y'],['Numpad3','NUM 3'],
+  ['Digit7','7'],['Space','SPACE'],['ShiftLeft','SHIFT L'],['ShiftRight','SHIFT R'],
+  ['ArrowUp','UP'],['ArrowLeft','LEFT']]){
+  assert.equal(Desktop.keyLabel(physical),label);
+ }
+ const original=Desktop.normalize({});
+ const next=Desktop.bind(original,'interact','KeyT');
+ assert.equal(next.ok,true);
+ const changed=Desktop.bind(next.value,'reload','KeyY');
+ assert.equal(changed.ok,true);
+ assert.equal(Desktop.keyLabel(changed.value.bindings.interact),'T');
+ assert.equal(Desktop.keyLabel(changed.value.bindings.reload),'Y');
+ assert.equal(Desktop.actionFor('KeyE',changed.value),null,
+   'default E can no longer activate the remapped interaction');
+ assert.equal(Desktop.actionFor('KeyT',changed.value),'interact');
+});
