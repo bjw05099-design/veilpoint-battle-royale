@@ -32,6 +32,6 @@ test('UE5 native HUD prioritizes elimination and recovery before ordinary moveme
   assert.ok(dead>=0 && recovery>dead && sprint>recovery);
   assert.match(source,/MOVEMENT: STAMINA RECOVERY \(25 TO SPRINT\)/);
   assert.match(source,/DrawText\(MovementLabel/);
-  assert.match(source,/Pawn->GetStaminaRatio\(\)/);
+  assert.match(hud,/Pawn->GetStaminaRatio\(\)/);
   assert.doesNotMatch(source,/Date\.now|requestAnimationFrame|WebBrowser/);
 });
