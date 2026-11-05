@@ -1,20 +1,14 @@
-/* CH01 checkpoint recovery: invalid browser data is never evidence that both slots may be deleted. */
+/* CH01 recovery boundary: retain both persisted generations on read or validation errors. */
 (function(root,factory){
   const api=factory();
   if(typeof module==='object'&&module.exports)module.exports=api;
   else root.VeilpointCheckpointRecovery=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
-  function recover(primary,backup,restore){
-    if(typeof restore!=='function')throw new TypeError('restore required');
-    for(const [source,raw] of [['primary',primary],['backup',backup]]){
-      if(typeof raw!=='string'||!raw)continue;
-      try{
-        const state=restore(raw);
-        if(state&&typeof state==='object')return {source,state,raw};
-      }catch(_){/* Try the independent previous generation. */}
-    }
-    return null;
+  function recover(primary,backup,restorePair){
+    if(typeof restorePair!=='function')throw new TypeError('restorePair required');
+    try{return restorePair(primary,backup);}
+    catch(_){return null;} // Invalid saves are preserved for future recovery.
   }
   return Object.freeze({recover});
 });
