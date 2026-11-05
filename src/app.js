@@ -470,7 +470,9 @@ $('forfeitMatch').addEventListener('click',()=>{
 });
 $('retryArena').addEventListener('click',()=>{
  if(running||!lastFinishedMatch||simulation.status==='playing')return;
- start(lastFinishedMatch.seed,lastFinishedMatch.weaponId,lastFinishedMatch.rivals);
+ // A retry of a memory-only match must never erase an unrelated saved
+ // disk round if storage permission becomes available during play.
+ start(lastFinishedMatch.seed,lastFinishedMatch.weaponId,lastFinishedMatch.rivals,memoryOnlyMatch);
 });
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
@@ -533,10 +535,12 @@ addEventListener('keydown',e=>{
   persistMatch();updateHud();
  }
  if(action==='fire'){e.preventDefault();if(canAct()){fire();if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('keyboard');}}
- if(e.code==='Enter'&&simulation.status!=='playing'&&renderer){
-  if(lastFinishedMatch)start();
-  else if(storedMatch())resumeStoredMatch();
-  else start();
+ // Enter from an unfocused Windows menu follows the *same* verified resume
+ // route as the Play button, including storage denial and backup recovery.
+ // Never start a new round when Enter is pressed during an active match.
+ if(e.code==='Enter'&&!running&&renderer&&
+    !$('overlay').classList.contains('hidden')){
+  e.preventDefault();$('play').click();
  }
 });
 addEventListener('keyup',e=>{
