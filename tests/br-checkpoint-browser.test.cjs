@@ -693,3 +693,44 @@ test('BR denied write stays in the HUD after transient event and clears after re
  assert.doesNotMatch(app.node('message').textContent,/SAVE FAILED/);
  assert.equal(JSON.parse(store.get(KEY)).player.charges,app.game.player.charges);
 });
+
+test('BR stale PC tab cannot replace newer tab field bookmark on P-key',()=>{
+ const store=new Map();
+ const older=boot(store);older.node('play').click();older.frame(1000/60);
+ const newer=boot(store);newer.node('play').click();newer.frame(1000/60);
+ newer.emit('keydown',{code:'Space'});newer.emit('keyup',{code:'Space'});
+ newer.emit('keydown',{code:'KeyP'});
+ const diskCheckpoint=store.get(KEY);
+ const diskBookmark=store.get('veilpoint.brFieldBookmark.v1');
+ assert.ok(diskCheckpoint&&diskBookmark,'newer session owns durable state');
+ older.emit('keydown',{code:'KeyP'});
+ assert.equal(store.get(KEY),diskCheckpoint,'older tab may not overwrite checkpoint');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),diskBookmark,
+   'older tab may not overwrite the newer session bookmark');
+ assert.match(older.game.message,/FIELD BOOKMARK IN MEMORY ONLY/);
+ assert.match(older.game.message,/ANOTHER TAB OWNS SAVE/);
+ assert.match(older.node('message').textContent,/SAVE CONFLICT/);
+ older.emit('keydown',{code:'Escape'});
+ older.node('restoreCheckpoint').click();
+ assert.equal(store.get(KEY),diskCheckpoint,
+   'old tab in-memory bookmark restore must not replace newer disk state');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),diskBookmark);
+});
+
+test('BR storage-denied P-key preserves a local bookmark but makes failure visible',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const original=store.get('veilpoint.brFieldBookmark.v1');
+ const write=store.set.bind(store);
+ store.set=(key,value)=>{
+  if(key==='veilpoint.brFieldBookmark.v1')throw new Error('quota');
+  return write(key,value);
+ };
+ app.emit('keydown',{code:'KeyP'});
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),original);
+ assert.match(app.game.message,/FIELD BOOKMARK IN MEMORY ONLY/);
+ assert.match(app.node('message').textContent,/SAVE FAILED/);
+ app.emit('keydown',{code:'Escape'});
+ app.node('restoreCheckpoint').click();
+ assert.equal(app.game.status,'playing','local bookmark remains usable in paused match');
+});
