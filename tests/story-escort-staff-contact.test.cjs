@@ -41,7 +41,9 @@ for(const staff of ['guideRelease','guideTransfer']){
   assert.notEqual(attempt.event,'guideRelease');
   assert.equal(blocked.guide.released,false);
   assert.equal(blocked.guide.active,true);
-  assert.equal(blocked.guide.waiting,true);
+  assert.equal(attempt.event,'guideControl',
+    'the same PC E key may safely resume a nearby guide, but cannot hand them off through cover');
+  assert.equal(blocked.guide.waiting,false);
   const replay=Story.restore(Story.serialize(blocked));
   // Checkpoints store the companion pose. Solid scenery comes from the
   // authored world; reapply this synthetic test-only wall after restore.
