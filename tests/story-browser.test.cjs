@@ -2449,3 +2449,67 @@ test('CH01 PC route navigation targets required courtyard while allowing optiona
     'after checkpoint reload, the default remains the route endpoint');
   assert.equal(app.store.get('veilpoint.story.ch01'),saved);
 });
+
+
+test('CH01 J field journal pauses the actual 60Hz world, then Esc closes notes before resuming',()=>{
+ const Story=require('../src/story-slice.js');
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,150);
+ app.emit('keydown',{code:'KeyJ'});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('journalPanel').classList.contains('hidden'),false);
+ assert.equal(app.element('journalToggle').getAttribute('aria-expanded'),'true');
+ assert.match(app.element('journalContent').textContent,/현장 협력 임무/);
+ assert.doesNotMatch(app.element('journalContent').textContent,/04:07|04:12|재전송/);
+ const checkpoint=Story.restore(app.store.get('veilpoint.story.ch01'));
+ const frozen=checkpoint.world.elapsed;
+ for(let i=151;i<=270;i++)app.frame(i*1000/60);
+ assert.equal(Story.restore(app.store.get('veilpoint.story.ch01')).world.elapsed,frozen);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('journalPanel').classList.contains('hidden'),true);
+ assert.equal(app.element('journalToggle').getAttribute('aria-expanded'),'false');
+ assert.equal(app.element('menu').classList.contains('hidden'),false,'first Esc closes only the journal');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('menu').classList.contains('hidden'),true,'second Esc resumes CH01');
+ assert.equal(app.element('journalPanel').classList.contains('hidden'),true);
+});
+
+test('CH01 PC field notes display only discovered evidence and remain read-only across refresh',()=>{
+ const Story=require('../src/story-slice.js');
+ const state=Story.createState();
+ state.phase='records';state.combat.started=true;state.combat.cleared=true;
+ state.world.bots=[{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}].map(({x,z},id)=>
+  ({id,x,z,angle:Math.PI,health:0,alive:false,shots:12}));
+ state.found=['recordA'];
+ const key='veilpoint.story.ch01',shared=new Map([[key,Story.serialize(state)],
+  ['veilpoint.brCheckpoint.v1','untouched']]);
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ app.element('pauseButton').click();
+ app.element('journalToggle').click();
+ assert.match(app.element('journalContent').textContent,/항구 중계 기록 \/ 04:12/);
+ assert.doesNotMatch(app.element('journalContent').textContent,/대피소 수신 기록|04:07|시계 오차|재전송/);
+ const saved=shared.get(key);
+ app.element('journalToggle').click();
+ assert.equal(app.element('journalPanel').classList.contains('hidden'),true);
+ app.element('journalToggle').click();
+ assert.equal(shared.get(key),saved,'reopening does not alter mission checkpoint');
+ assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'untouched');
+ const reloaded=boot(shared,false,'granted',true,true);
+ reloaded.element('journalToggle').click();
+ assert.match(reloaded.element('journalContent').textContent,/항구 중계 기록/);
+ assert.doesNotMatch(reloaded.element('journalContent').textContent,/대피소 수신 기록/);
+});
+
+test('CH01 journal control cannot leak into route choice or steal a remapped J action',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const frame=app.clearEncounter(300);
+ app.moveForward(frame,225);app.interact();
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'KeyJ'});
+ assert.equal(app.element('journalPanel').classList.contains('hidden'),true);
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+});
