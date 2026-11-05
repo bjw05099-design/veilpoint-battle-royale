@@ -2459,8 +2459,9 @@ test('CH01 field journal reveals only discovered records and survives checkpoint
   assert.equal(rows.length,2);
   assert.equal(rows.every(row=>!row.unlocked),true);
   assert.equal(rows.some(row=>row.detail.includes('04:07')),false);
-  state.found=['recordB'];
-  rows=journal.entries(Story.restore(Story.serialize(state)));
+  const restored=Story.restore(Story.serialize(state));
+  restored.found=['recordB'];
+  rows=journal.entries(restored);
   assert.equal(rows[0].unlocked,false);
   assert.equal(rows[1].unlocked,true);
   assert.match(rows[1].detail,/04:07/);
