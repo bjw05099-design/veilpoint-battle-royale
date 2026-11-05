@@ -2613,3 +2613,81 @@ test('CH01 retry never adopts invalid disk data and preserves the protected prim
     'corrupt disk data is preserved for explicit recovery instead of overwritten');
   assert.match(app.element('menuText').textContent,/저장 실패/);
 });
+
+
+test('CH01 explicit New Game refuses disk writes when primary deletion fails',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01',backup='veilpoint.story.ch01.previous';
+  const old=Story.createState();
+  old.world.player.x=Story.POINTS.terminal.x;
+  old.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(old).ok,true);
+  const original=Story.serialize(old);
+  class DeniedReset extends Map{
+    denyPrimary=true;
+    delete(name){
+      if(name===key&&this.denyPrimary)throw new Error('delete blocked');
+      return super.delete(name);
+    }
+  }
+  const shared=new DeniedReset([[key,original],[backup,original]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('newGame').click();
+  assert.match(app.element('objective').textContent,/중계기/);
+  assert.match(app.element('saveStatus').textContent,/임시 CH01 세션/);
+  app.moveForward(0,300);app.interact();
+  assert.match(app.element('objective').textContent,/무장 대치자/);
+  assert.equal(shared.get(key),original,'refused reset must never overwrite the older playable primary');
+  assert.match(app.element('saveStatus').textContent,/기존 저장 기록은 변경하지 않았습니다/);
+  const reloaded=boot(shared,false,'granted',true,true);
+  reloaded.element('continue').click();
+  assert.match(reloaded.element('objective').textContent,/무장 대치자/,
+    'old playable mission remains accessible in another PC session');
+  app.element('pauseButton').click();
+  shared.denyPrimary=false;
+  app.element('newGame').click();
+  assert.match(app.element('objective').textContent,/중계기/);
+  assert.equal(shared.has(key),false,'verified retry clears the old primary');
+  assert.equal(shared.has(backup),false,'verified retry clears the old backup');
+  app.moveForward(300,300);app.interact();
+  assert.equal(JSON.parse(shared.get(key)).phase,'engagement',
+    'a successful reset permits new checkpoint persistence again');
+});
+
+test('CH01 New Game preserves the primary when backup removal is silently ignored',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01',backup='veilpoint.story.ch01.previous';
+  const old=Story.createState();
+  old.world.player.x=Story.POINTS.terminal.x;
+  old.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(old).ok,true);
+  const original=Story.serialize(old);
+  class IgnoredErase extends Map{
+    ignoreBackup=true;
+    delete(name){
+      if(name===backup&&this.ignoreBackup)return false;
+      return super.delete(name);
+    }
+  }
+  const shared=new IgnoredErase([[key,original],[backup,original]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('newGame').click();
+  assert.equal(shared.get(key),original,'backup reset failure must not delete the newest primary');
+  assert.equal(shared.get(backup),original);
+  app.moveForward(0,300);app.interact();
+  assert.equal(shared.get(key),original,'temporary play cannot replace unreset primary');
+  app.element('pauseButton').click();
+  shared.ignoreBackup=false;
+  app.element('newGame').click();
+  assert.equal(shared.has(key),false);
+  assert.equal(shared.has(backup),false);
+});
+
+test('CH01 New Game does not assume write access when storage reads are denied',()=>{
+  const shared=new Map(),app=boot(shared,false,'granted',true,true,true);
+  app.element('newGame').click();
+  assert.match(app.element('saveStatus').textContent,/임시 CH01 세션/);
+  app.moveForward(0,300);app.interact();
+  assert.equal(shared.has('veilpoint.story.ch01'),false,
+    'read failure cannot be treated as an empty, writable save slot');
+});
