@@ -1611,6 +1611,7 @@ test('CH01 guide waits in place on nearby E and resumes only through physical re
  s.world.player.x=-6;s.world.player.z=-55;
  for(let i=0;i<120;i++)story.step(s,1/60,{});
  assert.deepEqual({x:g.x,z:g.z},start,'waiting guide cannot be dragged by the player');
+ s.world.player.x=-2;
  assert.equal(story.nearest(s)?.id==='guideControl',false,'remote E cannot command the companion');
  assert.equal(story.interact(s).ok,false);
  s.world.player.x=g.x-1.6;s.world.player.z=g.z;
