@@ -1,6 +1,7 @@
 #include "VPHUD.h"
 #include "VPCharacter.h"
 #include "VPZone.h"
+#include "VPGameState.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Canvas.h"
@@ -47,11 +48,30 @@ void AVPHUD::DrawHUD()
     DrawText(SupplyLabel, FLinearColor::White,
              X, Y + 91.f * Scale, nullptr, .8f * Scale, false);
 
+    // The GameMode is server-only. Display only replicated, server-owned
+    // match facts via GameState; do not calculate an imagined client winner.
+    const AVPGameState* RoundState =
+        GetWorld() ? GetWorld()->GetGameState<AVPGameState>() : nullptr;
+    if (RoundState && (RoundState->ActiveSurvivors>0 || RoundState->bRoundComplete))
+    {
+        const FString RoundLabel = FString::Printf(
+            TEXT("ACTIVE PLAYERS  %d"), FMath::Max(0, RoundState->ActiveSurvivors));
+        DrawText(RoundLabel, FLinearColor::White,
+                 X, Y + 115.f * Scale, nullptr, .8f * Scale, false);
+    }
+
     if (!Pawn->IsAlive())
     {
         DrawText(TEXT("ROUND ENDED - MOVEMENT DISABLED"),
                  FLinearColor(.96f,.58f,.44f,1.f),
-                 X, Y + 121.f * Scale, nullptr, Scale, false);
+                 X, Y + 144.f * Scale, nullptr, Scale, false);
+        return;
+    }
+    if (RoundState && RoundState->bRoundComplete)
+    {
+        DrawText(TEXT("ROUND COMPLETE"),
+                 FLinearColor(.81f,.93f,.78f,1.f),
+                 X, Y + 144.f * Scale, nullptr, Scale, false);
         return;
     }
 
@@ -79,12 +99,12 @@ void AVPHUD::DrawHUD()
         RadiusCm / 100.f,
         FMath::CeilToInt(Remaining));
     DrawText(ZoneLabel, FLinearColor(.81f,.90f,.93f,1.f),
-             X, Y + 121.f * Scale, nullptr, .8f * Scale, false);
+             X, Y + 144.f * Scale, nullptr, .8f * Scale, false);
 
     const FVector Location = Pawn->GetActorLocation();
     const FVector2D PlayerPosition(Location.X,Location.Y);
     if (FVector2D::Distance(PlayerPosition,Zone->ZoneCenter)>RadiusCm)
         DrawText(TEXT("OUTSIDE THE SAFE AREA"),
                  FLinearColor(.96f,.58f,.44f,1.f),
-                 X, Y + 147.f * Scale, nullptr, Scale, false);
+                 X, Y + 170.f * Scale, nullptr, Scale, false);
 }
