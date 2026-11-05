@@ -31,3 +31,16 @@ test('CH01 harbor collision recovery is deterministic on repeated restore',()=>{
   assert.deepEqual([a.world.player.x,a.world.player.z],[b.world.player.x,b.world.player.z]);
   assert.equal(Sim.blocked(a.world.player.x,a.world.player.z,.85,a.world.obstacles),false);
 });
+
+// Older saves can start near a corner shared by newly authored harbor solids.
+// The fallback must not leave the player in a solid or alter mission state.
+test('CH01 legacy harbor recovery remains safe near a warehouse corner',()=>{
+  const state=story.createState();
+  state.world.player.x=-53;state.world.player.z=-79;
+  const raw=story.serialize(state);
+  const a=story.restore(raw),b=story.restore(raw);
+  assert.equal(Sim.blocked(a.world.player.x,a.world.player.z,.85,a.world.obstacles),false);
+  assert.deepEqual([a.world.player.x,a.world.player.z],[b.world.player.x,b.world.player.z]);
+  assert.equal(a.phase,'terminal');
+  assert.equal(a.world.status,'playing');
+});
