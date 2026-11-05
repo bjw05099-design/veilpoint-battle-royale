@@ -287,7 +287,7 @@
       Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7).slice(0,12);
     // The margin leaves clearance for the civilian's collision radius.
     const clearance=.55+.3;
-    const bodyMargin=.55+.08;
+    const bodyMargin=.55;
     const blockers=near.map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
     const nodes=[{x:guide.x,z:guide.z}];
     for(const wall of near){
@@ -383,7 +383,10 @@
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
       if(range>1.7&&range<7){
-        const blocked=Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles);
+        // Body-width clearance matters: centre-point sight alone can
+        // look clear even though the standing civilian cannot pass.
+        const guideCorridor=state.world.obstacles.map(o=>({...o,w:o.w+1.1,d:o.d+1.1}));
+        const blocked=Sim.lineBlocked(g.x,g.z,p.x,p.z,guideCorridor);
         const detour=blocked?guideDetour(state,g,p):null;
         const target=blocked?detour:p;
         if(target){
