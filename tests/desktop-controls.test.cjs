@@ -401,3 +401,19 @@ test('CH01 keyboard handlers route remapped light and guidance through shared de
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyF'\)/);
  assert.doesNotMatch(source,/if\(!action&&e\.code==='KeyN'\)/);
 });
+
+
+test('physical key labels match valid remapped E/R alternatives without changing actions',()=>{
+ for(const [code,label] of [['KeyE','E'],['KeyT','T'],['Digit7','7'],['Numpad3','NUM 3'],
+  ['Space','SPACE'],['ShiftRight','SHIFT R'],['ArrowLeft','LEFT'],['KeyR','R']]){
+  assert.equal(C.keyLabel(code),label);
+ }
+ const remapped=C.bind(C.bind(C.normalize({}),'interact','KeyT').value,'reload','Numpad3');
+ assert.equal(remapped.ok,true);
+ assert.equal(C.actionFor('KeyT',remapped.value),'interact');
+ assert.equal(C.actionFor('Numpad3',remapped.value),'reload');
+ assert.equal(C.actionFor('KeyE',remapped.value),null);
+ assert.equal(C.actionFor('KeyR',remapped.value),null);
+ assert.equal(C.keyLabel(remapped.value.bindings.interact),'T');
+ assert.equal(C.keyLabel(remapped.value.bindings.reload),'NUM 3');
+});
