@@ -1719,6 +1719,8 @@ test('CH01 close civilian escort walks around a local solid crate rather than fr
   s.world.obstacles.push(crate);
   s.world.player.x=-6.5;s.world.player.z=-55;
   assert.equal(Sim.lineBlocked(s.guide.x,s.guide.z,s.world.player.x,s.world.player.z,s.world.obstacles),true);
+  assert.match(story.situation(s).guideStatus,/장애물 우회 중/,
+    'the PC situation HUD must explain why a local civilian is taking a detour');
   const initial={x:s.guide.x,z:s.guide.z};
   let progressed=false;
   for(let i=0;i<380;i++){
@@ -1748,6 +1750,8 @@ test('CH01 escort detour is deterministic after checkpoint reload and stops at s
   const raw=story.serialize(a),b=story.restore(raw);
   b.world.obstacles.push({...crate});
   assert.equal(story.serialize(b),raw);
+  assert.equal(story.situation(b).guideStatus,story.situation(a).guideStatus,
+    'checkpoint restore must preserve the same locally observed escort HUD');
   for(let i=0;i<150;i++){
     story.step(a,1/60,{});story.step(b,1/60,{});
     assert.equal(story.serialize(a),story.serialize(b));
