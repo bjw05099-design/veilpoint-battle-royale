@@ -8,6 +8,8 @@ const zlib = require('node:zlib');
 const ROOT = path.resolve(__dirname, '..');
 const PAGES = ['index.html', 'story.html'];
 const DOCUMENTS = ['README.md', 'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
+const NOTICE_TEXT = "VEILPOINT browser offline prototype candidate. Source license: UNLICENSED.\nNo Unreal executable, online multiplayer, licensed production assets, 165FPS or real-browser QA is claimed.\n";
+const QUICK_START_TEXT = "VEILPOINT BROWSER OFFLINE DEMO — START HERE (Windows PC)\n\n1. If downloaded from GitHub Actions, extract the outer artifact ZIP first.\n   Inside it, locate veilpoint-offline-demo.zip and the companion .sha256 checksum.\n2. Extract veilpoint-offline-demo.zip into a NEW folder.\n   Do not run the ZIP itself or look for Veilpoint.exe: this is a browser demo.\n3. Double-click index.html in Windows Edge or Chrome to start Battle Royale.\n   Use Story CH01 on the main menu, or open story.html directly.\n4. Mouse + keyboard: ESC opens pause; G opens graphics and PC key settings.\n   Closing settings does not resume the current match; press Continue explicitly.\n5. Optional 120-second BR benchmark: open graphics settings, choose Measurement\n   Ready, return to the game, and play until the measurement ends.\n   Export the result JSON; if a browser blocks the download, choose\n   JSON Direct View/Copy and use Ctrl+C to copy into a .json file.\n\nIMPORTANT:\n- Browser saves belong to the current browser/file origin. Clearing site storage\n  or moving files to another origin may make earlier checkpoints unavailable.\n- Some file:// environments restrict storage or WebGL; use a current desktop\n  browser. A local HTTP development server is optional, never mandatory.\n- This archive contains NO native Unreal/Win64 .exe, licensed production assets\n  or verified public Internet multiplayer.\n- A QHD 165Hz display and owner-reported RTX 3070 do not prove 165 FPS.\n- The demo and benchmark do not upload measurements to a remote server.\n\nTo check integrity, compare veilpoint-offline-demo.zip.sha256 against the inner\nunmodified ZIP. MANIFEST.sha256 covers browser files and QUICK_START.txt.\n";
 const checksum = data => crypto.createHash('sha256').update(data).digest('hex');
 const crc32 = data => {
   let c = 0xffffffff;
@@ -148,11 +150,15 @@ function buildZip(entries, {compress = true} = {}) {
 }
 function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-offline-demo.zip')) {
   const files = collectFiles(root);
-  const manifest = files.map(f => `${checksum(f.data)}  ${f.name}`).join('\n') + '\n';
-  const notice = 'VEILPOINT browser offline prototype candidate. Source license: UNLICENSED.\n' +
-    'No Unreal executable, online multiplayer, licensed production assets, 165FPS or real-browser QA is claimed.\n';
-  const entries = [...files, {name: 'MANIFEST.sha256', data: Buffer.from(manifest)},
-    {name: 'NOTICE.txt', data: Buffer.from(notice)}].sort((a,b) => a.name.localeCompare(b.name, 'en'));
+  // Windows launch instructions are included in the same SHA256 manifest as
+  // all browser-visible source files. No executable or Internet access needed.
+  const quickStart = {name: 'QUICK_START.txt', data: Buffer.from(QUICK_START_TEXT)};
+  const manifest = [...files, quickStart]
+    .sort((a,b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    .map(f => `${checksum(f.data)}  ${f.name}`).join('\n') + '\n';
+  const entries = [...files, quickStart, {name:'MANIFEST.sha256', data:Buffer.from(manifest)},
+    {name:'NOTICE.txt', data:Buffer.from(NOTICE_TEXT)}]
+    .sort((a,b) => a.name.localeCompare(b.name, 'en'));
   const zip = buildZip(entries);
   const storedBaselineBytes = buildZip(entries, {compress: false}).length;
   const sourceBytes = entries.reduce((sum, entry) => sum + entry.data.length, 0);
@@ -183,4 +189,4 @@ function packageDemo(root = ROOT, output = path.join(root, 'dist', 'veilpoint-of
     downloadAndExtractBytes, twoArchiveStagingBytes, sha256: checksum(zip)};
 }
 if (require.main === module) console.log(JSON.stringify(packageDemo(), null, 2));
-module.exports = {collectFiles, referencedAssets, assertLocalAssetContent, buildZip, packageDemo, crc32};
+module.exports = {collectFiles, referencedAssets, assertLocalAssetContent, buildZip, packageDemo, crc32, NOTICE_TEXT, QUICK_START_TEXT};
