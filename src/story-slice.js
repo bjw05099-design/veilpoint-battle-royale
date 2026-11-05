@@ -163,7 +163,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -191,7 +191,9 @@
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
-        ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease]:[]),
+        ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,
+         {id:'guideControl',x:state.guide.x,z:state.guide.z,kind:'evac',
+          label:state.guide.waiting?'안내원 동행 재개':'안내원 현장 대기 지시'}]:[]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
@@ -248,7 +250,8 @@
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
-      if(d<best&&d<(marker.id==='beacon'?SWITCH_REACH:marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
+      if(d<best&&d<(marker.id==='beacon'?SWITCH_REACH:marker.id==='guideControl'?SUPPLY_REACH:
+          marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;candidate=marker;
       }
@@ -308,7 +311,7 @@
     // observation distance and through the same real harbor collision world.
     // Leaving the guide behind pauses the escort; no teleportation or map-wide
     // knowledge is used to manufacture an arrival.
-    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived){
+    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
       if(range>1.7&&range<7&&!Sim.lineBlocked(g.x,g.z,p.x,p.z,state.world.obstacles)){
         const distance=Math.min(1.65*t,range-1.7);
@@ -624,8 +627,18 @@
     }else if(marker.id==='guide'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.musterConfirmed&&!state.guide.active&&!state.guide.released){
       state.guide.active=true;
+      state.guide.waiting=false;
       state.subtitle='유수프(현지 구조단): 안내원이 함께 이동할 거야. 멀어지면 기다릴 테니 천천히 안뜰로 가 줘.';
       state.message='현지 대피 안내원 동행 시작 · 걸어서 남쪽 안뜰로 이동';
+    }else if(marker.id==='guideControl'&&state.phase==='exit'&&state.choice==='evacuation'&&
+      state.guide.active&&!state.guide.arrived){
+      // The locally reached companion holds their actual world position.
+      // Reaching them again resumes finite-speed walking without teleportation.
+      state.guide.waiting=!state.guide.waiting;
+      state.subtitle=state.guide.waiting
+        ?'유수프(현지 구조단): 안내원은 이곳에서 기다릴 거야. 직접 돌아와 동행을 재개해 줘.'
+        :'유수프(현지 구조단): 안내원이 다시 함께 이동할 거야. 가까운 거리에서 천천히 안내해 줘.';
+      state.message=state.guide.waiting?'안내원 현장 대기 · 접근 후 E로 재개':'안내원 동행 재개 · 남쪽 안뜰로 이동';
     }else if(marker.id==='guideRelease'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.guide.active&&!state.guide.arrived){
       // This is a physical alternative to a stalled optional escort: return
@@ -638,6 +651,7 @@
       }
       state.guide.active=false;
       state.guide.released=true;
+      state.guide.waiting=false;
       state.subtitle='유수프(현지 구조단): 안내원을 여기서 다시 인수하겠어. 대위는 남쪽 통로로 이동해도 돼.';
       state.message='안내원 현장 인계 완료 · 별도 동행 의무 해제';
     }else if(marker.id==='gateLog'&&state.phase==='exit'&&state.choice==='verification'&&gateOpen(state)){
@@ -734,7 +748,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':'대피 안내원 동행 중 · 집결지에서 현장 인계 가능'):
+      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · E로 동행 재개 가능':'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
@@ -795,7 +809,7 @@
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
           (state.guide.released?' 안내원은 집결지 구조단에 현장 인계했습니다.':state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
-            ?' 안내원 동행 중입니다. 반드시 안뜰까지 함께 도착한 후 E로 완료하거나 집결지로 돌아와 E로 구조단에 인계하세요.':state.musterConfirmed
+            ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 안뜰까지 함께 도착하거나 집결지에 인계하세요.'):state.musterConfirmed
             ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
             ?' 상자가 임시 적재대에 있습니다. E로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp
@@ -808,7 +822,8 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
-      guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
+      guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
+         waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
         health:p.health,charges:p.charges,weaponId:p.weaponId,
          loaded:Math.min(p.loaded,p.charges),reloadRemaining:p.reloadRemaining,
@@ -848,8 +863,12 @@
       (data.aidDelivered===true&&data.aidPickedUp!==true)||
       // Legacy saves without this optional escort field retain their old route.
       (hasOwn(data,'guide')&&(!data.guide||typeof data.guide!=='object'||Array.isArray(data.guide)||
-        !['active,arrived,x,z','active,arrived,released,x,z'].includes(Object.keys(data.guide).sort().join(','))||
+        !['active,arrived,x,z','active,arrived,released,x,z',
+          'active,arrived,released,waiting,x,z'].includes(Object.keys(data.guide).sort().join(','))||
         (hasOwn(data.guide,'released')&&typeof data.guide.released!=='boolean')||
+         (hasOwn(data.guide,'waiting')&&typeof data.guide.waiting!=='boolean')||
+         (data.guide.waiting===true&&(!data.guide.active||data.guide.arrived||
+           data.phase!=='exit'||data.choice!=='evacuation'))||
         typeof data.guide.active!=='boolean'||typeof data.guide.arrived!=='boolean'||
         !Number.isFinite(data.guide.x)||!Number.isFinite(data.guide.z)||
         Math.hypot(data.guide.x-GUIDE_START.x,data.guide.z-GUIDE_START.z)>19||
@@ -1013,7 +1032,8 @@
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
-    state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true}:
+    state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true,
+       waiting:data.guide.waiting===true}:
       {active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z};
     state.world.carryingAid=state.aidPickedUp&&!state.aidDelivered&&!state.aidStaged;
     state.world.aidStaged=state.aidStaged;
