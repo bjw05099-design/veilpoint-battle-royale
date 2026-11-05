@@ -11,7 +11,7 @@ function extract(start,end){
  assert.ok(i>=0&&j>i,'expected live BR browser controller section '+start);
  return source.slice(i,j);
 }
-const matchReader=extract('let checkpointReadUnavailable=false;','function collectAmmo(){');
+const matchReader=extract('let checkpointReadUnavailable=false,memoryOnlyMatch=false;','function collectAmmo(){');
 const playHandler=extract("$('play').addEventListener('click',()=>{","$('newMatch').addEventListener");
 function fixture({denyReads=0,primary='valid',backup=null}={}){
  const slots=new Map([['veilpoint.brCheckpoint.v1',primary]]);
