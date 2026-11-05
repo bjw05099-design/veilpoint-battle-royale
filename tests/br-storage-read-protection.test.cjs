@@ -116,7 +116,9 @@ test('BR PC menu has an explicit New Match control and protects temporarily unre
  assert.match(source,/if\(storedMatch\(\)\)\$\('play'\)\.textContent='저장 경기 이어하기';\s*else if\(checkpointReadUnavailable\|\|checkpointInvalidStored\)/);
  assert.match(source,/\$\('newMatch'\)\.addEventListener\('click',start\)/);
  assert.match(source,/else if\(checkpointReadUnavailable\|\|checkpointInvalidStored\)\{[\s\S]*?start\(null,null,null,true\)/);
- assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(true\);clearLastResult\(\);checkpointInvalidStored=false;\}/);
+ assert.match(source,/const resetBlocked=!offlineOnly&&!clearStoredMatch\(\)/);
+ assert.match(source,/if\(resetBlocked\)offlineOnly=true/);
+ assert.match(source,/if\(!offlineOnly\)\{clearFieldBookmark\(true\);clearLastResult\(\);checkpointInvalidStored=false;\}/);
  assert.match(source,/if\(!memoryOnlyMatch\)\{archiveLastResult\(\);clearFieldBookmark\(\);clearStoredMatch\(\);\}/);
  assert.match(source,/if\(!running\|\|memoryOnlyMatch\)return false/);
  assert.match(source,/memoryOnlyMatch\)start\(null,null,null,true\)/);
