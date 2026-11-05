@@ -24,6 +24,6 @@ test('CH01 queued shot checkpoints flush on simulation tick and explicit pause',
 test('CH01 first finite PC shot persists immediately before any 450ms batch window',()=>{
   assert.match(source,/let firstShotSaved=false/);
   assert.match(source,/if\(\(state\.phase!=='engagement'\|\|!firstShotSaved\|\|/);
-  assert.match(source,/firstShotSaved=true;\s*persist\(\)/);
+  assert.match(source,/firstShotSaved=true;[\s\S]*?if\(!persist\(\)&&!memoryOnlyStory\)shotSavePending=true/);
   assert.match(source,/shotSavePending=false;firstShotSaved=false/);
 });

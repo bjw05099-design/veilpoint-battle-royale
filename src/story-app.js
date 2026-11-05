@@ -161,8 +161,11 @@
         state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)&&
        state.world.elapsed>=nextSaveRetryAt){
       firstShotSaved=true;
-      persist();
-    }else shotSavePending=true;
+      // A failed first shot write must remain dirty until an actual successful
+      // checkpoint, even if the user releases the trigger immediately.
+      // The 60Hz flush respects the existing one-second storage backoff.
+      if(!persist()&&!memoryOnlyStory)shotSavePending=true;
+    }else if(!memoryOnlyStory)shotSavePending=true;
   }
   function recordCompletion(){
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.

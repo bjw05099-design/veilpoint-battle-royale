@@ -1676,3 +1676,55 @@ test('CH01 does not recreate an externally removed checkpoint without explicit N
   assert.equal(JSON.parse(shared.get(key)).phase,'engagement',
     'user-initiated New Game is the explicit reset and may write a fresh checkpoint');
 });
+
+
+test('CH01 a single finite shot survives a transient failed save without a second trigger',()=>{
+ const app=boot();app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const key='veilpoint.story.ch01';
+ const old=JSON.parse(app.store.get(key)),write=app.store.set.bind(app.store);
+ let denied=true,failedWrites=0;
+ app.store.set=(name,value)=>{
+  if(name===key&&denied){failedWrites++;throw new Error('quota denied');}
+  return write(name,value);
+ };
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(failedWrites,1,'first actual shot attempts one immediate checkpoint');
+ assert.equal(JSON.parse(app.store.get(key)).player.charges,old.player.charges,
+   'old durable snapshot remains intact on write denial');
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ for(let frame=301;frame<=348;frame++)app.frame(frame*1000/60);
+ assert.equal(failedWrites,1,'60Hz frames do not hammer denied storage during one-second backoff');
+ denied=false;
+ for(let frame=349;frame<=374;frame++)app.frame(frame*1000/60);
+ const committed=JSON.parse(app.store.get(key));
+ assert.equal(committed.player.charges,old.player.charges-1,
+   'the first shot is durably retried without further firing');
+ assert.equal(app.element('saveStatus').classList.contains('hidden'),true);
+ const replay=boot(app.store);
+ replay.element('continue').click();
+ assert.match(replay.element('objective').textContent,/무장 대치자/);
+ assert.equal(app.store.get(key)===null,false);
+});
+
+test('CH01 a failed single-shot save flushes on pause after release, not on key repeat',()=>{
+ const app=boot();app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const key='veilpoint.story.ch01',write=app.store.set.bind(app.store);
+ const before=JSON.parse(app.store.get(key)).player.charges;
+ let deny=true;
+ app.store.set=(name,value)=>{
+  if(name===key&&deny)throw new Error('temporary storage restriction');
+  return write(name,value);
+ };
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(JSON.parse(app.store.get(key)).player.charges,before);
+ deny=false;
+ app.element('pauseButton').click();
+ const snapshot=JSON.parse(app.store.get(key));
+ assert.equal(snapshot.player.charges,before-1,
+   'explicit pause still flushes the most recent playable world');
+ assert.match(app.element('menuText').textContent,/일시정지/);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+});

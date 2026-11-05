@@ -23,7 +23,7 @@ test('CH01 quiet traversal retries failed writes on simulated time, never every 
     'held-fire flush respects failed-write backoff');
   assert.match(source,/if\(\(state\.phase!=='engagement'\|\|!firstShotSaved\|\|\s*state\.world\.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS\)\&\&\s*state\.world\.elapsed>=nextSaveRetryAt\)\{/,
     'first shot saves immediately and subsequent shots respect failed-write backoff');
-  assert.match(source,/firstShotSaved=true;\s*persist\(\)/,
+  assert.match(source,/firstShotSaved=true;[\s\S]*?if\(!persist\(\)&&!memoryOnlyStory\)shotSavePending=true/,
     'first shot is queued as durably attempted before following held-fire events');
   assert.match(source,/VeilpointClock\.createClock\(\{hz:60/);
   assert.match(source,/Story\.step\(state,step,input\)/);
