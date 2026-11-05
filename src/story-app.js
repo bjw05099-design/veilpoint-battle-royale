@@ -19,6 +19,9 @@
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
+  // G is reserved by the PC input binder. It focuses the existing story
+  // settings inside the pause menu without permitting any 60Hz world step.
+  let graphicsMenuFocused=false;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
   // Rewinding to an older world discards new unsaved progress. Require a
   // deliberate second action for the EXACT validated backup generation.
@@ -314,6 +317,7 @@
     }
   });
   function menuOpen(text){
+    graphicsMenuFocused=false;
     cancelPreviousRestore();
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
@@ -334,6 +338,16 @@
     // The dialog's primary action is the safe focus target after an Esc pause.
     if(!$('continue').disabled)$('continue').focus();
   }
+  function openStoryGraphicsSettings(){
+    // Route choices and field journal own their dialogs; a settings shortcut
+    // must never bypass the current decision or restore active gameplay.
+    if(!choices.classList.contains('hidden')||
+       !$('fieldJournal').classList.contains('hidden'))return;
+    if(running)menuOpen('그래픽·PC 설정 · 메뉴에서 조정한 뒤 이어하기를 눌러 미션을 재개하세요.');
+    if(menu.classList.contains('hidden'))return;
+    graphicsMenuFocused=true;
+    if(typeof $('quality').focus==='function')$('quality').focus();
+  }
   function requestAimLock(){
     if(isTouch)return;
     const attempt=++lockAttempt;
@@ -348,6 +362,7 @@
     }catch(_){unavailable();}
   }
   function resume(){
+    graphicsMenuFocused=false;
     cancelPreviousRestore();
     if(!renderer||graphicsContextLost)return;
     if(state.phase==='failed'){
@@ -717,6 +732,7 @@
     $('fieldJournalOpen').focus();
   });
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
+  $('storyGraphicsOpen').addEventListener('click',openStoryGraphicsSettings);
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
   $('choiceBack').addEventListener('click',()=>{
@@ -748,6 +764,25 @@
       e.preventDefault();
       if(running)menuOpen('현장 기록 열람 · 일시정지됨. Esc로 기록을 닫고 이어하기로 복귀하세요.');
       if(!menu.classList.contains('hidden'))renderFieldJournal();
+      return;
+    }
+    // The globally reserved G key can pause from pointer-locked gameplay
+    // and focus the story's existing graphics select. When already focused,
+    // another G returns to Continue without resuming or stepping the world.
+    if(e.code==='KeyG'&&!e.repeat){
+      e.preventDefault();
+      if(graphicsMenuFocused&&!menu.classList.contains('hidden')){
+        graphicsMenuFocused=false;
+        if(typeof $('continue').focus==='function')$('continue').focus();
+      }else openStoryGraphicsSettings();
+      return;
+    }
+    // First Escape exits settings focus; only a later explicit Escape or
+    // Continue can resume the existing session and reclaim pointer lock.
+    if(e.code==='Escape'&&!e.repeat&&graphicsMenuFocused&&
+       !menu.classList.contains('hidden')){
+      e.preventDefault();graphicsMenuFocused=false;
+      if(typeof $('continue').focus==='function')$('continue').focus();
       return;
     }
     // Escape is a PC menu command even when a visible menu button has focus.
