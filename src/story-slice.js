@@ -293,7 +293,19 @@
       Number.isFinite(wall.x)&&Number.isFinite(wall.z)&&
       Number.isFinite(wall.w)&&Number.isFinite(wall.d)&&wall.w>0&&wall.d>0&&
       Math.abs(wall.x-(guide.x+player.x)/2)<wall.w/2+7&&
-      Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7).slice(0,12);
+      Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7)
+      .map((wall,index)=>({
+        wall,index,
+        // Relevant route blockers must not be displaced from the limited
+        // local graph by unrelated scenery listed earlier in the world.
+        crosses:Sim.lineBlocked(guide.x,guide.z,player.x,player.z,
+          [{...wall,w:wall.w+1.1,d:wall.d+1.1}]),
+        distance:Math.hypot(wall.x-(guide.x+player.x)/2,
+          wall.z-(guide.z+player.z)/2)
+      }))
+      .sort((a,b)=>Number(b.crosses)-Number(a.crosses)||
+        a.distance-b.distance||a.index-b.index)
+      .slice(0,12).map(entry=>entry.wall);
     // The margin leaves clearance for the civilian's collision radius.
     const clearance=.55+.3;
     const bodyMargin=.55;
