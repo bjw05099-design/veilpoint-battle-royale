@@ -32,6 +32,7 @@ void AVPHUD::DrawHUD()
 
     const FString MovementLabel = Pawn->bEliminated
         ? TEXT("MOVEMENT DISABLED")
+        : Pawn->bSprintExhausted ? TEXT("MOVEMENT: STAMINA RECOVERY (25 TO SPRINT)")
         : Pawn->bSprinting ? TEXT("MOVEMENT: SPRINT")
                            : TEXT("MOVEMENT: WALK");
     DrawText(MovementLabel, FLinearColor(.83f,.90f,.84f,1.f),
