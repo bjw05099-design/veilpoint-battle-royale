@@ -1479,3 +1479,37 @@ test('CH01 PC Escape cancels a focused route dialog without changing story branc
   app.emit('keydown',{code:'Digit1',target:app.element('quality')});
   assert.match(app.element('objective').textContent,/기록/);
 });
+
+test('CH01 Continue quarantines two unreadable disk checkpoints for an entire playable 60Hz session',()=>{
+  const primary='{truncated-current-save';
+  const backup='{truncated-previous-save';
+  const shared=new Map([
+    ['veilpoint.story.ch01',primary],
+    ['veilpoint.story.ch01.previous',backup]
+  ]);
+  const app=boot(shared);
+  assert.match(app.element('menuText').textContent,/복원할 수 없습니다/);
+  assert.match(app.element('continue').textContent,/임시/);
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  // Advance the real desktop controller beyond its normal 5-second save cadence.
+  app.moveForward(0,315);
+  app.interact();
+  app.element('pauseButton').click();
+  assert.equal(shared.get('veilpoint.story.ch01'),primary);
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),backup);
+  assert.match(app.element('saveStatus').textContent,/기존 저장 기록/);
+  // Explicitly choosing New Game, and only that choice, is allowed to reset disk.
+  app.element('newGame').click();
+  assert.equal(shared.has('veilpoint.story.ch01'),false);
+  assert.equal(shared.has('veilpoint.story.ch01.previous'),false);
+});
+
+test('fresh CH01 Continue remains writable when no prior checkpoint generations exist',()=>{
+  const shared=new Map(),app=boot(shared);
+  app.element('continue').click();
+  app.moveForward(0,300);
+  app.interact();
+  assert.equal(shared.has('veilpoint.story.ch01'),true);
+  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).phase,'engagement');
+});
