@@ -284,8 +284,17 @@
       guidanceId=null;shotSavePending=false;firstShotSaved=false;
       lastAutosaveAt=state.world.elapsed;
     }else if(state.phase==='complete'){
+      // The replay button starts a new real CH01 session, not a temporary HUD
+      // reset above a completed checkpoint. Commit the fresh 60Hz world before
+      // allowing movement so a reload cannot reopen the previous finale.
+      // Only retire the old debrief/backup after this new generation is durable.
       state=Story.createState($('storyWeapon').value);
+      guidanceId=null;shotSavePending=false;firstShotSaved=false;
       lastAutosaveAt=state.world.elapsed;
+      if(persist('새 CH01 시작')){
+        storage.remove(PREVIEW_KEY);
+        storage.remove(BACKUP_KEY);
+      }
     }
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
