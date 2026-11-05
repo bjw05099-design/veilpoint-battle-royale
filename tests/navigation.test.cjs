@@ -57,3 +57,44 @@ test('both offline entrypoints load navigation before controller and expose acce
     assert.match(js,/\$\('navigation'\)\.textContent/);
   }
 });
+
+
+test('CH01 automatic PC navigation prefers primary route and preserves explicit optional-marker cycling',()=>{
+  const p={x:0,z:0,yaw:0};
+  const markers=[
+    {id:'aidPickup',label:'선택 비상 물품',kind:'objective',x:1,z:-2},
+    {id:'exitEvac',label:'안전한 안뜰',kind:'evac',x:0,z:-35}
+  ];
+  assert.match(nav.story(p,markers),/가장 가까운 임무 표식.*선택 비상 물품/);
+  assert.match(nav.story(p,markers,null,[],'exitEvac'),
+    /주요 임무 표식.*안전한 안뜰.*35m/,
+    'the optional pickup must not hijack automatic route completion guidance');
+  assert.match(nav.story(p,markers,0,[],'exitEvac'),
+    /선택한 임무 표식.*선택 비상 물품/,
+    'a PC keyboard player may still select an optional marker explicitly');
+  assert.match(nav.story(p,markers,null,[],'missing'),
+    /가장 가까운 임무 표식.*선택 비상 물품/,
+    'invalid or completed primary targets must safely revert to nearest known marker');
+  assert.match(nav.story(p,markers,null,[{x:0,z:-17,w:4,d:2}],'exitEvac'),
+    /주요 임무 표식.*직선 경로 차단/,
+    'preferred target must not claim an unobstructed walking path through solid scenery');
+  assert.equal(JSON.stringify(markers),JSON.stringify([
+    {id:'aidPickup',label:'선택 비상 물품',kind:'objective',x:1,z:-2},
+    {id:'exitEvac',label:'안전한 안뜰',kind:'evac',x:0,z:-35}
+  ]),'read-only navigation cannot alter the mission markers');
+});
+
+test('CH01 observed waiting guide can be preferred without exposing a hidden civilian target',()=>{
+  const p={x:-6,z:-55,yaw:0};
+  const markers=[
+    {id:'exitEvac',label:'안전한 안뜰',kind:'evac',x:0,z:-61},
+    {id:'guideControl',label:'현장 대기 안내원',kind:'evac',x:-10,z:-55}
+  ];
+  assert.match(nav.story(p,markers,null,[],'guideControl'),
+    /주요 임무 표식.*현장 대기 안내원/);
+  assert.match(nav.story(p,markers,0,[],'guideControl'),
+    /선택한 임무 표식.*안전한 안뜰/);
+  const hidden=markers.slice(0,1);
+  assert.doesNotMatch(nav.story(p,hidden,null,[],'guideControl'),/현장 대기 안내원/);
+  assert.match(nav.story(p,hidden,null,[],'guideControl'),/가장 가까운 임무 표식.*안전한 안뜰/);
+});
