@@ -2100,3 +2100,58 @@ test('CH01 restores a civilian past a wide new obstacle without relocating the p
     assert.equal(story.serialize(story.restore(story.serialize(restored))),story.serialize(restored));
   }finally{Sim.newMatch=original;}
 });
+
+
+test('CH01 rendered 3D escort interaction marker follows the live guide at fixed 60Hz',()=>{
+  const state=reachDecision();
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'muster');
+  assert.equal(story.interact(state).event,'muster');
+  assert.equal(story.interact(state).event,'guide');
+  state.world.player.x=-5.9;state.world.player.z=-55;
+  story.step(state,1/60,{});
+  const initial=story.markers(state);
+  const markerIndex=initial.findIndex(m=>m.id==='guideControl');
+  assert.ok(markerIndex>=0,'guide must be observable from this local courtyard position');
+  assert.equal(state.world.loot.length,initial.length);
+  const first=state.guide.x;
+  for(let i=0;i<110;i++){
+    story.step(state,1/60,{});
+    const visible=story.markers(state);
+    const index=visible.findIndex(m=>m.id==='guideControl');
+    assert.ok(index>=0);
+    assert.equal(state.world.loot.length,visible.length);
+    assert.ok(Math.abs(state.world.loot[index].x-state.guide.x)<1e-9);
+    assert.ok(Math.abs(state.world.loot[index].z-state.guide.z)<1e-9);
+  }
+  assert.ok(state.guide.x>first+.2,'finite-speed escort actually moves through the world');
+  const restored=story.restore(story.serialize(state));
+  const restoredIndex=story.markers(restored).findIndex(m=>m.id==='guideControl');
+  assert.ok(restoredIndex>=0);
+  assert.ok(Math.abs(restored.world.loot[restoredIndex].x-restored.guide.x)<1e-9);
+  assert.equal(restored.world.guide,restored.guide);
+});
+
+test('CH01 3D companion marker disappears beyond line of sight and returns when the player walks back',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');go(state,'muster');
+  story.interact(state);story.interact(state);
+  state.guide.waiting=true;state.world.player.yaw=0;
+  const originalX=state.guide.x,originalZ=state.guide.z;
+  const nearIndex=story.markers(state).findIndex(m=>m.id==='guideControl');
+  assert.ok(nearIndex>=0);
+  assert.equal(state.world.loot.length,story.markers(state).length);
+  for(let i=0;i<95;i++)story.step(state,1/60,{right:true});
+  assert.ok(Math.hypot(state.world.player.x-originalX,state.world.player.z-originalZ)>=7,
+    'the real fixed-step controller moves the captain outside the visible guide radius');
+  assert.equal(story.markers(state).some(m=>m.id==='guideControl'),false);
+  assert.equal(state.world.loot.length,story.markers(state).length,
+    'the renderer must stop advertising a physically out-of-sight guide');
+  for(let i=0;i<95;i++)story.step(state,1/60,{left:true});
+  assert.equal(state.guide.waiting,true,'losing and regaining sight cannot toggle the hold order');
+  assert.equal(state.guide.x,originalX);
+  assert.equal(state.guide.z,originalZ);
+  const backIndex=story.markers(state).findIndex(m=>m.id==='guideControl');
+  assert.ok(backIndex>=0,'local marker reappears after returning to the civilian');
+  assert.equal(state.world.loot.length,story.markers(state).length);
+  assert.ok(Math.abs(state.world.loot[backIndex].x-originalX)<1e-9);
+});
