@@ -24,11 +24,11 @@ test('CH01 paused escort HUD only offers E resume when companion is visible and 
   const s=reachEscort();
   s.world.player.x=s.guide.x+0.8;s.world.player.z=s.guide.z;
   assert.notEqual(story.situation(s).visibleEscortDistance,null);
-  assert.match(story.situation(s).guideStatus,/E로 동행 재개/);
+  assert.match(story.situation(s).guideStatus,/E로 재개/);
   s.world.player.x=story.POINTS.exitEvac.x;
   s.world.player.z=story.POINTS.exitEvac.z;
   assert.equal(story.situation(s).visibleEscortDistance,null);
-  assert.doesNotMatch(story.situation(s).guideStatus,/E로 동행 재개/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개/);
   assert.match(story.situation(s).guideStatus,/돌아가세요/);
   const restored=story.restore(story.serialize(s));
   assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
