@@ -3050,8 +3050,11 @@ test('CH01 autosave never overwrites primary when browser silently discards its 
  const key='veilpoint.story.ch01',backup=key+'.previous',store=new Map();
  const app=boot(store,false,'granted',true,true);
  app.element('continue').click();
+ // The first CH01 checkpoint is written at an actual 60Hz autosave boundary,
+ // not merely by opening the initial menu.
+ app.moveForward(0,360);
  const first=store.get(key);
- assert.ok(first,'new CH01 world must be initially saved');
+ assert.ok(first,'60Hz traversal must establish a real durable CH01 checkpoint');
  store.delete(backup);
  const nativeSet=store.set.bind(store);
  let ignored=0;
@@ -3059,7 +3062,7 @@ test('CH01 autosave never overwrites primary when browser silently discards its 
   if(name===backup){ignored++;return store;} // claimed success without bytes
   return nativeSet(name,value);
  };
- app.moveForward(0,120);app.element('pauseButton').click();
+ app.moveForward(360,120);app.element('pauseButton').click();
  assert.ok(ignored>0,'autosave tried to preserve the previous world');
  assert.equal(store.get(key),first,'the only valid primary survives blocked backup');
  assert.equal(store.has(backup),false,'false write was not treated as a durable backup');
@@ -3081,7 +3084,9 @@ test('CH01 autosave never replaces another tab latest checkpoint during backup r
  const key='veilpoint.story.ch01',backup=key+'.previous',store=new Map();
  const old=boot(store,false,'granted',true,true);
  old.element('continue').click();
+ old.moveForward(0,360);
  const original=store.get(key);
+ assert.ok(original,'first real autosave must exist before cross-tab conflict');
  const concurrent=Story.createState();concurrent.world.player.x=4;
  const latest=Story.serialize(concurrent),nativeSet=store.set.bind(store);
  let rotated=0;
@@ -3089,7 +3094,7 @@ test('CH01 autosave never replaces another tab latest checkpoint during backup r
    if(name===backup){rotated++;nativeSet(name,value);return nativeSet(key,latest);}
    return nativeSet(name,value);
  };
- old.moveForward(0,120);old.element('pauseButton').click();
+ old.moveForward(360,120);old.element('pauseButton').click();
  assert.ok(rotated>0);
  assert.equal(store.get(key),latest,'other tab newer primary survives old autosave');
  assert.equal(store.get(backup),original,'previous world retained for recovery');
