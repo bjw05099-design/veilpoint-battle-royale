@@ -1,5 +1,6 @@
 #include "VPZone.h"
 #include "VPCharacter.h"
+#include "VPGameState.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -20,13 +21,30 @@ AVPZone::AVPZone()
 void AVPZone::BeginPlay()
 {
     Super::BeginPlay();
-    if (HasAuthority()) GetWorldTimerManager().SetTimer(ZoneTimer,this,&AVPZone::UpdateZone,.25f,true);
+    if (HasAuthority() && GetWorld())
+    {
+        StartServerTimeSeconds=GetWorld()->GetTimeSeconds();
+        GetWorldTimerManager().SetTimer(ZoneTimer,this,&AVPZone::UpdateZone,.25f,true);
+    }
 }
 void AVPZone::UpdateZone()
 {
-    if (!HasAuthority())return;
-    TotalElapsed+=.25f;
-    float time=TotalElapsed;
+    if (!HasAuthority() || !GetWorld()) return;
+    // GameMode publishes completion in the replicated GameState. Once the
+    // server finalizes a round, the shrinking zone and its gameplay effect
+    // must stop. Existing published values remain stable for the results HUD.
+    if (const AVPGameState* Match=GetWorld()->GetGameState<AVPGameState>())
+    {
+        if (Match->bRoundComplete)
+        {
+            GetWorldTimerManager().ClearTimer(ZoneTimer);
+            ForceNetUpdate();
+            return;
+        }
+    }
+    // A delayed timer callback must not extend a round or create client/
+    // server countdown drift. Use elapsed server game time, not call count.
+    float time=FMath::Max(0.f,GetWorld()->GetTimeSeconds()-StartServerTimeSeconds);
     int32 nextPhase=0;
     for(;nextPhase<5;nextPhase++) {
         if(time<Durations[nextPhase])break;
