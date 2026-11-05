@@ -1696,3 +1696,17 @@ test('CH01 guide handoff requires an unobstructed physical line to companion, no
   assert.equal(story.serialize(s),story.serialize(copy));
  }
 });
+
+test('PC situation HUD reports separated escort and checkpoint restore preserves recovery hint',()=>{
+  const state=reachDecision();
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'muster');assert.equal(story.interact(state).ok,true);
+  go(state,'guide');assert.equal(story.interact(state).ok,true);
+  state.world.player.x=0;state.world.player.z=-61;
+  assert.match(story.situation(state).guideStatus,/거리 이탈/);
+  const resumed=story.restore(story.serialize(state));
+  assert.match(story.situation(resumed).guideStatus,/돌아가세요/);
+  resumed.world.player.x=resumed.guide.x;resumed.world.player.z=resumed.guide.z+2;
+  assert.match(story.situation(resumed).guideStatus,/동행 중/);
+  assert.equal(resumed.guide.active,true);
+});
