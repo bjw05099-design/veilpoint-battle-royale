@@ -2024,3 +2024,56 @@ test('CH01 rejects an entirely enclosed legacy gate checkpoint and recovers its 
     assert.equal(recovered.state.world.player.z,12);
   }finally{Sim.newMatch=newMatch;}
 });
+
+
+test('CH01 escort checkpoint recovers a civilian enclosed by newly authored small scenery without moving the captain',()=>{
+  const state=reachDecision();assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'muster');assert.equal(story.interact(state).event,'muster');
+  assert.equal(story.interact(state).event,'guide');
+  state.world.player.x=-3;state.world.player.z=-54;
+  const raw=story.serialize(state),original={...state.guide};
+  const originalMatch=Sim.newMatch;
+  try{
+    Sim.newMatch=(...args)=>{
+      const world=originalMatch(...args);
+      world.obstacles.push({x:original.x,z:original.z,w:1.8,d:1.8,h:2,type:'new-harbor-crate'});
+      return world;
+    };
+    const restored=story.restore(raw);
+    assert.equal(restored.phase,'exit');
+    assert.equal(restored.guide.active,true);
+    assert.equal(restored.guide.waiting,false);
+    assert.deepEqual([restored.world.player.x,restored.world.player.z],[-3,-54],
+      'world migration cannot teleport the captain');
+    assert.equal(Sim.blocked(restored.guide.x,restored.guide.z,.55,restored.world.obstacles),false,
+      'civilian is not left inside a solid fixture');
+    assert.ok(Math.hypot(restored.guide.x-original.x,restored.guide.z-original.z)<=3.01,
+      'migration is bounded near the last known civilian position');
+    assert.equal(restored.world.guide,restored.guide,
+      'renderer and 60Hz simulation must share the same recovered guide');
+    const resaved=story.serialize(restored),again=story.restore(resaved);
+    assert.equal(story.serialize(again),resaved,'load-time recovery must stabilize after one save');
+    for(let i=0;i<120;i++)story.step(again,1/60,{});
+    assert.equal(Sim.blocked(again.guide.x,again.guide.z,.55,again.world.obstacles),false);
+  }finally{Sim.newMatch=originalMatch;}
+});
+
+test('CH01 fails closed on a fully enclosed historic escort and restores a safe backup generation',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');
+  go(state,'muster');story.interact(state);story.interact(state);
+  state.world.player.x=0;state.world.player.z=-35;
+  const damaged=story.serialize(state),backup=story.serialize(story.createState());
+  const originalMatch=Sim.newMatch;
+  try{
+    Sim.newMatch=(...args)=>{
+      const world=originalMatch(...args);
+      world.obstacles.push({x:-10.5,z:-55,w:12,d:12,h:3,type:'new-enclosed-scenery'});
+      return world;
+    };
+    assert.throws(()=>story.restore(damaged),/No collision-free escort guide checkpoint recovery/);
+    const recovered=story.recoverCheckpoint(damaged,backup);
+    assert.equal(recovered.source,'backup');
+    assert.equal(recovered.state.phase,'terminal');
+    assert.equal(recovered.state.world.player.z,12);
+  }finally{Sim.newMatch=originalMatch;}
+});
