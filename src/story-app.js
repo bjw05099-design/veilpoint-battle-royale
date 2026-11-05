@@ -315,7 +315,10 @@
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
       // preserving finite rounds, injury, actor positions and the mission phase.
       let recovered=null;
-      for(const raw of [checkpoint,storage.get(SAVE_KEY),storage.get(BACKUP_KEY)]){
+      // Prefer the newest durable primary when another PC tab has saved since
+      // this tab last checkpointed. An in-memory snapshot may be older.
+      // A malformed primary is skipped without deleting either disk slot.
+      for(const raw of [storage.get(SAVE_KEY),checkpoint,storage.get(BACKUP_KEY)]){
         if(!raw)continue;
         try{
           const candidate=Story.restore(raw);
