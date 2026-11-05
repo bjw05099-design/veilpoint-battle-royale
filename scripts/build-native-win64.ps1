@@ -43,6 +43,9 @@ $mapSetting=Get-Content -LiteralPath $config |
 if (!$mapSetting) { Fail 'GameDefaultMap is missing; a packaged build could start blank.' }
 $map=($mapSetting -split '=',2)[1].Trim()
 if ($map -eq '/Engine/Maps/Entry') {
+    if ($Configuration -eq 'Shipping') {
+        Fail 'The stock Engine Entry map is never eligible for a Shipping build. Author and configure a real playable level.'
+    }
     if (!$AllowEngineEntrySmokeTest) {
         Fail 'Only the stock Engine Entry map exists. Author a playable /Game/... .umap before a release build. For an explicitly non-release compile smoke test use -AllowEngineEntrySmokeTest.'
     }
