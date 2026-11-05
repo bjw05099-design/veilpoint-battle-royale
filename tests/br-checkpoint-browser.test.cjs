@@ -831,10 +831,11 @@ test('BR denied primary write still permits explicitly requested in-memory bookm
  app.emit('keydown',{code:'Escape'});
  app.node('restoreCheckpoint').click();
  assert.match(app.node('selector-.tagline').textContent,/이 탭에서는 계속할 수 있으나/);
- assert.match(app.node('message').textContent,/SAVE FAILED/);
- quotaDenied=false;
  app.node('play').click();app.frame(2500);
  assert.equal(app.game.status,'playing');
  assert.equal(app.game.player.charges,old,
    'denied storage must not block a voluntary in-tab rewind when no newer generation exists');
+ assert.match(app.node('message').textContent,/SAVE FAILED/,
+   'when gameplay resumes the HUD must disclose that the rewind is memory-only');
+ quotaDenied=false;
 });
