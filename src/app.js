@@ -228,10 +228,19 @@ function clearStoredMatch(){
   originalPrimary=global.localStorage.getItem(MATCH_SAVE_KEY);
   originalBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
  }catch(_){return false;}
- for(const [key,original] of [[MATCH_BACKUP_KEY,originalBackup],[MATCH_SAVE_KEY,originalPrimary]]){
+ for(const key of [MATCH_BACKUP_KEY,MATCH_SAVE_KEY]){
+  let removed=false;
   try{
-   if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(key);
-   else global.localStorage.setItem(key,'');
+   if(typeof global.localStorage.removeItem==='function'){
+    global.localStorage.removeItem(key);
+    removed=true;
+   }
+  }catch(_){} // Some offline shims only support the empty-value fallback.
+  if(!removed){
+   try{global.localStorage.setItem(key,'');}
+   catch(_){return false;}
+  }
+  try{
    const after=global.localStorage.getItem(key);
    if(after!==null&&after!=='')return false;
   }catch(_){return false;}
