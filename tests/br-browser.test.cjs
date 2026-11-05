@@ -1381,7 +1381,7 @@ test('BR old active Windows tab New Match cannot delete newer tab checkpoint or 
  const previous=store.get(backup);
  store.set('veilpoint.brFieldBookmark.v1','newer-tab-bookmark');
  store.set('veilpoint.brLastResult.v1','newer-tab-last-result');
- first.node('newMatch').click();
+ first.node('newMatch').click();first.frame(2000/60);
  assert.equal(first.game.status,'playing');
  assert.match(first.game.message,/OTHER PC TAB UPDATED.*MEMORY-ONLY MATCH/,
    'older tab must clearly identify the protected temporary BR session');
