@@ -54,17 +54,23 @@
   };
   // A transient read error is not evidence of corrupted checkpoint data.
   // Preserve both generations and allow a non-persisting offline session.
-  let checkpointReadUnavailable=false,memoryOnlyStory=false;
+  let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyStory=false;
   function readCheckpoint(){
     let primary=null,backup=null;
     try{
       primary=global.localStorage.getItem(SAVE_KEY);
       backup=global.localStorage.getItem(BACKUP_KEY);
-    }catch(_){checkpointReadUnavailable=true;return null;}
+    }catch(_){checkpointReadUnavailable=true;checkpointInvalidStored=false;return null;}
     checkpointReadUnavailable=false;
+    checkpointInvalidStored=false;
     try{
       const recovered=global.VeilpointCheckpointRecovery.recover(primary,backup,Story.recoverCheckpoint);
-      if(!recovered)return null;
+      if(!recovered){
+        // Never overwrite unreadable saved generations through an implicit Continue.
+        // Only an explicit New Game action may discard them.
+        checkpointInvalidStored=primary!==null||backup!==null;
+        return null;
+      }
       if(recovered.source==='backup'){
         recoveredFromBackup=true;
         // Restore the last validated checkpoint to the primary slot, even if
@@ -74,6 +80,7 @@
       return recovered.state;
     }catch(_){
       // Preserve both slots for manual recovery: never destroy data on parse failure.
+      checkpointInvalidStored=primary!==null||backup!==null;
       return null;
     }
   }
@@ -250,7 +257,7 @@
     if(!renderer||graphicsContextLost)return;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
-      memoryOnlyStory=checkpointReadUnavailable;
+      memoryOnlyStory=checkpointReadUnavailable||checkpointInvalidStored;
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
       if(!memoryOnlyStory&&loaded&&loaded.phase==='complete'){
         // The intentional replay of a verified completed mission is a reset.
@@ -259,7 +266,7 @@
       checkpoint=memoryOnlyStory?null:storage.get(SAVE_KEY);
     }else{
       // New Game is the explicit user's reset, unlike the protected Continue.
-      memoryOnlyStory=false;
+      memoryOnlyStory=false;checkpointInvalidStored=false;
       state=Story.createState($('storyWeapon').value);
       storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);checkpoint=null;
       recoveredFromBackup=false;
@@ -272,7 +279,7 @@
     shotSavePending=false;
     saveFailed=memoryOnlyStory;
     $('saveStatus').textContent=memoryOnlyStory
-      ?'임시 CH01 세션 · 저장소 접근 불가 · 기존 진행 기록 보호 중':'';
+      ?'임시 CH01 세션 · 기존 진행 기록 보호 중 · 자동 저장 비활성화':'';
     $('saveStatus').classList.toggle('hidden',!memoryOnlyStory);
     resume();
   }
@@ -650,6 +657,9 @@
   if(checkpointReadUnavailable){
     $('continue').textContent='저장소 없이 임시 CH01 시작';
     $('menuText').textContent='이 브라우저에서 저장된 미션을 읽을 수 없습니다. 기존 임무 기록을 보존하며, 별도 임시 세션으로 플레이할 수 있습니다. 저장소 접근이 복구되면 기존 기록을 다시 불러올 수 있습니다.';
+  }else if(checkpointInvalidStored){
+    $('continue').textContent='기록 보존 · 임시 CH01 시작';
+    $('menuText').textContent='CH01 저장 기록을 복원할 수 없습니다. 이어하기는 기존 데이터를 변경하지 않는 임시 플레이로 시작됩니다. 저장 기록을 버리고 새로 시작할 때만 새 게임을 선택하세요.';
   }else if(loaded&&loaded.phase!=='complete'){
     $('continue').textContent='체크포인트 이어하기';
     $('menuText').textContent=recoveredFromBackup
