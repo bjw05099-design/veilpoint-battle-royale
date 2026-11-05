@@ -990,6 +990,18 @@
     syncMarkers(state);
     return {ok:true,event:'back'};
   }
+  function visibleEscortDistance(state) {
+    // The player can estimate spacing only when the civilian is actually
+    // visible and nearby. Never reveal their precise position through solid
+    // scenery or from the other end of the map.
+    if(state.phase!=='exit'||state.choice!=='evacuation'||
+       !state.guide.active||state.guide.released||state.guide.arrived)return null;
+    const p=state.world.player,g=state.guide;
+    const distance=Math.hypot(p.x-g.x,p.z-g.z);
+    if(distance>=7||Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles))
+      return null;
+    return Math.round(distance*10)/10;
+  }
   function situation(state) {
     const count=state.found.length;
     return Object.freeze({
@@ -1002,6 +1014,7 @@
       eastGateOpen:gateOpen(state),
       eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60-1e-8)/60):0,
       routeReviewAvailable:state.phase==='exit'&&markers(state).some(m=>m.id==='decision'),
+      visibleEscortDistance:visibleEscortDistance(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등 · 노출 증가':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
        warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
