@@ -96,7 +96,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     get() {throw new Error('storage_denied');}
   });
   for (const filename of ['src/simulation.js', 'src/visibility.js', 'src/performance.js',
-    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/app.js']) {
+    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/gate-motor-audio.js', 'src/app.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, filename), 'utf8'),
       context, {filename, timeout: 1500});
   }
