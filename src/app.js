@@ -666,6 +666,20 @@ $('saveExit').addEventListener('click',()=>{
    :'저장 공간에 기록할 수 없어 메뉴로 나가지 않았습니다. 이어하기로 경기를 계속할 수 있습니다.';
   return;
  }
+ // The checkpoint writer verified its own write, but a second PC tab
+ // can replace or remove the slot before the Save & Exit navigation gate.
+ // Recheck the exact current generation before discarding this live round.
+ let confirmed=false;
+ try{
+  confirmed=!!matchDiskGeneration&&
+   global.localStorage.getItem(MATCH_SAVE_KEY)===matchDiskGeneration;
+ }catch(_){}
+ if(!confirmed){
+  saveWarning=true;saveIssue='conflict';
+  document.querySelector('.tagline').textContent=
+   '저장 기록이 확인 직후 변경되거나 읽을 수 없게 되었습니다. 현재 진행을 유지하고 메뉴 이동을 중단했습니다.';
+  return;
+ }
  running=false;suspended=false;
  if(motorSound)motorSound.stop();
  desktopUi.cancel();resetInactiveClock();
