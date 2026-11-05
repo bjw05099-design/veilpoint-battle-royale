@@ -2122,3 +2122,52 @@ test('CH01 conflicting invalid backup update never destroys either disk generati
  assert.equal(storage.get(key),'{bad-primary');
  assert.equal(storage.get(backupKey),broken);
 });
+
+
+test('Windows CH01 evacuation HUD shows visible guide spacing but never a remote civilian range',()=>{
+ const Story=require('../src/story-slice.js');
+ const state=Story.createState();
+ state.phase='exit';state.choice='evacuation';state.musterConfirmed=true;
+ state.combat.started=true;state.combat.cleared=true;
+ state.world.bots=[{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}].map(({x,z},id)=>({
+  id,x,z,angle:Math.PI,health:0,alive:false,shots:12
+ }));
+ state.guide={active:true,arrived:false,released:false,waiting:false,x:-10.5,z:-55};
+ state.world.player.x=-5.9;state.world.player.z=-55;
+ const key='veilpoint.story.ch01',store=new Map([[key,Story.serialize(state)],
+   ['veilpoint.brCheckpoint.v1','independent-BR']]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ assert.match(app.element('routeStatus').textContent,/시야 내 안내원 간격 4\.6m/);
+ assert.doesNotMatch(app.element('routeStatus').textContent,/천천히 이동해 동행 유지/);
+ const remote=Story.restore(Story.serialize(state));
+ remote.world.player.x=0;remote.world.player.z=-35;
+ const hidden=boot(new Map([[key,Story.serialize(remote)]]),false,'granted',true,true);
+ hidden.element('continue').click();
+ assert.doesNotMatch(hidden.element('routeStatus').textContent,/시야 내 안내원 간격|[0-9]\.\dm/);
+ assert.match(hidden.element('routeStatus').textContent,/마지막으로 확인한 위치/);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR');
+});
+
+test('CH01 PC walking pace hint appears only for a nearby visible escort who is actually following',()=>{
+ const Story=require('../src/story-slice.js');
+ const state=Story.createState();
+ state.phase='exit';state.choice='evacuation';state.musterConfirmed=true;
+ state.combat.started=true;state.combat.cleared=true;
+ state.world.bots=[{x:0,z:-28},{x:15,z:-34},{x:-15,z:-34}].map(({x,z},id)=>({
+  id,x,z,angle:Math.PI,health:0,alive:false,shots:12
+ }));
+ state.guide={active:true,arrived:false,released:false,waiting:false,x:-10.5,z:-55};
+ state.world.player.x=-4.2;state.world.player.z=-55;
+ const key='veilpoint.story.ch01';
+ const moving=boot(new Map([[key,Story.serialize(state)]]),false,'granted',true,true);
+ moving.element('continue').click();
+ assert.match(moving.element('routeStatus').textContent,/시야 내 안내원 간격 6\.3m/);
+ assert.match(moving.element('routeStatus').textContent,/천천히 이동해 동행 유지/);
+ state.guide.waiting=true;
+ const paused=boot(new Map([[key,Story.serialize(state)]]),false,'granted',true,true);
+ paused.element('continue').click();
+ assert.match(paused.element('routeStatus').textContent,/시야 내 안내원 간격 6\.3m/);
+ assert.doesNotMatch(paused.element('routeStatus').textContent,/천천히 이동해 동행 유지/,
+   'a waiting guide should not tell the captain to maintain a follow pace');
+});
