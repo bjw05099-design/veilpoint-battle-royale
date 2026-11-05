@@ -1760,3 +1760,27 @@ test('CH01 loaded PC escort handoff uses E and HUD at staffed south transfer, no
  resumed.element('continue').click();
  assert.match(resumed.element('objective').textContent,/인계|안뜰/);
 });
+
+
+test('CH01 remapped PC interaction key is displayed in HUD and operates a physical mission terminal',()=>{
+ const C=require('../src/desktop-controls.js');
+ const controls=C.bind(C.normalize({}),'interact','KeyT');
+ assert.equal(controls.ok,true);
+ const store=new Map([[C.STORAGE_KEY,JSON.stringify(controls.value)]]);
+ const app=boot(store);
+ app.element('continue').click();
+ const Story=app.context.VeilpointStorySlice;
+ const state=Story.createState();
+ state.world.player.x=Story.POINTS.terminal.x;
+ state.world.player.z=Story.POINTS.terminal.z+1;
+ const saved=Story.serialize(state);
+ store.set('veilpoint.story.ch01',saved);
+ const resumed=boot(store);
+ resumed.element('continue').click();
+ assert.match(resumed.element('interaction').textContent,/\[T\]/);
+ assert.doesNotMatch(resumed.element('interaction').textContent,/\[E\]/);
+ resumed.emit('keydown',{code:'KeyE'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'terminal');
+ resumed.emit('keydown',{code:'KeyT'});
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'engagement');
+});
