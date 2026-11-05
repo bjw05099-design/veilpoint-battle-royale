@@ -120,6 +120,21 @@
           checkpointInvalidStored=true;
           return recovered.state;
         }
+        // A storage shim or extension may acknowledge a write and silently
+        // discard/replace it. The recovered world is only durable after the
+        // EXACT v2 backup bytes survive a fresh read, and the backup has not
+        // been rotated by a second tab during promotion. A failed verification
+        // must never turn an invalid primary into permission to autosave.
+        try{
+          if(global.localStorage.getItem(SAVE_KEY)!==backup||
+             global.localStorage.getItem(BACKUP_KEY)!==backup){
+            checkpointInvalidStored=true;
+            return recovered.state;
+          }
+        }catch(_){
+          checkpointReadUnavailable=true;
+          return recovered.state;
+        }
       }
       return recovered.state;
     }catch(_){
