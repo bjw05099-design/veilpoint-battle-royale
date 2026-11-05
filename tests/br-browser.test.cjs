@@ -1360,3 +1360,60 @@ test('BR still restores a validated backup when newest checkpoint is malformed',
  assert.equal(reopened.game.seed,JSON.parse(backup).seed);
  assert.notEqual(store.get(key),'{interrupted-save','valid backup can safely repair primary');
 });
+
+
+test('BR old active Windows tab New Match cannot delete newer tab checkpoint or field bookmark',()=>{
+ const key='veilpoint.brCheckpoint.v1',backup=key+'.previous';
+ const store=new Map();
+ const first=boot({store,windows:true});
+ first.node('play').click();first.frame(1000/60);
+ const oldRaw=store.get(key);
+ assert.ok(oldRaw);
+ const newer=boot({store,windows:true});
+ newer.node('play').click();
+ newer.emit('keydown',{code:'KeyW'});
+ newer.frame(1000/60);newer.frame(2000/60);
+ newer.emit('keyup',{code:'KeyW'});
+ newer.emit('blur');
+ const latest=store.get(key);
+ assert.ok(latest);assert.notEqual(latest,oldRaw,
+   'newer PC session must write a different valid 60Hz world generation');
+ const previous=store.get(backup);
+ store.set('veilpoint.brFieldBookmark.v1','newer-tab-bookmark');
+ store.set('veilpoint.brLastResult.v1','newer-tab-last-result');
+ first.node('newMatch').click();
+ assert.equal(first.game.status,'playing');
+ assert.match(first.game.message,/OTHER PC TAB UPDATED.*MEMORY-ONLY MATCH/,
+   'older tab must clearly identify the protected temporary BR session');
+ assert.equal(store.get(key),latest,'older tab must not delete newer saved round');
+ assert.equal(store.get(backup),previous,'older tab must not invalidate backup');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),'newer-tab-bookmark');
+ assert.equal(store.get('veilpoint.brLastResult.v1'),'newer-tab-last-result');
+ first.frame(2000/60);first.emit('blur');
+ assert.equal(store.get(key),latest,'temporary round cannot auto-save over another tab');
+ const reload=boot({store,windows:true});
+ reload.node('play').click();reload.frame(1000/60);
+ assert.equal(reload.game.seed,JSON.parse(latest).seed,
+   'a fresh Windows tab still restores the protected arena');
+});
+
+test('BR stale startup menu New Match preserves unseen valid round, fresh menu may explicitly reset',()=>{
+ const key='veilpoint.brCheckpoint.v1',store=new Map();
+ const initial=boot({store,windows:true});
+ initial.node('play').click();initial.frame(1000/60);initial.emit('blur');
+ const menu=boot({store,windows:true});
+ const other=boot({store,windows:true});
+ other.node('play').click();
+ other.emit('keydown',{code:'KeyW'});
+ other.frame(1000/60);other.frame(2000/60);
+ other.emit('keyup',{code:'KeyW'});other.emit('blur');
+ const latest=store.get(key);
+ menu.node('newMatch').click();menu.frame(1000/60);
+ assert.match(menu.game.message,/MEMORY-ONLY MATCH/);
+ assert.equal(store.get(key),latest);
+ const fresh=boot({store,windows:true});
+ fresh.node('newMatch').click();fresh.frame(1000/60);
+ assert.equal(fresh.game.status,'playing');
+ assert.notEqual(store.get(key),latest,
+   'user with current validated generation can still explicitly start a new durable round');
+});
