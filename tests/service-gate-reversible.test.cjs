@@ -46,6 +46,6 @@ test('half-closed gate restores deterministic 60Hz movement and legacy gate save
 test('BR desktop gate prompt offers close interaction',()=>{
  const fs=require('node:fs');
  const app=fs.readFileSync(require('node:path').resolve(__dirname,'../src/app.js'),'utf8');
- assert.match(app,/\[E\] CLOSE GATE/);
+ assert.match(app,/interactPrompt\+' CLOSE GATE'/);
  assert.match(app,/SERVICE YARD GATE CLOSING/);
 });
