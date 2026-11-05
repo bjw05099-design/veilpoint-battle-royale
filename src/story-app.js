@@ -287,6 +287,9 @@
       :canVerify?'기록 2/2: 항구 04:12 · 대피소 04:07. 두 경로 모두 선택할 수 있습니다.'
       :'기록 '+state.found.length+'/2: 대피 우선은 즉시 선택 가능하며, 추가 확인 경로는 기록 2개가 필요합니다.';
     if(document.pointerLockElement===canvas)document.exitPointerLock();
+    // Keyboard focus belongs to the visible decision dialog, not the hidden
+    // movement canvas. Number shortcuts still work while a choice has focus.
+    $('choiceEvac').focus();
     updateHud();
   }
   function decide(option){
@@ -372,18 +375,22 @@
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
      if(Desktop.isGameplayShortcut(e)){clearInput();return;}
-    // Focused menu and settings controls own their keyboard events.
+    // Route-choice keys are owned by the visible dialog, even when the
+    // focused target is one of its accessible buttons. Previously the generic
+    // focused-button guard swallowed all three actions.
+    if(!choices.classList.contains('hidden')){
+      if(e.repeat)return; // One physical key press selects at most one branch.
+      if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
+      else if(e.code==='Digit2'){e.preventDefault();decide('verification');}
+      else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
+      return;
+    }
+    // The main menu, graphics controls and focused form fields retain
+    // their native keyboard behavior; they cannot trigger gameplay actions.
     if(Desktop.isInteractiveTarget(e.target))return;
     const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
     // Do not let OS key-repeat frequency decide finite shots or one-shot actions.
-    // A future held-fire mode belongs in the deterministic 60Hz simulation.
     if(e.repeat){if(repeatAction)e.preventDefault();return;}
-    if(choices.classList.contains('hidden')===false){
-      if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
-      if(e.code==='Digit2'){e.preventDefault();decide('verification');}
-      if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
-      return;
-    }
     if(e.code==='Escape'){
       e.preventDefault();
       if(e.repeat)return;
