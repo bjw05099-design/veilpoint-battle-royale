@@ -432,6 +432,21 @@ function requestAimLock(){
 }
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false){
  if(graphicsContextLost||!renderer)return;
+ // A stale Windows BR tab may request New Match while another tab already
+ // committed a newer VALID match. Never erase that tab's checkpoint, backup,
+ // field bookmark or debrief. The older tab can play a fresh isolated round.
+ // Explicit reset of corrupt or externally removed saves remains available.
+ let newerMatchProtected=false;
+ if(!offlineOnly){
+  try{
+   const current=global.localStorage.getItem(MATCH_SAVE_KEY)||null;
+   if(current!==(matchDiskGeneration||null)&&current){
+    try{Game.restoreMatch(current);newerMatchProtected=true;}
+    catch(_){} // Explicit New Match may discard an invalid old primary.
+   }
+  }catch(_){newerMatchProtected=true;}
+  if(newerMatchProtected)offlineOnly=true;
+ }
  // Storage access may fail temporarily. Keep all existing disk generations
  // untouched while allowing a separate memory-only local PC match.
  if(!offlineOnly){clearStoredMatch();clearFieldBookmark(true);clearLastResult();checkpointInvalidStored=false;}
@@ -452,7 +467,9 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  Desktop.focusGameplay(document,canvas);
  requestAimLock();
  if(memoryOnlyMatch){
-  simulation.message='OFFLINE MEMORY-ONLY MATCH · SAVED ROUND KEPT';
+  simulation.message=newerMatchProtected
+   ?'OTHER PC TAB UPDATED THE SAVE · MEMORY-ONLY MATCH · NEWER ROUND PRESERVED'
+   :'OFFLINE MEMORY-ONLY MATCH · SAVED ROUND KEPT';
   simulation.messageTime=6;
  }else persistMatch();
 }
