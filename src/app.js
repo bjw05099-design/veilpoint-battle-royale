@@ -279,6 +279,9 @@ function persistMatch(){
 let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyMatch=false;
 function storedMatch(){
  let primary=null,backup=null;
+ // A new menu invocation can retry a prior denied backup promotion. Only this
+ // explicit fresh read may exit the earlier temporary memory-only session.
+ memoryOnlyMatch=false;
  try{
   primary=global.localStorage.getItem(MATCH_SAVE_KEY);
   backup=global.localStorage.getItem(MATCH_BACKUP_KEY);
@@ -289,9 +292,35 @@ function storedMatch(){
   const result=Game.recoverMatch(primary,backup);
   if(!result)return null;
   if(result.source==='backup'){
-   // Repair the primary if possible, but never treat a failed write as done.
+   let current;
+   try{current=global.localStorage.getItem(MATCH_SAVE_KEY);}
+   catch(_){
+    // The validated backup is still playable, but must not risk a blind
+    // overwrite while access to disk generations is unavailable.
+    checkpointReadUnavailable=true;memoryOnlyMatch=true;
+    return result.state;
+   }
+   if(current!==primary){
+    // Another PC tab saved or deleted a new primary during validation.
+    // Never promote our older backup across that newer generation.
+    try{
+     const latest=Game.restoreMatch(current);
+     matchDiskGeneration=current;
+     return latest;
+    }catch(_){
+     checkpointInvalidStored=true;memoryOnlyMatch=true;
+     return result.state;
+    }
+   }
    matchDiskGeneration=primary||null;
-   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);matchDiskGeneration=backup||null;}catch(_){}
+   try{
+    global.localStorage.setItem(MATCH_SAVE_KEY,backup);
+    matchDiskGeneration=backup||null;
+   }catch(_){
+    // An unpersisted promotion cannot auto-save over a corrupt primary.
+    // Preserve both disk slots and play this validated recovery in memory.
+    checkpointInvalidStored=true;memoryOnlyMatch=true;
+   }
   }else matchDiskGeneration=primary||null;
   return result.state;
  }catch(_){
@@ -405,7 +434,11 @@ function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
- running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=null;bookmarkIssue=null;lastSavedHealth=simulation.player.health;
+ running=true;suspended=false;saveWarning=memoryOnlyMatch;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=memoryOnlyMatch?'write-failed':null;bookmarkIssue=null;lastSavedHealth=simulation.player.health;
+ if(memoryOnlyMatch){
+  simulation.message='OFFLINE BACKUP RECOVERED · MEMORY ONLY · PREVIOUS DISK RECORD PRESERVED';
+  simulation.messageTime=6;
+ }
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
