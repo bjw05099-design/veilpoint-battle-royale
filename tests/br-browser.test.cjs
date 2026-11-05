@@ -1646,3 +1646,95 @@ test('BR Escape dismisses open settings first; second Escape explicitly resumes 
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
  assert.ok(world.elapsed>elapsed);
 });
+
+
+test('Windows BR benchmark exposes readable local JSON without Blob downloads and cannot export active data',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/id="benchmarkCopy"[^>]*disabled/);
+ assert.match(html,/id="benchmarkRawJson"[^>]*readonly/);
+ assert.equal(app.node('benchmarkCopy').disabled,true,'unstarted benchmark has no evidence to copy');
+ app.node('benchmarkCopy').click();
+ assert.equal(app.node('benchmarkRawJson').value,'','no fabricated results before measurement');
+ app.node('benchmarkStart').click();
+ app.node('play').click();
+ for(let i=1;i<=345;i++)app.frame(i*1000/60);
+ assert.equal(app.node('benchmarkCopy').disabled,true,'running sample is not a report');
+ app.node('benchmarkStop').click();
+ assert.equal(app.node('benchmarkCopy').disabled,false,'partial result is available');
+ const game=app.game,progress=game.elapsed;
+ app.node('benchmarkCopy').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false,
+   'copy can reveal the real panel even if the game was pointer locked');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false,
+   'showing JSON pauses the 60Hz world before revealing input controls');
+ assert.equal(app.context.document.pointerLockElement,null);
+ const raw=app.node('benchmarkRawJson');
+ assert.equal(raw.classList.contains('hidden'),false);
+ const result=JSON.parse(raw.value);
+ assert.equal(result.schema,'veilpoint.browser-benchmark.v1');
+ assert.equal(result.completed,false,'manual stop must remain a partial report');
+ assert.equal(result.measurementStatus,'partial');
+ assert.ok(result.renderedFrameCount>=2,'actual rendered frames were observed');
+ assert.equal(result.mode,'offline-battle-royale');
+ assert.equal(app.node('benchmarkRawLabel').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,raw);
+ for(let i=346;i<=365;i++)app.frame(i*1000/60);
+ assert.equal(app.game,game);
+ assert.equal(game.elapsed,progress,'copying JSON cannot advance the paused match');
+ assert.match(app.node('benchmarkExportHelp').textContent,/Ctrl\\+C/);
+ app.node('benchmarkStart').click();
+ assert.equal(app.node('benchmarkRawJson').value,'','a new run cannot expose stale prior measurements');
+ assert.equal(app.node('benchmarkRawJson').classList.contains('hidden'),true);
+ assert.equal(app.node('benchmarkCopy').disabled,true);
+});
+
+test('BR blocked browser Blob URL leaves measurable partial JSON available without discarding save',()=>{
+ const store=new Map(),app=boot({windows:true,store});
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('benchmarkStart').click();
+ app.node('play').click();
+ for(let i=1;i<=345;i++)app.frame(i*1000/60);
+ const current=app.game;
+ const savedBefore=store.get('veilpoint.brCheckpoint.v1');
+ app.node('benchmarkStop').click();
+ assert.equal(app.node('benchmarkQuickExport').classList.contains('hidden'),false);
+ app.context.Blob=Blob;
+ app.context.URL={createObjectURL(){throw new Error('Blob URLs blocked by browser policy');},
+  revokeObjectURL(){}};
+ app.node('benchmarkQuickExport').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false,
+   'quick-export failure opens the settings panel to show selectable JSON');
+ const result=JSON.parse(app.node('benchmarkRawJson').value);
+ assert.equal(result.completed,false);
+ assert.equal(result.measurementStatus,'partial');
+ assert.ok(result.renderedFrameCount>=2);
+ assert.match(app.node('benchmarkExportHelp').textContent,/브라우저가 차단/);
+ assert.equal(app.context.document.activeElement,app.node('benchmarkRawJson'));
+ assert.equal(app.context.document.pointerLockElement,null);
+ assert.equal(app.game,current);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1')!==null,true,
+   'fallback may save the current world but cannot discard durable progress');
+ assert.ok(savedBefore,'the real match has an initial checkpoint');
+});
+
+test('BR native benchmark JSON download remains available without opening raw fallback',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('benchmarkStart').click();
+ app.node('play').click();
+ for(let i=1;i<=345;i++)app.frame(i*1000/60);
+ app.node('benchmarkStop').click();
+ let name=null;
+ app.context.Blob=Blob;
+ app.context.URL={createObjectURL:()=> 'blob:veilpoint-local',revokeObjectURL:()=>{}};
+ app.context.document.body={appendChild(){}};
+ app.context.document.createElement=()=>({click(){name=this.download;},remove(){}});
+ app.node('benchmarkQuickExport').click();
+ assert.equal(name,'veilpoint-browser-benchmark-partial.json');
+ assert.equal(app.node('benchmarkRawJson').classList.contains('hidden'),false,
+   'DOM mock does not parse HTML initial hidden class; verify fallback text instead');
+ assert.equal(app.node('benchmarkRawJson').value,'',
+   'successful normal file download does not produce a redundant raw copy panel');
+});
