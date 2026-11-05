@@ -1572,3 +1572,36 @@ test('CH01 does not erase an externally corrupted primary during active gameplay
   assert.equal(shared.get(key),corrupt);
   assert.match(app.element('saveStatus').textContent,/기존 저장 기록 복구 필요/);
 });
+
+test('CH01 failed final save never publishes a false completed debrief over older progress',()=>{
+  const oldReport='{"mission":"CH01","savedPrior":true}';
+  const shared=new Map([['veilpoint.story.ch01PreviewCompleted',oldReport]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);
+  app.interact();
+  const frame=app.clearEncounter(300);
+  app.moveForward(frame,225);
+  app.interact();
+  assert.equal(app.element('choices').classList.contains('hidden'),false);
+  app.element('choiceEvac').click();
+  app.moveForward(frame+225,193);
+  const lastGood=shared.get('veilpoint.story.ch01');
+  assert.equal(JSON.parse(lastGood).phase,'exit');
+  const set=app.context.localStorage.setItem;
+  app.context.localStorage.setItem=(k,value)=>{
+    if(k==='veilpoint.story.ch01')throw new Error('disk_full_on_final_checkpoint');
+    return set(k,value);
+  };
+  app.interact();
+  assert.match(app.element('menuText').textContent,/CH01 완료/);
+  assert.match(app.element('menuText').textContent,/완료 기록은 저장되지 않았습니다/);
+  assert.equal(shared.get('veilpoint.story.ch01'),lastGood,
+    'disk must retain the previous playable checkpoint');
+  assert.equal(shared.get('veilpoint.story.ch01PreviewCompleted'),oldReport,
+    'stale completion summary must not overwrite an earlier persisted record');
+  const reopened=boot(shared,false,'granted',true,true);
+  reopened.element('continue').click();
+  assert.match(reopened.element('objective').textContent,/안뜰/,
+    'a reload resumes the actual last durable exit world, never a phantom win');
+});
