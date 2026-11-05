@@ -331,7 +331,7 @@
         // metres away from a player who is only a few metres across the wall.
         // This relative bound is recalculated from live poses at each 60Hz tick.
         const direct=Math.hypot(guide.x-player.x,guide.z-player.z);
-        if(next>Math.min(36,direct+7)||next>=cost[i]-1e-8)continue;
+        if(next>Math.min(36,direct+12)||next>=cost[i]-1e-8)continue;
         cost[i]=next;previous[i]=current;
       }
     }
@@ -395,12 +395,14 @@
     // knowledge is used to manufacture an arrival.
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(range>1.7&&range<7){
-        // Body-width clearance matters: centre-point sight alone can
-        // look clear even though the standing civilian cannot pass.
+      if(range>1.7&&range<11){
+        // The guide may briefly need more than the ordinary 7m follow radius
+        // to walk around a tall, solid obstacle. This only permits local
+        // physical detours when the collision corridor is actually blocked;
+        // an unobstructed guide beyond 7m continues waiting for the player.
         const blocked=guideBodyPathBlocked(g,p,state.world.obstacles);
         const detour=blocked?guideDetour(state,g,p):null;
-        const target=blocked?detour:p;
+        const target=blocked?detour:(range<7?p:null);
         if(target){
           const vx=target.x-g.x,vz=target.z-g.z;
           const length=Math.hypot(vx,vz);
@@ -856,7 +858,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
+      guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=11?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 가까이 돌아와주세요':'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
