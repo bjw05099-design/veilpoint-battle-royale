@@ -13,7 +13,8 @@ AVPCharacter::AVPCharacter()
 {
     bReplicates = true;
     SetReplicateMovement(true);
-    PrimaryActorTick.bCanEverTick = false;
+    // Stamina is advanced at 60Hz regardless of monitor/render FPS.
+    PrimaryActorTick.bCanEverTick = true;
     GetCharacterMovement()->MaxWalkSpeed = 490.f;
     GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
     BodyCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("BodyCamera"));
@@ -31,6 +32,8 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, Shield);
     DOREPLIFETIME(AVPCharacter, Charges);
     DOREPLIFETIME(AVPCharacter, bEliminated);
+    DOREPLIFETIME(AVPCharacter, Stamina);
+    DOREPLIFETIME(AVPCharacter, bSprinting);
 }
 void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -56,8 +59,66 @@ void AVPCharacter::MoveRight(float Value)
 }
 void AVPCharacter::LookUp(float Value) { if (IsAlive()) AddControllerPitchInput(Value); }
 void AVPCharacter::Turn(float Value) { if (IsAlive()) AddControllerYawInput(Value); }
-void AVPCharacter::BeginSprint() { GetCharacterMovement()->MaxWalkSpeed = 720.f; }
-void AVPCharacter::EndSprint() { GetCharacterMovement()->MaxWalkSpeed = 490.f; }
+void AVPCharacter::BeginSprint()
+{
+    if (!IsAlive()) return;
+    bSprintHeld = true;
+    if (!HasAuthority()) ServerSetSprintHeld(true);
+}
+void AVPCharacter::EndSprint()
+{
+    bSprintHeld = false;
+    if (!HasAuthority()) ServerSetSprintHeld(false);
+    // Local release must not wait for a network roundtrip.
+    if (bSprinting) { bSprinting = false; ApplySprintSpeed(); }
+}
+void AVPCharacter::ServerSetSprintHeld_Implementation(bool bHeld)
+{
+    // Client requests intent only. Server stamina/crouch/velocity determines
+    // whether any speed increase is authorized.
+    bSprintHeld = bHeld && IsAlive();
+}
+void AVPCharacter::OnRep_SprintState() { ApplySprintSpeed(); }
+void AVPCharacter::ApplySprintSpeed()
+{
+    GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
+}
+void AVPCharacter::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (!HasAuthority() || !IsAlive()) return;
+    constexpr float FixedStep = 1.f / 60.f;
+    constexpr int32 MaxSteps = 8;
+    // A stalled window may not simulate unbounded catch-up; the server's
+    // physical time budget and rendered frames remain separate.
+    SprintAccumulator = FMath::Min(SprintAccumulator + FMath::Clamp(DeltaSeconds, 0.f, .25f),
+                                  FixedStep * MaxSteps);
+    for (int32 StepIndex = 0; StepIndex < MaxSteps && SprintAccumulator + 1.e-6f >= FixedStep; ++StepIndex)
+    {
+        UpdateSprintFixedStep(FixedStep);
+        SprintAccumulator = FMath::Max(0.f, SprintAccumulator - FixedStep);
+    }
+}
+void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
+{
+    const bool bMoving = GetVelocity().SizeSquared2D() > FMath::Square(30.f);
+    if (bSprintExhausted && Stamina >= 25.f) bSprintExhausted = false;
+    const bool bCanSprint = bSprintHeld && !bIsCrouched && bMoving &&
+                            !bSprintExhausted && Stamina > 0.f;
+    if (bCanSprint)
+    {
+        Stamina = FMath::Max(0.f, Stamina - 20.f * FixedSeconds);
+        if (Stamina <= 1.e-6f) bSprintExhausted = true;
+    }
+    else Stamina = FMath::Min(100.f, Stamina + 13.f * FixedSeconds);
+    const bool bNowSprinting = bCanSprint && !bSprintExhausted;
+    if (bSprinting != bNowSprinting)
+    {
+        bSprinting = bNowSprinting;
+        ApplySprintSpeed();
+    }
+}
+
 void AVPCharacter::BeginCrouch() { Crouch(); }
 void AVPCharacter::EndCrouch() { UnCrouch(); }
 
@@ -71,6 +132,9 @@ float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AContr
     if (Health <= 0.f)
     {
         bEliminated = true;
+        bSprintHeld = false;
+        bSprinting = false;
+        ApplySprintSpeed();
         GetCharacterMovement()->DisableMovement();
     }
     return Amount;
