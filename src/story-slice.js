@@ -305,6 +305,21 @@
     state.world.loot=markers(state).map((p,i)=>({id:i,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
+  function refreshEscortWorldMarker(state) {
+    // Story.markers() already follows the live guide, but the 3D world keeps
+    // a separate list of renderable marker positions. Without a refresh, the
+    // guide's old E marker can remain behind at muster or appear beyond sight.
+    // Rebuild ONLY when the observed moving marker changes; do not allocate
+    // static scenery markers on every idle 60Hz tick.
+    if(state.phase!=='exit'||state.choice!=='evacuation'||!state.guide.active)return;
+    const live=markers(state),rendered=state.world.loot;
+    const guideIndex=live.findIndex(m=>m.id==='guideControl');
+    if(!Array.isArray(rendered)||rendered.length!==live.length||
+       (guideIndex>=0&&(!rendered[guideIndex]||
+         rendered[guideIndex].x!==state.guide.x||
+         rendered[guideIndex].z!==state.guide.z)))
+      syncMarkers(state);
+  }
   function actorBlockers(state,except=null) {
     // Temporary AABB proxies keep the first-person controller from passing through
     // standing opponents. Ignore already-overlapping actors so legacy saves can escape.
@@ -535,6 +550,10 @@
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
       }
     }
+    // Keep physical 3D E markers aligned with the actual guide location and
+    // remove them as soon as the player loses direct observation. The mission
+    // state and checkpoint schema are unchanged.
+    refreshEscortWorldMarker(state);
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
     // shot/impact visuals and damage feedback here, or they persist indefinitely.
     state.world.damageFlash=Math.max(0,state.world.damageFlash-t*2.4);
