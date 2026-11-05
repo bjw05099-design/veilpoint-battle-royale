@@ -2184,8 +2184,8 @@ test('Windows CH01 Save & Exit verifies a durable paused checkpoint before navig
   'Save & Exit cannot be used before a playable mission begins');
  app.element('continue').click();
  app.moveForward(0,145);
- const elapsed=Story.restore(shared.get(key)).world.elapsed;
  app.element('pauseButton').click();
+ const elapsed=Story.restore(shared.get(key)).world.elapsed;
  assert.equal(app.element('menu').classList.contains('hidden'),false);
  assert.equal(app.element('saveExit').classList.contains('hidden'),false);
  assert.equal(app.context.document.activeElement,app.element('continue'),
@@ -2209,8 +2209,9 @@ test('Windows CH01 Save & Exit refuses disk write denial without leaving or losi
  const Story=require('../src/story-slice.js'),key='veilpoint.story.ch01';
  const shared=new Map(),app=boot(shared,false,'granted',true,true);
  app.element('continue').click();
- app.moveForward(0,115);
+ app.moveForward(0,360);
  const lastValid=shared.get(key),writer=shared.set.bind(shared);
+ assert.ok(lastValid,'five-second automatic checkpoint exists before storage denial');
  let failures=0;
  shared.set=(name,value)=>{
   if(name===key){failures++;throw new Error('quota exhausted');}
