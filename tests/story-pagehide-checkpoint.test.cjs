@@ -14,8 +14,8 @@ test('CH01 closes active nonterminal mission through validated checkpoint writer
    'one pagehide listener must own the save and pause transition');
  assert.ok(segment.indexOf("persist('종료 직전 저장')")<segment.indexOf('running=false;'),
    'pagehide must write the live world before clearing running state');
- assert.doesNotMatch(segment,/menuOpen\(/,
-   'page unload must not attempt to open and focus a menu');
+ assert.ok(segment.indexOf("persist('종료 직전 저장')")<segment.indexOf("menuOpen("),
+   'the original PC resume menu must be shown only after a save attempt');
 });
 test('CH01 bfcache restoration requires explicit mouse reacquisition, never advances fixed-step',()=>{
  assert.match(segment,/global\.addEventListener\('pageshow',event=>\{/);
