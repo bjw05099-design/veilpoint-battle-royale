@@ -15,15 +15,20 @@ function waitingEscort(playerX=2.5,playerZ=-61,guideX=0,guideZ=-61){
   return state;
 }
 
-test('waiting escort at physical courtyard completes after a 60Hz step',()=>{
+test('courtyard E resumes nearby waiting guide; next 60Hz step verifies true arrival',()=>{
   const state=waitingEscort();
   const before={x:state.guide.x,z:state.guide.z};
   Story.step(state,1/60,{});
-  assert.deepEqual([state.guide.x,state.guide.z],[before.x,before.z]);
-  assert.equal(state.guide.arrived,true);
+  assert.equal(state.guide.arrived,false,'explicit hold remains until local E press');
+  const action=Story.interact(state);
+  assert.equal(action.ok,true);
+  assert.equal(action.event,'guide_resume_at_exit');
   assert.equal(state.guide.waiting,false);
+  assert.equal(state.guide.arrived,false,'keypress itself must not grant completion');
+  assert.deepEqual([state.guide.x,state.guide.z],[before.x,before.z]);
+  Story.step(state,1/60,{});
+  assert.equal(state.guide.arrived,true);
   assert.match(state.message,/안뜰 도착/);
-  assert.equal(state.world.status,'playing');
   const persisted=Story.serialize(state);
   const resumed=Story.restore(persisted);
   assert.equal(resumed.guide.arrived,true);
@@ -34,30 +39,42 @@ test('waiting escort at physical courtyard completes after a 60Hz step',()=>{
   assert.equal(resumed.world.status,'won');
 });
 
-test('waiting guide outside courtyard does not teleport, move or certify arrival',()=>{
+test('waiting guide far from courtyard never resumes or completes remotely',()=>{
   const state=waitingEscort(0,-61,-10.5,-55);
-  const old={...state.guide};
+  const before={...state.guide};
   Story.step(state,1/60,{});
-  assert.deepEqual(state.guide,old);
+  assert.deepEqual(state.guide,before);
   assert.equal(Story.nearest(state)?.id,'exitEvac');
   const result=Story.interact(state);
   assert.equal(result.ok,false);
   assert.equal(result.reason,'guide_not_arrived');
+  assert.equal(state.guide.waiting,true);
   assert.equal(state.phase,'exit');
   assert.equal(Story.restore(Story.serialize(state)).guide.waiting,true);
 });
 
-test('courtyard guide alone is not an arrival until captain is there too',()=>{
-  const state=waitingEscort(-10.5,-55,0,-61);
-  Story.step(state,1/60,{});
+test('no E interaction with courtyard guide outside direct local reach',()=>{
+  const state=waitingEscort(3.8,-61,0,-61);
+  assert.equal(Story.nearest(state)?.id,'exitEvac');
+  assert.equal(Story.interact(state).reason,'guide_not_arrived');
   assert.equal(state.guide.waiting,true);
   assert.equal(state.guide.arrived,false);
 });
 
-test('zero and invalid time steps never certify a waiting escort arrival',()=>{
+test('courtyard E does not resume escort through a solid intervening wall',()=>{
+  const state=waitingEscort(2.5,-61,0,-61);
+  state.world.obstacles.push({x:1.25,z:-61,w:.6,d:4,type:'story-container'});
+  assert.notEqual(Story.interact(state).event,'guide_resume_at_exit');
+  assert.equal(state.guide.waiting,true);
+  assert.equal(state.guide.arrived,false);
+});
+
+test('paused and nonfinite simulation frames never grant arrival after local resume',()=>{
   const state=waitingEscort();
+  assert.equal(Story.interact(state).event,'guide_resume_at_exit');
   for(const dt of [0,-1,NaN,Infinity])Story.step(state,dt,{});
   assert.equal(state.guide.arrived,false);
-  assert.equal(state.guide.waiting,true);
   assert.equal(state.world.elapsed,0);
+  Story.step(state,1/60,{});
+  assert.equal(state.guide.arrived,true);
 });
