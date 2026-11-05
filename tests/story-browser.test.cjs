@@ -1429,3 +1429,52 @@ test('CH01 a temporary session cannot publish a completed preview over an earlie
   assert.match(source,/if\(!memoryOnlyStory&&loaded&&loaded\.phase==='complete'\)/);
   assert.match(source,/if\(fromCheckpoint\)/);
 });
+
+function enterPCStoryDecision(app){
+  app.element('continue').click();
+  app.moveForward(0,300);
+  app.interact();
+  const frame=app.clearEncounter(300);
+  app.moveForward(frame,225);
+  app.interact();
+  assert.equal(app.element('choices').classList.contains('hidden'),false,
+    'the story decision must be reached through the actual 60Hz PC controller');
+}
+
+test('CH01 PC focused decision buttons accept Digit1 and reject locked Digit2 without a softlock',()=>{
+  const app=boot(new Map(),false,'granted',true,true);
+  enterPCStoryDecision(app);
+  const choice=app.element('choiceEvac');
+  assert.equal(app.context.document.activeElement,choice,
+    'the decision screen must move keyboard focus from the hidden world to a visible action');
+  app.emit('keydown',{code:'Digit2',target:choice});
+  assert.equal(app.element('choices').classList.contains('hidden'),false,
+    'the unearned alternate route cannot be selected with a shortcut');
+  assert.match(app.element('choiceHint').textContent,/경로를 변경할 수 없습니다/);
+  app.emit('keydown',{code:'Digit1',repeat:true,target:choice});
+  assert.equal(app.element('choices').classList.contains('hidden'),false,
+    'OS repeat cannot silently select a narrative branch');
+  app.emit('keydown',{code:'Digit1',target:choice});
+  assert.equal(app.element('choices').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/안뜰/);
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).choice,'evacuation');
+  assert.equal(app.context.document.activeElement,app.element('scene'),
+    'physical gameplay resumes with keyboard focus on the scene');
+});
+
+test('CH01 PC Escape cancels a focused route dialog without changing story branch',()=>{
+  const app=boot(new Map(),false,'granted',true,true);
+  enterPCStoryDecision(app);
+  const back=app.element('choiceBack');
+  back.focus();
+  app.emit('keydown',{code:'Escape',target:back});
+  assert.equal(app.element('choices').classList.contains('hidden'),true);
+  assert.match(app.element('objective').textContent,/기록/,
+    'Escape returns to physical investigation instead of choosing a route');
+  const saved=JSON.parse(app.store.get('veilpoint.story.ch01'));
+  assert.equal(saved.choice,null);
+  assert.equal(app.context.document.activeElement,app.element('scene'));
+  // Unfocused graphics controls must still own their own keys outside choices.
+  app.emit('keydown',{code:'Digit1',target:app.element('quality')});
+  assert.match(app.element('objective').textContent,/기록/);
+});
