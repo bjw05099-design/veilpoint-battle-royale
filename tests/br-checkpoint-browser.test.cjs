@@ -895,3 +895,54 @@ test('BR remapped PC T pickup prompt matches actual resource interaction and per
  assert.ok(game.player.charges>ammo,'bound T collects a finite nearby resource');
  assert.equal(JSON.parse(store.get(KEY)).player.charges,game.player.charges);
 });
+
+
+test('BR backup promotion cannot overwrite a newer PC tab checkpoint during recovery',()=>{
+ const Game=require('../src/simulation.js');
+ const backupWorld=Game.newMatch(20261105,1);backupWorld.status='playing';
+ const newerWorld=Game.newMatch(20261106,1);newerWorld.status='playing';
+ const backup=Game.snapshotMatch(backupWorld),newer=Game.snapshotMatch(newerWorld);
+ const backupKey=KEY+'.previous',store=new Map([[KEY,'{truncated-save'],[backupKey,backup]]);
+ const read=store.get.bind(store);
+ let reads=0;
+ store.get=(key)=>{
+  if(key===KEY&&++reads===2)store.set(KEY,newer);
+  return read(key);
+ };
+ const app=boot(store);
+ assert.ok(reads>=2);
+ assert.equal(store.get(KEY),newer,'validated backup must never erase another tab latest primary');
+ assert.equal(store.get(backupKey),backup,'older valid backup is preserved');
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.seed,20261106,'Continue resumes the newer validated world');
+ assert.equal(app.game.status,'playing');
+ assert.equal(store.get(KEY),newer);
+});
+
+test('BR failed backup repair preserves both disk generations and gives playable memory-only resume',()=>{
+ const Game=require('../src/simulation.js');
+ const world=Game.newMatch(20261107,1);world.status='playing';
+ const backup=Game.snapshotMatch(world),corrupt='{partial';
+ const backupKey=KEY+'.previous',store=new Map([[KEY,corrupt],[backupKey,backup],
+  ['veilpoint.story.ch01','independent-story']]);
+ const write=store.set.bind(store);
+ let failed=0;
+ store.set=(key,val)=>{
+  if(key===KEY){failed++;throw new Error('quota temporarily denied');}
+  return write(key,val);
+ };
+ const app=boot(store);assert.ok(failed>=1);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.seed,20261107);
+ assert.match(app.game.message,/MEMORY ONLY/,'resumed game visibly discloses non-durable state');
+ app.emit('blur');
+ assert.equal(store.get(KEY),corrupt,'original primary cannot be erased by autosave');
+ assert.equal(store.get(backupKey),backup,'validated backup remains recoverable');
+ assert.equal(store.get('veilpoint.story.ch01'),'independent-story');
+ store.set=write;
+ const reload=boot(store);
+ assert.equal(store.get(KEY),backup,'later retry promotes the validated backup');
+ reload.node('play').click();reload.frame(1000/60);
+ assert.equal(reload.game.seed,20261107);
+ assert.equal(reload.game.status,'playing');
+});
