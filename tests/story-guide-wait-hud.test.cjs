@@ -66,3 +66,30 @@ test('CH01 fixed-step waiting guide HUD and interaction target survive checkpoin
   assert.equal(reloaded.guide.waiting,false);
   assert.doesNotMatch(story.situation(reloaded).guideStatus,/현장 대기/);
 });
+
+test('CH01 following guide HUD only offers real PC E hold or staffed handoff within reach',()=>{
+ const s=reachEscort();
+ s.guide.waiting=false;
+ s.world.player.x=s.guide.x-1;s.world.player.z=s.guide.z;
+ assert.equal(story.nearest(s)?.id,'guideControl');
+ assert.match(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ const saved=story.serialize(s);
+ const restored=story.restore(saved);
+ assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
+ assert.equal(story.serialize(restored),saved,
+   'HUD logic cannot mutate 60Hz checkpoint bytes');
+ s.world.player.x=s.guide.x+0.8;
+ assert.equal(story.nearest(s)?.id,'guideRelease');
+ assert.match(story.situation(s).guideStatus,/E로.*인계 가능/);
+ assert.doesNotMatch(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ s.world.player.x=s.guide.x-3;
+ assert.equal(story.nearest(s),null);
+ assert.notEqual(story.situation(s).visibleEscortDistance,null,
+   'guide is visible but outside direct action reach');
+ assert.match(story.situation(s).guideStatus,/다가가/);
+ assert.doesNotMatch(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ s.world.player.x=s.guide.x-1;
+ assert.equal(story.interact(s).event,'guideControl');
+ assert.equal(s.guide.waiting,true);
+ assert.match(story.situation(s).guideStatus,/E로 재개 가능/);
+});
