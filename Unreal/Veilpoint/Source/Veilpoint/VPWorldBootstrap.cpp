@@ -30,6 +30,11 @@ AVPWorldBootstrap::AVPWorldBootstrap()
     }
     Ground->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     Buildings->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    // Resource visibility must follow the same solid building and terrain
+    // that block movement. Instance meshes do not inherit a universal
+    // visibility response from EnableCollision alone on custom assets.
+    Ground->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
+    Buildings->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
     Vegetation->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 void AVPWorldBootstrap::AddBlock(UInstancedStaticMeshComponent* Comp,FVector Position,FVector Scale)
