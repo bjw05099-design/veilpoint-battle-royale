@@ -20,6 +20,9 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
+  // Primary generation last observed by this PC session. An older browser tab
+  // cannot silently overwrite a newer save created by another live tab.
+  let diskGeneration=null;
   // N cycles only already-published mission markers; it never reveals hidden actors.
   let guidanceId=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
@@ -115,6 +118,8 @@
     let previous;
     try{previous=global.localStorage.getItem(SAVE_KEY);}
     catch(_){return protectDisk('기존 저장 기록 읽기 불가');}
+    if(previous!==diskGeneration)
+      return protectDisk('다른 창에서 체크포인트 변경 감지');
     // Always validate a previously stored generation before replacing it.
     // A rejected primary or failed backup rotation is not permission to
     // discard the saved file. The player can continue in this live tab.
@@ -131,6 +136,7 @@
     // autosave boundary so the next live frame retries instead of silently
     // postponing recovery for another five simulated seconds.
     if(saved){
+      diskGeneration=raw;
       lastAutosaveAt=state.world.elapsed;
       nextSaveRetryAt=0;
       shotSavePending=false;
@@ -284,12 +290,14 @@
         // The intentional replay of a verified completed mission is a reset.
         storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
       }
-      checkpoint=memoryOnlyStory?null:storage.get(SAVE_KEY);
+      diskGeneration=memoryOnlyStory?null:storage.get(SAVE_KEY);
+      checkpoint=diskGeneration;
     }else{
       // New Game is the explicit user's reset, unlike the protected Continue.
       memoryOnlyStory=false;checkpointInvalidStored=false;
       state=Story.createState($('storyWeapon').value);
-      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);checkpoint=null;
+      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
+      diskGeneration=null;checkpoint=null;
       recoveredFromBackup=false;
     }
     $('reviewCompleted').classList.add('hidden');
@@ -678,7 +686,8 @@
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
   const loaded=readCheckpoint();
-  checkpoint=loaded?storage.get(SAVE_KEY):null;
+  diskGeneration=loaded?storage.get(SAVE_KEY):null;
+  checkpoint=diskGeneration;
   if(checkpointReadUnavailable){
     $('continue').textContent='저장소 없이 임시 CH01 시작';
     $('menuText').textContent='이 브라우저에서 저장된 미션을 읽을 수 없습니다. 기존 임무 기록을 보존하며, 별도 임시 세션으로 플레이할 수 있습니다. 저장소 접근이 복구되면 기존 기록을 다시 불러올 수 있습니다.';
