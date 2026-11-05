@@ -591,9 +591,12 @@ test('BR stale PC tab cannot overwrite a newer live checkpoint or erase it on te
  const second=boot(store);
  second.node('play').click();second.frame(1000/60);
  second.emit('keydown',{code:'Space'});second.emit('keyup',{code:'Space'});
- const newer=store.get(KEY);
- assert.notEqual(newer,old,'second tab has persisted a newer finite-ammo world');
+ const afterFire=store.get(KEY);
+ assert.notEqual(afterFire,old,'second tab has persisted a newer finite-ammo world');
  second.emit('keydown',{code:'KeyP'});
+ // Recording a field bookmark also commits its HUD state; compare against the
+ // actual latest generation rather than the intermediate post-fire snapshot.
+ const newer=store.get(KEY);
  const bookmark=store.get('veilpoint.brFieldBookmark.v1');
  assert.ok(bookmark,'second tab owns a valid field bookmark');
  store.set('veilpoint.brLastResult.v1','newer-tab-report');
