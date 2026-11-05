@@ -281,6 +281,7 @@
     $('continue').textContent=state.phase==='failed'?'마지막 체크포인트 재시도':
       state.phase==='complete'?'미션 다시 플레이':'이어하기';
     $('saveExit').classList.toggle('hidden',!sessionStarted||completed);
+    $('saveCheckpoint').classList.toggle('hidden',!sessionStarted||completed);
     // PC keyboard users must not remain focused on the now-hidden game canvas.
     // The dialog's primary action is the safe focus target after an Esc pause.
     if(!$('continue').disabled)$('continue').focus();
@@ -442,6 +443,24 @@
   }
   // Disk checkpoints are for a fresh page load. A paused session must resume
   // its live world even when storage is denied, full or contains an older save.
+  $('saveCheckpoint').addEventListener('click',()=>{
+    // A manual retry is safe even when automatic saves were suppressed by
+    // temporary quota/permission errors. Never switch save generations, grant
+    // resources, advance the 60Hz clock or leave the current game.
+    if(!sessionStarted||menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden')||
+       state.phase==='complete'||state.phase==='failed')return;
+    if(!persist('수동 체크포인트 저장')){
+      $('menuText').textContent='체크포인트 저장 실패 · 다른 창의 최신 기록이나 브라우저 저장 공간을 확인하세요. 현재 진행은 이 탭에 유지됩니다.';
+      return;
+    }
+    let verified=false;
+    try{verified=global.localStorage.getItem(SAVE_KEY)===Story.serialize(state);}
+    catch(_){}
+    $('menuText').textContent=verified
+      ?'체크포인트 저장 확인 완료 · 이어하기로 현재 위치부터 계속하거나 모드 선택으로 나갈 수 있습니다.'
+      :'체크포인트 재확인 실패 · 현재 진행을 유지하고 메뉴 이동을 보류하세요.';
+  });
   $('saveExit').addEventListener('click',()=>{
     // Save & Exit is an explicit navigation request, never an implicit
     // consequence of losing focus, pressing Esc or a failed localStorage write.
