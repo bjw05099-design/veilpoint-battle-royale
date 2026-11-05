@@ -140,6 +140,8 @@ const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 const LAST_RESULT_KEY='veilpoint.brLastResult.v1';
 let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRetryAt=0;
+// A storage conflict must remain visible in the HUD after its transient toast fades.
+let saveIssue=null;
 // The exact BR generation this PC session last read or successfully wrote.
 // Do not let an older browser tab silently replace a newer offline round.
 let matchDiskGeneration=null;
@@ -231,7 +233,7 @@ function persistMatch(){
     simulation.message='OFFLINE SAVE CONFLICT · ANOTHER TAB CHANGED CHECKPOINT';
     simulation.messageTime=4;
    }
-   saveWarning=true;
+   saveWarning=true;saveIssue='conflict';
    return false;
   }
   if(previous&&previous!==raw){
@@ -247,10 +249,11 @@ function persistMatch(){
    simulation.message='OFFLINE CHECKPOINT RESTORED · MATCH SAVE AVAILABLE';
    simulation.messageTime=2;
   }
-  saveWarning=false;
+  saveWarning=false;saveIssue=null;
   return true;
  }catch(_){
   nextMatchSaveRetryAt=simulation.elapsed+1;
+  saveIssue='write-failed';
   if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}
   return false;
  }
@@ -362,7 +365,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  // untouched while allowing a separate memory-only local PC match.
  if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();checkpointInvalidStored=false;}
  memoryOnlyMatch=offlineOnly;saveWarning=false;
- nextMatchSaveRetryAt=0;lastAutosaveElapsed=0;lastSavedHealth=100;
+ nextMatchSaveRetryAt=0;saveIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -386,7 +389,7 @@ function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
- running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=null;lastSavedHealth=simulation.player.health;
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
@@ -453,7 +456,9 @@ $('newMatch').addEventListener('click',start);
 $('saveExit').addEventListener('click',()=>{
  if(!running||!suspended||simulation.status!=='playing')return;
  if(!persistMatch()){
-  document.querySelector('.tagline').textContent='저장 공간에 기록할 수 없어 메뉴로 나가지 않았습니다. 이어하기로 경기를 계속할 수 있습니다.';
+  document.querySelector('.tagline').textContent=saveIssue==='conflict'
+   ?'다른 창에서 저장된 경기가 변경되었습니다. 이 창의 진행을 덮어쓰지 않고 메뉴로 나가지 않았습니다. 이어하기는 가능합니다.'
+   :'저장 공간에 기록할 수 없어 메뉴로 나가지 않았습니다. 이어하기로 경기를 계속할 수 있습니다.';
   return;
  }
  running=false;suspended=false;
@@ -727,13 +732,17 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
   (s.trailMarker?' · FIELD SIGN '+Math.round(Math.hypot(s.trailMarker.x-p.x,s.trailMarker.z-p.z))+'m · [J] RECOVER NEARBY':' · [J] PLACE ROUTE SIGN');
  const boundary=Game.boundaryStatus(s);
  const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
+ // Never let the warning expire while the latest active round is not durable.
+ const saveMessage=running&&saveWarning
+  ?saveIssue==='conflict'?'SAVE CONFLICT · ANOTHER TAB OWNS THE CHECKPOINT'
+   :'SAVE FAILED · PROGRESS ONLY IN THIS TAB': '';
  // Every published phase, including the last one, has a real deadline.
  const deadline=s.zone.phaseRemaining>0?' · DEADLINE '+tt+'s':' · FINAL LIMIT ACTIVE';
  const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m'+deadline:
    boundary.near?'BOUNDARY NEARBY · '+boundary.meters+'m'+deadline:'';
  // Keep reload and other event feedback readable alongside the boundary warning.
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
-   [boundaryMessage,eventMessage].filter(Boolean).join(' · ');
+   [saveMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const yardGate=Game.serviceGateStatus(s);
  const nearby=Game.nearestReachablePickup(s);
  const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
