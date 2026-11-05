@@ -100,15 +100,31 @@
       notice.classList.remove('hidden');
       return false;
     }
-    const previous=storage.get(SAVE_KEY);
-    // Keep the prior valid playable generation before updating the primary.
-    // A corrupt current slot must never be copied into the safety slot.
+    // Refuse an implicit overwrite when the previously saved generation
+    // cannot be read or validated. A transient browser permission or quota
+    // failure must not destroy the only known playable checkpoint.
+    const protectDisk=(detail)=>{
+      checkpoint=raw;
+      saveFailed=true;
+      nextSaveRetryAt=state.world.elapsed+1;
+      const notice=$('saveStatus');
+      notice.textContent='체크포인트 저장 보류 · '+detail+' · 이전 기록은 보존했습니다.';
+      notice.classList.remove('hidden');
+      return false;
+    };
+    let previous;
+    try{previous=global.localStorage.getItem(SAVE_KEY);}
+    catch(_){return protectDisk('기존 저장 기록 읽기 불가');}
+    // Always validate a previously stored generation before replacing it.
+    // A rejected primary or failed backup rotation is not permission to
+    // discard the saved file. The player can continue in this live tab.
     if(previous&&previous!==raw){
-      try{
-        const priorState=Story.restore(previous);
-        if(priorState.phase!=='failed'&&priorState.phase!=='complete')
-          storage.set(BACKUP_KEY,previous);
-      }catch(_){}
+      let priorState;
+      try{priorState=Story.restore(previous);}
+      catch(_){return protectDisk('기존 저장 기록 복구 필요');}
+      if(priorState.phase!=='failed'&&priorState.phase!=='complete'&&
+         !storage.set(BACKUP_KEY,previous))
+        return protectDisk('이전 체크포인트 백업 실패');
     }
     const saved=storage.set(SAVE_KEY,raw);
     // A failed browser write is not a checkpoint. Keep the last successful
