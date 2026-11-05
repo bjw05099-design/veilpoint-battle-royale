@@ -42,6 +42,21 @@
     }
     return false;
   }
+  // PC guidance selection follows the public objective's stable identity, not
+  // the temporary array offset. Escort prompts and optional records may appear
+  // or disappear as the 60Hz world changes; a stale index must never retarget.
+  function markerIndex(markers,selectedId){
+    if(!Array.isArray(markers)||typeof selectedId!=='string'||!selectedId)return null;
+    const index=markers.findIndex(m=>m&&m.id===selectedId);
+    return index>=0?index:null;
+  }
+  function nextMarkerId(markers,selectedId=null){
+    if(!Array.isArray(markers)||markers.length===0)return null;
+    const index=markerIndex(markers,selectedId);
+    const next=index===null?0:index+1;
+    return next<markers.length&&markers[next]&&typeof markers[next].id==='string'
+      ?markers[next].id:null;
+  }
   function story(player,markers,selectedIndex=null,obstacles=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
     let nearest=null,best=Infinity;
@@ -66,5 +81,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,story,zone});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,story,zone});
 });

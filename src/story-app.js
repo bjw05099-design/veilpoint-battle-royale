@@ -21,7 +21,7 @@
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
   // N cycles only already-published mission markers; it never reveals hidden actors.
-  let guidanceIndex=null;
+  let guidanceId=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
   const AUTOSAVE_SECONDS=5;
   // Keep CH01 automatic volleys from synchronously serializing the whole
@@ -261,7 +261,7 @@
       }
       state=recovered||Story.createState($('storyWeapon').value);
       $('storyWeapon').value=state.world.player.weaponId;
-      guidanceIndex=null;shotSavePending=false;
+      guidanceId=null;shotSavePending=false;
       lastAutosaveAt=state.world.elapsed;
     }else if(state.phase==='complete'){
       state=Story.createState($('storyWeapon').value);
@@ -295,7 +295,7 @@
     $('reviewCompleted').classList.add('hidden');
     $('debriefReview').classList.add('hidden');
     $('storyWeapon').value=state.world.player.weaponId;
-    sessionStarted=true;guidanceIndex=null;
+    sessionStarted=true;guidanceId=null;
     lastAutosaveAt=state.world.elapsed;
     shotSavePending=false;
     saveFailed=memoryOnlyStory;
@@ -324,7 +324,7 @@
   function decide(option){
     const result=Story.choose(state,option);
     if(!result.ok){$('choiceHint').textContent='경로를 변경할 수 없습니다. 현장 콘솔 접근과 진행 상태를 확인하세요.';return;}
-    guidanceIndex=null;persist();resume();
+    guidanceId=null;persist();resume();
   }
   function interact(){
     if(!canAct()||state.phase==='complete')return;
@@ -335,7 +335,7 @@
       if(['cargo_handoff_required','guide_not_arrived','guide_not_at_muster'].includes(result.reason))updateHud();
       return;
     }
-    guidanceIndex=null;
+    guidanceId=null;
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
@@ -401,7 +401,7 @@
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
   $('choiceBack').addEventListener('click',()=>{
     if(state.phase==='exit'){resume();return;}
-    if(Story.backToRecords(state).ok){guidanceIndex=null;persist();resume();}
+    if(Story.backToRecords(state).ok){guidanceId=null;persist();resume();}
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
@@ -450,8 +450,10 @@
     }
     if(action==='guidance'){
       e.preventDefault();
-      const count=Story.markers(state).length;
-      guidanceIndex=count===0||guidanceIndex===count-1?null:guidanceIndex===null?0:guidanceIndex+1;
+      // Keep targeting the same public objective when optional markers are
+      // inserted/removed in the live 60Hz mission world. A missing target
+      // safely returns to automatic nearest-marker guidance.
+      guidanceId=Navigation.nextMarkerId(Story.markers(state),guidanceId);
       updateHud();
     }
   });
@@ -557,7 +559,7 @@
   }
   function updateHud(){
     $('objective').textContent=Story.objective(state);
-    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),guidanceIndex,state.world.obstacles)+
+    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),Navigation.markerIndex(Story.markers(state),guidanceId),state.world.obstacles)+
       (Story.markers(state).length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+

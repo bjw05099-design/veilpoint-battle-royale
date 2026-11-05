@@ -80,7 +80,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     get(){throw new Error('storage_denied');}
   });
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
-    'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js',
+    'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js','src/navigation.js',
     'src/story-slice.js','src/story-audio.js','src/desktop-controls.js',
     'src/checkpoint-recovery.js','src/story-app.js'];
   for(const script of scripts){
@@ -1604,4 +1604,32 @@ test('CH01 failed final save never publishes a false completed debrief over olde
   reopened.element('continue').click();
   assert.match(reopened.element('objective').textContent,/안뜰/,
     'a reload resumes the actual last durable exit world, never a phantom win');
+});
+
+test('CH01 Windows marker key retains selected supply objective when held guide prompt leaves range',()=>{
+  const StoryRules=require('../src/story-slice.js');
+  const legacy={version:1,phase:'exit',found:[],choice:'evacuation',
+    player:{x:-9,z:-55,yaw:0,pitch:0,stamina:100},elapsed:12};
+  const state=StoryRules.restore(JSON.stringify(legacy));
+  state.world.player.x=StoryRules.POINTS.muster.x;
+  state.world.player.z=StoryRules.POINTS.muster.z;
+  assert.equal(StoryRules.interact(state).event,'muster');
+  assert.equal(StoryRules.interact(state).event,'guide');
+  state.guide.waiting=true;
+  const shared=new Map([['veilpoint.story.ch01',StoryRules.serialize(state)]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  // The initially visible guide-control marker precedes the supply objective
+  // in the PC HUD list; select the supply with the remappable default KeyB.
+  for(let i=0;i<6;i++)app.emit('keydown',{code:'KeyB'});
+  assert.match(app.element('navigation').textContent,/선택한 임무 표식.*민간 구조용 비상 물품 상자/);
+  app.moveForward(0,340);
+  const saved=JSON.parse(shared.get('veilpoint.story.ch01'));
+  assert.ok(Math.hypot(saved.player.x-saved.guide.x,saved.player.z-saved.guide.z)>=7,
+    'actual 60Hz keyboard movement must remove the short-range guide-control prompt');
+  assert.match(app.element('navigation').textContent,/선택한 임무 표식.*민간 구조용 비상 물품 상자/,
+    'the HUD must not silently retarget the relay when guide-control disappears');
+  app.emit('keydown',{code:'KeyB'});
+  assert.match(app.element('navigation').textContent,/선택한 임무 표식.*비상 통신 중계기 전원/,
+    'the next key press advances from the selected objective identity');
 });
