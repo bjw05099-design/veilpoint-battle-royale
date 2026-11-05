@@ -1633,3 +1633,45 @@ test('CH01 Windows marker key retains selected supply objective when held guide 
   assert.match(app.element('navigation').textContent,/선택한 임무 표식.*비상 통신 중계기 전원/,
     'the next key press advances from the selected objective identity');
 });
+
+test('CH01 Windows concurrent tabs cannot silently replace a newer playable disk checkpoint',()=>{
+  const shared=new Map(),key='veilpoint.story.ch01';
+  const first=boot(shared,false,'granted',true,true);
+  first.element('continue').click();
+  first.moveForward(0,300);first.interact();
+  const original=shared.get(key);
+  assert.equal(JSON.parse(original).phase,'engagement');
+  // A second genuine PC session resumes and commits a later 60Hz world state.
+  const second=boot(shared,false,'granted',true,true);
+  second.element('continue').click();
+  second.moveForward(0,75);
+  second.element('pauseButton').click();
+  const newer=shared.get(key);
+  assert.notEqual(newer,original);
+  assert.ok(JSON.parse(newer).elapsed>JSON.parse(original).elapsed);
+  // The stale tab must not roll back either generation on pause/autosave.
+  const backup=shared.get('veilpoint.story.ch01.previous');
+  first.moveForward(300,90);first.element('pauseButton').click();
+  assert.equal(shared.get(key),newer);
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),backup);
+  assert.match(first.element('saveStatus').textContent,/다른 창에서 체크포인트 변경 감지/);
+  const reopened=boot(shared,false,'granted',true,true);
+  reopened.element('continue').click();
+  assert.match(reopened.element('objective').textContent,/무장 대치자/);
+});
+
+test('CH01 does not recreate an externally removed checkpoint without explicit New Game',()=>{
+  const shared=new Map(),key='veilpoint.story.ch01';
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  assert.ok(shared.has(key));
+  shared.delete(key);
+  app.element('pauseButton').click();
+  assert.equal(shared.has(key),false,'stale session must not overwrite remote deletion');
+  assert.match(app.element('saveStatus').textContent,/다른 창에서 체크포인트 변경 감지/);
+  app.element('newGame').click();
+  app.moveForward(300,300);app.interact();
+  assert.equal(JSON.parse(shared.get(key)).phase,'engagement',
+    'user-initiated New Game is the explicit reset and may write a fresh checkpoint');
+});
