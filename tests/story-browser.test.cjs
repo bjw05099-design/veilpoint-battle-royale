@@ -1347,3 +1347,23 @@ test('CH01 Windows PC E toggles an observed guide hold and persists it through p
  assert.equal(resumed.guide.active,true);
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'br-checkpoint-unchanged');
 });
+
+test('CH01 Windows E prompt cannot remotely release an unseen guide at muster',()=>{
+ const Story=require('../src/story-slice.js'),s=Story.createState();
+ const go=id=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+ go('terminal');Story.interact(s);
+ for(const bot of s.world.bots)for(let i=0;i<2;i++){
+  s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+  s.world.player.pitch=0;s.world.elapsed+=.21;assert.equal(Story.fire(s).hit,true);
+ }
+ go('decision');Story.interact(s);Story.choose(s,'evacuation');
+ go('muster');Story.interact(s);Story.interact(s);
+ s.world.player.x=-6.4;s.world.player.z=-55;
+ const store=new Map([['veilpoint.story.ch01',Story.serialize(s)]]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ assert.equal(app.element('interaction').classList.contains('hidden'),true);
+ app.interact();
+ assert.equal(Story.restore(store.get('veilpoint.story.ch01')).guide.released,false);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+});
