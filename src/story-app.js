@@ -277,6 +277,21 @@
       $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
     }
   });
+  function setJournalVisible(visible){
+    // The journal is a paused, read-only view of information the captain has
+    // actually learned; opening it during live gameplay first pauses the 60Hz
+    // simulation and follows the existing guarded checkpoint behavior.
+    if(visible&&menu.classList.contains('hidden'))return;
+    const panel=$('journalPanel'),toggle=$('journalToggle');
+    panel.classList.toggle('hidden',!visible);
+    toggle.setAttribute('aria-expanded',String(visible));
+    if(visible){
+      const entries=Story.fieldJournal(state);
+      $('journalContent').textContent=entries.map(entry=>
+        entry.title+'\n'+entry.body).join('\n\n');
+      toggle.focus();
+    }
+  }
   function menuOpen(text){
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
@@ -285,6 +300,7 @@
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
+    setJournalVisible(false);
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=state.phase==='failed'?'마지막 체크포인트 재시도':
@@ -310,6 +326,7 @@
   }
   function resume(){
     if(!renderer||graphicsContextLost)return;
+    setJournalVisible(false);
     if(state.phase==='failed'){
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
       // preserving finite rounds, injury, actor positions and the mission phase.
@@ -501,6 +518,8 @@
       // This does not advance the world clock, grant ammunition or start play.
       // The scene and debrief reflect one validated completed CH01 snapshot.
       state=reviewed.state;
+      if(!$('journalPanel').classList.contains('hidden'))
+        setJournalVisible(true);
       const report=reviewed.report;
       $('debriefReview').textContent='CH01 완료 · 경로: '+
         (report.route==='verification'?'동쪽 기록 검증':'남쪽 대피')+
@@ -514,6 +533,10 @@
       $('debriefReview').classList.add('hidden');
       $('menuText').textContent='완료 기록을 검증할 수 없습니다. 처음부터 다시 시작할 수 있습니다.';
     }
+  });
+  $('journalToggle').addEventListener('click',()=>{
+    if(menu.classList.contains('hidden')||!choices.classList.contains('hidden'))return;
+    setJournalVisible($('journalPanel').classList.contains('hidden'));
   });
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
@@ -533,6 +556,26 @@
       if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
       else if(e.code==='Digit2'){e.preventDefault();decide('verification');}
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
+      return;
+    }
+    // Escape closes the field journal before it resumes the paused world.
+    if(e.code==='Escape'&&!menu.classList.contains('hidden')&&
+       !$('journalPanel').classList.contains('hidden')){
+      e.preventDefault();
+      setJournalVisible(false);
+      $('journalToggle').focus();
+      return;
+    }
+    // J opens the read-only notebook through the normal pause path. Respect
+    // customized PC bindings: if J is assigned to a gameplay action, the menu
+    // button remains the alternative and the shortcut is not stolen.
+    if(e.code==='KeyJ'&&!e.repeat&&sessionStarted&&
+       !Desktop.actionFor('KeyJ',desktopUi.get())&&
+       choices.classList.contains('hidden')){
+      e.preventDefault();
+      if(running)menuOpen('현장 기록 열람 · 일시정지됨. Esc를 누르면 기록창을 닫습니다.');
+      if(!menu.classList.contains('hidden'))
+        setJournalVisible($('journalPanel').classList.contains('hidden'));
       return;
     }
     // Escape is a PC menu command even when a visible menu button has focus.
