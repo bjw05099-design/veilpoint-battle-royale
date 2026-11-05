@@ -20,7 +20,11 @@ test('CH01 corrupt primary falls back to independently validated backup',()=>{
  assert.equal(result.state.world.player.z,12);
 });
 test('CH01 failed primary yields to playable backup, preserving mission precedence',()=>{
- const failed=Story.createState();failed.phase='failed';failed.world.status='lost';
+ const failed=Story.createState();
+ failed.world.player.x=Story.POINTS.terminal.x;
+ failed.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(failed).event,'terminal');
+ failed.phase='failed';failed.world.status='lost';failed.world.player.health=0;
  const backup=Story.serialize(Story.createState());
  const result=Recovery.recover(Story.serialize(failed),backup,Story.recoverCheckpoint);
  assert.equal(result.source,'backup');
