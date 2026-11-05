@@ -358,7 +358,7 @@
   function fire(){
     if(!canAct())return;
     const result=Story.fire(state,input.crouch);
-    if(result.ok){audio.play('shot');persist();updateHud();}
+    if(result.ok){audio.play('shot');persistShot();updateHud();}
   }
   function reload(){
     if(!canAct()||state.phase!=='engagement')return;
