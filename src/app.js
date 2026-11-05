@@ -178,6 +178,7 @@ function loadFieldBookmark(){
 function recordFieldBookmark(){
  const raw=Game.snapshotMatch(simulation);
  manualCheckpoint=raw;
+ if(memoryOnlyMatch)return true; // P-key bookmark remains valid in this tab only.
  try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);return true;}
  catch(_){return false;} // This session can still rewind when storage is denied.
 }
@@ -200,7 +201,7 @@ function clearStoredMatch(){
  }
 }
 function persistMatch(){
- if(!running)return false;
+ if(!running||memoryOnlyMatch)return false;
  if(simulation.status!=='playing'){clearStoredMatch();return false;}
  try{
   const raw=Game.snapshotMatch(simulation);
@@ -229,7 +230,7 @@ function persistMatch(){
 }
 // A temporary privacy/storage read exception must not delete a valid match.
 // Read failure and a structurally corrupt checkpoint are distinct outcomes.
-let checkpointReadUnavailable=false;
+let checkpointReadUnavailable=false,memoryOnlyMatch=false;
 function storedMatch(){
  let primary=null,backup=null;
  try{
@@ -320,9 +321,12 @@ function requestAimLock(){
   });
  }catch(_){suspendMatch('pointer');resetInactiveClock();}
 }
-function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
+function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false){
  if(graphicsContextLost||!renderer)return;
- clearStoredMatch();clearFieldBookmark();clearLastResult();saveWarning=false;
+ // Storage access may fail temporarily. Keep all existing disk generations
+ // untouched while allowing a separate memory-only local PC match.
+ if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();}
+ memoryOnlyMatch=offlineOnly;saveWarning=false;
  nextMatchSaveRetryAt=0;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
@@ -338,7 +342,10 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  $('mobileControls').classList.toggle('active',isTouch);updateHud();
  Desktop.focusGameplay(document,canvas);
  requestAimLock();
- persistMatch();
+ if(memoryOnlyMatch){
+  simulation.message='OFFLINE MEMORY-ONLY MATCH · SAVED ROUND KEPT';
+  simulation.messageTime=6;
+ }else persistMatch();
 }
 function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
@@ -358,8 +365,8 @@ function resumeStoredMatch(restored){
 }
 if(storedMatch())$('play').textContent='저장 경기 이어하기';
 else if(checkpointReadUnavailable){
- $('play').textContent='저장된 경기 다시 확인';
- document.querySelector('.tagline').textContent='브라우저 저장소를 일시적으로 읽을 수 없습니다. 기존 경기를 보호하기 위해 자동으로 새 경기를 시작하지 않습니다.';
+ $('play').textContent='저장소 없이 플레이';
+ document.querySelector('.tagline').textContent='저장소를 읽을 수 없습니다. 기존 저장 데이터는 보존하고, 이번 경기는 저장되지 않는 임시 세션으로 실행할 수 있습니다.';
 }else {
  const archived=readLastResult();
  if(archived){
@@ -388,14 +395,17 @@ $('play').addEventListener('click',()=>{
  if(running&&suspended)resumeMatch();
  // A terminal result always means a fresh round, even if deletion was denied
  // and a stale but syntactically valid local checkpoint is still readable.
- else if(!running&&lastFinishedMatch)start();
+ else if(!running&&lastFinishedMatch){
+  if(memoryOnlyMatch)start(null,null,null,true);
+  else start();
+ }
  else if(!running){
   const saved=storedMatch();
   if(saved)resumeStoredMatch(saved);
   else if(checkpointReadUnavailable){
-   $('play').textContent='저장된 경기 다시 확인';
-   document.querySelector('.tagline').textContent='저장소에 접근할 수 없어 기존 경기 보호를 위해 자동 시작하지 않았습니다. 접근 권한을 확인하고 다시 시도하거나, 새 경기 버튼으로 명시적으로 초기화하세요.';
-   return;
+   // Play remains usable when storage APIs are blocked. Do not clear or
+   // overwrite a valid on-disk game that may become readable later.
+   start(null,null,null,true);
   }else start();
  }
  syncMotorSound(true);
@@ -705,7 +715,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}archiveLastResult();clearStoredMatch();clearFieldBookmark();
+function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}if(!memoryOnlyMatch){archiveLastResult();clearStoredMatch();clearFieldBookmark();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
