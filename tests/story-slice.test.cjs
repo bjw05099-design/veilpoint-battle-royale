@@ -2014,7 +2014,7 @@ test('CH01 rejects an entirely enclosed legacy gate checkpoint and recovers its 
         {x:27,z:-53,w:70,d:70,h:2,type:'later-added-wall'});
       return world;
     };
-    assert.throws(()=>story.restore(invalidPrimary),/No collision-free gate checkpoint recovery/);
+    assert.throws(()=>story.restore(invalidPrimary),/Invalid checkpoint world state/);
     const recovered=story.recoverCheckpoint(invalidPrimary,backup);
     assert.equal(recovered.source,'backup');
     assert.equal(recovered.state.phase,'terminal');
