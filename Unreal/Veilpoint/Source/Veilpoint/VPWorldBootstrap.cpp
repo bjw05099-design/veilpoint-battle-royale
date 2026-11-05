@@ -61,7 +61,7 @@ void AVPWorldBootstrap::BeginPlay()
         {
             const FVector Position(Random.FRandRange(-15200.f,15200.f),Random.FRandRange(-15200.f,15200.f),110.f);
             AVPPickup* P=GetWorld()->SpawnActor<AVPPickup>(AVPPickup::StaticClass(),Position,FRotator::ZeroRotator);
-            if(P)P->Resource=(i%3==0?TEXT("health"):(i%3==1?TEXT("armor"):TEXT("charges")));
+            if(P)P->Resource=(i%2==0?TEXT("health"):TEXT("charges"));
         }
     }
 }
