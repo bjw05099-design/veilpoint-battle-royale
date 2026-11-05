@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
-const {crc32, referencedAssets, assertLocalAssetContent} = require('./package-offline-demo.cjs');
+const {crc32, referencedAssets, assertLocalAssetContent, NOTICE_TEXT, QUICK_START_TEXT} = require('./package-offline-demo.cjs');
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 // The candidate is a small static offline demo, never an arbitrary ZIP bundle.
 // Bounds apply before any entry parsing or checksum work on untrusted bytes.
@@ -12,7 +12,7 @@ const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 128;
 const MAX_UNCOMPRESSED_ENTRY_BYTES = 2 * 1024 * 1024;
 const MAX_UNCOMPRESSED_TOTAL_BYTES = 16 * 1024 * 1024;
-const REQUIRED = ['index.html', 'story.html', 'README.md',
+const REQUIRED = ['index.html', 'story.html', 'README.md', 'QUICK_START.txt',
   'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
 
 function invalid(reason) {throw new Error('invalid_demo_zip:' + reason);}
@@ -113,6 +113,12 @@ function verifyArchive(bytes) {
   if (!entries.has('MANIFEST.sha256') || !entries.has('NOTICE.txt') ||
       REQUIRED.some(name => !entries.has(name)))
     invalid('required_files');
+  // Checksums cannot prevent a re-signed archive from replacing the human
+  // launch and limitation notices. Enforce the exact audited release text.
+  if (!entries.get('QUICK_START.txt').equals(Buffer.from(QUICK_START_TEXT)))
+    invalid('quick_start_mismatch');
+  if (!entries.get('NOTICE.txt').equals(Buffer.from(NOTICE_TEXT)))
+    invalid('notice_mismatch');
   // The manifest is not an allowlist. A self-consistent archive could include
   // an unreferenced script or other executable payload and still pass SHA256.
   // Accept exactly the shipped pages, documentation and their local assets.
