@@ -306,7 +306,11 @@
         (marker.id!=='guideTransfer'||
           Math.hypot(state.guide.x-POINTS.guideTransfer.x,
             state.guide.z-POINTS.guideTransfer.z)<2.1)&&
-        !Sim.lineBlocked(p.x,p.z,state.guide.x,state.guide.z,state.world.obstacles));
+        !Sim.lineBlocked(p.x,p.z,state.guide.x,state.guide.z,state.world.obstacles)&&
+        // A physical handoff requires the guide to reach the actual desk,
+        // not just stand near a player who can see through another opening.
+        !Sim.lineBlocked(state.guide.x,state.guide.z,
+          marker.x,marker.z,state.world.obstacles));
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
       if(guideInReach&&d<best&&d<(marker.id==='beacon'?SWITCH_REACH:
