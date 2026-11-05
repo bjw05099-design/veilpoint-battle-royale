@@ -195,7 +195,7 @@ function loadFieldBookmark(){
 function recordFieldBookmark(){
  const raw=Game.snapshotMatch(simulation);
  manualCheckpoint=raw;
- if(memoryOnlyMatch)return true; // P-key bookmark remains valid in this tab only.
+ if(memoryOnlyMatch)return false; // P-key bookmark is valid in this tab, but is NOT durable.
  // A stale browser tab may keep its OWN memory bookmark but cannot overwrite
  // another tab's newer disk bookmark or claim that its write is durable.
  if(!ownsStoredMatch()){
