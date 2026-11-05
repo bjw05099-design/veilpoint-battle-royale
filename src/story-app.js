@@ -574,7 +574,14 @@
     ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*12,tz(p.z)-Math.cos(p.yaw)*12);ctx.stroke();
   }
   function updateHud(){
-    $('objective').textContent=Story.objective(state);
+    const bindings=desktopUi.get().bindings;
+    const interactLabel=Desktop.keyLabel(bindings.interact);
+    const reloadLabel=Desktop.keyLabel(bindings.reload);
+    const interactPrompt='['+interactLabel+']';
+    $('objective').textContent=Story.objective(state)
+      .replaceAll('E로',interactLabel+'로')
+      .replaceAll('E를',interactLabel+'를')
+      .replaceAll('E 누르',interactLabel+' 누르');
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),Navigation.markerIndex(Story.markers(state),guidanceId),state.world.obstacles)+
       (Story.markers(state).length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
@@ -603,7 +610,7 @@
     if(combatActive){
       const p=state.world.player;
       $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
-      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · R/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 E 확보');
+      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · '+reloadLabel+'/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':'Q 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 '+interactLabel+' 확보');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
@@ -613,17 +620,18 @@
     $('interaction').classList.toggle('hidden',!nearby);
     if(nearby)$('interaction').textContent=nearby.kind==='ammo'
       ?nearby.label+' · 잔량 '+state.combat.supplyRemaining+'발 · '+
-        (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':'[E] 필요한 만큼 확보')
-      :nearby.id==='decision'&&state.phase==='exit'?'[E] '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
-      :nearby.id==='guideControl'?'[E] '+nearby.label+' · 현장 안내원 위치에서 동행 상태 변경'
-      :nearby.id==='aidPickup'?'[E] '+nearby.label+' 들기 · 운반 중 달리기 제한'
-      :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
-      :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
-      :nearby.id==='aidResume'?'[E] '+nearby.label+' 다시 들기'
-       :nearby.id==='gateLog'?'[E] '+nearby.label+' 열람 · 최초 수신/재전송 대조'
-      :nearby.id==='reportDesk'?'[E] '+nearby.label+'에 현장 기록 전달'
-      :nearby.id==='beacon'?'[E] '+nearby.label+(state.beaconEnabled?' 끄기':' 작동')+' · 현장 수동 스위치'
-      :'[E] '+nearby.label+' 조사';
+        (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':interactPrompt+' 필요한 만큼 확보')
+      :nearby.id==='decision'&&state.phase==='exit'?interactPrompt+' '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
+      :nearby.id==='guideControl'?interactPrompt+' '+nearby.label+' · 현장 안내원 위치에서 동행 상태 변경'
+      :nearby.id==='guideRelease'||nearby.id==='guideTransfer'?interactPrompt+' '+nearby.label+' · 안내원 현장 인계'
+      :nearby.id==='aidPickup'?interactPrompt+' '+nearby.label+' 들기 · 운반 중 달리기 제한'
+      :nearby.id==='aidDrop'?interactPrompt+' '+nearby.label+' 인계'
+      :nearby.id==='aidStage'?interactPrompt+' '+nearby.label+'에 내려놓기 · 이동 제한 해제'
+      :nearby.id==='aidResume'?interactPrompt+' '+nearby.label+' 다시 들기'
+       :nearby.id==='gateLog'?interactPrompt+' '+nearby.label+' 열람 · 최초 수신/재전송 대조'
+      :nearby.id==='reportDesk'?interactPrompt+' '+nearby.label+'에 현장 기록 전달'
+      :nearby.id==='beacon'?interactPrompt+' '+nearby.label+(state.beaconEnabled?' 끄기':' 작동')+' · 현장 수동 스위치'
+      :interactPrompt+' '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz'+(renderer&&renderer.lastStaticVisibilityStats?' · 정적 지형 '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스':'');
     minimap();
