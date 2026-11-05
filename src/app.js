@@ -229,7 +229,6 @@ function clearStoredMatch(){
   originalBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
  }catch(_){return false;}
  for(const [key,original] of [[MATCH_BACKUP_KEY,originalBackup],[MATCH_SAVE_KEY,originalPrimary]]){
-  if(original===null)continue;
   try{
    if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(key);
    else global.localStorage.setItem(key,'');
