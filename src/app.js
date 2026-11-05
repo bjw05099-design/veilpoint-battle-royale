@@ -12,12 +12,22 @@ const telemetry=perf.createTelemetry();
 const gpuEvidenceGate=perf.createGpuEvidenceGate();
 const benchmark=global.VeilpointBenchmark?global.VeilpointBenchmark.createBenchmark():null;
 const benchmarkStart=$('benchmarkStart'),benchmarkStop=$('benchmarkStop'),benchmarkExport=$('benchmarkExport'),benchmarkStatus=$('benchmarkStatus'),benchmarkQuickExport=$('benchmarkQuickExport');
+const benchmarkCopy=$('benchmarkCopy'),benchmarkRawJson=$('benchmarkRawJson'),
+ benchmarkRawLabel=$('benchmarkRawLabel'),benchmarkExportHelp=$('benchmarkExportHelp');
+const defaultBenchmarkHelp='파일 저장이 차단되면 JSON 직접 보기·복사를 사용하세요. Ctrl+C로 복사하여 .json 파일로 보관할 수 있습니다.';
 function benchmarkUi(){
- if(!benchmark){benchmarkStart.disabled=true;benchmarkStop.disabled=true;benchmarkExport.disabled=true;benchmarkStatus.textContent='측정 모듈을 불러오지 못했습니다.';return;}
+ if(!benchmark){benchmarkStart.disabled=true;benchmarkStop.disabled=true;benchmarkExport.disabled=true;benchmarkCopy.disabled=true;benchmarkStatus.textContent='측정 모듈을 불러오지 못했습니다.';return;}
  const info=benchmark.getStatus(),active=info.state==='armed'||info.state==='running';
  benchmarkStart.disabled=active;benchmarkStop.disabled=!active;
  const canExport=info.state==='finished'&&info.frames>=2;
  benchmarkExport.disabled=!canExport;
+ benchmarkCopy.disabled=!canExport;
+ if(!canExport){
+  benchmarkRawJson.value='';
+  benchmarkRawJson.classList.add('hidden');
+  benchmarkRawLabel.classList.add('hidden');
+  benchmarkExportHelp.textContent=defaultBenchmarkHelp;
+ }
  benchmarkQuickExport.classList.toggle('hidden',!canExport);
  benchmarkQuickExport.textContent=info.reason==='completed'?'120초 측정 JSON 저장':'부분 측정 JSON 저장';
  const seconds=Math.min(info.durationMs/1000,Math.max(0,Math.floor((info.elapsedMs-info.warmupMs)/1000)));
@@ -38,15 +48,41 @@ benchmarkStart.addEventListener('click',()=>{
  benchmarkUi();
 });
 benchmarkStop.addEventListener('click',()=>{benchmark.finish('manual');benchmarkUi();});
+// A file:// browser or a locked-down Windows WebView can block Blob URL
+// downloads entirely. Keep every verified local measurement retrievable with
+// a selectable plain-text JSON fallback; never upload the result to a server.
+function revealBenchmarkJson(downloadBlocked=false){
+ if(benchmark.getStatus().state!=='finished'||benchmark.getStatus().frames<2)return false;
+ if($('graphicsPanel').classList.contains('hidden'))
+  setGraphicsPanelOpen(true,$('graphicsPauseOpen'));
+ benchmarkRawJson.value=JSON.stringify(benchmark.report(),null,2)+'\n';
+ benchmarkRawJson.classList.remove('hidden');
+ benchmarkRawLabel.classList.remove('hidden');
+ benchmarkExportHelp.textContent=downloadBlocked
+  ?'파일 저장을 브라우저가 차단했습니다. 아래 원본 JSON을 Ctrl+C로 복사하고 .json 파일로 저장하세요. 부분 측정은 완료 결과가 아닙니다.'
+  :'아래 측정 결과 JSON을 Ctrl+C로 복사해 .json 파일로 저장할 수 있습니다. 파일은 자동 전송되지 않습니다.';
+ if(typeof benchmarkRawJson.focus==='function')benchmarkRawJson.focus();
+ if(typeof benchmarkRawJson.select==='function')benchmarkRawJson.select();
+ return true;
+}
 const saveBenchmark=()=>{
  if(benchmark.getStatus().state!=='finished'||benchmark.getStatus().frames<2)return;
  const report=benchmark.report();
- const blob=new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download=report.completed?'veilpoint-browser-benchmark.json':'veilpoint-browser-benchmark-partial.json';
- document.body.appendChild(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),2000);
+ let url=null;
+ try{
+  const blob=new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'});
+  url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=report.completed?'veilpoint-browser-benchmark.json':'veilpoint-browser-benchmark-partial.json';
+  document.body.appendChild(a);a.click();a.remove();
+  const blobUrl=url;
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),2000);
+ }catch(_){
+  if(url){try{URL.revokeObjectURL(url);}catch(_){}}
+  revealBenchmarkJson(true);
+ }
 };
+benchmarkCopy.addEventListener('click',()=>revealBenchmarkJson());
 benchmarkExport.addEventListener('click',saveBenchmark);
 benchmarkQuickExport.addEventListener('click',saveBenchmark);
 }
