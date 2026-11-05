@@ -524,6 +524,7 @@
       ?nearby.label+' · 잔량 '+state.combat.supplyRemaining+'발 · '+
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':'[E] 필요한 만큼 확보')
       :nearby.id==='decision'&&state.phase==='exit'?'[E] '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
+      :nearby.id==='guideControl'?'[E] '+nearby.label+' · 현장 안내원 위치에서 동행 상태 변경'
       :nearby.id==='aidPickup'?'[E] '+nearby.label+' 들기 · 운반 중 달리기 제한'
       :nearby.id==='aidDrop'?'[E] '+nearby.label+' 인계'
       :nearby.id==='aidStage'?'[E] '+nearby.label+'에 내려놓기 · 이동 제한 해제'
