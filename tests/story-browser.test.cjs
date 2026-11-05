@@ -21,7 +21,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     const el={
       id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit'].includes(id)),
+      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit','saveCheckpoint'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
@@ -2247,4 +2247,60 @@ test('Windows CH01 Save & Exit keeps an older PC tab in the game when a newer ta
  old.element('continue').click();
  assert.equal(old.element('menu').classList.contains('hidden'),true,
   'failed exit never softlocks the paused mission');
+});
+
+
+test('Windows CH01 manual checkpoint save retries a failed pause without navigating or advancing 60Hz world',()=>{
+ const Story=require('../src/story-slice.js'),key='veilpoint.story.ch01';
+ const shared=new Map(),app=boot(shared,false,'granted',true,true);
+ assert.equal(app.element('saveCheckpoint').classList.contains('hidden'),true);
+ app.element('continue').click();
+ app.moveForward(0,360);
+ const prior=shared.get(key),writer=shared.set.bind(shared);
+ assert.ok(prior);
+ shared.set=(name,value)=>{
+   if(name===key)throw new Error('quota denied');
+   return writer(name,value);
+ };
+ app.moveForward(360,35);
+ app.element('pauseButton').click();
+ assert.equal(app.element('saveCheckpoint').classList.contains('hidden'),false);
+ app.element('saveCheckpoint').click();
+ assert.deepEqual(app.navigations,[]);
+ assert.equal(shared.get(key),prior);
+ assert.match(app.element('menuText').textContent,/저장 실패/);
+ shared.set=writer;
+ app.element('saveCheckpoint').click();
+ assert.match(app.element('menuText').textContent,/저장 확인 완료/);
+ assert.deepEqual(app.navigations,[]);
+ const restored=Story.restore(shared.get(key));
+ assert.ok(restored.world.elapsed>Story.restore(prior).world.elapsed);
+ const frozen=shared.get(key);
+ app.element('saveCheckpoint').click();
+ assert.equal(shared.get(key),frozen,'manual retry does not tick simulation or change the checkpoint');
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+});
+
+test('Windows CH01 manual checkpoint retry cannot overwrite a newer tab or navigate',()=>{
+ const key='veilpoint.story.ch01',shared=new Map();
+ const old=boot(shared,false,'granted',true,true);
+ old.element('continue').click();old.moveForward(0,100);old.element('pauseButton').click();
+ const fresh=boot(shared,false,'granted',true,true);
+ fresh.element('continue').click();fresh.moveForward(0,150);fresh.element('pauseButton').click();
+ const newer=shared.get(key);
+ old.element('saveCheckpoint').click();
+ assert.equal(shared.get(key),newer);
+ assert.deepEqual(old.navigations,[]);
+ assert.match(old.element('menuText').textContent,/저장 실패/);
+ old.element('continue').click();
+ assert.equal(old.element('menu').classList.contains('hidden'),true);
+});
+
+test('Windows CH01 manual checkpoint retry stays inaccessible before the mission starts',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ assert.equal(app.element('saveCheckpoint').classList.contains('hidden'),true);
+ app.element('saveCheckpoint').click();
+ assert.deepEqual(app.navigations,[]);
+ assert.equal(app.store.has('veilpoint.story.ch01'),false);
 });
