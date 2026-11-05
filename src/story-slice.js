@@ -286,8 +286,9 @@
       Math.abs(wall.x-(guide.x+player.x)/2)<wall.w/2+7&&
       Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7).slice(0,12);
     // The margin leaves clearance for the civilian's collision radius.
-    const clearance=.55+.2;
-    const blockers=near.map(wall=>({...wall,w:wall.w+clearance*2,d:wall.d+clearance*2}));
+    const clearance=.55+.3;
+    const bodyMargin=.55+.08;
+    const blockers=near.map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
     const nodes=[{x:guide.x,z:guide.z}];
     for(const wall of near){
       for(const sx of [-1,1])for(const sz of [-1,1]){
