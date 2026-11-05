@@ -192,8 +192,19 @@ function recordFieldBookmark(){
  const raw=Game.snapshotMatch(simulation);
  manualCheckpoint=raw;
  if(memoryOnlyMatch)return true; // P-key bookmark remains valid in this tab only.
+ // A stale browser tab may keep its OWN memory bookmark but cannot overwrite
+ // another tab's newer disk bookmark or claim that its write is durable.
+ if(!ownsStoredMatch()){
+  saveWarning=true;saveIssue='conflict';
+  nextMatchSaveRetryAt=simulation.elapsed+1;
+  return false;
+ }
  try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);return true;}
- catch(_){return false;} // This session can still rewind when storage is denied.
+ catch(_){
+  saveWarning=true;saveIssue='write-failed';
+  nextMatchSaveRetryAt=simulation.elapsed+1;
+  return false;
+ } // This session can still rewind when storage is denied.
 }
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
@@ -573,6 +584,7 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyP'&&!action&&canAct()){
   e.preventDefault();const durable=recordFieldBookmark();
   simulation.message=durable?'FIELD BOOKMARK RECORDED · SAVED FOR RESUME'
+    :saveIssue==='conflict'?'FIELD BOOKMARK IN MEMORY ONLY · ANOTHER TAB OWNS SAVE'
     :'FIELD BOOKMARK IN MEMORY ONLY · STORAGE UNAVAILABLE';simulation.messageTime=3;
   persistMatch();updateHud();
  }
