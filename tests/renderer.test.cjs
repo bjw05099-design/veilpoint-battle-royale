@@ -269,3 +269,74 @@ test('WebGL box geometry reuses face tint scratch without corrupting prior trian
   'later tint changes must not recolor previously staged vertices');
  assert.deepEqual(originalColor,[.2,.4,.6],'original material must stay unchanged');
 });
+
+test('static world chunks retain every original triangle and conservative full-vertex bounds',()=>{
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const vertex=(x,z)=>[x,0,z,0,1,0,.2,.3,.4];
+ const original=[
+  ...vertex(-110,0),...vertex(110,0),...vertex(0,1),
+  ...vertex(115,-75),...vertex(116,-75),...vertex(116,-74),
+  ...vertex(-99,70),...vertex(-98,70),...vertex(-98,71)
+ ];
+ const partition=context.VeilpointStaticChunker.partitionStaticTriangles;
+ const {packed,chunks}=partition(original,56);
+ assert.equal(packed.length,original.length);
+ assert.equal(chunks.reduce((sum,c)=>sum+c.count,0),original.length/9);
+ assert.ok(chunks.length>1);
+ const signatures=values=>{
+  const output=[];
+  for(let i=0;i<values.length;i+=27)output.push(values.slice(i,i+27).join(','));
+  return output.sort();
+ };
+ assert.deepEqual(signatures(packed),signatures(original),
+  'chunk generation must not omit, duplicate or reorient any source triangle');
+ for(const chunk of chunks){
+  assert.equal(chunk.first%3,0);
+  assert.equal(chunk.count%3,0);
+  for(let start=chunk.first*9;start<(chunk.first+chunk.count)*9;start+=9)
+   assert.ok(Math.hypot(packed[start]-chunk.x,packed[start+2]-chunk.z)<chunk.radius,
+     'even long cross-cell triangles must remain inside a conservative chunk circle');
+ }
+ assert.deepEqual(partition(original,56),{packed,chunks},
+  'chunk ranges and bounds must be deterministic on an identical world');
+ assert.throws(()=>partition([1,2,3]),RangeError);
+ assert.throws(()=>partition(original,0),RangeError);
+});
+test('WebGL statics cull out-of-view submissions without changing physics or buffer count',()=>{
+ const fake=fakeGl(),calls=[];
+ fake.gl.drawArrays=(mode,first,count)=>{calls.push({mode,first,count});};
+ const context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Gfx,VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:960,clientHeight:540,getContext:type=>type==='webgl2'?fake.gl:null});
+ const state=Sim.newMatch(20261105,1);
+ state.status='playing';
+ state.player.x=0;state.player.z=0;state.player.yaw=0;
+ const snapshot=JSON.stringify(state),buffer=renderer.static.buffer,total=renderer.static.count;
+ renderer.draw(state);
+ const front=renderer.lastStaticVisibilityStats;
+ assert.equal(front.totalVertices,total);
+ assert.equal(front.totalChunks,renderer.staticChunks.length);
+ assert.ok(front.totalChunks>10,'world divided into multiple discrete drawing ranges');
+ assert.ok(front.visibleChunks>0&&front.visibleChunks<front.totalChunks);
+ assert.ok(front.submittedVertices>0&&front.submittedVertices<front.totalVertices,
+  'conservative per-camera culling skips some vertex shader work');
+ const staticCalls=calls.slice(0,-1);
+ assert.equal(staticCalls.length,front.visibleChunks,'each static chunk needs exactly one draw call');
+ assert.equal(staticCalls.reduce((sum,c)=>sum+c.count,0),front.submittedVertices);
+ for(const {first,count} of staticCalls)
+  assert.ok(renderer.staticChunks.some(c=>c.first===first&&c.count===count));
+ calls.length=0;
+ state.player.yaw=Math.PI;
+ renderer.draw(state);
+ assert.equal(renderer.static.buffer,buffer,'turning the camera does not reupload the static mesh');
+ assert.equal(renderer.static.count,total);
+ assert.equal(fake.created,2,'one static VBO and one reusable dynamic VBO');
+ assert.equal(JSON.stringify(state),snapshot,'render-only culling never edits physical world state');
+ const Story=require('../src/story-slice.js');
+ const chapter=Story.createState();
+ renderer.draw(chapter.world);
+ assert.ok(renderer.lastStaticVisibilityStats.totalVertices>total,
+  'CH01 scene rebuild includes independently authored harbor structures');
+ assert.equal(renderer.staticChunks.reduce((sum,c)=>sum+c.count,0),renderer.static.count);
+});
