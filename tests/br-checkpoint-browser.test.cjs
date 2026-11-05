@@ -1140,11 +1140,15 @@ test('BR recovery rejects another tab replacement during acknowledged backup pro
  assert.equal(replaced,1);
  assert.equal(store.get(KEY),newer,'newer validated match is not silently adopted by old tab');
  assert.equal(store.get(prior),backup,'backed-up round is still recoverable');
+ // Continue performs a fresh generation check: it must explicitly
+ // choose the now-valid newer primary, not start the stale fallback.
  oldTab.node('play').click();oldTab.frame(1000/60);
- assert.equal(oldTab.game.seed,20261106,'old tab can play validated backup in memory');
- assert.match(oldTab.game.message,/MEMORY ONLY/);
+ assert.equal(oldTab.game.seed,20261107,
+   'fresh user Continue adopts the new validated primary instead of stale backup');
+ assert.equal(Game.restoreMatch(store.get(KEY)).seed,20261107);
  oldTab.emit('blur');
- assert.equal(store.get(KEY),newer,'old tab cannot overwrite new tab progress');
+ assert.equal(Game.restoreMatch(store.get(KEY)).seed,20261107,
+   'the old fallback never overwrites the newer arena');
  store.set=originalSet;
  const fresh=boot(store);
  fresh.node('play').click();fresh.frame(1000/60);
@@ -1164,11 +1168,15 @@ test('BR backup promotion read denial keeps an unmodified primary and working te
  };
  const app=boot(store);
  assert.ok(reads>=3);
+ assert.equal(store.get(KEY),backup,
+   'initial denied verification does not invent a newer generation');
+ // An explicit Continue retries reading the now-accessible, exactly restored
+ // primary and may safely resume; this is different from silent autosaving.
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
- assert.match(app.game.message,/MEMORY ONLY/);
- const committed=store.get(KEY);
- assert.equal(committed,backup,'failed verification did not invent another generation');
+ assert.equal(app.game.seed,20261106);
  app.emit('blur');
- assert.equal(store.get(KEY),backup,'no autosave writes to unverified slot');
+ assert.equal(Game.restoreMatch(store.get(KEY)).seed,20261106,
+   'after a fresh successful read, durable saving preserves the real world');
+ assert.equal(Game.restoreMatch(store.get(prior)).seed,20261106);
 });
