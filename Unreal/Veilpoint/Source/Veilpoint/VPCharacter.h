@@ -12,6 +12,7 @@ class VEILPOINT_API AVPCharacter : public ACharacter
 public:
     AVPCharacter();
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    virtual void Tick(float DeltaSeconds) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
         class AController* EventInstigator, AActor* DamageCauser) override;
@@ -26,6 +27,15 @@ public:
     int32 Charges = 48;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     bool bEliminated = false;
+
+    // Windows PC native locomotion: authoritative finite stamina exposed to HUD.
+    // Renderer FPS never determines how much stamina a 60Hz movement tick uses.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="Movement|Stamina")
+    float Stamina = 100.f;
+    UPROPERTY(ReplicatedUsing=OnRep_SprintState, BlueprintReadOnly, Category="Movement|Stamina")
+    bool bSprinting = false;
+    UFUNCTION(BlueprintPure, Category="Movement|Stamina")
+    float GetStaminaRatio() const { return FMath::Clamp(Stamina / 100.f, 0.f, 1.f); }
 
     UFUNCTION(BlueprintCallable, Category="Survival")
     void CollectResource(FName Resource);
@@ -44,9 +54,18 @@ protected:
     void TryTag();
     void TryInteract();
     UFUNCTION(Server, Reliable)
+    void ServerSetSprintHeld(bool bHeld);
+    UFUNCTION()
+    void OnRep_SprintState();
+    void UpdateSprintFixedStep(float FixedSeconds);
+    void ApplySprintSpeed();
+    UFUNCTION(Server, Reliable)
     void ServerTryTag(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction);
     UFUNCTION(Server, Reliable)
     void ServerTryInteract();
 private:
     double LastServerTagTime = -1000.0;
+    bool bSprintHeld = false;
+    bool bSprintExhausted = false;
+    float SprintAccumulator = 0.f;
 };

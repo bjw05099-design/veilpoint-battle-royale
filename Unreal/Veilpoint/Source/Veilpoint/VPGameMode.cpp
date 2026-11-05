@@ -1,5 +1,6 @@
 #include "VPGameMode.h"
 #include "VPCharacter.h"
+#include "VPHUD.h"
 #include "VPZone.h"
 #include "VPWorldBootstrap.h"
 #include "EngineUtils.h"
@@ -8,6 +9,7 @@
 AVPGameMode::AVPGameMode()
 {
     DefaultPawnClass=AVPCharacter::StaticClass();
+    HUDClass=AVPHUD::StaticClass();
     PrimaryActorTick.bCanEverTick=true;
     PrimaryActorTick.TickInterval=1.f;
 }
