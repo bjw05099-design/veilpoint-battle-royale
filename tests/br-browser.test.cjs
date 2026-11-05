@@ -1229,3 +1229,18 @@ test('BR gate E starts audible local motor; moving away and pausing stop the cue
  app.emit('blur');
  assert.equal(events.filter(e=>e==='stopped').length,2,'pause clears a running cue');
 });
+
+test('BR PC gate HUD labels a stalled physical motor rather than falsely claiming motion',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ const world=app.game;
+ world.player.x=app.context.VeilpointSim.SERVICE_YARD.switchX;
+ world.player.z=app.context.VeilpointSim.SERVICE_YARD.switchZ;
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(world.yardGate.engaged,true);
+ world.bots[0].x=app.context.VeilpointSim.SERVICE_YARD.x;
+ world.bots[0].z=app.context.VeilpointSim.SERVICE_YARD.z;
+ app.frame(500);
+ assert.match(app.node('pickupPrompt').textContent,/TRACK OBSTRUCTED/);
+ assert.equal(app.context.VeilpointSim.gateMotorActive(world),false);
+});

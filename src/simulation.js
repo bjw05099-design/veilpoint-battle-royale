@@ -212,9 +212,25 @@
   // A completed open panel is quiet despite keeping the engaged controller
   // latch for the next local closing interaction. This derives exclusively
   // from saved 60Hz gate progress and needs no unbounded noise timer.
-  function gateMotorActive(game) {
+  // Derive motor activity from the physical swept rail, not just the E switch.
+  // A stalled gate must neither emit a motor clue nor claim to be moving.
+  function gateMotionSample(game,dt=1/60) {
     const gate=game?.yardGate;
-    return !!(gate?.engaged&&(gate.closing===true||gate.progress<1));
+    if(!gate?.engaged||(!gate.closing&&gate.progress>=1))return null;
+    const body=game.obstacles?.find(o=>o.routeId==='br-service-gate');
+    if(!body)return null;
+    const candidate=gate.progress+(gate.closing?-1:1)*dt/SERVICE_YARD.seconds;
+    const next=gate.closing?(candidate<=1e-10?0:candidate):
+      (candidate>=1-1e-10?1:candidate);
+    const futureX=SERVICE_YARD.x+SERVICE_YARD.slide*next;
+    const swept={...body,x:(body.x+futureX)/2,w:body.w+Math.abs(futureX-body.x)};
+    const occupied=[game.player,...game.bots].some(actor=>actor.alive&&
+      intersectsCircleAABB(actor.x,actor.z,ACTOR_RADIUS,swept));
+    return {body,next,futureX,occupied};
+  }
+  function gateMotorActive(game) {
+    const sample=gateMotionSample(game);
+    return !!sample&&!sample.occupied;
   }
   function serviceGateStatus(game) {
     const gate=game.yardGate||{engaged:false,progress:0};
@@ -222,8 +238,10 @@
     const distance=Math.hypot(p.x-SERVICE_YARD.switchX,p.z-SERVICE_YARD.switchZ);
     const near=distance<=2.1&&!lineBlocked(p.x,p.z,SERVICE_YARD.switchX,
       SERVICE_YARD.switchZ,game.obstacles.filter(o=>o.routeId!=='br-service-gate'));
+    const motion=gateMotionSample(game);
     return {near,engaged:gate.engaged,open:gate.progress>=1,closing:gate.closing===true,
-      motorActive:gateMotorActive(game),progress:gate.progress,x:SERVICE_YARD.x,z:SERVICE_YARD.z};
+      motorActive:!!motion&&!motion.occupied,obstructed:!!motion?.occupied,
+      progress:gate.progress,x:SERVICE_YARD.x,z:SERVICE_YARD.z};
   }
   // A local E interaction starts the yard panel once. A motorized slide takes
   // time and stops rather than passing through a living actor on the rail.
@@ -247,28 +265,16 @@
     return {ok:true,progress:gate.progress,reversed:reversing,closing};
   }
   function advanceServiceGate(game,dt) {
-    const gate=game.yardGate;
-    if(!gate?.engaged||(!gate.closing&&gate.progress>=1))return;
-    const candidate=gate.progress+(gate.closing?-1:1)*dt/SERVICE_YARD.seconds;
-    const next=gate.closing?(candidate<=1e-10?0:candidate):
-      (candidate>=1-1e-10?1:candidate);
-    const body=game.obstacles.find(o=>o.routeId==='br-service-gate');
-    if(!body)return;
-    const futureX=SERVICE_YARD.x+SERVICE_YARD.slide*next;
-    // Check the entire rail swept by this tick, not only its destination.
-    // Otherwise a low-frequency/catch-up step can tunnel a sliding solid
-    // panel through a standing player or rival without ever overlapping at
-    // the final sample. The expanded AABB is conservative and deterministic.
-    const startX=body.x;
-    const swept={...body,x:(startX+futureX)/2,
-      w:body.w+Math.abs(futureX-startX)};
-    const occupied=[game.player,...game.bots].some(actor=>actor.alive&&
-      intersectsCircleAABB(actor.x,actor.z,ACTOR_RADIUS,swept));
-    if(occupied){game.message='SERVICE GATE STOPPED · TRACK OBSTRUCTED';game.messageTime=1.5;return;}
-    gate.progress=next;
-    body.x=futureX;
-    if(next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
-    if(next===0&&gate.closing){gate.engaged=false;gate.closing=false;
+    const sample=gateMotionSample(game,dt);
+    if(!sample)return;
+    if(sample.occupied){
+      game.message='SERVICE GATE STOPPED · TRACK OBSTRUCTED';game.messageTime=1.5;
+      return;
+    }
+    game.yardGate.progress=sample.next;
+    sample.body.x=sample.futureX;
+    if(sample.next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
+    if(sample.next===0&&game.yardGate.closing){game.yardGate.engaged=false;game.yardGate.closing=false;
       game.message='SERVICE GATE CLOSED · LOCAL CONTROL READY';game.messageTime=3;}
   }
   // PC J places or recovers one tangible field marker for self-navigation.
