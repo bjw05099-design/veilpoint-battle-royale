@@ -2977,3 +2977,69 @@ test('CH01 previous-checkpoint confirmation binds to exact backup generation acr
    'the newly validated generation requires its own second confirmation');
  assert.equal(store.get(backup),primary,'verified rewind rotates the former primary for recovery');
 });
+
+
+test('CH01 backup promotion rejects silently ignored writes and preserves both disk generations',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backupKey=key+'.previous';
+ const valid=Story.serialize(Story.createState()),damaged='{incomplete-primary';
+ class IgnoredPrimary extends Map{
+   attempts=0;
+   set(name,value){
+     if(name===key){this.attempts++;return this;} // reported successful, bytes discarded
+     return super.set(name,value);
+   }
+ }
+ const shared=new IgnoredPrimary([[backupKey,valid]]);
+ // Map construction writes the backup only; insert malformed primary directly.
+ Map.prototype.set.call(shared,key,damaged);
+ const app=boot(shared,false,'granted',true,true);
+ assert.ok(shared.attempts>0,'validated backup promotion must be attempted');
+ assert.equal(shared.get(key),damaged,'failed readback cannot claim recovered primary');
+ assert.equal(shared.get(backupKey),valid,'good backup remains available');
+ app.element('continue').click();
+ assert.match(app.element('objective').textContent,/중계기/);
+ assert.match(app.element('saveStatus').textContent,/임시 CH01 세션/,
+   'unverified promotion must not enable durable autosave for this tab');
+ app.moveForward(0,300);app.interact();
+ app.element('pauseButton').click();
+ assert.equal(shared.get(key),damaged,'memory-only 60Hz world cannot replace bad primary');
+ assert.equal(shared.get(backupKey),valid);
+ assert.equal(shared.has('veilpoint.brCheckpoint.v1'),false,'BR save remains independent');
+ // A fresh Windows tab with normal write access can recover the preserved
+ // backup without any manual deletion of the original valid generation.
+ const recovered=new Map([[key,damaged],[backupKey,valid]]);
+ const fresh=boot(recovered,false,'granted',true,true);
+ assert.equal(recovered.get(key),valid);
+ fresh.element('continue').click();fresh.element('pauseButton').click();
+ assert.ok(Story.restore(recovered.get(key)));
+ assert.equal(fresh.element('saveStatus').classList.contains('hidden'),true);
+});
+
+test('CH01 backup promotion detects concurrent primary substitution after a reported write',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backupKey=key+'.previous';
+ const valid=Story.serialize(Story.createState());
+ const newer=Story.createState();newer.world.player.x=4;
+ const newerRaw=Story.serialize(newer);
+ const damaged='{interrupted-primary';
+ const shared=new Map([[key,damaged],[backupKey,valid]]);
+ const originalSet=shared.set.bind(shared);let injected=false;
+ shared.set=(name,value)=>{
+   if(name===key&&!injected){
+     injected=true;return originalSet(name,newerRaw);
+   }
+   return originalSet(name,value);
+ };
+ const app=boot(shared,false,'granted',true,true);
+ assert.equal(injected,true);
+ assert.equal(shared.get(key),newerRaw,'the other tab newer valid primary is untouched');
+ assert.equal(shared.get(backupKey),valid);
+ assert.match(app.element('menuText').textContent,/복원할 수 없습니다/,
+   'unsafe promotion must not be advertised as durable');
+ const fresh=boot(shared,false,'granted',true,true);
+ fresh.element('continue').click();
+ fresh.element('pauseButton').click();
+ assert.equal(Story.restore(shared.get(key)).world.player.x,4,
+   'a later explicit Continue uses the current verified generation');
+});
