@@ -173,8 +173,21 @@ void AVPCharacter::ServerTryInteract_Implementation()
     for (TActorIterator<AVPPickup> It(GetWorld()); It; ++It)
     {
         if (It->bConsumed) continue;
-        const float d = FVector::DistSquared(GetActorLocation(), It->GetActorLocation());
-        if (d < BestSq) { BestSq=d; Nearest=*It; }
+        // A nearby but unusable or occluded supply must not prevent the
+        // player from collecting another usable one within reach.
+        const bool bNeedHealth=It->Resource==TEXT("health") && Health<100.f;
+        const bool bNeedSupplies=It->Resource==TEXT("charges") && Charges<60;
+        if (!bNeedHealth && !bNeedSupplies) continue;
+        const float d=FVector::DistSquared(GetActorLocation(),It->GetActorLocation());
+        if (d>=BestSq) continue;
+        // Server-authoritative visibility check uses actual blocking world
+        // geometry, not just a distance through solid buildings.
+        FCollisionQueryParams Params(SCENE_QUERY_STAT(VPInteract),true,this);
+        Params.AddIgnoredActor(*It);
+        if (GetWorld()->LineTraceTestByChannel(
+            GetPawnViewLocation(),It->GetActorLocation(),ECC_Visibility,Params)) continue;
+        BestSq=d;
+        Nearest=*It;
     }
     if (Nearest) Nearest->Claim(this);
 }
