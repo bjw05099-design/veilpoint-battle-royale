@@ -870,7 +870,8 @@
       // Legacy saves without this optional escort field retain their old route.
       (hasOwn(data,'guide')&&(!data.guide||typeof data.guide!=='object'||Array.isArray(data.guide)||
         !['active,arrived,x,z','active,arrived,released,x,z',
-          'active,arrived,released,waiting,x,z'].includes(Object.keys(data.guide).sort().join(','))||
+          'active,arrived,released,waiting,x,z',
+          'active,arrived,waiting,x,z'].includes(Object.keys(data.guide).sort().join(','))||
         (hasOwn(data.guide,'released')&&typeof data.guide.released!=='boolean')||
          (hasOwn(data.guide,'waiting')&&typeof data.guide.waiting!=='boolean')||
          (data.guide.waiting===true&&(!data.guide.active||data.guide.arrived||
