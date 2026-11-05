@@ -1088,3 +1088,87 @@ test('BR New Match does not claim persistent save when native removeItem silentl
  app.node('newMatch').click();app.frame(3000/60);
  assert.notEqual(store.get(key),original,'verified successful reset creates a writable new match');
 });
+
+
+test('BR recovery refuses silently ignored backup promotion and keeps both offline generations',()=>{
+ const Game=require('../src/simulation.js');
+ const saved=Game.newMatch(20261106,1);saved.status='playing';
+ const backup=Game.snapshotMatch(saved);
+ const damaged='{incomplete-primary';
+ const prior=KEY+'.previous';
+ const store=new Map([[KEY,damaged],[prior,backup],
+  ['veilpoint.story.ch01','independent-story']]);
+ const originalSet=store.set.bind(store);
+ let ignored=0;
+ store.set=(name,value)=>{
+  if(name===KEY){ignored++;return store;} // success acknowledgment, no actual write
+  return originalSet(name,value);
+ };
+ const app=boot(store);
+ assert.ok(ignored>0,'recovery attempted the good backup write');
+ assert.equal(store.get(KEY),damaged,'unverified promotion cannot change old primary');
+ assert.equal(store.get(prior),backup,'the only good backup survives');
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.seed,20261106);
+ assert.match(app.game.message,/MEMORY ONLY/,'the player sees a temporary session warning');
+ app.emit('blur');
+ assert.equal(store.get(KEY),damaged,'in-memory gameplay cannot overwrite the invalid primary');
+ assert.equal(store.get(prior),backup);
+ assert.equal(store.get('veilpoint.story.ch01'),'independent-story');
+ store.set=originalSet;
+ const retried=boot(store);
+ assert.equal(store.get(KEY),backup,'a later valid window repairs exact bytes');
+ retried.node('play').click();retried.frame(1000/60);
+ assert.equal(retried.game.seed,20261106);
+});
+
+test('BR recovery rejects another tab replacement during acknowledged backup promotion',()=>{
+ const Game=require('../src/simulation.js');
+ const saved=Game.newMatch(20261106,1);saved.status='playing';
+ const current=Game.newMatch(20261107,1);current.status='playing';
+ const backup=Game.snapshotMatch(saved),newer=Game.snapshotMatch(current);
+ const prior=KEY+'.previous',damaged='{incomplete';
+ const store=new Map([[KEY,damaged],[prior,backup]]);
+ const originalSet=store.set.bind(store);
+ let replaced=0;
+ store.set=(name,value)=>{
+  if(name===KEY){replaced++;return originalSet(name,newer);}
+  return originalSet(name,value);
+ };
+ const oldTab=boot(store);
+ assert.equal(replaced,1);
+ assert.equal(store.get(KEY),newer,'newer validated match is not silently adopted by old tab');
+ assert.equal(store.get(prior),backup,'backed-up round is still recoverable');
+ oldTab.node('play').click();oldTab.frame(1000/60);
+ assert.equal(oldTab.game.seed,20261106,'old tab can play validated backup in memory');
+ assert.match(oldTab.game.message,/MEMORY ONLY/);
+ oldTab.emit('blur');
+ assert.equal(store.get(KEY),newer,'old tab cannot overwrite new tab progress');
+ store.set=originalSet;
+ const fresh=boot(store);
+ fresh.node('play').click();fresh.frame(1000/60);
+ assert.equal(fresh.game.seed,20261107,'a new window restores the newer durable world');
+});
+
+test('BR backup promotion read denial keeps an unmodified primary and working temporary round',()=>{
+ const Game=require('../src/simulation.js');
+ const saved=Game.newMatch(20261106,1);saved.status='playing';
+ const backup=Game.snapshotMatch(saved),damaged='{partial';
+ const prior=KEY+'.previous',store=new Map([[KEY,damaged],[prior,backup]]);
+ const read=store.get.bind(store);
+ let reads=0;
+ store.get=(name)=>{
+  if(name===KEY&&++reads===3)throw new Error('read denied after write');
+  return read(name);
+ };
+ const app=boot(store);
+ assert.ok(reads>=3);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+ assert.match(app.game.message,/MEMORY ONLY/);
+ const committed=store.get(KEY);
+ assert.equal(committed,backup,'failed verification did not invent another generation');
+ app.emit('blur');
+ assert.equal(store.get(KEY),backup,'no autosave writes to unverified slot');
+});
