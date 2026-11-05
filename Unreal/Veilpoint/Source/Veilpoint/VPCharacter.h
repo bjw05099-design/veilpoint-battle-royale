@@ -23,7 +23,9 @@ public:
     float Health = 100.f;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     int32 Charges = 48;
-    UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
+    // Client-side movement must stop on the actual server-authoritative
+    // elimination transition, not only on the server's damage callback.
+    UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
     bool bEliminated = false;
 
     // Windows PC native locomotion: authoritative finite stamina exposed to HUD.
@@ -56,6 +58,8 @@ protected:
     void ServerSetSprintHeld(bool bHeld);
     UFUNCTION()
     void OnRep_SprintState();
+    UFUNCTION()
+    void OnRep_Eliminated();
     void UpdateSprintFixedStep(float FixedSeconds);
     void ApplySprintSpeed();
     UFUNCTION(Server, Reliable)

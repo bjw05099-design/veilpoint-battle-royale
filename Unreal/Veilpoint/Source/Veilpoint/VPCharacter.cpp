@@ -78,6 +78,17 @@ void AVPCharacter::ServerSetSprintHeld_Implementation(bool bHeld)
     bSprintHeld = bHeld && IsAlive();
 }
 void AVPCharacter::OnRep_SprintState() { ApplySprintSpeed(); }
+void AVPCharacter::OnRep_Eliminated()
+{
+    if (!bEliminated) return;
+    // The server already stopped the pawn on elimination; this callback
+    // guarantees that client-owned and remote simulated pawns stop too.
+    bSprintHeld = false;
+    bSprinting = false;
+    ApplySprintSpeed();
+    GetCharacterMovement()->StopMovementImmediately();
+    GetCharacterMovement()->DisableMovement();
+}
 void AVPCharacter::ApplySprintSpeed()
 {
     GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
@@ -118,8 +129,8 @@ void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
     }
 }
 
-void AVPCharacter::BeginCrouch() { Crouch(); }
-void AVPCharacter::EndCrouch() { UnCrouch(); }
+void AVPCharacter::BeginCrouch() { if (IsAlive()) Crouch(); }
+void AVPCharacter::EndCrouch() { if (IsAlive()) UnCrouch(); }
 
 float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AController* Instigator, AActor* Causer)
 {
@@ -133,8 +144,9 @@ float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AContr
         bEliminated = true;
         bSprintHeld = false;
         bSprinting = false;
-        ApplySprintSpeed();
-        GetCharacterMovement()->DisableMovement();
+        // OnRep does not fire on the authority that originally changed the
+        // field; invoke the same transition locally and replicate the flag.
+        OnRep_Eliminated();
     }
     return Amount;
 }
