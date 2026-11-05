@@ -23,6 +23,9 @@
   // Primary generation last observed by this PC session. An older browser tab
   // cannot silently overwrite a newer save created by another live tab.
   let diskGeneration=null;
+  // An explicitly replayed completion retires its old debrief only after the
+  // new first checkpoint reaches disk, including after transient write errors.
+  let pendingReplayReset=false;
   // N cycles only already-published mission markers; it never reveals hidden actors.
   let guidanceId=null;
   // Checkpoint quiet movement and elapsed route progress without writing at 60Hz.
@@ -146,6 +149,11 @@
     // postponing recovery for another five simulated seconds.
     if(saved){
       diskGeneration=raw;
+      if(pendingReplayReset){
+        storage.remove(PREVIEW_KEY);
+        storage.remove(BACKUP_KEY);
+        pendingReplayReset=false;
+      }
       lastAutosaveAt=state.world.elapsed;
       nextSaveRetryAt=0;
       shotSavePending=false;
@@ -291,10 +299,8 @@
       state=Story.createState($('storyWeapon').value);
       guidanceId=null;shotSavePending=false;firstShotSaved=false;
       lastAutosaveAt=state.world.elapsed;
-      if(persist('새 CH01 시작')){
-        storage.remove(PREVIEW_KEY);
-        storage.remove(BACKUP_KEY);
-      }
+      pendingReplayReset=true;
+      persist('새 CH01 시작');
     }
     if(state.phase==='decision'){showChoices();return;}
     menu.classList.add('hidden');choices.classList.add('hidden');
@@ -305,6 +311,7 @@
   }
   function begin(fromCheckpoint){
     if(!renderer||graphicsContextLost)return;
+    pendingReplayReset=false;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
       memoryOnlyStory=checkpointReadUnavailable||checkpointInvalidStored;
