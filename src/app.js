@@ -277,6 +277,22 @@ function persistMatch(){
    // If the old primary cannot be validated or backed up, do not erase it.
    Game.restoreMatch(previous);
    global.localStorage.setItem(MATCH_BACKUP_KEY,previous);
+   // A storage shim may silently discard a successful setItem. Do not
+   // replace the only validated primary until its exact previous generation
+   // survives in the backup slot. Another tab changing primary during this
+   // rotation also invalidates the pending overwrite.
+   const verifiedBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
+   const verifiedPrimary=global.localStorage.getItem(MATCH_SAVE_KEY);
+   if(verifiedBackup!==previous||verifiedPrimary!==previous){
+    nextMatchSaveRetryAt=simulation.elapsed+1;
+    saveWarning=true;
+    saveIssue=verifiedPrimary!==previous?'conflict':'write-failed';
+    simulation.message=saveIssue==='conflict'
+     ?'OFFLINE SAVE CONFLICT · MATCH CHANGED DURING BACKUP'
+     :'OFFLINE SAVE FAILED · PREVIOUS CHECKPOINT BACKUP NOT VERIFIED';
+    simulation.messageTime=4;
+    return false;
+   }
   }
   global.localStorage.setItem(MATCH_SAVE_KEY,raw);
   // Storage shims, privacy extensions and competing tabs can acknowledge a
