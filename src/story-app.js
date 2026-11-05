@@ -285,6 +285,7 @@
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
     menu.classList.remove('hidden');choices.classList.add('hidden');
+    $('fieldJournal').classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=state.phase==='failed'?'마지막 체크포인트 재시도':
@@ -515,6 +516,23 @@
       $('menuText').textContent='완료 기록을 검증할 수 없습니다. 처음부터 다시 시작할 수 있습니다.';
     }
   });
+  function renderFieldJournal(){
+    const rows=global.VeilpointFieldJournal.entries(state);
+    const panel=$('fieldJournalEntries');
+    panel.textContent='';
+    for(const entry of rows){
+      const paragraph=document.createElement('p');
+      paragraph.textContent=entry.title+' — '+entry.detail;
+      panel.appendChild(paragraph);
+    }
+    $('fieldJournal').classList.remove('hidden');
+    $('fieldJournalClose').focus();
+  }
+  $('fieldJournalOpen').addEventListener('click',renderFieldJournal);
+  $('fieldJournalClose').addEventListener('click',()=>{
+    $('fieldJournal').classList.add('hidden');
+    $('fieldJournalOpen').focus();
+  });
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
   $('choiceEvac').addEventListener('click',()=>decide('evacuation'));
   $('choiceVerified').addEventListener('click',()=>decide('verification'));
@@ -528,6 +546,10 @@
     // Route-choice keys are owned by the visible dialog, even when the
     // focused target is one of its accessible buttons. Previously the generic
     // focused-button guard swallowed all three actions.
+    if(!$('fieldJournal').classList.contains('hidden')){
+      if(e.code==='Escape'){e.preventDefault();$('fieldJournalClose').click();}
+      return;
+    }
     if(!choices.classList.contains('hidden')){
       if(e.repeat)return; // One physical key press selects at most one branch.
       if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
