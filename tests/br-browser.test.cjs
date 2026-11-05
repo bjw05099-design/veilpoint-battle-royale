@@ -1683,7 +1683,7 @@ test('Windows BR benchmark exposes readable local JSON without Blob downloads an
  for(let i=346;i<=365;i++)app.frame(i*1000/60);
  assert.equal(app.game,game);
  assert.equal(game.elapsed,progress,'copying JSON cannot advance the paused match');
- assert.match(app.node('benchmarkExportHelp').textContent,/Ctrl\\+C/);
+ assert.ok(app.node('benchmarkExportHelp').textContent.includes('Ctrl+C'));
  app.node('benchmarkStart').click();
  assert.equal(app.node('benchmarkRawJson').value,'','a new run cannot expose stale prior measurements');
  assert.equal(app.node('benchmarkRawJson').classList.contains('hidden'),true);
