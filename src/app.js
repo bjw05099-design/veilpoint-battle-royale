@@ -174,12 +174,15 @@ function archiveLastResult(){
 let pauseRestartArmed=false,forfeitArmed=false,manualCheckpoint=null;
 // Keep the optional P-key field bookmark separately from the newest autosave.
 // It is restored only for the same active arena and cleared on a new/ended match.
-function clearFieldBookmark(){
- // A stale finished tab does not own another live tab's field bookmark.
- if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return;
+function clearFieldBookmark(explicitReset=false){
+ // In-session bookmark repair (even while still playing) must not erase a
+ // newer browser tab's durable field bookmark. Explicit New Match is the
+ // one intentionally destructive operation and can reset every generation.
  manualCheckpoint=null;
+ if(!explicitReset&&!ownsStoredMatch())return false;
  try{global.localStorage.removeItem(FIELD_BOOKMARK_KEY);}
  catch(_){try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,'');}catch(_){}}
+ return true;
 }
 function loadFieldBookmark(){
  try{
@@ -376,7 +379,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  if(graphicsContextLost||!renderer)return;
  // Storage access may fail temporarily. Keep all existing disk generations
  // untouched while allowing a separate memory-only local PC match.
- if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();checkpointInvalidStored=false;}
+ if(!offlineOnly){clearStoredMatch();clearFieldBookmark(true);clearLastResult();checkpointInvalidStored=false;}
  memoryOnlyMatch=offlineOnly;saveWarning=false;
  nextMatchSaveRetryAt=0;saveIssue=null;bookmarkIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
@@ -781,7 +784,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}if(!memoryOnlyMatch){archiveLastResult();clearStoredMatch();clearFieldBookmark();}
+function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}if(!memoryOnlyMatch){archiveLastResult();clearFieldBookmark();clearStoredMatch();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
