@@ -54,3 +54,11 @@ Do not silently drop story characters, original Sahir/Nahrin campaign, finite wo
 **BR HUD state:** Before this update, the native fallback HUD displayed stamina and health but omitted finite supplies and the publicly replicated safe-zone boundary. `VPHUD.cpp` now displays authoritative replicated `Charges`, `AVPZone` phase/radius/time (cm-to-m conversion shown explicitly), and a physical outside-boundary warning. It does not estimate unseen actors or synthesize zone updates when the replicated actor is absent. `TWeakObjectPtr<AVPZone>` caches zone discovery to avoid a level actor scan on every 165Hz draw frame. When the local pawn's round ends, no stale live zone status is rendered.
 
 **Test boundary:** Native C++ source-contract tests in `tests/unreal-native-elimination.test.cjs` and `tests/unreal-native-live-hud.test.cjs` detect unintentional removals of callback wiring and HUD data sources. Node CI cannot test actual Unreal C++ compilation, rendering, pointer lifetime under travel, cross-client replication latency or real GPU performance. These remain acceptance gates, not completed milestones.
+
+## 2026-11-06 native round-state visibility
+
+**Confirmed source gap:** The UE5 `AVPGameMode` counted `ActiveSurvivors` and `bRoundComplete` server-side, but Unreal's GameMode is not replicated to remote clients. Windows clients had no authoritative network-visible count/end state even though they could render finite pawn and zone status.
+
+**Increment:** A distinct `AVPGameState : AGameStateBase` now replicates the finite active-player count and round completion. The existing GameMode alone computes/publishes it. The native HUD reads GameState, displays active players and a terminal round notice, and stops displaying live zone hints after the round ends. No new browser data fields or fabricated winner attribution are introduced.
+
+**Evidence boundary:** Static tests check native class registration, replication annotations, authoritative update paths and HUD wiring. They do **not** certify UnrealHeaderTool, dedicated server startup, join-in-progress state, 2-client PIE or packaged Windows gameplay. Final delivery remains gated on a real UE5.8 Windows compile, actual executable launch and supervised gameplay/baseline benchmarks.
