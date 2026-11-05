@@ -303,8 +303,8 @@
       for(const sx of [-1,1])for(const sz of [-1,1]){
         const target={x:wall.x+sx*(wall.w/2+clearance),
           z:wall.z+sz*(wall.d/2+clearance)};
-        if(Math.hypot(target.x-guide.x,target.z-guide.z)>10||
-           Math.hypot(target.x-player.x,target.z-player.z)>10||
+        if(Math.min(Math.hypot(target.x-guide.x,target.z-guide.z),
+           Math.hypot(target.x-player.x,target.z-player.z))>10||
            Sim.blocked(target.x,target.z,.55,state.world.obstacles))continue;
         nodes.push(target);
       }
@@ -327,7 +327,7 @@
           nodes[current].z-nodes[i].z);
         const next=cost[current]+distance;
         // A bounded detour prevents inexplicable distant wandering.
-        if(next>18||next>=cost[i]-1e-8)continue;
+        if(next>36||next>=cost[i]-1e-8)continue;
         cost[i]=next;previous[i]=current;
       }
     }
