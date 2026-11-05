@@ -22,6 +22,30 @@
       id:'gateLog',unlocked:true,title:'현장 중계 로그',
       detail:'04:07 최초 수신 / 04:12 동일 메시지 재전송'+(state.logHandedOff?' · 현지 통제소 접수 완료':' · 현지 통제소 전달 전')
     }));
+    // Contextual civilian outcomes are earned by physical actions in the live
+    // CH01 world. No unpublished location, hidden evidence, future campaign
+    // chapter or invented mission result is revealed in the field notebook.
+    const note=(id,title,detail)=>rows.push(Object.freeze({id,unlocked:true,title,detail}));
+    if(state&&state.choice==='evacuation')note('route','선택 경로 / 남쪽 대피',
+      '유수프 구조단이 남쪽 대피 통로를 확보했다. 집결지 확인과 물품 인계 및 안내원 동행은 현장 선택 과제다.');
+    else if(state&&state.choice==='verification')note('route','선택 경로 / 동쪽 추가 확인',
+      '두 기록을 조사한 뒤 동쪽 통제문 개방을 요청했다. 개방은 현지 구조단이 실제로 확인한다.');
+    if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
+      '유수프 구조단의 인원 확인표를 현장에서 직접 대조했다.');
+    if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
+      state.aidDelivered?'비상 물품을 현지 구조단에 직접 전달했다.':
+        state.aidStaged?'비상 물품이 임시 적재대에 남아 있다. 구조단 현장 인계는 아직 완료되지 않았다.':
+        '비상 물품을 운반 중이다. 구조단 현장 인계는 아직 완료되지 않았다.');
+    if(state&&state.guide){
+      const guide=state.guide;
+      if(guide.released)note('guide','안내원 현장 인계',
+        '대피 안내원을 현지 구조단에 직접 인계했다.');
+      else if(guide.arrived)note('guide','안내원 안뜰 도착',
+        '동행 안내원이 실제로 남쪽 안뜰에 도착했다.');
+      else if(guide.active)note('guide','안내원 동행 진행',
+        guide.waiting?'안내원은 현장에서 대기 중이다. 가까이 돌아가서 동행을 재개할 수 있다.':
+          '안내원이 함께 이동 중이다. 안뜰 도착이나 구조단 인계는 아직 완료되지 않았다.');
+    }
     return Object.freeze(rows);
   }
   return Object.freeze({entries});

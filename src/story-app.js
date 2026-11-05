@@ -557,6 +557,16 @@
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
+    // J opens the field journal through the existing protected pause path.
+    // Do not steal the key when the player remapped J to a gameplay action.
+    // The explicit menu button remains available for all binding layouts.
+    if(e.code==='KeyJ'&&!e.repeat&&sessionStarted&&
+       !Desktop.actionFor('KeyJ',desktopUi.get())){
+      e.preventDefault();
+      if(running)menuOpen('현장 기록 열람 · 일시정지됨. Esc로 기록을 닫고 이어하기로 복귀하세요.');
+      if(!menu.classList.contains('hidden'))renderFieldJournal();
+      return;
+    }
     // Escape is a PC menu command even when a visible menu button has focus.
     // Handle it BEFORE the generic interactive-target guard; no held movement
     // or gameplay input is dispatched from this branch.
