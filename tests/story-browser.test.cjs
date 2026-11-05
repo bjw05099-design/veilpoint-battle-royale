@@ -1422,8 +1422,8 @@ test('CH01 storage read permission may recover before Continue without forcing a
 
 test('CH01 a temporary session cannot publish a completed preview over an earlier disk mission',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
-  assert.match(source,/let checkpointReadUnavailable=false,memoryOnlyStory=false/);
-  assert.match(source,/catch\(_\)\{checkpointReadUnavailable=true;return null;\}/);
+  assert.match(source,/let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyStory=false/);
+  assert.match(source,/catch\(_\)\{checkpointReadUnavailable=true;checkpointInvalidStored=false;return null;\}/);
   assert.match(source,/if\(memoryOnlyStory\)\{[\s\S]*?checkpoint=raw;/);
   assert.match(source,/if\(report&&!memoryOnlyStory\)storage\.set\(PREVIEW_KEY/);
   assert.match(source,/checkpoint=memoryOnlyStory\?null:storage\.get\(SAVE_KEY\)/);
