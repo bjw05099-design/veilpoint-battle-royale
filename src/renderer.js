@@ -70,7 +70,37 @@ class Mesh {
   gl.bufferSubData(gl.ARRAY_BUFFER,0,vertices,0,floats);
   this.count=floats/9;
  }
- draw(gl,p){if(!this.buffer)return;gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.vertexAttribPointer(p.pos,3,gl.FLOAT,false,36,0);gl.vertexAttribPointer(p.normal,3,gl.FLOAT,false,36,12);gl.vertexAttribPointer(p.color,3,gl.FLOAT,false,36,24);gl.drawArrays(gl.TRIANGLES,0,this.count);}
+ bind(gl,p){if(!this.buffer)return false;gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.vertexAttribPointer(p.pos,3,gl.FLOAT,false,36,0);gl.vertexAttribPointer(p.normal,3,gl.FLOAT,false,36,12);gl.vertexAttribPointer(p.color,3,gl.FLOAT,false,36,24);return true;}
+ draw(gl,p){if(this.bind(gl,p))gl.drawArrays(gl.TRIANGLES,0,this.count);}
+}
+// Reorder complete interleaved triangles into contiguous spatial ranges inside
+// one static GPU buffer. Full vertex bounds prevent long walls from disappearing.
+function partitionStaticTriangles(data,cell=56){
+ if(!Array.isArray(data)||data.length%27!==0||!Number.isFinite(cell)||cell<=0)
+  throw new RangeError('Invalid static mesh');
+ const buckets=new Map();
+ for(let i=0;i<data.length;i+=27){
+  const cx=(data[i]+data[i+9]+data[i+18])/3;
+  const cz=(data[i+2]+data[i+11]+data[i+20])/3;
+  const key=Math.floor(cx/cell)+','+Math.floor(cz/cell);
+  let bucket=buckets.get(key);
+  if(!bucket){bucket={data:[],minX:Infinity,maxX:-Infinity,minZ:Infinity,maxZ:-Infinity};buckets.set(key,bucket);}
+  for(let v=0;v<27;v++)bucket.data.push(data[i+v]);
+  for(const v of [i,i+9,i+18]){
+   const x=data[v],z=data[v+2];
+   bucket.minX=Math.min(bucket.minX,x);bucket.maxX=Math.max(bucket.maxX,x);
+   bucket.minZ=Math.min(bucket.minZ,z);bucket.maxZ=Math.max(bucket.maxZ,z);
+  }
+ }
+ const packed=[],chunks=[];
+ for(const bucket of buckets.values()){
+  const first=packed.length/9;
+  for(const value of bucket.data)packed.push(value);
+  const x=(bucket.minX+bucket.maxX)/2,z=(bucket.minZ+bucket.maxZ)/2;
+  chunks.push({first,count:bucket.data.length/9,x,z,
+   radius:Math.hypot(bucket.maxX-x,bucket.maxZ-z)+1});
+ }
+ return {packed,chunks};
 }
 const VS=`#version 300 es
 precision highp float;
@@ -224,7 +254,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -338,6 +368,8 @@ class Renderer {
    }
   }
  }
+ const partitioned=partitionStaticTriangles(m.data);m.data=partitioned.packed;
+ this.staticChunks=partitioned.chunks;
  this.static.upload(this.gl);this.static.data=[];
  }
  buildDynamic(state){
@@ -491,8 +523,22 @@ class Renderer {
  g.uniform3f(l.flashEye,eye[0],eye[1],eye[2]);
  g.uniform3f(l.flashDir,dir[0],dir[1],dir[2]);
  g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
- this.static.draw(g,l);this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
+ // One VBO with many conservative subranges. Chunk culling changes only
+ // rasterization, never simulated cover, player physics or saved world state.
+ const halfFov=Visibility.halfHorizontalFov(this.lastWidth/Math.max(this.lastHeight,1));
+ let submittedVertices=0,visibleChunks=0;
+ if(this.static.bind(g,l)){
+  for(const chunk of this.staticChunks){
+   if(!Visibility.inView(p,chunk.x,chunk.z,chunk.radius,460,halfFov))continue;
+   g.drawArrays(g.TRIANGLES,chunk.first,chunk.count);
+   visibleChunks++;submittedVertices+=chunk.count;
+  }
+ }
+ this.lastStaticVisibilityStats={visibleChunks,totalChunks:this.staticChunks.length,
+  submittedVertices,totalVertices:this.static.count};
+ this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
+global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointRenderer=Renderer;
 })(globalThis);
