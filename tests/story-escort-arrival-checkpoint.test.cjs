@@ -68,5 +68,5 @@ test('CH01 PC controller flushes physical arrival using the existing save and vi
   assert.match(app,/lastAutosaveAt=state\.world\.elapsed/);
   // The same save slot is loaded after refresh; no alternate incompatible schema.
   assert.match(app,/const SAVE_KEY='veilpoint\.story\.ch01'/);
-  assert.match(app,/Story\.recoverCheckpoint\(primary,backup\)/);
+  assert.match(app,/VeilpointCheckpointRecovery\.recover\(primary,backup,Story\.recoverCheckpoint\)/);
 });
