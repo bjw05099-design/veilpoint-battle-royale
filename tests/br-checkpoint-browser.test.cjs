@@ -778,18 +778,22 @@ test('BR owning tab still clears its own P bookmark on terminal finish',()=>{
    'terminal cleanup must clear the owning session bookmark before its primary');
 });
 
-test('BR explicit New Match may deliberately replace current bookmark generations',()=>{
+test('BR explicit New Match resets observed bookmark generations but protects a newer tab',()=>{
  const store=new Map();
  const older=boot(store);older.node('play').click();older.frame(1000/60);
  const newer=boot(store);newer.node('play').click();newer.frame(1000/60);
  newer.emit('keydown',{code:'KeyP'});
- assert.ok(store.get('veilpoint.brFieldBookmark.v1'));
- const former=JSON.parse(store.get(KEY)).seed;
+ const latest=store.get(KEY),bookmark=store.get('veilpoint.brFieldBookmark.v1');
+ assert.ok(bookmark);
  older.node('newMatch').click();older.frame(2000/60);
- assert.equal(store.has('veilpoint.brFieldBookmark.v1'),false,
-   'explicit New Match remains the only destructive generation reset');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),bookmark,
+   'the older PC tab cannot destructively reset another tab\'s newer saved bookmark');
+ assert.equal(store.get(KEY),latest,'the newer valid round remains recoverable');
  assert.equal(older.game.status,'playing');
- assert.notEqual(older.game, newer.game);
+ assert.notEqual(older.game,newer.game);
+ const refreshed=boot(store);refreshed.node('newMatch').click();refreshed.frame(1000/60);
+ assert.equal(store.has('veilpoint.brFieldBookmark.v1'),false,
+   'the tab that observed the newest valid generation can still explicitly reset');
  assert.ok(JSON.parse(store.get(KEY)).seed,'fresh round gets its own checkpoint');
 });
 
