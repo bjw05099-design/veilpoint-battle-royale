@@ -88,7 +88,7 @@
       shotSavePending=false;
       saveFailed=true;
       const notice=$('saveStatus');
-      notice.textContent='임시 CH01 세션 · 현재 진행은 이 탭에서만 보존됩니다. 기존 저장 기록은 변경하지 않았습니다.';
+      notice.textContent='저장 실패 · 임시 CH01 세션: 현재 진행은 이 탭에서만 보존됩니다. 기존 저장 기록은 변경하지 않았습니다.';
       notice.classList.remove('hidden');
       return false;
     }
