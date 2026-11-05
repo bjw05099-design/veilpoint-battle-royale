@@ -20,6 +20,13 @@
   global.VeilpointInput=input;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
+  // Rewinding to an older world discards new unsaved progress. Require a
+  // deliberate second action for the EXACT validated backup generation.
+  let previousRestoreArmed=null;
+  function cancelPreviousRestore(){
+    previousRestoreArmed=null;
+    $('restorePrevious').textContent='이전 체크포인트 복구';
+  }
   // Primary generation last observed by this PC session. An older browser tab
   // cannot silently overwrite a newer save created by another live tab.
   let diskGeneration=null;
@@ -278,6 +285,7 @@
     }
   });
   function menuOpen(text){
+    cancelPreviousRestore();
     // Pausing after a choice or during clearance must not roll back elapsed world state.
     if(running&&state.phase!=='complete'&&state.phase!=='failed')persist();
     running=false;lockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
@@ -311,6 +319,7 @@
     }catch(_){unavailable();}
   }
   function resume(){
+    cancelPreviousRestore();
     if(!renderer||graphicsContextLost)return;
     if(state.phase==='failed'){
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
@@ -364,6 +373,7 @@
     updateHud();
   }
   function begin(fromCheckpoint){
+    cancelPreviousRestore();
     if(!renderer||graphicsContextLost)return;
     pendingReplayReset=false;
     let replayCompleted=false,staleReset=false;
@@ -503,6 +513,7 @@
   // Disk checkpoints are for a fresh page load. A paused session must resume
   // its live world even when storage is denied, full or contains an older save.
   $('saveCheckpoint').addEventListener('click',()=>{
+    cancelPreviousRestore();
     // A manual retry is safe even when automatic saves were suppressed by
     // temporary quota/permission errors. Never switch save generations, grant
     // resources, advance the 60Hz clock or leave the current game.
@@ -555,6 +566,18 @@
       $('menuText').textContent='이전 체크포인트를 검증할 수 없거나 다른 창에서 변경했습니다. 현재 진행을 유지합니다.';
       return;
     }
+    if(previousRestoreArmed!==backup){
+      // A different tab may rotate only the backup while primary is unchanged.
+      // Never accept a second click as consent to restore a different world.
+      const changed=previousRestoreArmed!==null;
+      previousRestoreArmed=backup;
+      $('restorePrevious').textContent='이전 체크포인트 복구 확정 (다시 클릭)';
+      $('menuText').textContent=changed
+        ?'이전 백업 기록이 변경되었습니다. 복구하려면 현재 기록을 다시 확인해 주세요.'
+        :'이전 체크포인트로 돌아가면 현재 미션 진행이 되돌아갑니다. 같은 버튼을 한 번 더 눌러 복구를 확정하세요.';
+      return;
+    }
+    cancelPreviousRestore();
     const live=state,oldCheckpoint=checkpoint,oldAutosaveAt=lastAutosaveAt;
     state=restored;
     // persist() validates/rotates the latest primary and reads back the exact
@@ -575,6 +598,7 @@
     updateHud();
   });
   $('saveExit').addEventListener('click',()=>{
+    cancelPreviousRestore();
     // Save & Exit is an explicit navigation request, never an implicit
     // consequence of losing focus, pressing Esc or a failed localStorage write.
     if(!sessionStarted||menu.classList.contains('hidden')||
