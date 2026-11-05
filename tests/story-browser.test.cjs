@@ -65,8 +65,10 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     removeItem:k=>sharedStore.delete(k)
   };
   let now=0,frameCallback=null;
+  const navigations=[];
   const context={
     document,localStorage:store,
+    location:{assign:url=>navigations.push(url)},
     performance:{now:()=>now},
     matchMedia:query=>({matches:query==='(any-pointer:fine)'?finePointer:touch}),
     navigator:windows?{platform:'Win32',userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}:undefined,
@@ -88,7 +90,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     vm.runInNewContext(source,context,{filename:script,timeout:1500});
   }
   return {
-    element,store:sharedStore,context,
+    element,store:sharedStore,context,navigations,
     grantPointerLock(){assert.equal(typeof grantPointerLock,'function');grantPointerLock();},
     emit(name,event){for(const fn of listeners.get(name)||[])fn({preventDefault(){},...event});},
     frame(ms){now=ms;const callback=frameCallback;assert.equal(typeof callback,'function');callback(ms);},
