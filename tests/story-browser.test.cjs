@@ -1959,7 +1959,7 @@ test('CH01 guide waiting HUD uses the remapped PC companion action after checkpo
  assert.equal(Story.interact(state).event,'guide');
  state.world.player.x=state.guide.x-1.6;state.world.player.z=state.guide.z;
  assert.equal(Story.nearest(state)?.id,'guideControl');
- assert.equal(Story.interact(state).event,'guideWait');
+ assert.equal(Story.interact(state).event,'guideControl');
  const remapped=Desktop.bind(Desktop.normalize({}),'interact','KeyT');
  assert.equal(remapped.ok,true);
  const store=new Map([
