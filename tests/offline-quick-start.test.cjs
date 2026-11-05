@@ -36,6 +36,10 @@ test('offline package has useful Windows launch steps and cryptographically cove
  assert.equal(inspected.get('NOTICE.txt').toString('utf8'),NOTICE_TEXT);
  assert.match(inspected.get('MANIFEST.sha256').toString('utf8'),
    new RegExp(hash(inspected.get('QUICK_START.txt'))+'  QUICK_START\\.txt'));
+ const outer=path.join(temp,'START_HERE.txt');
+ assert.equal(built.outerGuide,outer);
+ assert.equal(fs.readFileSync(outer,'utf8'),QUICK_START_TEXT,
+   'the first guide visible in a GitHub Actions download must match the ZIP');
  assert.equal(verifyPackage(target).sha256,built.sha256);
 });
 
@@ -66,4 +70,27 @@ test('offline verifier rejects false certification claims inserted into NOTICE i
    'Official UE5 Win64 executable included. 165FPS and multi-player certified.\n'));
  assert.throws(()=>verifyArchive(repack(forged)),/notice_mismatch/);
  assert.doesNotThrow(()=>verifyArchive(repack(input)));
+});
+
+test('outer GitHub download guide cannot be missing or stale while ZIP and SHA256 remain correct',t=>{
+ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'veilpoint-outer-guide-'));
+ t.after(()=>fs.rmSync(tmp,{recursive:true,force:true}));
+ const zip=path.join(tmp,'veilpoint-offline-demo.zip');
+ packageDemo(undefined,zip);
+ const guide=path.join(tmp,'START_HERE.txt');
+ const initial=fs.readFileSync(guide);
+ fs.rmSync(guide);
+ assert.throws(()=>verifyPackage(zip),/invalid_demo_zip:outer_guide_missing/);
+ fs.writeFileSync(guide,'Incorrect or old download instructions');
+ assert.throws(()=>verifyPackage(zip),/invalid_demo_zip:outer_guide_mismatch/);
+ fs.writeFileSync(guide,initial);
+ assert.doesNotThrow(()=>verifyPackage(zip),
+   'restoring byte-identical guide restores valid deployment evidence');
+});
+
+test('CI uploads the outer Windows instructions beside the inner offline ZIP and checksum',()=>{
+ const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/ci.yml'),'utf8');
+ assert.match(workflow,/name: veilpoint-offline-demo-candidate/);
+ assert.match(workflow,/dist\/veilpoint-offline-demo\.zip\s*\n\s*dist\/veilpoint-offline-demo\.zip\.sha256\s*\n\s*dist\/START_HERE\.txt/);
+ assert.doesNotMatch(workflow,/Win64\.exe|UE5\.exe/);
 });
