@@ -995,3 +995,58 @@ test('BR invalid concurrent backup replacement cannot erase either disk generati
  assert.equal(store.get(backupKey),brokenBackup,'memory-only round leaves backup unchanged');
  assert.match(app.game.message,/MEMORY-ONLY/);
 });
+
+
+test('BR Save & Exit refuses an acknowledged but silently discarded checkpoint write',()=>{
+ const store=new Map([['veilpoint.story.ch01','independent-CH01']]);
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const lastDurable=store.get(KEY),currentWorld=app.game;
+ assert.ok(lastDurable);
+ const realSet=store.set.bind(store);
+ let swallowed=0;
+ store.set=(key,value)=>{
+  if(key===KEY){swallowed++;return store;} // fake success; bytes never hit disk
+  return realSet(key,value);
+ };
+ app.emit('keydown',{code:'Escape'});
+ app.node('saveExit').click();
+ assert.ok(swallowed>=2,'pause and Save & Exit both tried to persist');
+ assert.equal(store.get(KEY),lastDurable,'old good generation survives silent write loss');
+ assert.equal(app.node('play').textContent,'이어하기',
+  'a falsely acknowledged save cannot move the UI to the saved-menu state');
+ assert.match(app.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+ assert.equal(store.get('veilpoint.story.ch01'),'independent-CH01');
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,currentWorld,'uncommitted round remains playable');
+ store.set=realSet;
+ app.emit('keydown',{code:'Escape'});app.node('saveExit').click();
+ assert.equal(app.node('play').textContent,'저장 경기 이어하기',
+  'a real verified retry makes the exit available again');
+});
+
+test('BR save readback detects concurrent replacement after a reported successful write',()=>{
+ const Game=require('../src/simulation.js');
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const originalGame=app.game;
+ const newer=Game.newMatch(20261105,1);newer.status='playing';
+ const concurrent=Game.snapshotMatch(newer);
+ const realSet=store.set.bind(store);
+ let injected=false;
+ store.set=(key,value)=>{
+  const result=realSet(key,value);
+  if(key===KEY&&!injected){injected=true;realSet(KEY,concurrent);}
+  return result;
+ };
+ app.emit('keydown',{code:'Escape'});
+ app.node('saveExit').click();
+ assert.equal(injected,true);
+ assert.equal(store.get(KEY),concurrent,'another tab newer generation remains on disk');
+ assert.equal(app.node('play').textContent,'이어하기');
+ assert.match(app.node('selector-.tagline').textContent,/다른 창에서 저장된 경기/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,originalGame,'no forced switch to another tab in-progress round');
+ store.set=realSet;
+ assert.equal(store.get(KEY),concurrent);
+});

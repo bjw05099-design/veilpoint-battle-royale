@@ -258,6 +258,22 @@ function persistMatch(){
    global.localStorage.setItem(MATCH_BACKUP_KEY,previous);
   }
   global.localStorage.setItem(MATCH_SAVE_KEY,raw);
+  // Storage shims, privacy extensions and competing tabs can acknowledge a
+  // write without leaving its bytes in the active slot. Treat a checkpoint as
+  // durable only after readback matches this exact serialized generation.
+  // localStorage has no cross-tab CAS: this closes silent-drop/replace cases,
+  // but cannot guarantee atomicity after the final read.
+  const verified=global.localStorage.getItem(MATCH_SAVE_KEY);
+  if(verified!==raw){
+   nextMatchSaveRetryAt=simulation.elapsed+1;
+   saveIssue=verified!==previous?'conflict':'write-failed';
+   saveWarning=true;
+   simulation.message=saveIssue==='conflict'
+    ?'OFFLINE SAVE CONFLICT · CHECKPOINT CHANGED DURING WRITE'
+    :'OFFLINE SAVE FAILED · STORAGE DID NOT RETAIN CHECKPOINT';
+   simulation.messageTime=4;
+   return false;
+  }
   matchDiskGeneration=raw;
   lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
   nextMatchSaveRetryAt=0;
