@@ -383,14 +383,18 @@
       // Clear backup first; if that fails, keep the primary untouched so
       // the old save can still be resumed after this temporary session.
       state=Story.createState($('storyWeapon').value);
-      let resetVerified=false;
+      let resetVerified=false,observedPrimary=diskGeneration;
       try{
-        // A second PC tab may have saved progress since this menu opened.
-        // An explicit restart of this OLD tab is not permission to erase the
-        // newer tab's independent world. Preserve both existing save slots.
+        // Protect a *newer valid* save written by another PC tab. Explicit
+        // New Game must still be able to discard an already-corrupt checkpoint
+        // or intentionally restart after an external deletion, as before.
         const latest=global.localStorage.getItem(SAVE_KEY);
+        observedPrimary=latest;
         global.localStorage.getItem(BACKUP_KEY);
-        staleReset=latest!==diskGeneration;
+        if(latest!==diskGeneration&&latest!==null){
+          try{Story.restore(latest);staleReset=true;}
+          catch(_){} // An invalid primary can be explicitly reset by New Game.
+        }
         if(!staleReset){
           storage.remove(BACKUP_KEY);
           if(global.localStorage.getItem(BACKUP_KEY)===null)
@@ -402,7 +406,12 @@
       }catch(_){resetVerified=false;}
       memoryOnlyStory=!resetVerified;
       checkpointInvalidStored=false;
-      diskGeneration=null;checkpoint=null;
+      // A denied reset can be retried after storage permissions recover. Keep
+      // the generation just verified by the old tab until the reset succeeds.
+      // Never adopt a conflicting live generation from a different tab.
+      if(resetVerified)diskGeneration=null;
+      else if(!staleReset)diskGeneration=observedPrimary;
+      checkpoint=null;
       recoveredFromBackup=false;
     }
     $('reviewCompleted').classList.add('hidden');
