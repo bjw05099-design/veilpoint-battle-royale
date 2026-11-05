@@ -555,15 +555,20 @@
               state.world.obstacles.concat([{x:p.x,z:p.z,w:1.7,d:1.7}]),.55);
         }
       }
-      // Distance alone cannot certify an escorted arrival through a closed
-      // wall or crate. Both actors must share the actual exit courtyard.
-      // Use the same physical obstacles as movement, with no save-schema change.
-      const exit=POINTS.exitEvac;
+    }
+    // Being told to wait does not undo the guide's physical arrival: both
+    // bodies can already be inside the real courtyard when the order is given
+    // or when an older checkpoint is restored. Evaluate the same local, visible
+    // geometry for waiting and following guides. No teleports or auto-handoffs.
+    if(state.phase==='exit'&&state.choice==='evacuation'&&
+       state.guide.active&&!state.guide.arrived){
+      const g=state.guide,exit=POINTS.exitEvac;
       if(Math.hypot(g.x-exit.x,g.z-exit.z)<2.4&&
          Math.hypot(p.x-exit.x,p.z-exit.z)<4&&
          !Sim.lineBlocked(g.x,g.z,exit.x,exit.z,state.world.obstacles)&&
          !Sim.lineBlocked(p.x,p.z,exit.x,exit.z,state.world.obstacles)){
         g.arrived=true;
+        g.waiting=false;
         state.subtitle='유수프(현지 구조단): 안내원이 남쪽 안뜰에 직접 도착했어. 나머지 주민은 구조단이 인계할게.';
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
       }
