@@ -280,6 +280,10 @@
     const completed=state.phase==='complete'||state.phase==='failed';
     $('continue').textContent=state.phase==='failed'?'마지막 체크포인트 재시도':
       state.phase==='complete'?'미션 다시 플레이':'이어하기';
+    $('saveExit').classList.toggle('hidden',!sessionStarted||completed);
+    // PC keyboard users must not remain focused on the now-hidden game canvas.
+    // The dialog's primary action is the safe focus target after an Esc pause.
+    if(!$('continue').disabled)$('continue').focus();
   }
   function requestAimLock(){
     if(isTouch)return;
@@ -438,6 +442,28 @@
   }
   // Disk checkpoints are for a fresh page load. A paused session must resume
   // its live world even when storage is denied, full or contains an older save.
+  $('saveExit').addEventListener('click',()=>{
+    // Save & Exit is an explicit navigation request, never an implicit
+    // consequence of losing focus, pressing Esc or a failed localStorage write.
+    if(!sessionStarted||menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden')||
+       state.phase==='complete'||state.phase==='failed')return;
+    if(!persist('메뉴로 돌아가기')){
+      $('menuText').textContent='체크포인트가 안전하게 저장되지 않았습니다. 기존 기록을 보호하기 위해 이동하지 않았습니다. 저장 공간과 다른 게임 창을 확인한 뒤 다시 시도하세요.';
+      return;
+    }
+    let verified=false;
+    try{verified=global.localStorage.getItem(SAVE_KEY)===Story.serialize(state);}
+    catch(_){}
+    if(!verified){
+      $('menuText').textContent='저장 기록을 다시 확인할 수 없어 메뉴 이동을 중단했습니다. 현재 CH01 세션은 유지됩니다.';
+      return;
+    }
+    try{global.location.assign('index.html');}
+    catch(_){
+      $('menuText').textContent='체크포인트 저장 완료 · 메인 메뉴 이동에 실패했습니다. 이 탭에서 이어할 수 있습니다.';
+    }
+  });
   $('continue').addEventListener('click',()=>sessionStarted?resume():begin(true));
   $('newGame').addEventListener('click',()=>begin(false));
   $('reviewCompleted').addEventListener('click',()=>{
