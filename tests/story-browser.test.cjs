@@ -2304,3 +2304,79 @@ test('Windows CH01 manual checkpoint retry stays inaccessible before the mission
  assert.deepEqual(app.navigations,[]);
  assert.equal(app.store.has('veilpoint.story.ch01'),false);
 });
+
+
+test('CH01 replay never retires the completed debrief after an acknowledged but discarded save',()=>{
+ const Story=require('../src/story-slice.js'),fixture=completedBrowserReplayFixture();
+ const key='veilpoint.story.ch01',preview=key+'PreviewCompleted',backupKey=key+'.previous';
+ const shared=new Map([[key,fixture.complete],[preview,fixture.debrief],
+   [backupKey,fixture.backup],['veilpoint.brCheckpoint.v1','independent-BR']]);
+ const app=boot(shared,false,'granted',true,true);
+ const realSet=shared.set.bind(shared);
+ let discarded=0;
+ shared.set=(name,val)=>{
+  if(name===key){discarded++;return shared;}
+  return realSet(name,val);
+ };
+ app.element('continue').click();
+ assert.ok(discarded>0);
+ assert.equal(shared.get(key),fixture.complete);
+ assert.equal(shared.get(preview),fixture.debrief,
+  'a replay generation is not durable merely because setItem acknowledged it');
+ assert.equal(shared.get(backupKey),fixture.backup);
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ assert.match(app.element('objective').textContent,/중계기/,'replay remains playable in the tab');
+ shared.set=realSet;
+ for(let n=1;n<=370;n++)app.frame(n*1000/60);
+ assert.equal(Story.restore(shared.get(key)).phase,'terminal');
+ assert.equal(shared.has(preview),false,'completed report retires after a real successful checkpoint');
+ assert.equal(shared.has(backupKey),false);
+ assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'independent-BR');
+});
+
+test('CH01 Save & Exit rejects silent disk-write loss and navigates only after a verified retry',()=>{
+ const key='veilpoint.story.ch01',shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,360);
+ const prior=shared.get(key);
+ assert.ok(prior);
+ const realSet=shared.set.bind(shared);
+ let dropped=0;
+ shared.set=(name,val)=>{
+  if(name===key){dropped++;return shared;}
+  return realSet(name,val);
+ };
+ app.element('pauseButton').click();app.element('saveExit').click();
+ assert.ok(dropped>=2);
+ assert.equal(shared.get(key),prior,'last durable generation remains readable');
+ assert.deepEqual(app.navigations,[]);
+ assert.match(app.element('menuText').textContent,/안전하게 저장되지 않았습니다/);
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ shared.set=realSet;
+ app.element('saveCheckpoint').click();
+ assert.match(app.element('menuText').textContent,/저장 확인 완료/);
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html']);
+});
+
+test('CH01 save readback detects another PC tab replacing the generation after a successful write',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,360);
+ const newest=Story.createState();newest.world.player.x=4;
+ const concurrent=Story.serialize(newest);
+ const realSet=shared.set.bind(shared);
+ let replaced=0;
+ shared.set=(name,val)=>{
+  const result=realSet(name,val);
+  if(name===key&&replaced++===0)realSet(key,concurrent);
+  return result;
+ };
+ app.element('pauseButton').click();app.element('saveExit').click();
+ assert.equal(shared.get(key),concurrent,'latest externally committed save must survive');
+ assert.deepEqual(app.navigations,[]);
+ assert.match(app.element('saveStatus').textContent,/저장 실패|보류/);
+ shared.set=realSet;
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true,
+  'save conflict must not strand the current mission');
+});

@@ -165,7 +165,16 @@
          !storage.set(BACKUP_KEY,previous))
         return protectDisk('이전 체크포인트 백업 실패');
     }
-    const saved=storage.set(SAVE_KEY,raw);
+    const wrote=storage.set(SAVE_KEY,raw);
+    // A browser extension or storage shim can acknowledge setItem but discard
+    // or replace the bytes. The checkpoint is durable only if the exact world
+    // generation survives an immediate readback. This does not claim to be
+    // atomic with respect to an external tab after the final read.
+    let saved=false;
+    if(wrote){
+      try{saved=global.localStorage.getItem(SAVE_KEY)===raw;}
+      catch(_){saved=false;}
+    }
     // A failed browser write is not a checkpoint. Keep the last successful
     // autosave boundary so the next live frame retries instead of silently
     // postponing recovery for another five simulated seconds.
