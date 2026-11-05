@@ -12,7 +12,7 @@ const end=source.indexOf('      }catch(_){resetVerified=false;}',start);
 assert.ok(start>=0&&end>start,'CH01 New Game reset block must exist');
 const body=source.slice(start+'      try{\n'.length,end);
 const execute=new Function('global','storage','diskGeneration','Story',
-  'let resetVerified=false,staleReset=false;'+body+
+  'let resetVerified=false,staleReset=false,observedPrimary=null;'+body+
   'return {resetVerified,staleReset};');
 
 function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=false}={}){
