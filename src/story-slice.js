@@ -137,6 +137,20 @@
     // Do not silently return a restored checkpoint with the player's body
     // trapped in a solid barrier. Let the recovery layer try a known-good
     // previous generation instead.
+    // Dense legacy checkpoints can have scenery blocking all gate-edge exits.
+    // Search a bounded local ring before rejecting a recoverable offline save.
+    // Every candidate is checked against the complete live collision world.
+    if(!candidates.length){
+      for(let radius=2;radius<=32 && !candidates.length;radius+=2){
+        for(let i=0;i<16;i++){
+          const angle=i*Math.PI/8;
+          const q={x:p.x+radius*Math.cos(angle),z:p.z+radius*Math.sin(angle)};
+          if(!Sim.blocked(q.x,q.z,.85,state.world.obstacles))candidates.push(q);
+        }
+      }
+      candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-
+        Math.hypot(b.x-p.x,b.z-p.z));
+    }
     if(!candidates.length)throw new RangeError('No collision-free gate checkpoint recovery');
     p.x=candidates[0].x;p.z=candidates[0].z;
     return true;
