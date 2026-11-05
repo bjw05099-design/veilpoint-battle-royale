@@ -1953,3 +1953,25 @@ test('CH01 aid crate handoff and civilian handoff remain two separate finite act
   assert.equal(result.aidDelivered,true);
   assert.equal(result.guideReleased,true);
 });
+
+test('CH01 escort navigates a staggered two-crate corridor at fixed 60Hz without clipping',()=>{
+  const a=reachDecision();story.choose(a,'evacuation');go(a,'muster');
+  story.interact(a);story.interact(a);
+  a.world.player.x=-5.9;a.world.player.z=-55;
+  const obstacles=[
+    {x:-9,z:-54.5,w:1,d:1.1,h:1,type:'local-crate'},
+    {x:-7.7,z:-55.8,w:1,d:1.1,h:1,type:'local-crate'}
+  ];
+  a.world.obstacles.push(...obstacles);
+  const b=story.restore(story.serialize(a));
+  b.world.obstacles.push(...obstacles.map(o=>({...o})));
+  const start={x:a.guide.x,z:a.guide.z};
+  for(let i=0;i<240;i++){
+    story.step(a,1/60,{});story.step(b,1/60,{});
+    assert.equal(Sim.blocked(a.guide.x,a.guide.z,.55,a.world.obstacles),false);
+    assert.ok(Math.hypot(a.guide.x-start.x,a.guide.z-start.z)<=1.65*i/60+0.1);
+    assert.deepEqual([a.guide.x,a.guide.z],[b.guide.x,b.guide.z]);
+  }
+  assert.ok(Math.hypot(a.guide.x-start.x,a.guide.z-start.z)>0.1,
+    'the escort must make physical progress around local cover');
+});
