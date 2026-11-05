@@ -2489,3 +2489,56 @@ test('CH01 PC pause journal opens, closes on Escape and never advances mission',
   assert.equal(app.element('menu').classList.contains('hidden'),false);
   assert.equal(app.store.get('veilpoint.story.ch01'),before);
 });
+
+
+test('CH01 Windows J shortcut opens field notes through a paused clock and Escape returns safely',()=>{
+ const Story=require('../src/story-slice.js');
+ const shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,130);
+ app.emit('keydown',{code:'KeyJ'});
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.element('fieldJournalClose'));
+ const saved=shared.get('veilpoint.story.ch01');
+ const at=Story.restore(saved).world.elapsed;
+ for(let i=131;i<=240;i++)app.frame(i*1000/60);
+ assert.equal(Story.restore(shared.get('veilpoint.story.ch01')).world.elapsed,at,
+   'journal never advances the world while the player cannot control the game');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false,'first Escape closes only notes');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('menu').classList.contains('hidden'),true,'second Escape resumes the mission');
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+});
+
+test('CH01 remapped J key remains a real gameplay control instead of opening notes',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ const config=Desktop.bind(Desktop.normalize({}),'headlamp','KeyJ');
+ assert.equal(config.ok,true);
+ const shared=new Map([[Desktop.STORAGE_KEY,JSON.stringify(config.value)]]);
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ app.emit('keydown',{code:'KeyJ'});
+ assert.equal(app.element('menu').classList.contains('hidden'),true,
+   'J must not steal a user-assigned gameplay action');
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+ app.element('pauseButton').click();
+ app.element('fieldJournalOpen').click();
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),false,
+   'paused menu still offers an accessible field journal with custom controls');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+});
+
+test('CH01 field journal cannot interrupt an active route-choice dialog',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,300);app.interact();
+ const cleared=app.clearEncounter(300);
+ app.moveForward(cleared,225);app.interact();
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'KeyJ'});
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+});
