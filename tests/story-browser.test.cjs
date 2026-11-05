@@ -2762,3 +2762,37 @@ test('CH01 hidden mode link never overrides a visible route-choice dialog',()=>{
   assert.deepEqual(app.navigations,[]);
   assert.equal(app.element('choices').classList.contains('hidden'),false);
 });
+
+
+test('CH01 Windows HUD and checkpoint recognize the physically waiting guide at courtyard',()=>{
+ const Story=require('../src/story-slice.js');
+ const s=Story.createState();
+ s.world.player.x=Story.POINTS.terminal.x;s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).ok,true);
+ for(const bot of s.world.bots){
+   for(let n=0;n<2;n++){
+     s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+     s.world.player.pitch=0;s.world.elapsed+=.21;
+     assert.equal(Story.fire(s).hit,true);
+   }
+ }
+ s.world.player.x=Story.POINTS.decision.x;s.world.player.z=Story.POINTS.decision.z;
+ assert.equal(Story.interact(s).ok,true);
+ assert.equal(Story.choose(s,'evacuation').ok,true);
+ s.world.player.x=Story.POINTS.muster.x;s.world.player.z=Story.POINTS.muster.z;
+ assert.equal(Story.interact(s).event,'muster');
+ assert.equal(Story.interact(s).event,'guide');
+ s.guide.x=2;s.guide.z=Story.POINTS.exitEvac.z;s.guide.waiting=true;
+ s.world.player.x=Story.POINTS.exitEvac.x;s.world.player.z=Story.POINTS.exitEvac.z;
+ const key='veilpoint.story.ch01',store=new Map([[key,Story.serialize(s)]]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ app.frame(1000/60);
+ const saved=Story.restore(store.get(key));
+ assert.equal(saved.guide.arrived,true,'single 60Hz arrival frame is durable');
+ assert.equal(saved.guide.waiting,false,'HUD and saved world agree');
+ assert.match(app.element('taskTracker').textContent,/안뜰 도착/);
+ app.interact();
+ assert.equal(JSON.parse(store.get(key)).phase,'complete',
+   'PC E completes the mission without a second guide interaction');
+});
