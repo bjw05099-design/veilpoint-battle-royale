@@ -158,7 +158,12 @@
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
     // This separate preview key must never unlock competitive or campaign content.
     const report=Story.debrief(state);
-    if(report&&!memoryOnlyStory)storage.set(PREVIEW_KEY,JSON.stringify(report));
+    // A debrief summary must not claim to be the newest persisted result
+    // if the corresponding completed checkpoint never reached disk.
+    // Revalidate the exact durable CH01 generation, not stale UI memory.
+    if(report&&!memoryOnlyStory&&!saveFailed&&
+       storage.get(SAVE_KEY)===Story.serialize(state))
+      storage.set(PREVIEW_KEY,JSON.stringify(report));
     return report;
   }
   const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
@@ -336,7 +341,9 @@
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete'){
       const report=recordCompletion();
-      menuOpen('CH01 완료 — '+state.subtitle+' '+(report?report.summary+' ':'')+'현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
+      menuOpen('CH01 완료 — '+state.subtitle+' '+(report?report.summary+' ':'')+
+        (saveFailed?'현재 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다. ':'')+
+        '현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
     }
     updateHud();
   }
