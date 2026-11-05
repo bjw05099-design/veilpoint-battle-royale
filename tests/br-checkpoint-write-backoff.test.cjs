@@ -44,6 +44,8 @@ function harness({denied=0,previous=null}={}){
     const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
     let simulation=runtime.simulation,running=true;
     let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRetryAt=0;
+    // The harness starts after a valid prior save has already been observed.
+    let matchDiskGeneration=runtime.storage.getItem(MATCH_SAVE_KEY);
     const SHOT_SAVE_INTERVAL_SECONDS=1;
     function clearStoredMatch(){throw new Error('unexpected terminal clear');}
     ${retryPolicy}
