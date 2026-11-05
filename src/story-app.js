@@ -78,9 +78,16 @@
       }
       if(recovered.source==='backup'){
         recoveredFromBackup=true;
-        // Restore the last validated checkpoint to the primary slot, even if
-        // its newest generation was truncated by an interrupted disk write.
-        storage.set(SAVE_KEY,backup);
+        // Recovery must not replace a checkpoint another tab wrote while the
+        // primary/backup pair was being validated. Failed recovery writes also
+        // must not turn an unreadable primary into permission to autosave.
+        let currentPrimary;
+        try{currentPrimary=global.localStorage.getItem(SAVE_KEY);}
+        catch(_){checkpointReadUnavailable=true;return recovered.state;}
+        if(currentPrimary!==primary||!storage.set(SAVE_KEY,backup)){
+          checkpointInvalidStored=true;
+          return recovered.state;
+        }
       }
       return recovered.state;
     }catch(_){
