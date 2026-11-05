@@ -2010,13 +2010,11 @@ test('CH01 rejects an entirely enclosed legacy gate checkpoint and recovers its 
     Sim.newMatch=(...args)=>{
       const world=newMatch(...args);
       world.obstacles.push(
-        {x:27,z:-51.7,w:9,d:.2,h:2,type:'later-added-wall'},
-        {x:27,z:-54.3,w:9,d:.2,h:2,type:'later-added-wall'},
-        {x:20,z:-53,w:.2,d:5,h:2,type:'later-added-wall'},
-        {x:34,z:-53,w:.2,d:5,h:2,type:'later-added-wall'});
+        // Enclose the complete 32m bounded search region, not only gate edges.
+        {x:27,z:-53,w:70,d:70,h:2,type:'later-added-wall'});
       return world;
     };
-    assert.throws(()=>story.restore(invalidPrimary),/No collision-free gate checkpoint recovery/);
+    assert.throws(()=>story.restore(invalidPrimary),/Invalid checkpoint world state/);
     const recovered=story.recoverCheckpoint(invalidPrimary,backup);
     assert.equal(recovered.source,'backup');
     assert.equal(recovered.state.phase,'terminal');
