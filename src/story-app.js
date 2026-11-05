@@ -183,10 +183,24 @@
       let priorState;
       try{priorState=Story.restore(previous);}
       catch(_){return protectDisk('기존 저장 기록 복구 필요');}
-      if(priorState.phase!=='failed'&&priorState.phase!=='complete'&&
-         !storage.set(BACKUP_KEY,previous))
-        return protectDisk('이전 체크포인트 백업 실패');
+      if(priorState.phase!=='failed'&&priorState.phase!=='complete'){
+        if(!storage.set(BACKUP_KEY,previous))
+          return protectDisk('이전 체크포인트 백업 실패');
+        // A storage extension may acknowledge the backup write but silently
+        // discard or replace it. Never overwrite the last validated primary
+        // until the exact old world survives in the backup slot.
+        try{
+          if(global.localStorage.getItem(BACKUP_KEY)!==previous)
+            return protectDisk('이전 체크포인트 백업 검증 실패');
+        }catch(_){return protectDisk('이전 체크포인트 백업 읽기 실패');}
+      }
     }
+    // A different tab can update the primary while this tab rotates backup.
+    // This is best-effort protection, not an atomic cross-tab transaction.
+    try{
+      if(global.localStorage.getItem(SAVE_KEY)!==previous)
+        return protectDisk('다른 창에서 체크포인트 변경 감지');
+    }catch(_){return protectDisk('기존 저장 기록 재확인 실패');}
     const wrote=storage.set(SAVE_KEY,raw);
     // A browser extension or storage shim can acknowledge setItem but discard
     // or replace the bytes. The checkpoint is durable only if the exact world
