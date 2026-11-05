@@ -62,3 +62,52 @@ test('CH01 short staffed handoff remains valid when the guide can physically see
  assert.equal(Story.interact(state).ok,true);
  assert.equal(state.guide.released,true);
 });
+
+
+for(const staff of ['guideRelease','guideTransfer']){
+ test('CH01 '+staff+' is preferred over nearby guide pause when both are physically reachable',()=>{
+  const state=escortAt(staff);
+  const desk=Story.POINTS[staff];
+  if(staff==='guideRelease'){
+   // Player stays outside the solid standing guide, and close enough to staff.
+   state.guide.x=desk.x-1;state.guide.z=desk.z-.5;
+   state.world.player.x=desk.x;state.world.player.z=desk.z-1.7;
+  }else{
+   state.guide.x=desk.x+1.8;state.guide.z=desk.z-.5;
+   state.world.player.x=desk.x+1.4;state.world.player.z=desk.z+.9;
+  }
+  assert.ok(Math.hypot(state.world.player.x-state.guide.x,
+    state.world.player.z-state.guide.z)>1.4,'standing bodies do not overlap');
+  assert.ok(Math.hypot(state.world.player.x-state.guide.x,
+    state.world.player.z-state.guide.z)<
+    Math.hypot(state.world.player.x-desk.x,state.world.player.z-desk.z),
+    'the guide is actually nearer than the staffed interaction');
+  assert.equal(Story.nearest(state)?.id,staff,'HUD advertises physical handoff, not pause');
+  const restored=Story.restore(Story.serialize(state));
+  assert.equal(Story.nearest(restored)?.id,staff,
+    'the same actionable staff marker survives a v2 checkpoint round-trip');
+  const before=restored.world.elapsed;
+  Story.step(restored,1/60,{});
+  assert.ok(restored.world.elapsed>before,'fixed world tick advances');
+  assert.equal(Story.nearest(restored)?.id,staff,
+    'waiting guide remains eligible during 60Hz simulation');
+  assert.equal(Story.interact(restored).ok,true,'PC E fulfills the handoff');
+  assert.equal(restored.guide.released,true);
+  assert.equal(restored.guide.active,false);
+  const after=Story.restore(Story.serialize(restored));
+  assert.equal(after.guide.released,true);
+  assert.equal(after.guide.waiting,false);
+  assert.equal(after.phase,'exit','handoff does not magically complete evacuation');
+ });
+}
+test('CH01 guide pause remains usable when no reachable staffed handoff exists',()=>{
+ const state=escortAt('guideTransfer');
+ state.guide.x=Story.POINTS.guideTransfer.x+2.7;
+ state.guide.z=Story.POINTS.guideTransfer.z;
+ state.world.player.x=state.guide.x+1.55;
+ state.world.player.z=state.guide.z;
+ assert.equal(Story.nearest(state)?.id,'guideControl');
+ assert.equal(Story.interact(state).ok,true);
+ assert.equal(state.guide.released,false);
+ assert.equal(state.guide.waiting,false);
+});

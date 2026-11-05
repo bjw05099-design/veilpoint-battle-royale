@@ -1728,3 +1728,35 @@ test('CH01 a failed single-shot save flushes on pause after release, not on key 
  app.element('continue').click();
  assert.equal(app.element('menu').classList.contains('hidden'),true);
 });
+
+
+test('CH01 loaded PC escort handoff uses E and HUD at staffed south transfer, not guide pause',()=>{
+ const Story=require('../src/story-slice.js');
+ const state=Story.createState();
+ state.phase='exit';state.choice='evacuation';state.musterConfirmed=true;
+ state.combat.started=true;state.combat.cleared=true;
+ state.world.bots=[
+   {id:0,x:0,z:-28,angle:Math.PI,health:0,alive:false,shots:12},
+   {id:1,x:15,z:-34,angle:Math.PI,health:0,alive:false,shots:12},
+   {id:2,x:-15,z:-34,angle:Math.PI,health:0,alive:false,shots:12}
+ ];
+ const desk=Story.POINTS.guideTransfer;
+ state.guide={active:true,arrived:false,released:false,waiting:true,
+   x:desk.x+1.8,z:desk.z-.5};
+ state.world.player.x=desk.x+1.4;state.world.player.z=desk.z+.9;
+ const key='veilpoint.story.ch01',store=new Map([[key,Story.serialize(state)]]);
+ const app=boot(store);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.equal(Story.nearest(state)?.id,'guideTransfer');
+ assert.match(app.element('interaction').textContent,/구조단|인계/);
+ app.interact();
+ const saved=JSON.parse(store.get(key));
+ assert.equal(saved.guide.active,false,'actual E key makes the physical staff handoff');
+ assert.equal(saved.guide.released,true);
+ assert.equal(saved.guide.waiting,false);
+ assert.equal(saved.phase,'exit','actual evacuation remains independently completable');
+ const resumed=boot(store);
+ resumed.element('continue').click();
+ assert.match(resumed.element('objective').textContent,/인계|안뜰/);
+});

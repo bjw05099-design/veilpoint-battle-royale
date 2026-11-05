@@ -294,7 +294,7 @@
   }
   function nearest(state) {
     const p=state.world.player;
-    let candidate=null,best=INTERACT_RADIUS;
+    let candidate=null,best=INTERACT_RADIUS,bestPriority=-1;
     for(const marker of markers(state)){
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
       // The coordinator's fixed desk is not a remote release button:
@@ -311,13 +311,19 @@
         // not just stand near a player who can see through another opening.
         !Sim.lineBlocked(state.guide.x,state.guide.z,
           marker.x,marker.z,state.world.obstacles));
+      // At a staffed desk, the physically reached handoff must win E over
+      // the nearby guide's pause/resume marker. Otherwise standing shoulder
+      // to shoulder with the guide can make an authorized handoff unreachable
+      // from the interaction HUD. Distance and cover checks are unchanged.
+      const priority=marker.id==='guideRelease'||marker.id==='guideTransfer'?1:0;
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
-      if(guideInReach&&d<best&&d<(marker.id==='beacon'?SWITCH_REACH:
+      if(guideInReach&&(priority>bestPriority||(priority===bestPriority&&d<best))&&
+        d<(marker.id==='beacon'?SWITCH_REACH:
           marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
-        best=d;candidate=marker;
+        best=d;bestPriority=priority;candidate=marker;
       }
     }
     return candidate;
