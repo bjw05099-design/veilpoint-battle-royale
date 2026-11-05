@@ -2427,3 +2427,54 @@ test('CH01 60Hz guide detour checks the full obstacle world while walking around
   assert.ok(Math.hypot(s.guide.x-first.x,s.guide.z-first.z)>0.8,
     'the guide makes real physical progress instead of stalling at a selected waypoint');
 });
+
+
+test('CH01 waiting guide physically in courtyard completes on 60Hz tick without extra E prompt',()=>{
+ const s=reachDecision();
+ assert.equal(story.choose(s,'evacuation').ok,true);
+ go(s,'muster');
+ assert.equal(story.interact(s).event,'muster');
+ assert.equal(story.interact(s).event,'guide');
+ const guide=s.guide;
+ guide.x=2;guide.z=story.POINTS.exitEvac.z;
+ guide.waiting=true;
+ go(s,'exitEvac');
+ const previous=story.serialize(s);
+ const reloaded=story.restore(previous);
+ assert.equal(reloaded.guide.waiting,true);
+ assert.equal(reloaded.guide.arrived,false);
+ story.step(reloaded,1/60,{});
+ assert.equal(reloaded.guide.arrived,true,'physical arrival is recognized while guide is waiting');
+ assert.equal(reloaded.guide.waiting,false,'stale waiting status cannot block final E');
+ assert.equal(story.escortArrivalCheckpoint(false,reloaded),true,
+   'actual arrival must trigger the existing durable checkpoint boundary once');
+ assert.equal(story.escortArrivalCheckpoint(true,reloaded),false);
+ const snapshot=story.serialize(reloaded);
+ const restored=story.restore(snapshot);
+ assert.equal(restored.guide.arrived,true);
+ assert.equal(restored.guide.waiting,false);
+ assert.equal(story.interact(restored).ok,true,'exit remains playable after save/restore');
+ assert.equal(restored.phase,'complete');
+});
+
+test('CH01 waiting guide is never credited for remote or obstructed courtyard presence',()=>{
+ const make=()=>{
+   const s=reachDecision();
+   story.choose(s,'evacuation');go(s,'muster');
+   story.interact(s);story.interact(s);
+   s.guide.x=2;s.guide.z=story.POINTS.exitEvac.z;
+   s.guide.waiting=true;
+   go(s,'exitEvac');
+   return s;
+ };
+ const far=make();
+ far.world.player.z-=8;
+ story.step(far,1/60,{});
+ assert.equal(far.guide.arrived,false,'captain must also stand at the courtyard');
+ assert.equal(far.guide.waiting,true);
+ const blocked=make();
+ blocked.world.obstacles.push({x:1,z:story.POINTS.exitEvac.z,w:.4,d:1.5,h:2,type:'story-container'});
+ story.step(blocked,1/60,{});
+ assert.equal(blocked.guide.arrived,false,'solid scenery must not be ignored for escort completion');
+ assert.equal(blocked.guide.waiting,true);
+});
