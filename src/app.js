@@ -364,8 +364,8 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  // Storage access may fail temporarily. Keep all existing disk generations
  // untouched while allowing a separate memory-only local PC match.
  if(!offlineOnly){clearStoredMatch();clearFieldBookmark();clearLastResult();checkpointInvalidStored=false;}
- memoryOnlyMatch=offlineOnly;saveWarning=false;saveIssue=null;
- nextMatchSaveRetryAt=0;lastAutosaveElapsed=0;lastSavedHealth=100;
+ memoryOnlyMatch=offlineOnly;saveWarning=false;
+ nextMatchSaveRetryAt=0;saveIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -389,7 +389,7 @@ function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
- running=true;suspended=false;saveWarning=false;saveIssue=null;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=null;lastSavedHealth=simulation.player.health;
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
