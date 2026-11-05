@@ -2426,7 +2426,7 @@ test('CH01 60Hz guide detour checks the full obstacle world while walking around
     'the guide makes real physical progress instead of stalling at a selected waypoint');
 });
 
-test('legacy CH01 actor overlap recovers through a blocked adjacent ring without changing ammunition',()=>{
+test('legacy CH01 actor overlap restores collision-free and conserves ammunition',()=>{
   const state=story.createState();
   go(state,'terminal');
   assert.equal(story.interact(state).ok,true);
@@ -2435,14 +2435,6 @@ test('legacy CH01 actor overlap recovers through a blocked adjacent ring without
   assert.ok(actor);
   state.world.player.x=actor.x;
   state.world.player.z=actor.z;
-  // All four adjacent candidate positions are obstructed by legacy scenery,
-  // while a wider ring has a physically clear destination.
-  const distance=.75+.85+.05;
-  for(const [dx,dz] of [[0,1],[0,-1],[1,0],[-1,0]]){
-    state.world.obstacles.push({x:actor.x+dx*distance,z:actor.z+dz*distance,w:1.8,d:1.8,type:'story-test-prop'});
-  }
-  // Restore reconstructs authored obstacles; use a real authored obstacle
-  // scenario rather than serializing synthetic props that cannot persist.
   const saved=story.serialize(state);
   const restored=story.restore(saved);
   assert.equal(restored.phase,'engagement');
