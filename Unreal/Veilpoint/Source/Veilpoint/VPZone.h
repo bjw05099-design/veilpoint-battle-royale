@@ -23,6 +23,8 @@ public:
 
 private:
     FTimerHandle ZoneTimer;
-    float TotalElapsed = 0.f;
+    // Server game-world clock sampled once at round start. Timer callback
+    // count is not a reliable elapsed-time source during frame hitches.
+    float StartServerTimeSeconds = 0.f;
     void UpdateZone();
 };
