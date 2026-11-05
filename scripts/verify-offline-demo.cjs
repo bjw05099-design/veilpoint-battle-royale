@@ -154,6 +154,15 @@ function verifyPackage(filename = path.resolve(__dirname, '..', 'dist', 'veilpoi
   const sidecar = fs.readFileSync(filename + '.sha256', 'utf8');
   if (sidecar !== result.sha256 + '  ' + path.basename(filename) + '\n')
     invalid('sidecar');
+  // The outer GitHub Actions artifact can be read before unzipping the inner
+  // demo. Verify its human instructions are identical to the signed-off
+  // guide inside that independently validated ZIP, not a stale local copy.
+  const outerGuide = path.join(path.dirname(filename), 'START_HERE.txt');
+  let actualGuide;
+  try {actualGuide = fs.readFileSync(outerGuide);}
+  catch {invalid('outer_guide_missing');}
+  if (!actualGuide.equals(Buffer.from(QUICK_START_TEXT)))
+    invalid('outer_guide_mismatch');
   return result;
 }
 if (require.main === module) console.log(JSON.stringify(verifyPackage(), null, 2));
