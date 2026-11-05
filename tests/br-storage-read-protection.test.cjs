@@ -41,7 +41,7 @@ function fixture({denyReads=0,primary='valid',backup=null}={}){
     runtime.storage.removeItem(MATCH_SAVE_KEY);
     runtime.storage.removeItem(MATCH_BACKUP_KEY);
   }
-  function start(){runtime.events.starts++;}
+  function start(seed,weapon,roster,offlineOnly=false){runtime.events.starts++;runtime.events.memoryOnly=offlineOnly;}
   function resumeMatch(){}
   function resumeStoredMatch(state){runtime.events.resumes++;runtime.events.lastResumed=state;}
   function syncMotorSound(){}
@@ -58,20 +58,21 @@ function fixture({denyReads=0,primary='valid',backup=null}={}){
 test('BR transient storage read exception never deletes or overwrites a valid saved round',()=>{
  const h=fixture({denyReads:1,primary:'valid',backup:'backup-valid'});
  h.controller.click();
- assert.equal(h.events.starts,0,'Play must not silently replace a potentially saved round');
+ assert.equal(h.events.starts,1,'blocked storage still permits a separate, playable local session');
+ assert.equal(h.events.memoryOnly,true,'the existing saved round is protected by memory-only mode');
  assert.equal(h.events.resumes,0);
  assert.equal(h.events.deletes,0);
  assert.equal(h.events.repairWrites,0);
  assert.equal(h.slots.get('veilpoint.brCheckpoint.v1'),'valid');
  assert.equal(h.slots.get('veilpoint.brCheckpoint.v1.previous'),'backup-valid');
  assert.equal(h.controller.getUnavailable(),true);
- assert.match(h.tagline.textContent,/저장소에 접근할 수 없어/);
- assert.match(h.play.textContent,/저장된 경기/);
- h.controller.click();
- assert.equal(h.controller.getUnavailable(),false);
- assert.equal(h.events.starts,0);
- assert.equal(h.events.resumes,1,'a subsequent successful read resumes the original match');
- assert.equal(h.events.lastResumed.seed,17);
+ const later=fixture({denyReads:1,primary:'valid',backup:'backup-valid'});
+ assert.equal(later.controller.read(),null);
+ later.controller.click();
+ assert.equal(later.controller.getUnavailable(),false);
+ assert.equal(later.events.starts,0);
+ assert.equal(later.events.resumes,1,'a subsequent successful read resumes the original match');
+ assert.equal(later.events.lastResumed.seed,17);
 });
 
 test('BR startup resumes from one validated generation without a risky second read',()=>{
@@ -108,6 +109,10 @@ test('BR structurally corrupt saved data is distinguished from temporary read fa
 test('BR PC menu has an explicit New Match control and protects temporarily unreadable checkpoint',()=>{
  assert.match(source,/if\(storedMatch\(\)\)\$\('play'\)\.textContent='저장 경기 이어하기';\s*else if\(checkpointReadUnavailable\)/);
  assert.match(source,/\$\('newMatch'\)\.addEventListener\('click',start\)/);
- assert.match(source,/else if\(checkpointReadUnavailable\)\{[\s\S]*?기존 경기 보호를 위해 자동 시작하지 않았습니다/);
+ assert.match(source,/else if\(checkpointReadUnavailable\)\{[\s\S]*?start\(null,null,null,true\)/);
+ assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(\);clearLastResult\(\);\}/);
+ assert.match(source,/if\(!memoryOnlyMatch\)\{archiveLastResult\(\);clearStoredMatch\(\);clearFieldBookmark\(\);\}/);
+ assert.match(source,/if\(!running\|\|memoryOnlyMatch\)return false/);
+ assert.match(source,/memoryOnlyMatch\)start\(null,null,null,true\)/);
  assert.match(source,/if\(saved\)resumeStoredMatch\(saved\)/);
 });
