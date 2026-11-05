@@ -1071,6 +1071,53 @@
           :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
   }
+  function fieldJournal(state) {
+    // The in-world field journal is a read-only account of evidence that the
+    // player actually discovered. It cannot infer unseen records, invent a
+    // resolution to the transmission discrepancy or unlock future chapters.
+    // Existing v2 checkpoint fields remain the sole authority.
+    const entries=[];
+    const add=(id,title,body)=>entries.push(Object.freeze({id,title,body}));
+    add('mission','현장 협력 임무',
+      '대한민국 측 이수혁 대위는 가상 사히르 임시행정부가 요청한 제한적 민간 대피를 지원한다. 현장 통로는 유수프 구조단이 통제하고, 김지윤·조현지는 전달 기록과 경로 상황을 확인한다.');
+    for(const id of ['recordA','recordB']){
+      if(!state.found.includes(id))continue;
+      const record=RECORDS[id];
+      add(id,record.title+' / '+record.time,record.text);
+    }
+    if(state.found.length===2)
+      add('signal','두 현장 기록의 시각 차이',
+        state.gateLogReviewed
+          ?'현장 중계 기록함에서 04:07 최초 수신과 04:12 같은 메시지의 재전송을 확인했다. 이는 새 사건 발생 시각을 뜻하지 않는다.'
+          :'대피소 04:07과 항구 04:12 사이 5분 차이가 확인됐다. 현장 중계 기록 검토 전까지 원인은 확정할 수 없다.');
+    else if(state.gateLogReviewed)
+      add('signal','현장 중계 기록 검토','현장 중계 기록함의 최초 수신과 재전송을 직접 확인했다.');
+    if(state.choice==='evacuation'){
+      add('route','선택한 경로 / 남쪽 대피',
+        '유수프 구조단이 확보한 남쪽 대피 안뜰로 이동한다. 인원 확인, 비상 물품 인계, 안내원 동행은 현장에서 직접 수행하는 선택 과제다.');
+    }else if(state.choice==='verification'){
+      add('route','선택한 경로 / 동쪽 추가 확인',
+        '기록 두 건을 확인한 뒤 동쪽 통제소에 개방을 요청했다. 개방에는 현지 구조단의 실제 확인 시간이 필요하다.');
+    }
+    if(state.musterConfirmed)
+      add('muster','집결지 확인 완료','남쪽 집결지에서 유수프 구조단의 인원 확인표를 현장에서 대조했다.');
+    if(state.aidPickedUp)
+      add('aid','비상 물품 처리',state.aidDelivered
+        ?'민간 비상 물품을 현지 구조단에 직접 인계했다.'
+        :state.aidStaged?'상자를 임시 적재대에 놓았다. 현지 인계는 아직 완료되지 않았다.'
+        :'민간 비상 물품을 직접 운반하고 있다. 현지 인계는 아직 완료되지 않았다.');
+    if(state.guide.released)
+      add('guide','안내원 현장 인계','대피 안내원을 현지 구조단에 직접 인계했다.');
+    else if(state.guide.arrived)
+      add('guide','안내원 안뜰 도착','동행 안내원이 실제로 남쪽 안뜰에 도착했다.');
+    else if(state.guide.active)
+      add('guide','안내원 동행 진행',state.guide.waiting
+        ?'안내원은 현장에서 대기 중이다. 가까이 돌아가면 동행을 재개할 수 있다.'
+        :'안내원은 플레이어와 함께 이동 중이다. 최종 인계 또는 안뜰 도착 여부는 아직 확정되지 않았다.');
+    if(state.logHandedOff)
+      add('handoff','현장 기록 접수 완료','검토한 기록을 현지 통제소 접수대에 직접 전달했다.');
+    return Object.freeze(entries);
+  }
   // A completed *preview* produces a factual, bounded handoff for future authored
   // scenes. No unseen motive, chapter unlock, or resolved clock discrepancy is invented.
   function debrief(state) {
@@ -1442,6 +1489,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,missionTasks,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,missionTasks,fieldJournal,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
