@@ -69,7 +69,7 @@
     }
   }
   $('saveStatus').classList.add('hidden');
-  function persist(){
+  function persist(reason=''){
     const raw=Story.serialize(state);
     const previous=storage.get(SAVE_KEY);
     // Keep the prior valid playable generation before updating the primary.
@@ -89,8 +89,8 @@
     // A failed mission must never overwrite this recovery point.
     checkpoint=raw;
     const notice=$('saveStatus');
-    notice.textContent=saved?'':'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
-    notice.classList.toggle('hidden',saved);
+    notice.textContent=saved?(reason?'체크포인트 저장 · '+reason:''):'체크포인트 저장 실패 · 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
+    notice.classList.toggle('hidden',saved&&!reason);
     return saved;
   }
   function persistShot(){
@@ -554,6 +554,7 @@
     const gatePending=running&&state.phase==='exit'&&state.choice==='verification'&&
       !Story.situation(state).eastGateOpen;
     const healthBefore=state.world.player.health;
+    const guideArrivedBefore=state.guide.arrived;
     const shotsBefore=running&&state.phase==='engagement'
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
@@ -576,6 +577,11 @@
       if(state.world.player.health<healthBefore)audio.play('impact');
       persist();
     }
+    // The civilian reaching the courtyard is an irreversible optional branch
+    // milestone. Write it immediately, rather than losing it to a crash before
+    // the normal five-second traversal autosave. The transition is one-shot.
+    if(running&&Story.escortArrivalCheckpoint(guideArrivedBefore,state))
+      persist('안내원 안뜰 도착');
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
     // A browser crash or refresh during quiet traversal must not rewind an entire
