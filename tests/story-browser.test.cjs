@@ -2049,3 +2049,76 @@ test('CH01 refreshed replay does not destroy completed snapshot when disk writes
  assert.equal(store.has(preview),false);
  assert.equal(store.has(backupKey),false);
 });
+
+
+test('CH01 recovery chooses a concurrent newer validated primary instead of stale backup mode',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backupKey=key+'.previous';
+ const old=Story.serialize(Story.createState());
+ const currentState=Story.createState();currentState.world.player.x=4;
+ const current=Story.serialize(currentState);
+ const storage=new Map([[key,'{interrupted'],[backupKey,old]]);
+ const read=storage.get.bind(storage);
+ let primaryReads=0;
+ storage.get=name=>{
+  if(name===key&&++primaryReads===2)storage.set(key,current);
+  return read(name);
+ };
+ const app=boot(storage,false,'granted',true,true);
+ assert.ok(primaryReads>=2);
+ assert.equal(storage.get(key),current);
+ assert.equal(storage.get(backupKey),old);
+ assert.equal(app.element('continue').textContent,'체크포인트 이어하기',
+  'the newer valid checkpoint must not be misreported as corrupt memory-only play');
+ assert.match(app.element('menuText').textContent,/이전 진행 기록/);
+ app.element('continue').click();
+ app.element('pauseButton').click();
+ assert.equal(Story.restore(storage.get(key)).world.player.x,4);
+ assert.equal(app.element('saveStatus').classList.contains('hidden'),true);
+});
+
+test('CH01 recovery protects a backup replaced by another PC tab before promotion',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backupKey=key+'.previous';
+ const first=Story.serialize(Story.createState());
+ const latestState=Story.createState();latestState.world.player.x=5;
+ const latest=Story.serialize(latestState),corrupt='{unfinished';
+ const storage=new Map([[key,corrupt],[backupKey,first]]);
+ const read=storage.get.bind(storage);
+ let primaryReads=0;
+ storage.get=name=>{
+  if(name===key&&++primaryReads===2)storage.set(backupKey,latest);
+  return read(name);
+ };
+ const app=boot(storage,false,'granted',true,true);
+ assert.ok(primaryReads>=2);
+ assert.equal(storage.get(key),corrupt,'do not promote obsolete backup bytes');
+ assert.equal(storage.get(backupKey),latest,'preserve the newer validated backup');
+ assert.match(app.element('menuText').textContent,/복원할 수 없습니다/,
+  'a concurrent backup update cannot be claimed as a durable promotion');
+ app.element('continue').click();
+ assert.equal(Story.restore(storage.get(key)).world.player.x,5,
+  'a fresh explicit read may safely promote the newest valid backup');
+ app.element('pauseButton').click();
+ assert.equal(Story.restore(storage.get(key)).world.player.x,5);
+});
+
+test('CH01 conflicting invalid backup update never destroys either disk generation',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backupKey=key+'.previous';
+ const good=Story.serialize(Story.createState()),broken='{other-tab-incomplete';
+ const storage=new Map([[key,'{bad-primary'],[backupKey,good]]);
+ const read=storage.get.bind(storage);let reads=0;
+ storage.get=name=>{
+  if(name===key&&++reads===2)storage.set(backupKey,broken);
+  return read(name);
+ };
+ const app=boot(storage,false,'granted',true,true);
+ assert.equal(storage.get(key),'{bad-primary');
+ assert.equal(storage.get(backupKey),broken);
+ app.element('continue').click();
+ assert.match(app.element('saveStatus').textContent,/임시 CH01 세션/);
+ app.element('pauseButton').click();
+ assert.equal(storage.get(key),'{bad-primary');
+ assert.equal(storage.get(backupKey),broken);
+});
