@@ -63,10 +63,12 @@ const effectsSelect=$('effects');
 const autoResolutionCheckbox=$('autoResolution');autoResolutionCheckbox.checked=autoResolution;
 const soundEnabledCheckbox=$('soundEnabled');
 let soundEnabled=true;
+let motorSound=null;
 try{soundEnabled=global.localStorage.getItem('veilpoint.br.audio')!=='off';}catch(_){}
 function setSoundEnabled(enabled){
  soundEnabled=!!enabled;soundEnabledCheckbox.checked=soundEnabled;
  try{global.localStorage.setItem('veilpoint.br.audio',soundEnabled?'on':'off');}catch(_){}
+ if(motorSound){if(!soundEnabled)motorSound.stop();else syncMotorSound(true);}
 }
 soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
@@ -235,7 +237,7 @@ function collectAmmo(){
  // The same PC E interaction operates a physical service-yard control when
  // the player stands beside it. Otherwise E retains normal finite loot use.
  const gate=Game.operateServiceGate(simulation);
- if(gate.ok){persistMatch();updateHud();return;}
+ if(gate.ok){syncMotorSound(true);persistMatch();updateHud();return;}
  Game.pickup(simulation);persistMatch();updateHud();
 }
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
@@ -371,6 +373,7 @@ $('play').addEventListener('click',()=>{
  else if(!running&&lastFinishedMatch)start();
  else if(!running&&storedMatch())resumeStoredMatch();
  else start();
+ syncMotorSound(true);
 });
 $('newMatch').addEventListener('click',start);
 // Explicit PC save-and-exit is only possible after a durable local checkpoint.
@@ -382,6 +385,7 @@ $('saveExit').addEventListener('click',()=>{
   return;
  }
  running=false;suspended=false;
+ if(motorSound)motorSound.stop();
  desktopUi.cancel();resetInactiveClock();
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -509,6 +513,7 @@ addEventListener('keyup',e=>{
 function suspendMatch(reason='background'){
  if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
+ if(motorSound)motorSound.stop();
  persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
@@ -562,7 +567,26 @@ canvas.addEventListener('mousedown',e=>{
 });
 addEventListener('mouseup',e=>{if(e.button===0)input.fireHeld=trigger.release('mouse');});
 let audio=null;
-function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
+function ensureAudio(){
+ if(!soundEnabled)return null;
+ try{
+  if(!audio)audio=new (global.AudioContext||global.webkitAudioContext)();
+  if(audio.state==='suspended'&&typeof audio.resume==='function'){
+   const result=audio.resume();if(result&&typeof result.catch==='function')result.catch(()=>{});
+  }
+  return audio;
+ }catch(_){return null;}
+}
+motorSound=global.VeilpointGateMotorAudio.createGateMotorAudio(()=>audio);
+function syncMotorSound(unlock=false){
+ if(!motorSound)return;
+ const gate=Game.serviceGateStatus(simulation);
+ const distance=Math.hypot(simulation.player.x-gate.x,simulation.player.z-gate.z);
+ if(unlock&&soundEnabled&&canAct()&&gate.motorActive&&
+    distance<global.VeilpointGateMotorAudio.HEARING_RADIUS)ensureAudio();
+ motorSound.sync({enabled:soundEnabled,playable:canAct(),active:gate.motorActive,distance});
+}
+function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!ensureAudio())return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation,input.crouch);if(!result.ok)return;shotFeedback(true);}
 function shotFeedback(immediateSave=false){
  // A fixed-step held trigger may fire several times per second. Avoid a
@@ -653,7 +677,7 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(benchmark){benchmark.finish('match-ended');benchmarkUi();}archiveLastResult();clearStoredMatch();clearFieldBookmark();
+function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}archiveLastResult();clearStoredMatch();clearFieldBookmark();
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
@@ -677,6 +701,7 @@ function frame(now){requestAnimationFrame(frame);
   }
  }
  let dt=Math.min(Math.max((now-last)/1000,0),.25);last=now;
+ syncMotorSound();
  if(renderer){if(canAct()){
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{
