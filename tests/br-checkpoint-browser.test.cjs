@@ -89,7 +89,10 @@ test('BR storage quota failure remains visible without interrupting offline game
  const app=boot(store);
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
- assert.match(app.game.message,/SAVE FAILED/);
+ assert.match(app.game.message,/RESET NOT VERIFIED.*MEMORY-ONLY/,
+   'blocked reset leaves a usable isolated round without claiming persistence');
+ assert.match(app.node('message').textContent,/SAVE FAILED.*PROGRESS ONLY IN THIS TAB/,
+   'storage failure stays visible on the PC HUD');
 });
 
 test('BR periodic simulated-time autosave and damage checkpoint do not change the 60Hz rules',()=>{
@@ -1053,4 +1056,35 @@ test('BR save readback detects concurrent replacement after a reported successfu
  assert.equal(app.game,originalGame,'no forced switch to another tab in-progress round');
  store.set=realSet;
  assert.equal(store.get(KEY),concurrent);
+});
+
+
+test('BR New Match does not claim persistent save when native removeItem silently refuses deletion',()=>{
+ const key=KEY,previous=KEY+'.previous';
+ class SilentRemove extends Map{
+  blockPrimary=false;
+  delete(name){
+   if(this.blockPrimary&&name===key)return true; // browser shim falsely reports success
+   return super.delete(name);
+  }
+ }
+ const store=new SilentRemove(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const original=store.get(key);
+ assert.ok(original);
+ store.set(previous,original);
+ store.blockPrimary=true;
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(app.game.status,'playing','failure remains a usable temporary BR session');
+ assert.equal(store.get(key),original,'new arena must not overwrite old durable primary');
+ assert.match(app.node('message').textContent,/SAVE FAILED/,
+   'HUD must persist the memory-only warning');
+ app.emit('blur');
+ assert.equal(store.get(key),original);
+ const newWindow=boot(store);
+ newWindow.node('play').click();newWindow.frame(1000/60);
+ assert.equal(newWindow.game.seed,JSON.parse(original).seed);
+ store.blockPrimary=false;
+ app.node('newMatch').click();app.frame(3000/60);
+ assert.notEqual(store.get(key),original,'verified successful reset creates a writable new match');
 });

@@ -119,7 +119,12 @@ test('BR backup generation is protected while a primary slot temporarily denies 
 });
 
 test('BR recovery policy is reset when starting, resuming or restoring an arena',()=>{
-  assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(true\);clearLastResult\(\);checkpointInvalidStored=false;\}\s*memoryOnlyMatch=offlineOnly;saveWarning=false;\s*nextMatchSaveRetryAt=0/);
+  assert.match(source,/const resetBlocked=!offlineOnly&&!clearStoredMatch\(\)/,
+    'failed destructive reset cannot create an unsafely writable arena');
+  assert.match(source,/if\(resetBlocked\)offlineOnly=true/);
+  assert.match(source,/memoryOnlyMatch=offlineOnly;saveWarning=offlineOnly/,
+    'new memory-only rounds retain a persistent HUD warning');
+  assert.match(source,/nextMatchSaveRetryAt=0/);
   assert.match(source,/running=true;suspended=false;saveWarning=memoryOnlyMatch;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation\.elapsed/,
     'resuming normally clears warnings while a non-durable recovered backup remains visibly flagged');
   assert.match(source,/if\(memoryOnlyMatch\)\{[\s\S]*?simulation\.message='OFFLINE BACKUP RECOVERED/);

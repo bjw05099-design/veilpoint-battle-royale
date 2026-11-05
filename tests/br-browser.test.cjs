@@ -1417,3 +1417,63 @@ test('BR stale startup menu New Match preserves unseen valid round, fresh menu m
  assert.notEqual(store.get(key),latest,
    'user with current validated generation can still explicitly start a new durable round');
 });
+
+
+test('BR New Match stays memory-only when an offline storage shim ignores slot deletion',()=>{
+ const key='veilpoint.brCheckpoint.v1',backup=key+'.previous';
+ class IgnoringStore extends Map{
+  ignoreDeletes=false;
+  set(name,value){
+   if(this.ignoreDeletes&&[key,backup].includes(name)&&value==='')return this;
+   return super.set(name,value);
+  }
+ }
+ const store=new IgnoringStore(),app=boot({store,windows:true});
+ app.node('play').click();app.frame(1000/60);
+ const prior=store.get(key);
+ assert.ok(prior,'a normal playable round must have been saved');
+ store.set(backup,prior);
+ store.ignoreDeletes=true;
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(app.game.status,'playing','a failed reset does not lock the BR menu');
+ assert.equal(store.get(key),prior,'the existing valid primary is never overwritten');
+ assert.equal(store.get(backup),prior,'the previous generation is preserved');
+ assert.match(app.game.message,/RESET NOT VERIFIED.*MEMORY-ONLY/,
+   'the temporary new round explains why autosave cannot run');
+ assert.match(app.node('message').textContent,/SAVE FAILED.*PROGRESS ONLY IN THIS TAB/,
+   'a durable HUD warning remains after the transient game message expires');
+ app.frame(5000/60);app.emit('blur');
+ assert.equal(store.get(key),prior,'a later fixed-step pause cannot overwrite old progress');
+ const newWindow=boot({store,windows:true});
+ newWindow.node('play').click();newWindow.frame(1000/60);
+ assert.equal(newWindow.game.seed,JSON.parse(prior).seed,
+   'a fresh PC window still restores the previous verified arena');
+ store.ignoreDeletes=false;
+ app.node('newMatch').click();app.frame(6000/60);
+ assert.equal(app.game.status,'playing');
+ assert.notEqual(store.get(key),prior,'successful explicit reset creates a fresh durable match');
+});
+
+test('BR New Match refuses destructive reset when backup clear throws',()=>{
+ const key='veilpoint.brCheckpoint.v1',backup=key+'.previous';
+ class DeniedBackup extends Map{
+  deny=false;
+  set(name,value){
+   if(this.deny&&name===backup&&value==='')throw new Error('quota denied');
+   return super.set(name,value);
+  }
+ }
+ const store=new DeniedBackup(),app=boot({store,windows:true});
+ app.node('play').click();app.frame(1000/60);
+ const raw=store.get(key);store.set(backup,raw);
+ store.deny=true;
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(store.get(key),raw,'a denied backup rotation cannot delete the primary');
+ assert.equal(store.get(backup),raw);
+ assert.match(app.node('message').textContent,/SAVE FAILED/,
+   'Windows HUD must identify the session as temporary');
+ store.deny=false;
+ app.node('newMatch').click();app.frame(3000/60);
+ assert.notEqual(store.get(key),raw);
+ assert.equal(store.get(backup),'','successful reset invalidates the old backup');
+});
