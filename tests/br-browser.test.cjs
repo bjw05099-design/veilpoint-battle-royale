@@ -1477,3 +1477,75 @@ test('BR New Match refuses destructive reset when backup clear throws',()=>{
  assert.notEqual(store.get(key),raw);
  assert.equal(store.get(backup),'','successful reset invalidates the old backup');
 });
+
+
+test('BR Windows CH01 mode link requires verified paused save before leaving an active arena',()=>{
+ const key='veilpoint.brCheckpoint.v1',store=new Map();
+ const app=boot({store,windows:true}),navigations=[];
+ app.context.location={assign(dest){navigations.push(dest);}};
+ let unstartedPrevented=false;
+ app.node('storyModeLink').dispatch('click',{preventDefault(){unstartedPrevented=true;}});
+ assert.equal(unstartedPrevented,false,'normal menu link works before the match');
+ app.node('play').click();app.frame(1000/60);
+ const live=app.game;
+ let hiddenPrevented=false;
+ app.node('storyModeLink').dispatch('click',{preventDefault(){hiddenPrevented=true;}});
+ assert.equal(hiddenPrevented,true,'hidden link must not navigate while the 60Hz world is running');
+ assert.deepEqual(navigations,[]);
+ assert.equal(app.game,live);
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(live.player.charges,47);
+ app.emit('keydown',{code:'Escape'});
+ const lastDurable=store.get(key);
+ assert.ok(lastDurable);
+ const originalSet=store.set.bind(store);
+ store.set=(name,value)=>{
+  if(name===key)throw new Error('quota denied');
+  return originalSet(name,value);
+ };
+ let pausedPrevented=false;
+ app.node('storyModeLink').dispatch('click',{preventDefault(){pausedPrevented=true;}});
+ assert.equal(pausedPrevented,true,'paused active link owns explicit save/navigation');
+ assert.deepEqual(navigations,[],'a denied save cannot navigate to CH01');
+ assert.equal(app.node('play').textContent,'이어하기','saved-menu state is not forged');
+ assert.equal(store.get(key),lastDurable);
+ assert.match(app.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+ store.set=originalSet;
+ app.node('storyModeLink').click();
+ assert.deepEqual(navigations,['story.html']);
+ assert.equal(app.node('play').textContent,'저장 경기 이어하기');
+ assert.equal(JSON.parse(store.get(key)).player.charges,47);
+ const restored=boot({store,windows:true});
+ restored.node('play').click();restored.frame(1000/60);
+ assert.equal(restored.game.player.charges,47,
+   'BR round stays restorable after switching to story mode');
+});
+
+test('BR CH01 link never overwrites a newer active checkpoint from a second PC tab',()=>{
+ const key='veilpoint.brCheckpoint.v1',store=new Map(),navigations=[];
+ const old=boot({store,windows:true});
+ old.context.location={assign(dest){navigations.push(dest);}};
+ old.node('play').click();old.frame(1000/60);
+ old.emit('keydown',{code:'Escape'});
+ const fresh=boot({store,windows:true});
+ fresh.node('play').click();
+ fresh.emit('keydown',{code:'KeyW'});
+ fresh.frame(1000/60);fresh.frame(2000/60);
+ fresh.emit('keyup',{code:'KeyW'});fresh.emit('blur');
+ const latest=store.get(key);
+ old.node('storyModeLink').click();
+ assert.deepEqual(navigations,[]);
+ assert.equal(store.get(key),latest);
+ assert.equal(old.node('play').textContent,'이어하기');
+ assert.match(old.node('selector-.tagline').textContent,/다른 창에서 저장된 경기/);
+});
+
+test('BR story navigation reports a failed browser redirect after successful checkpoint save',()=>{
+ const key='veilpoint.brCheckpoint.v1',store=new Map(),app=boot({store,windows:true});
+ app.context.location={assign(){throw new Error('navigation denied');}};
+ app.node('play').click();app.frame(1000/60);app.emit('keydown',{code:'Escape'});
+ app.node('storyModeLink').click();
+ assert.equal(app.node('play').textContent,'저장 경기 이어하기');
+ assert.match(app.node('selector-.tagline').textContent,/스토리 메뉴로 이동하지 못했습니다/);
+ assert.ok(store.get(key),'redirect error must never discard durable match data');
+});
