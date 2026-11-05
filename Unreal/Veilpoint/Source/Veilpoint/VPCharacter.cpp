@@ -29,7 +29,6 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPCharacter, Health);
-    DOREPLIFETIME(AVPCharacter, Shield);
     DOREPLIFETIME(AVPCharacter, Charges);
     DOREPLIFETIME(AVPCharacter, bEliminated);
     DOREPLIFETIME(AVPCharacter, Stamina);
@@ -125,10 +124,10 @@ void AVPCharacter::EndCrouch() { UnCrouch(); }
 float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AController* Instigator, AActor* Causer)
 {
     if (!HasAuthority() || !IsAlive()) return 0.f;
-    const float Amount = FMath::Max(0.f, Incoming);
-    const float Absorbed = FMath::Min(Shield, Amount);
-    Shield -= Absorbed;
-    Health = FMath::Max(0.f, Health - Amount + Absorbed);
+    // Native VEILPOINT has no arcade-style regenerating or ablative shield.
+    // Apply the validated nonnegative game damage directly to finite health.
+    const float Amount = FMath::IsFinite(Incoming) ? FMath::Max(0.f, Incoming) : 0.f;
+    Health = FMath::Max(0.f, Health - Amount);
     if (Health <= 0.f)
     {
         bEliminated = true;
@@ -179,10 +178,20 @@ void AVPCharacter::ServerTryInteract_Implementation()
     }
     if (Nearest) Nearest->Claim(this);
 }
-void AVPCharacter::CollectResource(FName Resource)
+bool AVPCharacter::CollectResource(FName Resource)
 {
-    if (!HasAuthority() || !IsAlive()) return;
-    if (Resource==TEXT("health")) Health=FMath::Min(100.f,Health+45.f);
-    else if (Resource==TEXT("armor")) Shield=FMath::Min(100.f,Shield+55.f);
-    else if (Resource==TEXT("charges")) Charges=FMath::Min(60,Charges+24);
+    if (!HasAuthority() || !IsAlive()) return false;
+    // A supply must not disappear when the character is already at capacity.
+    if (Resource==TEXT("health") && Health < 100.f)
+    {
+        Health=FMath::Min(100.f,Health+45.f);
+        return true;
+    }
+    if (Resource==TEXT("charges") && Charges < 60)
+    {
+        Charges=FMath::Min(60,Charges+24);
+        return true;
+    }
+    // Includes obsolete arcade armor pickups from older test scenes.
+    return false;
 }
