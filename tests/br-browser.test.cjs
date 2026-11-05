@@ -8,7 +8,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..');
 
-function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false, storageBlocked = false} = {}) {
+function boot({touch = false, finePointer = !touch, store = new Map(), pointerLock = 'granted', windows = false, storageBlocked = false, checkpointReadFailures = 0} = {}) {
   const nodes = new Map(), listeners = new Map();
   let now = 0, frameCallback = null, latestGame = null, grantPointerLock = null;
   const scheduledCallbacks = [];
@@ -71,10 +71,15 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     addEventListener: (key, callback) => add(listeners, key, callback),
     exitPointerLock() {this.pointerLockElement = null;}
   };
+  let remainingCheckpointReadFailures=checkpointReadFailures;
   const context = {
     document,
     localStorage: {
-      getItem: key => store.get(key) ?? null,
+      getItem: key => {
+        if(key==='veilpoint.brCheckpoint.v1'&&remainingCheckpointReadFailures-->0)
+          throw new Error('temporary_checkpoint_read_denial');
+        return store.get(key) ?? null;
+      },
       setItem: (key, value) => store.set(key, String(value))
     },
     performance: {now: () => now},
@@ -1243,4 +1248,59 @@ test('BR PC gate HUD labels a stalled physical motor rather than falsely claimin
  app.frame(500);
  assert.match(app.node('pickupPrompt').textContent,/TRACK OBSTRUCTED/);
  assert.equal(app.context.VeilpointSim.gateMotorActive(world),false);
+});
+
+test('PC Enter on unfocused BR menu resumes the exact stored arena through Play guard',()=>{
+  const store=new Map(),initial=boot({store,windows:true});
+  initial.node('play').click();initial.frame(1000/60);
+  const old=initial.game;
+  old.player.x=6;old.player.z=-3;
+  initial.emit('blur'); // physical pause checkpoint
+  const saved=store.get('veilpoint.brCheckpoint.v1');
+  assert.ok(saved,'a saved world must exist before launching a second tab');
+  const resumed=boot({store,windows:true});
+  assert.match(resumed.node('play').textContent,/저장 경기 이어하기/);
+  resumed.emit('keydown',{code:'Enter',target:{tagName:'DIV'}});
+  resumed.frame(1000/60);
+  assert.equal(resumed.game.status,'playing');
+  assert.equal(resumed.game.seed,old.seed);
+  assert.equal(resumed.game.player.x,6);
+  assert.equal(resumed.game.player.z,-3);
+  assert.equal(resumed.node('overlay').classList.contains('hidden'),true);
+  assert.equal(resumed.context.document.activeElement,resumed.node('scene'),
+    'the keyboard resume returns focus to the first-person scene');
+  resumed.emit('keydown',{code:'Enter',target:{tagName:'DIV'}});
+  assert.equal(resumed.game.seed,old.seed,'Enter must not launch another round mid-match');
+});
+
+test('PC Enter still starts a temporary BR match when storage access is unavailable',()=>{
+  const app=boot({windows:true,storageBlocked:true});
+  app.emit('keydown',{code:'Enter',target:{tagName:'DIV'}});
+  app.frame(1000/60);
+  assert.equal(app.game.status,'playing');
+  assert.equal(app.node('overlay').classList.contains('hidden'),true);
+  assert.match(app.game.message,/MEMORY-ONLY/);
+});
+
+test('PC BR retry button cannot delete disk checkpoint after memory-only session',()=>{
+  const store=new Map(),durable=boot({store});
+  durable.node('play').click();durable.frame(1000/60);durable.emit('blur');
+  const diskRaw=store.get('veilpoint.brCheckpoint.v1');
+  assert.ok(diskRaw);
+  // Both startup check and Play encounter a temporary read denial. The
+  // transient session must stay isolated even after storage becomes readable.
+  const temporary=boot({store,windows:true,checkpointReadFailures:2});
+  assert.match(temporary.node('play').textContent,/저장소 없이 플레이/);
+  temporary.node('play').click();temporary.frame(1000/60);
+  assert.equal(temporary.game.status,'playing');
+  assert.equal(store.get('veilpoint.brCheckpoint.v1'),diskRaw);
+  const temporarySeed=temporary.game.seed;
+  temporary.context.VeilpointSim.receiveDamage(temporary.game,100);
+  temporary.frame(2000/60);
+  assert.equal(temporary.node('overlay').classList.contains('hidden'),false);
+  temporary.node('retryArena').click();temporary.frame(3000/60);
+  assert.equal(temporary.game.status,'playing');
+  assert.equal(temporary.game.seed,temporarySeed,'explicit same-arena retry retains original seed');
+  assert.equal(store.get('veilpoint.brCheckpoint.v1'),diskRaw,
+    'recovered storage access must not allow a memory-only retry to erase old saves');
 });
