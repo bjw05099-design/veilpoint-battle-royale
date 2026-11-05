@@ -1513,3 +1513,62 @@ test('fresh CH01 Continue remains writable when no prior checkpoint generations 
   assert.equal(shared.has('veilpoint.story.ch01'),true);
   assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).phase,'engagement');
 });
+
+test('CH01 refuses to overwrite a saved game when storage reads fail after live play begins',()=>{
+  const shared=new Map(),app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const key='veilpoint.story.ch01',before=shared.get(key);
+  assert.equal(JSON.parse(before).phase,'engagement');
+  const originalGet=app.context.localStorage.getItem;
+  app.context.localStorage.getItem=k=>{
+    if(k===key)throw new Error('mid_session_storage_read_denied');
+    return originalGet(k);
+  };
+  app.moveForward(300,90);
+  app.element('pauseButton').click();
+  assert.equal(shared.get(key),before,'unreadable primary remains untouched');
+  assert.match(app.element('saveStatus').textContent,/기존 저장 기록 읽기 불가/);
+  app.context.localStorage.getItem=originalGet;
+  app.element('continue').click();
+  app.element('pauseButton').click();
+  const recovered=JSON.parse(shared.get(key));
+  assert.ok(recovered.elapsed>JSON.parse(before).elapsed,
+    'the original live mission may persist again after access returns');
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),before);
+});
+
+test('CH01 keeps the previous playable primary intact when backup rotation is denied',()=>{
+  const shared=new Map(),app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const key='veilpoint.story.ch01',oldPrimary=shared.get(key);
+  const oldBackup=shared.get('veilpoint.story.ch01.previous');
+  const originalSet=app.context.localStorage.setItem;
+  app.context.localStorage.setItem=(k,v)=>{
+    if(k==='veilpoint.story.ch01.previous')throw new Error('backup_quota_exceeded');
+    return originalSet(k,v);
+  };
+  app.moveForward(300,90);
+  app.element('pauseButton').click();
+  assert.equal(shared.get(key),oldPrimary,'a failed backup must not destroy the last good primary');
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),oldBackup);
+  assert.match(app.element('saveStatus').textContent,/이전 체크포인트 백업 실패/);
+  app.context.localStorage.setItem=originalSet;
+  app.element('continue').click();
+  app.element('pauseButton').click();
+  assert.equal(shared.get('veilpoint.story.ch01.previous'),oldPrimary);
+  assert.ok(JSON.parse(shared.get(key)).elapsed>JSON.parse(oldPrimary).elapsed);
+});
+
+test('CH01 does not erase an externally corrupted primary during active gameplay',()=>{
+  const shared=new Map(),app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const key='veilpoint.story.ch01',corrupt='{unexpected-truncated-primary';
+  shared.set(key,corrupt);
+  app.moveForward(300,90);
+  app.element('pauseButton').click();
+  assert.equal(shared.get(key),corrupt);
+  assert.match(app.element('saveStatus').textContent,/기존 저장 기록 복구 필요/);
+});
