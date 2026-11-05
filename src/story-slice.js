@@ -306,19 +306,25 @@
     return state;
   }
   function refreshEscortWorldMarker(state) {
-    // Story.markers() already follows the live guide, but the 3D world keeps
-    // a separate list of renderable marker positions. Without a refresh, the
-    // guide's old E marker can remain behind at muster or appear beyond sight.
-    // Rebuild ONLY when the observed moving marker changes; do not allocate
-    // static scenery markers on every idle 60Hz tick.
+    // The guide may advance 60 times per second while PC rendering runs at
+    // 165 Hz. Recreating every static 3D marker for each centimetre of movement
+    // allocates a new array and new entities throughout the escort. Instead,
+    // mutate only the observed companion marker, keeping renderer references
+    // stable across fixed ticks. Rebuild on visibility or list changes.
     if(state.phase!=='exit'||state.choice!=='evacuation'||!state.guide.active)return;
-    const live=markers(state),rendered=state.world.loot;
-    const guideIndex=live.findIndex(m=>m.id==='guideControl');
-    if(!Array.isArray(rendered)||rendered.length!==live.length||
-       (guideIndex>=0&&(!rendered[guideIndex]||
-         rendered[guideIndex].x!==state.guide.x||
-         rendered[guideIndex].z!==state.guide.z)))
+    const visible=markers(state),rendered=state.world.loot;
+    if(!Array.isArray(rendered)||rendered.length!==visible.length||
+       visible.some((marker,i)=>!rendered[i]||rendered[i].kind!==marker.kind)){
       syncMarkers(state);
+      return;
+    }
+    const guideIndex=visible.findIndex(marker=>marker.id==='guideControl');
+    if(guideIndex<0)return;
+    const guideMarker=rendered[guideIndex];
+    if(guideMarker.x!==state.guide.x||guideMarker.z!==state.guide.z){
+      guideMarker.x=state.guide.x;
+      guideMarker.z=state.guide.z;
+    }
   }
   function actorBlockers(state,except=null) {
     // Temporary AABB proxies keep the first-person controller from passing through
