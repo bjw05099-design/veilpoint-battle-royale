@@ -217,20 +217,33 @@ const SHOT_SAVE_INTERVAL_SECONDS=1;
 const SHOT_HUD_INTERVAL_SECONDS=0.25;
 let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
- // A terminal result from a stale tab must not delete another tab's newer
- // checkpoint. Explicit New Match remains an intentional reset.
+ // A stale finished tab must never remove a different tab's checkpoint.
  if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return false;
- // Clearing both generations is required on a fresh arena or terminal result:
- // an older fallback must never resurrect a finished match.
- for(const key of [MATCH_SAVE_KEY,MATCH_BACKUP_KEY]){
-  let removed=false;
+ // A reset is NOT committed merely because removeItem() returned. Some
+ // offline browsers silently ignore deletion or deny read access. Preserve
+ // the primary until the backup is verified cleared, then verify the primary.
+ // Without that evidence start() will launch an isolated memory-only round.
+ let originalPrimary,originalBackup;
+ try{
+  originalPrimary=global.localStorage.getItem(MATCH_SAVE_KEY);
+  originalBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
+ }catch(_){return false;}
+ for(const [key,original] of [[MATCH_BACKUP_KEY,originalBackup],[MATCH_SAVE_KEY,originalPrimary]]){
+  if(original===null)continue;
   try{
-   if(typeof global.localStorage.removeItem==='function'){
-    global.localStorage.removeItem(key);removed=true;
-   }
-  }catch(_){}
-  if(!removed)try{global.localStorage.setItem(key,'');}catch(_){}
+   if(typeof global.localStorage.removeItem==='function')global.localStorage.removeItem(key);
+   else global.localStorage.setItem(key,'');
+   const after=global.localStorage.getItem(key);
+   if(after!==null&&after!=='')return false;
+  }catch(_){return false;}
  }
+ // An external tab may recreate a generation while deletion is underway.
+ // We cannot promise cross-tab atomicity, but never treat known surviving
+ // bytes as a successful reset.
+ try{
+  if(global.localStorage.getItem(MATCH_SAVE_KEY)||
+     global.localStorage.getItem(MATCH_BACKUP_KEY))return false;
+ }catch(_){return false;}
  matchDiskGeneration=null;
  return true;
 }
@@ -449,9 +462,15 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  }
  // Storage access may fail temporarily. Keep all existing disk generations
  // untouched while allowing a separate memory-only local PC match.
- if(!offlineOnly){clearStoredMatch();clearFieldBookmark(true);clearLastResult();checkpointInvalidStored=false;}
- memoryOnlyMatch=offlineOnly;saveWarning=false;
- nextMatchSaveRetryAt=0;saveIssue=null;bookmarkIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
+ // Failed/ignored reset is not permission to reuse the old save slot.
+ // The previous match stays readable while this tab plays a separate round.
+ const resetBlocked=!offlineOnly&&!clearStoredMatch();
+ if(resetBlocked)offlineOnly=true;
+ if(!offlineOnly){clearFieldBookmark(true);clearLastResult();checkpointInvalidStored=false;}
+ memoryOnlyMatch=offlineOnly;saveWarning=offlineOnly;
+ nextMatchSaveRetryAt=0;
+ saveIssue=offlineOnly?(newerMatchProtected?'conflict':'write-failed'):null;
+ bookmarkIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -469,6 +488,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  if(memoryOnlyMatch){
   simulation.message=newerMatchProtected
    ?'OTHER PC TAB UPDATED THE SAVE · MEMORY-ONLY MATCH · NEWER ROUND PRESERVED'
+   :resetBlocked?'NEW MATCH RESET NOT VERIFIED · MEMORY-ONLY · SAVED ROUND PROTECTED'
    :'OFFLINE MEMORY-ONLY MATCH · SAVED ROUND KEPT';
   simulation.messageTime=6;
  }else persistMatch();
