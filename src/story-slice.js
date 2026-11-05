@@ -164,6 +164,19 @@
         {x:building.x+building.w/2+edge,z:building.z+building.d/2+edge}
       ])if(!Sim.blocked(pos.x,pos.z,.85,state.world.obstacles))candidates.push(pos);
     }
+    // A legacy checkpoint may sit inside a dense cluster where every immediate
+    // building-edge candidate intersects a second solid. Expand in bounded,
+    // deterministic rings around the saved location, validating against the
+    // entire world, rather than rejecting a recoverable offline save.
+    if(!candidates.length){
+      for(let radius=2;radius<=32 && !candidates.length;radius+=2){
+        for(let i=0;i<16;i++){
+          const angle=i*Math.PI/8;
+          const pos={x:original.x+radius*Math.cos(angle),z:original.z+radius*Math.sin(angle)};
+          if(!Sim.blocked(pos.x,pos.z,.85,state.world.obstacles))candidates.push(pos);
+        }
+      }
+    }
     if(!candidates.length)throw new RangeError('No safe harbor checkpoint recovery');
     candidates.sort((a,b)=>Math.hypot(a.x-original.x,a.z-original.z)-
       Math.hypot(b.x-original.x,b.z-original.z));
