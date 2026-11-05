@@ -44,7 +44,7 @@ test('CH01 PC marker selection follows the same mission identity after dynamic i
 });
 
 test('CH01 stale guidance selection fails safely to nearest published objective',()=>{
-  const markers=[{id:'exit',label:'안뜰',x:0,z:-18},
+  const markers=[{id:'exit',label:'안뜰',x:0,z:-5},
     {id:'relay',label:'중계기',x:10,z:0}];
   assert.equal(Nav.markerIndex(markers,'guideControl'),null);
   assert.match(Nav.story(player,markers,Nav.markerIndex(markers,'guideControl')),/가장 가까운 임무 표식.*안뜰/);
