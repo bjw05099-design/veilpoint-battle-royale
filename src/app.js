@@ -591,6 +591,23 @@ $('saveExit').addEventListener('click',()=>{
  document.querySelector('h1').textContent='VEILPOINT.';
  document.querySelector('.tagline').textContent='경기가 저장되었습니다. 이어하기는 같은 경기로, 새 경기는 처음부터 시작합니다.';
 });
+// Switching from BR to CH01 is navigation, not a loss/forfeit of the
+// current offline arena. The overlay's direct link previously skipped the
+// verified Save & Exit gate and could discard an unsaved 60Hz round.
+// An inactive/finished round can use the ordinary anchor; an active round
+// must be explicitly paused and successfully saved before leaving.
+$('storyModeLink').addEventListener('click',event=>{
+ if(!running||simulation.status!=='playing')return;
+ event.preventDefault();
+ if(!suspended)return; // Hidden overlay cannot navigate during live play.
+ $('saveExit').click(); // Reuse existing generation conflict + readback gate.
+ if(running)return; // Save refused: keep the original paused world playable.
+ try{global.location.assign('story.html');}
+ catch(_){
+  document.querySelector('.tagline').textContent=
+   'BR 체크포인트는 저장되었습니다. 스토리 메뉴로 이동하지 못했습니다. 이 화면에서 저장 경기를 이어할 수 있습니다.';
+ }
+});
 // Rewind a paused offline round to the explicit in-session field bookmark. Never
 // silently replace the current round when the saved data is missing/invalid.
 $('restoreCheckpoint').addEventListener('click',()=>{
