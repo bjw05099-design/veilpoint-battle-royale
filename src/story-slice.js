@@ -277,27 +277,54 @@
   // real geometry, short local detours and the same physical collision rules.
   // The waypoint is derived every fixed tick, so it does not alter v2 saves.
   function guideDetour(state,guide,player) {
-    const obstacles=state.world.obstacles;
-    let best=null,bestDistance=Infinity;
-    for(const wall of obstacles) {
-      if(!Number.isFinite(wall.w)||!Number.isFinite(wall.d)||wall.w<=0||wall.d<=0||
-        !Sim.lineBlocked(guide.x,guide.z,player.x,player.z,[wall]))continue;
-      const margin=.55+.16;
-      for(const sx of [-1,1])for(const sz of [-1,1]) {
-        const target={x:wall.x+sx*(wall.w/2+margin),
-          z:wall.z+sz*(wall.d/2+margin)};
-        const first=Math.hypot(target.x-guide.x,target.z-guide.z);
-        const last=Math.hypot(player.x-target.x,player.z-target.z);
-        // No remote routefinding or magical travel through buildings.
-        if(first<.02||first>6.9||last>6.9||
-          Sim.blocked(target.x,target.z,.55,obstacles)||
-          Sim.lineBlocked(guide.x,guide.z,target.x,target.z,obstacles)||
-          Sim.lineBlocked(target.x,target.z,player.x,player.z,obstacles))continue;
-        const cost=first+last;
-        if(cost<bestDistance-1e-8){best=target;bestDistance=cost;}
+    // A bounded local visibility graph can pass more than one solid container.
+    // Unlike the old one-corner choice, it does not assume the first corner
+    // already has a clear line to the player. It contains no remote actor data.
+    const near=state.world.obstacles.filter(wall=>
+      Number.isFinite(wall.x)&&Number.isFinite(wall.z)&&
+      Number.isFinite(wall.w)&&Number.isFinite(wall.d)&&wall.w>0&&wall.d>0&&
+      Math.abs(wall.x-(guide.x+player.x)/2)<wall.w/2+7&&
+      Math.abs(wall.z-(guide.z+player.z)/2)<wall.d/2+7).slice(0,12);
+    // The margin leaves clearance for the civilian's collision radius.
+    const clearance=.55+.2;
+    const blockers=near.map(wall=>({...wall,w:wall.w+clearance*2,d:wall.d+clearance*2}));
+    const nodes=[{x:guide.x,z:guide.z}];
+    for(const wall of near){
+      for(const sx of [-1,1])for(const sz of [-1,1]){
+        const target={x:wall.x+sx*(wall.w/2+clearance),
+          z:wall.z+sz*(wall.d/2+clearance)};
+        if(Math.hypot(target.x-guide.x,target.z-guide.z)>10||
+           Math.hypot(target.x-player.x,target.z-player.z)>10||
+           Sim.blocked(target.x,target.z,.55,state.world.obstacles))continue;
+        nodes.push(target);
       }
     }
-    return best;
+    const goal=nodes.length;
+    nodes.push({x:player.x,z:player.z});
+    const cost=Array(nodes.length).fill(Infinity),previous=Array(nodes.length).fill(-1);
+    const visited=Array(nodes.length).fill(false);
+    cost[0]=0;
+    const clear=(a,b)=>!Sim.lineBlocked(a.x,a.z,b.x,b.z,blockers);
+    for(let tick=0;tick<nodes.length;tick++){
+      let current=-1;
+      for(let i=0;i<nodes.length;i++)
+        if(!visited[i]&&(current<0||cost[i]<cost[current]))current=i;
+      if(current<0||!Number.isFinite(cost[current])||current===goal)break;
+      visited[current]=true;
+      for(let i=1;i<nodes.length;i++){
+        if(i===current||visited[i]||!clear(nodes[current],nodes[i]))continue;
+        const distance=Math.hypot(nodes[current].x-nodes[i].x,
+          nodes[current].z-nodes[i].z);
+        const next=cost[current]+distance;
+        // A bounded detour prevents inexplicable distant wandering.
+        if(next>18||next>=cost[i]-1e-8)continue;
+        cost[i]=next;previous[i]=current;
+      }
+    }
+    if(!Number.isFinite(cost[goal]))return null;
+    let first=goal;
+    while(previous[first]>0)first=previous[first];
+    return previous[first]===0&&first!==goal?nodes[first]:null;
   }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
