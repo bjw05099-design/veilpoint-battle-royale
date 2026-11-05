@@ -144,7 +144,7 @@ let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRet
 // Do not let an older browser tab silently replace a newer offline round.
 let matchDiskGeneration=null;
 function ownsStoredMatch(){
- try{return global.localStorage.getItem(MATCH_SAVE_KEY)===matchDiskGeneration;}
+ try{return (global.localStorage.getItem(MATCH_SAVE_KEY)||null)===(matchDiskGeneration||null);}
  catch(_){return false;}
 }
 // All automatic BR checkpoint writes share the same bounded retry window.
@@ -224,8 +224,8 @@ function persistMatch(){
   // Fail closed on storage read denial or a changed primary generation.
   // localStorage has no cross-tab transaction; this is a best-effort
   // compare-before-write guard, not an atomic distributed lock.
-  const previous=global.localStorage.getItem(MATCH_SAVE_KEY);
-  if(previous!==matchDiskGeneration){
+  const previous=global.localStorage.getItem(MATCH_SAVE_KEY)||null;
+  if(previous!==(matchDiskGeneration||null)){
    nextMatchSaveRetryAt=simulation.elapsed+1;
    if(!saveWarning){
     simulation.message='OFFLINE SAVE CONFLICT · ANOTHER TAB CHANGED CHECKPOINT';
@@ -271,9 +271,9 @@ function storedMatch(){
   if(!result)return null;
   if(result.source==='backup'){
    // Repair the primary if possible, but never treat a failed write as done.
-   matchDiskGeneration=primary;
-   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);matchDiskGeneration=backup;}catch(_){}
-  }else matchDiskGeneration=primary;
+   matchDiskGeneration=primary||null;
+   try{global.localStorage.setItem(MATCH_SAVE_KEY,backup);matchDiskGeneration=backup||null;}catch(_){}
+  }else matchDiskGeneration=primary||null;
   return result.state;
  }catch(_){
   // Invalid bytes are not proof the player intended to erase a saved match.
