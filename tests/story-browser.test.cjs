@@ -1425,7 +1425,7 @@ test('CH01 a temporary session cannot publish a completed preview over an earlie
   assert.match(source,/let checkpointReadUnavailable=false,checkpointInvalidStored=false,memoryOnlyStory=false/);
   assert.match(source,/catch\(_\)\{checkpointReadUnavailable=true;checkpointInvalidStored=false;return null;\}/);
   assert.match(source,/if\(memoryOnlyStory\)\{[\s\S]*?checkpoint=raw;/);
-  assert.match(source,/if\(report&&!memoryOnlyStory\)storage\.set\(PREVIEW_KEY/);
+  assert.match(source,/if\(report&&!memoryOnlyStory&&!saveFailed&&[\s\S]*?storage\.set\(PREVIEW_KEY/);
   assert.match(source,/checkpoint=memoryOnlyStory\?null:storage\.get\(SAVE_KEY\)/);
   assert.match(source,/if\(!memoryOnlyStory&&loaded&&loaded\.phase==='complete'\)/);
   assert.match(source,/if\(fromCheckpoint\)/);
