@@ -139,7 +139,10 @@ const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1';
 const MATCH_BACKUP_KEY='veilpoint.brCheckpoint.v1.previous';
 const FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
 const LAST_RESULT_KEY='veilpoint.brLastResult.v1';
-let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false;
+let lastAutosaveElapsed=0,lastSavedHealth=100,saveWarning=false,nextMatchSaveRetryAt=0;
+// All automatic BR checkpoint writes share the same bounded retry window.
+// Explicit PC Save & Exit remains immediate even while retry is pending.
+function canAutoPersistMatch(){return simulation.elapsed>=nextMatchSaveRetryAt;}
 let lastFinishedMatch=null; // Same-arena retry metadata, never an active checkpoint.
 function clearLastResult(){
  try{global.localStorage.removeItem(LAST_RESULT_KEY);}
@@ -210,9 +213,16 @@ function persistMatch(){
    }catch(_){} // Keep writing the current valid world if backup is unavailable.
   }
   global.localStorage.setItem(MATCH_SAVE_KEY,raw);
-  lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;saveWarning=false;
+  lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+  nextMatchSaveRetryAt=0;
+  if(saveWarning){
+   simulation.message='OFFLINE CHECKPOINT RESTORED · MATCH SAVE AVAILABLE';
+   simulation.messageTime=2;
+  }
+  saveWarning=false;
   return true;
  }catch(_){
+  nextMatchSaveRetryAt=simulation.elapsed+1;
   if(!saveWarning){simulation.message='OFFLINE SAVE FAILED · THIS MATCH MAY NOT RESUME';simulation.messageTime=4;saveWarning=true;}
   return false;
  }
@@ -307,6 +317,7 @@ function requestAimLock(){
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null){
  if(graphicsContextLost||!renderer)return;
  clearStoredMatch();clearFieldBookmark();clearLastResult();saveWarning=false;
+ nextMatchSaveRetryAt=0;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
  const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
@@ -329,7 +340,7 @@ function resumeStoredMatch(){
  if(!restored){start();return;}
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
- running=true;suspended=false;saveWarning=false;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=loadFieldBookmark();$('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  // A restored checkpoint must also start with neutral physical input.
@@ -592,7 +603,8 @@ function shotFeedback(immediateSave=false){
  // A fixed-step held trigger may fire several times per second. Avoid a
  // synchronous full-world snapshot and minimap redraw for every round.
  // Normal 15s autosave, explicit inventory actions and pause still flush state.
- if(immediateSave||simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)persistMatch();
+ if((immediateSave||simulation.elapsed-lastAutosaveElapsed>=SHOT_SAVE_INTERVAL_SECONDS)&&
+  canAutoPersistMatch())persistMatch();
  if(simulation.elapsed-lastShotHudElapsed>=SHOT_HUD_INTERVAL_SECONDS){
   updateHud();lastShotHudElapsed=simulation.elapsed;
  }
@@ -711,7 +723,8 @@ function frame(now){requestAnimationFrame(frame);
    Game.tick(simulation,step,input);
    if(input.fireHeld&&simulation.status==='playing'&&Game.autoFire(simulation,true,input.crouch).ok)shotFeedback();
   });
-  if(simulation.status==='playing'&&(simulation.elapsed-lastAutosaveElapsed>=15 ||
+  if(simulation.status==='playing'&&canAutoPersistMatch()&&
+    (saveWarning||simulation.elapsed-lastAutosaveElapsed>=15 ||
     (simulation.player.health<lastSavedHealth-.5&&simulation.elapsed-lastAutosaveElapsed>=1)))persistMatch();
  }
  // Resolve terminal states even when they change between simulation ticks.
