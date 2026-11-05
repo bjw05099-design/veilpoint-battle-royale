@@ -751,12 +751,16 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
  // No omniscient opponent positions: the map is a local map, not a live enemy tracker.
  const p=simulation.player;ctx.fillStyle='#eaffbd';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#eaffbd';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*15,tz(p.z)-Math.cos(p.yaw)*15);ctx.stroke();
 }
-function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.getAliveCount(s);$('phase').innerHTML=String(s.zone.phase+1).padStart(2,'0')+' <span class="unit">/ 06</span>';
+function updateHud(){const s=simulation,p=s.player;
+ const bindings=desktopUi.get().bindings;
+ const interactPrompt='['+Desktop.keyLabel(bindings.interact)+']';
+ const reloadLabel=Desktop.keyLabel(bindings.reload);
+ $('alive').textContent=Game.getAliveCount(s);$('phase').innerHTML=String(s.zone.phase+1).padStart(2,'0')+' <span class="unit">/ 06</span>';
  let tt=Math.max(0,Math.ceil(s.zone.phaseRemaining));$('time').textContent=String((tt/60)|0).padStart(2,'0')+':'+String(tt%60).padStart(2,'0');
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
  $('weaponName').textContent=Game.FIREARMS[p.weaponId].label;
  $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+'</span>';
- $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · R TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF');
+ $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · '+reloadLabel+' TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF');
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
@@ -787,14 +791,14 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
  if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
   :yardGate.closing
-  ?'[E] REVERSE TO OPEN · SERVICE YARD GATE CLOSING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
-  :yardGate.open?'SERVICE YARD GATE OPEN · PASSAGE CLEAR · [E] CLOSE GATE'
-  :yardGate.engaged?'[E] REVERSE TO CLOSE · SERVICE YARD GATE OPENING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
-  :'[E] OPERATE SERVICE YARD SLIDING GATE · OPEN';
+  ?interactPrompt+' REVERSE TO OPEN · SERVICE YARD GATE CLOSING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
+  :yardGate.open?'SERVICE YARD GATE OPEN · PASSAGE CLEAR · '+interactPrompt+' CLOSE GATE'
+  :yardGate.engaged?interactPrompt+' REVERSE TO CLOSE · SERVICE YARD GATE OPENING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
+  :interactPrompt+' OPERATE SERVICE YARD SLIDING GATE · OPEN';
  else if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
-   ?'[E] RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
-   :'[E] COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
+   ?interactPrompt+' RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
+   :interactPrompt+' COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
    (restock?' · [V] RETURN SPARE ROUNDS':'');
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
