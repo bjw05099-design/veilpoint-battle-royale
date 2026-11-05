@@ -7,7 +7,13 @@
 
 AVPWorldBootstrap::AVPWorldBootstrap()
 {
-    bReplicates=false;
+    // The native world is a single server-owned actor, replicated to all
+    // connected Windows clients. Each side builds the same authored static
+    // instances locally in BeginPlay; ISM instance arrays do not replicate
+    // automatically just because their owning actor does.
+    bReplicates=true;
+    bAlwaysRelevant=true;
+    SetReplicateMovement(false);
     PrimaryActorTick.bCanEverTick=false;
     Ground=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("WorldGround"));
     RootComponent=Ground;
@@ -33,6 +39,10 @@ void AVPWorldBootstrap::AddBlock(UInstancedStaticMeshComponent* Comp,FVector Pos
 void AVPWorldBootstrap::BeginPlay()
 {
     Super::BeginPlay();
+    // Build the same static world on the server AND every replicated client.
+    // Never branch on authority here: doing so would leave multiplayer clients
+    // walking through empty scenery even though server collision exists.
+    // Resources below are separately spawned server-side replicated actors.
     // Native untextured fallback landscape. Replace with Nanite assets and authored maps.
     AddBlock(Ground,FVector(0,0,-70),FVector(350.f,350.f,1.3f));
     static const FVector2D Centers[] = {
@@ -47,6 +57,8 @@ void AVPWorldBootstrap::BeginPlay()
         AddBlock(Buildings,FVector(C.X+2800,C.Y+1400,225),FVector(.1f,.09f,4.5f));
         AddBlock(Buildings,FVector(C.X-2400,C.Y+2300,150),FVector(.05f,.12f,3.f));
     }
+    // Stable seed and loop order keep instance transforms identical on all
+    // machines without transmitting 250 per-instance transforms every tick.
     FRandomStream Random(19771);
     for(int32 j=0;j<250;++j)
     {
