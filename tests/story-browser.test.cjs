@@ -3043,3 +3043,68 @@ test('CH01 backup promotion detects concurrent primary substitution after a repo
  assert.equal(Story.restore(shared.get(key)).world.player.x,4,
    'a later explicit Continue uses the current verified generation');
 });
+
+
+test('CH01 autosave never overwrites primary when browser silently discards its backup',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',store=new Map();
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ // The first CH01 checkpoint is written at an actual 60Hz autosave boundary,
+ // not merely by opening the initial menu.
+ app.moveForward(0,360);
+ const first=store.get(key);
+ assert.ok(first,'60Hz traversal must establish a real durable CH01 checkpoint');
+ store.delete(backup);
+ const nativeSet=store.set.bind(store);
+ let ignored=0;
+ store.set=(name,value)=>{
+  if(name===backup){ignored++;return store;} // claimed success without bytes
+  return nativeSet(name,value);
+ };
+ app.moveForward(360,120);app.element('pauseButton').click();
+ assert.ok(ignored>0,'autosave tried to preserve the previous world');
+ assert.equal(store.get(key),first,'the only valid primary survives blocked backup');
+ assert.equal(store.has(backup),false,'false write was not treated as a durable backup');
+ assert.match(app.element('saveStatus').textContent,/백업 검증 실패/);
+ assert.match(app.element('menuText').textContent,/저장 실패/);
+ assert.equal(app.element('saveExit').classList.contains('hidden'),false);
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,[],'Save & Exit refuses to discard unsaved CH01 progress');
+ store.set=nativeSet;
+ app.element('saveCheckpoint').click();
+ assert.equal(store.get(backup),first,'successful manual retry preserves old primary');
+ assert.notEqual(store.get(key),first,'manual retry commits the current mission');
+ assert.ok(Story.restore(store.get(key)));
+ assert.deepEqual(app.navigations,[]);
+});
+
+test('CH01 autosave never replaces another tab latest checkpoint during backup rotation',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',store=new Map();
+ const old=boot(store,false,'granted',true,true);
+ old.element('continue').click();
+ old.moveForward(0,360);
+ const original=store.get(key);
+ assert.ok(original,'first real autosave must exist before cross-tab conflict');
+ const concurrent=Story.createState();concurrent.world.player.x=4;
+ const latest=Story.serialize(concurrent),nativeSet=store.set.bind(store);
+ let rotated=0;
+ store.set=(name,value)=>{
+   if(name===backup){rotated++;nativeSet(name,value);return nativeSet(key,latest);}
+   return nativeSet(name,value);
+ };
+ old.moveForward(360,120);old.element('pauseButton').click();
+ assert.ok(rotated>0);
+ assert.equal(store.get(key),latest,'other tab newer primary survives old autosave');
+ assert.equal(store.get(backup),original,'previous world retained for recovery');
+ assert.match(old.element('saveStatus').textContent,/다른 창에서 체크포인트 변경 감지/);
+ old.element('saveExit').click();
+ assert.deepEqual(old.navigations,[]);
+ assert.equal(store.get(key),latest);
+ store.set=nativeSet;
+ const current=boot(store,false,'granted',true,true);
+ current.element('continue').click();
+ current.element('pauseButton').click();
+ assert.equal(Story.restore(store.get(key)).world.player.x,4);
+});
