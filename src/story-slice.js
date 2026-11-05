@@ -169,6 +169,38 @@
     p.x=safe[0].x;p.z=safe[0].z;
     return true;
   }
+  function recoverEscortOverlap(state) {
+    // Some older checkpoints can restore the captain exactly on top of the
+    // optional guide. Separate these two physical bodies once, at load time;
+    // live 60Hz movement never teleports either actor.
+    if(state.phase!=='exit'||state.choice!=='evacuation'||
+       !state.guide.active||state.guide.arrived)return false;
+    const p=state.world.player,g=state.guide;
+    const guideBody={x:g.x,z:g.z,w:1.1,d:1.1};
+    if(!Sim.blocked(p.x,p.z,.85,[guideBody]))return false;
+    const original={x:p.x,z:p.z};
+    const offsets=[{x:0,z:-1},{x:0,z:1},{x:-1,z:0},{x:1,z:0},
+      {x:-.7071067811865476,z:-.7071067811865476},
+      {x:.7071067811865476,z:-.7071067811865476},
+      {x:-.7071067811865476,z:.7071067811865476},
+      {x:.7071067811865476,z:.7071067811865476}];
+    const occupied=state.world.obstacles.concat(actorBlockers(state),[guideBody]);
+    const candidates=[];
+    for(const radius of [1.7,2.3,3]){
+      for(const offset of offsets){
+        const q={x:g.x+offset.x*radius,z:g.z+offset.z*radius};
+        if(Sim.blocked(q.x,q.z,.85,occupied)||
+           Sim.lineBlocked(g.x,g.z,q.x,q.z,state.world.obstacles))continue;
+        candidates.push(q);
+      }
+    }
+    if(!candidates.length)throw new RangeError('No collision-free escort checkpoint recovery');
+    candidates.sort((a,b)=>
+      Math.hypot(a.x-original.x,a.z-original.z)-
+      Math.hypot(b.x-original.x,b.z-original.z));
+    p.x=candidates[0].x;p.z=candidates[0].z;
+    return true;
+  }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -1217,6 +1249,7 @@
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';
     if(recoverSceneOverlap(state))state.message='CH01 / 이전 저장 위치를 새 항구 건물 밖으로 안전하게 복구했습니다.';
     if(recoverActorOverlap(state))state.message='CH01 / 이전 저장 위치를 대치자와 겹치지 않게 안전하게 복구했습니다.';
+    if(recoverEscortOverlap(state))state.message='CH01 / 이전 저장 위치를 동행 안내원과 겹치지 않게 복구했습니다.';
     return syncMarkers(state);
   }
   // Durable checkpoint recovery is a world-state transition, not a bypass of
