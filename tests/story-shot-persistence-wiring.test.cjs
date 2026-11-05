@@ -17,6 +17,6 @@ test('CH01 successful PC shots use bounded persistence and immediate HUD refresh
 test('CH01 queued shot checkpoints flush on simulation tick and explicit pause',()=>{
   assert.match(source,/const SHOT_SAVE_INTERVAL_SECONDS=0\.45/);
   assert.match(source,/function persistShot\(\)[\s\S]*?shotSavePending=true/);
-  assert.match(source,/shotSavePending\s*&&[\s\S]*?persistShot\(\)/);
+  assert.match(source,/if\(running&&shotSavePending&&state\.phase==='engagement'&&[\s\S]*?\)persist\(\)/);
   assert.match(source,/function menuOpen\(text\)[\s\S]*?if\(running&&state\.phase!=='complete'&&state\.phase!=='failed'\)persist\(\)/);
 });
