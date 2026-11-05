@@ -117,7 +117,7 @@ test('BR backup generation is protected while a primary slot temporarily denies 
 });
 
 test('BR recovery policy is reset when starting, resuming or restoring an arena',()=>{
-  assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(\);clearLastResult\(\);\}\s*memoryOnlyMatch=offlineOnly;saveWarning=false;\s*nextMatchSaveRetryAt=0/);
+  assert.match(source,/if\(!offlineOnly\)\{clearStoredMatch\(\);clearFieldBookmark\(\);clearLastResult\(\);checkpointInvalidStored=false;\}\s*memoryOnlyMatch=offlineOnly;saveWarning=false;\s*nextMatchSaveRetryAt=0/);
   assert.match(source,/running=true;suspended=false;saveWarning=false;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation\.elapsed/);
   assert.match(source,/function resumeStoredMatch\(/);
   assert.match(source,/function recordFieldBookmark\(/);
