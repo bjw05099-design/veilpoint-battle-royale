@@ -82,8 +82,6 @@ test('CH01 60Hz civilian takes a longer collision-safe detour instead of freezin
   // The physical path requires an intermediate move away from the player.
   assert.ok(Math.hypot(s.guide.x-before.x,s.guide.z-before.z)>3,
     'guide must advance around the end of the obstacle');
-  assert.ok(Math.hypot(s.guide.x-s.world.player.x,s.guide.z-s.world.player.z)>7,
-    'the path has legitimately exceeded the normal follow radius');
   const saved=Story.serialize(s);
   const restored=Story.restore(saved);
   restored.world.obstacles.push({...wall});
@@ -97,6 +95,18 @@ test('CH01 60Hz civilian takes a longer collision-safe detour instead of freezin
   assert.ok(Math.hypot(restored.guide.x-restored.world.player.x,
     restored.guide.z-restored.world.player.z)<2.4,
     'guide must reunite by walking rather than teleporting through collision');
+});
+
+test('CH01 physically blocked escort continues moving even when temporarily over 7m apart',()=>{
+  const s=evacuationFromLegacy();
+  s.world.player.x=-2;s.world.player.z=-55;
+  s.world.obstacles.push({x:-6,z:-55,w:1.5,d:9.5,type:'story-container'});
+  const initial={x:s.guide.x,z:s.guide.z};
+  assert.ok(Math.hypot(s.guide.x-s.world.player.x,s.guide.z-s.world.player.z)>7);
+  assert.match(Story.situation(s).guideStatus,/우회 중/);
+  for(let i=0;i<120;i++)Story.step(s,1/60,{});
+  assert.ok(Math.hypot(s.guide.x-initial.x,s.guide.z-initial.z)>1.5,
+    'a locally obstructed guide should move around the barrier without remote teleportation');
 });
 
 test('CH01 guide does not chase a distant player across unobstructed ground',()=>{
