@@ -118,7 +118,14 @@
     if(!Sim.blocked(p.x,p.z,.80,[gate]))return false;
     const north=gate.z+gate.d/2+1;
     const south=gate.z-gate.d/2-1;
-    p.z=Math.abs(p.z-north)<=Math.abs(p.z-south)?north:south;
+    // The closest edge is not necessarily navigable: a legacy save may
+    // overlap a neighboring solid object. Test both exits against the live
+    // collision world before moving the player.
+    const candidates=[north,south].map(z=>({x:p.x,z}))
+      .filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles))
+      .sort((a,b)=>Math.abs(a.z-p.z)-Math.abs(b.z-p.z));
+    if(!candidates.length)return false;
+    p.z=candidates[0].z;
     return true;
   }
   function recoverSceneOverlap(state) {
