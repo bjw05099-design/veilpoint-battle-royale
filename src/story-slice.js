@@ -994,6 +994,40 @@
     syncMarkers(state);
     return {ok:true,event:'back'};
   }
+  function missionTasks(state) {
+    // Read-only progress derived entirely from the real CH01 world. The
+    // tracker never grants completion, discovers an unseen actor, changes a
+    // physical interaction, or adds fields to the versioned checkpoint.
+    if((state.phase!=='exit'&&state.phase!=='complete')||!state.choice)
+      return Object.freeze([]);
+    const item=(id,label,status,optional=false)=>
+      Object.freeze({id,label,status,optional});
+    const completed=state.phase==='complete';
+    if(state.choice==='evacuation'){
+      const guide=state.guide;
+      const guideDone=guide.arrived||guide.released;
+      const guideStatus=guideDone?'done':guide.active
+        ?guide.waiting?'waiting':'following'
+        :state.musterConfirmed?'available':'locked';
+      const aidStatus=state.aidDelivered?'done':state.aidStaged?'staged'
+        :state.aidPickedUp?'carrying':'available';
+      return Object.freeze([
+        item('muster','집결지 인원 확인',state.musterConfirmed?'done':'available',true),
+        item('guide','현장 안내원 동행·인계',guideStatus,true),
+        item('aid','비상 물품 현장 인계',aidStatus,true),
+        item('exit','남쪽 안뜰 도착',completed?'done':
+          guide.active&&!guideDone?'blocked':'available')
+      ]);
+    }
+    return Object.freeze([
+      item('evidence','기록 2건 확인',state.found.length===2?'done':'locked'),
+      item('gate','동쪽 통제문 확인',gateOpen(state)?'done':'waiting'),
+      item('log','현장 중계 기록 검토',state.gateLogReviewed?'done':'available',true),
+      item('handoff','현장 기록 전달',state.logHandedOff?'done':
+        state.gateLogReviewed?'available':'locked',true),
+      item('exit','동쪽 통로 이동',completed?'done':gateOpen(state)?'available':'blocked')
+    ]);
+  }
   function visibleEscortDistance(state) {
     // The player can estimate spacing only when the civilian is actually
     // visible and nearby. Never reveal their precise position through solid
@@ -1408,6 +1442,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,missionTasks,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
