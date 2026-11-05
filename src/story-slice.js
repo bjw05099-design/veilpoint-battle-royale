@@ -476,7 +476,7 @@
         // still reject paths beyond 36m rather than allow map-wide pursuit.
         // This relative bound is recalculated from live poses at each 60Hz tick.
         const direct=Math.hypot(guide.x-player.x,guide.z-player.z);
-        if(next>Math.min(36,direct+20)||next>=cost[i]-1e-8)continue;
+        if(next>Math.min(36,direct+16.5)||next>=cost[i]-1e-8)continue;
         cost[i]=next;previous[i]=current;
       }
     }
@@ -547,7 +547,13 @@
         // an unobstructed guide beyond 7m continues waiting for the player.
         const blocked=guideBodyPathBlocked(g,p,state.world.obstacles);
         const detour=blocked?guideDetour(state,g,p):null;
-        const target=blocked?detour:(range<7?p:null);
+        // At the edge of a real wall the straight corridor becomes clear
+        // before the guide is back within the ordinary 7m following radius.
+        // Finish that last short physical segment only while beside solid
+        // scenery, without extending pursuit across open ground.
+        const clearingDetour=!blocked&&range>=7&&range<11&&
+          Sim.blocked(g.x,g.z,1.8,state.world.obstacles);
+        const target=blocked?detour:((range<7||clearingDetour)?p:null);
         if(target){
           const vx=target.x-g.x,vz=target.z-g.z;
           const length=Math.hypot(vx,vz);
