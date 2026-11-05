@@ -1975,3 +1975,52 @@ test('CH01 escort navigates a staggered two-crate corridor at fixed 60Hz without
   assert.ok(Math.hypot(a.guide.x-start.x,a.guide.z-start.z)>0.1,
     'the escort must make physical progress around local cover');
 });
+
+
+test('CH01 legacy checkpoint escapes the end of an occupied gate when both short routes are blocked',()=>{
+  const old=story.createState();old.world.player.x=27;old.world.player.z=-53;
+  const raw=story.serialize(old);
+  const newMatch=Sim.newMatch;
+  try{
+    Sim.newMatch=(...args)=>{
+      const world=newMatch(...args);
+      // New scenery blocks both traditional north/south restoration locations.
+      world.obstacles.push(
+        {x:27,z:-51.7,w:3,d:.2,h:2,type:'later-added-wall'},
+        {x:27,z:-54.3,w:3,d:.2,h:2,type:'later-added-wall'});
+      return world;
+    };
+    const resumed=story.restore(raw),p=resumed.world.player;
+    assert.equal(Sim.blocked(p.x,p.z,.85,resumed.world.obstacles),false);
+    assert.ok(Math.abs(p.x-27)>6,
+      'a blocked pair of perpendicular exits must use the clear gate end');
+    assert.equal(resumed.world.player.charges,old.world.player.charges);
+    const again=story.restore(story.serialize(resumed));
+    assert.deepEqual([again.world.player.x,again.world.player.z],[p.x,p.z],
+      'a safe restored checkpoint must remain stable on subsequent loads');
+  }finally{Sim.newMatch=newMatch;}
+});
+
+test('CH01 rejects an entirely enclosed legacy gate checkpoint and recovers its valid backup',()=>{
+  const old=story.createState();old.world.player.x=27;old.world.player.z=-53;
+  const invalidPrimary=story.serialize(old);
+  const backup=story.serialize(story.createState());
+  const newMatch=Sim.newMatch;
+  try{
+    Sim.newMatch=(...args)=>{
+      const world=newMatch(...args);
+      world.obstacles.push(
+        {x:27,z:-51.7,w:9,d:.2,h:2,type:'later-added-wall'},
+        {x:27,z:-54.3,w:9,d:.2,h:2,type:'later-added-wall'},
+        {x:20,z:-53,w:.2,d:5,h:2,type:'later-added-wall'},
+        {x:34,z:-53,w:.2,d:5,h:2,type:'later-added-wall'});
+      return world;
+    };
+    assert.throws(()=>story.restore(invalidPrimary),/No collision-free gate checkpoint recovery/);
+    const recovered=story.recoverCheckpoint(invalidPrimary,backup);
+    assert.equal(recovered.source,'backup');
+    assert.equal(recovered.state.phase,'terminal');
+    assert.equal(recovered.state.world.player.x,0);
+    assert.equal(recovered.state.world.player.z,12);
+  }finally{Sim.newMatch=newMatch;}
+});
