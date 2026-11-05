@@ -1,6 +1,7 @@
 #include "VPGameMode.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
+#include "VPGameState.h"
 #include "VPZone.h"
 #include "VPWorldBootstrap.h"
 #include "EngineUtils.h"
@@ -11,6 +12,7 @@ AVPGameMode::AVPGameMode()
 {
     DefaultPawnClass=AVPCharacter::StaticClass();
     HUDClass=AVPHUD::StaticClass();
+    GameStateClass=AVPGameState::StaticClass();
     PrimaryActorTick.bCanEverTick=true;
     PrimaryActorTick.TickInterval=1.f;
 }
@@ -58,4 +60,8 @@ void AVPGameMode::Tick(float DeltaSeconds)
     ActiveSurvivors=Living;
     if(Total>=2)bSeenMultiplePlayers=true;
     if(bSeenMultiplePlayers&&Living<=1){bRoundComplete=true;UE_LOG(LogTemp,Display,TEXT("VEILPOINT: round finished, survivors %d"),Living);}
+    // GameMode is never replicated to remote clients. Publish only factual
+    // finite round status through the server-owned GameState.
+    if(AVPGameState* NativeState=GetWorld()->GetGameState<AVPGameState>())
+        NativeState->UpdateRoundState(Living,bRoundComplete);
 }
