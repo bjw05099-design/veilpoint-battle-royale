@@ -12,10 +12,14 @@ function escortAt(staff,barrier=false){
   {id:0,x:0,z:-28,angle:Math.PI,health:0,alive:false,shots:12},
   {id:1,x:15,z:-34,angle:Math.PI,health:0,alive:false,shots:12},
   {id:2,x:-15,z:-34,angle:Math.PI,health:0,alive:false,shots:12}];
- const m=Story.POINTS[staff];
- state.guide={active:true,arrived:false,released:false,waiting:true,x:m.x+2,z:m.z};
- state.world.player.x=m.x+1;state.world.player.z=m.z+1;
- if(barrier)state.world.obstacles.push({x:m.x+1,z:m.z,w:.3,d:.3,type:'story-container'});
+ const m=Story.POINTS[staff],side=staff==='guideRelease'?-1:1;
+ const guideOffset=staff==='guideRelease'?.8:1.2;
+ const playerOffset=guideOffset/2;
+ state.guide={active:true,arrived:false,released:false,waiting:true,
+   x:m.x+side*guideOffset,z:m.z};
+ state.world.player.x=m.x+side*playerOffset;state.world.player.z=m.z+1.2;
+ if(barrier)state.world.obstacles.push({x:m.x+side*playerOffset,z:m.z,
+   w:.22,d:.3,type:'story-container'});
  return state;
 }
 
@@ -39,7 +43,10 @@ for(const staff of ['guideRelease','guideTransfer']){
   assert.equal(blocked.guide.active,true);
   assert.equal(blocked.guide.waiting,true);
   const replay=Story.restore(Story.serialize(blocked));
-  assert.notEqual(Story.nearest(replay)?.id,staff,'60Hz checkpoint restores the same obstruction');
+  // Checkpoints store the companion pose. Solid scenery comes from the
+  // authored world; reapply this synthetic test-only wall after restore.
+  replay.world.obstacles.push(blocked.world.obstacles[blocked.world.obstacles.length-1]);
+  assert.notEqual(Story.nearest(replay)?.id,staff,'restored pose still respects physical cover');
   Story.step(replay,1/60,{});
   assert.equal(replay.guide.released,false,'time cannot bypass a blocked handoff');
  });
