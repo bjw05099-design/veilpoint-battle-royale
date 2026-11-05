@@ -174,7 +174,10 @@
     // optional guide. Separate these two physical bodies once, at load time;
     // live 60Hz movement never teleports either actor.
     if(state.phase!=='exit'||state.choice!=='evacuation'||
-       !state.guide.active||state.guide.arrived)return false;
+       !state.musterConfirmed)return false;
+    // The companion remains a solid world actor after physical courtyard
+    // arrival and after a staffed handoff. Old saves can overlap this body
+    // in any of those states, not only while an escort is still following.
     const p=state.world.player,g=state.guide;
     const guideBody={x:g.x,z:g.z,w:1.1,d:1.1};
     if(!Sim.blocked(p.x,p.z,.85,[guideBody]))return false;
