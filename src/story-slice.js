@@ -444,12 +444,9 @@
     // observation distance and through the same real harbor collision world.
     // Leaving the guide behind pauses the escort; no teleportation or map-wide
     // knowledge is used to manufacture an arrival.
-    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived){
-      // A physically present guide and captain can finish a courtyard escort
-      // even if the civilian was asked to wait a step before arrival.
-      // Waiting suppresses motion only, not the objective's real-world proof.
+    if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(!g.waiting&&range>1.7&&range<11){
+      if(range>1.7&&range<11){
         // The guide may briefly need more than the ordinary 7m follow radius
         // to walk around a tall, solid obstacle. This only permits local
         // physical detours when the collision corridor is actually blocked;
@@ -474,9 +471,6 @@
          Math.hypot(p.x-exit.x,p.z-exit.z)<4&&
          !Sim.lineBlocked(g.x,g.z,exit.x,exit.z,state.world.obstacles)&&
          !Sim.lineBlocked(p.x,p.z,exit.x,exit.z,state.world.obstacles)){
-        // Saved arrivals cannot remain in an obsolete waiting state. Clearing
-        // the local hold also keeps v2 checkpoint validation round-trip safe.
-        g.waiting=false;
         g.arrived=true;
         state.subtitle='유수프(현지 구조단): 안내원이 남쪽 안뜰에 직접 도착했어. 나머지 주민은 구조단이 인계할게.';
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
@@ -847,6 +841,23 @@
       // This only gates the OPTIONAL escort branch. Historic saves and the
       // standard evacuation exit remain immediately completable.
       if(marker.id==='exitEvac'&&state.guide.active&&!state.guide.arrived){
+        // At the physical courtyard, the exit marker may win the nearest-E
+        // selection over the companion control at the same position. A held
+        // guide would otherwise be impossible to resume from that marker.
+        // Only a locally observed guide can be resumed here; the following
+        // fixed tick, not this keypress, verifies actual courtyard arrival.
+        const exit=POINTS.exitEvac,g=state.guide,p=state.world.player;
+        if(g.waiting&&Math.hypot(g.x-exit.x,g.z-exit.z)<2.4&&
+           Math.hypot(p.x-exit.x,p.z-exit.z)<4&&
+           Math.hypot(g.x-p.x,g.z-p.z)<3&&
+           !Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles)&&
+           !Sim.lineBlocked(g.x,g.z,exit.x,exit.z,state.world.obstacles)){
+          g.waiting=false;
+          state.subtitle='유수프(현지 구조단): 안내원이 가까이 있어. 안뜰 도착을 현장에서 확인할게.';
+          state.message='안내원 현장 대기 해제 · 동행 도착 확인 중';
+          syncMarkers(state);
+          return {ok:true,event:'guide_resume_at_exit',phase:state.phase};
+        }
         state.subtitle='유수프(현지 구조단): 안내원이 아직 안뜰에 도착하지 못했어. 가까운 거리에서 천천히 동행해 줘.';
         state.message='동행 중 · 안내원 도착 전에는 대피 완료로 기록할 수 없습니다';
         return {ok:false,reason:'guide_not_arrived'};
