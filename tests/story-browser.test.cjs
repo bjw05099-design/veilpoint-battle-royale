@@ -1310,3 +1310,40 @@ test('CH01 PC E at muster returns optional guide to local team and checkpoints t
  assert.match(reloaded.element('objective').textContent,/중계기/);
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'unchanged-br-save');
 });
+
+test('CH01 Windows PC E toggles an observed guide hold and persists it through pause and refresh',()=>{
+ const Story=require('../src/story-slice.js'),s=Story.createState();
+ const go=id=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(s).ok,true);
+ for(const bot of s.world.bots)for(let i=0;i<2;i++){
+  s.world.player.yaw=Math.atan2(bot.x-s.world.player.x,-(bot.z-s.world.player.z));
+  s.world.player.pitch=0;s.world.elapsed+=.21;
+  assert.equal(Story.fire(s).hit,true);
+ }
+ go('decision');assert.equal(Story.interact(s).ok,true);
+ assert.equal(Story.choose(s,'evacuation').ok,true);
+ go('muster');assert.equal(Story.interact(s).event,'muster');
+ assert.equal(Story.interact(s).event,'guide');
+ s.world.player.x=s.guide.x-1.6;s.world.player.z=s.guide.z;
+ assert.equal(Story.nearest(s).id,'guideControl');
+ const store=new Map([
+  ['veilpoint.story.ch01',Story.serialize(s)],
+  ['veilpoint.brCheckpoint.v1','br-checkpoint-unchanged']
+ ]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();
+ assert.match(app.element('interaction').textContent,/대기 지시/);
+ app.interact();
+ assert.match(app.element('routeStatus').textContent,/현장 대기/);
+ assert.match(app.element('interaction').textContent,/동행 재개/);
+ assert.equal(Story.restore(store.get('veilpoint.story.ch01')).guide.waiting,true);
+ app.element('pauseButton').click();
+ const again=boot(store,false,'granted',true,true);
+ again.element('continue').click();
+ assert.match(again.element('objective').textContent,/대기 중/);
+ again.interact();
+ const resumed=Story.restore(store.get('veilpoint.story.ch01'));
+ assert.equal(resumed.guide.waiting,false);
+ assert.equal(resumed.guide.active,true);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'br-checkpoint-unchanged');
+});
