@@ -841,7 +841,8 @@
   global.addEventListener('blur',pauseForBackground);
   // pagehide must flush while the current fixed-step world is still running.
   // Calling pauseForBackground first would set running=false and skip this
-  // explicit exit checkpoint. Avoid DOM menu/pointer-lock work during unload.
+  // explicit exit checkpoint. Pause the UI only after the write so bfcache
+  // and keyboard users still return to the existing visible resume menu.
   global.addEventListener('pagehide',()=>{
     if(sessionStarted&&running&&state.phase!=='failed'&&state.phase!=='complete')
       persist('종료 직전 저장');
@@ -850,6 +851,7 @@
     clearInput();
     clock.reset();
     limiter.reset();
+    menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   });
   // A Windows player can close or navigate away while the page remains
   // visible. The normal five-second checkpoint window would otherwise lose
