@@ -1595,3 +1595,67 @@ test('CH01 guide stays solid after being returned to muster and a new checkpoint
  assert.equal(restored.guide.x,guide.x);
  assert.equal(restored.guide.z,guide.z);
 });
+
+test('CH01 guide waits in place on nearby E and resumes only through physical regroup',()=>{
+ const s=reachDecision();assert.equal(story.choose(s,'evacuation').ok,true);
+ go(s,'muster');assert.equal(story.interact(s).event,'muster');
+ assert.equal(story.interact(s).event,'guide');
+ const g=s.guide;
+ s.world.player.x=g.x-1.6;s.world.player.z=g.z;
+ assert.equal(story.nearest(s).id,'guideControl');
+ const start={x:g.x,z:g.z};
+ assert.equal(story.interact(s).event,'guideControl');
+ assert.equal(g.waiting,true);
+ assert.match(story.objective(s),/대기 중/);
+ assert.match(story.situation(s).guideStatus,/현장 대기/);
+ s.world.player.x=-6;s.world.player.z=-55;
+ for(let i=0;i<120;i++)story.step(s,1/60,{});
+ assert.deepEqual({x:g.x,z:g.z},start,'waiting guide cannot be dragged by the player');
+ assert.equal(story.nearest(s)?.id==='guideControl',false,'remote E cannot command the companion');
+ assert.equal(story.interact(s).ok,false);
+ s.world.player.x=g.x-1.6;s.world.player.z=g.z;
+ assert.equal(story.interact(s).event,'guideControl');
+ assert.equal(g.waiting,false);
+ s.world.player.x=-6;s.world.player.z=-55;
+ for(let i=0;i<120;i++)story.step(s,1/60,{});
+ assert.ok(Math.hypot(g.x-start.x,g.z-start.z)>.4,'guide walks again without teleporting');
+ assert.equal(Sim.blocked(g.x,g.z,.55,s.world.obstacles),false);
+});
+test('CH01 guide hold/resume survives deterministic 60Hz checkpoint and legacy saves',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');
+ go(s,'muster');story.interact(s);story.interact(s);
+ s.world.player.x=s.guide.x-1.6;s.world.player.z=s.guide.z;
+ assert.equal(story.interact(s).event,'guideControl');
+ const save=story.serialize(s);
+ const copy=story.restore(save);
+ assert.equal(copy.guide.waiting,true);
+ assert.equal(story.serialize(copy),save);
+ for(let i=0;i<150;i++){
+  const input={right:i%11===0};
+  story.step(s,1/60,input);story.step(copy,1/60,input);
+  assert.equal(story.serialize(copy),story.serialize(s),'paused guide replay diverged');
+ }
+ const raw=JSON.parse(save);delete raw.guide.waiting;
+ const migrated=story.restore(JSON.stringify(raw));
+ assert.equal(migrated.guide.waiting,false,'old escort saves auto-follow as before');
+ const invalid=JSON.parse(save);
+ invalid.guide.waiting='yes';
+ assert.throws(()=>story.restore(JSON.stringify(invalid)),RangeError);
+ invalid.guide.waiting=true;invalid.guide.active=false;
+ assert.throws(()=>story.restore(JSON.stringify(invalid)),RangeError);
+});
+test('CH01 waiting guide may be physically returned to coordinator without blocking evac',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');
+ go(s,'muster');story.interact(s);story.interact(s);
+ s.world.player.x=s.guide.x-1.6;s.world.player.z=s.guide.z;
+ assert.equal(story.interact(s).event,'guideControl');
+ go(s,'muster');
+ assert.equal(story.interact(s).event,'guideRelease');
+ assert.equal(s.guide.waiting,false);
+ assert.equal(s.guide.released,true);
+ const resumed=story.restore(story.serialize(s));
+ go(resumed,'exitEvac');
+ assert.equal(story.interact(resumed).ok,true);
+ assert.equal(resumed.phase,'complete');
+ assert.equal(Sim.newMatch(611,1).guide,undefined,'BR state remains independent');
+});
