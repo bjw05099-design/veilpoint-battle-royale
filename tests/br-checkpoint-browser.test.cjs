@@ -89,7 +89,10 @@ test('BR storage quota failure remains visible without interrupting offline game
  const app=boot(store);
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
- assert.match(app.game.message,/SAVE FAILED/);
+ assert.match(app.game.message,/RESET NOT VERIFIED.*MEMORY-ONLY/,
+   'blocked reset leaves a usable isolated round without claiming persistence');
+ assert.match(app.node('message').textContent,/SAVE FAILED.*PROGRESS ONLY IN THIS TAB/,
+   'storage failure stays visible on the PC HUD');
 });
 
 test('BR periodic simulated-time autosave and damage checkpoint do not change the 60Hz rules',()=>{
