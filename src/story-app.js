@@ -63,7 +63,7 @@
     }catch(_){checkpointReadUnavailable=true;return null;}
     checkpointReadUnavailable=false;
     try{
-      const recovered=global.VeilpointCheckpointRecovery.recover(primary,backup,Story.restore);
+      const recovered=global.VeilpointCheckpointRecovery.recover(primary,backup,Story.recoverCheckpoint);
       if(!recovered)return null;
       if(recovered.source==='backup'){
         recoveredFromBackup=true;
