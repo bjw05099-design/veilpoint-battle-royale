@@ -424,25 +424,26 @@
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
-    // The main menu, graphics controls and focused form fields retain
-    // their native keyboard behavior; they cannot trigger gameplay actions.
+    // Escape is a PC menu command even when a visible menu button has focus.
+    // Handle it BEFORE the generic interactive-target guard; no held movement
+    // or gameplay input is dispatched from this branch.
+    const escape=Desktop.pcMenuEscape(e,{
+      running,
+      mayResume:sessionStarted&&!menu.classList.contains('hidden')&&
+        choices.classList.contains('hidden')&&state.phase!=='failed'&&
+        state.phase!=='complete'&&!graphicsContextLost&&!!renderer
+    });
+    if(escape!==null){
+      e.preventDefault();
+      if(escape==='pause')menuOpen('일시정지됨. Esc 또는 이어하기를 눌러 재개하세요.');
+      else if(escape==='resume')resume();
+      return;
+    }
+    // Focused controls keep their native keys; no gameplay command can leak.
     if(Desktop.isInteractiveTarget(e.target))return;
     const repeatAction=Desktop.actionFor(e.code,desktopUi.get());
     // Do not let OS key-repeat frequency decide finite shots or one-shot actions.
     if(e.repeat){if(repeatAction)e.preventDefault();return;}
-    if(e.code==='Escape'){
-      e.preventDefault();
-      if(e.repeat)return;
-      if(running){menuOpen('일시정지됨. Esc 또는 이어하기를 눌러 재개하세요.');}
-      else if(sessionStarted&&!menu.classList.contains('hidden')&&
-        choices.classList.contains('hidden')&&state.phase!=='failed'&&state.phase!=='complete'&&
-        !graphicsContextLost&&renderer){
-        // Escape resumes only a paused, already-started CH01 session. Never
-        // bypass the opening menu, mission result or graphics recovery.
-        resume();
-      }
-      return;
-    }
     if(!canAct())return;
     const action=Desktop.actionFor(e.code,desktopUi.get());
     if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();input[action]=true;}
