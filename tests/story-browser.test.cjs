@@ -1259,7 +1259,7 @@ test('CH01 PC refresh reopens the exact finished branch report without starting 
  assert.match(app.element('debriefReview').textContent,/유수프 구조단/);
  assert.equal(app.element('debriefReview').classList.contains('hidden'),false);
  assert.equal(app.element('menu').classList.contains('hidden'),false,'read-only review must never start game input');
- assert.equal(app.element('continue').textContent,'CH01 다시 시작');
+ assert.equal(app.element('continue').textContent,'CH01 새 미션 시작');
  for(let i=1;i<=120;i++)app.frame(i*1000/60);
  assert.equal(store.get('veilpoint.story.ch01'),saved,'review does not rewrite the terminal world');
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR-checkpoint');
@@ -1428,7 +1428,8 @@ test('CH01 a temporary session cannot publish a completed preview over an earlie
   assert.match(source,/if\(report&&!memoryOnlyStory&&!saveFailed&&[\s\S]*?storage\.set\(PREVIEW_KEY/);
   assert.match(source,/diskGeneration=memoryOnlyStory\?null:storage\.get\(SAVE_KEY\)/);
   assert.match(source,/checkpoint=diskGeneration/);
-  assert.match(source,/if\(!memoryOnlyStory&&loaded&&loaded\.phase==='complete'\)/);
+  assert.match(source,/replayCompleted=!memoryOnlyStory&&!!loaded&&loaded\.phase==='complete'/);
+  assert.match(source,/if\(replayCompleted\)\{\s*pendingReplayReset=true;\s*persist\('새 CH01 시작'\);/);
   assert.match(source,/if\(fromCheckpoint\)/);
 });
 
