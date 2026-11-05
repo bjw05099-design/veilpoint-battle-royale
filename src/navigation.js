@@ -19,7 +19,30 @@
       angle<=Math.PI/3?side+' 앞':angle<=2*Math.PI/3?side:'뒤쪽';
     return Object.freeze({meters,delta,label});
   }
-  function story(player,markers,selectedIndex=null){
+  // Segment-versus-AABB test in the horizontal collision plane. The HUD
+  // warns about an obstructed direct line without pretending to route-find.
+  function directLineBlocked(player,target,obstacles){
+    if(!player||!target||!Array.isArray(obstacles))return false;
+    if(![player.x,player.z,target.x,target.z].every(Number.isFinite))return false;
+    const dx=target.x-player.x,dz=target.z-player.z;
+    for(const o of obstacles){
+      if(!o||![o.x,o.z,o.w,o.d].every(Number.isFinite)||o.w<=0||o.d<=0)continue;
+      // A small clearance margin reflects the player's collision footprint.
+      const minX=o.x-o.w/2-.85,maxX=o.x+o.w/2+.85;
+      const minZ=o.z-o.d/2-.85,maxZ=o.z+o.d/2+.85;
+      let enter=0,leave=1,miss=false;
+      for(const [origin,delta,min,max] of [[player.x,dx,minX,maxX],[player.z,dz,minZ,maxZ]]){
+        if(Math.abs(delta)<1e-9){if(origin<min||origin>max){miss=true;break;}continue;}
+        const a=(min-origin)/delta,b=(max-origin)/delta;
+        enter=Math.max(enter,Math.min(a,b));
+        leave=Math.min(leave,Math.max(a,b));
+        if(enter>leave){miss=true;break;}
+      }
+      if(!miss&&leave>=0&&enter<=1)return true;
+    }
+    return false;
+  }
+  function story(player,markers,selectedIndex=null,obstacles=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
     let nearest=null,best=Infinity;
     for(const marker of markers){
@@ -32,7 +55,7 @@
     if(selected&&selected.nav)nearest=selected;
     // Straight-line distance is not a pathfinding claim; physical obstacles still apply.
     return (selected&&selected.nav?'선택한 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
-      ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m (장애물 우회 필요 가능)';
+      ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m '+(directLineBlocked(player,nearest.marker,obstacles)?'(직선 경로 차단 · 장애물 우회 필요)':'(장애물 우회 필요 가능)');
   }
   function zone(player,zone){
     if(!zone||![zone.x,zone.z,zone.radius].every(Number.isFinite)||zone.radius<=0)
@@ -43,5 +66,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,story,zone});
+  return Object.freeze({direction,directLineBlocked,story,zone});
 });

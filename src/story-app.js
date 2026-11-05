@@ -534,7 +534,7 @@
   }
   function updateHud(){
     $('objective').textContent=Story.objective(state);
-    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),guidanceIndex)+
+    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),guidanceIndex,state.world.obstacles)+
       (Story.markers(state).length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+
