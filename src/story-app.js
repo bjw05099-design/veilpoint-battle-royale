@@ -693,8 +693,17 @@
       .replaceAll('R 재장전',reloadLabel+' 재장전')
       .replaceAll('Q 상황 보고',reportLabel+' 상황 보고');
     $('objective').textContent=controlText(Story.objective(state));
-    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(state.world.player,Story.markers(state),Navigation.markerIndex(Story.markers(state),guidanceId),state.world.obstacles)+
-      (Story.markers(state).length>1?' · ['+
+    const publicMarkers=Story.markers(state);
+    const preferGuide=state.phase==='exit'&&state.choice==='evacuation'&&
+      state.guide.active&&state.guide.waiting&&!state.guide.arrived&&
+      publicMarkers.some(marker=>marker.id==='guideControl');
+    const primaryTarget=state.phase==='exit'
+      ?preferGuide?'guideControl':state.choice==='evacuation'?'exitEvac':'exitVerify'
+      :null;
+    if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
+      state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
+      state.world.obstacles,primaryTarget)+
+      (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+
          '] 표식 변경 / 자동 선택':'');

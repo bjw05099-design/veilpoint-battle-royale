@@ -2420,3 +2420,30 @@ test('CH01 completed mission review reconstructs task progress without changing 
   assert.equal(store.get(key),before,'read-only review does not change mission generations');
   assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
+
+
+test('CH01 PC route navigation targets required courtyard while allowing optional manual waypoints',()=>{
+  const app=boot(new Map(),false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const cleared=app.clearEncounter(300);
+  app.moveForward(cleared,225);app.interact();
+  app.element('choiceEvac').click();
+  const navigation=app.element('navigation');
+  assert.match(navigation.textContent,/주요 임무 표식.*안전한 안뜰/,
+    'nearby optional supplies must not replace the required route endpoint');
+  assert.match(app.element('taskTracker').textContent,/남쪽 안뜰 도착/);
+  app.emit('keydown',{code:'KeyN'});
+  assert.match(navigation.textContent,/선택한 임무 표식.*안전한 안뜰/);
+  app.emit('keydown',{code:'KeyN'});
+  assert.match(navigation.textContent,/선택한 임무 표식/,
+    'physical PC guidance cycle can choose optional mission markers');
+  assert.doesNotMatch(navigation.textContent,/주요 임무 표식/);
+  app.element('pauseButton').click();
+  const saved=app.store.get('veilpoint.story.ch01');
+  const refreshed=boot(app.store,false,'granted',true,true);
+  refreshed.element('continue').click();
+  assert.match(refreshed.element('navigation').textContent,/주요 임무 표식.*안전한 안뜰/,
+    'after checkpoint reload, the default remains the route endpoint');
+  assert.equal(app.store.get('veilpoint.story.ch01'),saved);
+});

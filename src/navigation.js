@@ -57,7 +57,7 @@
     return next<markers.length&&markers[next]&&typeof markers[next].id==='string'
       ?markers[next].id:null;
   }
-  function story(player,markers,selectedIndex=null,obstacles=null){
+  function story(player,markers,selectedIndex=null,obstacles=null,preferredId=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
     let nearest=null,best=Infinity;
     for(const marker of markers){
@@ -67,9 +67,17 @@
     if(!nearest)return '현재 안내할 임무 표식 없음';
     const selected=Number.isInteger(selectedIndex)&&selectedIndex>=0&&selectedIndex<markers.length
       ?{marker:markers[selectedIndex],nav:direction(player,markers[selectedIndex])}:null;
+    // PC players should not be guided to a nearby optional crate when they
+    // intend to complete the main evacuation / verification route. A manually
+    // cycled target always wins, and unavailable or invalid IDs fall back to
+    // the original nearest public marker.
+    const preferred=(!selected||!selected.nav)&&typeof preferredId==='string'
+      ?markers.find(marker=>marker&&marker.id===preferredId):null;
+    const goal=preferred?direction(player,preferred):null;
     if(selected&&selected.nav)nearest=selected;
+    else if(goal)nearest={marker:preferred,nav:goal};
     // Straight-line distance is not a pathfinding claim; physical obstacles still apply.
-    return (selected&&selected.nav?'선택한 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
+    return (selected&&selected.nav?'선택한 임무 표식':goal?'주요 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
       ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m '+(directLineBlocked(player,nearest.marker,obstacles)?'(직선 경로 차단 · 장애물 우회 필요)':'(장애물 우회 필요 가능)');
   }
   function zone(player,zone){
