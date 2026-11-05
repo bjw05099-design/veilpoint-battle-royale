@@ -25,6 +25,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
+      appendChild(child){this.children=this.children||[];this.children.push(child);},
       getContext:()=>ctx2d,
       setPointerCapture(){},
       focus(){document.activeElement=this;},
@@ -50,6 +51,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     activeElement:null,
     pointerLockElement:null,
     getElementById:element,
+    createElement:tag=>({tagName:tag,textContent:''}),
     querySelectorAll:()=>mobileButtons,
     addEventListener:(name,fn)=>{const list=listeners.get(name)||[];list.push(fn);listeners.set(name,list);},
     exitPointerLock(){this.pointerLockElement=null;}
@@ -84,7 +86,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
     'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js','src/navigation.js',
     'src/story-slice.js','src/story-audio.js','src/desktop-controls.js',
-    'src/checkpoint-recovery.js','src/story-app.js'];
+    'src/checkpoint-recovery.js','src/field-journal.js','src/story-app.js'];
   for(const script of scripts){
     const source=fs.readFileSync(path.join(__dirname,'..',script),'utf8');
     vm.runInNewContext(source,context,{filename:script,timeout:1500});
@@ -2446,4 +2448,43 @@ test('CH01 PC route navigation targets required courtyard while allowing optiona
   assert.match(refreshed.element('navigation').textContent,/주요 임무 표식.*안전한 안뜰/,
     'after checkpoint reload, the default remains the route endpoint');
   assert.equal(app.store.get('veilpoint.story.ch01'),saved);
+});
+
+
+test('CH01 field journal reveals only discovered records and survives checkpoint restoration',()=>{
+  const Story=require('../src/story-slice.js');
+  const journal=require('../src/field-journal.js');
+  const state=Story.createState();
+  let rows=journal.entries(state);
+  assert.equal(rows.length,2);
+  assert.equal(rows.every(row=>!row.unlocked),true);
+  assert.equal(rows.some(row=>row.detail.includes('04:07')),false);
+  state.found=['recordB'];
+  rows=journal.entries(Story.restore(Story.serialize(state)));
+  assert.equal(rows[0].unlocked,false);
+  assert.equal(rows[1].unlocked,true);
+  assert.match(rows[1].detail,/04:07/);
+  state.found=['recordA','recordB'];
+  rows=journal.entries(state);
+  assert.equal(rows.length,3);
+  assert.match(rows[2].detail,/원인은 아직 확정되지/);
+  state.gateLogReviewed=true;
+  state.logHandedOff=true;
+  assert.match(journal.entries(state)[3].detail,/접수 완료/);
+});
+
+test('CH01 PC pause journal opens, closes on Escape and never advances mission',()=>{
+  const app=boot();
+  app.element('continue').click();
+  app.frame(1000/60);
+  app.element('pauseButton').click();
+  const before=app.store.get('veilpoint.story.ch01');
+  app.element('fieldJournalOpen').click();
+  assert.equal(app.element('fieldJournal').classList.contains('hidden'),false);
+  assert.equal(app.element('fieldJournalEntries').children.length,2);
+  assert.match(app.element('fieldJournalEntries').children[0].textContent,/미확인/);
+  app.emit('keydown',{code:'Escape'});
+  assert.equal(app.element('fieldJournal').classList.contains('hidden'),true);
+  assert.equal(app.element('menu').classList.contains('hidden'),false);
+  assert.equal(app.store.get('veilpoint.story.ch01'),before);
 });
