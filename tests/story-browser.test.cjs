@@ -2545,12 +2545,71 @@ test('CH01 field journal cannot interrupt an active route-choice dialog',()=>{
 
 
 
-test('CH01 retry checks durable primary before stale session snapshot and preserves backup fallback',()=>{
-  const source=fs.readFileSync(path.join(__dirname,'..','src/story-app.js'),'utf8');
-  const retry=source.slice(source.indexOf("if(state.phase==='failed'){"));
-  assert.ok(retry.includes('for(const raw of [storage.get(SAVE_KEY),checkpoint,storage.get(BACKUP_KEY)])'),
-    'retry considers durable primary before stale memory and backup');
-  assert.ok(retry.includes('Story.restore(raw)'), 'candidate must be fully restored');
-  assert.ok(retry.includes("candidate.phase!=='failed'&&candidate.phase!=='complete'"),
-    'only playable mission states qualify for retry');
+test('CH01 defeated PC session adopts a newer valid saved checkpoint and can save subsequent progress',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01';
+  const oldest=Story.createState('carbine');
+  oldest.world.player.x=Story.POINTS.terminal.x;
+  oldest.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(oldest).ok,true);
+  oldest.world.player.health=4;
+  oldest.world.player.loaded=12;
+  const shared=new Map([[key,Story.serialize(oldest)]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  assert.match(app.element('objective').textContent,/무장 대치자/);
+  let failed=false;
+  for(let i=1;i<=2400;i++){
+    app.frame(i*1000/60);
+    if(app.element('menuText').textContent.includes('교전 중 임무가 중단')){
+      failed=true;break;
+    }
+  }
+  assert.equal(failed,true,'actual fixed-step hostile state must trigger the retry menu');
+  const newer=Story.restore(shared.get(key));
+  newer.world.player.health=58;
+  newer.world.player.loaded=7;
+  newer.world.player.charges=17;
+  const secondTab=Story.serialize(newer);
+  shared.set(key,secondTab);
+  app.element('continue').click();
+  assert.equal(app.element('menu').classList.contains('hidden'),true);
+  assert.match(app.element('healthStatus').textContent,/58\\/100/,
+    'retry resumes the validated generation written by the newer tab');
+  assert.match(app.element('combatStatus').textContent,/탄창 7 \\/ 예비 10/,
+    'latest finite supplies are not replaced by stale in-memory values');
+  assert.equal(shared.get(key),secondTab,'retry must not write a fabricated checkpoint');
+  app.element('pauseButton').click();
+  const saved=Story.restore(shared.get(key));
+  assert.equal(saved.world.player.health,58,'after adopting the primary, pause can save the new session');
+  assert.equal(saved.world.player.loaded,7);
+  assert.doesNotMatch(app.element('menuText').textContent,/다른 창에서 체크포인트 변경/,
+    'a deliberately adopted primary is no longer a stale-tab conflict');
+});
+
+test('CH01 retry never adopts invalid disk data and preserves the protected primary',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01';
+  const original=Story.createState();
+  original.world.player.x=Story.POINTS.terminal.x;
+  original.world.player.z=Story.POINTS.terminal.z;
+  Story.interact(original);
+  original.world.player.health=4;
+  const shared=new Map([[key,Story.serialize(original)]]);
+  const app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  let failed=false;
+  for(let i=1;i<=2400;i++){
+    app.frame(i*1000/60);
+    if(app.element('menuText').textContent.includes('교전 중 임무가 중단')){failed=true;break;}
+  }
+  assert.equal(failed,true);
+  shared.set(key,'{invalid-checkpoint');
+  app.element('continue').click();
+  assert.match(app.element('healthStatus').textContent,/4\\/100/,
+    'failed primary validation uses the existing last alive snapshot');
+  app.element('pauseButton').click();
+  assert.equal(shared.get(key),'{invalid-checkpoint',
+    'corrupt disk data is preserved for explicit recovery instead of overwritten');
+  assert.match(app.element('menuText').textContent,/저장 실패/);
 });
