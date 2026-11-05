@@ -1660,3 +1660,39 @@ test('CH01 waiting guide may be physically returned to coordinator without block
  assert.equal(resumed.phase,'complete');
  assert.equal(Sim.newMatch(611,1).guide,undefined,'BR state remains independent');
 });
+
+test('CH01 coordinator cannot accept a civilian remotely from the edge of the muster prompt',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');
+ go(s,'muster');assert.equal(story.interact(s).event,'muster');
+ assert.equal(story.interact(s).event,'guide');
+ // 2.6m from staff and >4m from the companion used to operate the
+ // old 4m-radius staff marker without standing close to either person.
+ s.world.player.x=-6.4;s.world.player.z=-55;
+ assert.equal(story.nearest(s)?.id==='guideRelease',false);
+ assert.equal(story.interact(s).ok,false);
+ assert.equal(s.guide.active,true);assert.equal(s.guide.released,false);
+ go(s,'muster');
+ assert.equal(story.nearest(s).id,'guideRelease');
+ assert.equal(story.interact(s).event,'guideRelease');
+ assert.equal(s.guide.active,false);assert.equal(s.guide.released,true);
+ const restored=story.restore(story.serialize(s));
+ assert.equal(restored.guide.released,true);
+});
+test('CH01 guide handoff requires an unobstructed physical line to companion, not just desk',()=>{
+ const s=reachDecision();story.choose(s,'evacuation');
+ go(s,'muster');story.interact(s);story.interact(s);
+ const cover={x:-9.75,z:-55,w:.15,d:1.1,h:1,type:'temporary-world-test-cover'};
+ s.world.obstacles.push(cover);
+ assert.equal(story.nearest(s)?.id==='guideRelease',false,
+   'player must be able to reach the civilian, not just the staff marker');
+ assert.equal(story.interact(s).ok,false);
+ assert.equal(s.guide.released,false);
+ s.world.obstacles.pop();
+ assert.equal(story.nearest(s).id,'guideRelease');
+ assert.equal(story.interact(s).event,'guideRelease');
+ const copy=story.restore(story.serialize(s));
+ for(let i=0;i<90;i++){
+  story.step(s,1/60,{});story.step(copy,1/60,{});
+  assert.equal(story.serialize(s),story.serialize(copy));
+ }
+});
