@@ -2691,3 +2691,74 @@ test('CH01 New Game does not assume write access when storage reads are denied',
   assert.equal(shared.has('veilpoint.story.ch01'),false,
     'read failure cannot be treated as an empty, writable save slot');
 });
+
+
+test('CH01 PC mode link cannot bypass failed durable checkpoint on paused mission',()=>{
+  const key='veilpoint.story.ch01';
+  class FailingStorage extends Map{
+    fail=false;
+    set(name,value){
+      if(this.fail&&name===key)throw new Error('quota denied');
+      return super.set(name,value);
+    }
+  }
+  const shared=new FailingStorage(),app=boot(shared,false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const durable=shared.get(key);
+  assert.ok(durable);
+  shared.fail=true;
+  app.moveForward(300,60);
+  app.element('pauseButton').click();
+  let cancelled=false;
+  app.element('modeSelectLink').dispatch('click',{
+    preventDefault(){cancelled=true;}
+  });
+  assert.equal(cancelled,true,'native anchor navigation is intercepted for active missions');
+  assert.deepEqual(app.navigations,[],
+    'mode selection is refused while the latest CH01 checkpoint is not durable');
+  assert.equal(shared.get(key),durable,
+    'failed save does not alter the previous valid checkpoint');
+  assert.match(app.element('menuText').textContent,/안전하게 저장되지 않았습니다/);
+});
+
+test('CH01 PC mode link uses the same verified save gate as Save & Exit',()=>{
+  const Story=require('../src/story-slice.js');
+  const key='veilpoint.story.ch01',shared=new Map();
+  const app=boot(shared,false,'granted',true,true);
+  let cancelled=false;
+  app.element('modeSelectLink').dispatch('click',{
+    preventDefault(){cancelled=true;}
+  });
+  assert.equal(cancelled,false,'before a mission the link retains normal browser navigation');
+  app.element('continue').click();
+  app.moveForward(0,130);
+  app.element('pauseButton').click();
+  const before=shared.get(key);
+  assert.ok(before);
+  app.element('modeSelectLink').dispatch('click',{
+    preventDefault(){cancelled=true;}
+  });
+  assert.equal(cancelled,true);
+  assert.deepEqual(app.navigations,['index.html'],
+    'verified pause menu link may return to the offline mode selector');
+  const saved=Story.restore(shared.get(key));
+  assert.equal(saved.world.elapsed,Story.restore(before).world.elapsed,
+    'menu navigation cannot silently advance the 60Hz mission clock');
+});
+
+test('CH01 hidden mode link never overrides a visible route-choice dialog',()=>{
+  const app=boot(new Map(),false,'granted',true,true);
+  app.element('continue').click();
+  app.moveForward(0,300);app.interact();
+  const afterEncounter=app.clearEncounter(300);
+  app.moveForward(afterEncounter,225);app.interact();
+  assert.equal(app.element('choices').classList.contains('hidden'),false);
+  let cancelled=false;
+  app.element('modeSelectLink').dispatch('click',{
+    preventDefault(){cancelled=true;}
+  });
+  assert.equal(cancelled,true);
+  assert.deepEqual(app.navigations,[]);
+  assert.equal(app.element('choices').classList.contains('hidden'),false);
+});
