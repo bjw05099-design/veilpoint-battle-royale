@@ -59,7 +59,7 @@ test('CH01 fixed-step waiting guide HUD and interaction target survive checkpoin
   assert.match(story.situation(recovered).guideStatus,/다가가/);
   recovered.world.player.x=recovered.guide.x-1;
   assert.equal(story.nearest(recovered)?.id,'guideControl');
-  assert.equal(story.interact(recovered).event,'guide_resume');
+  assert.equal(story.interact(recovered).event,'guideControl');
   assert.equal(recovered.guide.waiting,false);
   const after=story.serialize(recovered);
   const reloaded=story.restore(after);
