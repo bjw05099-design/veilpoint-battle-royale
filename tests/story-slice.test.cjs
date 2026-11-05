@@ -2383,3 +2383,47 @@ test('CH01 east verification progress respects evidence, real gate timing and op
   assert.equal(tasks[2].status,'available','optional record review is not granted on mission exit');
   assert.equal(tasks[3].status,'locked','optional handoff remains unavailable without the local record');
 });
+
+
+test('CH01 60Hz guide detour checks the full obstacle world while walking around local crates',()=>{
+  const s=reachDecision();
+  assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');
+  assert.equal(story.interact(s).event,'muster');
+  assert.equal(story.interact(s).event,'guide');
+  s.world.player.x=-5.5;
+  s.world.player.z=-55;
+  const crates=[
+    {x:-9.2,z:-55,w:1,d:1.3,h:2,type:'detour-near-a'},
+    {x:-7.7,z:-55,w:1,d:1.3,h:2,type:'detour-near-b'}
+  ];
+  // Not a candidate waypoint: it is outside the local corner shortlist.
+  // The graph must nonetheless validate its edges against the actual world.
+  const distant={x:75,z:75,w:1.4,d:2,h:2,type:'detour-distant-obstacle'};
+  s.world.obstacles.push(...crates,distant);
+  assert.equal(Sim.lineBlocked(s.guide.x,s.guide.z,s.world.player.x,s.world.player.z,crates),true);
+  let checkedFullWorld=0;
+  const realLineBlocked=Sim.lineBlocked;
+  try{
+    Sim.lineBlocked=(x1,z1,x2,z2,obstacles)=>{
+      if(obstacles.some(o=>o.type===distant.type&&Math.abs(o.w-(distant.w+1.1))<1e-9))
+        checkedFullWorld++;
+      return realLineBlocked(x1,z1,x2,z2,obstacles);
+    };
+    story.step(s,1/60,{});
+  }finally{Sim.lineBlocked=realLineBlocked;}
+  assert.ok(checkedFullWorld>3,
+    'detour visibility graph must check multiple candidate edges against every solid world object');
+  const first={x:s.guide.x,z:s.guide.z};
+  const raw=story.serialize(s),restored=story.restore(raw);
+  restored.world.obstacles.push(...crates.map(o=>({...o})),{...distant});
+  for(let i=0;i<240;i++){
+    story.step(s,1/60,{});story.step(restored,1/60,{});
+    assert.equal(story.serialize(s),story.serialize(restored),
+      'the 60Hz path follows exactly the same checkpoint-recovered world');
+    assert.equal(Sim.blocked(s.guide.x,s.guide.z,.55,s.world.obstacles),false,
+      'the civilian stays outside every authored obstacle');
+  }
+  assert.ok(Math.hypot(s.guide.x-first.x,s.guide.z-first.z)>0.8,
+    'the guide makes real physical progress instead of stalling at a selected waypoint');
+});
