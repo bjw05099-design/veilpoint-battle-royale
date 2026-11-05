@@ -2077,3 +2077,26 @@ test('CH01 fails closed on a fully enclosed historic escort and restores a safe 
     assert.equal(recovered.state.world.player.z,12);
   }finally{Sim.newMatch=originalMatch;}
 });
+
+
+test('CH01 restores a civilian past a wide new obstacle without relocating the player',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');
+  go(state,'muster');story.interact(state);story.interact(state);
+  const saved={x:state.guide.x,z:state.guide.z};
+  state.world.player.x=0;state.world.player.z=-35;
+  const raw=story.serialize(state),original=Sim.newMatch;
+  try{
+    Sim.newMatch=(...args)=>{
+      const world=original(...args);
+      world.obstacles.push({x:saved.x,z:saved.z,w:9,d:9,h:2,type:'new-wide-prop'});
+      return world;
+    };
+    const restored=story.restore(raw);
+    assert.equal(restored.world.player.x,0);
+    assert.equal(restored.world.player.z,-35);
+    assert.equal(Sim.blocked(restored.guide.x,restored.guide.z,.55,restored.world.obstacles),false);
+    assert.ok(Math.hypot(restored.guide.x-saved.x,restored.guide.z-saved.z)>4);
+    assert.ok(Math.hypot(restored.guide.x-saved.x,restored.guide.z-saved.z)<=6.01);
+    assert.equal(story.serialize(story.restore(story.serialize(restored))),story.serialize(restored));
+  }finally{Sim.newMatch=original;}
+});
