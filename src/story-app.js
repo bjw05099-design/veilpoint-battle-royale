@@ -383,17 +383,22 @@
       // Clear backup first; if that fails, keep the primary untouched so
       // the old save can still be resumed after this temporary session.
       state=Story.createState($('storyWeapon').value);
-      let resetVerified=false;
+      let resetVerified=false,staleReset=false;
       try{
-        // Establish read permission before deleting either generation.
-        global.localStorage.getItem(SAVE_KEY);
+        // A second PC tab may have saved progress since this menu opened.
+        // An explicit restart of this OLD tab is not permission to erase the
+        // newer tab's independent world. Preserve both existing save slots.
+        const latest=global.localStorage.getItem(SAVE_KEY);
         global.localStorage.getItem(BACKUP_KEY);
-        storage.remove(BACKUP_KEY);
-        if(global.localStorage.getItem(BACKUP_KEY)===null)
-          storage.remove(SAVE_KEY);
-        resetVerified=global.localStorage.getItem(SAVE_KEY)===null&&
-          global.localStorage.getItem(BACKUP_KEY)===null;
-        if(resetVerified)storage.remove(PREVIEW_KEY);
+        staleReset=latest!==diskGeneration;
+        if(!staleReset){
+          storage.remove(BACKUP_KEY);
+          if(global.localStorage.getItem(BACKUP_KEY)===null)
+            storage.remove(SAVE_KEY);
+          resetVerified=global.localStorage.getItem(SAVE_KEY)===null&&
+            global.localStorage.getItem(BACKUP_KEY)===null;
+          if(resetVerified)storage.remove(PREVIEW_KEY);
+        }
       }catch(_){resetVerified=false;}
       memoryOnlyStory=!resetVerified;
       checkpointInvalidStored=false;
@@ -408,7 +413,9 @@
     shotSavePending=false;firstShotSaved=false;
     saveFailed=memoryOnlyStory;
     $('saveStatus').textContent=memoryOnlyStory
-      ?'임시 CH01 세션 · 기존 진행 기록 보호 중 · 자동 저장 비활성화':'';
+      ?(typeof staleReset!=='undefined'&&staleReset
+        ?'다른 창의 최신 CH01 체크포인트 보호 중 · 임시 세션으로 진행하며 자동 저장은 비활성화됩니다.'
+        :'임시 CH01 세션 · 기존 진행 기록 보호 중 · 자동 저장 비활성화'):'';
     $('saveStatus').classList.toggle('hidden',!memoryOnlyStory);
     if(replayCompleted){
       pendingReplayReset=true;
