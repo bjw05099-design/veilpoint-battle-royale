@@ -1802,8 +1802,10 @@ test('CH01 PC remapped interact displays T and actual T key operates relay while
  const objective=app.element('objective').textContent;
  assert.doesNotMatch(objective,/E로|E를/,'mission text must not advertise a dead key');
  app.emit('keydown',{code:'KeyE'});
- assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'terminal',
+ assert.equal(app.element('objective').textContent,objective,
    'old E key cannot advance an input-remapped mission');
+ assert.equal(store.has('veilpoint.story.ch01'),false,
+   'unhandled E must not create a checkpoint before the first real interaction');
  app.emit('keydown',{code:'KeyT'});
  const saved=JSON.parse(store.get('veilpoint.story.ch01'));
  assert.equal(saved.phase,'engagement','actual remapped PC T drives interaction and persistence');
