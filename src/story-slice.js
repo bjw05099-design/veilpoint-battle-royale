@@ -432,7 +432,15 @@
     // The margin leaves clearance for the civilian's collision radius.
     const clearance=.55+.3;
     const bodyMargin=.55;
-    const blockers=near.map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
+    // Corner nodes are selected from the nearest blockers to bound the 60Hz
+    // path search, but EVERY proposed walking edge must respect the entire
+    // physical world. An obstacle omitted from the 12-node candidate shortlist
+    // can still intersect a detour segment; otherwise the guide repeatedly
+    // chooses an impossible waypoint and appears permanently stuck.
+    const blockers=state.world.obstacles.filter(wall=>
+      Number.isFinite(wall.x)&&Number.isFinite(wall.z)&&
+      Number.isFinite(wall.w)&&Number.isFinite(wall.d)&&wall.w>0&&wall.d>0)
+      .map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
     const nodes=[{x:guide.x,z:guide.z}];
     for(const wall of near){
       for(const sx of [-1,1])for(const sz of [-1,1]){
