@@ -71,6 +71,7 @@
     }catch(_){checkpointReadUnavailable=true;checkpointInvalidStored=false;return null;}
     checkpointReadUnavailable=false;
     checkpointInvalidStored=false;
+    recoveredFromBackup=false;
     try{
       const recovered=global.VeilpointCheckpointRecovery.recover(primary,backup,Story.recoverCheckpoint);
       if(!recovered){
@@ -84,10 +85,31 @@
         // Recovery must not replace a checkpoint another tab wrote while the
         // primary/backup pair was being validated. Failed recovery writes also
         // must not turn an unreadable primary into permission to autosave.
-        let currentPrimary;
-        try{currentPrimary=global.localStorage.getItem(SAVE_KEY);}
-        catch(_){checkpointReadUnavailable=true;return recovered.state;}
-        if(currentPrimary!==primary||!storage.set(SAVE_KEY,backup)){
+        let currentPrimary,currentBackup;
+        try{
+          currentPrimary=global.localStorage.getItem(SAVE_KEY);
+          currentBackup=global.localStorage.getItem(BACKUP_KEY);
+        }catch(_){checkpointReadUnavailable=true;return recovered.state;}
+        if(currentPrimary!==primary){
+          // A different tab committed a newer generation during recovery.
+          // Resume that generation only after full world validation.
+          try{
+            const latest=Story.restore(currentPrimary);
+            recoveredFromBackup=false;
+            return latest;
+          }catch(_){
+            checkpointInvalidStored=true;
+            return recovered.state;
+          }
+        }
+        if(currentBackup!==backup){
+          // A backup is also a mutable generation. Never promote stale backup
+          // bytes; newer validated data is playable without disk writes.
+          checkpointInvalidStored=true;
+          try{return Story.restore(currentBackup);}
+          catch(_){return recovered.state;}
+        }
+        if(!storage.set(SAVE_KEY,backup)){
           checkpointInvalidStored=true;
           return recovered.state;
         }
