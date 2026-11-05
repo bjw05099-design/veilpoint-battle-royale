@@ -1428,7 +1428,8 @@ test('CH01 a temporary session cannot publish a completed preview over an earlie
   assert.match(source,/if\(report&&!memoryOnlyStory&&!saveFailed&&[\s\S]*?storage\.set\(PREVIEW_KEY/);
   assert.match(source,/diskGeneration=memoryOnlyStory\?null:storage\.get\(SAVE_KEY\)/);
   assert.match(source,/checkpoint=diskGeneration/);
-  assert.match(source,/if\(!memoryOnlyStory&&loaded&&loaded\.phase==='complete'\)/);
+  assert.match(source,/replayCompleted=!memoryOnlyStory&&!!loaded&&loaded\.phase==='complete'/);
+  assert.match(source,/if\(replayCompleted\)\{\s*pendingReplayReset=true;\s*persist\('새 CH01 시작'\);/);
   assert.match(source,/if\(fromCheckpoint\)/);
 });
 
@@ -1976,4 +1977,75 @@ test('CH01 guide waiting HUD uses the remapped PC companion action after checkpo
  assert.equal(checkpoint.guide.waiting,false);
  assert.equal(checkpoint.guide.active,true);
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'independent-BR');
+});
+
+
+function completedBrowserReplayFixture(){
+ const Story=require('../src/story-slice.js'),completed=Story.createState();
+ const go=id=>{
+  completed.world.player.x=Story.POINTS[id].x;
+  completed.world.player.z=Story.POINTS[id].z;
+ };
+ go('terminal');assert.equal(Story.interact(completed).ok,true);
+ for(const bot of completed.world.bots)for(let i=0;i<2;i++){
+  completed.world.player.yaw=Math.atan2(bot.x-completed.world.player.x,
+    -(bot.z-completed.world.player.z));
+  completed.world.player.pitch=0;completed.world.elapsed+=.21;
+  assert.equal(Story.fire(completed).hit,true);
+ }
+ go('decision');assert.equal(Story.interact(completed).ok,true);
+ assert.equal(Story.choose(completed,'evacuation').ok,true);
+ go('exitEvac');assert.equal(Story.interact(completed).ok,true);
+ return {
+  complete:Story.serialize(completed),
+  debrief:JSON.stringify(Story.debrief(completed)),
+  backup:Story.serialize(Story.createState())
+ };
+}
+
+test('CH01 completed replay after browser refresh writes fresh first checkpoint before retiring debrief',()=>{
+ const Story=require('../src/story-slice.js'),fixture=completedBrowserReplayFixture();
+ const key='veilpoint.story.ch01',preview=key+'PreviewCompleted',backupKey=key+'.previous';
+ const store=new Map([[key,fixture.complete],[preview,fixture.debrief],
+   [backupKey,fixture.backup],['veilpoint.brCheckpoint.v1','BR-independent']]);
+ const app=boot(store,false,'granted',true,true);
+ assert.equal(app.element('continue').textContent,'CH01 새 미션 시작');
+ assert.equal(store.get(key),fixture.complete,'read-only completion review must not write');
+ app.element('continue').click();
+ const replay=Story.restore(store.get(key));
+ assert.equal(replay.phase,'terminal','new playable checkpoint is persisted on click');
+ assert.equal(replay.world.player.z,12);
+ assert.equal(replay.world.elapsed,0);
+ assert.equal(store.has(preview),false,'retire old outcome after checkpoint succeeds');
+ assert.equal(store.has(backupKey),false,'retire old complete generation backup');
+ const refreshed=boot(store,false,'granted',true,true);
+ assert.match(refreshed.element('menuText').textContent,/이전 진행 기록/);
+ refreshed.element('continue').click();
+ assert.match(refreshed.element('objective').textContent,/중계기/);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'BR-independent');
+});
+
+test('CH01 refreshed replay does not destroy completed snapshot when disk writes fail, retries after recovery',()=>{
+ const Story=require('../src/story-slice.js'),fixture=completedBrowserReplayFixture();
+ const key='veilpoint.story.ch01',preview=key+'PreviewCompleted',backupKey=key+'.previous';
+ const store=new Map([[key,fixture.complete],[preview,fixture.debrief],[backupKey,fixture.backup]]);
+ const app=boot(store,false,'granted',true,true);
+ const originalSet=store.set.bind(store);
+ let denials=0;
+ store.set=(name,val)=>{
+  if(name===key){denials++;throw Error('temporary storage denied');}
+  return originalSet(name,val);
+ };
+ app.element('continue').click();
+ assert.ok(denials>0);
+ assert.equal(store.get(key),fixture.complete,'failed write leaves completed generation intact');
+ assert.equal(store.get(preview),fixture.debrief,'readable outcome stays available until a durable replay');
+ assert.equal(store.get(backupKey),fixture.backup,'previous backup remains readable');
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ assert.match(app.element('objective').textContent,/중계기/,'memory replay remains playable');
+ store.set=originalSet;
+ for(let i=1;i<=370;i++)app.frame(i*1000/60);
+ assert.equal(Story.restore(store.get(key)).phase,'terminal','60Hz autosave retries the new generation');
+ assert.equal(store.has(preview),false);
+ assert.equal(store.has(backupKey),false);
 });

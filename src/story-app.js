@@ -312,14 +312,15 @@
   function begin(fromCheckpoint){
     if(!renderer||graphicsContextLost)return;
     pendingReplayReset=false;
+    let replayCompleted=false;
     if(fromCheckpoint){
       const loaded=readCheckpoint();
       memoryOnlyStory=checkpointReadUnavailable||checkpointInvalidStored;
       state=loaded&&loaded.phase!=='complete'?loaded:Story.createState($('storyWeapon').value);
-      if(!memoryOnlyStory&&loaded&&loaded.phase==='complete'){
-        // The intentional replay of a verified completed mission is a reset.
-        storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
-      }
+      // After a browser refresh, "Replay" is an explicit restart but must not
+      // erase the finished mission until the new playable checkpoint is durable.
+      // The old generation remains the expected disk generation for persist().
+      replayCompleted=!memoryOnlyStory&&!!loaded&&loaded.phase==='complete';
       diskGeneration=memoryOnlyStory?null:storage.get(SAVE_KEY);
       checkpoint=diskGeneration;
     }else{
@@ -340,6 +341,10 @@
     $('saveStatus').textContent=memoryOnlyStory
       ?'임시 CH01 세션 · 기존 진행 기록 보호 중 · 자동 저장 비활성화':'';
     $('saveStatus').classList.toggle('hidden',!memoryOnlyStory);
+    if(replayCompleted){
+      pendingReplayReset=true;
+      persist('새 CH01 시작');
+    }
     resume();
   }
   function showChoices(){
