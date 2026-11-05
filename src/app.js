@@ -664,7 +664,9 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
  $('pickupPrompt').style.display=yardGate.near||nearby||restock?'block':'none';
- if(yardGate.near)$('pickupPrompt').textContent=yardGate.closing
+ if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
+  ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
+  :yardGate.closing
   ?'[E] REVERSE TO OPEN · SERVICE YARD GATE CLOSING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
   :yardGate.open?'SERVICE YARD GATE OPEN · PASSAGE CLEAR · [E] CLOSE GATE'
   :yardGate.engaged?'[E] REVERSE TO CLOSE · SERVICE YARD GATE OPENING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
