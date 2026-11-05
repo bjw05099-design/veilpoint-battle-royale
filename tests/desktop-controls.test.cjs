@@ -417,3 +417,22 @@ test('physical key labels match valid remapped E/R alternatives without changing
  assert.equal(C.keyLabel(remapped.value.bindings.interact),'T');
  assert.equal(C.keyLabel(remapped.value.bindings.reload),'NUM 3');
 });
+
+test('PC key labels match remapped physical keyboard codes for honest HUD prompts',()=>{
+ const Desktop=require('../src/desktop-controls.js');
+ for(const [physical,label] of [['KeyE','E'],['KeyT','T'],['KeyY','Y'],['Numpad3','NUM 3'],
+  ['Digit7','7'],['Space','SPACE'],['ShiftLeft','SHIFT L'],['ShiftRight','SHIFT R'],
+  ['ArrowUp','UP'],['ArrowLeft','LEFT']]){
+  assert.equal(Desktop.keyLabel(physical),label);
+ }
+ const original=Desktop.normalize({});
+ const next=Desktop.bind(original,'interact','KeyT');
+ assert.equal(next.ok,true);
+ const changed=Desktop.bind(next.value,'reload','KeyY');
+ assert.equal(changed.ok,true);
+ assert.equal(Desktop.keyLabel(changed.value.bindings.interact),'T');
+ assert.equal(Desktop.keyLabel(changed.value.bindings.reload),'Y');
+ assert.equal(Desktop.actionFor('KeyE',changed.value),null,
+   'default E can no longer activate the remapped interaction');
+ assert.equal(Desktop.actionFor('KeyT',changed.value),'interact');
+});
