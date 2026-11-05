@@ -377,10 +377,26 @@
       diskGeneration=memoryOnlyStory?null:storage.get(SAVE_KEY);
       checkpoint=diskGeneration;
     }else{
-      // New Game is the explicit user's reset, unlike the protected Continue.
-      memoryOnlyStory=false;checkpointInvalidStored=false;
+      // New Game is explicitly allowed to reset old progress, but an
+      // inaccessible/ignored storage deletion must never strand the player
+      // in a session that silently overwrites another valid checkpoint.
+      // Clear backup first; if that fails, keep the primary untouched so
+      // the old save can still be resumed after this temporary session.
       state=Story.createState($('storyWeapon').value);
-      storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);storage.remove(PREVIEW_KEY);
+      let resetVerified=false;
+      try{
+        // Establish read permission before deleting either generation.
+        global.localStorage.getItem(SAVE_KEY);
+        global.localStorage.getItem(BACKUP_KEY);
+        storage.remove(BACKUP_KEY);
+        if(global.localStorage.getItem(BACKUP_KEY)===null)
+          storage.remove(SAVE_KEY);
+        resetVerified=global.localStorage.getItem(SAVE_KEY)===null&&
+          global.localStorage.getItem(BACKUP_KEY)===null;
+        if(resetVerified)storage.remove(PREVIEW_KEY);
+      }catch(_){resetVerified=false;}
+      memoryOnlyStory=!resetVerified;
+      checkpointInvalidStored=false;
       diskGeneration=null;checkpoint=null;
       recoveredFromBackup=false;
     }
