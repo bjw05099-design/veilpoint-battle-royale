@@ -1224,3 +1224,33 @@ test('BR temporary memory-only match never advertises a durable pause save',()=>
  assert.match(app.node('selector-.tagline').textContent,/임시 경기이므로 현재 진행은 저장되지 않습니다/);
  assert.equal(store.get(KEY),corrupt,'unrelated checkpoint remains protected');
 });
+
+test('BR Save & Exit refuses a concurrent replacement after writer readback but before menu transition',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const live=app.game;
+ app.emit('keydown',{code:'Escape'});
+ const lastDurable=JSON.parse(store.get(KEY));
+ const foreign=JSON.stringify({...lastDurable,elapsed:lastDurable.elapsed+4});
+ const disk=app.global.localStorage;
+ const get=disk.getItem.bind(disk),set=disk.setItem.bind(disk);
+ let readsAfterWrite=-1;
+ disk.setItem=(key,value)=>{
+  set(key,value);
+  if(key===KEY)readsAfterWrite=0;
+ };
+ disk.getItem=key=>{
+  if(key===KEY&&readsAfterWrite>=0){
+   readsAfterWrite++;
+   if(readsAfterWrite===2)store.set(KEY,foreign);
+  }
+  return get(key);
+ };
+ app.node('saveExit').click();
+ assert.ok(readsAfterWrite>=2,'Save & Exit must re-read after persistMatch readback');
+ assert.equal(store.get(KEY),foreign,'newer disk bytes must not be overwritten');
+ assert.equal(app.node('play').textContent,'이어하기');
+ assert.match(app.node('selector-.tagline').textContent,/확인 직후 변경/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,live,'the existing 60Hz world remains resumable');
+});
