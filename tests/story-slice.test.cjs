@@ -1763,3 +1763,29 @@ test('CH01 escort detour is deterministic after checkpoint reload and stops at s
   assert.equal(a.guide.z,before.z);
   assert.match(story.situation(a).guideStatus,/거리 이탈/);
 });
+
+test('CH01 escort arrival requires a physically open courtyard, not radius through solid cover',()=>{
+  const s=reachDecision();assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');assert.equal(story.interact(s).event,'muster');
+  assert.equal(story.interact(s).event,'guide');
+  const exit=story.POINTS.exitEvac;
+  s.guide.x=exit.x+1.9;s.guide.z=exit.z;
+  s.world.player.x=exit.x;s.world.player.z=exit.z;
+  const barrier={x:exit.x+.95,z:exit.z,w:.3,d:2,h:2,type:'courtyard-test-cover'};
+  s.world.obstacles.push(barrier);
+  assert.equal(Sim.lineBlocked(s.guide.x,s.guide.z,exit.x,exit.z,s.world.obstacles),true);
+  story.step(s,1/60,{});
+  assert.equal(s.guide.arrived,false,'an obstructed companion cannot arrive by proximity alone');
+  assert.equal(story.interact(s).reason,'guide_not_arrived','E must not bypass a solid obstacle');
+  assert.equal(s.phase,'exit');
+  const saved=story.serialize(s),resumed=story.restore(saved);
+  assert.equal(resumed.guide.arrived,false);
+  assert.equal(story.serialize(resumed),saved,'arrival gate needs no new save fields');
+  // Restore reconstructs authored world geometry; the temporary test cover
+  // is intentionally absent. The civilian must now reach the clear courtyard.
+  assert.equal(Sim.lineBlocked(resumed.guide.x,resumed.guide.z,exit.x,exit.z,resumed.world.obstacles),false);
+  story.step(resumed,1/60,{});
+  assert.equal(resumed.guide.arrived,true,'clear courtyard allows legitimate arrival');
+  assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.phase,'complete');
+});
