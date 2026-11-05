@@ -315,17 +315,30 @@
       // Death is not a checkpoint. Retry the latest *alive* fixed-step state,
       // preserving finite rounds, injury, actor positions and the mission phase.
       let recovered=null;
-      // Prefer the newest durable primary when another PC tab has saved since
-      // this tab last checkpointed. An in-memory snapshot may be older.
-      // A malformed primary is skipped without deleting either disk slot.
-      for(const raw of [storage.get(SAVE_KEY),checkpoint,storage.get(BACKUP_KEY)]){
-        if(!raw)continue;
+      // Retry the latest verified disk generation first, then fall back to the
+      // live session checkpoint and the older backup if necessary. Only an
+      // explicitly chosen valid primary can become this tab's expected disk
+      // generation. Future concurrent writes are still rejected by persist().
+      const candidates=[
+        {raw:storage.get(SAVE_KEY),primary:true},
+        {raw:checkpoint,primary:false},
+        {raw:storage.get(BACKUP_KEY),primary:false}
+      ];
+      for(const entry of candidates){
+        if(!entry.raw)continue;
         try{
-          const candidate=Story.restore(raw);
-          if(candidate.phase!=='failed'&&candidate.phase!=='complete'){
-            recovered=candidate;break;
+          const candidate=Story.restore(entry.raw);
+          if(candidate.phase==='failed'||candidate.phase==='complete')continue;
+          if(entry.primary){
+            // A second tab may replace the primary during validation. Adopt
+            // only the exact generation still present, never stale bytes.
+            if(storage.get(SAVE_KEY)!==entry.raw)continue;
+            diskGeneration=entry.raw;
+            checkpoint=entry.raw;
           }
-        }catch(_){} // A corrupt or historical failed save cannot trap the menu.
+          recovered=candidate;
+          break;
+        }catch(_){} // Corrupt/unavailable slots are never deleted by retry.
       }
       state=recovered||Story.createState($('storyWeapon').value);
       $('storyWeapon').value=state.world.player.weaponId;
