@@ -104,7 +104,8 @@
     return saved;
   }
   function persistShot(){
-    if(state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)
+    if((state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)&&
+       state.world.elapsed>=nextSaveRetryAt)
       persist();
     else shotSavePending=true;
   }
@@ -576,7 +577,8 @@
     // Flush a dirty held-fire checkpoint on its bounded clock even if the
     // most recent shot happened just before the 450ms deadline.
     if(running&&shotSavePending&&state.phase==='engagement'&&
-       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)persist();
+       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS&&
+       state.world.elapsed>=nextSaveRetryAt)persist();
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&
