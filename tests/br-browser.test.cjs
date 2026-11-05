@@ -35,7 +35,9 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     const value = {
       id, value: '', checked: false, disabled: false, style: {}, title: '',
       textContent: '', innerHTML: '', width: 240, height: 240,
-      classList: classList(),
+      classList: classList(), attributes: {},
+      setAttribute(key,value) {this.attributes[key]=String(value);},
+      getAttribute(key) {return this.attributes[key]??null;},
       getContext: () => ctx,
       getBoundingClientRect: () => ({x: 0, y: 0, width: 88, height: 88}),
       setPointerCapture() {},
@@ -1548,4 +1550,99 @@ test('BR story navigation reports a failed browser redirect after successful che
  assert.equal(app.node('play').textContent,'저장 경기 이어하기');
  assert.match(app.node('selector-.tagline').textContent,/스토리 메뉴로 이동하지 못했습니다/);
  assert.ok(store.get(key),'redirect error must never discard durable match data');
+});
+
+
+test('BR paused Windows match exposes clickable graphics controls and preserves the current fixed-step world',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/<button[^>]*id="graphicsPauseOpen"[^>]*aria-controls="graphicsPanel"[^>]*aria-expanded="false"/);
+ assert.match(html,/ESC 일시정지[^<]*그래픽 설정[^<]*G키/);
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,elapsed=game.elapsed,charges=game.player.charges;
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.context.document.pointerLockElement,null,'Escape must release PC mouse pointer');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.node('graphicsPauseOpen').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsPauseOpen').getAttribute('aria-expanded'),'true');
+ assert.equal(app.node('graphicsOpen').getAttribute('aria-expanded'),'true');
+ assert.equal(app.context.document.activeElement,app.node('graphicsClose'));
+ app.emit('keydown',{code:'Space'});
+ for(let frame=2;frame<=150;frame++)app.frame(frame*1000/60);
+ assert.equal(game.elapsed,elapsed,'settings must freeze the original PC round');
+ assert.equal(game.player.charges,charges,'the settings dialog cannot fire resources');
+ app.node('graphicsClose').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsPauseOpen').getAttribute('aria-expanded'),'false');
+ assert.equal(app.node('graphicsOpen').getAttribute('aria-expanded'),'false');
+ assert.equal(app.context.document.activeElement,app.node('graphicsPauseOpen'),
+   'close restores keyboard focus to the actual pause-menu opener');
+ app.frame(151*1000/60);
+ assert.equal(game.elapsed,elapsed,'closing graphics cannot silently unpause');
+ app.node('play').click();
+ app.frame(152*1000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.context.document.pointerLockElement,app.node('scene'));
+ assert.equal(app.game,game,'resume must preserve the same simulation and finite inventory');
+ assert.ok(game.elapsed>elapsed);
+});
+
+test('BR G shortcut can open and close PC graphics dialog with mouse captured, including focused buttons',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ const world=app.game,elapsed=world.elapsed;
+ app.emit('keydown',{code:'KeyG',target:{tagName:'CANVAS'}});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.context.document.pointerLockElement,null);
+ assert.equal(app.context.document.activeElement,app.node('graphicsClose'));
+ app.emit('keydown',{code:'KeyG',target:{tagName:'BUTTON'}});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true,
+   'G must work even with a focused graphics button');
+ assert.equal(app.context.document.activeElement,app.node('graphicsPauseOpen'));
+ app.emit('keydown',{code:'KeyG',repeat:true,target:{tagName:'BUTTON'}});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ app.frame(3000);
+ assert.equal(world.elapsed,elapsed);
+ app.node('play').click();app.frame(3000+1000/60);
+ assert.equal(app.game,world);
+ assert.ok(world.elapsed>elapsed);
+});
+
+test('BR pre-match settings Escape closes only settings and never starts the game',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('graphicsPauseOpen').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.node('graphicsClose'));
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.node('graphicsPauseOpen'));
+ assert.equal(app.context.document.pointerLockElement,null);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+});
+
+test('BR Escape dismisses open settings first; second Escape explicitly resumes without losing match',()=>{
+ const app=boot({windows:true});
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ const world=app.game,elapsed=world.elapsed;
+ app.node('graphicsOpen').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.frame(2000);
+ assert.equal(world.elapsed,elapsed);
+ app.emit('keydown',{code:'Escape',target:{tagName:'BUTTON'}});
+ app.frame(2000+1000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.ok(world.elapsed>elapsed);
 });
