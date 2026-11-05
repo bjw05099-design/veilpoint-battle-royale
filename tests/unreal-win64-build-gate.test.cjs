@@ -24,6 +24,8 @@ test('UE5 Windows build gate checks installed engine, project version and native
 test('UE5 default map requires authored level or opt-in non-release smoke mode',()=>{
  assert.match(engine,/GameDefaultMap=\/Engine\/Maps\/Entry/);
  assert.match(script,/if \(\$map -eq '\/Engine\/Maps\/Entry'\)/);
+ assert.match(script,/if \(\$Configuration -eq 'Shipping'\)/);
+ assert.match(script,/stock Engine Entry map is never eligible for a Shipping build/);
  assert.match(script,/if \(!\$AllowEngineEntrySmokeTest\)/);
  assert.match(script,/Fail 'Only the stock Engine Entry map exists\./);
  assert.match(script,/Test-Path -LiteralPath \$mapFile -PathType Leaf/);
