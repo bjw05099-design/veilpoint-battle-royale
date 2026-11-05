@@ -720,6 +720,13 @@ $('retryArena').addEventListener('click',()=>{
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
+ // The pre-match/end menu can open settings too. Escape dismisses that panel
+ // without starting gameplay or requiring a mouse click on its Close button.
+ if(e.code==='Escape'&&!running&&!$('graphicsPanel').classList.contains('hidden')){
+  e.preventDefault();
+  if(!e.repeat)setGraphicsPanelOpen(false);
+  return;
+ }
  // Escape must cancel even a pending/denied mouse-capture request. The game
  // cannot act until locked, but the player must always be able to pause.
  if(e.code==='Escape'&&running){
