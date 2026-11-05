@@ -2306,3 +2306,80 @@ test('CH01 visible moving guide retains its 3D marker identity and does not swap
   const restored=story.restore(story.serialize(state));
   assert.deepEqual(restored.world.loot.map(m=>m.markerId),story.markers(restored).map(m=>m.id));
 });
+
+
+test('CH01 evacuation progress lists optional civilian tasks without falsely completing them',()=>{
+  const state=reachDecision();
+  assert.equal(story.missionTasks(state).length,0,'route-specific tasks cannot appear before a route choice');
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  let tasks=story.missionTasks(state);
+  assert.deepEqual(tasks.map(t=>t.id),['muster','guide','aid','exit']);
+  assert.deepEqual(tasks.map(t=>t.status),['available','locked','available','available']);
+  assert.deepEqual(tasks.map(t=>t.optional),[true,true,true,false]);
+  assert.equal(Object.isFrozen(tasks),true);
+  assert.equal(Object.isFrozen(tasks[0]),true);
+  const before=story.serialize(state);
+  assert.deepEqual(story.missionTasks(state),tasks);
+  assert.equal(story.serialize(state),before,'HUD task reads cannot mutate saved world state');
+  go(state,'muster');assert.equal(story.interact(state).event,'muster');
+  tasks=story.missionTasks(state);
+  assert.equal(tasks[0].status,'done');
+  assert.equal(tasks[1].status,'available');
+  assert.equal(story.interact(state).event,'guide');
+  tasks=story.missionTasks(state);
+  assert.equal(tasks[1].status,'following');
+  assert.equal(tasks[3].status,'blocked','active civilian handoff is required before completing exit');
+  state.guide.waiting=true;
+  assert.equal(story.missionTasks(state)[1].status,'waiting');
+  state.guide.waiting=false;
+  state.guide.arrived=true;
+  assert.equal(story.missionTasks(state)[1].status,'done');
+  assert.equal(story.missionTasks(state)[3].status,'available');
+  go(state,'exitEvac');
+  assert.equal(story.interact(state).ok,true);
+  tasks=story.missionTasks(state);
+  assert.equal(tasks[3].status,'done');
+  assert.equal(tasks[2].status,'available','unclaimed optional supply cannot be counted as delivered');
+});
+
+test('CH01 optional aid progress distinguishes carrying, staged and physically delivered supplies',()=>{
+  const state=reachDecision();
+  story.choose(state,'evacuation');
+  assert.equal(story.missionTasks(state)[2].status,'available');
+  go(state,'aidPickup');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(story.missionTasks(state)[2].status,'carrying');
+  go(state,'aidStage');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(story.missionTasks(state)[2].status,'staged');
+  const staged=story.serialize(state);
+  assert.equal(story.missionTasks(story.restore(staged))[2].status,'staged');
+  go(state,'aidResume');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(story.missionTasks(state)[2].status,'carrying');
+  go(state,'aidDrop');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(story.missionTasks(state)[2].status,'done');
+  assert.equal(story.missionTasks(story.restore(story.serialize(state)))[2].status,'done');
+});
+
+test('CH01 east verification progress respects evidence, real gate timing and optional report handoff',()=>{
+  const state=reachDecision();
+  go(state,'recordA');story.interact(state);
+  go(state,'recordB');story.interact(state);
+  go(state,'decision');
+  assert.equal(story.choose(state,'verification').ok,true);
+  let tasks=story.missionTasks(state);
+  assert.deepEqual(tasks.map(t=>t.id),['evidence','gate','log','handoff','exit']);
+  assert.deepEqual(tasks.map(t=>t.status),['done','waiting','available','locked','blocked']);
+  for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+20;i++)story.step(state,1/60,{});
+  tasks=story.missionTasks(state);
+  assert.equal(tasks[1].status,'done','gate progress cannot claim clearance before the world opens it');
+  assert.equal(tasks[4].status,'available');
+  go(state,'exitVerify');
+  assert.equal(story.interact(state).ok,true);
+  tasks=story.missionTasks(state);
+  assert.equal(tasks[4].status,'done');
+  assert.equal(tasks[2].status,'available','optional record review is not granted on mission exit');
+  assert.equal(tasks[3].status,'locked','optional handoff remains unavailable without the local record');
+});
