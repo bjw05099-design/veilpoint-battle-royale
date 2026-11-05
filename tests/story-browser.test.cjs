@@ -19,9 +19,11 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     if(nodes.has(id))return nodes.get(id);
     const events=new Map();
     const el={
-      id,style:{},dataset:{},textContent:'',value:'',checked:false,disabled:false,
+      id,style:{},dataset:{},attributes:new Map(),textContent:'',value:'',checked:false,disabled:false,
+      setAttribute(name,value){this.attributes.set(name,String(value));},
+      getAttribute(name){return this.attributes.get(name)??null;},
       width:240,height:150,clientWidth:960,clientHeight:540,
-      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit','saveCheckpoint'].includes(id)),
+      classList:makeClassList(['choices','interaction','reviewCompleted','debriefReview','saveExit','saveCheckpoint','journalPanel'].includes(id)),
       addEventListener:(name,fn)=>{const list=events.get(name)||[];list.push(fn);events.set(name,list);},
       dispatch:(name,event={})=>{for(const fn of events.get(name)||[])fn({preventDefault(){},pointerId:1,...event});},
       click(){this.dispatch('click');},
