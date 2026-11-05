@@ -276,6 +276,11 @@
   // becoming permanently stuck whenever the player rounds a corner. Use only
   // real geometry, short local detours and the same physical collision rules.
   // The waypoint is derived every fixed tick, so it does not alter v2 saves.
+  function guideBodyPathBlocked(guide,player,obstacles) {
+    // Shared by the fixed-step controller and visible PC mission HUD.
+    const corridor=obstacles.map(o=>({...o,w:o.w+1.1,d:o.d+1.1}));
+    return Sim.lineBlocked(guide.x,guide.z,player.x,player.z,corridor);
+  }
   function guideDetour(state,guide,player) {
     // A bounded local visibility graph can pass more than one solid container.
     // Unlike the old one-corner choice, it does not assume the first corner
@@ -385,8 +390,7 @@
       if(range>1.7&&range<7){
         // Body-width clearance matters: centre-point sight alone can
         // look clear even though the standing civilian cannot pass.
-        const guideCorridor=state.world.obstacles.map(o=>({...o,w:o.w+1.1,d:o.d+1.1}));
-        const blocked=Sim.lineBlocked(g.x,g.z,p.x,p.z,guideCorridor);
+        const blocked=guideBodyPathBlocked(g,p,state.world.obstacles);
         const detour=blocked?guideDetour(state,g,p):null;
         const target=blocked?detour:p;
         if(target){
@@ -834,7 +838,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':Sim.lineBlocked(state.guide.x,state.guide.z,state.world.player.x,state.world.player.z,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
+      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
