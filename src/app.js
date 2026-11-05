@@ -641,9 +641,9 @@ function updateHud(){const s=simulation,p=s.player;$('alive').textContent=Game.g
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
  $('pickupPrompt').style.display=yardGate.near||nearby||restock?'block':'none';
  if(yardGate.near)$('pickupPrompt').textContent=yardGate.closing
-  ?'SERVICE YARD GATE CLOSING · '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
+  ?'[E] REVERSE TO OPEN · SERVICE YARD GATE CLOSING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
   :yardGate.open?'SERVICE YARD GATE OPEN · PASSAGE CLEAR · [E] CLOSE GATE'
-  :yardGate.engaged?'SERVICE YARD GATE OPENING · '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
+  :yardGate.engaged?'[E] REVERSE TO CLOSE · SERVICE YARD GATE OPENING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
   :'[E] OPERATE SERVICE YARD SLIDING GATE · OPEN';
  else if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch

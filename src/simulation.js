@@ -231,13 +231,20 @@
     if(game.status!=='playing')return {ok:false,reason:'inactive'};
     const state=serviceGateStatus(game);
     if(!state.near)return {ok:false,reason:'out_of_reach'};
-    if(game.yardGate.engaged&&game.yardGate.progress<1)return {ok:false,reason:'already_engaged'};
-    const closing=game.yardGate.progress>=1;
-    game.yardGate.engaged=true;
-    game.yardGate.closing=closing;
-    game.message=closing?'SERVICE GATE CLOSING · KEEP TRACK CLEAR':'SERVICE GATE MOTOR STARTED · WAIT FOR PASSAGE';
+    // A local operator can reverse a moving panel without teleporting it.
+    // The rail, actor sweep and fixed-step motor remain authoritative.
+    // A fully open panel closes; a fully closed panel opens.
+    const gate=game.yardGate;
+    if(gate.engaged&&gate.progress===0&&!gate.closing)return {ok:false,reason:'already_engaged'};
+    const reversing=gate.engaged&&gate.progress>0&&gate.progress<1;
+    const closing=reversing?!gate.closing:gate.progress>=1;
+    gate.engaged=true;
+    gate.closing=closing;
+    game.message=reversing
+      ?(closing?'SERVICE GATE REVERSED · CLOSING':'SERVICE GATE REVERSED · OPENING')
+      :(closing?'SERVICE GATE CLOSING · KEEP TRACK CLEAR':'SERVICE GATE MOTOR STARTED · WAIT FOR PASSAGE');
     game.messageTime=3;
-    return {ok:true,progress:game.yardGate.progress};
+    return {ok:true,progress:gate.progress,reversed:reversing,closing};
   }
   function advanceServiceGate(game,dt) {
     const gate=game.yardGate;
