@@ -839,23 +839,25 @@
     if(running)menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   }
   global.addEventListener('blur',pauseForBackground);
-  global.addEventListener('pagehide',pauseForBackground);
+  // pagehide must flush while the current fixed-step world is still running.
+  // Calling pauseForBackground first would set running=false and skip this
+  // explicit exit checkpoint. Avoid DOM menu/pointer-lock work during unload.
+  global.addEventListener('pagehide',()=>{
+    if(sessionStarted&&running&&state.phase!=='failed'&&state.phase!=='complete')
+      persist('종료 직전 저장');
+    // Never leave held movement or a trigger latched after bfcache restoration.
+    running=false;
+    clearInput();
+    clock.reset();
+    limiter.reset();
+  });
   // A Windows player can close or navigate away while the page remains
   // visible. The normal five-second checkpoint window would otherwise lose
   // the last movement/escort state. pagehide is synchronous and preserves
   // the existing cross-tab generation/readback safeguards in persist().
   // It is not a guarantee against crashes, forced process termination or
   // storage-denied browsers.
-  global.addEventListener('pagehide',()=>{
-    if(!sessionStarted||!running||state.phase==='failed'||
-       state.phase==='complete')return;
-    persist('종료 직전 저장');
-    // Never leave a held trigger or movement key latched when bfcache restores.
-    running=false;
-    clearInput();
-    clock.reset();
-    limiter.reset();
-  });
+
   // Back-forward cache restoration is not a fresh game launch: keep the
   // mission paused and require an explicit Windows mouse-lock reacquisition.
   global.addEventListener('pageshow',event=>{
