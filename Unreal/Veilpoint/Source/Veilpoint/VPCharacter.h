@@ -34,6 +34,9 @@ public:
     float Stamina = 100.f;
     UPROPERTY(ReplicatedUsing=OnRep_SprintState, BlueprintReadOnly, Category="Movement|Stamina")
     bool bSprinting = false;
+    // Native HUD observes finite, authoritative stamina recovery.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="Movement|Stamina")
+    bool bSprintExhausted = false;
     UFUNCTION(BlueprintPure, Category="Movement|Stamina")
     float GetStaminaRatio() const { return FMath::Clamp(Stamina / 100.f, 0.f, 1.f); }
 
@@ -69,6 +72,6 @@ protected:
 private:
     double LastServerTagTime = -1000.0;
     bool bSprintHeld = false;
-    bool bSprintExhausted = false;
+
     float SprintAccumulator = 0.f;
 };
