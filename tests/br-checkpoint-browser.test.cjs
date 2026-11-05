@@ -743,3 +743,52 @@ test('BR storage-denied P-key preserves a local bookmark but makes failure visib
  assert.ok(store.get('veilpoint.brFieldBookmark.v1'),'next successful P saves the bookmark');
  assert.doesNotMatch(app.node('message').textContent,/FIELD BOOKMARK NOT SAVED/);
 });
+
+test('BR invalid local rewind in stale PC tab cannot delete newer tab field bookmark',()=>{
+ const store=new Map();
+ const older=boot(store);older.node('play').click();older.frame(1000/60);
+ older.emit('keydown',{code:'KeyP'});
+ const newer=boot(store);newer.node('play').click();newer.frame(1000/60);
+ newer.emit('keydown',{code:'Space'});newer.emit('keyup',{code:'Space'});
+ newer.emit('keydown',{code:'KeyP'});
+ const latestSave=store.get(KEY),latestBookmark=store.get('veilpoint.brFieldBookmark.v1');
+ assert.ok(latestSave&&latestBookmark);
+ // Model a corrupted *local* bookmark's arena identity. The paused rewind
+ // catches this exception and calls the production bookmark cleanup path.
+ older.game.seed+=1;
+ older.emit('keydown',{code:'Escape'});
+ older.node('restoreCheckpoint').click();
+ assert.equal(store.get(KEY),latestSave);
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),latestBookmark,
+   'local rewind failure cannot delete another window\'s valid P-key bookmark');
+ assert.match(older.node('selector-.tagline').textContent,/지점이 없습니다/);
+ older.node('play').click();older.frame(2500);
+ assert.equal(older.game.status,'playing','failed rewind must keep live world playable');
+});
+
+test('BR owning tab still clears its own P bookmark on terminal finish',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'KeyP'});
+ assert.ok(store.get('veilpoint.brFieldBookmark.v1'));
+ app.global.VeilpointSim.receiveDamage(app.game,100);
+ app.frame(2000/60);
+ assert.equal(store.has(KEY),false);
+ assert.equal(store.has('veilpoint.brFieldBookmark.v1'),false,
+   'terminal cleanup must clear the owning session bookmark before its primary');
+});
+
+test('BR explicit New Match may deliberately replace current bookmark generations',()=>{
+ const store=new Map();
+ const older=boot(store);older.node('play').click();older.frame(1000/60);
+ const newer=boot(store);newer.node('play').click();newer.frame(1000/60);
+ newer.emit('keydown',{code:'KeyP'});
+ assert.ok(store.get('veilpoint.brFieldBookmark.v1'));
+ const former=JSON.parse(store.get(KEY)).seed;
+ older.node('newMatch').click();older.frame(2000/60);
+ assert.equal(store.has('veilpoint.brFieldBookmark.v1'),false,
+   'explicit New Match remains the only destructive generation reset');
+ assert.equal(older.game.status,'playing');
+ assert.notEqual(older.game, newer.game);
+ assert.ok(JSON.parse(store.get(KEY)).seed,'fresh round gets its own checkpoint');
+});
