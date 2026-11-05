@@ -437,9 +437,15 @@
         }
         if(!staleReset){
           storage.remove(BACKUP_KEY);
-          if(global.localStorage.getItem(BACKUP_KEY)===null)
-            storage.remove(SAVE_KEY);
-          resetVerified=global.localStorage.getItem(SAVE_KEY)===null&&
+          if(global.localStorage.getItem(BACKUP_KEY)===null){
+            // Recheck the observed primary after backup rotation. An external
+            // tab may have saved new progress while the reset was underway.
+            if(global.localStorage.getItem(SAVE_KEY)===latest)
+              storage.remove(SAVE_KEY);
+            else staleReset=true;
+          }
+          resetVerified=!staleReset&&
+            global.localStorage.getItem(SAVE_KEY)===null&&
             global.localStorage.getItem(BACKUP_KEY)===null;
           if(!resetVerified&&originalBackup!==null){
             // A blocked primary deletion must not also destroy the older
