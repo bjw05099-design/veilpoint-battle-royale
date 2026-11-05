@@ -96,7 +96,7 @@ function boot({touch = false, finePointer = !touch, store = new Map(), pointerLo
     get() {throw new Error('storage_denied');}
   });
   for (const filename of ['src/simulation.js', 'src/visibility.js', 'src/performance.js',
-    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/app.js']) {
+    'src/graphics.js', 'src/clock.js', 'src/fps.js', 'src/benchmark.js', 'src/desktop-controls.js', 'src/gate-motor-audio.js', 'src/app.js']) {
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, filename), 'utf8'),
       context, {filename, timeout: 1500});
   }
@@ -1202,4 +1202,30 @@ test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume 
  resumed.frame(1000/60);
  assert.equal(resumed.game.yardGate.progress,1);
  assert.equal(resumed.game.obstacles.find(o=>o.routeId==='br-service-gate').x,37.2);
+});
+
+test('BR gate E starts audible local motor; moving away and pausing stop the cue',()=>{
+ const app=boot({store:new Map()});
+ const events=[];
+ app.context.AudioContext=class {
+  constructor(){this.currentTime=1;this.destination={};events.push('created');}
+  createOscillator(){return {type:'triangle',frequency:{setValueAtTime(){}},
+   connect(){},start(){events.push('started');},stop(){events.push('stopped');}};}
+  createGain(){return {gain:{setValueAtTime(){},cancelScheduledValues(){},setTargetAtTime(){}},connect(){}};}
+ };
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ game.player.x=30;game.player.z=-21.8;
+ app.emit('keydown',{code:'KeyE'});
+ assert.equal(game.yardGate.engaged,true);
+ assert.ok(events.includes('started'),'E gesture unlocks local procedural motor sound');
+ assert.ok(!events.includes('stopped'));
+ game.player.x=0;game.player.z=0;
+ app.frame(200);
+ assert.ok(events.includes('stopped'),'distance silences local gate');
+ game.player.x=30;game.player.z=-21.8;
+ app.frame(400);
+ assert.equal(events.filter(e=>e==='started').length,2);
+ app.emit('blur');
+ assert.equal(events.filter(e=>e==='stopped').length,2,'pause clears a running cue');
 });
