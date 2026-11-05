@@ -2839,6 +2839,10 @@ test('CH01 PC pause menu restores the prior durable fixed-step checkpoint and pr
  const previous=Story.restore(previousRaw);
  assert.ok(previous.world.elapsed<latest.world.elapsed);
  app.element('restorePrevious').click();
+ assert.equal(shared.get(key),Story.serialize(latest),'first click must not overwrite the saved CH01 world');
+ assert.match(app.element('restorePrevious').textContent,/다시 클릭/);
+ assert.match(app.element('menuText').textContent,/한 번 더/);
+ app.element('restorePrevious').click();
  const restored=Story.restore(shared.get(key));
  assert.equal(restored.world.elapsed,previous.world.elapsed,
    'manual recovery replaces the latest snapshot with the validated older 60Hz world');
@@ -2905,6 +2909,8 @@ test('CH01 previous checkpoint write rejection retains paused in-memory world',(
    return save(k,value);
  };
  app.element('restorePrevious').click();
+ assert.equal(shared.get(key),before,'confirmation cannot write');
+ app.element('restorePrevious').click();
  assert.equal(shared.get(key),before);
  assert.match(app.element('menuText').textContent,/기존 진행으로 돌아왔습니다/);
  assert.match(app.element('objective').textContent,/무장 대치자/);
@@ -2914,4 +2920,60 @@ test('CH01 previous checkpoint write rejection retains paused in-memory world',(
  app.element('pauseButton').click();
  assert.ok(Story.restore(shared.get(key)).world.elapsed>=snapshot.world.elapsed,
    'a failed restore does not replace the live world with an older generation');
+});
+
+
+test('CH01 previous-checkpoint confirmation resets on PC pause/resume and other save controls',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',store=new Map();
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);app.element('pauseButton').click();
+ const stable=store.get(key),prior=store.get(key+'.previous');
+ assert.ok(prior);
+ app.element('restorePrevious').click();
+ assert.equal(store.get(key),stable);
+ assert.match(app.element('restorePrevious').textContent,/다시 클릭/);
+ app.element('saveCheckpoint').click();
+ assert.equal(app.element('restorePrevious').textContent,'이전 체크포인트 복구');
+ const afterSave=store.get(key);
+ app.element('restorePrevious').click();
+ assert.equal(store.get(key),afterSave,'first click after save only confirms');
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ app.frame(9000/60);
+ app.element('pauseButton').click();
+ assert.equal(app.element('restorePrevious').textContent,'이전 체크포인트 복구');
+ const afterPause=store.get(key);
+ app.element('restorePrevious').click();
+ assert.equal(store.get(key),afterPause,'a new pause session must require fresh consent');
+ assert.match(app.element('restorePrevious').textContent,/다시 클릭/);
+ app.element('continue').click();
+ app.element('pauseButton').click();
+ assert.equal(app.element('restorePrevious').textContent,'이전 체크포인트 복구');
+ assert.ok(Story.restore(store.get(key)));
+});
+
+test('CH01 previous-checkpoint confirmation binds to exact backup generation across tabs',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',store=new Map();
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);app.element('pauseButton').click();
+ const primary=store.get(key),oldBackup=store.get(backup);
+ assert.ok(oldBackup);
+ app.element('restorePrevious').click();
+ assert.match(app.element('restorePrevious').textContent,/다시 클릭/);
+ const different=Story.restore(oldBackup);
+ different.world.elapsed+=1;
+ store.set(backup,Story.serialize(different));
+ app.element('restorePrevious').click();
+ assert.equal(store.get(key),primary,'second click cannot restore a different unconfirmed generation');
+ assert.match(app.element('menuText').textContent,/백업 기록이 변경/);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ app.element('restorePrevious').click();
+ const restored=Story.restore(store.get(key));
+ assert.equal(restored.world.elapsed,different.world.elapsed,
+   'the newly validated generation requires its own second confirmation');
+ assert.equal(store.get(backup),primary,'verified rewind rotates the former primary for recovery');
 });
