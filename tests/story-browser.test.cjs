@@ -80,7 +80,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
     get(){throw new Error('storage_denied');}
   });
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
-    'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js',
+    'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js','src/navigation.js',
     'src/story-slice.js','src/story-audio.js','src/desktop-controls.js',
     'src/checkpoint-recovery.js','src/story-app.js'];
   for(const script of scripts){
