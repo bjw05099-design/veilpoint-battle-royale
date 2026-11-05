@@ -1733,8 +1733,8 @@ test('BR native benchmark JSON download remains available without opening raw fa
  app.context.document.createElement=()=>({click(){name=this.download;},remove(){}});
  app.node('benchmarkQuickExport').click();
  assert.equal(name,'veilpoint-browser-benchmark-partial.json');
- assert.equal(app.node('benchmarkRawJson').classList.contains('hidden'),false,
-   'DOM mock does not parse HTML initial hidden class; verify fallback text instead');
+ assert.equal(app.node('benchmarkRawJson').classList.contains('hidden'),true,
+   'successful Blob download leaves manual fallback hidden');
  assert.equal(app.node('benchmarkRawJson').value,'',
    'successful normal file download does not produce a redundant raw copy panel');
 });
