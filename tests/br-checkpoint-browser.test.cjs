@@ -648,3 +648,48 @@ test('BR denied checkpoint read or backup rotation does not destroy last good pr
  assert.equal(data.get(KEY),old,'failed backup cannot authorize overwriting the primary');
  assert.match(app.game.message,/SAVE FAILED/);
 });
+
+test('BR concurrent-tab checkpoint conflict stays visible after toast timeout and blocks Save & Exit',()=>{
+ const store=new Map();
+ const older=boot(store);older.node('play').click();older.frame(1000/60);
+ const recent=boot(store);recent.node('play').click();recent.frame(1000/60);
+ recent.emit('keydown',{code:'Space'});recent.emit('keyup',{code:'Space'});
+ const newest=store.get(KEY);
+ assert.ok(newest);
+ older.emit('keydown',{code:'Space'});older.emit('keyup',{code:'Space'});
+ assert.equal(store.get(KEY),newest,'old tab must not replace current durable match');
+ assert.match(older.node('message').textContent,/SAVE CONFLICT/);
+ // The transient shot message expires, but the underlying save conflict
+ // cannot silently disappear from the PC HUD during the same live session.
+ older.game.messageTime=0;older.frame(2500);
+ assert.match(older.node('message').textContent,/SAVE CONFLICT/);
+ older.emit('keydown',{code:'Escape'});
+ older.node('saveExit').click();
+ assert.equal(store.get(KEY),newest);
+ assert.match(older.node('selector-.tagline').textContent,/다른 창에서 저장된 경기/);
+ assert.match(older.node('selector-.tagline').textContent,/메뉴로 나가지 않았습니다/);
+ older.node('play').click();older.frame(3000);
+ assert.equal(older.game.status,'playing','failure cannot abandon the in-memory round');
+});
+
+test('BR denied write stays in the HUD after transient event and clears after real persistence recovery',()=>{
+ const store=new Map();
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const write=store.set.bind(store);
+ let deny=true;
+ store.set=(k,v)=>{
+  if(k===KEY&&deny)throw new Error('quota denied');
+  return write(k,v);
+ };
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.match(app.node('message').textContent,/SAVE FAILED/);
+ app.game.messageTime=0;
+ app.frame(2500);
+ assert.match(app.node('message').textContent,/SAVE FAILED/);
+ deny=false;
+ app.emit('keydown',{code:'KeyP'});
+ assert.match(app.game.message,/CHECKPOINT RESTORED/);
+ assert.doesNotMatch(app.node('message').textContent,/SAVE FAILED/);
+ assert.equal(JSON.parse(store.get(KEY)).player.charges,app.game.player.charges);
+});
