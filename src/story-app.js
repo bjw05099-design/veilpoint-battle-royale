@@ -28,7 +28,7 @@
   // mission on every fixed-step shot. Pausing and phase changes still flush.
   // Story preview uses a shorter checkpoint window than BR to bound progress loss.
   const SHOT_SAVE_INTERVAL_SECONDS=0.45;
-  let lastAutosaveAt=0,shotSavePending=false;
+  let lastAutosaveAt=0,shotSavePending=false,nextSaveRetryAt=0;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
   // Require desktop pointer lock when any fine pointer is available.
@@ -81,9 +81,19 @@
           storage.set(BACKUP_KEY,previous);
       }catch(_){}
     }
-    lastAutosaveAt=state.world.elapsed;
-    shotSavePending=false;
     const saved=storage.set(SAVE_KEY,raw);
+    // A failed browser write is not a checkpoint. Keep the last successful
+    // autosave boundary so the next live frame retries instead of silently
+    // postponing recovery for another five simulated seconds.
+    if(saved){
+      lastAutosaveAt=state.world.elapsed;
+      nextSaveRetryAt=0;
+      shotSavePending=false;
+    }else{
+      // A denied/quota-limited storage slot must not be hammered at 60Hz.
+      // Retry once per simulated second while the game remains active.
+      nextSaveRetryAt=state.world.elapsed+1;
+    }
     saveFailed=!saved;
     // Keep the last alive checkpoint in memory even when browser storage is denied.
     // A failed mission must never overwrite this recovery point.
@@ -94,7 +104,8 @@
     return saved;
   }
   function persistShot(){
-    if(state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)
+    if((state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)&&
+       state.world.elapsed>=nextSaveRetryAt)
       persist();
     else shotSavePending=true;
   }
@@ -566,7 +577,8 @@
     // Flush a dirty held-fire checkpoint on its bounded clock even if the
     // most recent shot happened just before the 450ms deadline.
     if(running&&shotSavePending&&state.phase==='engagement'&&
-       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)persist();
+       state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS&&
+       state.world.elapsed>=nextSaveRetryAt)persist();
     // A finite hostile shot must survive refresh even when it misses. Persist
     // only on an actual shot or injury, not every fixed simulation tick.
     const hostileFired=running&&state.phase==='engagement'&&
@@ -588,7 +600,8 @@
     // mission segment. This uses simulated time, so paused/background tabs cannot
     // generate repeated writes or advance hostile attacks.
     if(running&&state.phase!=='complete'&&state.phase!=='failed'&&
-       state.world.elapsed-lastAutosaveAt>=AUTOSAVE_SECONDS)persist();
+       state.world.elapsed-lastAutosaveAt>=AUTOSAVE_SECONDS&&
+       state.world.elapsed>=nextSaveRetryAt)persist();
     if(running&&state.phase==='failed'){
       // Never replace a viable save with a terminal failed state. The primary
       // action now retries the last alive checkpoint; New Game still resets all.
