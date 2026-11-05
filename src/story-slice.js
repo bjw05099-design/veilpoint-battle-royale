@@ -198,7 +198,9 @@
       [-Math.SQRT1_2,Math.SQRT1_2],[Math.SQRT1_2,Math.SQRT1_2]
     ];
     const candidates=[];
-    for(const radius of [1,1.6,2.2,3,4]){
+    // A narrow row of newly solid props can require a wider bounded search.
+    // Keep recovery local to the authored evacuation district; no live teleport.
+    for(const radius of [1,1.6,2.2,3,4,5,6]){
       for(const [dx,dz] of directions){
         const next={x:g.x+dx*radius,z:g.z+dz*radius};
         if(Math.hypot(next.x-GUIDE_START.x,next.z-GUIDE_START.z)>19||
