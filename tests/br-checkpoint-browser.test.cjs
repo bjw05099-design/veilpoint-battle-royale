@@ -73,10 +73,13 @@ test('BR new game explicitly discards a checkpoint, and terminal loss clears it'
 });
 
 test('BR corrupted checkpoint cannot resurrect shields or break launch',()=>{
- const store=new Map([[KEY,JSON.stringify({version:1,player:{shield:100}})]]);
+ const invalid=JSON.stringify({version:1,player:{shield:100}});
+ const store=new Map([[KEY,invalid]]);
  const app=boot(store);
- assert.equal(store.has(KEY),false);
+ assert.equal(store.get(KEY),invalid,'invalid original data is kept for later recovery');
+ assert.match(app.node('play').textContent,/기록 보존/);
  app.node('play').click();app.frame(1000/60);
+ assert.equal(store.get(KEY),invalid,'memory-only play cannot overwrite the unsafe checkpoint');
  assert.equal(app.game.status,'playing');
  assert.equal('shield' in app.game.player,false);
 });
