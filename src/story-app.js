@@ -32,6 +32,8 @@
   // Story preview uses a shorter checkpoint window than BR to bound progress loss.
   const SHOT_SAVE_INTERVAL_SECONDS=0.45;
   let lastAutosaveAt=0,shotSavePending=false,nextSaveRetryAt=0;
+  // Persist the first actual shot immediately; later held shots use the 450ms queue.
+  let firstShotSaved=false;
   if(!Object.prototype.hasOwnProperty.call(Sim.FIREARMS,$('storyWeapon').value))$('storyWeapon').value='carbine';
   // Hybrid Windows PCs can report coarse primary input despite a connected mouse.
   // Require desktop pointer lock when any fine pointer is available.
@@ -155,10 +157,12 @@
     return saved;
   }
   function persistShot(){
-    if((state.phase!=='engagement'||state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)&&
-       state.world.elapsed>=nextSaveRetryAt)
+    if((state.phase!=='engagement'||!firstShotSaved||
+        state.world.elapsed-lastAutosaveAt>=SHOT_SAVE_INTERVAL_SECONDS)&&
+       state.world.elapsed>=nextSaveRetryAt){
+      firstShotSaved=true;
       persist();
-    else shotSavePending=true;
+    }else shotSavePending=true;
   }
   function recordCompletion(){
     // A bounded, evidence-based CH01 handoff, not a completed 50-minute M01.
@@ -267,7 +271,7 @@
       }
       state=recovered||Story.createState($('storyWeapon').value);
       $('storyWeapon').value=state.world.player.weaponId;
-      guidanceId=null;shotSavePending=false;
+      guidanceId=null;shotSavePending=false;firstShotSaved=false;
       lastAutosaveAt=state.world.elapsed;
     }else if(state.phase==='complete'){
       state=Story.createState($('storyWeapon').value);
@@ -305,7 +309,7 @@
     $('storyWeapon').value=state.world.player.weaponId;
     sessionStarted=true;guidanceId=null;
     lastAutosaveAt=state.world.elapsed;
-    shotSavePending=false;
+    shotSavePending=false;firstShotSaved=false;
     saveFailed=memoryOnlyStory;
     $('saveStatus').textContent=memoryOnlyStory
       ?'임시 CH01 세션 · 기존 진행 기록 보호 중 · 자동 저장 비활성화':'';
@@ -358,7 +362,7 @@
   function fire(){
     if(!canAct())return;
     const result=Story.fire(state,input.crouch);
-    if(result.ok){audio.play('shot');persist();updateHud();}
+    if(result.ok){audio.play('shot');persistShot();updateHud();}
   }
   function reload(){
     if(!canAct()||state.phase!=='engagement')return;
