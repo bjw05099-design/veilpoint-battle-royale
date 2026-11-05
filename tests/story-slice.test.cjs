@@ -2155,3 +2155,60 @@ test('CH01 3D companion marker disappears beyond line of sight and returns when 
   assert.equal(state.world.loot.length,story.markers(state).length);
   assert.ok(Math.abs(state.world.loot[backIndex].x-originalX)<1e-9);
 });
+
+
+test('CH01 60Hz guide movement updates 3D marker in place without reallocating stable world entities',()=>{
+  const state=reachDecision();
+  story.choose(state,'evacuation');go(state,'muster');
+  assert.equal(story.interact(state).event,'muster');
+  assert.equal(story.interact(state).event,'guide');
+  state.world.player.x=-5.9;state.world.player.z=-55;
+  story.step(state,1/60,{});
+  const firstList=state.world.loot,firstEntities=firstList.slice();
+  const startX=state.guide.x;
+  let movingTicks=0;
+  for(let i=0;i<180;i++){
+    const old=state.guide.x;
+    story.step(state,1/60,{});
+    if(state.guide.x!==old)movingTicks++;
+    const list=story.markers(state);
+    const guideIndex=list.findIndex(m=>m.id==='guideControl');
+    assert.ok(guideIndex>=0);
+    assert.equal(state.world.loot,firstList,
+      'steady observed escort must not allocate an entirely new 3D marker array');
+    for(let n=0;n<firstEntities.length;n++)
+      assert.equal(state.world.loot[n],firstEntities[n],
+        'stable scene markers keep their object identity for the renderer');
+    assert.equal(state.world.loot[guideIndex].x,state.guide.x);
+    assert.equal(state.world.loot[guideIndex].z,state.guide.z);
+  }
+  assert.ok(movingTicks>25&&state.guide.x>startX+.5);
+  const saved=story.serialize(state);
+  const restored=story.restore(saved);
+  assert.equal(story.serialize(restored),saved,
+    'render optimization never modifies the checkpoint schema or 60Hz physics');
+});
+
+test('CH01 in-place marker optimization rebuilds only when guide observability changes',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');go(state,'muster');
+  story.interact(state);story.interact(state);
+  state.guide.waiting=true;state.world.player.yaw=0;
+  story.step(state,1/60,{});
+  const visibleList=state.world.loot;
+  assert.ok(story.markers(state).some(m=>m.id==='guideControl'));
+  for(let i=0;i<95;i++)story.step(state,1/60,{right:true});
+  assert.equal(story.markers(state).some(m=>m.id==='guideControl'),false);
+  const invisibleList=state.world.loot;
+  assert.notEqual(invisibleList,visibleList,
+    'a marker leaving direct observation requires an updated render list');
+  for(let i=0;i<30;i++)story.step(state,1/60,{});
+  assert.equal(state.world.loot,invisibleList,
+    'idle frames outside observation must not repeatedly rebuild 3D entities');
+  for(let i=0;i<95;i++)story.step(state,1/60,{left:true});
+  assert.ok(story.markers(state).some(m=>m.id==='guideControl'));
+  assert.notEqual(state.world.loot,invisibleList,
+    'a returning civilian must regain a visible physical interaction marker');
+  const regained=state.world.loot;
+  story.step(state,1/60,{});
+  assert.equal(state.world.loot,regained);
+});
