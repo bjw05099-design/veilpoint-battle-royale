@@ -2254,3 +2254,55 @@ test('CH01 companion pace readout does not alter fixed-step simulation or saved 
       'reading HUD guidance must be a pure observation, not a world-state mutation');
   }
 });
+
+
+test('CH01 3D physical objective markers replace same-kind same-count aid pickup with staged aid resume',()=>{
+  const state=reachDecision();
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'muster');
+  assert.equal(story.interact(state).event,'muster');
+  assert.equal(story.interact(state).event,'guide');
+  const initial=story.markers(state);
+  const pickupIndex=initial.findIndex(m=>m.id==='aidPickup');
+  assert.ok(pickupIndex>=0);
+  assert.equal(state.world.loot[pickupIndex].markerId,'aidPickup');
+  const before=state.world.loot;
+  // A scripted aid state transition changes the exact objective without
+  // changing the number or kind of 3D markers. Old kind-only detection left
+  // the pickup position glowing after the actual aid was staged elsewhere.
+  state.aidPickedUp=true;state.aidStaged=true;
+  const changed=story.markers(state),resumeIndex=changed.findIndex(m=>m.id==='aidResume');
+  assert.ok(resumeIndex>=0);
+  assert.equal(changed.length,initial.length);
+  assert.equal(changed[resumeIndex].kind,initial[pickupIndex].kind);
+  story.step(state,1/60,{});
+  assert.notEqual(state.world.loot,before,'identity change rebuilds 3D objective instances');
+  assert.equal(state.world.loot[resumeIndex].markerId,'aidResume');
+  assert.equal(state.world.loot[resumeIndex].x,story.POINTS.aidResume.x);
+  assert.equal(state.world.loot[resumeIndex].z,story.POINTS.aidResume.z);
+  assert.equal(state.world.loot.some(m=>m.markerId==='aidPickup'),false);
+  const stable=state.world.loot;
+  for(let tick=0;tick<120;tick++)story.step(state,1/60,{});
+  assert.equal(state.world.loot,stable,'unchanged physical markers preserve stable renderer instances');
+});
+
+test('CH01 visible moving guide retains its 3D marker identity and does not swap a nearby aid marker',()=>{
+  const state=reachDecision();story.choose(state,'evacuation');
+  go(state,'muster');story.interact(state);story.interact(state);
+  state.world.player.x=-5.9;state.world.player.z=-55;
+  story.step(state,1/60,{});
+  const idx=story.markers(state).findIndex(m=>m.id==='guideControl');
+  assert.ok(idx>=0);
+  const sameArray=state.world.loot,guide3D=state.world.loot[idx];
+  assert.equal(guide3D.markerId,'guideControl');
+  for(let tick=0;tick<90;tick++){
+    story.step(state,1/60,{});
+    assert.equal(state.world.loot,sameArray);
+    assert.equal(state.world.loot[idx],guide3D);
+    assert.equal(guide3D.markerId,'guideControl');
+    assert.equal(guide3D.x,state.guide.x);
+    assert.equal(guide3D.z,state.guide.z);
+  }
+  const restored=story.restore(story.serialize(state));
+  assert.deepEqual(restored.world.loot.map(m=>m.markerId),story.markers(restored).map(m=>m.id));
+});
