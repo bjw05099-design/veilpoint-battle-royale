@@ -2173,3 +2173,77 @@ test('CH01 PC walking pace hint appears only for a nearby visible escort who is 
  assert.doesNotMatch(paused.element('routeStatus').textContent,/천천히 이동해 동행 유지/,
    'a waiting guide should not tell the captain to maintain a follow pace');
 });
+
+
+test('Windows CH01 Save & Exit verifies a durable paused checkpoint before navigating to the mode hub',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01';
+ const shared=new Map([['veilpoint.brCheckpoint.v1','unchanged-BR']]);
+ const app=boot(shared,false,'granted',true,true);
+ assert.equal(app.element('saveExit').classList.contains('hidden'),true,
+  'Save & Exit cannot be used before a playable mission begins');
+ app.element('continue').click();
+ app.moveForward(0,145);
+ const elapsed=Story.restore(shared.get(key)).world.elapsed;
+ app.element('pauseButton').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('saveExit').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.element('continue'),
+  'PC focus must move from the hidden scene to a visible menu action');
+ assert.deepEqual(app.navigations,[]);
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html'],
+  'an explicit successful Save & Exit returns to the offline mode hub');
+ const durable=Story.restore(shared.get(key));
+ assert.equal(durable.phase,'terminal');
+ assert.ok(durable.world.elapsed>=elapsed);
+ const reload=boot(shared,false,'granted',true,true);
+ assert.match(reload.element('menuText').textContent,/이전 진행 기록/);
+ reload.element('continue').click();
+ reload.element('pauseButton').click();
+ assert.ok(Story.restore(shared.get(key)).world.elapsed>=durable.world.elapsed);
+ assert.equal(shared.get('veilpoint.brCheckpoint.v1'),'unchanged-BR');
+});
+
+test('Windows CH01 Save & Exit refuses disk write denial without leaving or losing a valid checkpoint',()=>{
+ const Story=require('../src/story-slice.js'),key='veilpoint.story.ch01';
+ const shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,115);
+ const lastValid=shared.get(key),writer=shared.set.bind(shared);
+ let failures=0;
+ shared.set=(name,value)=>{
+  if(name===key){failures++;throw new Error('quota exhausted');}
+  return writer(name,value);
+ };
+ app.element('pauseButton').click();
+ app.element('saveExit').click();
+ assert.ok(failures>=2,'pause and explicit exit both attempt guarded saves');
+ assert.equal(shared.get(key),lastValid,'a quota error never damages the prior checkpoint');
+ assert.deepEqual(app.navigations,[]);
+ assert.match(app.element('menuText').textContent,/안전하게 저장되지 않았습니다/);
+ assert.match(app.element('saveStatus').textContent,/저장 실패/);
+ shared.set=writer;
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html'],'a later successful write permits exit');
+ assert.ok(Story.restore(shared.get(key)).world.elapsed>=Story.restore(lastValid).world.elapsed);
+});
+
+test('Windows CH01 Save & Exit keeps an older PC tab in the game when a newer tab owns the save',()=>{
+ const key='veilpoint.story.ch01',shared=new Map();
+ const old=boot(shared,false,'granted',true,true);
+ old.element('continue').click();old.moveForward(0,60);
+ old.element('pauseButton').click();
+ const newest=boot(shared,false,'granted',true,true);
+ newest.element('continue').click();newest.moveForward(0,65);
+ newest.element('pauseButton').click();
+ const current=shared.get(key);
+ old.element('saveExit').click();
+ assert.deepEqual(old.navigations,[],'the old browser tab cannot navigate on a failed save');
+ assert.equal(shared.get(key),current,'the newer checkpoint remains unchanged');
+ assert.match(old.element('menuText').textContent,/기존 기록을 보호/);
+ assert.equal(old.context.document.activeElement,old.element('continue'));
+ old.element('continue').click();
+ assert.equal(old.element('menu').classList.contains('hidden'),true,
+  'failed exit never softlocks the paused mission');
+});
