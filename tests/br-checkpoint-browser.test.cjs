@@ -839,3 +839,32 @@ test('BR denied primary write still permits explicitly requested in-memory bookm
    'when gameplay resumes the HUD must disclose that the rewind is memory-only');
  quotaDenied=false;
 });
+
+test('BR memory-only match reports P-key bookmark as non-durable and can still rewind locally',()=>{
+ const previous='invalid-primary-sentinel',existingBookmark='unrelated-existing-bookmark';
+ const store=new Map([[KEY,previous],['veilpoint.brFieldBookmark.v1',existingBookmark]]);
+ const app=boot(store);
+ assert.match(app.node('play').textContent,/기록 보존/);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.status,'playing');
+ app.emit('keydown',{code:'KeyP'});
+ assert.match(app.game.message,/FIELD BOOKMARK IN MEMORY ONLY/);
+ assert.match(app.game.message,/STORAGE UNAVAILABLE/);
+ assert.doesNotMatch(app.game.message,/SAVED FOR RESUME/,
+   'the P-key prompt must not promise disk persistence in a memory-only round');
+ assert.equal(store.get(KEY),previous,'original damaged primary remains untouched');
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),existingBookmark,
+   'unrelated disk bookmark is not replaced by this temporary session');
+ const bookmarked=app.game.player.charges;
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ assert.equal(app.game.player.charges,bookmarked-1);
+ app.emit('keydown',{code:'Escape'});
+ app.node('restoreCheckpoint').click();
+ assert.match(app.node('selector-.tagline').textContent,/이 탭에서는 계속할 수 있으나/);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game.status,'playing');
+ assert.equal(app.game.player.charges,bookmarked,
+   'the player may still voluntarily restore their tab-local bookmark');
+ assert.equal(store.get(KEY),previous);
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),existingBookmark);
+});
