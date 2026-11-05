@@ -63,6 +63,15 @@
   next.bindings[action]=code;
   return {ok:true,value:next};
  }
+ // Pause/resume is an explicit PC menu action, including when a visible
+ // menu button retains keyboard focus. Choice dialogs own Escape separately.
+ // Repeated keys never toggle a paused session more than once.
+ function pcMenuEscape(event,{running=false,mayResume=false}={}){
+  if(!event||event.code!=='Escape')return null;
+  if(event.repeat)return 'ignore';
+  if(running)return 'pause';
+  return mayResume?'resume':'ignore';
+ }
  function actionFor(code,value){
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
@@ -258,7 +267,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
