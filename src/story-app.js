@@ -430,7 +430,7 @@
         // or intentionally restart after an external deletion, as before.
         const latest=global.localStorage.getItem(SAVE_KEY);
         observedPrimary=latest;
-        global.localStorage.getItem(BACKUP_KEY);
+        const originalBackup=global.localStorage.getItem(BACKUP_KEY);
         if(latest!==diskGeneration&&latest!==null){
           try{Story.restore(latest);staleReset=true;}
           catch(_){} // An invalid primary can be explicitly reset by New Game.
@@ -441,6 +441,14 @@
             storage.remove(SAVE_KEY);
           resetVerified=global.localStorage.getItem(SAVE_KEY)===null&&
             global.localStorage.getItem(BACKUP_KEY)===null;
+          if(!resetVerified&&originalBackup!==null){
+            // A blocked primary deletion must not also destroy the older
+            // recoverable checkpoint. Restore only into an empty backup slot;
+            // never overwrite a concurrently replaced backup generation.
+            if(global.localStorage.getItem(BACKUP_KEY)===null){
+              storage.set(BACKUP_KEY,originalBackup);
+            }
+          }
           if(resetVerified)storage.remove(PREVIEW_KEY);
         }
       }catch(_){resetVerified=false;}
