@@ -2212,3 +2212,45 @@ test('CH01 in-place marker optimization rebuilds only when guide observability c
   story.step(state,1/60,{});
   assert.equal(state.world.loot,regained);
 });
+
+
+test('CH01 proximity guidance reports only the locally visible companion and never a hidden exact range',()=>{
+  const state=reachDecision();assert.equal(story.choose(state,'evacuation').ok,true);
+  go(state,'muster');
+  assert.equal(story.interact(state).event,'muster');
+  assert.equal(story.interact(state).event,'guide');
+  state.world.player.x=-5.9;state.world.player.z=-55;
+  assert.equal(story.situation(state).visibleEscortDistance,4.6);
+  state.world.player.x=-4.2;
+  assert.equal(story.situation(state).visibleEscortDistance,6.3);
+  state.world.player.x=0;state.world.player.z=-35;
+  assert.equal(story.situation(state).visibleEscortDistance,null,
+    'the HUD must not track a civilian precisely from outside direct sight');
+  state.world.player.x=-5.9;state.world.player.z=-55;
+  const crate={x:-8.2,z:-55,w:1,d:2,h:2,type:'new-cover'};
+  state.world.obstacles.push(crate);
+  assert.equal(story.situation(state).visibleEscortDistance,null,
+    'nearby solid cover must suppress an exact companion distance');
+  state.world.obstacles.pop();
+  assert.equal(story.situation(state).visibleEscortDistance,4.6);
+  const roundTrip=story.restore(story.serialize(state));
+  assert.equal(story.situation(roundTrip).visibleEscortDistance,4.6,
+    'proximity recomputes from real restored positions, never stale save metadata');
+  state.guide.arrived=true;
+  assert.equal(story.situation(state).visibleEscortDistance,null,
+    'completed physical escort must no longer display following advice');
+});
+
+test('CH01 companion pace readout does not alter fixed-step simulation or saved schema',()=>{
+  const a=reachDecision();story.choose(a,'evacuation');go(a,'muster');
+  story.interact(a);story.interact(a);
+  a.world.player.x=-5.9;a.world.player.z=-55;
+  const b=story.restore(story.serialize(a));
+  for(let frame=0;frame<600;frame++){
+    story.situation(a);
+    story.step(a,1/60,{});
+    story.step(b,1/60,{});
+    assert.equal(story.serialize(a),story.serialize(b),
+      'reading HUD guidance must be a pure observation, not a world-state mutation');
+  }
+});
