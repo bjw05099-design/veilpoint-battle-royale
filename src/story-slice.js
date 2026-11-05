@@ -58,6 +58,7 @@
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
+    guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
     aidDrop: Object.freeze({id:'aidDrop', x:-12, z:-60, kind:'evac', label:'현지 구조단 비상 물품 인계 지점'}),
     aidStage: Object.freeze({id:'aidStage', x:-7, z:-55, kind:'objective', label:'민간 비상 물품 임시 적재대'}),
@@ -191,7 +192,7 @@
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
         ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
-        ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease]:[]),
+        ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,POINTS.guideTransfer]:[]),
          // Companion control is an observed, local objective — never a hidden
          // moving marker on the map when the civilian is beyond visible range.
          ...(state.guide.active&&!state.guide.arrived&&
@@ -258,13 +259,16 @@
       // returning the guide requires arm's-reach contact with BOTH staff and
       // the actual civilian, with a clear path to each. The local E prompt
       // uses the same rule, preventing a misleading interaction HUD.
-      const guideInReach=marker.id!=='guideRelease'||(
+      const guideInReach=!['guideRelease','guideTransfer'].includes(marker.id)||(
         Math.hypot(state.guide.x-p.x,state.guide.z-p.z)<2.1&&
+        (marker.id!=='guideTransfer'||
+          Math.hypot(state.guide.x-POINTS.guideTransfer.x,
+            state.guide.z-POINTS.guideTransfer.z)<2.1)&&
         !Sim.lineBlocked(p.x,p.z,state.guide.x,state.guide.z,state.world.obstacles));
       // A nearby objective is not reachable through solid cover, a closed gate,
       // or a building wall. The same test governs the HUD prompt and E/touch input.
       if(guideInReach&&d<best&&d<(marker.id==='beacon'?SWITCH_REACH:
-          marker.id==='guideControl'||marker.id==='guideRelease'?SUPPLY_REACH:
+          marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;candidate=marker;
@@ -729,6 +733,16 @@
         ?'유수프(현지 구조단): 안내원은 이곳에서 기다릴 거야. 직접 돌아와 동행을 재개해 줘.'
         :'유수프(현지 구조단): 안내원이 다시 함께 이동할 거야. 가까운 거리에서 천천히 안내해 줘.';
       state.message=state.guide.waiting?'안내원 현장 대기 · 접근 후 E로 재개':'안내원 동행 재개 · 남쪽 안뜰로 이동';
+    }else if(marker.id==='guideTransfer'&&state.phase==='exit'&&state.choice==='evacuation'&&
+      state.guide.active&&!state.guide.arrived){
+      // Optional second physical handoff point: the staffed south aid station.
+      // The E prompt requires the player, the actual guide and the aid station
+      // to be locally reachable; no remote dismissal, teleport or extra escort.
+      state.guide.active=false;
+      state.guide.released=true;
+      state.guide.waiting=false;
+      state.subtitle='유수프(현지 구조단): 남쪽 비상 물품 접수소에서 안내원을 직접 인수했어. 안뜰 대피는 계속 진행해.';
+      state.message='남쪽 구조단 안내원 현장 인계 완료 · 대피 통로로 이동';
     }else if(marker.id==='guideRelease'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.guide.active&&!state.guide.arrived){
       // This is a physical alternative to a stalled optional escort: return
@@ -838,7 +852,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?'대피 안내원 집결지 현장 인계 완료':state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
+      guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?'대피 안내원 현장 대기 · 안내원에게 돌아가 E로 재개 가능':Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):'대피 안내원 동행 중 · E로 대기 지시 가능'):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
@@ -874,7 +888,7 @@
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
         (state.aidDelivered?' 현지 구조단에 비상 물품을 직접 전달했습니다.':
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
-        (state.guide.released?' 안내원은 집결지에서 현지 구조단에 직접 인계했습니다.':state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
+        (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 물품 접수소의 현지 구조단에 직접 인계했습니다.':' 안내원은 집결지에서 현지 구조단에 직접 인계했습니다.'):state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')
     });
   }
@@ -898,8 +912,8 @@
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
-          (state.guide.released?' 안내원은 집결지 구조단에 현장 인계했습니다.':state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
-            ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지에 인계하세요.'):state.musterConfirmed
+          (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
+            ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지 또는 남쪽 구조단 접수소에 직접 인계하세요.'):state.musterConfirmed
             ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
             ?' 상자가 임시 적재대에 있습니다. E로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp
@@ -970,7 +984,8 @@
         (data.guide.released===true&&(
           data.guide.active||data.guide.arrived||data.choice!=='evacuation'||
           data.musterConfirmed!==true||!['exit','complete'].includes(data.phase)||
-          Math.hypot(data.guide.x-GUIDE_START.x,data.guide.z-GUIDE_START.z)>2.1))||
+          (Math.hypot(data.guide.x-GUIDE_START.x,data.guide.z-GUIDE_START.z)>2.1&&
+           Math.hypot(data.guide.x-POINTS.guideTransfer.x,data.guide.z-POINTS.guideTransfer.z)>2.1)))||
         (!data.guide.active&&data.guide.released!==true&&(data.guide.arrived||data.guide.x!==GUIDE_START.x||
           data.guide.z!==GUIDE_START.z))))||
       (hasOwn(data,'gateClearanceDuration')&&![4,GATE_CLEARANCE_SECONDS].includes(data.gateClearanceDuration))||

@@ -1861,3 +1861,95 @@ test('CH01 civilian route search will not phase through an enclosing solid barri
   assert.ok(Math.hypot(s.guide.x-first.x,s.guide.z-first.z)<1,
     'without a local route the companion waits rather than wandering far away');
 });
+
+test('CH01 alternate staffed south aid handoff is an actual local PC E interaction',()=>{
+  const s=reachDecision();assert.equal(story.choose(s,'evacuation').ok,true);
+  go(s,'muster');assert.equal(story.interact(s).event,'muster');
+  assert.equal(story.interact(s).event,'guide');
+  const destination=story.POINTS.guideTransfer;
+  assert.ok(story.markers(s).some(m=>m.id==='guideTransfer'));
+  assert.equal(story.POINTS.guideTransfer.kind,'evac');
+  // Remote E at the staffed station cannot dismiss a guide still at muster.
+  go(s,'guideTransfer');assert.equal(story.nearest(s),null);
+  assert.equal(story.interact(s).reason,'too_far');
+  assert.equal(s.guide.active,true);
+  // The existing 60Hz civilian locomotion must carry the guide to the station.
+  for(let i=0;i<600;i++){
+    story.step(s,1/60,{});
+    if(Math.hypot(s.guide.x-destination.x,s.guide.z-destination.z)<1.9)break;
+  }
+  assert.ok(Math.hypot(s.guide.x-destination.x,s.guide.z-destination.z)<2.1,
+    'the actual companion must arrive within physical staff reach');
+  const previous={x:s.guide.x,z:s.guide.z};
+  assert.equal(story.nearest(s)?.id,'guideTransfer');
+  assert.equal(story.interact(s).event,'guideTransfer');
+  assert.equal(s.guide.active,false);assert.equal(s.guide.released,true);
+  assert.equal(s.guide.waiting,false);
+  assert.deepEqual({x:s.guide.x,z:s.guide.z},previous,
+    'the person is not teleported when staff accept handoff');
+  assert.equal(story.markers(s).some(m=>m.id==='guideTransfer'),false);
+  assert.match(story.situation(s).guideStatus,/남쪽 구조단 인계 완료/);
+  const saved=story.serialize(s),resumed=story.restore(saved);
+  assert.equal(story.serialize(resumed),saved);
+  assert.equal(resumed.world.guide,resumed.guide);
+  go(resumed,'exitEvac');assert.equal(story.interact(resumed).ok,true);
+  assert.equal(resumed.phase,'complete');
+  assert.match(story.debrief(resumed).summary,/물품 접수소/);
+  assert.equal(story.debrief(resumed).guideReleased,true);
+});
+
+test('CH01 south aid station never accepts an absent or occluded civilian',()=>{
+  const s=reachDecision();story.choose(s,'evacuation');go(s,'muster');
+  story.interact(s);story.interact(s);
+  const target=story.POINTS.guideTransfer;
+  s.world.player.x=target.x;s.world.player.z=target.z;
+  assert.equal(story.nearest(s),null,'the player alone cannot remotely hand off a civilian');
+  // Even close actor positions cannot interact through a physical obstruction.
+  s.guide.x=target.x+1.6;s.guide.z=target.z;
+  const barrier={x:target.x+.8,z:target.z,w:.2,d:2,h:2,type:'test-handoff-barrier'};
+  s.world.obstacles.push(barrier);
+  assert.equal(story.nearest(s),null,'E cannot pass through solid cover');
+  s.world.obstacles.pop();
+  assert.equal(story.nearest(s)?.id,'guideTransfer');
+  assert.equal(story.interact(s).event,'guideTransfer');
+});
+
+test('CH01 checkpoint rejects an unstaffed forged guide handoff while migrating old muster releases',()=>{
+  const atMuster=reachDecision();story.choose(atMuster,'evacuation');go(atMuster,'muster');
+  story.interact(atMuster);story.interact(atMuster);
+  assert.equal(story.interact(atMuster).event,'guideRelease');
+  const musterSaved=story.serialize(atMuster);
+  assert.equal(story.restore(musterSaved).guide.released,true);
+  const forged=JSON.parse(musterSaved);
+  forged.guide.x=-5;forged.guide.z=-56;
+  assert.throws(()=>story.restore(JSON.stringify(forged)),RangeError,
+    'release must occur near an actual staffed point');
+  const historical=JSON.parse(musterSaved);
+  delete historical.guide.waiting;
+  assert.equal(story.restore(JSON.stringify(historical)).guide.released,true);
+});
+
+test('CH01 aid crate handoff and civilian handoff remain two separate finite actions',()=>{
+  const s=reachDecision();story.choose(s,'evacuation');
+  go(s,'muster');story.interact(s);story.interact(s);
+  go(s,'aidPickup');assert.equal(story.interact(s).event,'aidPickup');
+  assert.equal(s.world.carryingAid,true);
+  const target=story.POINTS.guideTransfer;
+  s.guide.x=target.x+1.6;s.guide.z=target.z;
+  go(s,'guideTransfer');
+  assert.equal(story.nearest(s)?.id,'guideTransfer');
+  assert.equal(story.interact(s).event,'guideTransfer');
+  assert.equal(s.guide.released,true);
+  assert.equal(s.world.carryingAid,true,
+    'the civilian handoff must not erase or duplicate the single aid crate');
+  assert.equal(story.nearest(s)?.id,'aidDrop');
+  assert.equal(story.interact(s).event,'aidDrop');
+  assert.equal(s.world.carryingAid,false);
+  assert.equal(s.aidDelivered,true);
+  const raw=story.serialize(s);
+  assert.equal(story.serialize(story.restore(raw)),raw);
+  go(s,'exitEvac');assert.equal(story.interact(s).ok,true);
+  const result=story.debrief(s);
+  assert.equal(result.aidDelivered,true);
+  assert.equal(result.guideReleased,true);
+});
