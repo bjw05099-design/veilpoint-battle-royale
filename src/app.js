@@ -497,9 +497,24 @@ $('restoreCheckpoint').addEventListener('click',()=>{
   document.querySelector('.tagline').textContent='이 경기에서 P키로 기록한 지점이 없습니다. 현재 경기를 유지합니다.';
   return;
  }
- simulation=checkpoint;lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
- pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
- const saved=persistMatch();updateHud();
+ // Rewind is a tentative world-state transition until it is made durable.
+ // Another PC tab can replace our primary checkpoint between the P-key press
+ // and this pause-menu action. Never abandon the current in-memory world on a
+ // verified generation conflict: the user can keep playing it unchanged.
+ const previousSimulation=simulation;
+ const previousAutosave=lastAutosaveElapsed,previousSavedHealth=lastSavedHealth;
+ simulation=checkpoint;
+ const saved=persistMatch();
+ if(!saved&&saveIssue==='conflict'){
+  simulation=previousSimulation;
+  lastAutosaveElapsed=previousAutosave;lastSavedHealth=previousSavedHealth;
+  pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();updateHud();
+  document.querySelector('.tagline').textContent=
+   '다른 창에서 저장 기록이 변경되어 P키 현장 복원을 취소했습니다. 현재 경기는 변경하지 않았습니다. 이어하기로 계속할 수 있습니다.';
+  return;
+ }
+ lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;
+ pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();updateHud();
  document.querySelector('.tagline').textContent=saved
   ?'P키로 기록한 현장 지점으로 복원했습니다. 현재 상태도 저장했습니다. 이어하기를 누르면 진행합니다.'
   :'P키의 현장 지점으로 복원했지만 저장 공간이 거부되었습니다. 이 탭에서는 계속할 수 있으나 새로고침하면 복원 이전 상태가 열릴 수 있습니다.';
