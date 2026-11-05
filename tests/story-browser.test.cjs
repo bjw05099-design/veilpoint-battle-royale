@@ -2544,23 +2544,13 @@ test('CH01 field journal cannot interrupt an active route-choice dialog',()=>{
 });
 
 
-test('CH01 failed checkpoint retry selects the most recent valid durable generation',()=>{
-  const Story=require('../src/story-slice.js');
-  const shared=new Map();
-  const older=Story.createState();
-  older.world.player.x=3;
-  const newer=Story.createState();
-  newer.world.player.x=7;
-  // An active browser session can retain an older in-memory generation while
-  // a second tab writes a newer validated checkpoint to the primary slot.
-  shared.set('veilpoint.story.ch01',Story.serialize(older));
-  const app=boot(shared);
-  app.element('continue').click();
-  shared.set('veilpoint.story.ch01',Story.serialize(newer));
-  // A fatal world transition is driven through the existing 60Hz clock rather
-  // than by mutating the private app state. This checks that retry never
-  // blindly prefers the stale in-memory snapshot over a durable primary.
-  const state=Story.restore(shared.get('veilpoint.story.ch01'));
-  assert.equal(state.world.player.x,7);
-  assert.notEqual(Story.serialize(older),Story.serialize(newer));
+
+test('CH01 retry checks durable primary before stale session snapshot and preserves backup fallback',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','src/story-app.js'),'utf8');
+  const retry=source.slice(source.indexOf("if(state.phase==='failed'){"));
+  const candidates=retry.match(/for\\(const raw of \\[([^\\]]+)\\]\\)/);
+  assert.ok(candidates,'retry must inspect validated checkpoint candidates');
+  assert.match(candidates[1],/^storage\\.get\\(SAVE_KEY\\),checkpoint,storage\\.get\\(BACKUP_KEY\\)$/);
+  assert.match(retry,/Story\\.restore\\(raw\\)/);
+  assert.match(retry,/candidate\\.phase!=='failed'&&candidate\\.phase!=='complete'/);
 });
