@@ -33,6 +33,7 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, bEliminated);
     DOREPLIFETIME(AVPCharacter, Stamina);
     DOREPLIFETIME(AVPCharacter, bSprinting);
+    DOREPLIFETIME(AVPCharacter, bSprintExhausted);
 }
 void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -111,6 +112,7 @@ void AVPCharacter::Tick(float DeltaSeconds)
 }
 void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
 {
+    const bool bPreviouslyExhausted = bSprintExhausted;
     const bool bMoving = GetVelocity().SizeSquared2D() > FMath::Square(30.f);
     if (bSprintExhausted && Stamina >= 25.f) bSprintExhausted = false;
     const bool bCanSprint = bSprintHeld && !bIsCrouched && bMoving &&
@@ -127,6 +129,9 @@ void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
         bSprinting = bNowSprinting;
         ApplySprintSpeed();
     }
+    // A single state transition is significant to the owning Windows HUD.
+    // Avoid forcing network updates on every 60Hz stamina drain step.
+    if (bSprintExhausted != bPreviouslyExhausted) ForceNetUpdate();
 }
 
 void AVPCharacter::BeginCrouch() { if (IsAlive()) Crouch(); }
