@@ -121,11 +121,24 @@
     // The closest edge is not necessarily navigable: a legacy save may
     // overlap a neighboring solid object. Test both exits against the live
     // collision world before moving the player.
-    const candidates=[north,south].map(z=>({x:p.x,z}))
-      .filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles))
-      .sort((a,b)=>Math.abs(a.z-p.z)-Math.abs(b.z-p.z));
-    if(!candidates.length)return false;
-    p.z=candidates[0].z;
+    // Legacy saves may be wedged between the sliding gate and later-added
+    // scenery. Search both perpendicular sides AND the gate's short ends,
+    // including clear corners, before rejecting an otherwise valid checkpoint.
+    // This is load-time recovery only; normal 60Hz locomotion never teleports.
+    const west=gate.x-gate.w/2-1,east=gate.x+gate.w/2+1;
+    const candidates=[
+      {x:p.x,z:north},{x:p.x,z:south},
+      {x:west,z:p.z},{x:east,z:p.z},
+      {x:west,z:north},{x:east,z:north},
+      {x:west,z:south},{x:east,z:south}
+    ].filter(q=>!Sim.blocked(q.x,q.z,.85,state.world.obstacles))
+      .sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-
+        Math.hypot(b.x-p.x,b.z-p.z));
+    // Do not silently return a restored checkpoint with the player's body
+    // trapped in a solid barrier. Let the recovery layer try a known-good
+    // previous generation instead.
+    if(!candidates.length)throw new RangeError('No collision-free gate checkpoint recovery');
+    p.x=candidates[0].x;p.z=candidates[0].z;
     return true;
   }
   function recoverSceneOverlap(state) {
