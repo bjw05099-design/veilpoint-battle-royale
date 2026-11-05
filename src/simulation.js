@@ -235,6 +235,7 @@
     // The rail, actor sweep and fixed-step motor remain authoritative.
     // A fully open panel closes; a fully closed panel opens.
     const gate=game.yardGate;
+    if(gate.engaged&&gate.progress===0&&!gate.closing)return {ok:false,reason:'already_engaged'};
     const reversing=gate.engaged&&gate.progress>0&&gate.progress<1;
     const closing=reversing?!gate.closing:gate.progress>=1;
     gate.engaged=true;
