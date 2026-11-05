@@ -441,13 +441,16 @@
       Number.isFinite(wall.x)&&Number.isFinite(wall.z)&&
       Number.isFinite(wall.w)&&Number.isFinite(wall.d)&&wall.w>0&&wall.d>0)
       .map(wall=>({...wall,w:wall.w+bodyMargin*2,d:wall.d+bodyMargin*2}));
+    // A longer solid harbor wall can require a real walking route farther
+    // than 12m beyond the straight-line gap. Keep the graph bounded while
+    // allowing the guide to reach both ends instead of freezing behind it.
     const nodes=[{x:guide.x,z:guide.z}];
     for(const wall of near){
       for(const sx of [-1,1])for(const sz of [-1,1]){
         const target={x:wall.x+sx*(wall.w/2+clearance),
           z:wall.z+sz*(wall.d/2+clearance)};
         if(Math.min(Math.hypot(target.x-guide.x,target.z-guide.z),
-           Math.hypot(target.x-player.x,target.z-player.z))>10||
+           Math.hypot(target.x-player.x,target.z-player.z))>14||
            Sim.blocked(target.x,target.z,.55,state.world.obstacles))continue;
         nodes.push(target);
       }
@@ -469,12 +472,11 @@
         const distance=Math.hypot(nodes[current].x-nodes[i].x,
           nodes[current].z-nodes[i].z);
         const next=cost[current]+distance;
-        // A long but finite zigzag is allowed around multiple close containers,
-        // but an effectively impassable wall cannot pull the civilian many
-        // metres away from a player who is only a few metres across the wall.
+        // A bounded physical walk around a long container is legitimate;
+        // still reject paths beyond 36m rather than allow map-wide pursuit.
         // This relative bound is recalculated from live poses at each 60Hz tick.
         const direct=Math.hypot(guide.x-player.x,guide.z-player.z);
-        if(next>Math.min(36,direct+12)||next>=cost[i]-1e-8)continue;
+        if(next>Math.min(36,direct+20)||next>=cost[i]-1e-8)continue;
         cost[i]=next;previous[i]=current;
       }
     }
