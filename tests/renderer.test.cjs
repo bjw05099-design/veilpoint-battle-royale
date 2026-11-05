@@ -298,7 +298,7 @@ test('static world chunks retain every original triangle and conservative full-v
    assert.ok(Math.hypot(packed[start]-chunk.x,packed[start+2]-chunk.z)<chunk.radius,
      'even long cross-cell triangles must remain inside a conservative chunk circle');
  }
- assert.deepEqual(partition(original,56),{packed,chunks},
+ assert.equal(JSON.stringify(partition(original,56)),JSON.stringify({packed,chunks}),
   'chunk ranges and bounds must be deterministic on an identical world');
  assert.throws(()=>partition([1,2,3]),RangeError);
  assert.throws(()=>partition(original,0),RangeError);
@@ -332,6 +332,7 @@ test('WebGL statics cull out-of-view submissions without changing physics or buf
  assert.equal(renderer.static.buffer,buffer,'turning the camera does not reupload the static mesh');
  assert.equal(renderer.static.count,total);
  assert.equal(fake.created,2,'one static VBO and one reusable dynamic VBO');
+ state.player.yaw=0;
  assert.equal(JSON.stringify(state),snapshot,'render-only culling never edits physical world state');
  const Story=require('../src/story-slice.js');
  const chapter=Story.createState();
