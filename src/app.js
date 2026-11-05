@@ -292,9 +292,11 @@ function storedMatch(){
   const result=Game.recoverMatch(primary,backup);
   if(!result)return null;
   if(result.source==='backup'){
-   let current;
-   try{current=global.localStorage.getItem(MATCH_SAVE_KEY);}
-   catch(_){
+   let current,currentBackup;
+   try{
+    current=global.localStorage.getItem(MATCH_SAVE_KEY);
+    currentBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
+   }catch(_){
     // The validated backup is still playable, but must not risk a blind
     // overwrite while access to disk generations is unavailable.
     checkpointReadUnavailable=true;memoryOnlyMatch=true;
@@ -302,7 +304,7 @@ function storedMatch(){
    }
    if(current!==primary){
     // Another PC tab saved or deleted a new primary during validation.
-    // Never promote our older backup across that newer generation.
+    // Prefer the most recent *validated* active round over the old fallback.
     try{
      const latest=Game.restoreMatch(current);
      matchDiskGeneration=current;
@@ -311,6 +313,14 @@ function storedMatch(){
      checkpointInvalidStored=true;memoryOnlyMatch=true;
      return result.state;
     }
+   }
+   if(currentBackup!==backup){
+    // A second tab can rotate the backup slot while the primary stays corrupt.
+    // Never promote stale backup bytes or silently discard a newer generation.
+    // Allow a newly validated backup only in a non-overwriting, temporary round.
+    checkpointInvalidStored=true;memoryOnlyMatch=true;
+    try{return Game.restoreMatch(currentBackup);}
+    catch(_){return result.state;}
    }
    matchDiskGeneration=primary||null;
    try{
