@@ -160,9 +160,26 @@ function setGraphicsSettingsScreen(screen='visual'){
  // Abandon an unfinished remap when its controls screen is no longer visible.
  if(screen!=='controls'&&typeof desktopUi!=='undefined')desktopUi.cancel();
 }
-for(const [id,screen] of [['graphicsTabVisual','visual'],
- ['graphicsTabControls','controls'],['graphicsTabBenchmark','benchmark']])
- $(id).addEventListener('click',()=>setGraphicsSettingsScreen(screen));
+const graphicsTabScreens=[['graphicsTabVisual','visual'],
+ ['graphicsTabControls','controls'],['graphicsTabBenchmark','benchmark']];
+for(const [id,screen] of graphicsTabScreens){
+ const tab=$(id);
+ tab.addEventListener('click',()=>setGraphicsSettingsScreen(screen));
+ tab.addEventListener('keydown',event=>{
+  const keys=['ArrowRight','ArrowLeft','Home','End'];
+  if(!keys.includes(event.key))return;
+  // WAI-ARIA tab navigation stays within this settings screen and never
+  // forwards arrow keys to the paused 60Hz simulation.
+  event.preventDefault();
+  event.stopPropagation();
+  const current=graphicsTabScreens.findIndex(([tabId])=>tabId===id);
+  const next=event.key==='Home'?0:event.key==='End'?graphicsTabScreens.length-1:
+   (current+(event.key==='ArrowRight'?1:-1)+graphicsTabScreens.length)%graphicsTabScreens.length;
+  const [nextId,nextScreen]=graphicsTabScreens[next];
+  setGraphicsSettingsScreen(nextScreen);
+  $(nextId).focus();
+ });
+}
 function setGraphicsPanelOpen(open,opener=null){
  if(open&&running&&!suspended){
   suspendMatch();
