@@ -3461,3 +3461,107 @@ test('CH01 GPU loss while journal is visible restores accessible factual records
  app.emit('keydown',{code:'Escape',target:close});
  assert.equal(journal.classList.contains('hidden'),true);
 });
+
+test('CH01 offline PC menu exports the verified live mission without touching either stored generation',()=>{
+ const Story=require('../src/story-slice.js');
+ const app=boot();
+ app.element('continue').click();
+ app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ const primary=app.store.get('veilpoint.story.ch01');
+ const previous=app.store.get('veilpoint.story.ch01.previous');
+ assert.equal(app.element('checkpointExport').classList.contains('hidden'),false);
+ app.element('checkpointExport').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),false);
+ assert.equal(app.element('checkpointTransferText').readOnly,true);
+ assert.equal(app.element('checkpointApply').classList.contains('hidden'),true);
+ const raw=app.element('checkpointTransferText').value;
+ assert.ok(raw.length>100);
+ const restored=Story.restore(raw);
+ assert.equal(restored.phase,'terminal');
+ assert.equal(Story.serialize(restored),raw);
+ assert.equal(app.store.get('veilpoint.story.ch01'),primary);
+ assert.equal(app.store.get('veilpoint.story.ch01.previous'),previous);
+});
+
+test('CH01 validated portable import occupies an empty PC save slot and resumes its exact 60Hz pose',()=>{
+ const Story=require('../src/story-slice.js');
+ const transferred=Story.createState();
+ for(let i=0;i<90;i++)Story.step(transferred,1/60,{forward:true});
+ const raw=Story.serialize(transferred);
+ const app=boot();
+ app.element('checkpointImport').click();
+ assert.equal(app.element('checkpointTransferText').readOnly,false);
+ app.element('checkpointTransferText').value=raw;
+ app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),true);
+ assert.equal(app.store.get('veilpoint.story.ch01'),raw);
+ assert.match(app.element('menuText').textContent,/가져오기 및 저장 확인/);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ app.frame(1000/60);
+ assert.equal(app.context.VeilpointInput.forward,false);
+ const current=app.store.get('veilpoint.story.ch01');
+ assert.equal(JSON.parse(current).player.z,JSON.parse(raw).player.z);
+ assert.equal(JSON.parse(current).phase,'terminal');
+});
+
+test('CH01 imported data cannot overwrite a primary or backup owned by an existing PC browser session',()=>{
+ const Story=require('../src/story-slice.js');
+ const old=Story.serialize(Story.createState());
+ const store=new Map([['veilpoint.story.ch01',old],
+   ['veilpoint.story.ch01.previous',old]]);
+ const imported=Story.createState();
+ Story.step(imported,1/60,{forward:true});
+ const raw=Story.serialize(imported);
+ assert.notEqual(raw,old);
+ const app=boot(store);
+ app.element('checkpointImport').click();
+ app.element('checkpointTransferText').value=raw;
+ app.element('checkpointApply').click();
+ assert.match(app.element('menuText').textContent,/이 탭에서만 진행/);
+ assert.match(app.element('saveStatus').textContent,/임시 가져오기/);
+ assert.equal(app.element('checkpointExport').classList.contains('hidden'),false);
+ app.element('checkpointExport').click();
+ assert.equal(app.element('checkpointTransferText').value,raw);
+ app.element('continue').click();
+ app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(store.get('veilpoint.story.ch01'),old);
+ assert.equal(store.get('veilpoint.story.ch01.previous'),old);
+});
+
+test('CH01 malformed or completed import cannot modify the current live world or protected disk checkpoint',()=>{
+ const Story=require('../src/story-slice.js');
+ const old=Story.serialize(Story.createState());
+ const store=new Map([['veilpoint.story.ch01',old]]);
+ const app=boot(store);
+ app.element('checkpointImport').click();
+ for(const payload of ['{}','x'.repeat(8300)]){
+  app.element('checkpointTransferText').value=payload;
+  app.element('checkpointApply').click();
+  assert.match(app.element('checkpointTransferStatus').textContent,/가져오기 실패/);
+  assert.equal(store.get('veilpoint.story.ch01'),old);
+ }
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true,
+  'invalid imports do not start or replace the previous real mission');
+ assert.match(app.element('objective').textContent,/중계기/);
+});
+
+test('CH01 portable import remains a read-only temporary world when browser storage permission is denied',()=>{
+ const Story=require('../src/story-slice.js');
+ const app=boot(new Map(),false,'granted',true,true,true);
+ const raw=Story.serialize(Story.createState());
+ app.element('checkpointImport').click();
+ app.element('checkpointTransferText').value=raw;
+ app.element('checkpointApply').click();
+ assert.match(app.element('menuText').textContent,/이 탭에서만 진행/);
+ assert.match(app.element('saveStatus').textContent,/임시 가져오기/);
+ app.element('continue').click();
+ app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.element('checkpointExport').classList.contains('hidden'),false);
+ app.element('checkpointExport').click();
+ assert.equal(app.element('checkpointTransferText').value,raw);
+});
