@@ -14,10 +14,27 @@ namespace VEILPOINT.DemoHost;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static int Main(string[] args)
     {
+        // Windows CI can execute the actual published PE without opening a
+        // GUI. Nonzero means that its bundled game assets are not loadable.
+        if (args.Length == 1 && args[0] == "--verify-package")
+        {
+            try
+            {
+                OfflinePayloadVerifier.Verify(
+                    Path.Combine(AppContext.BaseDirectory, "game"));
+                return 0;
+            }
+            catch
+            {
+                return 7;
+            }
+        }
+
         ApplicationConfiguration.Initialize();
         Application.Run(new DemoWindow());
+        return 0;
     }
 }
 
@@ -31,6 +48,8 @@ internal sealed class DemoWindow : Form
         Dock = DockStyle.Bottom,
         Height = 32,
         TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = Color.White,
+        BackColor = Color.FromArgb(27, 38, 48),
         Padding = new Padding(12, 0, 8, 0),
         Text = "Initializing offline Windows demo..."
     };
@@ -98,11 +117,7 @@ internal sealed class DemoWindow : Form
             // Never fall back to file://, a development HTTP server, or an
             // Internet URL when the bundled game files are missing.
             var gameFolder = Path.Combine(AppContext.BaseDirectory, "game");
-            if (!File.Exists(Path.Combine(gameFolder, "index.html")) ||
-                !File.Exists(Path.Combine(gameFolder, "story.html")) ||
-                !Directory.Exists(Path.Combine(gameFolder, "src")))
-                throw new FileNotFoundException(
-                    "Bundled offline game/ assets are missing. Extract the whole ZIP first.");
+            OfflinePayloadVerifier.Verify(gameFolder); // Fail before loading any unverified JS.
 
             // A stable, private virtual origin allows localStorage checkpoints
             // to survive EXE restarts. These are separate from file:// saves.
