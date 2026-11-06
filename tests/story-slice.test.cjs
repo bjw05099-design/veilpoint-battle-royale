@@ -2444,3 +2444,25 @@ test('legacy CH01 actor overlap restores collision-free and conserves ammunition
   assert.equal(story.serialize(story.restore(story.serialize(restored))),
     story.serialize(restored));
 });
+
+test('CH01 legacy overlap recovery remains deterministic over 60Hz gameplay',()=>{
+  const state=story.createState();
+  go(state,'terminal');
+  assert.equal(story.interact(state).ok,true);
+  const actor=state.world.bots.find(b=>b.alive);
+  assert.ok(actor);
+  state.world.player.x=actor.x;
+  state.world.player.z=actor.z;
+  const save=story.serialize(state);
+  const a=story.restore(save),b=story.restore(save);
+  assert.equal(story.serialize(a),story.serialize(b));
+  assert.equal(Sim.blocked(a.world.player.x,a.world.player.z,.85,
+    a.world.obstacles.concat(a.world.bots.filter(bot=>bot.alive)
+      .map(bot=>({x:bot.x,z:bot.z,w:1.5,d:1.5})))),false);
+  for(let i=0;i<120;i++){
+    story.step(a,1/60,{});
+    story.step(b,1/60,{});
+    assert.equal(story.serialize(a),story.serialize(b));
+  }
+  assert.equal(a.world.player.charges,state.world.player.charges);
+});
