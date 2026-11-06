@@ -6,7 +6,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 const src=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
-const first=src.indexOf("  let fieldJournalReturnView='main';");
+const first=src.indexOf("  let fieldJournalReturnView='main',journalPage=0;");
 const last=src.indexOf("  $('pauseButton').addEventListener",first);
 assert.ok(first>=0&&last>first,'real CH01 journal handlers must be present');
 
