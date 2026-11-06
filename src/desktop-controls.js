@@ -85,9 +85,23 @@
   if(/^Arrow(?:Up|Down|Left|Right)$/.test(code))return code.slice(5).toUpperCase();
   return code;
  }
+ // CH01 mission copy is authored with legacy default-key cues. Render the
+ // bindings the PC player actually owns, including keyboard fire and uncommon
+ // Numpad/Shift remaps. This changes HUD text only, never 60Hz gameplay input.
+ function storyHintText(text,bindings){
+  const map=bindings&&typeof bindings==='object'?bindings:DEFAULT_BINDINGS;
+  const label=action=>keyLabel(map[action]);
+  return String(text??'')
+   .replaceAll('E로',label('interact')+'로')
+   .replaceAll('E를',label('interact')+'를')
+   .replaceAll('E 누르',label('interact')+' 누르')
+   .replaceAll('R키',label('reload')+'키')
+   .replaceAll('R 재장전',label('reload')+' 재장전')
+   .replaceAll('Q 상황 보고',label('support')+' 상황 보고')
+   .replaceAll('SPACE 발사',label('fire')+' 발사');
+ }
  // Browser/OS command chords are never gameplay input, even if their final
- // physical key is remapped to an action. Preserve ordinary Shift sprint and
- // ignore Ctrl/Alt/Meta modifiers without preventing the browser shortcut.
+ // physical key is remapped to an action. Ordinary Shift remains playable.
  function isModifiedGameplayKey(event){
   return !!event&&(!!event.ctrlKey||!!event.altKey||!!event.metaKey);
  }
@@ -273,7 +287,8 @@
   });
   function captureKey(event){
    if(!capturing)return false;
-   if(isModifiedGameplayKey(event))return false; // Never capture Ctrl+R/Alt+Tab as a plain R/Tab bind.
+   // Do not steal browser/OS chords while listening for a new game key.
+   if(isModifiedGameplayKey(event))return false;
    if(isGameplayShortcut(event))return false;
    event.preventDefault();
    if(event.code==='Escape'){capturing=false;status.textContent='키 변경을 취소했습니다.';refresh();return true;}
@@ -287,7 +302,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
