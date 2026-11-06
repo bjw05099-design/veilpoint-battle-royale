@@ -1181,8 +1181,10 @@
     }
     if(!choices.classList.contains('hidden')){
       if(e.repeat)return; // One physical key press selects at most one branch.
-      if(e.code==='Digit1'){e.preventDefault();decide('evacuation');}
-      else if(e.code==='Digit2'){e.preventDefault();decide('verification');}
+      // Full-size PC keyboards may use either number row or numpad.
+      // Both routes retain Story.choose's existing authorization checks.
+      if(e.code==='Digit1'||e.code==='Numpad1'){e.preventDefault();decide('evacuation');}
+      else if(e.code==='Digit2'||e.code==='Numpad2'){e.preventDefault();decide('verification');}
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
