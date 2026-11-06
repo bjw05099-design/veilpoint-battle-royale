@@ -807,6 +807,9 @@
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
+    // An OS command chord cannot also dispatch a remapped game action or
+    // leave a held movement/trigger latch active in the fixed-step world.
+    if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
      if(Desktop.isGameplayShortcut(e)){clearInput();return;}
     // Route-choice keys are owned by the visible dialog, even when the
     // focused target is one of its accessible buttons. Previously the generic

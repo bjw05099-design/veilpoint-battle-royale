@@ -100,6 +100,11 @@
    .replaceAll('Q 상황 보고',label('support')+' 상황 보고')
    .replaceAll('SPACE 발사',label('fire')+' 발사');
  }
+ // Browser/OS command chords are never gameplay input, even if their final
+ // physical key is remapped to an action. Ordinary Shift remains playable.
+ function isModifiedGameplayKey(event){
+  return !!event&&(!!event.ctrlKey||!!event.altKey||!!event.metaKey);
+ }
  function actionFor(code,value){
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
@@ -282,6 +287,8 @@
   });
   function captureKey(event){
    if(!capturing)return false;
+   // Do not steal browser/OS chords while listening for a new game key.
+   if(isModifiedGameplayKey(event))return false;
    if(isGameplayShortcut(event))return false;
    event.preventDefault();
    if(event.code==='Escape'){capturing=false;status.textContent='키 변경을 취소했습니다.';refresh();return true;}
@@ -295,7 +302,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
