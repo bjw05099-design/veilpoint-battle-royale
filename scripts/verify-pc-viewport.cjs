@@ -223,6 +223,91 @@ function auditStoryRoute(){
  document.documentElement.setAttribute('data-vp-story-geometry',btoa(JSON.stringify(data)));
 }
 
+
+function auditStoryMenu(){
+ const data={width:innerWidth,height:innerHeight,cases:[],errors:[]};
+ try{
+  const get=id=>document.getElementById(id);
+  const menu=get('menu'),choices=get('choices');
+  if(!menu||!choices)throw new Error('Missing CH01 menu');
+  const card=menu.querySelector('.card');
+  if(!card)throw new Error('Missing CH01 menu card');
+  choices.classList.add('hidden');menu.classList.remove('hidden');
+  const visible=node=>{
+   if(!node||node.getClientRects().length===0)return false;
+   const style=getComputedStyle(node);
+   return style.display!=='none'&&style.visibility!=='hidden';
+  };
+  const targets={
+   main:['continue','newGame','storyGraphicsOpen','storyMenuMore','storyMenuAbout'],
+   tools:['storyMenuBack','checkpointImport','fieldJournalOpen','modeSelectLink'],
+   settings:['storyMenuBack','quality','desktopSensitivity','desktopBindKey'],
+   import:['storyMenuBack','checkpointTransferText','checkpointApply','checkpointFile'],
+   export:['storyMenuBack','checkpointTransferText','checkpointDownload'],
+   about:['storyMenuBack']
+  };
+  for(const view of Object.keys(targets)){
+   for(const mode of ['tools','settings','import','about'])
+    menu.classList.toggle('menu-view-'+mode,mode===(view==='export'?'import':view));
+   const panel=get('checkpointTransferPanel');
+   panel.classList.toggle('hidden',view!=='import'&&view!=='export');
+   get('checkpointDownload').classList.toggle('hidden',view!=='export');
+   get('checkpointApply').classList.toggle('hidden',view==='export');
+   for(const id of ['saveCheckpoint','restorePrevious','checkpointExport','saveExit','reviewCompleted'])
+    get(id).classList.toggle('hidden',view!=='tools');
+   const page={name:'CH01-menu-'+view,controls:0,issues:[],targets:[]};
+   const doc=document.documentElement;
+   if(doc.scrollHeight>innerHeight+2||doc.scrollWidth>innerWidth+2)
+    page.issues.push({id:'document-scroll',height:doc.scrollHeight,width:doc.scrollWidth});
+   const box=card.getBoundingClientRect();
+   for(const node of [menu,card,...card.querySelectorAll('button,select,input,textarea,a,h1,p,label,div,section')]){
+    if(!visible(node))continue;
+    const rect=node.getBoundingClientRect();
+    if(node.matches('button,select,input,textarea,a'))page.controls++;
+    if(rect.left< -1.5||rect.top< -1.5||rect.right>innerWidth+1.5||
+       rect.bottom>innerHeight+1.5||
+       (node!==menu&&(rect.left<box.left-1.5||rect.top<box.top-1.5||
+        rect.right>box.right+1.5||rect.bottom>box.bottom+1.5)))
+     page.issues.push({id:node.id||node.tagName.toLowerCase(),
+      reason:'CH01 menu clipping',position:[rect.left,rect.top,rect.right,rect.bottom]});
+    const style=getComputedStyle(node);
+    if((/^(auto|scroll)$/.test(style.overflowY||style.overflow)&&node.scrollHeight>node.clientHeight+2)||
+       (/^(auto|scroll)$/.test(style.overflowX||style.overflow)&&node.scrollWidth>node.clientWidth+2))
+     page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'CH01 nested scroll'});
+   }
+   for(const element of [menu,card]){
+    if(element.scrollHeight>element.clientHeight+2||
+       element.scrollWidth>element.clientWidth+2)
+     page.issues.push({id:element.id||element.tagName.toLowerCase(),reason:'CH01 page scroll',
+      scroll:[element.scrollWidth,element.scrollHeight],
+      client:[element.clientWidth,element.clientHeight]});
+   }
+   for(const id of targets[view]){
+    const node=get(id);
+    const target={id,visible:visible(node),enabled:!!node&&!node.disabled};
+    if(!target.visible||!target.enabled){
+     page.issues.push({id,reason:'CH01 required control unavailable'});
+     page.targets.push(target);continue;
+    }
+    const rect=node.getBoundingClientRect(),probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+    const hits=probes.map(([fx,fy])=>{
+     const hit=document.elementFromPoint(rect.left+rect.width*fx,rect.top+rect.height*fy);
+     return !!hit&&(hit===node||node.contains(hit));
+    });
+    target.probesPassed=hits.filter(Boolean).length;target.hit=hits.every(Boolean);
+    node.focus({preventScroll:true});target.focused=document.activeElement===node;
+    if(!target.hit||!target.focused)
+     page.issues.push({id,reason:!target.hit?'CH01 menu control covered':'CH01 menu control unfocusable',
+      probesPassed:target.probesPassed});
+    page.targets.push(target);
+   }
+   data.cases.push(page);
+   data.errors.push(...page.issues.map(issue=>page.name+': '+JSON.stringify(issue)));
+  }
+ }catch(error){data.errors.push('CH01 menu audit exception: '+String(error&&error.stack||error));}
+ document.documentElement.setAttribute('data-vp-menu-geometry',btoa(JSON.stringify(data)));
+}
+
 function browser(){
  if(process.env.CHROME_BIN&&fs.existsSync(process.env.CHROME_BIN))
   return process.env.CHROME_BIN;
@@ -253,7 +338,7 @@ async function run(){
  // The route decision is a paused, script-independent authored screen. Render
  // its real markup/CSS in Chromium without starting a simulated mission.
  const storyHtml=storyOriginal.replace(/<script src="src\/[^"]+\.js"><\/script>/g,'');
- const chrome=browser(),records=[],storyRecords=[];
+ const chrome=browser(),records=[],storyRecords=[],menuRecords=[];
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  let child=null,userDir=null,stderr='',ws=null,transportFailure=null;
  let startupAttempts=0;
@@ -402,6 +487,23 @@ async function run(){
    process.stdout.write('Chromium CH01 route '+width+'x'+height+': '+
     data.errors.length+' clipping issues\n');
   }
+  for(const [width,height] of SIZES){
+   await rpc('Emulation.setDeviceMetricsOverride',
+    {width,height,deviceScaleFactor:1,mobile:false});
+   const evaluated=await rpc('Runtime.evaluate',{
+    expression:'('+auditStoryMenu.toString()+')();document.documentElement.getAttribute("data-vp-menu-geometry")',
+    returnByValue:true});
+   if(evaluated.exceptionDetails)throw new Error('CH01 menu evaluator failed');
+   const encoded=evaluated.result?.value;
+   if(typeof encoded!=='string')throw new Error('No CH01 menu viewport evidence');
+   const data=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
+   assert.equal(data.width,width);assert.equal(data.height,height);
+   assert.equal(data.cases.length,6,'All CH01 menu pages must be measured');
+   assert.ok(data.cases.every(c=>c.controls>0),'CH01 menu page without controls');
+   menuRecords.push({requested:{width,height},...data});
+   process.stdout.write('Chromium CH01 menu '+width+'x'+height+': '+
+    data.errors.length+' clipping issues\n');
+  }
  }catch(error){
   transportFailure={message:String(error&&error.stack||error),
    browserExitCode:child.exitCode,browserSignal:child.signalCode,
@@ -411,11 +513,13 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
-  checks:records,storyChecks:storyRecords,transportFailure,startupAttempts,
+  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>
     'CH01 '+r.requested.width+'x'+r.requested.height+': '+e)),
+   ...menuRecords.flatMap(r=>r.errors.map(e=>
+    'CH01 menu '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...(transportFailure?[transportFailure.message]:[])]};
  if(dest){
   fs.mkdirSync(path.dirname(dest),{recursive:true});
@@ -426,7 +530,7 @@ async function run(){
   throw new Error('Viewport geometry gate failed: '+result.failures.length+' issues; '+
    records.length+'/'+SIZES.length+' viewports measured');
  }
- console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route screens x '+SIZES.length+' viewports');
+ console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route and 6 CH01 menu screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit,auditStoryRoute};
+module.exports={audit,auditStoryRoute,auditStoryMenu};
