@@ -93,7 +93,8 @@ test('Linux/Windows release gate runs CH01 real Chromium viewport measurement',(
  assert.match(source,/auditStoryRoute\.toString\(\)/);
  assert.match(source,/storyRecords\.push\(/);
  assert.match(source,/storyRecords\.flatMap\(/);
- assert.match(source,/CH01 route.*clipping issues/);
+ assert.match(source,/Chromium CH01 route/);
+ assert.match(source,/data\.errors\.length\+' clipping issues/);
  for(const size of ['2560,1440','1366,768','1280,720','1024,600'])
   assert.ok(source.includes(size));
 });
