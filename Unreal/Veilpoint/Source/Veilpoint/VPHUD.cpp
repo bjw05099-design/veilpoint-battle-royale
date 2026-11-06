@@ -76,6 +76,16 @@ void AVPHUD::DrawHUD()
         return;
     }
 
+    if (RoundState && !RoundState->bRoundStarted)
+    {
+        // A native one-player lobby has not begun the BR round. Do not show
+        // a fictitious shrinking-zone countdown before the server starts it.
+        DrawText(TEXT("WAITING FOR PLAYERS - ROUND NOT STARTED"),
+                 FLinearColor(.83f,.90f,.84f,1.f),
+                 X, Y + 144.f * Scale, nullptr, .8f * Scale, false);
+        return;
+    }
+
     AVPZone* Zone = CachedZone.Get();
     if (!Zone && GetWorld())
     {
