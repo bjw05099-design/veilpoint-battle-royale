@@ -612,12 +612,26 @@
   }
   function containRouteDialogFocus(event){
     if(choices.classList.contains('hidden'))return;
+    // Only usable, visible route actions can own focus. A disabled route can
+    // remain in the DOM but must never become a keyboard destination.
     const controls=routeDialogControls();
     if(!controls.length)return;
     if(event.type==='focusin'){
-      if(event.target===choices||controls.includes(event.target)||
-        (typeof choices.contains==='function'&&choices.contains(event.target)))return;
+      if(controls.some(node=>node===event.target||
+         (typeof node.contains==='function'&&node.contains(event.target))))return;
       controls[0].focus({preventScroll:true});
+      return;
+    }
+    // Keep browser/OS command chords intact; the dialog is paused game UI.
+    if(event.ctrlKey||event.altKey||event.metaKey)return;
+    const forward=event.key==='ArrowRight'||event.key==='ArrowDown';
+    const backward=event.key==='ArrowLeft'||event.key==='ArrowUp';
+    if(forward||backward){
+      event.preventDefault();
+      const current=controls.indexOf(document.activeElement);
+      const next=current<0?(backward?controls.length-1:0):
+        (current+(forward?1:-1)+controls.length)%controls.length;
+      controls[next].focus({preventScroll:true});
       return;
     }
     if(event.key!=='Tab')return;
