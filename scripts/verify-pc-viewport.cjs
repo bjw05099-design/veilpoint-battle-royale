@@ -308,6 +308,94 @@ function auditStoryMenu(){
  document.documentElement.setAttribute('data-vp-menu-geometry',btoa(JSON.stringify(data)));
 }
 
+
+function auditStoryJournal(rows){
+ const data={width:innerWidth,height:innerHeight,cases:[],errors:[]};
+ try{
+  const get=id=>document.getElementById(id),root=get('fieldJournal');
+  if(!root||!Array.isArray(rows)||rows.length<4)
+   throw new Error('CH01 journal or completed-state evidence unavailable');
+  const card=root.querySelector('.card'),entries=get('fieldJournalEntries');
+  if(!card||!entries)throw new Error('Missing CH01 journal content');
+  get('menu').classList.add('hidden');
+  get('choices').classList.add('hidden');
+  root.classList.remove('hidden');
+  const visible=node=>{
+   if(!node||node.getClientRects().length===0)return false;
+   const css=getComputedStyle(node);
+   return css.display!=='none'&&css.visibility!=='hidden';
+  };
+  const pages=[
+   {name:'CH01-journal-first',rows:rows.slice(0,2),controls:['fieldJournalNext','fieldJournalClose']},
+   {name:'CH01-journal-last',rows:rows.slice(-2),controls:['fieldJournalPrev','fieldJournalClose']}
+  ];
+  for(let i=0;i<pages.length;i++){
+   const page=pages[i];
+   entries.textContent='';
+   for(const record of page.rows){
+    const paragraph=document.createElement('p');
+    paragraph.textContent=record.title+' — '+record.detail;
+    entries.appendChild(paragraph);
+   }
+   get('fieldJournalPrev').disabled=i===0;
+   get('fieldJournalNext').disabled=i===pages.length-1;
+   get('fieldJournalPageStatus').textContent=
+    '기록 '+(i===0?1:Math.ceil(rows.length/2))+
+    ' / '+Math.ceil(rows.length/2)+' · 전체 '+rows.length+'건';
+   const result={name:page.name,controls:0,issues:[],targets:[]};
+   const outer=card.getBoundingClientRect(),doc=document.documentElement;
+   if(doc.scrollHeight>innerHeight+2||doc.scrollWidth>innerWidth+2)
+    result.issues.push({id:'document-scroll',reason:'CH01 journal doc scroll'});
+   for(const node of [root,card,...card.querySelectorAll('*')]){
+    if(!visible(node))continue;
+    const rect=node.getBoundingClientRect();
+    if(node.matches('button'))result.controls++;
+    if(rect.left< -1.5||rect.top< -1.5||
+       rect.right>innerWidth+1.5||rect.bottom>innerHeight+1.5||
+       (node!==root&&(rect.left<outer.left-1.5||rect.top<outer.top-1.5||
+        rect.right>outer.right+1.5||rect.bottom>outer.bottom+1.5)))
+     result.issues.push({id:node.id||node.tagName.toLowerCase(),
+      reason:'CH01 journal clipped',rect:[rect.left,rect.top,rect.right,rect.bottom]});
+    const css=getComputedStyle(node);
+    if((/^(auto|scroll)$/.test(css.overflowY||css.overflow)&&
+       node.scrollHeight>node.clientHeight+2)||
+       (/^(auto|scroll)$/.test(css.overflowX||css.overflow)&&
+        node.scrollWidth>node.clientWidth+2))
+     result.issues.push({id:node.id||node.tagName.toLowerCase(),
+      reason:'CH01 journal nested scroll'});
+   }
+   for(const node of [root,card]){
+    if(node.scrollHeight>node.clientHeight+2||
+       node.scrollWidth>node.clientWidth+2)
+     result.issues.push({id:node.id||node.tagName.toLowerCase(),
+      reason:'CH01 journal outer scroll'});
+   }
+   for(const id of page.controls){
+    const node=get(id),target={id,visible:visible(node),enabled:!!node&&!node.disabled};
+    if(!target.visible||!target.enabled){
+     result.issues.push({id,reason:'CH01 journal required control unavailable'});
+     result.targets.push(target);continue;
+    }
+    const rect=node.getBoundingClientRect(),probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+    const hits=probes.map(([fx,fy])=>{
+     const hit=document.elementFromPoint(rect.left+rect.width*fx,rect.top+rect.height*fy);
+     return !!hit&&(hit===node||node.contains(hit));
+    });
+    target.probesPassed=hits.filter(Boolean).length;
+    target.hit=hits.every(Boolean);
+    node.focus({preventScroll:true});target.focused=document.activeElement===node;
+    if(!target.hit||!target.focused)
+     result.issues.push({id,reason:!target.hit?'CH01 journal control covered':'CH01 journal control unfocusable',
+      probesPassed:target.probesPassed});
+    result.targets.push(target);
+   }
+   data.cases.push(result);
+   data.errors.push(...result.issues.map(e=>result.name+': '+JSON.stringify(e)));
+  }
+ }catch(error){data.errors.push('CH01 journal audit exception: '+String(error&&error.stack||error));}
+ document.documentElement.setAttribute('data-vp-journal-geometry',btoa(JSON.stringify(data)));
+}
+
 function browser(){
  if(process.env.CHROME_BIN&&fs.existsSync(process.env.CHROME_BIN))
   return process.env.CHROME_BIN;
@@ -338,7 +426,12 @@ async function run(){
  // The route decision is a paused, script-independent authored screen. Render
  // its real markup/CSS in Chromium without starting a simulated mission.
  const storyHtml=storyOriginal.replace(/<script src="src\/[^"]+\.js"><\/script>/g,'');
- const chrome=browser(),records=[],storyRecords=[],menuRecords=[];
+ const completedJournal=require(path.join(ROOT,'src/field-journal.js')).entries({
+  found:['recordA','recordB'],choice:'evacuation',gateLogReviewed:true,
+  logHandedOff:true,musterConfirmed:true,aidPickedUp:true,aidDelivered:true,
+  guide:{active:true,arrived:true,released:true}
+ });
+ const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[];
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  let child=null,userDir=null,stderr='',ws=null,transportFailure=null;
  let startupAttempts=0;
@@ -504,6 +597,23 @@ async function run(){
    process.stdout.write('Chromium CH01 menu '+width+'x'+height+': '+
     data.errors.length+' clipping issues\n');
   }
+  for(const [width,height] of SIZES){
+   await rpc('Emulation.setDeviceMetricsOverride',
+    {width,height,deviceScaleFactor:1,mobile:false});
+   const expression='('+auditStoryJournal.toString()+')('+
+    JSON.stringify(completedJournal)+');document.documentElement.getAttribute("data-vp-journal-geometry")';
+   const evaluated=await rpc('Runtime.evaluate',{expression,returnByValue:true});
+   if(evaluated.exceptionDetails)throw new Error('CH01 journal evaluator failed');
+   const encoded=evaluated.result?.value;
+   if(typeof encoded!=='string')throw new Error('No CH01 journal viewport evidence');
+   const data=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
+   assert.equal(data.width,width);assert.equal(data.height,height);
+   assert.equal(data.cases.length,2,'First and final CH01 journal pages must be measured');
+   assert.ok(data.cases.every(c=>c.controls>0),'CH01 journal page missing controls');
+   journalRecords.push({requested:{width,height},...data});
+   process.stdout.write('Chromium CH01 journal '+width+'x'+height+': '+
+    data.errors.length+' clipping issues\n');
+  }
  }catch(error){
   transportFailure={message:String(error&&error.stack||error),
    browserExitCode:child.exitCode,browserSignal:child.signalCode,
@@ -513,13 +623,15 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
-  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,transportFailure,startupAttempts,
+  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>
     'CH01 '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...menuRecords.flatMap(r=>r.errors.map(e=>
     'CH01 menu '+r.requested.width+'x'+r.requested.height+': '+e)),
+   ...journalRecords.flatMap(r=>r.errors.map(e=>
+    'CH01 journal '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...(transportFailure?[transportFailure.message]:[])]};
  if(dest){
   fs.mkdirSync(path.dirname(dest),{recursive:true});
@@ -530,7 +642,7 @@ async function run(){
   throw new Error('Viewport geometry gate failed: '+result.failures.length+' issues; '+
    records.length+'/'+SIZES.length+' viewports measured');
  }
- console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route and 6 CH01 menu screens x '+SIZES.length+' viewports');
+ console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route, 6 CH01 menu and 2 CH01 journal screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit,auditStoryRoute,auditStoryMenu};
+module.exports={audit,auditStoryRoute,auditStoryMenu,auditStoryJournal};
