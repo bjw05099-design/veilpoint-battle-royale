@@ -1081,7 +1081,7 @@
       ?' · 시야 내 안내원 간격 '+situation.visibleEscortDistance.toFixed(1)+'m'+
         (!state.guide.waiting&&situation.visibleEscortDistance>=5?' · 천천히 이동해 동행 유지':'')
       :'';
-    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초':'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing:'')+' · '+situation.radio+' · '+situation.warning+
+    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?(situation.eastGateObstructed?' · 통제문 안전 정지 · 이동 경로를 비워 주세요':' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초'):'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     $('routeStatus').textContent=controlText($('routeStatus').textContent);
     // Compact route progress is an observation of existing 60Hz/interactive
@@ -1124,8 +1124,10 @@
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':interactPrompt+' 필요한 만큼 확보')
       :nearby.id==='decision'&&state.phase==='exit'?interactPrompt+' '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
       :nearby.id==='exitVerify'&&!situation.eastGateOpen
-        ?'동쪽 통제문 개방 대기 · 약 '+Math.ceil(situation.eastGateRemainingSeconds)+
-          '초 · 현지 구조단 승인 후 통과할 수 있습니다'
+        ?(situation.eastGateObstructed
+          ?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나면 개방 재개'
+          :'동쪽 통제문 개방 대기 · 약 '+Math.ceil(situation.eastGateRemainingSeconds)+
+            '초 · 현지 구조단 승인 후 통과할 수 있습니다')
       :nearby.id==='exitVerify'
         ?interactPrompt+' '+nearby.label+' · 동쪽 통로 통과'
       :nearby.id==='exitEvac'&&state.world.carryingAid
