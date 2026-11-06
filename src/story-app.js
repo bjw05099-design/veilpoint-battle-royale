@@ -759,6 +759,7 @@
         throw new RangeError('terminal checkpoint cannot resume');
       raw=Story.serialize(candidateState);
     }catch(_){
+      portableImportArmed=null;
       $('checkpointTransferStatus').textContent='가져오기 실패 · CH01 형식이나 진행 상태가 올바르지 않습니다. 현재 미션과 저장 파일은 변경되지 않았습니다.';
       return;
     }
