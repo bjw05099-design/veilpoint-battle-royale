@@ -22,6 +22,8 @@
   // G is reserved by the PC input binder. It focuses the existing story
   // settings inside the pause menu without permitting any 60Hz world step.
   let graphicsMenuFocused=false;
+  // A GPU reset can interrupt a paused route-choice dialog without resetting the mission.
+  let restoreRouteDialogAfterGraphics=false;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
   // Rewinding to an older world discards new unsaved progress. Require a
   // deliberate second action for the EXACT validated backup generation.
@@ -300,7 +302,12 @@
     $('continue').disabled=true;$('newGame').disabled=true;
   }
   canvas.addEventListener('webglcontextlost',event=>{
-    event.preventDefault();graphicsContextLost=true;
+    event.preventDefault();
+    // If an accessible route decision was open, the generic pause menu must
+    // not permanently erase it (including an exit-route reconsideration).
+    restoreRouteDialogAfterGraphics=restoreRouteDialogAfterGraphics||
+      !choices.classList.contains('hidden');
+    graphicsContextLost=true;
     menuOpen('그래픽 장치 연결이 끊어졌습니다. 복구될 때까지 CH01 진행이 중단됩니다.');
     renderer=null;$('continue').disabled=true;$('newGame').disabled=true;
   });
@@ -310,7 +317,14 @@
       initializeRenderer();graphicsContextLost=false;
       $('continue').disabled=false;$('newGame').disabled=false;
       clearInput();clock.reset();limiter.reset();last=performance.now();
-      $('menuText').textContent='그래픽 장치가 복구되었습니다. 이어하기를 눌러 현재 체크포인트부터 재개하세요.';
+      if(restoreRouteDialogAfterGraphics&&
+         (state.phase==='decision'||state.phase==='exit')){
+        restoreRouteDialogAfterGraphics=false;
+        showChoices(); // The visible decision regains PC keyboard focus.
+      }else{
+        restoreRouteDialogAfterGraphics=false;
+        $('menuText').textContent='그래픽 장치가 복구되었습니다. 이어하기를 눌러 현재 체크포인트부터 재개하세요.';
+      }
     }catch(err){
       renderer=null;
       $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
