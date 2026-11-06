@@ -8,8 +8,10 @@ const SIZES=['2560x1440','1366x768','1280x720','1024x600'];
 function validate(evidence){
  assert.ok(evidence&&typeof evidence==='object','Geometry evidence missing');
  // Accept the verifier's top-level layout while rejecting incomplete reports.
- const records=Array.isArray(evidence)?evidence:
-  (evidence.records||evidence.viewports);
+ assert.equal(evidence.schema,'veilpoint-pc-ui-geometry-v2','Unexpected evidence schema');
+ assert.equal(evidence.transportFailure,null,'Chromium transport failure');
+ assert.deepEqual(evidence.failures,[],'Chromium geometry gate reported failures');
+ const records=evidence.checks;
  assert.ok(Array.isArray(records),'Viewport measurements missing');
  const seen=new Set();
  for(const record of records){
