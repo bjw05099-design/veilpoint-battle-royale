@@ -67,12 +67,18 @@ function audit(){
      continue;
     }
     const rect=node.getBoundingClientRect();
-    const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
-    const top=document.elementFromPoint(cx,cy);
-    // document.elementFromPoint follows the real browser hit-test stack,
-    // including pointer-events, z-index, and obstructing modal elements.
-    current.hit=!!top&&(node===top||node.contains(top));
-    current.hitElement=top?.id||top?.tagName?.toLowerCase()||null;
+    // Center-only hit testing misses partially covered controls. Keep probes
+    // well inside rounded button corners while checking every quadrant.
+    const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+    const hits=probes.map(([fx,fy])=>{
+     const top=document.elementFromPoint(rect.left+rect.width*fx,
+      rect.top+rect.height*fy);
+     return {ok:!!top&&(node===top||node.contains(top)),
+      element:top?.id||top?.tagName?.toLowerCase()||null};
+    });
+    current.hit=hits.every(hit=>hit.ok);
+    current.hitElement=hits.find(hit=>!hit.ok)?.element||hits[0].element;
+    current.probesPassed=hits.filter(hit=>hit.ok).length;
     // A visible button that cannot receive keyboard focus is not PC accessible.
     if(node.matches('button,select,input,textarea,a')){
      node.focus({preventScroll:true});
@@ -83,7 +89,7 @@ function audit(){
     result.targets.push(current);
     if(!current.hit)
      result.issues.push({id,reason:'required button is covered or not clickable',
-      hitElement:current.hitElement});
+      hitElement:current.hitElement,probesPassed:current.probesPassed});
    }
    return result;
   }
