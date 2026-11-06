@@ -725,12 +725,29 @@ $('restoreCheckpoint').addEventListener('click',()=>{
  const previousAutosave=lastAutosaveElapsed,previousSavedHealth=lastSavedHealth;
  simulation=checkpoint;
  const saved=persistMatch();
- if(!saved&&saveIssue==='conflict'){
+ // P-key rewind is a real world transition. A second Windows tab may replace
+ // the primary AFTER persistMatch() verified the saved bookmark. Check the
+ // final recorded generation before claiming the rewind is durable, otherwise
+ // protect the old in-memory round as on a detected generation conflict.
+ let finalVerified=!saved;
+ if(saved){
+  try{finalVerified=!!matchDiskGeneration&&
+    global.localStorage.getItem(MATCH_SAVE_KEY)===matchDiskGeneration;}
+  catch(_){finalVerified=false;}
+ }
+ if((!saved&&saveIssue==='conflict')||(saved&&!finalVerified)){
   simulation=previousSimulation;
   lastAutosaveElapsed=previousAutosave;lastSavedHealth=previousSavedHealth;
+  if(saved&&!finalVerified){
+   saveWarning=true;saveIssue='conflict';
+   nextMatchSaveRetryAt=simulation.elapsed+1;
+   simulation.message='OFFLINE SAVE CONFLICT · BOOKMARK REWIND NOT COMMITTED';
+   simulation.messageTime=4;
+  }
   pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();updateHud();
-  document.querySelector('.tagline').textContent=
-   '다른 창에서 저장 기록이 변경되어 P키 현장 복원을 취소했습니다. 현재 경기는 변경하지 않았습니다. 이어하기로 계속할 수 있습니다.';
+  document.querySelector('.tagline').textContent=saved
+   ?'P키 현장 복원 직후 저장 기록이 변경되거나 읽을 수 없어 복원을 취소했습니다. 현재 경기는 변경하지 않았습니다.'
+   :'다른 창에서 저장 기록이 변경되어 P키 현장 복원을 취소했습니다. 현재 경기는 변경하지 않았습니다. 이어하기로 계속할 수 있습니다.';
   return;
  }
  lastAutosaveElapsed=simulation.elapsed;lastSavedHealth=simulation.player.health;

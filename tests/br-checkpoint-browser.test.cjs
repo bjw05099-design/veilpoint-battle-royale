@@ -1304,3 +1304,64 @@ test('BR bfcache return of terminal round cannot resurrect a saved active match'
  assert.equal(store.has(KEY),false,'a finished match must not become resumable');
  assert.notEqual(app.node('play').textContent,'이어하기');
 });
+
+test('BR P-key rewind rejects a foreign save after writer readback and preserves the current round',()=>{
+ const store=new Map([['veilpoint.story.ch01','independent-story']]),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'KeyP'});
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ app.frame(2000/60);
+ const game=app.game,charges=game.player.charges;
+ app.emit('keydown',{code:'Escape'});
+ const save=JSON.parse(store.get(KEY)),foreign=JSON.stringify({...save,elapsed:save.elapsed+5});
+ const realSet=store.set.bind(store),realGet=store.get.bind(store);
+ let primaryWritten=false,postWriteReads=0;
+ store.set=(key,val)=>{
+  const result=realSet(key,val);
+  if(key===KEY)primaryWritten=true;
+  return result;
+ };
+ store.get=key=>{
+  if(key===KEY&&primaryWritten&&++postWriteReads===2)realSet(KEY,foreign);
+  return realGet(key);
+ };
+ app.node('restoreCheckpoint').click();
+ assert.equal(primaryWritten,true);
+ assert.ok(postWriteReads>=2);
+ assert.equal(realGet(KEY),foreign,'other tab save remains intact');
+ assert.match(app.node('selector-.tagline').textContent,/복원을 취소했습니다/);
+ assert.equal(store.get('veilpoint.story.ch01'),'independent-story');
+ store.get=realGet;store.set=realSet;
+ app.node('play').click();app.frame(3000/60);
+ assert.equal(app.game,game,'a rejected rewind retains original PC world identity');
+ assert.equal(app.game.player.charges,charges,'no revoked rewind can replenish spent rounds');
+ assert.match(app.node('message').textContent,/SAVE CONFLICT/);
+});
+
+test('BR final bookmark read failure does not silently claim that rewind was saved',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('keydown',{code:'KeyP'});
+ app.emit('keydown',{code:'Space'});app.emit('keyup',{code:'Space'});
+ app.emit('keydown',{code:'Escape'});
+ const current=app.game;
+ const disk=app.global.localStorage,originalGet=disk.getItem.bind(disk),
+  originalSet=disk.setItem.bind(disk);
+ let primaryWritten=false,reads=0;
+ disk.setItem=(key,value)=>{
+  originalSet(key,value);
+  if(key===KEY)primaryWritten=true;
+ };
+ disk.getItem=key=>{
+  if(key===KEY&&primaryWritten&&++reads===2)throw new Error('storage read denied');
+  return originalGet(key);
+ };
+ app.node('restoreCheckpoint').click();
+ assert.equal(primaryWritten,true);
+ assert.ok(reads>=2);
+ assert.match(app.node('selector-.tagline').textContent,/읽을 수 없어 복원을 취소/);
+ disk.getItem=originalGet;disk.setItem=originalSet;
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game,current,'the current live match remains playable after denied read');
+ assert.match(app.node('message').textContent,/SAVE CONFLICT/);
+});
