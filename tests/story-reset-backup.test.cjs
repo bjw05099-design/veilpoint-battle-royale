@@ -7,25 +7,34 @@ const path=require('node:path');
 // Execute the actual New Game storage-reset block with a controlled browser
 // storage double. The source slice is bounded by stable in-function markers.
 const source=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
-const start=source.indexOf('      try{\n        // Protect a *newer valid* save');
-const end=source.indexOf('      }catch(_){resetVerified=false;}',start);
+const start=source.indexOf('      let resetVerified=false,observedPrimary=diskGeneration');
+const end=source.indexOf('      memoryOnlyStory=!resetVerified;',start);
 assert.ok(start>=0&&end>start,'CH01 New Game reset block must exist');
-const body=source.slice(start+'      try{\n'.length,end);
+const body=source.slice(start,end);
 const execute=new Function('global','storage','diskGeneration','Story',
-  'const SAVE_KEY="veilpoint.story.ch01",BACKUP_KEY="veilpoint.story.ch01.previous",PREVIEW_KEY="veilpoint.story.ch01PreviewCompleted";let resetVerified=false,staleReset=false,observedPrimary=null;'+body+
+  'const SAVE_KEY="veilpoint.story.ch01",BACKUP_KEY="veilpoint.story.ch01.previous",PREVIEW_KEY="veilpoint.story.ch01PreviewCompleted";let staleReset=false;'+body+
   'return {resetVerified,staleReset};');
 
-function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=false,onBackupDelete=null}={}){
+function run({primary='valid-primary',backup='valid-backup',denyPrimaryDelete=false,onBackupDelete=null,failPrimaryReadAfterBackupDelete=false}={}){
   const entries=new Map([['veilpoint.story.ch01',primary],
     ['veilpoint.story.ch01.previous',backup]]);
+  let throwPrimaryRead=false;
   const localStorage={
-    getItem(key){return entries.has(key)?entries.get(key):null;},
+    getItem(key){
+      if(key==='veilpoint.story.ch01'&&throwPrimaryRead){
+        throwPrimaryRead=false;
+        throw new Error('transient Storage SecurityError after backup clear');
+      }
+      return entries.has(key)?entries.get(key):null;
+    },
     setItem(key,value){entries.set(key,value);},
     removeItem(key){
       if(denyPrimaryDelete&&key==='veilpoint.story.ch01')return;
       entries.delete(key);
-      if(key==='veilpoint.story.ch01.previous'&&onBackupDelete)
-        onBackupDelete(entries);
+      if(key==='veilpoint.story.ch01.previous'){
+        if(onBackupDelete)onBackupDelete(entries);
+        if(failPrimaryReadAfterBackupDelete)throwPrimaryRead=true;
+      }
     }
   };
   const storage={remove:key=>localStorage.removeItem(key),
@@ -83,4 +92,20 @@ test('CH01 New Game reset cannot remove latest primary if a prior generation was
   assert.equal(result.staleReset,true);
   assert.equal(entries.get('veilpoint.story.ch01'),'another-tab-valid-primary');
   assert.equal(entries.get('veilpoint.story.ch01.previous'),'valid-backup');
+});
+
+test('CH01 restores backup if browser getter throws after backup was cleared',()=>{
+  const {result,entries}=run({failPrimaryReadAfterBackupDelete:true});
+  assert.equal(result.resetVerified,false);
+  assert.equal(entries.get('veilpoint.story.ch01'),'valid-primary');
+  assert.equal(entries.get('veilpoint.story.ch01.previous'),'valid-backup');
+});
+test('CH01 transient reset failure preserves a concurrently replaced backup',()=>{
+  const {result,entries}=run({
+    failPrimaryReadAfterBackupDelete:true,
+    onBackupDelete:store=>store.set('veilpoint.story.ch01.previous','other-tab-new-backup')
+  });
+  assert.equal(result.resetVerified,false);
+  assert.equal(entries.get('veilpoint.story.ch01.previous'),'other-tab-new-backup');
+  assert.equal(entries.get('veilpoint.story.ch01'),'valid-primary');
 });

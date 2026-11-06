@@ -482,14 +482,24 @@
       // Clear backup first; if that fails, keep the primary untouched so
       // the old save can still be resumed after this temporary session.
       state=Story.createState($('storyWeapon').value);
-      let resetVerified=false,observedPrimary=diskGeneration;
+      let resetVerified=false,observedPrimary=diskGeneration,originalBackup=null;
+      // Keep the old backup recoverable if any storage read/delete throws
+      // after clearing it. A newer checkpoint from another PC tab always wins.
+      const restoreResetBackup=()=>{
+        if(originalBackup===null)return;
+        try{
+          if(global.localStorage.getItem(BACKUP_KEY)!==null)return;
+          if(!storage.set(BACKUP_KEY,originalBackup))return false;
+          return global.localStorage.getItem(BACKUP_KEY)===originalBackup;
+        }catch(_){}
+      };
       try{
         // Protect a *newer valid* save written by another PC tab. Explicit
         // New Game must still be able to discard an already-corrupt checkpoint
         // or intentionally restart after an external deletion, as before.
         const latest=global.localStorage.getItem(SAVE_KEY);
         observedPrimary=latest;
-        const originalBackup=global.localStorage.getItem(BACKUP_KEY);
+        originalBackup=global.localStorage.getItem(BACKUP_KEY);
         if(latest!==diskGeneration&&latest!==null){
           try{Story.restore(latest);staleReset=true;}
           catch(_){} // An invalid primary can be explicitly reset by New Game.
@@ -506,17 +516,15 @@
           resetVerified=!staleReset&&
             global.localStorage.getItem(SAVE_KEY)===null&&
             global.localStorage.getItem(BACKUP_KEY)===null;
-          if(!resetVerified&&originalBackup!==null){
-            // A blocked primary deletion must not also destroy the older
-            // recoverable checkpoint. Restore only into an empty backup slot;
-            // never overwrite a concurrently replaced backup generation.
-            if(global.localStorage.getItem(BACKUP_KEY)===null){
-              storage.set(BACKUP_KEY,originalBackup);
-            }
-          }
+          if(!resetVerified)restoreResetBackup();
           if(resetVerified)storage.remove(PREVIEW_KEY);
         }
-      }catch(_){resetVerified=false;}
+      }catch(_){
+        resetVerified=false;
+        // A transient SecurityError after backup deletion must not destroy
+        // both generations or silently permit a durable new-game session.
+        restoreResetBackup();
+      }
       memoryOnlyStory=!resetVerified;
       checkpointInvalidStored=false;
       // A denied reset can be retried after storage permissions recover. Keep
