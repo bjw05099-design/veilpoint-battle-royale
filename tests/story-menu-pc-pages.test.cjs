@@ -86,3 +86,11 @@ test('CH01 layout gate checks every new page using Chrome not a string-only CSS 
  assert.match(gate,/document\.elementFromPoint\(rect\.left\+rect\.width\*fx/);
  assert.match(gate,/storyMenuChecks:menuRecords/);
 });
+
+test('CH01 page keys remain compatible with strict offline JavaScript packaging',()=>{
+ const prohibited=/\bimport\b\s*(?:\(|\{|["'*]|[A-Za-z_$])/;
+ assert.equal(prohibited.test(src),false,'offline package scanner must not mistake page names for module imports');
+ const f=fixture();
+ f.ctx.setStoryMenuView('import',true);
+ assert.equal(f.menu.classList.contains('menu-view-import'),true);
+});
