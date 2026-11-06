@@ -954,6 +954,12 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendMatc
 function look(mx,my){const delta=Desktop.mouseDelta(mx,my,desktopUi.get());simulation.player.yaw+=delta.yaw;simulation.player.pitch=Math.max(-.33,Math.min(.35,simulation.player.pitch+delta.pitch));}
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!canAct()||isTouch)return;if(document.pointerLockElement!==canvas)requestAimLock();});
+// While the desktop camera owns pointer lock, a browser context menu must
+// not steal mouse focus and strand a live 60Hz BR round. Preserve the normal
+// browser menu everywhere else, including paused and unlocked canvases.
+canvas.addEventListener('contextmenu',e=>{
+ if(!isTouch&&canAct()&&document.pointerLockElement===canvas)e.preventDefault();
+});
 canvas.addEventListener('mousedown',e=>{
  // OS-level Ctrl/Alt/Meta clicks must not invoke gameplay actions or leave held input.
  if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
