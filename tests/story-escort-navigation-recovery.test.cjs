@@ -9,6 +9,8 @@ const Navigation=require('../src/navigation.js');
 function escortFixture(waiting=true){
  const s=Story.createState();
  s.phase='exit';s.choice='evacuation';s.musterConfirmed=true;
+ s.combat.started=true;s.combat.cleared=true;
+ for(const actor of s.world.bots){actor.health=0;actor.alive=false;}
  s.guide={active:true,arrived:false,released:false,waiting,
   x:-10.5,z:-55};
  s.world.player.x=0;s.world.player.z=-61;
