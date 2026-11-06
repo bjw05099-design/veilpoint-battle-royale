@@ -982,6 +982,11 @@
     if(!running||isTouch)return;
     if(document.pointerLockElement!==canvas)requestAimLock();
   });
+  // Only the pointer-locked Windows story camera owns right mouse input.
+  // Paused menus and unlocked scenes retain ordinary browser context menus.
+  canvas.addEventListener('contextmenu',e=>{
+    if(!isTouch&&canAct()&&document.pointerLockElement===canvas)e.preventDefault();
+  });
   canvas.addEventListener('mousedown',e=>{
     // OS-level Ctrl/Alt/Meta clicks must not invoke gameplay actions or leave held input.
     if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
