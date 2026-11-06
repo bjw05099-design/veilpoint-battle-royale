@@ -217,7 +217,9 @@
     // Fall back to a deterministic bounded ring, checking every living actor
     // and static obstacle. This runs only when loading legacy checkpoints.
     if(!safe.length){
-      for(const radius of [2,2.5,3,4,5,6,8]){
+      // Match the bounded 32m scenery recovery horizon: a dense harbor
+      // checkpoint can obstruct the first eight meters without being lost.
+      for(let radius=2;radius<=32;radius+=2){
         for(let i=0;i<16;i++){
           const angle=i*Math.PI/8;
           const pos={x:p.x+radius*Math.cos(angle),z:p.z+radius*Math.sin(angle)};
