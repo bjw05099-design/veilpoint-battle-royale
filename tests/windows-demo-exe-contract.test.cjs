@@ -9,6 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=rel=>fs.readFileSync(path.join(root,rel),'utf8');
 const csproj=read('windows/VEILPOINT.DemoHost/VEILPOINT.DemoHost.csproj');
 const host=read('windows/VEILPOINT.DemoHost/Program.cs');
+const verifier=read('windows/VEILPOINT.DemoHost/OfflinePayloadVerifier.cs');
 const winbuild=read('scripts/package-windows-demo.ps1');
 const workflow=read('.github/workflows/windows-demo-exe.yml');
 const browserCi=read('.github/workflows/ci.yml');
@@ -78,4 +79,29 @@ test('Windows runner produces separate EXE artifact without replacing P0 browser
  assert.match(browserCi,/runs-on: ubuntu-latest/);
  assert.match(browserCi,/npm run package:demo/);
  assert.match(browserCi,/veilpoint-offline-demo-candidate/);
+});
+
+test('real EXE validates all bundled manifest SHA256 entries before loading any browser script',()=>{
+ assert.match(host,/OfflinePayloadVerifier\.Verify\(gameFolder\)/);
+ assert.match(host,/args\[0\] == "--verify-package"/);
+ assert.match(host,/return 7;/);
+ assert.match(verifier,/MANIFEST\.sha256/);
+ assert.match(verifier,/HashSet<string>\(StringComparer\.OrdinalIgnoreCase\)/);
+ assert.match(verifier,/MaxEntries = 128/);
+ assert.match(verifier,/MaxTotalBytes = 16 \* 1024 \* 1024/);
+ assert.match(verifier,/MaxFileBytes = 2 \* 1024 \* 1024/);
+ assert.match(verifier,/SHA256\.HashData\(File\.ReadAllBytes\(file\)\)/);
+ assert.match(verifier,/checksum mismatch/);
+ assert.match(verifier,/Untracked file in offline game/);
+ assert.match(verifier,/FileAttributes\.ReparsePoint/);
+ assert.doesNotMatch(verifier,/https?:\/\/|HttpClient|WebRequest/);
+});
+
+test('Windows runner launches compiled EXE preflight and rejects a post-extraction damaged JS asset',()=>{
+ assert.match(winbuild,/Start-Process -FilePath \$publishedExe -ArgumentList '--verify-package' -Wait -PassThru/);
+ assert.match(winbuild,/if \(\$clean\.ExitCode -ne 0\)/);
+ assert.match(winbuild,/Add-Content -LiteralPath \(Join-Path \$probe 'game\/src\/app\.js'\)/);
+ assert.match(winbuild,/if \(\$tampered\.ExitCode -eq 0\)/);
+ assert.match(winbuild,/clean=0, tampered=nonzero/);
+ assert.match(host,/not an Unreal Engine native game/i);
 });
