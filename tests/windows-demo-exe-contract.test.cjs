@@ -29,8 +29,7 @@ test('Win64 demo is a real self-contained .NET WinExe project, separately labele
 
 test('Win64 host maps only bundled game content to a stable, local saved-game origin',()=>{
  assert.match(host,/Path\.Combine\(AppContext\.BaseDirectory, "game"\)/);
- assert.match(host,/File\.Exists\(Path\.Combine\(gameFolder, "index\.html"\)\)/);
- assert.match(host,/File\.Exists\(Path\.Combine\(gameFolder, "story\.html"\)\)/);
+ assert.match(host,/OfflinePayloadVerifier\.Verify\(gameFolder\)/);
  assert.match(host,/CoreWebView2Environment\.CreateAsync\(/);
  assert.match(host,/Environment\.SpecialFolder\.LocalApplicationData/);
  assert.match(host,/SetVirtualHostNameToFolderMapping\(/);
