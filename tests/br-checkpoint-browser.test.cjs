@@ -1879,3 +1879,49 @@ test('BR menu navigation invalidates a late file.read so it cannot overwrite a s
  assert.equal(app.node('overlay').classList.contains('menu-view-load'),true);
  assert.equal(app.store.has(KEY),false);
 });
+
+
+test('BR graphics settings tabs switch entire screens without resuming paused world or changing disk save',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ const saved=store.get(KEY),frameBefore=app.game.elapsed;
+ app.node('graphicsPauseOpen').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsVisualPage').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsControlsPage').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsBenchmarkPage').classList.contains('hidden'),true);
+ app.node('graphicsTabControls').click();
+ assert.equal(app.node('graphicsVisualPage').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsControlsPage').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsBenchmarkPage').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsTabControls').tabIndex,0);
+ app.node('graphicsTabBenchmark').click();
+ assert.equal(app.node('graphicsControlsPage').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsBenchmarkPage').classList.contains('hidden'),false);
+ app.node('graphicsTabVisual').click();
+ assert.equal(app.node('graphicsVisualPage').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsTabVisual').tabIndex,0);
+ app.frame(2000/60);
+ assert.equal(app.game.elapsed,frameBefore,'settings navigation must freeze 60Hz game');
+ assert.equal(store.get(KEY),saved,'tab navigation must not write a checkpoint');
+ app.node('graphicsClose').click();
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false,'closing tabs must not resume BR');
+});
+
+test('BR reopened PC settings defaults to visual screen while retaining changed controls',()=>{
+ const app=boot();
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('graphicsPauseOpen').click();
+ app.node('graphicsTabControls').click();
+ const select=app.node('desktopSensitivity');
+ select.value='1.5';select.dispatch('change');
+ app.node('graphicsClose').click();
+ app.node('graphicsPauseOpen').click();
+ assert.equal(app.node('graphicsVisualPage').classList.contains('hidden'),false);
+ assert.equal(app.node('graphicsControlsPage').classList.contains('hidden'),true);
+ assert.equal(app.node('graphicsBenchmarkPage').classList.contains('hidden'),true);
+ assert.equal(select.value,'1.5');
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),false);
+});
