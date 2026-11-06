@@ -553,6 +553,32 @@
     }
     resume();
   }
+  // The choice screen is a real PC dialog: Tab must not reach a button on
+  // the hidden pause menu or the game canvas while a mission decision is open.
+  function routeDialogControls(){
+    return ['choiceEvac','choiceVerified','choiceBack'].map($)
+      .filter(node=>node&&!node.disabled&&
+        (typeof node.getClientRects!=='function'||node.getClientRects().length>0));
+  }
+  function containRouteDialogFocus(event){
+    if(choices.classList.contains('hidden'))return;
+    const controls=routeDialogControls();
+    if(!controls.length)return;
+    if(event.type==='focusin'){
+      if(event.target===choices||controls.includes(event.target)||
+        (typeof choices.contains==='function'&&choices.contains(event.target)))return;
+      controls[0].focus({preventScroll:true});
+      return;
+    }
+    if(event.key!=='Tab')return;
+    const current=controls.indexOf(document.activeElement);
+    if(current<0||(event.shiftKey?current===0:current===controls.length-1)){
+      event.preventDefault();
+      controls[event.shiftKey?controls.length-1:0].focus({preventScroll:true});
+    }
+  }
+  document.addEventListener('keydown',containRouteDialogFocus,true);
+  document.addEventListener('focusin',containRouteDialogFocus,true);
   function showChoices(){
     running=false;lockAttempt++;clearInput();clock.reset();
     choices.classList.remove('hidden');menu.classList.add('hidden');
