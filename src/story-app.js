@@ -673,6 +673,19 @@
       $('menuText').textContent='저장 기록을 다시 확인할 수 없어 메뉴 이동을 중단했습니다. 현재 CH01 세션은 유지됩니다.';
       return;
     }
+    // Another Windows tab may replace the slot after persist() has passed
+    // its first readback. Do not navigate away from a live CH01 world unless
+    // the generation still equals the exact one owned by this session.
+    let latestGeneration;
+    try{latestGeneration=global.localStorage.getItem(SAVE_KEY);}
+    catch(_){latestGeneration=null;}
+    if(!latestGeneration||latestGeneration!==diskGeneration){
+      saveFailed=true;
+      $('menuText').textContent='저장 확인 직후 다른 창의 기록 변경 또는 읽기 오류가 발생했습니다. 기존 CH01 진행을 유지하고 메뉴 이동을 취소했습니다.';
+      $('saveStatus').textContent='체크포인트 재확인 실패 · 현재 진행은 이 탭에 보존됩니다.';
+      $('saveStatus').classList.remove('hidden');
+      return;
+    }
     try{global.location.assign('index.html');}
     catch(_){
       $('menuText').textContent='체크포인트 저장 완료 · 메인 메뉴 이동에 실패했습니다. 이 탭에서 이어할 수 있습니다.';
