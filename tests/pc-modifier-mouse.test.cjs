@@ -9,7 +9,8 @@ const Desktop=require('../src/desktop-controls.js');
 function mouseHandler(file){
   const source=fs.readFileSync(path.resolve(__dirname,'../src',file),'utf8');
   const start=source.indexOf("canvas.addEventListener('mousedown',e=>{");
-  const end=source.indexOf("addEventListener('mouseup',",start);
+  const nextHandler=source.indexOf("addEventListener('mouseup',",start);
+  const end=source.lastIndexOf('\n',nextHandler); // Exclude the 'global.' prefix in CH01.
   assert.ok(start>=0&&end>start,'target real mouse input handler for '+file);
   const snippet=source.slice(start,end);
   const stats={shots:0,presses:0,clears:0};
