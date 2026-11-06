@@ -555,10 +555,19 @@ function nextFreshMatchSeed(){
  issuedMatchSeeds.add(seed);
  return seed;
 }
+// The pause menu has fixed-height screens, not one long scrollable overlay.
+function setBRMenuView(view='main'){
+ const overlay=$('overlay');
+ for(const name of ['more','import','export'])
+  overlay.classList.toggle('menu-view-'+name,view===name);
+ $('brViewMore').classList.toggle('hidden',view!=='main');
+ $('brViewBack').classList.toggle('hidden',view==='main');
+}
 // Portable loading never assumes ownership of a browser's disk generations.
 // On any menu transition, discard async reads and pending replacement consent.
 let brFileReadSerial=0,brReplacementArmed=null;
 function resetPortableMatchExport(){
+ setBRMenuView('main');
  brFileReadSerial++;brReplacementArmed=null;
  $('brExport').classList.add('hidden');
  $('brExportPanel').classList.add('hidden');
@@ -694,12 +703,27 @@ $('play').addEventListener('click',()=>{
 });
 $('newMatch').addEventListener('click',start);
 resetPortableMatchExport();
+$('brViewMore').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden'))return;
+ setBRMenuView('more');
+});
+$('brViewBack').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden'))return;
+ const wasMore=$('overlay').classList.contains('menu-view-more');
+ brFileReadSerial++;brReplacementArmed=null;
+ $('brImportPanel').classList.add('hidden');
+ $('brExportPanel').classList.add('hidden');
+ $('brImportText').value='';$('brImportFile').value='';
+ $('brExportText').value='';
+ setBRMenuView(wasMore?'main':'more');
+});
 $('brImport').addEventListener('click',()=>{
  if($('overlay').classList.contains('hidden')||(running&&!suspended)||
     graphicsContextLost||!renderer)return;
  brFileReadSerial++;brReplacementArmed=null;
  $('brExportPanel').classList.add('hidden');
  $('brImportPanel').classList.remove('hidden');
+ setBRMenuView('import');
  $('brImportText').value='';$('brImportFile').value='';
  $('brImportStatus').textContent='저장된 BR JSON을 선택하거나 붙여넣으세요. 검증 전에는 게임과 저장 파일을 변경하지 않습니다.';
  if(typeof $('brImportText').focus==='function')$('brImportText').focus();
@@ -800,10 +824,12 @@ $('brExport').addEventListener('click',()=>{
   brFileReadSerial++;brReplacementArmed=null;
   $('brImportPanel').classList.add('hidden');
   $('brExportPanel').classList.remove('hidden');
+  setBRMenuView('export');
   $('brExportStatus').textContent='현재 탭의 검증된 BR 경기 상태입니다. 저장 기록은 변경하지 않습니다. 직접 복사하거나 JSON 파일을 저장하세요.';
   if(typeof $('brExportText').select==='function')$('brExportText').select();
  }catch(_){
   $('brExportPanel').classList.add('hidden');
+  setBRMenuView('more');
   $('brExportStatus').textContent='경기 백업 검증 실패 · 현재 진행은 그대로 유지합니다.';
   document.querySelector('.tagline').textContent='BR JSON 백업 검증에 실패했습니다. 현재 게임은 그대로 유지됩니다.';
  }
@@ -976,6 +1002,16 @@ addEventListener('keydown',e=>{
   if(!e.repeat)setGraphicsPanelOpen(false);
   return;
  }
+ // Escape navigates backward through a visible BR menu screen instead of
+ // accidentally resuming the 60Hz game. Graphics dialog retains priority.
+ if(e.code==='Escape'&&!$('overlay').classList.contains('hidden')&&
+    $('graphicsPanel').classList.contains('hidden')&&
+    ['menu-view-more','menu-view-import','menu-view-export'].some(
+      name=>$('overlay').classList.contains(name))){
+  e.preventDefault();
+  if(!e.repeat)$('brViewBack').click();
+  return;
+ }
  // Escape must cancel even a pending/denied mouse-capture request. The game
  // cannot act until locked, but the player must always be able to pause.
  if(e.code==='Escape'&&running){
@@ -1062,7 +1098,8 @@ function suspendMatch(reason='background'){
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
- $('saveExit').classList.remove('hidden');$('brExport').classList.remove('hidden');brFileReadSerial++;brReplacementArmed=null;$('brImportPanel').classList.add('hidden');$('brExportPanel').classList.add('hidden');$('brExportText').value='';$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
+ resetPortableMatchExport();
+ $('saveExit').classList.remove('hidden');$('brExport').classList.remove('hidden');$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
