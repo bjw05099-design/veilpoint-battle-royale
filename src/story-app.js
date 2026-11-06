@@ -636,7 +636,7 @@
   // Portable CH01 snapshots allow offline backup when Windows browser/file
   // origins differ. Export never reads or overwrites another tab's disk slot.
   // Imports are always schema-validated. If any existing generation is present
-  // or storage cannot be read, the imported world stays memory-only.
+  // or storage cannot be read, the candidateState world stays memory-only.
   $('checkpointExport').addEventListener('click',()=>{
     if(!sessionStarted||running||menu.classList.contains('hidden')||
        !choices.classList.contains('hidden')||
@@ -672,25 +672,25 @@
        $('checkpointApply').classList.contains('hidden')||
        !choices.classList.contains('hidden'))return;
     const text=String($('checkpointTransferText').value||'').trim();
-    let imported,raw;
+    let candidateState,raw;
     try{
       if(!text||text.length>8192)throw new RangeError('checkpoint length');
-      imported=Story.restore(text);
-      if(imported.phase==='complete'||imported.phase==='failed')
+      candidateState=Story.restore(text);
+      if(candidateState.phase==='complete'||candidateState.phase==='failed')
         throw new RangeError('terminal checkpoint cannot resume');
-      raw=Story.serialize(imported);
+      raw=Story.serialize(candidateState);
     }catch(_){
       $('checkpointTransferStatus').textContent='가져오기 실패 · CH01 형식이나 진행 상태가 올바르지 않습니다. 현재 미션과 저장 파일은 변경되지 않았습니다.';
       return;
     }
     // Storage getters can be denied or race with another tab. Only a truly
-    // empty primary+backup permits automatic first-save of an imported world.
+    // empty primary+backup permits automatic first-save of an candidateState world.
     let emptyDisk=false;
     try{
       emptyDisk=global.localStorage.getItem(SAVE_KEY)===null&&
         global.localStorage.getItem(BACKUP_KEY)===null;
     }catch(_){}
-    state=imported;sessionStarted=true;memoryOnlyStory=!emptyDisk;
+    state=candidateState;sessionStarted=true;memoryOnlyStory=!emptyDisk;
     checkpoint=raw;pendingReplayReset=false;recoveredFromBackup=false;
     guidanceId=null;shotSavePending=false;firstShotSaved=false;
     lastAutosaveAt=state.world.elapsed;
