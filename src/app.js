@@ -506,8 +506,16 @@ canvas.addEventListener('webglcontextrestored',()=>{
   initializeRenderer();graphicsContextLost=false;
   $('play').disabled=false;$('newMatch').disabled=false;
   resetInactiveClock();
-  if(running&&suspended)document.querySelector('.tagline').textContent=
-   '그래픽 장치가 복구되었습니다. 이어하기를 눌러 같은 경기를 재개하세요.';
+  if(running&&suspended){
+   document.querySelector('.tagline').textContent=
+    '그래픽 장치가 복구되었습니다. 이어하기를 눌러 같은 경기를 재개하세요.';
+   // A paused Windows graphics panel is still a foreground keyboard dialog.
+   // A GPU reset must not focus Resume behind that visible panel or resume
+   // the 60Hz game without an explicit action.
+   const focusNode=$('graphicsPanel').classList.contains('hidden')
+    ?$('play'):$('graphicsClose');
+   if(typeof focusNode.focus==='function')focusNode.focus();
+  }
  }catch(err){
   renderer=null;
   $('message').textContent='GRAPHICS RECOVERY FAILED · RELOAD REQUIRED: '+String(err.message);
