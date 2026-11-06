@@ -54,9 +54,7 @@
 #overlay:not(.menu-view-more):not(.menu-view-import):not(.menu-view-export)
  .cta>:is(#brViewBack,#brExport,#brImport,#forfeitMatch,#restoreCheckpoint,
  #restartArena,#retryArena,#benchmarkQuickExport,#brImportPanel,#brExportPanel){display:none!important}
-#overlay.menu-view-more .cta>:not(#brViewBack):not(#brExport):not(#brImport)
- :not(#forfeitMatch):not(#restoreCheckpoint):not(#restartArena)
- :not(#retryArena):not(#benchmarkQuickExport){display:none!important}
+#overlay.menu-view-more .cta>:not(#brViewBack):not(#brExport):not(#brImport):not(#forfeitMatch):not(#restoreCheckpoint):not(#restartArena):not(#retryArena):not(#benchmarkQuickExport){display:none!important}
 #overlay:is(.menu-view-import,.menu-view-export) .landing>:not(.cta){display:none!important}
 #overlay.menu-view-import .cta>:not(#brImportPanel):not(#brViewBack){display:none!important}
 #overlay.menu-view-export .cta>:not(#brExportPanel):not(#brViewBack){display:none!important}
@@ -73,8 +71,10 @@
  flex:1 1 120px;max-height:38dvh;min-width:0;resize:none;margin:0!important}
 #overlay :is(#brImportFile,#brImportApply,#brExportDownload){flex-shrink:0;max-width:100%}
 #overlay :is(#brImportStatus,#brExportStatus){line-height:1.4;overflow-wrap:anywhere;margin:0}
-#overlay.menu-view-import .landing .cta>#brViewBack,
-#overlay.menu-view-export .landing .cta>#brViewBack{justify-self:stretch}
+#overlay:is(.menu-view-import,.menu-view-export) .landing .cta>#brViewBack{
+ grid-row:2;order:2;justify-self:stretch}
+#overlay:is(.menu-view-import,.menu-view-export) .landing .cta>:is(#brImportPanel,#brExportPanel){
+ grid-row:1;order:1}
 @media(max-height:620px){
  #overlay .landing .eyebrow,#overlay .landing .line{display:none}
  #overlay .landing h1{font-size:clamp(32px,7vh,52px)}
