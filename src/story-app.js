@@ -372,8 +372,11 @@
     $('checkpointExport').classList.toggle('hidden',!sessionStarted||completed);
     // Do not leave a previous portable snapshot or an untrusted paste visible
     // when a new pause/menu session begins.
+    checkpointFileRequest++;
     $('checkpointTransferPanel').classList.add('hidden');
     $('checkpointTransferText').value='';
+    $('checkpointFile').value='';
+    $('checkpointDownload').classList.add('hidden');
     // PC keyboard users must not remain focused on the now-hidden game canvas.
     // The dialog's primary action is the safe focus target after an Esc pause.
     if(!$('continue').disabled)$('continue').focus();
@@ -637,6 +640,9 @@
   // origins differ. Export never reads or overwrites another tab's disk slot.
   // Imports are always schema-validated. If any existing generation is present
   // or storage cannot be read, the candidateState world stays memory-only.
+  // A pending file read can finish after Escape/Continue or an import reset.
+  // Only the current explicitly open input session may receive its text.
+  let checkpointFileRequest=0;
   $('checkpointExport').addEventListener('click',()=>{
     if(!sessionStarted||running||menu.classList.contains('hidden')||
        !choices.classList.contains('hidden')||
@@ -648,8 +654,11 @@
       return;
     }
     const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
+    checkpointFileRequest++;
+    $('checkpointFile').value='';
     field.value=raw;field.readOnly=true;
     panel.classList.remove('hidden');
+    $('checkpointDownload').classList.remove('hidden');
     $('checkpointApply').classList.add('hidden');
     $('checkpointTransferStatus').textContent='현재 탭의 검증된 CH01 JSON입니다. 전체 선택해 별도 텍스트 파일에 보관하세요. 기존 저장 파일은 변경되지 않습니다.';
     if(typeof field.focus==='function')field.focus();
@@ -659,12 +668,69 @@
     if(running||menu.classList.contains('hidden')||
        !choices.classList.contains('hidden')||
        !$('fieldJournal').classList.contains('hidden'))return;
+    checkpointFileRequest++;
+    $('checkpointFile').value='';
     const field=$('checkpointTransferText');
     field.value='';field.readOnly=false;
     $('checkpointTransferPanel').classList.remove('hidden');
+    $('checkpointDownload').classList.add('hidden');
     $('checkpointApply').classList.remove('hidden');
     $('checkpointTransferStatus').textContent='검증된 CH01 JSON을 붙여넣으세요. 기존 저장이 있으면 덮어쓰지 않고 이 탭에서만 불러옵니다.';
     if(typeof field.focus==='function')field.focus();
+  });
+  $('checkpointDownload').addEventListener('click',()=>{
+    const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
+    if(!sessionStarted||running||menu.classList.contains('hidden')||
+       panel.classList.contains('hidden')||!field.readOnly||
+       $('checkpointDownload').classList.contains('hidden'))return;
+    let url=null;
+    try{
+      const current=Story.serialize(state);
+      if(field.value!==current)throw new Error('stale checkpoint');
+      if(typeof global.Blob!=='function'||!global.URL||
+         typeof global.URL.createObjectURL!=='function')
+        throw new Error('file download unsupported');
+      const blob=new global.Blob([current],{type:'application/json;charset=utf-8'});
+      url=global.URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;link.download='VEILPOINT-CH01-checkpoint.json';
+      link.click();
+      $('checkpointTransferStatus').textContent='검증된 JSON 파일 저장 요청 완료 · 다운로드 목록에서 파일을 확인하세요.';
+    }catch(_){
+      $('checkpointTransferStatus').textContent='파일 저장을 시작할 수 없습니다. 위 JSON을 전체 선택하여 텍스트 파일로 별도 보관하세요.';
+    }finally{
+      if(url&&global.URL&&typeof global.URL.revokeObjectURL==='function'){
+        const revoke=()=>{try{global.URL.revokeObjectURL(url);}catch(_){}};
+        if(typeof global.setTimeout==='function')global.setTimeout(revoke,1000);
+        else revoke();
+      }
+    }
+  });
+  $('checkpointFile').addEventListener('change',async event=>{
+    const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
+    if(running||menu.classList.contains('hidden')||
+       panel.classList.contains('hidden')||field.readOnly||
+       !choices.classList.contains('hidden'))return;
+    const file=event?.target?.files?.[0];
+    if(!file)return;
+    const request=++checkpointFileRequest;
+    try{
+      if(!Number.isFinite(file.size)||file.size>16384||
+         typeof file.text!=='function')throw new RangeError('file size/type');
+      const raw=await file.text();
+      if(request!==checkpointFileRequest||running||
+         menu.classList.contains('hidden')||
+         panel.classList.contains('hidden')||field.readOnly)return;
+      if(typeof raw!=='string'||!raw.trim()||raw.length>8192)
+        throw new RangeError('file content');
+      // This is still UNTRUSTED text. Only the existing explicit Apply action
+      // calls Story.restore, validates the snapshot and checks disk ownership.
+      field.value=raw;
+      $('checkpointTransferStatus').textContent='파일 읽기 완료 · 검증 후 이 탭으로 가져오기를 눌러주세요. 기존 저장은 아직 변경되지 않았습니다.';
+    }catch(_){
+      if(request===checkpointFileRequest&&!panel.classList.contains('hidden'))
+        $('checkpointTransferStatus').textContent='JSON 파일 읽기 실패 · 최대 16KB 파일만 선택할 수 있습니다. 기존 저장과 현재 게임은 변경되지 않았습니다.';
+    }
   });
   $('checkpointApply').addEventListener('click',()=>{
     if(running||menu.classList.contains('hidden')||
@@ -712,7 +778,10 @@
     $('saveCheckpoint').classList.toggle('hidden',memoryOnlyStory);
     $('restorePrevious').classList.toggle('hidden',memoryOnlyStory);
     $('checkpointExport').classList.remove('hidden');
+    checkpointFileRequest++;
     $('checkpointTransferText').value='';
+    $('checkpointFile').value='';
+    $('checkpointDownload').classList.add('hidden');
     $('checkpointTransferPanel').classList.add('hidden');
     $('menuText').textContent=memoryOnlyStory
       ?'CH01 가져오기 완료 · 기존 저장 기록은 보호했습니다. 이번 미션은 이 탭에서만 진행되므로 종료 전에 JSON을 별도로 백업하세요.'
