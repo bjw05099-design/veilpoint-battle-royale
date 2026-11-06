@@ -41,6 +41,16 @@ void AVPZone::UpdateZone()
             ForceNetUpdate();
             return;
         }
+        // The native lobby has no active round and no winner. Do not shrink
+        // the world or apply zone effects while the first player is waiting.
+        if (!Match->bRoundStarted) return;
+    }
+    else return; // GameState not replicated/ready: do not invent a running round.
+    if (!bZoneClockStarted)
+    {
+        StartServerTimeSeconds=GetWorld()->GetTimeSeconds();
+        bZoneClockStarted=true;
+        ForceNetUpdate();
     }
     // A delayed timer callback must not extend a round or create client/
     // server countdown drift. Use elapsed server game time, not call count.
