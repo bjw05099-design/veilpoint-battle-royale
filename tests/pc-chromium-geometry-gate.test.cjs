@@ -32,3 +32,17 @@ test('PC geometry runner is mandatory in CI and is shipped as evidence beside de
  const pkg=fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8');
  assert.match(pkg,/node --check scripts\/verify-pc-viewport\.cjs/);
 });
+
+test('real PC browser checks visible, enabled and unobstructed click targets on all seven pages',()=>{
+ for(const id of ['play','newMatch','brViewMore','graphicsPauseOpen','brViewBack',
+  'brImport','brExport','brImportFile','brImportApply','brExportDownload',
+  'graphicsClose','graphicsTabVisual','graphicsTabControls',
+  'graphicsTabBenchmark','graphicsPreset','desktopBindKey','benchmarkStart']){
+  assert.ok(verifier.includes("'"+id+"'"),'required actionable target missing: '+id);
+ }
+ assert.match(verifier,/document\.elementFromPoint\(cx,cy\)/);
+ assert.match(verifier,/node===top\|\|node\.contains\(top\)/);
+ assert.match(verifier,/required control hidden, missing or disabled/);
+ assert.match(verifier,/required button is covered or not clickable/);
+ assert.match(verifier,/targets:\[\]/);
+});
