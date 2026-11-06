@@ -19,3 +19,10 @@ test('real viewport evidence remains strict for seven screens at four resolution
  assert.match(script,/throw new Error\('Viewport clipping found:/);
  assert.match(script,/Emulation\.setDeviceMetricsOverride/);
 });
+
+test('real Chromium gate rejects horizontally overflowing menu and settings pages',()=>{
+ assert.match(script,/root\.scrollWidth>root\.clientWidth\+2/);
+ assert.match(script,/page\.scrollWidth>page\.clientWidth\+2/);
+ assert.match(script,/horizontal-scroll/);
+ assert.match(script,/result\.issues\.push/);
+});
