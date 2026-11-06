@@ -1419,16 +1419,24 @@
     // including the encounter's keyboard fire key, not a stale SPACE hint.
     const controlText=text=>Desktop.storyHintText(text,bindings);
     $('objective').textContent=controlText(Story.objective(state));
+    const situation=Story.situation(state);
     const publicMarkers=Story.markers(state);
-    const preferGuide=state.phase==='exit'&&state.choice==='evacuation'&&
-      state.guide.active&&state.guide.waiting&&!state.guide.arrived&&
+    // Once the optional escort is accepted, the exit is physically locked
+    // until the guide arrives or is handed to local staff. Show the actually
+    // observed guide whenever possible; otherwise show a recovery instruction
+    // rather than pretending the blocked exit is immediately reachable.
+    const escortIncomplete=state.phase==='exit'&&state.choice==='evacuation'&&
+      state.guide.active&&!state.guide.arrived&&!state.guide.released;
+    const preferGuide=escortIncomplete&&
       publicMarkers.some(marker=>marker.id==='guideControl');
     const primaryTarget=state.phase==='exit'
-      ?preferGuide?'guideControl':state.choice==='evacuation'?'exitEvac':'exitVerify'
+      ?escortIncomplete?(preferGuide?'guideControl':null):
+        state.choice==='evacuation'?'exitEvac':'exitVerify'
       :null;
+    const escortHint=escortIncomplete?situation.guideStatus:null;
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
       state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
-      state.world.obstacles,primaryTarget)+
+      state.world.obstacles,primaryTarget,escortHint)+
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
@@ -1439,7 +1447,6 @@
     const lampKey=Desktop.actionFor('KeyF',desktopUi.get())==='headlamp'
        ?'F':Desktop.keyLabel(bindings.headlamp);
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
-    const situation=Story.situation(state);
     const guideSpacing=Number.isFinite(situation.visibleEscortDistance)
       ?' · 시야 내 안내원 간격 '+situation.visibleEscortDistance.toFixed(1)+'m'+
         (!state.guide.waiting&&situation.visibleEscortDistance>=5?' · 천천히 이동해 동행 유지':'')
