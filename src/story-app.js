@@ -24,6 +24,7 @@
   let graphicsMenuFocused=false;
   // A GPU reset can interrupt a paused route-choice dialog without resetting the mission.
   let restoreRouteDialogAfterGraphics=false;
+  let restoreJournalAfterGraphics=false;
   let checkpoint=null,saveFailed=false,sessionStarted=false,recoveredFromBackup=false;
   // Rewinding to an older world discards new unsaved progress. Require a
   // deliberate second action for the EXACT validated backup generation.
@@ -307,6 +308,9 @@
     // not permanently erase it (including an exit-route reconsideration).
     restoreRouteDialogAfterGraphics=restoreRouteDialogAfterGraphics||
       !choices.classList.contains('hidden');
+    restoreJournalAfterGraphics=restoreJournalAfterGraphics||
+      !($('fieldJournal').classList.contains('hidden'));
+    // GPU reset invalidates rendering, not the already-paused records dialogue.
     graphicsContextLost=true;
     menuOpen('그래픽 장치 연결이 끊어졌습니다. 복구될 때까지 CH01 진행이 중단됩니다.');
     renderer=null;$('continue').disabled=true;$('newGame').disabled=true;
@@ -320,7 +324,12 @@
       if(restoreRouteDialogAfterGraphics&&
          (state.phase==='decision'||state.phase==='exit')){
         restoreRouteDialogAfterGraphics=false;
+        restoreJournalAfterGraphics=false;
         showChoices(); // The visible decision regains PC keyboard focus.
+      }else if(restoreJournalAfterGraphics){
+        restoreRouteDialogAfterGraphics=false;
+        restoreJournalAfterGraphics=false;
+        renderFieldJournal(); // Rebuild factual rows and return to the close control.
       }else{
         restoreRouteDialogAfterGraphics=false;
         $('menuText').textContent='그래픽 장치가 복구되었습니다. 이어하기를 눌러 현재 체크포인트부터 재개하세요.';
@@ -893,6 +902,7 @@
     // focus. Do not replace it with the generic resume menu during bfcache
     // navigation: doing so can silently lose a pending route decision.
     const routeDialogOpen=!choices.classList.contains('hidden');
+    const journalOpen=!$('fieldJournal').classList.contains('hidden');
     if(sessionStarted&&running&&state.phase!=='failed'&&state.phase!=='complete')
       persist('종료 직전 저장');
     // Never leave held movement or a trigger latched after bfcache restoration.
@@ -900,7 +910,7 @@
     clearInput();
     clock.reset();
     limiter.reset();
-    if(!routeDialogOpen&&state.phase!=='complete'&&state.phase!=='failed')
+    if(!routeDialogOpen&&!journalOpen&&state.phase!=='complete'&&state.phase!=='failed')
       menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   });
   // A Windows player can close or navigate away while the page remains
@@ -922,6 +932,10 @@
     // Mission-complete/failed menus likewise retain their factual report.
     if(!choices.classList.contains('hidden')){
       if(typeof $('choiceEvac').focus==='function')$('choiceEvac').focus();
+      return;
+    }
+    if(!$('fieldJournal').classList.contains('hidden')){
+      if(typeof $('fieldJournalClose').focus==='function')$('fieldJournalClose').focus();
       return;
     }
     if(state.phase==='complete'||state.phase==='failed')return;
