@@ -72,3 +72,22 @@ test('Windows CDP startup probes a real loopback endpoint and never skips the ge
  assert.match(verifier,/Chromium DevTools did not become ready/);
  assert.match(verifier,/throw new Error\('Viewport geometry gate failed:/);
 });
+
+test('Windows Chrome DevTools uses a reserved local HTTP endpoint without changing Linux geometry',async()=>{
+ const {reserveLoopbackPort}=require('../scripts/verify-pc-viewport.cjs');
+ const port=await reserveLoopbackPort();
+ assert.ok(Number.isInteger(port)&&port>0&&port<=65535);
+ assert.ok(verifier.includes("process.platform==='win32'"),'Windows-specific bootstrap missing');
+ assert.ok(verifier.includes("'/json/version'")||verifier.includes("+'/json/version'"),
+  'Windows Chrome HTTP readiness endpoint missing');
+ assert.ok(verifier.includes("'DevToolsActivePort'"),'Linux port-file bootstrap must remain');
+ assert.ok(verifier.includes('Page.setDocumentContent'),'DevTools must still measure real DOM');
+ assert.ok(verifier.includes('Emulation.setDeviceMetricsOverride'),'all 4 viewports must be measured');
+});
+
+test('failed Windows Chrome startup preserves launch evidence and fails the release gate',()=>{
+ for(const detail of ['pid=', 'exit=', 'signal=', 'Windows HTTP probe'])
+  assert.ok(verifier.includes(detail),'startup diagnostic missing: '+detail);
+ assert.ok(verifier.includes("transportFailure?[transportFailure.message]:[]"));
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
+});
