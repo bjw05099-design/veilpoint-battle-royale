@@ -41,6 +41,18 @@ The command:
 4. Produces `dist/windows-exe/veilpoint-windows-demo-exe.zip` and
    `veilpoint-windows-demo-exe.zip.sha256`. It re-extracts the packaged Windows
    ZIP and verifies expected files and the ZIP hash.
+5. Executes the compiled Win64 `VEILPOINT.Demo.exe --verify-package` against
+   its extracted game payload, expecting exit code 0. Then deliberately corrupts
+   a **disposable test copy** of `game/src/app.js` and executes the same real
+   PE again, expecting a nonzero exit code. The release ZIP is never modified.
+
+The EXE performs that same file check when a player starts the graphical app,
+before WebView2 loads JavaScript: it enforces the included SHA-256 manifest,
+rejects missing/unlisted files, symlinks and excessive file sizes. This detects
+accidental corruption or incomplete extraction, **not** a malicious adversary
+who can rewrite the whole unsigned ZIP and its checksums. The noninteractive
+preflight confirms the Windows PE can run validation logic, **not** that its
+WebView2 game window has launched successfully.
 
 The separate GitHub Actions workflow
 `/.github/workflows/windows-demo-exe.yml` performs this on `windows-latest`.
