@@ -701,6 +701,9 @@ function setBRMenuView(view='main',restoreFocus=false){
 function containBRMenuFocus(event){
  const overlay=$('overlay'),settings=$('graphicsPanel');
  if(overlay.classList.contains('hidden')||!settings.classList.contains('hidden'))return;
+ // Non-navigation keys must not enumerate the menu or interfere with
+ // Escape, remapped gameplay input or the native desktop controls.
+ if(event.type!=='focusin'&&event.key!=='Tab')return;
  const controls=[...overlay.querySelectorAll('button,select,input,textarea,a[href]')]
   .filter(node=>!node.disabled&&node.tabIndex>=0&&node.getClientRects().length>0&&
    getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden');
