@@ -373,6 +373,7 @@
     // Do not leave a previous portable snapshot or an untrusted paste visible
     // when a new pause/menu session begins.
     checkpointFileRequest++;
+    portableImportArmed=null;
     $('checkpointTransferPanel').classList.add('hidden');
     $('checkpointTransferText').value='';
     $('checkpointFile').value='';
@@ -643,6 +644,9 @@
   // A pending file read can finish after Escape/Continue or a transfer-menu reset.
   // Only the current explicitly open input session may receive its text.
   let checkpointFileRequest=0;
+  // Replacing an already-running CH01 world is deliberately two-step. The
+  // confirmation is tied to the exact validated snapshot, not only a button.
+  let portableImportArmed=null;
   $('checkpointExport').addEventListener('click',()=>{
     if(!sessionStarted||running||menu.classList.contains('hidden')||
        !choices.classList.contains('hidden')||
@@ -655,6 +659,7 @@
     }
     const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
     checkpointFileRequest++;
+    portableImportArmed=null;
     $('checkpointFile').value='';
     field.value=raw;field.readOnly=true;
     panel.classList.remove('hidden');
@@ -669,6 +674,7 @@
        !choices.classList.contains('hidden')||
        !$('fieldJournal').classList.contains('hidden'))return;
     checkpointFileRequest++;
+    portableImportArmed=null;
     $('checkpointFile').value='';
     const field=$('checkpointTransferText');
     field.value='';field.readOnly=false;
@@ -706,6 +712,11 @@
       }
     }
   });
+  $('checkpointTransferText').addEventListener('input',()=>{
+    // The user owns typed/pasted JSON, even when an older file.text() is late.
+    checkpointFileRequest++;
+    portableImportArmed=null;
+  });
   $('checkpointFile').addEventListener('change',async event=>{
     const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
     if(running||menu.classList.contains('hidden')||
@@ -714,6 +725,7 @@
     const file=event?.target?.files?.[0];
     if(!file)return;
     const request=++checkpointFileRequest;
+    portableImportArmed=null;
     try{
       if(!Number.isFinite(file.size)||file.size>16384||
          typeof file.text!=='function')throw new RangeError('file size/type');
@@ -725,6 +737,7 @@
         throw new RangeError('file content');
       // This is still UNTRUSTED text. Only the existing explicit Apply action
       // calls Story.restore, validates the snapshot and checks disk ownership.
+      portableImportArmed=null;
       field.value=raw;
       $('checkpointTransferStatus').textContent='파일 읽기 완료 · 검증 후 이 탭으로 가져오기를 눌러주세요. 기존 저장은 아직 변경되지 않았습니다.';
     }catch(_){
@@ -746,9 +759,29 @@
         throw new RangeError('terminal checkpoint cannot resume');
       raw=Story.serialize(candidateState);
     }catch(_){
+      portableImportArmed=null;
       $('checkpointTransferStatus').textContent='가져오기 실패 · CH01 형식이나 진행 상태가 올바르지 않습니다. 현재 미션과 저장 파일은 변경되지 않았습니다.';
       return;
     }
+    // A valid external snapshot can still erase unsaved progress in THIS tab.
+    // Require two explicit Apply clicks for a different live world, and arm
+    // only the exact canonical snapshot that was just validated. Neither
+    // checking nor arming changes the 60Hz world or the disk generations.
+    if(sessionStarted){
+      let current;
+      try{current=Story.serialize(state);}
+      catch(_){
+        portableImportArmed=null;
+        $('checkpointTransferStatus').textContent='현재 미션의 체크포인트 검증 실패 · 가져오기를 보류했습니다.';
+        return;
+      }
+      if(raw!==current&&portableImportArmed!==raw){
+        portableImportArmed=raw;
+        $('checkpointTransferStatus').textContent='현재 CH01 진행 상태를 교체합니다. 기존 진행을 JSON으로 백업한 뒤 같은 파일로 검증 후 가져오기를 다시 눌러 확정하세요. 기존 디스크 기록은 덮어쓰지 않습니다.';
+        return;
+      }
+    }
+    portableImportArmed=null;
     // Storage getters can be denied or race with another tab. Only a truly
     // empty primary+backup permits automatic first-save of an candidateState world.
     let emptyDisk=false;
@@ -779,6 +812,7 @@
     $('restorePrevious').classList.toggle('hidden',memoryOnlyStory);
     $('checkpointExport').classList.remove('hidden');
     checkpointFileRequest++;
+    portableImportArmed=null;
     $('checkpointTransferText').value='';
     $('checkpointFile').value='';
     $('checkpointDownload').classList.add('hidden');
