@@ -44,7 +44,7 @@ test('real PC browser checks visible, enabled and unobstructed click targets on 
  }
  assert.match(verifier,/document\.elementFromPoint\(rect\.left\+rect\.width\*fx,/);
  assert.match(verifier,/node===top\|\|node\.contains\(top\)/);
- assert.match(verifier,/!root\\.contains\\(node\\)/,
+ assert.match(verifier,/!root\.contains\(node\)/,
   'required target must belong to the visible active panel');
  assert.match(verifier,/required control outside active page, hidden, missing or disabled/);
  assert.match(verifier,/required button is covered or not clickable/);
