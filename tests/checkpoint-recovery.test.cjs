@@ -107,3 +107,42 @@ test('CH01 null primary result never overwrites slots or accepts forged backup',
  assert.equal(calls,2);
  assert.equal(Recovery.recover(null,null,()=>null),null);
 });
+
+test('CH01 loads an intact previous generation when latest slot is absent',()=>{
+ const state=Story.createState();
+ state.world.player.x=2;state.world.player.z=9;
+ const backup=Story.serialize(state);
+ const result=Recovery.recover(null,backup,Story.recoverCheckpoint);
+ assert.equal(result.source,'backup');
+ assert.equal(result.state.world.player.x,2);
+ assert.equal(result.state.world.player.z,9);
+ assert.equal(Story.serialize(result.state),backup,
+  'restoring an intact slot must not silently replace its game progress');
+});
+test('CH01 null decoder also retries backup if primary key was removed',()=>{
+ const backup=Story.serialize(Story.createState());
+ const calls=[];
+ const decoded=(primary,secondary)=>{
+  calls.push([primary,secondary]);
+  return calls.length===1?null:Story.recoverCheckpoint(primary,secondary);
+ };
+ const result=Recovery.recover(null,backup,decoded);
+ assert.equal(result.source,'backup');
+ assert.deepEqual(calls,[[null,backup],[null,backup]]);
+});
+test('CH01 refuses a malformed direct backup result before game resume',()=>{
+ const backup=Story.serialize(Story.createState());
+ let calls=0;
+ const result=Recovery.recover('{broken',backup,()=>{
+  calls++;
+  return {source:'backup',state:{phase:'terminal',world:{player:{x:Infinity,z:12}}}};
+ });
+ assert.equal(result,null);
+ assert.equal(calls,2,'backup should be revalidated without primary slot');
+});
+test('CH01 cannot claim a missing primary generation was restored',()=>{
+ const backup=Story.serialize(Story.createState());
+ const result=Recovery.recover(null,backup,(p,b)=>
+  p===null&&b===backup?{source:'primary',state:Story.createState()}:null);
+ assert.equal(result,null);
+});
