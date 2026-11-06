@@ -151,7 +151,19 @@
   }
   $('saveStatus').classList.add('hidden');
   function persist(reason=''){
-    const raw=Story.serialize(state);
+    // A malformed in-memory state must not crash the PC frame loop or erase a
+    // playable disk checkpoint. Do not touch either persisted generation until
+    // the entire v2 snapshot has passed the story validator.
+    let raw;
+    try{raw=Story.serialize(state);}
+    catch(_){
+      saveFailed=true;
+      nextSaveRetryAt=(Number.isFinite(state?.world?.elapsed)?state.world.elapsed:0)+1;
+      const notice=$('saveStatus');
+      notice.textContent='체크포인트 저장 검증 실패 · 기존 기록은 변경하지 않았습니다. 현재 탭의 진행 상태를 확인하세요.';
+      notice.classList.remove('hidden');
+      return false;
+    }
     if(memoryOnlyStory){
       // Do not overwrite a previous disk mission if browser permissions
       // return while this independent, temporary mission is in progress.
