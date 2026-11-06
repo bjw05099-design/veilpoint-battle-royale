@@ -5,6 +5,8 @@ const assert=require('node:assert/strict');
 const REQUIRED=['BR-main','BR-more','BR-load','BR-export',
  'settings-visual','settings-controls','settings-benchmark'];
 const SIZES=['2560x1440','1366x768','1280x720','1024x600'];
+const TARGETS={"BR-main":["play","newMatch","brViewMore","graphicsPauseOpen"],"BR-more":["brViewBack","brImport","brExport"],"BR-load":["brViewBack","brImportFile","brImportApply"],"BR-export":["brViewBack","brExportDownload"],"settings-visual":["graphicsClose","graphicsTabVisual","graphicsPreset"],"settings-controls":["graphicsClose","graphicsTabControls","desktopBindKey"],"settings-benchmark":["graphicsClose","graphicsTabBenchmark","benchmarkStart"]};
+const STORY={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","CH01-menu-tools","CH01-menu-settings","CH01-menu-import","CH01-menu-export","CH01-menu-about"],"storyJournalChecks":["CH01-journal-first","CH01-journal-last"]};
 function validate(evidence){
  assert.ok(evidence&&typeof evidence==='object','Geometry evidence missing');
  // Accept the verifier's top-level layout while rejecting incomplete reports.
@@ -32,6 +34,9 @@ function validate(evidence){
    assert.deepEqual(page.issues||[],[],'Clipping or scrolling at '+size+' '+name);
    assert.ok(Array.isArray(page.targets)&&page.targets.length>0,
     'No measured actionable targets at '+size+' '+name);
+   const ids=new Set(page.targets.map(target=>target.id));
+   for(const id of TARGETS[name])assert.ok(ids.has(id),'Missing required target '+id+' at '+size+' '+name);
+   assert.equal(ids.size,page.targets.length,'Duplicate target at '+size+' '+name);
    for(const target of page.targets){
     assert.equal(target.visible,true,'Hidden '+name+'/'+target.id);
     assert.equal(target.enabled,true,'Disabled '+name+'/'+target.id);
@@ -42,6 +47,32 @@ function validate(evidence){
   }
  }
  assert.deepEqual([...seen].sort(),[...SIZES].sort(),'Missing viewport evidence');
+ for(const [key,names] of Object.entries(STORY)){
+  const rows=evidence[key];
+  assert.ok(Array.isArray(rows),'Missing '+key+' evidence');
+  assert.equal(rows.length,SIZES.length,'Incomplete '+key+' viewports');
+  const sizes=new Set();
+  for(const row of rows){
+   const size=row.width+'x'+row.height;
+   assert.ok(SIZES.includes(size)&&!sizes.has(size),'Invalid '+key+' viewport '+size);
+   sizes.add(size);
+   assert.deepEqual(row.errors,[],'CH01 errors at '+size);
+   assert.ok(Array.isArray(row.cases),'Missing '+key+' cases');
+   assert.deepEqual(row.cases.map(c=>c.name).sort(),[...names].sort(),'Incomplete '+key+' screens');
+   for(const page of row.cases){
+    assert.deepEqual(page.issues,[],'CH01 clipping at '+size+' '+page.name);
+    assert.ok(Array.isArray(page.targets)&&page.targets.length>0,'CH01 targets missing');
+    for(const target of page.targets){
+     assert.equal(target.visible,true,'CH01 hidden '+target.id);
+     assert.equal(target.enabled,true,'CH01 disabled '+target.id);
+     assert.equal(target.hit,true,'CH01 occluded '+target.id);
+     assert.equal(target.focused,true,'CH01 unfocusable '+target.id);
+     assert.equal(target.probesPassed,5,'CH01 partial hit '+target.id);
+    }
+   }
+  }
+ }
+
  return true;
 }
 if(require.main===module){
