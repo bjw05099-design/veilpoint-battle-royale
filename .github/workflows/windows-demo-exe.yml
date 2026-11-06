@@ -51,6 +51,11 @@ jobs:
         run: |
           npm run check
           if ($LASTEXITCODE -ne 0) { throw 'Browser source syntax gate failed' }
+      - name: Verify Windows menu geometry contracts
+        shell: pwsh
+        run: |
+          node --test tests/pc-chromium-geometry-gate.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Win64 menu release contracts failed' }
       - name: Compile real Win64 EXE and package verified offline game
         shell: pwsh
         run: |
