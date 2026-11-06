@@ -1016,7 +1016,13 @@
         state.message='동행 중 · 안내원 도착 전에는 대피 완료로 기록할 수 없습니다';
         return {ok:false,reason:'guide_not_arrived'};
       }
-      if(marker.id==='exitVerify'&&!gateOpen(state))return {ok:false,reason:'awaiting_clearance'};
+      if(marker.id==='exitVerify'&&!gateOpen(state)){
+        // The 60Hz clearance remains authoritative. A premature E press gives
+        // grounded local feedback instead of a silent, misleading exit action.
+        state.subtitle='유수프(현지 구조단): 통제문 개방 작업이 아직 진행 중입니다. 출입 허가 후 통과하세요.';
+        state.message='동쪽 통로 대기 · 현지 구조단 개방 확인 필요';
+        return {ok:false,reason:'awaiting_clearance'};
+      }
       state.phase='complete';state.world.status='won';
       state.subtitle=state.choice==='verification'
         ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
