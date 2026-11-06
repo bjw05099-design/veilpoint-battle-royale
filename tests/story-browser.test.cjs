@@ -3672,3 +3672,107 @@ test('CH01 export falls back to manual JSON selection when file downloads are bl
  assert.equal(app.element('checkpointTransferText').value,raw);
  assert.equal(app.store.get('veilpoint.story.ch01'),primary);
 });
+
+
+test('CH01 active mission needs exact two-click confirmation before replacing its current world',()=>{
+ const Story=require('../src/story-slice.js'),app=boot();
+ app.element('continue').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ const currentDisk=app.store.get('veilpoint.story.ch01');
+ const priorBackup=app.store.get('veilpoint.story.ch01.previous');
+ const alternate=Story.createState();
+ for(let i=0;i<40;i++)Story.step(alternate,1/60,{forward:true});
+ const raw=Story.serialize(alternate);
+ assert.notEqual(raw,currentDisk);
+ app.element('checkpointImport').click();
+ app.element('checkpointTransferText').value=raw;
+ app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),false);
+ assert.match(app.element('checkpointTransferStatus').textContent,/다시 눌러 확정/);
+ assert.equal(app.store.get('veilpoint.story.ch01'),currentDisk);
+ assert.equal(app.store.get('veilpoint.story.ch01.previous'),priorBackup);
+ app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),true);
+ assert.match(app.element('menuText').textContent,/이 탭에서만 진행/);
+ assert.equal(app.store.get('veilpoint.story.ch01'),currentDisk);
+ assert.equal(app.store.get('veilpoint.story.ch01.previous'),priorBackup);
+ app.element('checkpointExport').click();
+ assert.equal(app.element('checkpointTransferText').value,raw);
+});
+
+test('CH01 a changed snapshot cannot borrow an earlier confirmation to replace a live mission',()=>{
+ const Story=require('../src/story-slice.js'),app=boot();
+ app.element('continue').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ const disk=app.store.get('veilpoint.story.ch01');
+ const a=Story.createState(),b=Story.createState();
+ for(let n=0;n<20;n++)Story.step(a,1/60,{forward:true});
+ for(let n=0;n<70;n++)Story.step(b,1/60,{forward:true});
+ const first=Story.serialize(a),second=Story.serialize(b);
+ app.element('checkpointImport').click();
+ const field=app.element('checkpointTransferText');
+ field.value=first;app.element('checkpointApply').click();
+ assert.match(app.element('checkpointTransferStatus').textContent,/다시 눌러 확정/);
+ field.value=second;
+ field.dispatch('input');
+ app.element('checkpointApply').click();
+ assert.match(app.element('checkpointTransferStatus').textContent,/다시 눌러 확정/);
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),false);
+ assert.equal(app.store.get('veilpoint.story.ch01'),disk);
+ app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),true);
+ assert.equal(app.store.get('veilpoint.story.ch01'),disk);
+ app.element('checkpointExport').click();
+ assert.equal(app.element('checkpointTransferText').value,second);
+});
+
+test('CH01 a pending file read never overwrites the JSON a user typed meanwhile',async()=>{
+ const Story=require('../src/story-slice.js'),app=boot();
+ let finish;
+ app.element('checkpointImport').click();
+ const field=app.element('checkpointTransferText');
+ app.element('checkpointFile').dispatch('change',{target:{files:[{
+  size:800,text:()=>new Promise(resolve=>{finish=resolve;})
+ }]}});
+ assert.equal(typeof finish,'function');
+ const manual=Story.serialize(Story.createState());
+ field.value=manual;
+ field.dispatch('input');
+ finish('{"version":2,"corrupt":true}');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(field.value,manual,'user paste wins over an older asynchronous file selection');
+ assert.equal(app.store.has('veilpoint.story.ch01'),false);
+ app.element('checkpointApply').click();
+ assert.equal(app.store.get('veilpoint.story.ch01'),manual);
+});
+
+test('CH01 invalid snapshot cancels an earlier live-replacement confirmation',()=>{
+ const Story=require('../src/story-slice.js'),app=boot();
+ app.element('continue').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ const disk=app.store.get('veilpoint.story.ch01');
+ const changed=Story.createState();
+ for(let n=0;n<35;n++)Story.step(changed,1/60,{forward:true});
+ const raw=Story.serialize(changed);
+ app.element('checkpointImport').click();
+ const field=app.element('checkpointTransferText');
+ field.value=raw;app.element('checkpointApply').click();
+ field.value='{broken';
+ app.element('checkpointApply').click();
+ assert.match(app.element('checkpointTransferStatus').textContent,/가져오기 실패/);
+ field.value=raw;app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),false,
+  'a malformed intervening request must not count as the second confirmation');
+ assert.match(app.element('checkpointTransferStatus').textContent,/다시 눌러 확정/);
+ assert.equal(app.store.get('veilpoint.story.ch01'),disk);
+});
+
+test('CH01 initial import to an empty save slot remains a single explicit Apply action',()=>{
+ const Story=require('../src/story-slice.js');
+ const app=boot(),raw=Story.serialize(Story.createState());
+ app.element('checkpointImport').click();
+ app.element('checkpointTransferText').value=raw;
+ app.element('checkpointApply').click();
+ assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),true);
+ assert.equal(app.store.get('veilpoint.story.ch01'),raw);
+});
