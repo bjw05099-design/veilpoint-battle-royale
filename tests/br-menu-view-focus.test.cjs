@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
 const begin=source.indexOf('function setBRMenuView(');
-const end=source.indexOf('// Portable loading never assumes ownership',begin);
+const end=source.indexOf('function containBRMenuFocus(event){',begin);
 assert.ok(begin>0&&end>begin,'BR view controller must be present');
 
 function fixture(){

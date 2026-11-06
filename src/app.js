@@ -695,6 +695,33 @@ function setBRMenuView(view='main',restoreFocus=false){
    $(target).focus({preventScroll:true});
  }
 }
+// A visible BR pause/menu page owns keyboard focus. Without this boundary,
+// Tab can escape into obscured HUD or desktop controls while the game is paused.
+// Graphics has its own higher-priority focus boundary and must remain separate.
+function containBRMenuFocus(event){
+ const overlay=$('overlay'),settings=$('graphicsPanel');
+ if(overlay.classList.contains('hidden')||!settings.classList.contains('hidden'))return;
+ // Non-navigation keys must not enumerate the menu or interfere with
+ // Escape, remapped gameplay input or the native desktop controls.
+ if(event.type!=='focusin'&&event.key!=='Tab')return;
+ const controls=[...overlay.querySelectorAll('button,select,input,textarea,a[href]')]
+  .filter(node=>!node.disabled&&node.tabIndex>=0&&node.getClientRects().length>0&&
+   getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden');
+ if(!controls.length)return;
+ if(event.type==='focusin'){
+  if(!overlay.contains(event.target))controls[0].focus({preventScroll:true});
+  return;
+ }
+ if(event.key!=='Tab')return;
+ const index=controls.indexOf(document.activeElement);
+ if(index<0||(event.shiftKey?index===0:index===controls.length-1)){
+  event.preventDefault();
+  controls[event.shiftKey?controls.length-1:0].focus({preventScroll:true});
+ }
+}
+document.addEventListener('keydown',containBRMenuFocus,true);
+document.addEventListener('focusin',containBRMenuFocus,true);
+
 // Portable loading never assumes ownership of a browser's disk generations.
 // On any menu transition, discard async reads and pending replacement consent.
 let brFileReadSerial=0,brReplacementArmed=null;
