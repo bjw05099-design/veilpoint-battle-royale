@@ -85,74 +85,112 @@ async function run(){
  if(idx>=0&&!dest)throw new Error('--output requires a file path');
  const original=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
  assert.ok(original.includes('</body>'),'index.html must have a body');
- const instrumented=original.replace('</body>',
-  '<script>('+audit.toString()+')()</script></body>');
- const server=http.createServer((req,res)=>{
-  const pathname=new URL(req.url,'http://localhost').pathname;
-  if(pathname==='/'||pathname==='/index.html'){
-   res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});
-   res.end(instrumented);return;
-  }
-  const filename=path.resolve(ROOT,'.'+decodeURIComponent(pathname));
-  if(!filename.startsWith(path.join(ROOT,'src')+path.sep)||
-     !filename.endsWith('.js')){
-   res.writeHead(404);res.end('Not found');return;
-  }
-  fs.readFile(filename,(err,source)=>{
-   if(err){res.writeHead(404);res.end('Not found');return;}
-   res.writeHead(200,{'content-type':'text/javascript; charset=utf-8'});
-   res.end(source);
+ // Inline the real offline game scripts into the test document. This avoids
+ // external requests and supports tightly restricted local browser sandboxes.
+ let files=0;
+ const bundled=original.replace(/<script src="(src\/[^"]+\.js)"><\/script>/g,
+  (_,relative)=>{
+   files++;
+   const code=fs.readFileSync(path.join(ROOT,relative),'utf8');
+   return '<script>'+code.replace(/<\/script/gi,'<\\/script')+'</script>';
   });
- });
- server.listen(0,'127.0.0.1');
- await once(server,'listening');
- const port=server.address().port;
+ assert.ok(files>=10,'Must audit the real BR game and settings scripts');
+ const html=bundled.replace('</body>',
+  '<script>('+audit.toString()+')()</script></body>');
  const chrome=browser(),records=[];
+ const userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
+ const child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
+  '--disable-dev-shm-usage','--disable-background-networking',
+  '--disable-extensions','--no-first-run','--no-default-browser-check',
+  '--remote-debugging-port=0','--user-data-dir='+userDir,'about:blank'],
+  {stdio:['ignore','ignore','pipe']});
+ let stderr='',ws=null;
+ child.stderr.on('data',part=>{stderr+=part.toString();});
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  try{
-  for(const [width,height] of SIZES){
-   const userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
-   try{
-    const dom=await new Promise((resolve,reject)=>{
-     const cmd=[ '--headless=new','--no-sandbox','--disable-gpu',
-      '--disable-dev-shm-usage','--disable-background-networking',
-      '--disable-extensions','--no-first-run','--no-default-browser-check',
-      '--hide-scrollbars','--user-data-dir='+userDir,
-      '--window-size='+width+','+height,'--virtual-time-budget=1500',
-      '--dump-dom','http://127.0.0.1:'+port+'/index.html'];
-     const child=spawn(chrome,cmd,{stdio:['ignore','pipe','pipe']});
-     let output='',err='';
-     const timeout=setTimeout(()=>{
-      child.kill('SIGKILL');
-      reject(new Error('Chrome geometry timeout: '+width+'x'+height));
-     },25000);
-     child.stdout.on('data',chunk=>{
-      output+=chunk.toString();
-      if(output.length>4*1024*1024)child.kill('SIGKILL');
-     });
-     child.stderr.on('data',chunk=>{err+=chunk.toString();});
-     child.on('error',error=>{clearTimeout(timeout);reject(error);});
-     child.on('close',code=>{
-      clearTimeout(timeout);
-      if(code!==0)reject(new Error('Chrome exited '+code+': '+err.slice(-550)));
-      else resolve(output);
-     });
-    });
-    const matched=dom.match(/data-vp-geometry="([A-Za-z0-9+/=]+)"/);
-    if(!matched)throw new Error('No browser geometry evidence: '+width+'x'+height);
-    const data=JSON.parse(Buffer.from(matched[1],'base64').toString('utf8'));
-    assert.equal(data.cases.length,7,'must inspect all seven BR/settings screens');
-    assert.ok(data.cases.every(c=>c.controls>0),
-     'each inspected page must contain usable controls');
-    records.push({requested:{width,height},...data});
-    process.stdout.write('Chrome '+width+'x'+height+': '+data.errors.length+
-     ' issues, viewport '+data.width+'x'+data.height+'\n');
-   }finally{
-    try{fs.rmSync(userDir,{recursive:true,force:true,maxRetries:4,retryDelay:150});}
-    catch(_){}
+  const active=path.join(userDir,'DevToolsActivePort');
+  let cdpPort=null;
+  for(let tries=0;tries<120;tries++){
+   if(fs.existsSync(active)){
+    cdpPort=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
+    if(Number.isInteger(cdpPort)&&cdpPort>0)break;
    }
+   if(child.exitCode!==null)
+    throw new Error('Chromium exited before DevTools initialized: '+stderr.slice(-600));
+   await sleep(100);
   }
- }finally{server.close();}
- const result={schema:'veilpoint-pc-ui-geometry-v1',browser:path.basename(chrome),
+  if(!cdpPort)throw new Error('Chromium DevTools did not become ready: '+stderr.slice(-600));
+  const pages=await (await fetch('http://127.0.0.1:'+cdpPort+'/json/list')).json();
+  const page=pages.find(x=>x.type==='page'&&x.webSocketDebuggerUrl);
+  if(!page)throw new Error('No Chrome page target available');
+  ws=new WebSocket(page.webSocketDebuggerUrl);
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>reject(new Error('DevTools WebSocket timeout')),8000);
+   ws.addEventListener('open',()=>{clearTimeout(timer);resolve();},{once:true});
+   ws.addEventListener('error',e=>{clearTimeout(timer);reject(new Error('CDP connection error '+e.message));},{once:true});
+  });
+  let id=0;const pending=new Map();
+  ws.addEventListener('message',event=>{
+   let message;
+   try{message=JSON.parse(event.data);}catch(_){return;}
+   if(!pending.has(message.id))return;
+   const {resolve,reject,timer}=pending.get(message.id);
+   pending.delete(message.id);clearTimeout(timer);
+   if(message.error)reject(new Error(message.error.message));
+   else resolve(message.result);
+  });
+  function rpc(method,params={}){
+   return new Promise((resolve,reject)=>{
+    const callId=++id;
+    const timer=setTimeout(()=>{
+     pending.delete(callId);reject(new Error('CDP command timeout: '+method));
+    },9000);
+    pending.set(callId,{resolve,reject,timer});
+    ws.send(JSON.stringify({id:callId,method,params}));
+   });
+  }
+  await rpc('Page.enable');
+  await rpc('Runtime.enable');
+  const tree=await rpc('Page.getFrameTree');
+  await rpc('Page.setDocumentContent',{frameId:tree.frameTree.frame.id,html});
+  let ready=false;
+  for(let attempt=0;attempt<100;attempt++){
+   const response=await rpc('Runtime.evaluate',{
+    expression:'document.readyState+"|"+!!document.getElementById("graphicsPanel")',
+    returnByValue:true});
+   if(response.result?.value==='complete|true'){ready=true;break;}
+   await sleep(80);
+  }
+  if(!ready)throw new Error('Offline BR document did not load in real browser');
+  for(const [width,height] of SIZES){
+   await rpc('Emulation.setDeviceMetricsOverride',
+    {width,height,deviceScaleFactor:1,mobile:false});
+   const evaluation=await rpc('Runtime.evaluate',{
+    expression:'('+audit.toString()+')();document.documentElement.getAttribute("data-vp-geometry")',
+    returnByValue:true});
+   if(evaluation.exceptionDetails)
+    throw new Error('Chrome geometry evaluator failed');
+   const encoded=evaluation.result?.value;
+   if(typeof encoded!=='string')
+    throw new Error('No viewport evidence for '+width+'x'+height);
+   const data=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
+   assert.equal(data.width,width);
+   assert.equal(data.height,height);
+   assert.equal(data.cases.length,7,'All seven PC screens must be measured');
+   assert.ok(data.cases.every(c=>c.controls>0),'A screen has no visible controls');
+   records.push({requested:{width,height},...data});
+   process.stdout.write('Chromium '+width+'x'+height+': '+
+    data.errors.length+' clipping issues\n');
+  }
+ }finally{
+  if(ws&&ws.readyState===WebSocket.OPEN)ws.close();
+  child.kill('SIGTERM');
+  await Promise.race([once(child,'close').catch(()=>{}),sleep(1800)]);
+  if(child.exitCode===null)child.kill('SIGKILL');
+  try{fs.rmSync(userDir,{recursive:true,force:true,maxRetries:5,retryDelay:150});}
+  catch(_){}
+ }
+ const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
   checks:records,failures:records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e))};
  if(dest){
