@@ -1,7 +1,7 @@
 name: VEILPOINT Windows offline EXE host candidate
 on:
   push:
-    branches: [main]
+    branches: ['**']
     paths:
       - 'windows/**'
       - 'scripts/package-windows-demo.ps1'
