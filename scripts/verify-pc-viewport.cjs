@@ -54,6 +54,24 @@ function audit(){
       position:[Math.round(rect.left),Math.round(rect.top),
        Math.round(rect.right),Math.round(rect.bottom)]});
    }
+   // A scroll-free outer panel can still hide controls inside a nested
+   // scrolling section. Measure real layout of every visible descendant.
+   for(const nested of root.querySelectorAll('*')){
+    if(!visible(nested))continue;
+    const style=getComputedStyle(nested);
+    const overflowY=style.overflowY||style.overflow;
+    const overflowX=style.overflowX||style.overflow;
+    if(/^(auto|scroll)$/.test(overflowY)&&
+       nested.scrollHeight>nested.clientHeight+2)
+     result.issues.push({id:nested.id||nested.tagName.toLowerCase(),
+      reason:'nested vertical scrolling',scroll:nested.scrollHeight,
+      client:nested.clientHeight});
+    if(/^(auto|scroll)$/.test(overflowX)&&
+       nested.scrollWidth>nested.clientWidth+2)
+     result.issues.push({id:nested.id||nested.tagName.toLowerCase(),
+      reason:'nested horizontal scrolling',scroll:nested.scrollWidth,
+      client:nested.clientWidth});
+   }
    if(root.scrollHeight>root.clientHeight+2)
     result.issues.push({id:'scrollHeight',scroll:root.scrollHeight,client:root.clientHeight});
    if(root.scrollWidth>root.clientWidth+2)
