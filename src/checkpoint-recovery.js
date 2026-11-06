@@ -14,17 +14,24 @@
       &&state.world.player!==null&&typeof state.world.player==='object'
       &&Number.isFinite(state.world.player.x)&&Number.isFinite(state.world.player.z);
   }
+  function retryBackup(backup,restorePair){
+    if(backup==null)return null;
+    try{
+      const recovered=restorePair(null,backup);
+      return isPlayableBackup(recovered)?recovered:null;
+    }catch(_backupError){return null;}
+  }
   function recover(primary,backup,restorePair){
     if(typeof restorePair!=='function')throw new TypeError('restorePair required');
-    try{return restorePair(primary,backup);}
-    catch(_){
+    try{
+      const result=restorePair(primary,backup);
+      // Some decoders signal an unreadable primary with null rather than throw.
+      // Retry the backup independently without modifying either saved slot.
+      return result===null&&primary!=null?retryBackup(backup,restorePair):result;
+    }catch(_){
       // Independently validate the backup after a primary decoder exception.
       // Never mutate either persisted generation on a read failure.
-      if(backup==null)return null;
-      try{
-        const recovered=restorePair(null,backup);
-        return isPlayableBackup(recovered)?recovered:null;
-      }catch(_backupError){return null;}
+      return retryBackup(backup,restorePair);
     }
   }
   return Object.freeze({recover});
