@@ -1046,15 +1046,9 @@
     const reloadLabel=Desktop.keyLabel(bindings.reload);
     const reportLabel=Desktop.keyLabel(bindings.support);
     const interactPrompt='['+interactLabel+']';
-    // Every visible CH01 prompt must reflect the actual remapped PC controls,
-    // including a guide's wait/resume cue restored from a disk checkpoint.
-    const controlText=text=>text
-      .replaceAll('E로',interactLabel+'로')
-      .replaceAll('E를',interactLabel+'를')
-      .replaceAll('E 누르',interactLabel+' 누르')
-      .replaceAll('R키',reloadLabel+'키')
-      .replaceAll('R 재장전',reloadLabel+' 재장전')
-      .replaceAll('Q 상황 보고',reportLabel+' 상황 보고');
+    // The shared PC binder owns the same remapped keys as actual input:
+    // including the encounter's keyboard fire key, not a stale SPACE hint.
+    const controlText=text=>Desktop.storyHintText(text,bindings);
     $('objective').textContent=controlText(Story.objective(state));
     const publicMarkers=Story.markers(state);
     const preferGuide=state.phase==='exit'&&state.choice==='evacuation'&&
@@ -1068,13 +1062,13 @@
       state.world.obstacles,primaryTarget)+
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
-           ?'N':desktopUi.get().bindings.guidance.replace(/^Key/,''))+
+           ?'N':Desktop.keyLabel(bindings.guidance))+
          '] 표식 변경 / 자동 선택':'');
     $('status').textContent=controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(state.subtitle);
     const lampKey=Desktop.actionFor('KeyF',desktopUi.get())==='headlamp'
-       ?'F':desktopUi.get().bindings.headlamp.replace(/^Key/,'');
+       ?'F':Desktop.keyLabel(bindings.headlamp);
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';
     const situation=Story.situation(state);
     const guideSpacing=Number.isFinite(situation.visibleEscortDistance)
