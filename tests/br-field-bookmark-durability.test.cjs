@@ -36,6 +36,7 @@ function fixture({silent=false,replaceBookmark=false,changePrimary=false,
   const global={localStorage:storage};
   const MATCH_SAVE_KEY='veilpoint.brCheckpoint.v1',
    FIELD_BOOKMARK_KEY='veilpoint.brFieldBookmark.v1';
+  let memoryOnlyMatch=memoryOnly;
   let matchDiskGeneration=rawPrimary,manualCheckpoint=previousManual,
    bookmarkIssue=null,saveIssue=null,saveWarning=false,nextMatchSaveRetryAt=0;
   ${production}
