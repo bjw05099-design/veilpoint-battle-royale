@@ -450,16 +450,38 @@ async function run(){
  async function startBrowser(){
   userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
   stderr='';
+  // On Windows CI, Chrome can remain alive without creating
+  // DevToolsActivePort for --remote-debugging-port=0. Reserve a loopback
+  // port before spawning, then verify the actual CDP endpoint responds.
+  // The geometry audit still fails closed if DevTools never becomes ready.
+  let reservedPort=null;
+  if(process.platform==='win32'){
+   const listener=http.createServer();
+   await new Promise((resolve,reject)=>{
+    listener.once('error',reject);
+    listener.listen(0,'127.0.0.1',resolve);
+   });
+   reservedPort=listener.address().port;
+   await new Promise((resolve,reject)=>listener.close(error=>error?reject(error):resolve()));
+  }
   child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
    '--disable-dev-shm-usage','--disable-background-networking',
    '--disable-extensions','--no-first-run','--no-default-browser-check',
-   '--remote-debugging-port=0','--user-data-dir='+userDir,'about:blank'],
+   '--remote-debugging-port='+(reservedPort||0),'--user-data-dir='+userDir,'about:blank'],
    {stdio:['ignore','ignore','pipe']});
   child.stderr.on('data',part=>{stderr+=part.toString();});
   const active=path.join(userDir,'DevToolsActivePort');
   for(let tries=0;tries<120;tries++){
    try{
-    if(fs.existsSync(active)){
+    if(reservedPort){
+     const response=await fetch('http://127.0.0.1:'+reservedPort+'/json/version',
+      {signal:AbortSignal.timeout(400)}).catch(()=>null);
+     if(response&&response.ok){
+      const info=await response.json();
+      if(info.webSocketDebuggerUrl)return reservedPort;
+     }
+    }
+    if(!reservedPort&&fs.existsSync(active)){
      const port=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
      if(Number.isInteger(port)&&port>0)return port;
     }
@@ -472,7 +494,9 @@ async function run(){
     throw new Error('Chromium exited before DevTools initialized: '+stderr.slice(-600));
    await sleep(100);
   }
-  throw new Error('Chromium DevTools did not become ready: '+stderr.slice(-600));
+  throw new Error('Chromium DevTools did not become ready (platform='+process.platform+
+   ', pid='+child.pid+', exit='+child.exitCode+', port='+(reservedPort||'auto')+
+   ', profile='+userDir+'): '+stderr.slice(-600));
  }
  try{
   let cdpPort=null;
