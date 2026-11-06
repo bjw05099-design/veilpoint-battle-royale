@@ -273,6 +273,7 @@
   });
   function captureKey(event){
    if(!capturing)return false;
+   if(isModifiedGameplayKey(event))return false; // Never capture Ctrl+R/Alt+Tab as a plain R/Tab bind.
    if(isGameplayShortcut(event))return false;
    event.preventDefault();
    if(event.code==='Escape'){capturing=false;status.textContent='키 변경을 취소했습니다.';refresh();return true;}
