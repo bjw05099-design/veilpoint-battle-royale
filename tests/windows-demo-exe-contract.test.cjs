@@ -106,11 +106,11 @@ test('Windows runner launches compiled EXE preflight and rejects a post-extracti
 });
 
 test('Win64 build tracks supported .NET 10 LTS and retains release candidate through demo day',()=>{
- assert.match(csproj,/<TargetFramework>net10\\.0-windows<\\/TargetFramework>/);
- assert.match(workflow,/dotnet-version: '10\\.0\\.x'/);
- assert.match(winbuild,/\\.NET SDK 10/);
- assert.match(workflow,/retention-days: 45/);
- for(const source of ["README.md","docs/DEMO_DELIVERY_GATES.md","docs/GRAPHICS_PROFILES.md"]){
+ assert.ok(csproj.includes('<TargetFramework>net10.0-windows</TargetFramework>'));
+ assert.ok(workflow.includes("dotnet-version: '10.0.x'"));
+ assert.ok(winbuild.includes('.NET SDK 10'));
+ assert.ok(workflow.includes('retention-days: 45'));
+ for(const source of ['README.md','docs/DEMO_DELIVERY_GATES.md','docs/GRAPHICS_PROFILES.md']){
   const needle="      - '"+source+"'";
   assert.equal(workflow.split(needle).length-1,2,
     'Windows EXE must rebuild on changes to bundled browser docs: '+source);
