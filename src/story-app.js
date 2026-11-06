@@ -1457,7 +1457,12 @@
       ?' · 시야 내 안내원 간격 '+situation.visibleEscortDistance.toFixed(1)+'m'+
         (!state.guide.waiting&&situation.visibleEscortDistance>=5?' · 천천히 이동해 동행 유지':'')
       :'';
-    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?(situation.eastGateObstructed?' · 통제문 안전 정지 · 이동 경로를 비워 주세요':' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초'):'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing:'')+' · '+situation.radio+' · '+situation.warning+
+    // Show the actual remapped crouch key only while the player can see the
+    // following civilian; never reveal an unseen civilian's whereabouts.
+    const paceHelp=situation.escortPaceAvailable
+      ?' · ['+Desktop.keyLabel(bindings.crouch)+'] 낮은 자세로 동행 보폭 맞추기'
+      :'';
+    $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?(situation.eastGateObstructed?' · 통제문 안전 정지 · 이동 경로를 비워 주세요':' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초'):'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing+paceHelp:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     $('routeStatus').textContent=controlText($('routeStatus').textContent);
     // Compact route progress is an observation of existing 60Hz/interactive
