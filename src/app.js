@@ -624,12 +624,20 @@ function nextFreshMatchSeed(){
  return seed;
 }
 // The pause menu has fixed-height screens, not one long scrollable overlay.
-function setBRMenuView(view='main'){
+function setBRMenuView(view='main',restoreFocus=false){
  const overlay=$('overlay');
  for(const name of ['more','load','export'])
   overlay.classList.toggle('menu-view-'+name,view===name);
  $('brViewMore').classList.toggle('hidden',view!=='main');
  $('brViewBack').classList.toggle('hidden',view==='main');
+ // A click on More/Back hides its former focused button. Move keyboard focus
+ // onto the new active screen; initialization/reset does not steal focus.
+ if(restoreFocus&&!overlay.classList.contains('hidden')){
+  const target={main:'brViewMore',more:'brViewBack',
+   load:'brImportText',export:'brExportText'}[view];
+  if(target&&typeof $(target).focus==='function')
+   $(target).focus({preventScroll:true});
+ }
 }
 // Portable loading never assumes ownership of a browser's disk generations.
 // On any menu transition, discard async reads and pending replacement consent.
@@ -773,7 +781,7 @@ $('newMatch').addEventListener('click',start);
 resetPortableMatchExport();
 $('brViewMore').addEventListener('click',()=>{
  if($('overlay').classList.contains('hidden'))return;
- setBRMenuView('more');
+ setBRMenuView('more',true);
 });
 $('brViewBack').addEventListener('click',()=>{
  if($('overlay').classList.contains('hidden'))return;
@@ -783,7 +791,7 @@ $('brViewBack').addEventListener('click',()=>{
  $('brExportPanel').classList.add('hidden');
  $('brImportText').value='';$('brImportFile').value='';
  $('brExportText').value='';
- setBRMenuView(wasMore?'main':'more');
+ setBRMenuView(wasMore?'main':'more',true);
 });
 $('brImport').addEventListener('click',()=>{
  if($('overlay').classList.contains('hidden')||(running&&!suspended)||
@@ -897,7 +905,7 @@ $('brExport').addEventListener('click',()=>{
   if(typeof $('brExportText').select==='function')$('brExportText').select();
  }catch(_){
   $('brExportPanel').classList.add('hidden');
-  setBRMenuView('more');
+  setBRMenuView('more',true);
   $('brExportStatus').textContent='경기 백업 검증 실패 · 현재 진행은 그대로 유지합니다.';
   document.querySelector('.tagline').textContent='BR JSON 백업 검증에 실패했습니다. 현재 게임은 그대로 유지됩니다.';
  }
