@@ -142,12 +142,34 @@ autoResolutionCheckbox.addEventListener('change',()=>{autoResolution=autoResolut
 // menu and G shortcut must open the same settings panel without advancing
 // the 60Hz world. A close action never resumes gameplay implicitly.
 let graphicsReturnFocus=null;
+// Keep the PC options in three bounded, non-scrolling screens. Changing a
+// category never resumes a paused world or saves/reset the user's preferences.
+function setGraphicsSettingsScreen(screen='visual'){
+ const names={visual:['graphicsVisualPage','graphicsTabVisual'],
+  controls:['graphicsControlsPage','graphicsTabControls'],
+  benchmark:['graphicsBenchmarkPage','graphicsTabBenchmark']};
+ if(!Object.prototype.hasOwnProperty.call(names,screen))return;
+ for(const [name,[panelId,tabId]] of Object.entries(names)){
+  const selected=name===screen;
+  $(panelId).classList.toggle('hidden',!selected);
+  const tab=$(tabId);
+  if(typeof tab.setAttribute==='function')
+   tab.setAttribute('aria-selected',String(selected));
+  tab.tabIndex=selected?0:-1;
+ }
+ // Abandon an unfinished remap when its controls screen is no longer visible.
+ if(screen!=='controls'&&typeof desktopUi!=='undefined')desktopUi.cancel();
+}
+for(const [id,screen] of [['graphicsTabVisual','visual'],
+ ['graphicsTabControls','controls'],['graphicsTabBenchmark','benchmark']])
+ $(id).addEventListener('click',()=>setGraphicsSettingsScreen(screen));
 function setGraphicsPanelOpen(open,opener=null){
  if(open&&running&&!suspended){
   suspendMatch();
   resetInactiveClock();
  }
  const panel=$('graphicsPanel');
+ if(open)setGraphicsSettingsScreen('visual');
  panel.classList.toggle('hidden',!open);
  for(const id of ['graphicsOpen','graphicsPauseOpen']){
   const control=$(id);
