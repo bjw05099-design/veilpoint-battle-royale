@@ -213,6 +213,19 @@
     ]);
     const safe=candidates.filter(pos=>!Sim.blocked(pos.x,pos.z,.85,
       state.world.obstacles.concat(bodies)));
+    // Adjacent cardinal positions can all be blocked by nearby harbor scenery.
+    // Fall back to a deterministic bounded ring, checking every living actor
+    // and static obstacle. This runs only when loading legacy checkpoints.
+    if(!safe.length){
+      for(const radius of [2,2.5,3,4,5,6,8]){
+        for(let i=0;i<16;i++){
+          const angle=i*Math.PI/8;
+          const pos={x:p.x+radius*Math.cos(angle),z:p.z+radius*Math.sin(angle)};
+          if(!Sim.blocked(pos.x,pos.z,.85,state.world.obstacles.concat(bodies)))safe.push(pos);
+        }
+        if(safe.length)break;
+      }
+    }
     if(!safe.length)throw new RangeError('No collision-free story checkpoint recovery');
     safe.sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
     p.x=safe[0].x;p.z=safe[0].z;

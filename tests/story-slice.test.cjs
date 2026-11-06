@@ -2425,3 +2425,22 @@ test('CH01 60Hz guide detour checks the full obstacle world while walking around
   assert.ok(Math.hypot(s.guide.x-first.x,s.guide.z-first.z)>0.8,
     'the guide makes real physical progress instead of stalling at a selected waypoint');
 });
+
+test('legacy CH01 actor overlap restores collision-free and conserves ammunition',()=>{
+  const state=story.createState();
+  go(state,'terminal');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(state.phase,'engagement');
+  const actor=state.world.bots.find(b=>b.alive);
+  assert.ok(actor);
+  state.world.player.x=actor.x;
+  state.world.player.z=actor.z;
+  const saved=story.serialize(state);
+  const restored=story.restore(saved);
+  assert.equal(restored.phase,'engagement');
+  assert.equal(Sim.blocked(restored.world.player.x,restored.world.player.z,.85,
+    restored.world.bots.filter(b=>b.alive).map(b=>({x:b.x,z:b.z,w:1.5,d:1.5}))),false);
+  assert.equal(restored.world.player.charges,state.world.player.charges);
+  assert.equal(story.serialize(story.restore(story.serialize(restored))),
+    story.serialize(restored));
+});
