@@ -3570,3 +3570,103 @@ test('CH01 portable import remains a read-only temporary world when browser stor
  assert.ok(saved.elapsed>=JSON.parse(raw).elapsed,
   'one legitimate 60Hz frame must be present in the exported live state');
 });
+
+
+test('CH01 Windows menu downloads the exact validated live JSON without rotating disk generations',()=>{
+ const app=boot();
+ app.element('continue').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ const before=app.store.get('veilpoint.story.ch01');
+ const backup=app.store.get('veilpoint.story.ch01.previous');
+ app.element('checkpointExport').click();
+ const expected=app.element('checkpointTransferText').value;
+ let emitted=null,blob=null,revoked=null;
+ app.context.Blob=class {
+  constructor(parts,options){this.parts=parts;this.type=options.type;blob=this;}
+ };
+ app.context.URL={
+  createObjectURL(value){assert.equal(value,blob);return 'blob:veilpoint-ch01-demo';},
+  revokeObjectURL(url){revoked=url;}
+ };
+ app.context.document.createElement=()=>({
+  click(){emitted={href:this.href,filename:this.download};}
+ });
+ app.element('checkpointDownload').click();
+ assert.deepEqual(emitted,{href:'blob:veilpoint-ch01-demo',filename:'VEILPOINT-CH01-checkpoint.json'});
+ assert.equal(blob.parts.join(''),expected);
+ assert.match(blob.type,/application\/json/);
+ assert.equal(revoked,'blob:veilpoint-ch01-demo');
+ assert.match(app.element('checkpointTransferStatus').textContent,/저장 요청 완료/);
+ assert.equal(app.store.get('veilpoint.story.ch01'),before);
+ assert.equal(app.store.get('veilpoint.story.ch01.previous'),backup);
+});
+
+test('CH01 PC file picker stages validated file text without changing game until Apply',async()=>{
+ const Story=require('../src/story-slice.js');
+ const imported=Story.createState();
+ for(let n=0;n<50;n++)Story.step(imported,1/60,{forward:true});
+ const raw=Story.serialize(imported);
+ const app=boot();
+ const old=Story.serialize(Story.createState());
+ app.element('checkpointImport').click();
+ app.element('checkpointFile').dispatch('change',{target:{
+  files:[{size:Buffer.byteLength(raw),text:()=>Promise.resolve(raw)}]
+ }});
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(app.element('checkpointTransferText').value,raw);
+ assert.match(app.element('checkpointTransferStatus').textContent,/파일 읽기 완료/);
+ assert.equal(app.store.has('veilpoint.story.ch01'),false,'read is not an automatic import');
+ app.element('checkpointApply').click();
+ assert.equal(app.store.get('veilpoint.story.ch01'),raw);
+ assert.notEqual(raw,old);
+ app.element('continue').click();
+ app.frame(1000/60);
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).player.z,JSON.parse(raw).player.z);
+});
+
+test('CH01 late offline file reads cannot repopulate a closed or replaced menu',async()=>{
+ const Story=require('../src/story-slice.js');
+ const raw=Story.serialize(Story.createState());
+ const app=boot();
+ let complete=null;
+ app.element('checkpointImport').click();
+ app.element('checkpointFile').dispatch('change',{target:{files:[
+  {size:Buffer.byteLength(raw),text:()=>new Promise(resolve=>{complete=resolve;})}
+ ]}});
+ assert.equal(typeof complete,'function');
+ app.element('checkpointImport').click();
+ assert.equal(app.element('checkpointTransferText').value,'');
+ complete(raw);
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(app.element('checkpointTransferText').value,'',
+  'stale file read must not replace the newly selected import text');
+ assert.equal(app.store.has('veilpoint.story.ch01'),false);
+});
+
+test('CH01 file picker rejects oversized files and never applies their payload',async()=>{
+ const app=boot();
+ app.element('checkpointImport').click();
+ let called=false;
+ app.element('checkpointFile').dispatch('change',{target:{files:[{
+  size:20000,text:()=>{called=true;return Promise.resolve('{}');}
+ }]}});
+ await Promise.resolve();
+ assert.equal(called,false,'size is rejected before reading untrusted file bytes');
+ assert.match(app.element('checkpointTransferStatus').textContent,/파일 읽기 실패/);
+ assert.equal(app.element('checkpointTransferText').value,'');
+ assert.equal(app.store.has('veilpoint.story.ch01'),false);
+});
+
+test('CH01 export falls back to manual JSON selection when file downloads are blocked',()=>{
+ const app=boot();
+ app.element('continue').click();app.frame(1000/60);
+ app.emit('keydown',{code:'Escape'});
+ app.element('checkpointExport').click();
+ const raw=app.element('checkpointTransferText').value;
+ const primary=app.store.get('veilpoint.story.ch01');
+ app.element('checkpointDownload').click();
+ assert.match(app.element('checkpointTransferStatus').textContent,/전체 선택/);
+ assert.equal(app.element('checkpointTransferText').value,raw);
+ assert.equal(app.store.get('veilpoint.story.ch01'),primary);
+});
