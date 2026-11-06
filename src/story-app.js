@@ -807,6 +807,9 @@
   });
   global.addEventListener('keydown',e=>{
     if(desktopUi.captureKey(e))return;
+    // A Ctrl/Alt/Meta browser or OS chord cannot fire, move, interact,
+    // open game settings or leave an earlier held input latched.
+    if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
      if(Desktop.isGameplayShortcut(e)){clearInput();return;}
     // Route-choice keys are owned by the visible dialog, even when the
     // focused target is one of its accessible buttons. Previously the generic
