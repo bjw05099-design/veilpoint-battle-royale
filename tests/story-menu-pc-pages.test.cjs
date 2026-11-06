@@ -22,7 +22,7 @@ function fixture(){
   assert.equal(capture,true);eventHandlers[name]=fn;
  }};
  const ids=['continue','newGame','storyGraphicsOpen','storyMenuMore','storyMenuAbout',
-  'storyMenuBack','quality','checkpointTransferText','checkpointTransferPanel','checkpointFile'];
+  'storyMenuBack','quality','checkpointTransferText','checkpointTransferPanel','checkpointFile','fieldJournal'];
  for(const id of ids){
   const callbacks={};
   nodes[id]={id,value:'initial',disabled:false,tabIndex:0,classList:makeClasses(),
@@ -32,6 +32,7 @@ function fixture(){
    getClientRects(){return [{}];}
   };
  }
+ nodes.fieldJournal.classList.add('hidden');
  const menu=nodes.menu={classList:makeClasses(),contains(n){return ids.some(id=>nodes[id]===n);},
   querySelectorAll(){return [nodes.continue,nodes.newGame,nodes.storyMenuBack];}};
  const choices={classList:makeClasses()};choices.classList.add('hidden');
@@ -93,4 +94,18 @@ test('CH01 page keys remain compatible with strict offline JavaScript packaging'
  const f=fixture();
  f.ctx.setStoryMenuView('import',true);
  assert.equal(f.menu.classList.contains('menu-view-import'),true);
+});
+
+test('CH01 pause-menu focus trap yields to an open field journal',()=>{
+ const f=fixture();
+ const journalClose={id:'fieldJournalClose'};
+ f.nodes.fieldJournal.classList.remove('hidden');
+ f.document.activeElement=journalClose;
+ f.eventHandlers.focusin({type:'focusin',target:journalClose});
+ assert.equal(f.document.activeElement,journalClose,
+  'visible field journal must retain keyboard focus outside background menu');
+ let prevented=0;
+ f.eventHandlers.keydown({type:'keydown',key:'Tab',shiftKey:false,
+  preventDefault(){prevented++;}});
+ assert.equal(prevented,0,'background menu cannot trap the journal Tab key');
 });
