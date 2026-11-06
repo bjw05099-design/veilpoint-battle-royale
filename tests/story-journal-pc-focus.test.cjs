@@ -6,12 +6,13 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 const src=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
-const first=src.indexOf("  let fieldJournalReturnView='main';");
+const first=src.indexOf("  let fieldJournalReturnView='main',journalPage=0;");
 const last=src.indexOf("  $('pauseButton').addEventListener",first);
 assert.ok(first>=0&&last>first,'real CH01 journal handlers must be present');
 
-function fixture(initialView='main'){
- const ids=['fieldJournal','fieldJournalEntries','fieldJournalClose','fieldJournalOpen','continue'];
+function fixture(initialView='main',entryCount=1){
+ const ids=['fieldJournal','fieldJournalEntries','fieldJournalClose','fieldJournalOpen',
+  'fieldJournalPageStatus','fieldJournalPrev','fieldJournalNext','continue'];
  const nodes={},calls=[];
  const classes=()=>{
   const set=new Set(['hidden']);
@@ -19,15 +20,17 @@ function fixture(initialView='main'){
  };
  for(const id of ids){
   const handlers={};
-  nodes[id]={id,classList:classes(),textContent:'',handlers,
+  nodes[id]={id,classList:classes(),textContent:'',handlers,disabled:false,
    addEventListener(type,fn){handlers[type]=fn;},
+   click(){if(!this.disabled&&handlers.click)handlers.click();},
    focus(){calls.push('focus:'+id);},
    appendChild(child){(this.children||(this.children=[])).push(child);}};
  }
  const menu={classList:{contains:key=>key==='menu-view-'+initialView}};
  const ctx={menu,state:{phase:'records'},$:id=>nodes[id],
-  global:{VeilpointFieldJournal:{entries:()=>Object.freeze([
-   {title:'현장 기록',detail:'현재까지 확인한 사실'}])}},
+  global:{VeilpointFieldJournal:{entries:()=>Object.freeze(
+   Array.from({length:entryCount},(_,i)=>({
+    title:'현장 기록 '+(i+1),detail:'확인 내용 '+(i+1)})))}},
   document:{createElement(){return {textContent:''};}},
   setStoryMenuView(view,focus){calls.push('page:'+view);
    if(focus&&view==='main')nodes.continue.focus();}};
@@ -78,4 +81,21 @@ test('CH01 journal opened by J from live play returns to Main for the second Esc
  f.nodes.fieldJournalClose.handlers.click();
  assert.deepEqual(f.calls,['page:main','focus:continue']);
  assert.equal(f.nodes.fieldJournal.classList.contains('hidden'),true);
+});
+
+test('CH01 journal pages expose every earned record with no hidden overflow list',()=>{
+ const f=fixture('tools',5);
+ f.nodes.fieldJournalOpen.click();
+ assert.equal(f.nodes.fieldJournalEntries.children.length,2);
+ assert.match(f.nodes.fieldJournalPageStatus.textContent,/1 \/ 3/);
+ assert.equal(f.nodes.fieldJournalPrev.disabled,true);
+ assert.equal(f.nodes.fieldJournalNext.disabled,false);
+ f.nodes.fieldJournalNext.click();
+ assert.match(f.nodes.fieldJournalPageStatus.textContent,/2 \/ 3/);
+ assert.equal(f.nodes.fieldJournalNext.disabled,false);
+ f.nodes.fieldJournalNext.click();
+ assert.match(f.nodes.fieldJournalPageStatus.textContent,/3 \/ 3/);
+ assert.equal(f.nodes.fieldJournalNext.disabled,true);
+ f.nodes.fieldJournalPrev.click();
+ assert.match(f.nodes.fieldJournalPageStatus.textContent,/2 \/ 3/);
 });

@@ -1062,29 +1062,53 @@
       $('menuText').textContent='완료 기록을 검증할 수 없습니다. 처음부터 다시 시작할 수 있습니다.';
     }
   });
-  let fieldJournalReturnView='main';
-  function renderFieldJournal(){
-    // Preserve the caller's visible menu page. J from live play returns to
-    // Main so the second Escape resumes; the Tools button returns to Tools.
-    fieldJournalReturnView=menu.classList.contains('menu-view-tools')?'tools':'main';
-    if(!menu.classList.contains('hidden'))setStoryMenuView('tools');
+  let fieldJournalReturnView='main',journalPage=0;
+  const JOURNAL_PAGE_SIZE=2;
+  function paintFieldJournal(){
+    // Each page is bounded: the last earned record never slips under the
+    // controls on a short PC window. Entries remain derived from live state.
     const rows=global.VeilpointFieldJournal.entries(state);
+    const pages=Math.max(1,Math.ceil(rows.length/JOURNAL_PAGE_SIZE));
+    journalPage=Math.min(Math.max(0,journalPage),pages-1);
     const panel=$('fieldJournalEntries');
     panel.textContent='';
-    for(const entry of rows){
+    for(const entry of rows.slice(journalPage*JOURNAL_PAGE_SIZE,
+      (journalPage+1)*JOURNAL_PAGE_SIZE)){
       const paragraph=document.createElement('p');
       paragraph.textContent=entry.title+' — '+entry.detail;
       panel.appendChild(paragraph);
     }
+    $('fieldJournalPageStatus').textContent=
+      '기록 '+(journalPage+1)+' / '+pages+' · 전체 '+rows.length+'건';
+    $('fieldJournalPrev').disabled=journalPage===0;
+    $('fieldJournalNext').disabled=journalPage+1>=pages;
+  }
+  function renderFieldJournal(){
+    // J from live play returns to Main for the next Escape; the menu
+    // button returns to Tools, where its focus target is visible.
+    fieldJournalReturnView=menu.classList.contains('menu-view-tools')?'tools':'main';
+    if(!menu.classList.contains('hidden'))setStoryMenuView('tools');
+    journalPage=0;
+    paintFieldJournal();
     $('fieldJournal').classList.remove('hidden');
-    $('fieldJournalClose').focus();
+    $('fieldJournalClose').focus({preventScroll:true});
   }
   $('fieldJournalOpen').addEventListener('click',renderFieldJournal);
+  $('fieldJournalPrev').addEventListener('click',()=>{
+    if($('fieldJournal').classList.contains('hidden')||journalPage===0)return;
+    journalPage--;paintFieldJournal();
+    $('fieldJournalPrev').disabled?$('fieldJournalNext').focus():$('fieldJournalPrev').focus();
+  });
+  $('fieldJournalNext').addEventListener('click',()=>{
+    if($('fieldJournal').classList.contains('hidden')||
+       $('fieldJournalNext').disabled)return;
+    journalPage++;paintFieldJournal();
+    $('fieldJournalNext').disabled?$('fieldJournalPrev').focus():$('fieldJournalNext').focus();
+  });
   $('fieldJournalClose').addEventListener('click',()=>{
     $('fieldJournal').classList.add('hidden');
     if(!menu.classList.contains('hidden'))
       setStoryMenuView(fieldJournalReturnView,true);
-    // Never leave keyboard focus inside a hidden journal or menu page.
     if(fieldJournalReturnView==='tools')
       $('fieldJournalOpen').focus({preventScroll:true});
   });
@@ -1107,6 +1131,8 @@
     // focused-button guard swallowed all three actions.
     if(!$('fieldJournal').classList.contains('hidden')){
       if(e.code==='Escape'){e.preventDefault();$('fieldJournalClose').click();}
+      else if(e.code==='ArrowRight'&&!e.repeat){e.preventDefault();$('fieldJournalNext').click();}
+      else if(e.code==='ArrowLeft'&&!e.repeat){e.preventDefault();$('fieldJournalPrev').click();}
       return;
     }
     if(!choices.classList.contains('hidden')){
