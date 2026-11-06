@@ -1365,3 +1365,51 @@ test('BR final bookmark read failure does not silently claim that rewind was sav
  assert.equal(app.game,current,'the current live match remains playable after denied read');
  assert.match(app.node('message').textContent,/SAVE CONFLICT/);
 });
+
+test('BR Windows bfcache return keeps visible graphics settings modal keyboard focus and frozen 60Hz round',()=>{
+ const store=new Map([['veilpoint.story.ch01','CH01-untouched']]),app=boot(store);
+ const panel=app.node('graphicsPanel');
+ panel.classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ const live=app.game,elapsed=live.elapsed;
+ app.emit('keydown',{code:'Escape'});
+ const saved=store.get(KEY);assert.ok(saved);
+ let playFocus=0,graphicsFocus=0;
+ app.node('play').focus=()=>{playFocus++;};
+ app.node('graphicsClose').focus=()=>{graphicsFocus++;};
+ app.node('graphicsPauseOpen').click();
+ assert.equal(panel.classList.contains('hidden'),false,
+   'graphics settings is a visible dialog above the paused BR overlay');
+ assert.equal(graphicsFocus,1);
+ app.emit('pagehide');
+ app.emit('pageshow',{persisted:true});
+ assert.equal(panel.classList.contains('hidden'),false);
+ assert.equal(graphicsFocus,2,
+   'keyboard focus must stay with the open graphics settings dialog');
+ assert.equal(playFocus,0,'bfcache must not focus Resume behind graphics settings');
+ assert.equal(app.node('play').textContent,'이어하기');
+ app.frame(120000);
+ assert.equal(live.elapsed,elapsed,'a settings dialog cannot advance 60Hz simulation');
+ assert.equal(store.get(KEY),saved,'bfcache settings focus does not write checkpoint');
+ assert.equal(store.get('veilpoint.story.ch01'),'CH01-untouched');
+ app.node('graphicsClose').click();
+ assert.equal(panel.classList.contains('hidden'),true);
+ app.node('play').click();app.frame(120000+1000/60);
+ assert.equal(app.game,live,'closing settings returns to original paused BR world');
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.game.status,'playing');
+});
+
+test('BR normal bfcache resume focuses Play when the settings panel is closed',()=>{
+ const app=boot(new Map());
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ app.emit('pagehide');
+ let playFocus=0,graphicsFocus=0;
+ app.node('play').focus=()=>{playFocus++;};
+ app.node('graphicsClose').focus=()=>{graphicsFocus++;};
+ app.emit('pageshow',{persisted:true});
+ assert.equal(playFocus,1);
+ assert.equal(graphicsFocus,0);
+ assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+});
