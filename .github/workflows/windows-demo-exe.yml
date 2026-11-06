@@ -1,0 +1,57 @@
+name: VEILPOINT Windows offline EXE host candidate
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'windows/**'
+      - 'scripts/package-windows-demo.ps1'
+      - '.github/workflows/windows-demo-exe.yml'
+      - 'index.html'
+      - 'story.html'
+      - 'src/**'
+      - 'scripts/package-offline-demo.cjs'
+      - 'scripts/verify-offline-demo.cjs'
+  pull_request:
+    paths:
+      - 'windows/**'
+      - 'scripts/package-windows-demo.ps1'
+      - '.github/workflows/windows-demo-exe.yml'
+      - 'index.html'
+      - 'story.html'
+      - 'src/**'
+      - 'scripts/package-offline-demo.cjs'
+      - 'scripts/verify-offline-demo.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  win64-demo-host:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify existing browser game contract
+        shell: pwsh
+        run: |
+          npm run check
+          if ($LASTEXITCODE -ne 0) { throw 'Browser source syntax gate failed' }
+      - name: Compile real Win64 EXE and package verified offline game
+        shell: pwsh
+        run: |
+          ./scripts/package-windows-demo.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Windows EXE package script failed' }
+      - name: Upload unsigned Windows EXE demo candidate + SHA-256
+        uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-windows-demo-exe-candidate
+          path: |
+            dist/windows-exe/veilpoint-windows-demo-exe.zip
+            dist/windows-exe/veilpoint-windows-demo-exe.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
