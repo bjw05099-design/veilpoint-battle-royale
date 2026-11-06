@@ -544,10 +544,17 @@ async function run(){
   });
   function rpc(method,params={}){
    return new Promise((resolve,reject)=>{
-    const callId=++id;
+    const callId=++id,startedAt=Date.now();
+    // Cold Windows rendering can take longer to parse the fully bundled
+    // offline page. This is a bounded transport wait, not a geometry pass.
+    const deadline=process.platform==='win32'&&method==='Page.setDocumentContent'
+     ?20000:9000;
     const timer=setTimeout(()=>{
-     pending.delete(callId);reject(new Error('CDP command timeout: '+method));
-    },9000);
+     pending.delete(callId);
+     reject(new Error('CDP command timeout: '+method+
+      ', elapsedMs='+String(Date.now()-startedAt)+
+      ', browserPid='+String(child?.pid)+', exit='+String(child?.exitCode)));
+    },deadline);
     pending.set(callId,{resolve,reject,timer});
     ws.send(JSON.stringify({id:callId,method,params}));
    });
@@ -555,6 +562,12 @@ async function run(){
   await rpc('Page.enable');
   await rpc('Runtime.enable');
   const tree=await rpc('Page.getFrameTree');
+  // The version endpoint can become ready before the first renderer frame.
+  // Confirm CDP can execute a trivial expression before the heavy offline DOM.
+  const bootstrap=await rpc('Runtime.evaluate',{
+   expression:'document.readyState',returnByValue:true});
+  if(bootstrap.exceptionDetails||typeof bootstrap.result?.value!=='string')
+   throw new Error('Chrome renderer did not respond before document injection');
   await rpc('Page.setDocumentContent',{frameId:tree.frameTree.frame.id,html});
   let ready=false;
   for(let attempt=0;attempt<100;attempt++){
