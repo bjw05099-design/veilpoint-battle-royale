@@ -1082,7 +1082,7 @@
         item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
-          guide.active&&!guideDone?'blocked':'available')
+          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available')
       ]);
     }
     return Object.freeze([
@@ -1199,6 +1199,7 @@
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
+          (state.world.carryingAid?' 운반 중인 비상 물품은 구조단에 인계하거나 임시 적재대에 내려놓아야 출구를 통과할 수 있습니다.':'')+
           (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
           (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
             ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지 또는 남쪽 구조단 접수소에 직접 인계하세요.'):state.musterConfirmed
