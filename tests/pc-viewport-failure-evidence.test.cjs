@@ -12,7 +12,7 @@ test('viewport gate writes actionable evidence and fails closed when Chrome cann
  const chrome=path.join(dir,'non-executable-chrome');
  const output=path.join(dir,'geometry.json');
  try{
-  fs.writeFileSync(chrome,'not an executable\n');
+  fs.writeFileSync(chrome,'#!/bin/sh\necho simulated-browser-failure >&2\nexit 17\n');\n  fs.chmodSync(chrome,0o755);
   const run=spawnSync(process.execPath,['scripts/verify-pc-viewport.cjs','--output',output],{
    cwd:root,env:{...process.env,CHROME_BIN:chrome},encoding:'utf8',timeout:20000
   });
