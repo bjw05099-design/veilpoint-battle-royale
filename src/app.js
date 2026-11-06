@@ -314,12 +314,25 @@ function clearFieldBookmark(explicitReset=false){
  return true;
 }
 function loadFieldBookmark(){
+ // Reading can fail transiently when a browser extension or privacy policy
+ // locks localStorage. That is NOT evidence that the saved bookmark is invalid:
+ // do not invoke the destructive clear path on a read failure.
+ let saved;
+ try{saved=global.localStorage.getItem(FIELD_BOOKMARK_KEY);}
+ catch(_){
+  bookmarkIssue='write-failed';
+  return null;
+ }
+ if(!saved)return null;
  try{
-  const saved=global.localStorage.getItem(FIELD_BOOKMARK_KEY);
-  if(!saved)return null;
   Game.restoreFieldBookmark(simulation,saved);
   return saved;
- }catch(_){clearFieldBookmark();return null;}
+ }catch(_){
+  // Only a retrieved but invalid bookmark may be discarded. A different
+  // tab's newer checkpoint is still protected by clearFieldBookmark().
+  clearFieldBookmark();
+  return null;
+ }
 }
 function recordFieldBookmark(){
  let raw;
