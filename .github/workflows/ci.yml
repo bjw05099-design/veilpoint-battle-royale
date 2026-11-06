@@ -19,6 +19,17 @@ jobs:
         run: npm run check
       - name: Run deterministic simulation tests
         run: npm test
+      - name: Verify real Chromium PC menus at four viewport sizes
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            export CHROME_BIN="$(command -v google-chrome)"
+          elif command -v chromium >/dev/null 2>&1; then
+            export CHROME_BIN="$(command -v chromium)"
+          else
+            echo "Chrome is required to validate viewport geometry" >&2
+            exit 1
+          fi
+          node scripts/verify-pc-viewport.cjs --output dist/pc-ui-geometry.json
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
       - name: Build and verify reproducible offline demo ZIP
@@ -38,6 +49,7 @@ jobs:
             dist/veilpoint-offline-demo.zip.sha256
             dist/START_HERE.txt
             dist/ch01-route-evidence.json
+            dist/pc-ui-geometry.json
       - name: Upload browser prototype
         uses: actions/upload-artifact@v4
         with:
