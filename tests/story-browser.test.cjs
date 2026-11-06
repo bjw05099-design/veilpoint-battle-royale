@@ -3293,3 +3293,72 @@ test('CH01 Save & Exit does not navigate when last disk generation read is denie
  assert.deepEqual(app.navigations,['index.html'],
    'a later real verified write can still exit without resetting CH01');
 });
+
+test('CH01 restore confirmation rejects a newer primary written after successful backup readback',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);app.element('pauseButton').click();
+ assert.ok(shared.get(backup),'previous fixed-step generation must exist');
+ const previous=shared.get(key);
+ app.element('restorePrevious').click();
+ assert.match(app.element('restorePrevious').textContent,/다시 클릭/);
+ const foreignState=Story.restore(previous);
+ foreignState.world.elapsed+=3;
+ const newer=Story.serialize(foreignState);
+ const set=shared.set.bind(shared),get=shared.get.bind(shared);
+ let primaryWritten=false,postWriteReads=0;
+ shared.set=(name,value)=>{
+   const result=set(name,value);
+   if(name===key)primaryWritten=true;
+   return result;
+ };
+ shared.get=name=>{
+   if(name===key&&primaryWritten&&++postWriteReads===2)set(key,newer);
+   return get(name);
+ };
+ app.element('restorePrevious').click();
+ assert.equal(primaryWritten,true);
+ assert.ok(postWriteReads>=2,'restore must recheck primary after its writer readback');
+ assert.equal(get(key),newer,'a second tab must retain its new generation');
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.match(app.element('menuText').textContent,/복구 확정 후 저장 세대/);
+ assert.match(app.element('saveStatus').textContent,/복구 재확인 실패/);
+ shared.get=get;shared.set=set;
+ app.element('continue').click();app.frame(500*1000/60);
+ assert.equal(app.element('menu').classList.contains('hidden'),true,
+   'failed restore must leave the live Windows mission playable');
+ assert.equal(get(key),newer,'continuing stale in-memory world never overwrites another tab');
+});
+
+test('CH01 restore confirmation rejects backup rotation after the newly restored primary was written',()=>{
+ const key='veilpoint.story.ch01',backup=key+'.previous',shared=new Map();
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ app.moveForward(300,55);app.element('pauseButton').click();
+ const previous=shared.get(key);
+ app.element('restorePrevious').click();
+ const set=shared.set.bind(shared),get=shared.get.bind(shared);
+ let primaryWritten=false,backupReadsAfterWrite=0;
+ shared.set=(name,value)=>{
+   const result=set(name,value);
+   if(name===key)primaryWritten=true;
+   return result;
+ };
+ shared.get=name=>{
+   if(name===backup&&primaryWritten&&++backupReadsAfterWrite===1)
+     set(backup,'externally-rotated-backup');
+   return get(name);
+ };
+ app.element('restorePrevious').click();
+ assert.equal(primaryWritten,true);
+ assert.ok(backupReadsAfterWrite>=1);
+ assert.equal(get(backup),'externally-rotated-backup');
+ assert.match(app.element('menuText').textContent,/복구 확정 후 저장 세대/);
+ assert.match(app.element('saveStatus').textContent,/복구 재확인 실패/);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(shared.get('veilpoint.brCheckpoint.v1'),undefined,
+   'backup recovery cannot touch the independent BR checkpoint');
+ shared.get=get;shared.set=set;
+});
