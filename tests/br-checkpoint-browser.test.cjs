@@ -28,7 +28,7 @@ function boot(store=new Map()){
  const global={document,localStorage:{getItem:key=>store.get(key)??null,setItem:(key,val)=>store.set(key,String(val)),removeItem:key=>store.delete(key)},
   performance:{now:()=>now},matchMedia:()=>({matches:false}),requestAnimationFrame:fn=>{frameCallback=fn;},setTimeout:()=>1,
   addEventListener:(name,fn)=>on(events,name,fn),console,
-  VeilpointRenderer:class{constructor(canvas){this.canvas=canvas;this.gpuTimer={supported:false};}setGraphicsQuality(){}draw(g){rendered=g;}setAdaptiveResolution(){}}};
+  VeilpointRenderer:class{constructor(canvas){if(this.constructor.failNext){this.constructor.failNext=false;throw new Error('GPU renderer rebuild denied');}this.canvas=canvas;this.gpuTimer={supported:false};}setGraphicsQuality(){}draw(g){rendered=g;}setAdaptiveResolution(){}}};
  global.globalThis=global;
  for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/benchmark.js','src/graphics.js','src/clock.js','src/fps.js','src/desktop-controls.js','src/gate-motor-audio.js','src/app.js'])
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,file),'utf8'),global,{filename:file,timeout:1500});
@@ -1412,4 +1412,62 @@ test('BR normal bfcache resume focuses Play when the settings panel is closed',(
  assert.equal(playFocus,1);
  assert.equal(graphicsFocus,0);
  assert.equal(app.node('graphicsPanel').classList.contains('hidden'),true);
+});
+
+test('BR Windows GPU reset keeps visible graphics settings keyboard focus and world paused',()=>{
+ const store=new Map([['veilpoint.story.ch01','CH01-unchanged']]),app=boot(store);
+ const panel=app.node('graphicsPanel');panel.classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ const world=app.game,elapsed=world.elapsed;
+ app.emit('keydown',{code:'Escape'});
+ const saved=store.get(KEY);
+ assert.ok(saved,'pausing BR must create a durable checkpoint');
+ app.node('graphicsPauseOpen').click();
+ assert.equal(panel.classList.contains('hidden'),false);
+ let playFocused=0,settingsFocused=0;
+ app.node('play').focus=()=>{playFocused++;};
+ app.node('graphicsClose').focus=()=>{settingsFocused++;};
+ app.node('scene').dispatch('webglcontextlost');
+ assert.equal(app.node('play').disabled,true);
+ app.frame(30000);
+ assert.equal(world.elapsed,elapsed);
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,false);
+ assert.equal(panel.classList.contains('hidden'),false);
+ assert.equal(settingsFocused,1,'GPU recovery must focus foreground graphics settings');
+ assert.equal(playFocused,0,'Resume behind an open settings panel cannot take keyboard focus');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(store.get(KEY),saved,'graphics rebuild does not overwrite durable BR checkpoint');
+ assert.equal(store.get('veilpoint.story.ch01'),'CH01-unchanged');
+ app.node('graphicsClose').click();
+ app.node('play').click();app.frame(30000+1000/60);
+ assert.equal(app.game,world,'explicit Resume returns to original BR world');
+ assert.equal(app.game.status,'playing');
+});
+
+test('BR failed GPU rebuild keeps pause until a successful retry focuses Resume',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('graphicsPanel').classList.add('hidden');
+ app.node('play').click();app.frame(1000/60);
+ const world=app.game,elapsed=world.elapsed;
+ app.node('scene').dispatch('webglcontextlost');
+ assert.equal(app.node('play').disabled,true);
+ const saved=store.get(KEY);assert.ok(saved);
+ app.global.VeilpointRenderer.failNext=true;
+ let focusCount=0;app.node('play').focus=()=>{focusCount++;};
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,true,
+   'failed device recreation must not enable game controls');
+ assert.match(app.node('message').textContent,/GRAPHICS RECOVERY FAILED/);
+ app.frame(100000);
+ assert.equal(world.elapsed,elapsed);
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,false);
+ assert.equal(focusCount,1,'a later recovery re-focuses the visible Resume button');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ assert.equal(store.get(KEY),saved);
+ app.node('play').click();app.frame(100000+1000/60);
+ assert.equal(app.game,world);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.game.status,'playing');
 });
