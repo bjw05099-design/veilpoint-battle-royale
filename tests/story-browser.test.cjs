@@ -3409,3 +3409,55 @@ test('CH01 Windows route dialog survives a failed GPU rebuild and a later succes
  assert.equal(app.element('choices').classList.contains('hidden'),true);
  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).choice,null);
 });
+
+test('CH01 PC journal retains keyboard focus and 60Hz pause through browser bfcache',()=>{
+ const key='veilpoint.story.ch01',store=new Map([['veilpoint.brCheckpoint.v1','BR-unchanged']]);
+ const app=boot(store,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,120);
+ app.emit('keydown',{code:'KeyJ'});
+ const journal=app.element('fieldJournal'),close=app.element('fieldJournalClose');
+ assert.equal(journal.classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,close);
+ const generation=store.get(key),elapsed=JSON.parse(generation).elapsed;
+ app.emit('pagehide');
+ assert.equal(journal.classList.contains('hidden'),false,
+   'background navigation must not replace visible journal with resume menu');
+ app.emit('pageshow',{persisted:true});
+ assert.equal(app.context.document.activeElement,close);
+ app.frame(150000);
+ assert.equal(store.get(key),generation,'journal bfcache return cannot write another checkpoint');
+ assert.equal(JSON.parse(store.get(key)).elapsed,elapsed);
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'BR-unchanged');
+ app.emit('keydown',{code:'Escape',target:close});
+ assert.equal(journal.classList.contains('hidden'),true);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+});
+
+test('CH01 GPU loss while journal is visible restores accessible factual records on retry',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,120);
+ app.element('pauseButton').click();
+ app.element('fieldJournalOpen').click();
+ const journal=app.element('fieldJournal'),close=app.element('fieldJournalClose');
+ assert.equal(journal.classList.contains('hidden'),false);
+ const before=app.store.get('veilpoint.story.ch01');
+ app.element('scene').dispatch('webglcontextlost');
+ assert.equal(journal.classList.contains('hidden'),true);
+ assert.equal(app.element('continue').disabled,true);
+ app.context.VeilpointRenderer.failNext=true;
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(journal.classList.contains('hidden'),true);
+ assert.equal(app.element('continue').disabled,true);
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,false);
+ assert.equal(journal.classList.contains('hidden'),false,
+   'a successful delayed WebGL recovery returns to the same journal');
+ assert.equal(app.context.document.activeElement,close);
+ assert.equal(app.store.get('veilpoint.story.ch01'),before);
+ app.frame(150000);
+ assert.equal(app.store.get('veilpoint.story.ch01'),before);
+ app.emit('keydown',{code:'Escape',target:close});
+ assert.equal(journal.classList.contains('hidden'),true);
+});
