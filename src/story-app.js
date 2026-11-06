@@ -1248,10 +1248,15 @@
     }
     if(action==='guidance'){
       e.preventDefault();
-      // Keep targeting the same public objective when optional markers are
-      // inserted/removed in the live 60Hz mission world. A missing target
-      // safely returns to automatic nearest-marker guidance.
-      guidanceId=Navigation.nextMarkerId(Story.markers(state),guidanceId);
+      // Only one deliberate N-key action per physical press; Windows key
+      // repeat must not cycle past multiple public objectives unexpectedly.
+      if(e.repeat)return;
+      // Shift+the remapped guidance key cycles backward, independent of the
+      // currently published array index; neither shortcut moves the world.
+      if(e.shiftKey)
+        guidanceId=Navigation.previousMarkerId(Story.markers(state),guidanceId);
+      else
+        guidanceId=Navigation.nextMarkerId(Story.markers(state),guidanceId);
       updateHud();
     }
   });
@@ -1440,7 +1445,8 @@
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
-         '] 표식 변경 / 자동 선택':'');
+         '] 표식 변경 / 자동 선택 · [SHIFT+'+
+         Desktop.keyLabel(bindings.guidance)+'] 역순':'');
     $('status').textContent=controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(state.subtitle);

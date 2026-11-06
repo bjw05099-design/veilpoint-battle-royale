@@ -57,6 +57,15 @@
     return next<markers.length&&markers[next]&&typeof markers[next].id==='string'
       ?markers[next].id:null;
   }
+  function previousMarkerId(markers,selectedId=null){
+    if(!Array.isArray(markers)||markers.length===0)return null;
+    // The automatic guidance position is shared by forward and reverse
+    // cycling. Stable IDs survive insertion/removal of optional objectives.
+    const index=markerIndex(markers,selectedId);
+    const previous=index===null?markers.length-1:index-1;
+    return previous>=0&&markers[previous]&&typeof markers[previous].id==='string'
+      ?markers[previous].id:null;
+  }
   function story(player,markers,selectedIndex=null,obstacles=null,preferredId=null,blockedHint=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
     // The exit cannot complete an opted-in escort while its civilian has not
@@ -100,5 +109,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,story,zone});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone});
 });
