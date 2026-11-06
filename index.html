@@ -89,6 +89,58 @@
  #overlay .landing .cta>.primary{letter-spacing:0}
  #overlay .landing h1{font-size:clamp(30px,9vw,48px)}
 }
+
+/* Each Windows settings category is its own viewport-sized screen. No panel scrolling. */
+#graphicsPanel{position:absolute;inset:auto;top:50%;left:50%;right:auto;
+ transform:translate(-50%,-50%);width:min(680px,calc(100vw - 20px));
+ height:min(630px,calc(100dvh - 20px));max-height:calc(100dvh - 20px);
+ display:flex;flex-direction:column;gap:clamp(4px,1vh,10px);
+ overflow:hidden;padding:clamp(8px,1.6vh,16px)}
+#graphicsPanel>header{flex:0 0 auto;margin:0;font-size:clamp(12px,2.2vh,16px)}
+#graphicsPanel .graphics-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:clamp(4px,.8vh,8px);flex:0 0 auto}
+#graphicsPanel .graphics-tabs button{min-width:0;min-height:34px;
+ font-size:clamp(10px,1.5vh,13px);padding:5px 7px}
+#graphicsPanel .graphics-tabs button[aria-selected="true"]{
+ background:#cce9a8;color:#101e1e;border-color:#e7f8d8;font-weight:800}
+#graphicsPanel .graphics-page{flex:1 1 auto;min-height:0;min-width:0;
+ display:flex;flex-direction:column;justify-content:center;gap:clamp(4px,.8vh,8px);overflow:hidden}
+#graphicsPanel .graphics-page.hidden{display:none!important}
+#graphicsPanel .graphics-page>label{margin:0;font-size:clamp(10px,1.5vh,12px)}
+#graphicsPanel .graphics-page>select{margin:0;padding:clamp(5px,1vh,9px);font-size:12px;flex-shrink:0}
+#graphicsPanel .graphics-page .g-grid{column-gap:clamp(6px,1.2vw,12px);row-gap:3px}
+#graphicsPanel .graphics-page .g-grid select{margin:0;padding:clamp(4px,.8vh,8px)}
+#graphicsPanel .graphics-page .adaptive-row{padding:0;min-height:24px;gap:7px}
+#graphicsPanel .graphics-page #qualityInfo{margin:0;padding:clamp(5px,1vh,10px) 0 0;
+ font-size:clamp(10px,1.5vh,12px);line-height:1.35}
+#graphicsPanel .graphics-page .graphics-disclaimer{margin:0;font-size:clamp(9px,1.3vh,11px);line-height:1.35}
+#graphicsPanel .graphics-page .desktop-controls{display:grid;grid-template-columns:1fr 1fr;
+ gap:clamp(4px,.8vh,8px);margin:0;padding:clamp(6px,1.2vh,12px);
+ min-height:0;align-items:center}
+#graphicsPanel .graphics-page .desktop-controls label{font-size:clamp(10px,1.5vh,12px);margin:0}
+#graphicsPanel .graphics-page .desktop-controls select{margin:0;padding:clamp(5px,.8vh,8px)}
+#graphicsPanel .graphics-page .desktop-controls button{min-height:30px;padding:5px 7px}
+#graphicsPanel .graphics-page .desktop-controls #desktopBindStatus{
+ font-size:clamp(10px,1.5vh,12px);line-height:1.3}
+#graphicsPanel .graphics-page #perfDetails{font-size:clamp(9px,1.35vh,11px);
+ line-height:1.3;padding:clamp(5px,1vh,9px);flex:0 1 auto;min-height:0}
+#graphicsPanel .graphics-page .benchmark-panel{padding:clamp(6px,1vh,12px);
+ margin:0;min-height:0;display:flex;flex-direction:column;gap:clamp(4px,.75vh,8px)}
+#graphicsPanel .graphics-page .benchmark-panel p{margin:0;font-size:clamp(9px,1.3vh,11px);line-height:1.3}
+#graphicsPanel .graphics-page .benchmark-actions{display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(4px,.7vh,7px)}
+#graphicsPanel .graphics-page .benchmark-actions button{min-width:0;padding:5px;
+ font-size:clamp(10px,1.5vh,12px)}
+#graphicsPanel .graphics-page #benchmarkRawJson{min-height:0;max-height:min(20dvh,110px);
+ resize:none;flex:1 1 70px}
+@media(max-height:480px){
+ #graphicsPanel{height:calc(100dvh - 12px);padding:5px 9px;gap:3px}
+ #graphicsPanel .graphics-page .graphics-disclaimer{display:none}
+ #graphicsPanel .graphics-page .benchmark-panel>p:first-of-type{display:none}
+ #graphicsPanel .graphics-page .desktop-controls{padding:5px;gap:3px}
+ #graphicsPanel .graphics-page .desktop-controls select{padding:3px}
+ #graphicsPanel .graphics-tabs button{min-height:28px}
+}
 </style>
 </head>
 <body>
@@ -102,6 +154,12 @@
 </div>
 <section id="graphicsPanel" class="graphics-panel hidden" aria-label="그래픽 상세 설정" role="region">
  <header><strong>그래픽 · 디스플레이</strong><button id="graphicsClose" type="button" aria-label="그래픽 설정 닫기">✕</button></header>
+ <nav class="graphics-tabs" role="tablist" aria-label="그래픽 설정 화면 선택">
+  <button id="graphicsTabVisual" type="button" role="tab" aria-controls="graphicsVisualPage" aria-selected="true">화질·화면</button>
+  <button id="graphicsTabControls" type="button" role="tab" aria-controls="graphicsControlsPage" aria-selected="false">키보드·마우스</button>
+  <button id="graphicsTabBenchmark" type="button" role="tab" aria-controls="graphicsBenchmarkPage" aria-selected="false">성능 측정</button>
+ </nav>
+ <div id="graphicsVisualPage" class="graphics-page" role="tabpanel" aria-labelledby="graphicsTabVisual">
  <label for="graphicsPreset">화질 프리셋</label><select id="graphicsPreset"><option value="hyperreal165">HyperReal 165Hz · 화질+고주사율</option><option value="cinematic">Cinematic Maximum · 영상 품질</option><option value="ultra">Ultra Photoreal · 초고화질</option><option value="balanced">Balanced Quality · 균형</option><option value="performance">Smooth Performance · 속도</option><option value="eco">Power Saver · 절전</option><option value="custom">Custom · 직접 설정</option></select>
  <div class="g-grid">
   <label for="fpsLimit">렌더 FPS 상한</label><select id="fpsLimit"><option value="30">30</option><option value="60">60</option><option value="90">90</option><option value="120">120</option><option value="144">144</option><option value="165">165</option></select>
@@ -110,10 +168,13 @@
   <label for="effects">필름 그레인</label><select id="effects"><option value="0">끄기</option><option value="0.4">낮음</option><option value="0.7">높음</option><option value="1">최고</option></select>
  </div>
  <div class="adaptive-row"><input id="autoResolution" type="checkbox"><label for="autoResolution">GPU 측정 기반 자동 해상도 (실험적 · 선택)</label></div>
- <div class="adaptive-row"><input id="soundEnabled" type="checkbox" checked><label for="soundEnabled">게임 효과음 켜기 (M 키로 전환 · 자막/HUD 유지)</label></div><div class="desktop-controls" aria-label="PC 키보드와 마우스 설정"><label for="desktopSensitivity">마우스 감도</label><select id="desktopSensitivity"><option value="0.25">0.25×</option><option value="0.5">0.50×</option><option value="0.75">0.75×</option><option value="1" selected>1.00× · 기본</option><option value="1.25">1.25×</option><option value="1.5">1.50×</option><option value="2">2.00×</option><option value="2.5">2.50×</option><option value="3">3.00×</option></select><label for="desktopInvertY"><input id="desktopInvertY" type="checkbox"> 마우스 Y축 반전</label><label for="desktopBindAction">키 변경할 동작</label><select id="desktopBindAction"><option value="forward">앞으로</option><option value="back">뒤로</option><option value="left">왼쪽</option><option value="right">오른쪽</option><option value="sprint">달리기</option><option value="crouch">웅크리기</option><option value="fire">발사</option><option value="reload" selected>재장전</option><option value="interact">상호작용</option><option value="assist">장전 보조</option><option value="support">동료 보고 (CH01) · 145m</option><option value="headlamp">헤드램프 (CH01)</option><option value="guidance">목표 안내 (CH01)</option></select><button id="desktopBindKey" type="button" aria-label="선택한 동작의 키 변경">KeyR</button><button id="desktopReset" type="button">PC 조작 기본값 복원</button><button id="desktopFullscreen" type="button">전체화면 전환</button><div id="desktopBindStatus" role="status" aria-live="polite">키 중복과 메뉴 예약 키는 허용되지 않습니다.</div></div><div id="perfDetails" aria-live="off">GPU 타이밍 지원 확인 중</div>
+ <div class="adaptive-row"><input id="soundEnabled" type="checkbox" checked><label for="soundEnabled">게임 효과음 켜기 (M 키로 전환 · 자막/HUD 유지)</label></div><p id="qualityInfo" role="status"></p><p class="graphics-disclaimer">165Hz는 모니터와 운영체제에서 설정합니다. 브라우저에서 실제 165Hz/165FPS 달성을 보장하지 않습니다. 게임 시뮬레이션은 60Hz로 유지됩니다.</p>
+ </div>
+ <div id="graphicsControlsPage" class="graphics-page hidden" role="tabpanel" aria-labelledby="graphicsTabControls"><div class="desktop-controls" aria-label="PC 키보드와 마우스 설정"><label for="desktopSensitivity">마우스 감도</label><select id="desktopSensitivity"><option value="0.25">0.25×</option><option value="0.5">0.50×</option><option value="0.75">0.75×</option><option value="1" selected>1.00× · 기본</option><option value="1.25">1.25×</option><option value="1.5">1.50×</option><option value="2">2.00×</option><option value="2.5">2.50×</option><option value="3">3.00×</option></select><label for="desktopInvertY"><input id="desktopInvertY" type="checkbox"> 마우스 Y축 반전</label><label for="desktopBindAction">키 변경할 동작</label><select id="desktopBindAction"><option value="forward">앞으로</option><option value="back">뒤로</option><option value="left">왼쪽</option><option value="right">오른쪽</option><option value="sprint">달리기</option><option value="crouch">웅크리기</option><option value="fire">발사</option><option value="reload" selected>재장전</option><option value="interact">상호작용</option><option value="assist">장전 보조</option><option value="support">동료 보고 (CH01) · 145m</option><option value="headlamp">헤드램프 (CH01)</option><option value="guidance">목표 안내 (CH01)</option></select><button id="desktopBindKey" type="button" aria-label="선택한 동작의 키 변경">KeyR</button><button id="desktopReset" type="button">PC 조작 기본값 복원</button><button id="desktopFullscreen" type="button">전체화면 전환</button><div id="desktopBindStatus" role="status" aria-live="polite">키 중복과 메뉴 예약 키는 허용되지 않습니다.</div></div></div>
+ <div id="graphicsBenchmarkPage" class="graphics-page hidden" role="tabpanel" aria-labelledby="graphicsTabBenchmark"><div id="perfDetails" aria-live="off">GPU 타이밍 지원 확인 중</div>
  <div class="benchmark-panel" aria-label="PC 브라우저 자동 성능 측정"><strong>PC 자동 벤치마크 · 120초</strong><p>5초 예열 후 게임 플레이 중의 렌더 콜백 간격과 렌더 함수 시간을 기록합니다. GPU 타이머는 지원되는 경우에만 기록됩니다. 경기 종료·일시정지 등으로 120초를 채우지 못하면 부분 측정으로 구분합니다. 경기 종료 화면에서도 JSON을 저장할 수 있으며 파일은 자동 전송되지 않습니다.</p><div class="benchmark-actions"><button id="benchmarkStart" type="button">측정 준비</button><button id="benchmarkStop" type="button" disabled>측정 중단</button><button id="benchmarkExport" type="button" disabled>JSON 결과 저장</button><button id="benchmarkCopy" type="button" disabled>JSON 직접 보기·복사</button></div><p id="benchmarkStatus" role="status" aria-live="polite">미측정</p><p id="benchmarkExportHelp" role="status" aria-live="polite">파일 저장이 차단되면 JSON 직접 보기·복사를 사용하세요. Ctrl+C로 복사하여 .json 파일로 보관할 수 있습니다.</p><label for="benchmarkRawJson" class="hidden" id="benchmarkRawLabel">측정 결과 원본 JSON (로컬 전용)</label><textarea id="benchmarkRawJson" class="hidden" readonly spellcheck="false" aria-label="브라우저 벤치마크 원본 JSON"></textarea></div>
- <p id="qualityInfo" role="status"></p><p class="graphics-disclaimer">165Hz는 모니터와 운영체제에서 설정합니다. 브라우저에서 실제 165Hz/165FPS 달성을 보장하지 않습니다. 게임 시뮬레이션은 60Hz로 유지됩니다.</p>
- </section>
+ </div>
+</section>
 <div id="watermark">OFFLINE BATTLE ROYALE / STORY CH01 AVAILABLE</div>
 <div class="compass" id="compass">N 000°</div>
 <div id="navigation" role="status" aria-live="off" style="position:absolute;z-index:4;top:83px;left:50%;transform:translateX(-50%);max-width:min(540px,85vw);padding:7px 12px;background:#07171cdb;color:#eff9f1;border:1px solid #c5e6d04d;font-size:12px;text-align:center;pointer-events:none">안전 구역 위치 확인 중</div>
