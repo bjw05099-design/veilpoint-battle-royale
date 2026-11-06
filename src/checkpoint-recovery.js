@@ -8,7 +8,15 @@
   function recover(primary,backup,restorePair){
     if(typeof restorePair!=='function')throw new TypeError('restorePair required');
     try{return restorePair(primary,backup);}
-    catch(_){return null;} // Invalid saves are preserved for future recovery.
+    catch(_){
+      // An exception while decoding the primary must not prevent an independently
+      // valid backup from being considered. Never mutate either persisted slot.
+      if(backup==null)return null;
+      try{
+        const recovered=restorePair(null,backup);
+        return recovered&&recovered.source==='backup'&&recovered.state?recovered:null;
+      }catch(_backupError){return null;}
+    }
   }
   return Object.freeze({recover});
 });
