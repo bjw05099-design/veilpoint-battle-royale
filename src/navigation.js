@@ -57,8 +57,19 @@
     return next<markers.length&&markers[next]&&typeof markers[next].id==='string'
       ?markers[next].id:null;
   }
-  function story(player,markers,selectedIndex=null,obstacles=null,preferredId=null){
+  function story(player,markers,selectedIndex=null,obstacles=null,preferredId=null,blockedHint=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';
+    // The exit cannot complete an opted-in escort while its civilian has not
+    // physically arrived. If a guide is no longer in the observed marker list,
+    // automatic PC navigation must not falsely present the exit as ready.
+    // A manually selected marker still follows the ordinary N-key cycle.
+    const manual=Number.isInteger(selectedIndex)&&selectedIndex>=0&&
+      selectedIndex<markers.length&&!!direction(player,markers[selectedIndex]);
+    if(!manual&&typeof blockedHint==='string'&&blockedHint.length>0&&
+       !markers.some(m=>m&&m.id==='guideControl'))
+      return '동행 경로 확인 필요 · '+blockedHint+
+        ' · 현재 안내원 위치 미표시 (직접 확인 후 동행 재개)';
+
     let nearest=null,best=Infinity;
     for(const marker of markers){
       const nav=direction(player,marker);
