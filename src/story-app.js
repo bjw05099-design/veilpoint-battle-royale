@@ -564,7 +564,7 @@
     if(!result.ok){
       // A physically blocked cargo exit changes the mission subtitle/message
       // even though it must not save a false completion or play a success cue.
-      if(['cargo_handoff_required','guide_not_arrived','guide_not_at_muster'].includes(result.reason))updateHud();
+      if(['cargo_handoff_required','guide_not_arrived','guide_not_at_muster','awaiting_clearance'].includes(result.reason))updateHud();
       return;
     }
     guidanceId=null;
@@ -1123,6 +1123,11 @@
       ?nearby.label+' · 잔량 '+state.combat.supplyRemaining+'발 · '+
         (p.charges>=p.maxCharges?'탄약 휴대 한도 도달':interactPrompt+' 필요한 만큼 확보')
       :nearby.id==='decision'&&state.phase==='exit'?interactPrompt+' '+nearby.label+' · 경로 다시 선택 (현재 '+(state.choice==='verification'?'동쪽 확인':'남쪽 대피')+')'
+      :nearby.id==='exitVerify'&&!situation.eastGateOpen
+        ?'동쪽 통제문 개방 대기 · 약 '+Math.ceil(situation.eastGateRemainingSeconds)+
+          '초 · 현지 구조단 승인 후 통과할 수 있습니다'
+      :nearby.id==='exitVerify'
+        ?interactPrompt+' '+nearby.label+' · 동쪽 통로 통과'
       :nearby.id==='exitEvac'&&state.world.carryingAid
         ?'출구 통과 보류 · 운반 중인 물품을 현장 인계하거나 임시 적재대에 내려놓으세요'
       :nearby.id==='exitEvac'&&state.guide.active&&!state.guide.arrived
