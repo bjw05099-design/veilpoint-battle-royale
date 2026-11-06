@@ -151,7 +151,7 @@ async function run(){
   '--disable-extensions','--no-first-run','--no-default-browser-check',
   '--remote-debugging-port=0','--user-data-dir='+userDir,'about:blank'],
   {stdio:['ignore','ignore','pipe']});
- let stderr='',ws=null;
+ let stderr='',ws=null,transportFailure=null;
  child.stderr.on('data',part=>{stderr+=part.toString();});
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  try{
@@ -229,6 +229,10 @@ async function run(){
    process.stdout.write('Chromium '+width+'x'+height+': '+
     data.errors.length+' clipping issues\n');
   }
+ }catch(error){
+  transportFailure={message:String(error&&error.stack||error),
+   browserExitCode:child.exitCode,browserSignal:child.signalCode,
+   browserStderr:stderr.slice(-4000),completedViewports:records.length};
  }finally{
   if(ws&&ws.readyState===WebSocket.OPEN)ws.close();
   child.kill('SIGTERM');
@@ -238,15 +242,18 @@ async function run(){
   catch(_){}
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
-  checks:records,failures:records.flatMap(r=>r.errors.map(e=>
-   r.requested.width+'x'+r.requested.height+': '+e))};
+  checks:records,transportFailure,
+  failures:[...records.flatMap(r=>r.errors.map(e=>
+   r.requested.width+'x'+r.requested.height+': '+e)),
+   ...(transportFailure?[transportFailure.message]:[])]};
  if(dest){
   fs.mkdirSync(path.dirname(dest),{recursive:true});
   fs.writeFileSync(dest,JSON.stringify(result,null,2)+'\n');
  }
  if(result.failures.length){
   console.error(result.failures.slice(0,50).join('\n'));
-  throw new Error('Viewport clipping found: '+result.failures.length+' issues');
+  throw new Error('Viewport geometry gate failed: '+result.failures.length+' issues; '+
+   records.length+'/'+SIZES.length+' viewports measured');
  }
  console.log('Real browser viewport gate passed: 7 screens x '+SIZES.length+' viewports');
 }
