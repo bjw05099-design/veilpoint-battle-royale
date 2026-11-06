@@ -348,41 +348,60 @@ let lastShotHudElapsed=-Infinity,shotFeedbackSerial=0;
 function clearStoredMatch(){
  // A stale finished tab must never remove a different tab's checkpoint.
  if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return false;
- // A reset is NOT committed merely because removeItem() returned. Some
- // offline browsers silently ignore deletion or deny read access. Preserve
- // the primary until the backup is verified cleared, then verify the primary.
- // Without that evidence start() will launch an isolated memory-only round.
+ // A failed explicit reset must not discard the only previous recoverable
+ // checkpoint. Keep its exact bytes, even when the primary is corrupt.
  let originalPrimary,originalBackup;
  try{
   originalPrimary=global.localStorage.getItem(MATCH_SAVE_KEY);
   originalBackup=global.localStorage.getItem(MATCH_BACKUP_KEY);
  }catch(_){return false;}
- for(const key of [MATCH_BACKUP_KEY,MATCH_SAVE_KEY]){
+ const restoreOriginalBackup=()=>{
+  if(originalBackup===null||originalBackup==='')return;
+  try{
+   // A newer backup from another PC tab takes precedence over our rollback.
+   const current=global.localStorage.getItem(MATCH_BACKUP_KEY);
+   if(current!==null&&current!=='')return;
+   global.localStorage.setItem(MATCH_BACKUP_KEY,originalBackup);
+  }catch(_){}
+ };
+ const clearGeneration=key=>{
   let removed=false;
   try{
    if(typeof global.localStorage.removeItem==='function'){
-    global.localStorage.removeItem(key);
-    removed=true;
+    global.localStorage.removeItem(key);removed=true;
    }
-  }catch(_){} // Some offline shims only support the empty-value fallback.
+  }catch(_){}
   if(!removed){
    try{global.localStorage.setItem(key,'');}
    catch(_){return false;}
   }
   try{
-   const after=global.localStorage.getItem(key);
-   if(after!==null&&after!=='')return false;
+   const remaining=global.localStorage.getItem(key);
+   return remaining===null||remaining==='';
   }catch(_){return false;}
- }
- // An external tab may recreate a generation while deletion is underway.
- // We cannot promise cross-tab atomicity, but never treat known surviving
- // bytes as a successful reset.
+ };
  try{
+  // This is a best-effort compare-before-delete guard. Browser localStorage
+  // cannot provide a cross-tab transaction or atomic compare-and-swap.
+  if(global.localStorage.getItem(MATCH_SAVE_KEY)!==originalPrimary||
+     global.localStorage.getItem(MATCH_BACKUP_KEY)!==originalBackup)return false;
+  if(!clearGeneration(MATCH_BACKUP_KEY))return false;
+  // Another tab might update the primary while the backup is being cleared.
+  if(global.localStorage.getItem(MATCH_SAVE_KEY)!==originalPrimary){
+   restoreOriginalBackup();return false;
+  }
+  if(!clearGeneration(MATCH_SAVE_KEY)){
+   restoreOriginalBackup();return false;
+  }
   if(global.localStorage.getItem(MATCH_SAVE_KEY)||
-     global.localStorage.getItem(MATCH_BACKUP_KEY))return false;
- }catch(_){return false;}
- matchDiskGeneration=null;
- return true;
+     global.localStorage.getItem(MATCH_BACKUP_KEY)){
+   restoreOriginalBackup();return false;
+  }
+  matchDiskGeneration=null;
+  return true;
+ }catch(_){
+  restoreOriginalBackup();return false;
+ }
 }
 function persistMatch(){
  if(!running||memoryOnlyMatch)return false;
