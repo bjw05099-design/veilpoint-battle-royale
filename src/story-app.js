@@ -691,7 +691,7 @@
         global.localStorage.getItem(BACKUP_KEY)===null;
     }catch(_){}
     state=imported;sessionStarted=true;memoryOnlyStory=!emptyDisk;
-    checkpoint=raw;pendingReplayReset=false;
+    checkpoint=raw;pendingReplayReset=false;recoveredFromBackup=false;
     guidanceId=null;shotSavePending=false;firstShotSaved=false;
     lastAutosaveAt=state.world.elapsed;
     $('storyWeapon').value=state.world.player.weaponId;
@@ -700,6 +700,12 @@
     if(emptyDisk){
       diskGeneration=null;checkpointInvalidStored=false;
       saved=persist('가져온 CH01 체크포인트');
+    }
+    saveFailed=memoryOnlyStory||!saved;
+    if(memoryOnlyStory){
+      const notice=$('saveStatus');
+      notice.textContent='임시 가져오기 · 현재 CH01 진행은 이 탭에만 보존됩니다. 종료 전에 JSON을 백업하세요.';
+      notice.classList.remove('hidden');
     }
     $('continue').textContent='가져온 CH01 이어하기';
     $('saveExit').classList.toggle('hidden',memoryOnlyStory);
