@@ -322,23 +322,47 @@ function loadFieldBookmark(){
  }catch(_){clearFieldBookmark();return null;}
 }
 function recordFieldBookmark(){
- const raw=Game.snapshotMatch(simulation);
+ let raw;
+ try{raw=Game.snapshotMatch(simulation);}
+ catch(_){
+  // A malformed in-memory snapshot must not crash the PC P-key handler or
+  // discard the last playable manual bookmark.
+  bookmarkIssue='write-failed';
+  return false;
+ }
  manualCheckpoint=raw;
- if(memoryOnlyMatch)return false; // P-key bookmark is valid in this tab, but is NOT durable.
- // A stale browser tab may keep its OWN memory bookmark but cannot overwrite
- // another tab's newer disk bookmark or claim that its write is durable.
+ if(memoryOnlyMatch)return false; // The local bookmark is NOT durable.
+ // Never overwrite the save owned by another tab. Browser localStorage
+ // offers no atomic compare-and-swap, so also recheck after the write.
  if(!ownsStoredMatch()){
   saveWarning=true;saveIssue='conflict';
+  bookmarkIssue='conflict';
   nextMatchSaveRetryAt=simulation.elapsed+1;
   return false;
  }
- try{global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);bookmarkIssue=null;return true;}
- catch(_){
-  // The *bookmark* failed, not necessarily the main checkpoint. Keep a
-  // separate persistent HUD warning instead of faking a save recovery.
+ try{
+  global.localStorage.setItem(FIELD_BOOKMARK_KEY,raw);
+  // A quota shim or privacy extension can silently ignore setItem, or a
+  // competing tab can replace its result before the read. Only exact bytes
+  // establish that the bookmark really survived in persistent storage.
+  if(global.localStorage.getItem(FIELD_BOOKMARK_KEY)!==raw){
+   bookmarkIssue='write-failed';
+   return false;
+  }
+  if(!ownsStoredMatch()){
+   saveWarning=true;saveIssue='conflict';
+   bookmarkIssue='conflict';
+   nextMatchSaveRetryAt=simulation.elapsed+1;
+   return false;
+  }
+  bookmarkIssue=null;
+  return true;
+ }catch(_){
+  // Bookmark failure is distinct from the main checkpoint; the bookmark
+  // remains usable in this tab without claiming it was persisted.
   bookmarkIssue='write-failed';
   return false;
- } // This session can still rewind when storage is denied.
+ }
 }
 // LocalStorage JSON serialization is synchronous. Keep automatic fire responsive:
 // save at most once per second during a volley, and always flush on pause/pagehide.
