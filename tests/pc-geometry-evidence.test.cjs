@@ -59,3 +59,20 @@ test('missing CH01 journal evidence fails closed',()=>{
  const value=fixture();delete value.storyJournalChecks;
  assert.throws(()=>validate(value),/Missing storyJournalChecks evidence/);
 });
+
+test('omitted Chromium error and clipping arrays fail closed',()=>{
+ const value=fixture();
+ delete value.checks[0].errors;
+ assert.throws(()=>validate(value),/Missing geometry error array/);
+ value.checks[0].errors=[];
+ delete value.checks[0].cases[0].issues;
+ assert.throws(()=>validate(value),/Missing geometry issues/);
+});
+test('omitted CH01 error and clipping arrays fail closed',()=>{
+ const value=fixture();
+ delete value.storyChecks[0].errors;
+ assert.throws(()=>validate(value),/Missing CH01 error array/);
+ value.storyChecks[0].errors=[];
+ delete value.storyChecks[0].cases[0].issues;
+ assert.throws(()=>validate(value),/Missing CH01 issues/);
+});
