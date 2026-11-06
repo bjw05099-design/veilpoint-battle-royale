@@ -690,6 +690,10 @@ async function run(){
    ...journalRecords.flatMap(r=>r.errors.map(e=>
     'CH01 journal '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...(transportFailure?[transportFailure.message]:[])]};
+ // Preserve failure evidence even when the independent completeness audit fails.
+ let evidenceError=null;
+ try{require('./validate-pc-geometry.cjs').validate(result);}
+ catch(error){evidenceError=error;result.failures.push('Evidence validation: '+String(error.message||error));}
  if(dest){
   fs.mkdirSync(path.dirname(dest),{recursive:true});
   fs.writeFileSync(dest,JSON.stringify(result,null,2)+'\n');
