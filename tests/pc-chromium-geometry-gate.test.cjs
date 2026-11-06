@@ -65,11 +65,11 @@ test('Windows EXE build refuses to ship without Chromium screen and click hit ev
 
 test('Windows CDP startup probes a real loopback endpoint and never skips the geometry gate',()=>{
  assert.match(verifier,/process\.platform==='win32'/);
- assert.match(verifier,/listener\.listen\(0,'127\.0\.0\.1',resolve\)/);
- assert.match(verifier,/reservedPort\|\|0/);
+ assert.match(verifier,/server\.listen\(0,'127\.0\.0\.1',resolve\)/);
+ assert.match(verifier,/windowsProbe\?await reserveLoopbackPort\(\):0/);
  assert.match(verifier,/\/json\/version/);
- assert.match(verifier,/info\.webSocketDebuggerUrl/);
- assert.match(verifier,/Chromium DevTools did not become ready/);
+ assert.match(verifier,/version\.webSocketDebuggerUrl/);
+ assert.match(verifier,/Chromium DevTools not ready/);
  assert.match(verifier,/throw new Error\('Viewport geometry gate failed:/);
 });
 
