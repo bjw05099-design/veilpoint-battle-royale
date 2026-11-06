@@ -1,6 +1,8 @@
 'use strict';
-// Deterministic CH01 route-state release gate. Authored marker travel is
-// accelerated here; this does NOT substitute for a human first-person run.
+// CH01 two-route release gate. The critical central and exit corridors are
+// traversed through real 60Hz player movement and solid world collision.
+// Optional distant markers are fast-forwarded, never claimed as walking QA.
+// Neither a test script nor a CI runner replaces real human Windows play.
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const fs=require('node:fs');
@@ -10,7 +12,7 @@ const Story=require('../src/story-slice.js');
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function runRoute(route){
   assert.ok(['evacuation','verification'].includes(route));
-  let state=Story.createState(),checkpoints=[];
+  let state=Story.createState(),checkpoints=[],walkSegments=[];
   const at=id=>{
     const target=Story.POINTS[id];
     assert.ok(target,'authored marker '+id+' must exist');
@@ -25,8 +27,36 @@ function runRoute(route){
       sha256:sha(raw),taskStatus:tasks.map(task=>task.id+':'+task.status)});
     state=recovered;
   };
-  const use=(marker,expected=marker)=>{
-    at(marker);
+  // Physically traverse route-critical corridors rather than just granting
+  // the next milestone by moving the state directly onto its trigger.
+  const walkTo=(target,label)=>{
+    const point=typeof target==='string'?Story.POINTS[target]:target;
+    assert.ok(point&&Number.isFinite(point.x)&&Number.isFinite(point.z));
+    const player=state.world.player;
+    const start={x:player.x,z:player.z};
+    let ticks=0,stalled=0,travelled=0;
+    while(Math.hypot(player.x-point.x,player.z-point.z)>2.2&&ticks<1000){
+      const dx=point.x-player.x,dz=point.z-player.z;
+      player.yaw=Math.atan2(dx,-dz);
+      const beforeX=player.x,beforeZ=player.z;
+      Story.step(state,1/60,{forward:true});
+      const moved=Math.hypot(player.x-beforeX,player.z-beforeZ);
+      travelled+=moved;
+      stalled=moved<1e-6?stalled+1:0;
+      if(stalled>45)throw new Error(label+': physical route blocked by a solid');
+      assert.notEqual(state.phase,'failed',label+': traversal must stay playable');
+      ticks++;
+    }
+    const remaining=Math.hypot(player.x-point.x,player.z-point.z);
+    assert.ok(remaining<=2.2,label+': did not reach an interactable physical location');
+    assert.ok(ticks>0&&travelled>0,label+': expected actual 60Hz movement');
+    walkSegments.push({label,ticks,distance:+travelled.toFixed(4),remaining:+remaining.toFixed(4),
+      from:[+start.x.toFixed(4),+start.z.toFixed(4)],
+      to:[+player.x.toFixed(4),+player.z.toFixed(4)]});
+    check('walk-'+label);
+  };
+  const use=(marker,expected=marker,alreadyWalked=false)=>{
+    if(!alreadyWalked)at(marker);
     assert.equal(Story.nearest(state)?.id,expected,'physical interaction '+marker);
     const result=Story.interact(state);
     assert.equal(result.ok,true,marker+': '+result.reason);
@@ -34,7 +64,8 @@ function runRoute(route){
     check(expected);
   };
   check('mission-start');
-  use('terminal');
+  walkTo('terminal','opening-to-terminal');
+  use('terminal','terminal',true);
   assert.equal(state.phase,'engagement');
   // This scripted QA advances encounter aim/clock through game APIs, not by
   // directly setting the enemy cleared or granting a completed chapter.
@@ -50,7 +81,11 @@ function runRoute(route){
   use('recordA');
   use('recordB');
   if(route==='verification')use('relay');
-  use('decision');
+  // Optional evidence interactions above are accelerated. Rejoin the
+  // authored central corridor and walk to the desk through actual collision.
+  at('terminal');
+  walkTo('decision','terminal-to-decision');
+  use('decision','decision',true);
   assert.equal(state.phase,'decision');
   assert.equal(Story.choose(state,route).ok,true);
   assert.equal(state.phase,'exit');
@@ -65,10 +100,15 @@ function runRoute(route){
     assert.equal(Story.situation(state).eastGateOpen,true);
     assert.equal(Story.missionTasks(state).find(x=>x.id==='exit').status,'available');
     check('gate-cleared');
+    // The southern approach and east lateral corridor are both real moving
+    // player paths; the physical gate is already released by its 60Hz timer.
+    walkTo({x:0,z:-61},'decision-to-east-approach');
+    walkTo('exitVerify','east-approach-to-exit');
     use('gateLog');
     use('reportDesk');
     use('exitVerify');
   }else{
+    walkTo('exitEvac','decision-to-south-exit');
     use('muster');
     use('guide');
     assert.equal(state.guide.active,true);
@@ -105,14 +145,14 @@ function runRoute(route){
     assert.equal(verified.report.musterConfirmed,true);
   }
   return {route,completed:true,previewOnly:true,finalCheckpointSha256:sha(raw),
-    checkpointCount:checkpoints.length,checkpoints,
+    checkpointCount:checkpoints.length,checkpoints,walkSegments,
     report:{route:verified.report.route,civilianOutcome:verified.report.civilianOutcome,
       clockDiscrepancy:verified.report.clockDiscrepancy,guideReleased:verified.report.guideReleased,
       aidDelivered:verified.report.aidDelivered,logHandedOff:verified.report.logHandedOff}};
 }
 function generate(){
-  return {schema:'veilpoint-ch01-route-check-v1',
-    travelMode:'authored-marker-fast-forward',
+  return {schema:'veilpoint-ch01-route-check-v2',
+    travelMode:'physical-central-corridors-plus-optional-marker-fast-forward',
     simulationHz:60,seedPolicy:'story-fixed-20261027',
     routes:[runRoute('evacuation'),runRoute('verification')]};
 }
