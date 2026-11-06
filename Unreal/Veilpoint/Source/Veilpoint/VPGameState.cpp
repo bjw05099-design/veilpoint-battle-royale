@@ -14,6 +14,7 @@ void AVPGameState::GetLifetimeReplicatedProps(
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPGameState, ActiveSurvivors);
     DOREPLIFETIME(AVPGameState, bRoundComplete);
+    DOREPLIFETIME(AVPGameState, bRoundStarted);
 }
 
 void AVPGameState::UpdateRoundState(int32 AliveCount, bool bFinished)
@@ -23,5 +24,14 @@ void AVPGameState::UpdateRoundState(int32 AliveCount, bool bFinished)
     if (ActiveSurvivors == SafeAliveCount && bRoundComplete == bFinished) return;
     ActiveSurvivors = SafeAliveCount;
     bRoundComplete = bFinished;
+    ForceNetUpdate();
+}
+
+void AVPGameState::MarkRoundStarted()
+{
+    // This state is set only by the authoritative GameMode, never by an RPC.
+    // A late-joining client receives the same factual lobby/round boundary.
+    if (!HasAuthority() || bRoundStarted) return;
+    bRoundStarted = true;
     ForceNetUpdate();
 }

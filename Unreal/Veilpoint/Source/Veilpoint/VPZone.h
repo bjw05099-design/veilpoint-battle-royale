@@ -26,5 +26,6 @@ private:
     // Server game-world clock sampled once at round start. Timer callback
     // count is not a reliable elapsed-time source during frame hitches.
     float StartServerTimeSeconds = 0.f;
+    bool bZoneClockStarted = false; // Native wait lobby never advances the zone clock.
     void UpdateZone();
 };
