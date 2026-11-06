@@ -447,6 +447,14 @@ async function run(){
   guide:{active:true,arrived:true,released:true}
  });
  const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[];
+ // Windows-hosted Chrome can become unresponsive before its DevTools endpoint
+ // exists. An already-installed Microsoft Edge is a Chromium/CDP alternative,
+ // not a substitute for measurement or a bypass of the release gate.
+ const edgeFallback=process.platform==='win32'?[
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe'
+ ].find(candidate=>candidate!==chrome&&fs.existsSync(candidate)):null;
+ let activeChrome=chrome;
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  let child=null,userDir=null,stderr='',ws=null,transportFailure=null;
  let startupAttempts=0;
@@ -470,7 +478,7 @@ async function run(){
   // Linux retains the already-validated ephemeral Chrome port-file path.
   const windowsProbe=process.platform==='win32';
   const port=windowsProbe?await reserveLoopbackPort():0;
-  child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
+  child=spawn(activeChrome,['--headless=new','--no-sandbox','--disable-gpu',
    '--disable-dev-shm-usage','--disable-background-networking',
    '--disable-extensions','--no-first-run','--no-default-browser-check',
    '--remote-debugging-port='+port,'--user-data-dir='+userDir,'about:blank'],
@@ -516,9 +524,10 @@ async function run(){
   // A fresh profile/process gets one bounded recovery attempt. Never pass
   // without actually measuring all seven pages at every viewport.
   for(startupAttempts=1;startupAttempts<=2;startupAttempts++){
+   if(startupAttempts===2&&edgeFallback)activeChrome=edgeFallback;
    try{cdpPort=await startBrowser();break;}
    catch(error){
-    startupErrors.push('attempt '+startupAttempts+': '+String(error.message||error));
+    startupErrors.push('attempt '+startupAttempts+' ['+activeChrome+']: '+String(error.message||error));
     await stopBrowser();
     if(startupAttempts===2)throw new Error(startupErrors.join(' | '));
    }
@@ -670,7 +679,7 @@ async function run(){
   if(ws&&ws.readyState===WebSocket.OPEN)ws.close();
   await stopBrowser();
  }
- const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
+ const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(activeChrome),
   checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
