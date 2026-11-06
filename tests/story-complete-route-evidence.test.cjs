@@ -8,9 +8,9 @@ const {generate,runRoute}=require('../scripts/verify-ch01-routes.cjs');
 test('CH01 both authored route endings are independently reproducible through real game interactions',()=>{
   const a=generate(),b=generate();
   assert.deepEqual(a,b,'replayed fixed-seed mission must have stable SHA-256 snapshots');
-  assert.equal(a.schema,'veilpoint-ch01-route-check-v1');
+  assert.equal(a.schema,'veilpoint-ch01-route-check-v2');
   assert.equal(a.simulationHz,60);
-  assert.equal(a.travelMode,'authored-marker-fast-forward');
+  assert.equal(a.travelMode,'physical-central-corridors-plus-optional-marker-fast-forward');
   assert.deepEqual(a.routes.map(x=>x.route),['evacuation','verification']);
   assert.ok(a.routes.every(x=>x.completed&&x.previewOnly));
   assert.ok(a.routes.every(x=>x.checkpointCount>=10));
@@ -47,6 +47,29 @@ test('CH01 eastern route checkpoints locked and cleared 60Hz gate plus recorded 
    .taskStatus.includes('exit:available'));
  assert.equal(east.report.logHandedOff,true);
  assert.equal(east.report.clockDiscrepancy,'retransmission-confirmed');
+});
+
+test('CH01 central corridors and both exits are reached by real fixed-step walking, not direct marker placement',()=>{
+ const routes=generate().routes;
+ const south=routes.find(r=>r.route==='evacuation');
+ const east=routes.find(r=>r.route==='verification');
+ assert.deepEqual(south.walkSegments.map(x=>x.label),
+  ['opening-to-terminal','terminal-to-decision','decision-to-south-exit']);
+ assert.deepEqual(east.walkSegments.map(x=>x.label),
+  ['opening-to-terminal','terminal-to-decision','decision-to-east-approach','east-approach-to-exit']);
+ for(const route of routes){
+  for(const segment of route.walkSegments){
+   assert.ok(segment.ticks>=10&&segment.ticks<=1000);
+   assert.ok(segment.distance>=10,'segment needs substantial actual 60Hz travel');
+   assert.ok(segment.remaining<=2.2,'segment must reach interaction distance without teleportation');
+   assert.ok(route.checkpoints.some(x=>x.label==='walk-'+segment.label),
+    'physical segment must be immediately checkpointed for deterministic replay');
+  }
+ }
+ assert.ok(south.walkSegments.at(-1).to[1]<-58,
+  'south arrival is inside the actual courtyard');
+ assert.ok(east.walkSegments.at(-1).to[0]>24,
+  'east arrival is near the verified physical exit');
 });
 
 test('CH01 published QA evidence is produced by the same script wired into CI',()=>{
