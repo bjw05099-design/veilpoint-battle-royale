@@ -180,6 +180,35 @@ for(const [id,screen] of graphicsTabScreens){
   $(nextId).focus();
  });
 }
+// The PC settings window is a keyboard modal while visible. Without a focus
+// boundary, Tab can reach the hidden-under-dialog Resume/New Match controls
+// and Enter could activate gameplay underneath the settings screen.
+function visibleGraphicsDialogControls(){
+ const panel=$('graphicsPanel');
+ return [...panel.querySelectorAll('button,select,input,textarea,a[href],[tabindex]')]
+  .filter(node=>!node.disabled&&node.tabIndex>=0&&node.getClientRects().length>0&&
+   getComputedStyle(node).visibility!=='hidden');
+}
+function containGraphicsDialogFocus(event){
+ const panel=$('graphicsPanel');
+ if(panel.classList.contains('hidden'))return;
+ if(event.type==='focusin'){
+  if(!panel.contains(event.target))$('graphicsClose').focus({preventScroll:true});
+  return;
+ }
+ if(event.key!=='Tab')return;
+ const controls=visibleGraphicsDialogControls();
+ if(!controls.length){
+  event.preventDefault();$('graphicsClose').focus({preventScroll:true});return;
+ }
+ const index=controls.indexOf(document.activeElement);
+ if(index<0||(event.shiftKey?index===0:index===controls.length-1)){
+  event.preventDefault();
+  controls[event.shiftKey?controls.length-1:0].focus({preventScroll:true});
+ }
+}
+document.addEventListener('keydown',containGraphicsDialogFocus,true);
+document.addEventListener('focusin',containGraphicsDialogFocus,true);
 function setGraphicsPanelOpen(open,opener=null){
  if(open&&running&&!suspended){
   suspendMatch();
