@@ -44,7 +44,9 @@ test('real PC browser checks visible, enabled and unobstructed click targets on 
  }
  assert.match(verifier,/document\.elementFromPoint\(rect\.left\+rect\.width\*fx,/);
  assert.match(verifier,/node===top\|\|node\.contains\(top\)/);
- assert.match(verifier,/required control hidden, missing or disabled/);
+ assert.match(verifier,/!root\.contains\(node\)/,
+  'required target must belong to the visible active panel');
+ assert.match(verifier,/required control outside active page, hidden, missing or disabled/);
  assert.match(verifier,/required button is covered or not clickable/);
  assert.match(verifier,/targets:\[\]/);
 });
@@ -59,4 +61,55 @@ test('Windows EXE build refuses to ship without Chromium screen and click hit ev
  assert.match(win,/dist\/windows-exe\/pc-ui-geometry-win64\.json/);
  assert.match(win,/dist\/windows-exe\/veilpoint-windows-demo-exe\.zip\.sha256/);
  assert.match(win,/dist\/windows-exe\/ch01-route-evidence-win64\.json/);
+});
+
+test('Windows CDP startup probes a real loopback endpoint and never skips the geometry gate',()=>{
+ assert.match(verifier,/process\.platform==='win32'/);
+ assert.match(verifier,/server\.listen\(0,'127\.0\.0\.1',resolve\)/);
+ assert.match(verifier,/windowsProbe\?await reserveLoopbackPort\(\):0/);
+ assert.match(verifier,/\/json\/version/);
+ assert.match(verifier,/version\.webSocketDebuggerUrl/);
+ assert.match(verifier,/Chromium DevTools not ready/);
+ assert.match(verifier,/throw new Error\('Viewport geometry gate failed:/);
+});
+
+test('Windows Chrome DevTools uses a reserved local HTTP endpoint without changing Linux geometry',async()=>{
+ const {reserveLoopbackPort}=require('../scripts/verify-pc-viewport.cjs');
+ const port=await reserveLoopbackPort();
+ assert.ok(Number.isInteger(port)&&port>0&&port<=65535);
+ assert.ok(verifier.includes("process.platform==='win32'"),'Windows-specific bootstrap missing');
+ assert.ok(verifier.includes("'/json/version'")||verifier.includes("+'/json/version'"),
+  'Windows Chrome HTTP readiness endpoint missing');
+ assert.ok(verifier.includes("'DevToolsActivePort'"),'Linux port-file bootstrap must remain');
+ assert.ok(verifier.includes('Page.setDocumentContent'),'DevTools must still measure real DOM');
+ assert.ok(verifier.includes('Emulation.setDeviceMetricsOverride'),'all 4 viewports must be measured');
+});
+
+test('failed Windows Chrome startup preserves launch evidence and fails the release gate',()=>{
+ for(const detail of ['pid=', 'exit=', 'signal=', 'Windows HTTP probe'])
+  assert.ok(verifier.includes(detail),'startup diagnostic missing: '+detail);
+ assert.ok(verifier.includes("transportFailure?[transportFailure.message]:[]"));
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
+});
+
+test('Windows cold-renderer initialization remains a measured fail-closed CDP gate',()=>{
+ const handshake=verifier.indexOf("const bootstrap=await rpc('Runtime.evaluate'");
+ const injection=verifier.indexOf("await rpc('Page.setDocumentContent'");
+ assert.ok(handshake>=0&&injection>handshake,'renderer handshake must precede real DOM injection');
+ assert.ok(verifier.includes("method==='Page.setDocumentContent'"));
+ assert.ok(verifier.includes('elapsedMs='));
+ assert.ok(verifier.includes('browserPid='));
+ assert.ok(verifier.includes('Chrome renderer did not respond before document injection'));
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
+});
+
+test('unresponsive Windows Chrome can fall back only to a detected local Chromium binary',()=>{
+ assert.ok(verifier.includes('msedge.exe'),'Windows Chromium alternative must be explicit');
+ assert.ok(verifier.includes('fs.existsSync(candidate)'),'missing Edge must not be assumed installed');
+ assert.ok(verifier.includes('activeChrome=edgeFallback'),'fallback must use the alternate executable');
+ assert.ok(verifier.includes('child=spawn(activeChrome,'));
+ assert.ok(verifier.includes('browser:path.basename(activeChrome)'),
+  'geometry evidence must disclose the actual browser used');
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"),
+  'unavailable browsers cannot be counted as a passing geometry gate');
 });

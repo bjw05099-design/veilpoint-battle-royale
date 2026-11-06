@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const {audit}=require('../scripts/verify-pc-viewport.cjs');
 
-function geometryFixture(coverCorner=false){
+function geometryFixture(coverCorner=false,playOutsidePanel=false){
  const ids=['overlay','graphicsPanel','play','newMatch','brViewMore',
   'graphicsPauseOpen','brViewBack','brImport','brExport','brImportFile',
   'brImportApply','brExportDownload','graphicsClose','graphicsTabVisual',
@@ -36,6 +36,19 @@ function geometryFixture(coverCorner=false){
   nodes[id].getBoundingClientRect=()=>({
    left:0,top:0,right:1024,bottom:600,width:1024,height:600});
   nodes[id].querySelectorAll=()=>[nodes.play];
+  // Simulate the DOM's actual containment contract, not just geometry.
+  // A control rendered at a valid coordinate is not necessarily owned
+  // by the currently visible page.
+  const brIds=new Set(['play','newMatch','brViewMore','graphicsPauseOpen',
+   'brViewBack','brImport','brExport','brImportFile','brImportApply',
+   'brExportDownload','brImportPanel','brExportPanel']);
+  const graphicsIds=new Set(['graphicsClose','graphicsTabVisual',
+   'graphicsTabControls','graphicsTabBenchmark','graphicsPreset',
+   'desktopBindKey','benchmarkStart','graphicsVisualPage',
+   'graphicsControlsPage','graphicsBenchmarkPage']);
+  nodes[id].contains=other=>other===nodes[id]||
+   (!((playOutsidePanel)&&other===nodes.play)&&
+    (id==='overlay'?brIds:graphicsIds).has(other?.id));
  }
  const doc={activeElement:null,
   documentElement:{scrollHeight:600,scrollWidth:1024,
@@ -79,4 +92,15 @@ test('fully uncovered PC controls remain clickable with five hit-test points',()
  assert.equal(play.hit,true);
  assert.equal(play.probesPassed,5);
  assert.ok(!main.issues.some(issue=>issue.id==='play'));
+});
+
+test('a geometrically visible BR button is rejected if detached from the active menu',()=>{
+ const result=geometryFixture(false,true);
+ const main=result.cases.find(page=>page.name==='BR-main');
+ const target=main.targets.find(t=>t.id==='play');
+ assert.equal(target.visible,true);
+ assert.equal(target.enabled,true);
+ assert.equal(target.hit,undefined);
+ assert.ok(main.issues.some(issue=>issue.id==='play'&&
+  issue.reason==='required control outside active page, hidden, missing or disabled'));
 });

@@ -27,8 +27,8 @@ test('viewport gate writes actionable evidence and fails closed when Chrome cann
   assert.equal(report.transportFailure.completedViewports,0);
   assert.equal(report.startupAttempts,2,
    'both isolated Chrome startup attempts must fail before geometry is marked failed');
-  assert.match(report.transportFailure.message,/attempt 1:/);
-  assert.match(report.transportFailure.message,/attempt 2:/);
+  assert.match(report.transportFailure.message,/attempt 1 \[[^\]]+\]:/);
+  assert.match(report.transportFailure.message,/attempt 2 \[[^\]]+\]:/);
   assert.match(report.transportFailure.message,/simulated-browser-failure/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
