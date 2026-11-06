@@ -56,6 +56,8 @@ function audit(){
    }
    if(root.scrollHeight>root.clientHeight+2)
     result.issues.push({id:'scrollHeight',scroll:root.scrollHeight,client:root.clientHeight});
+   if(root.scrollWidth>root.clientWidth+2)
+    result.issues.push({id:'scrollWidth',scroll:root.scrollWidth,client:root.clientWidth});
    for(const id of requiredTargets[name]||[]){
     const node=get(id);
     const current={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
@@ -107,6 +109,8 @@ function audit(){
    const page=get(id);
    if(page.scrollHeight>page.clientHeight+2)
     result.issues.push({id:id+'-scroll',scroll:page.scrollHeight,client:page.clientHeight});
+   if(page.scrollWidth>page.clientWidth+2)
+    result.issues.push({id:id+'-horizontal-scroll',scroll:page.scrollWidth,client:page.clientWidth});
    data.cases.push(result);
   }
   data.errors.push(...data.cases.flatMap(c=>c.issues.map(issue=>
