@@ -20,6 +20,12 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|Round")
     bool bRoundComplete = false;
 
+    // The zone timer and HUD must not treat a one-player waiting lobby as an
+    // already-started native BR match. This authority-only latch is monotonic.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|Round")
+    bool bRoundStarted = false;
+
     // Server-authoritative GameMode entrypoint, never a client RPC.
     void UpdateRoundState(int32 AliveCount, bool bFinished);
+    void MarkRoundStarted();
 };
