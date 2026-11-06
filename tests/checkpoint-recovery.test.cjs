@@ -40,3 +40,22 @@ test('CH01 desktop loader retains both corrupt slots and loads recovery before a
  assert.ok(!app.includes('storage.remove(SAVE_KEY);storage.remove(BACKUP_KEY);return null;'));
  assert.ok(html.indexOf('src/checkpoint-recovery.js')<html.indexOf('src/story-app.js'));
 });
+
+test('CH01 primary decoder exception retries backup without deleting persisted generations',()=>{
+ const backup=Story.serialize(Story.createState());
+ const calls=[];
+ const restore=(primary,secondary)=>{
+   calls.push([primary,secondary]);
+   if(primary!==null)throw new Error('primary decoder failed');
+   return Story.recoverCheckpoint(primary,secondary);
+ };
+ const result=Recovery.recover('{invalid-primary',backup,restore);
+ assert.equal(result.source,'backup');
+ assert.equal(result.state.phase,'terminal');
+ assert.deepEqual(calls,[['{invalid-primary',backup],[null,backup]]);
+});
+test('CH01 backup exception and forged primary fallback are never accepted',()=>{
+ const backup=Story.serialize(Story.createState());
+ assert.equal(Recovery.recover('bad',backup,()=>{throw new Error('decode');}),null);
+ assert.equal(Recovery.recover('bad',backup,(p)=>p===null?{source:'primary',state:{}}:(()=>{throw Error('decode')})()),null);
+});
