@@ -1017,10 +1017,16 @@
         return {ok:false,reason:'guide_not_arrived'};
       }
       if(marker.id==='exitVerify'&&!gateOpen(state)){
-        // The 60Hz clearance remains authoritative. A premature E press gives
-        // grounded local feedback instead of a silent, misleading exit action.
-        state.subtitle='유수프(현지 구조단): 통제문 개방 작업이 아직 진행 중입니다. 출입 허가 후 통과하세요.';
-        state.message='동쪽 통로 대기 · 현지 구조단 개방 확인 필요';
+        // The same 60Hz gate motor can be paused by a real person in its swept
+        // path. An E press must not present an advancing countdown while the
+        // local safety interlock is engaged.
+        if(state.gateObstructed){
+          state.subtitle='유수프(현지 구조단): 통제문 이동 구역에 사람이 있어 안전 정지했습니다. 이동 경로를 비워 주세요.';
+          state.message='동쪽 통제문 안전 정지 · 이동 경로를 비운 뒤 개방 확인';
+        }else{
+          state.subtitle='유수프(현지 구조단): 통제문 개방 작업이 아직 진행 중입니다. 출입 허가 후 통과하세요.';
+          state.message='동쪽 통로 대기 · 현지 구조단 개방 확인 필요';
+        }
         return {ok:false,reason:'awaiting_clearance'};
       }
       state.phase='complete';state.world.status='won';
@@ -1135,6 +1141,8 @@
         state.gateLogReviewed?'현장 중계 로그 확인 · 04:07 최초 수신 / 04:12 동일 메시지 재전송':
          count===2?'기록 2/2 · 04:07 대피소 / 04:12 항구 · 원인 미확정':`기록 ${count}/2 · 교차 확인 전 결론 보류`,
       eastGateOpen:gateOpen(state),
+      eastGateObstructed:state.phase==='exit'&&state.choice==='verification'&&
+        !gateOpen(state)&&state.gateObstructed,
       eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60-1e-8)/60):0,
       routeReviewAvailable:state.phase==='exit'&&markers(state).some(m=>m.id==='decision'),
       visibleEscortDistance:visibleEscortDistance(state),
