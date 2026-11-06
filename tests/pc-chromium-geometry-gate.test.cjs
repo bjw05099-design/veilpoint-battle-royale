@@ -46,3 +46,15 @@ test('real PC browser checks visible, enabled and unobstructed click targets on 
  assert.match(verifier,/required button is covered or not clickable/);
  assert.match(verifier,/targets:\[\]/);
 });
+
+test('Windows EXE build refuses to ship without Chromium screen and click hit evidence',()=>{
+ const win=fs.readFileSync(path.resolve(__dirname,
+  '../.github/workflows/windows-demo-exe.yml'),'utf8');
+ assert.match(win,/scripts\/verify-pc-viewport\.cjs/);
+ assert.match(win,/Verify Win64 Chromium screen bounds and clickable controls/);
+ assert.match(win,/Google Chrome is required for Win64 UI verification/);
+ assert.match(win,/node scripts\/verify-pc-viewport\.cjs --output dist\/windows-exe\/pc-ui-geometry-win64\.json/);
+ assert.match(win,/dist\/windows-exe\/pc-ui-geometry-win64\.json/);
+ assert.match(win,/dist\/windows-exe\/veilpoint-windows-demo-exe\.zip\.sha256/);
+ assert.match(win,/dist\/windows-exe\/ch01-route-evidence-win64\.json/);
+});

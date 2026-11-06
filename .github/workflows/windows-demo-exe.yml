@@ -15,6 +15,7 @@ on:
       - 'scripts/package-offline-demo.cjs'
       - 'scripts/verify-offline-demo.cjs'
       - 'scripts/verify-ch01-routes.cjs'
+      - 'scripts/verify-pc-viewport.cjs'
   pull_request:
     paths:
       - 'windows/**'
@@ -29,6 +30,7 @@ on:
       - 'scripts/package-offline-demo.cjs'
       - 'scripts/verify-offline-demo.cjs'
       - 'scripts/verify-ch01-routes.cjs'
+      - 'scripts/verify-pc-viewport.cjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -49,6 +51,11 @@ jobs:
         run: |
           npm run check
           if ($LASTEXITCODE -ne 0) { throw 'Browser source syntax gate failed' }
+      - name: Verify Windows menu geometry contracts
+        shell: pwsh
+        run: |
+          node --test tests/pc-chromium-geometry-gate.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Win64 menu release contracts failed' }
       - name: Compile real Win64 EXE and package verified offline game
         shell: pwsh
         run: |
@@ -59,6 +66,17 @@ jobs:
         run: |
           node scripts/verify-ch01-routes.cjs --output dist/windows-exe/ch01-route-evidence-win64.json
           if ($LASTEXITCODE -ne 0) { throw 'CH01 route smoke verification failed' }
+      - name: Verify Win64 Chromium screen bounds and clickable controls
+        shell: pwsh
+        run: |
+          $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+          if (-not (Test-Path $chrome)) {
+            $chrome = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+          }
+          if (-not (Test-Path $chrome)) { throw 'Google Chrome is required for Win64 UI verification' }
+          $env:CHROME_BIN = $chrome
+          node scripts/verify-pc-viewport.cjs --output dist/windows-exe/pc-ui-geometry-win64.json
+          if ($LASTEXITCODE -ne 0) { throw 'Win64 viewport controls/clipping gate failed' }
       - name: Upload unsigned Windows EXE demo candidate + SHA-256
         uses: actions/upload-artifact@v4
         with:
@@ -67,5 +85,6 @@ jobs:
             dist/windows-exe/veilpoint-windows-demo-exe.zip
             dist/windows-exe/veilpoint-windows-demo-exe.zip.sha256
             dist/windows-exe/ch01-route-evidence-win64.json
+            dist/windows-exe/pc-ui-geometry-win64.json
           if-no-files-found: error
           retention-days: 45
