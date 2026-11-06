@@ -102,3 +102,14 @@ test('Windows cold-renderer initialization remains a measured fail-closed CDP ga
  assert.ok(verifier.includes('Chrome renderer did not respond before document injection'));
  assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
 });
+
+test('unresponsive Windows Chrome can fall back only to a detected local Chromium binary',()=>{
+ assert.ok(verifier.includes('msedge.exe'),'Windows Chromium alternative must be explicit');
+ assert.ok(verifier.includes('fs.existsSync(candidate)'),'missing Edge must not be assumed installed');
+ assert.ok(verifier.includes('activeChrome=edgeFallback'),'fallback must use the alternate executable');
+ assert.ok(verifier.includes('child=spawn(activeChrome,'));
+ assert.ok(verifier.includes('browser:path.basename(activeChrome)'),
+  'geometry evidence must disclose the actual browser used');
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"),
+  'unavailable browsers cannot be counted as a passing geometry gate');
+});
