@@ -85,6 +85,12 @@
   if(/^Arrow(?:Up|Down|Left|Right)$/.test(code))return code.slice(5).toUpperCase();
   return code;
  }
+ // Browser/OS command chords are never gameplay input, even if their final
+ // physical key is remapped to an action. Preserve ordinary Shift sprint and
+ // ignore Ctrl/Alt/Meta modifiers without preventing the browser shortcut.
+ function isModifiedGameplayKey(event){
+  return !!event&&(!!event.ctrlKey||!!event.altKey||!!event.metaKey);
+ }
  function actionFor(code,value){
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
@@ -280,7 +286,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
