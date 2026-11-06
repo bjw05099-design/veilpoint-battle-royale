@@ -476,7 +476,7 @@ async function run(){
    '--remote-debugging-port='+port,'--user-data-dir='+userDir,'about:blank'],
    {stdio:['ignore','ignore','pipe']});
   child.stderr.on('data',part=>{stderr+=part.toString();});
-  child.on('error',error=>{stderr+='\\nChrome spawn: '+String(error);});
+  child.on('error',error=>{stderr+='\nChrome spawn: '+String(error);});
   const active=path.join(userDir,'DevToolsActivePort');
   for(let tries=0;tries<120;tries++){
    if(windowsProbe){
@@ -493,7 +493,7 @@ async function run(){
    }else{
     try{
      if(fs.existsSync(active)){
-      const discovered=Number(fs.readFileSync(active,'utf8').split('\\n')[0]);
+      const discovered=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
       if(Number.isInteger(discovered)&&discovered>0)return discovered;
      }
     }catch(error){
