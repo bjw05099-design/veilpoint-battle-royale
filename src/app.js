@@ -555,8 +555,16 @@ function nextFreshMatchSeed(){
  issuedMatchSeeds.add(seed);
  return seed;
 }
+// A portable snapshot is separate from the two persistent BR generations.
+// Inactive/closed export panels never expose a stale previous round.
+function resetPortableMatchExport(){
+ $('brExport').classList.add('hidden');
+ $('brExportPanel').classList.add('hidden');
+ $('brExportText').value='';
+}
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false){
  if(graphicsContextLost||!renderer)return;
+ resetPortableMatchExport();
  // A stale Windows BR tab may request New Match while another tab already
  // committed a newer VALID match. Never erase that tab's checkpoint, backup,
  // field bookmark or debrief. The older tab can play a fresh isolated round.
@@ -608,6 +616,7 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
 }
 function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
+ resetPortableMatchExport();
  // A later explicit New Match must differ from this restored generation, too.
  issuedMatchSeeds.add(restored.seed);
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
@@ -651,6 +660,7 @@ else if(checkpointReadUnavailable||checkpointInvalidStored){
 // Never silently restart a paused match: the same match resumes only by user action.
 function resumeMatch(){
  if(!running||!suspended||graphicsContextLost||!renderer)return;
+ resetPortableMatchExport();
  suspended=false;pauseRestartArmed=false;desktopUi.cancel();resetInactiveClock();
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');$('saveExit').classList.add('hidden');
  $('overlay').classList.add('hidden');setGraphicsPanelOpen(false);
@@ -678,6 +688,51 @@ $('play').addEventListener('click',()=>{
  syncMotorSound(true);
 });
 $('newMatch').addEventListener('click',start);
+resetPortableMatchExport();
+$('brExport').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing'||
+    $('overlay').classList.contains('hidden'))return;
+ try{
+  const raw=Game.snapshotMatch(simulation);
+  const verified=Game.restoreMatch(raw);
+  if(verified.seed!==simulation.seed||verified.status!=='playing')
+    throw new RangeError('checkpoint mismatch');
+  $('brExportText').value=raw;
+  $('brExportPanel').classList.remove('hidden');
+  $('brExportStatus').textContent='현재 탭의 검증된 BR 경기 상태입니다. 저장 기록은 변경하지 않습니다. 직접 복사하거나 JSON 파일을 저장하세요.';
+  if(typeof $('brExportText').select==='function')$('brExportText').select();
+ }catch(_){
+  $('brExportPanel').classList.add('hidden');
+  $('brExportStatus').textContent='경기 백업 검증 실패 · 현재 진행은 그대로 유지합니다.';
+  document.querySelector('.tagline').textContent='BR JSON 백업 검증에 실패했습니다. 현재 게임은 그대로 유지됩니다.';
+ }
+});
+$('brExportDownload').addEventListener('click',()=>{
+ if(!running||!suspended||simulation.status!=='playing'||
+    $('brExportPanel').classList.contains('hidden'))return;
+ const raw=$('brExportText').value;
+ let url=null;
+ try{
+  if(!raw||raw!==Game.snapshotMatch(simulation))
+    throw new RangeError('checkpoint changed');
+  if(typeof global.Blob!=='function'||!global.URL||
+     typeof global.URL.createObjectURL!=='function')
+    throw new Error('download unavailable');
+  url=global.URL.createObjectURL(new global.Blob([raw],
+    {type:'application/json;charset=utf-8'}));
+  const link=document.createElement('a');
+  link.href=url;link.download='VEILPOINT-BR-checkpoint.json';link.click();
+  $('brExportStatus').textContent='JSON 파일 저장 요청 완료 · 다운로드 목록을 확인하세요.';
+ }catch(_){
+  $('brExportStatus').textContent='파일 저장이 불가능합니다. 위 JSON을 직접 복사해 별도 텍스트 파일로 보관하세요.';
+ }finally{
+  if(url&&global.URL&&typeof global.URL.revokeObjectURL==='function'){
+   const revoke=()=>{try{global.URL.revokeObjectURL(url);}catch(_){}};
+   if(typeof global.setTimeout==='function')global.setTimeout(revoke,1000);
+   else revoke();
+  }
+ }
+});
 // Explicit PC save-and-exit is only possible after a durable local checkpoint.
 // If browser storage is blocked, stay paused and let the player resume instead.
 $('saveExit').addEventListener('click',()=>{
@@ -703,6 +758,7 @@ $('saveExit').addEventListener('click',()=>{
   return;
  }
  running=false;suspended=false;
+ resetPortableMatchExport();
  if(motorSound)motorSound.stop();
  desktopUi.cancel();resetInactiveClock();
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
@@ -905,7 +961,7 @@ function suspendMatch(reason='background'){
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
- $('saveExit').classList.remove('hidden');$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
+ $('saveExit').classList.remove('hidden');$('brExport').classList.remove('hidden');$('brExportPanel').classList.add('hidden');$('brExportText').value='';$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';
