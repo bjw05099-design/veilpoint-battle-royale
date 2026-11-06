@@ -555,12 +555,17 @@ function nextFreshMatchSeed(){
  issuedMatchSeeds.add(seed);
  return seed;
 }
-// A portable snapshot is separate from the two persistent BR generations.
-// Inactive/closed export panels never expose a stale previous round.
+// Portable loading never assumes ownership of a browser's disk generations.
+// On any menu transition, discard async reads and pending replacement consent.
+let brFileReadSerial=0,brReplacementArmed=null;
 function resetPortableMatchExport(){
+ brFileReadSerial++;brReplacementArmed=null;
  $('brExport').classList.add('hidden');
  $('brExportPanel').classList.add('hidden');
  $('brExportText').value='';
+ $('brImportPanel').classList.add('hidden');
+ $('brImportText').value='';
+ $('brImportFile').value='';
 }
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false){
  if(graphicsContextLost||!renderer)return;
@@ -689,6 +694,100 @@ $('play').addEventListener('click',()=>{
 });
 $('newMatch').addEventListener('click',start);
 resetPortableMatchExport();
+$('brImport').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden')||(running&&!suspended)||
+    graphicsContextLost||!renderer)return;
+ brFileReadSerial++;brReplacementArmed=null;
+ $('brExportPanel').classList.add('hidden');
+ $('brImportPanel').classList.remove('hidden');
+ $('brImportText').value='';$('brImportFile').value='';
+ $('brImportStatus').textContent='저장된 BR JSON을 선택하거나 붙여넣으세요. 검증 전에는 게임과 저장 파일을 변경하지 않습니다.';
+ if(typeof $('brImportText').focus==='function')$('brImportText').focus();
+});
+$('brImportText').addEventListener('input',()=>{
+ // A manual paste wins over a late file.text() completion.
+ brFileReadSerial++;brReplacementArmed=null;
+});
+$('brImportFile').addEventListener('change',async event=>{
+ if($('overlay').classList.contains('hidden')||(running&&!suspended)||
+    $('brImportPanel').classList.contains('hidden'))return;
+ const file=event?.target?.files?.[0];
+ if(!file)return;
+ const serial=++brFileReadSerial;brReplacementArmed=null;
+ try{
+  if(!Number.isFinite(file.size)||file.size>131072||
+     typeof file.text!=='function')throw new RangeError('file too large');
+  const raw=await file.text();
+  if(serial!==brFileReadSerial||$('overlay').classList.contains('hidden')||
+     $('brImportPanel').classList.contains('hidden')||(running&&!suspended))return;
+  if(typeof raw!=='string'||!raw.trim()||raw.length>65536)
+   throw new RangeError('snapshot too large');
+  // File bytes are untrusted until the explicit Apply button validates them.
+  $('brImportText').value=raw;
+  $('brImportStatus').textContent='파일 읽기 완료 · 검증 후 임시 경기로 불러오기를 누르세요. 기존 저장 파일은 변경되지 않았습니다.';
+ }catch(_){
+  if(serial===brFileReadSerial&&!$('brImportPanel').classList.contains('hidden'))
+   $('brImportStatus').textContent='파일 읽기 실패 · 128KB 이하의 올바른 JSON 파일을 선택하세요. 현재 진행은 변경되지 않았습니다.';
+ }
+});
+$('brImportApply').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden')||(running&&!suspended)||
+    $('brImportPanel').classList.contains('hidden')||graphicsContextLost||!renderer)return;
+ let candidate,canonical;
+ try{
+  const text=String($('brImportText').value||'').trim();
+  if(!text||text.length>65536)throw new RangeError('snapshot length');
+  candidate=Game.restoreMatch(text);
+  canonical=Game.snapshotMatch(candidate);
+  if(candidate.status!=='playing')throw new RangeError('not resumable');
+ }catch(_){
+  brReplacementArmed=null;
+  $('brImportStatus').textContent='불러오기 거부 · BR 체크포인트가 손상되었거나 현재 버전과 호환되지 않습니다. 기존 게임은 유지됩니다.';
+  return;
+ }
+ if(running&&simulation.status==='playing'){
+  let current;
+  try{current=Game.snapshotMatch(simulation);}
+  catch(_){
+   brReplacementArmed=null;
+   $('brImportStatus').textContent='현재 BR 경기의 체크포인트 검증 실패 · 교체를 중단했습니다.';
+   return;
+  }
+  if(current!==canonical&&brReplacementArmed!==canonical){
+   brReplacementArmed=canonical;
+   $('brImportStatus').textContent='진행 중인 BR 경기가 교체됩니다. 현재 경기를 JSON으로 백업한 뒤, 같은 내용으로 다시 눌러 확정하세요. 디스크 저장 파일은 그대로 유지합니다.';
+   return;
+  }
+ }
+ // A validated portable game is only a temporary session: never mutate the
+ // primary/backup/bookmark slots or impersonate the other tab that owns them.
+ brReplacementArmed=null;
+ issuedMatchSeeds.add(candidate.seed);
+ simulation=candidate;running=true;suspended=true;memoryOnlyMatch=true;
+ matchDiskGeneration=null;manualCheckpoint=null;lastFinishedMatch=null;
+ saveWarning=true;saveIssue='write-failed';bookmarkIssue=null;
+ nextMatchSaveRetryAt=0;lastAutosaveElapsed=candidate.elapsed;
+ lastSavedHealth=candidate.player.health;lastShotHudElapsed=-Infinity;
+ pauseRestartArmed=false;forfeitArmed=false;
+ loadoutSelect.value=candidate.player.weaponId;
+ if([1,4,18].includes(candidate.bots.length))
+  rosterSelect.value=String(candidate.bots.length);
+ resetPortableMatchExport();
+ $('overlay').classList.remove('hidden');
+ $('mobileControls').classList.remove('active');
+ $('play').textContent='가져온 BR 이어하기';
+ $('saveExit').classList.add('hidden');
+ $('restoreCheckpoint').classList.add('hidden');
+ $('restartArena').classList.add('hidden');
+ $('forfeitMatch').classList.add('hidden');
+ $('retryArena').classList.add('hidden');
+ $('brExport').classList.remove('hidden');
+ document.querySelector('.eyebrow').textContent='OFFLINE BR / PORTABLE SESSION';
+ document.querySelector('h1').textContent='BR IMPORTED.';
+ document.querySelector('.tagline').textContent='BR 체크포인트 검증 완료 · 기존 저장 기록은 보호됩니다. 이 임시 경기는 현재 탭에서만 진행되므로 종료 전에 JSON을 백업하세요.';
+ if(motorSound)motorSound.stop();
+ desktopUi.cancel();resetInactiveClock();updateHud();
+});
 $('brExport').addEventListener('click',()=>{
  if(!running||!suspended||simulation.status!=='playing'||
     $('overlay').classList.contains('hidden'))return;
@@ -698,6 +797,8 @@ $('brExport').addEventListener('click',()=>{
   if(verified.seed!==simulation.seed||verified.status!=='playing')
     throw new RangeError('checkpoint mismatch');
   $('brExportText').value=raw;
+  brFileReadSerial++;brReplacementArmed=null;
+  $('brImportPanel').classList.add('hidden');
   $('brExportPanel').classList.remove('hidden');
   $('brExportStatus').textContent='현재 탭의 검증된 BR 경기 상태입니다. 저장 기록은 변경하지 않습니다. 직접 복사하거나 JSON 파일을 저장하세요.';
   if(typeof $('brExportText').select==='function')$('brExportText').select();
@@ -961,7 +1062,7 @@ function suspendMatch(reason='background'){
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
  $('play').textContent='이어하기';
- $('saveExit').classList.remove('hidden');$('brExport').classList.remove('hidden');$('brExportPanel').classList.add('hidden');$('brExportText').value='';$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
+ $('saveExit').classList.remove('hidden');$('brExport').classList.remove('hidden');brFileReadSerial++;brReplacementArmed=null;$('brImportPanel').classList.add('hidden');$('brExportPanel').classList.add('hidden');$('brExportText').value='';$('forfeitMatch').classList.remove('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.remove('hidden');$('restartArena').classList.remove('hidden');
  document.querySelector('.eyebrow').textContent='MATCH PAUSED';
  document.querySelector('h1').textContent='PAUSED.';

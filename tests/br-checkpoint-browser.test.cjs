@@ -1628,3 +1628,174 @@ test('BR portable JSON export controls exist in the Windows overlay, not a netwo
  assert.match(js,/Game\.restoreMatch\(raw\)/);
  assert.doesNotMatch(js,/fetch\(['"]https?:/);
 });
+
+
+test('BR local JSON from one browser restores as a separate paused match on another origin',()=>{
+ const source=boot(new Map());
+ source.node('play').click();source.frame(1000/60);source.emit('blur');
+ source.node('brExport').click();
+ const raw=source.node('brExportText').value;
+ const destination=boot(new Map());
+ destination.node('brImport').click();
+ const field=destination.node('brImportText');
+ field.value=raw;field.dispatch('input');
+ destination.node('brImportApply').click();
+ assert.equal(destination.node('brImportPanel').classList.contains('hidden'),true);
+ assert.match(destination.node('selector-.tagline').textContent,/임시 경기/);
+ assert.equal(destination.store.has(KEY),false,'portable load may not claim an automatic disk slot');
+ assert.equal(destination.node('saveExit').classList.contains('hidden'),true);
+ assert.equal(destination.node('brExport').classList.contains('hidden'),false);
+ destination.node('play').click();destination.frame(1000/60);
+ assert.equal(destination.game.seed,JSON.parse(raw).seed);
+ assert.equal(destination.game.player.charges,JSON.parse(raw).player.charges);
+ assert.equal(destination.game.status,'playing');
+ assert.equal(destination.store.has(KEY),false,'resuming an isolated game never overwrites storage');
+});
+
+test('BR live paused match requires matching two-click confirmation to replace its world',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ const primary=store.get(KEY),prior=store.get(KEY+'.previous');
+ const replacement=app.global.VeilpointSim.newMatch(20261231,1);
+ replacement.status='playing';
+ const raw=app.global.VeilpointSim.snapshotMatch(replacement);
+ app.node('brImport').click();
+ app.node('brImportText').value=raw;
+ app.node('brImportApply').click();
+ assert.match(app.node('brImportStatus').textContent,/다시 눌러 확정/);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+ assert.equal(store.get(KEY),primary);
+ assert.equal(store.get(KEY+'.previous'),prior);
+ app.node('brImportApply').click();
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),true);
+ assert.equal(store.get(KEY),primary);
+ assert.equal(store.get(KEY+'.previous'),prior);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.game.seed,20261231);
+ assert.equal(store.get(KEY),primary);
+});
+
+test('BR JSON editing or malformed input cannot reuse an earlier replacement confirmation',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ const primary=store.get(KEY);
+ const mk=seed=>{
+  const state=app.global.VeilpointSim.newMatch(seed,1);
+  state.status='playing';return app.global.VeilpointSim.snapshotMatch(state);
+ };
+ const first=mk(20261231),second=mk(20261232);
+ app.node('brImport').click();
+ const field=app.node('brImportText');
+ field.value=first;app.node('brImportApply').click();
+ assert.match(app.node('brImportStatus').textContent,/다시 눌러 확정/);
+ field.value='{invalid JSON';
+ app.node('brImportApply').click();
+ assert.match(app.node('brImportStatus').textContent,/불러오기 거부/);
+ field.value=first;
+ app.node('brImportApply').click();
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+ field.value=second;field.dispatch('input');
+ app.node('brImportApply').click();
+ assert.match(app.node('brImportStatus').textContent,/다시 눌러 확정/);
+ assert.equal(store.get(KEY),primary);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+});
+
+test('BR selected file is staged but not applied; later manual paste wins file-read race',async()=>{
+ const store=new Map(),app=boot(store);
+ const state=app.global.VeilpointSim.newMatch(20261240,1);state.status='playing';
+ const raw=app.global.VeilpointSim.snapshotMatch(state);
+ app.node('brImport').click();
+ let resolveFile;
+ app.node('brImportFile').dispatch('change',{target:{files:[{
+  size:Buffer.byteLength(raw),text:()=>new Promise(resolve=>{resolveFile=resolve;})
+ }]}});
+ assert.equal(typeof resolveFile,'function');
+ app.node('brImportText').value=raw;
+ app.node('brImportText').dispatch('input');
+ resolveFile('{"version":999,"invalid":true}');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(app.node('brImportText').value,raw);
+ assert.equal(store.has(KEY),false);
+ app.node('brImportApply').click();
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),true);
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.game.seed,20261240);
+});
+
+test('BR oversized and malformed portable checkpoint files fail without mutating storage',async()=>{
+ const store=new Map(),app=boot(store);
+ app.node('brImport').click();
+ let opened=false;
+ app.node('brImportFile').dispatch('change',{target:{files:[{
+  size:131073,text:()=>{opened=true;return Promise.resolve('{}');}
+ }]}});
+ await Promise.resolve();
+ assert.equal(opened,false,'bounded file size must be checked before reading');
+ assert.match(app.node('brImportStatus').textContent,/읽기 실패/);
+ app.node('brImportText').value='{"version":1,"status":"playing","player":{"shield":100}}';
+ app.node('brImportApply').click();
+ assert.match(app.node('brImportStatus').textContent,/불러오기 거부/);
+ assert.equal(store.has(KEY),false);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+});
+
+test('BR existing persistent save and field bookmark survive a foreign portable load',()=>{
+ const store=new Map(),original=boot(store);
+ original.node('play').click();original.frame(1000/60);original.emit('blur');
+ const prior=store.get(KEY);
+ store.set(KEY+'.previous',prior);
+ store.set('veilpoint.brFieldBookmark.v1','protected-bookmark');
+ const state=original.global.VeilpointSim.newMatch(20261241,1);
+ state.status='playing';
+ const json=original.global.VeilpointSim.snapshotMatch(state);
+ const reopened=boot(store);
+ reopened.node('brImport').click();
+ reopened.node('brImportText').value=json;
+ reopened.node('brImportApply').click();
+ assert.equal(reopened.node('brImportPanel').classList.contains('hidden'),true);
+ reopened.node('play').click();reopened.frame(1000/60);
+ assert.equal(reopened.game.seed,20261241);
+ assert.equal(store.get(KEY),prior);
+ assert.equal(store.get(KEY+'.previous'),prior);
+ assert.equal(store.get('veilpoint.brFieldBookmark.v1'),'protected-bookmark');
+ reopened.emit('blur');
+ assert.equal(store.get(KEY),prior,'memory-only auto-save can never own the protected slot');
+});
+
+test('BR file selection, menu resume and new match cancel stale async checkpoint reads',async()=>{
+ const app=boot(),s=app.global.VeilpointSim.newMatch(20261242,1);
+ s.status='playing';const raw=app.global.VeilpointSim.snapshotMatch(s);
+ app.node('brImport').click();
+ let late;
+ app.node('brImportFile').dispatch('change',{target:{files:[{
+  size:Buffer.byteLength(raw),text:()=>new Promise(resolve=>{late=resolve;})
+ }]}});
+ app.node('brImport').click();
+ late(raw);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(app.node('brImportText').value,'');
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+ app.node('brImportText').value=raw;app.node('brImportApply').click();
+ app.node('play').click();app.frame(1000/60);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brImportText').value,'');
+ app.emit('blur');
+ app.node('brImport').click();
+ app.node('newMatch').click();
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brImportText').value,'');
+});
+
+test('BR Windows offline UI has deliberate file input and no auto-applied raw JSON',()=>{
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/id="brImport"[^>]*aria-controls="brImportPanel"/);
+ assert.match(html,/id="brImportFile"[^>]*type="file"[^>]*accept=/);
+ assert.match(html,/id="brImportApply"[^>]*type="button"/);
+ assert.match(html,/id="brImportText"/);
+ const code=fs.readFileSync(path.join(ROOT,'src/app.js'),'utf8');
+ assert.match(code,/brImportFile'\)\.addEventListener\('change',async/);
+ assert.match(code,/brImportApply'\)\.addEventListener\('click'/);
+ assert.match(code,/candidate=Game\.restoreMatch\(text\)/);
+ assert.match(code,/memoryOnlyMatch=true/);
+});
