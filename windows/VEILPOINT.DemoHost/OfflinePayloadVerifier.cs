@@ -1,0 +1,93 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace VEILPOINT.DemoHost;
+
+// Protects against incomplete ZIP extraction, unintended file additions and
+// accidental corruption. The manifest is not a signed publisher certificate:
+// an attacker able to change both the files and manifest can bypass it.
+internal static class OfflinePayloadVerifier
+{
+    private const int MaxEntries = 128;
+    private const long MaxTotalBytes = 16 * 1024 * 1024;
+    private const long MaxFileBytes = 2 * 1024 * 1024;
+    private static readonly Regex RelativeName = new(
+        @"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.[A-Za-z0-9]+$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    public static void Verify(string gameFolder)
+    {
+        var root = Path.GetFullPath(gameFolder);
+        if (!Directory.Exists(root))
+            throw new InvalidDataException("The bundled offline game/ directory is missing.");
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The game directory cannot be a symlink.");
+        var manifestPath = Path.Combine(root, "MANIFEST.sha256");
+        if (!File.Exists(manifestPath))
+            throw new InvalidDataException("Offline MANIFEST.sha256 is missing.");
+        var manifestBytes = new FileInfo(manifestPath).Length;
+        if (manifestBytes < 64 || manifestBytes > 128 * 1024)
+            throw new InvalidDataException("Offline manifest size is not valid.");
+
+        var lines = File.ReadAllLines(manifestPath, Encoding.UTF8);
+        if (lines.Length < 5 || lines.Length > MaxEntries)
+            throw new InvalidDataException("Offline manifest has an invalid entry count.");
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long totalBytes = 0;
+        foreach (var line in lines)
+        {
+            if (line.Length < 67 || line[64] != ' ' || line[65] != ' ')
+                throw new InvalidDataException("Malformed offline SHA-256 entry.");
+            var expected = line[..64];
+            var relative = line[66..];
+            if (!Regex.IsMatch(expected, @"\A[a-f0-9]{64}\z", RegexOptions.CultureInvariant) ||
+                !RelativeName.IsMatch(relative) || !seen.Add(relative))
+                throw new InvalidDataException("Unsafe or duplicate offline manifest path.");
+            var file = Path.GetFullPath(Path.Combine(root,
+                relative.Replace('/', Path.DirectorySeparatorChar)));
+            if (!file.StartsWith(root + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !File.Exists(file))
+                throw new InvalidDataException("Missing or escaped offline manifest entry: " + relative);
+            if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Symlinked offline asset: " + relative);
+            for (var parent = Directory.GetParent(file); parent is not null &&
+                 !parent.FullName.Equals(root, StringComparison.OrdinalIgnoreCase);
+                 parent = parent.Parent)
+            {
+                if ((parent.Attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Symlinked offline asset directory: " + relative);
+            }
+            var length = new FileInfo(file).Length;
+            totalBytes += length;
+            if (length > MaxFileBytes || totalBytes > MaxTotalBytes)
+                throw new InvalidDataException("Oversized offline asset: " + relative);
+            var actual = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)))
+                .ToLowerInvariant();
+            if (!string.Equals(actual, expected, StringComparison.Ordinal))
+                throw new InvalidDataException("Offline asset checksum mismatch: " + relative);
+        }
+
+        foreach (var required in new[] {
+            "index.html", "story.html", "src/app.js", "src/story-app.js",
+            "src/story-slice.js", "QUICK_START.txt"
+        })
+            if (!seen.Contains(required))
+                throw new InvalidDataException("Required offline asset omitted: " + required);
+
+        if (!File.Exists(Path.Combine(root, "NOTICE.txt")))
+            throw new InvalidDataException("Offline release limitation notice missing.");
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (relative is "MANIFEST.sha256" or "NOTICE.txt") continue;
+            if (!seen.Contains(relative))
+                throw new InvalidDataException("Untracked file in offline game/: " + relative);
+        }
+    }
+}
