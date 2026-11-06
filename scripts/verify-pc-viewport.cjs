@@ -79,8 +79,8 @@ function audit(){
    for(const id of requiredTargets[name]||[]){
     const node=get(id);
     const current={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
-    if(!node||!current.visible||!current.enabled){
-     result.issues.push({id,reason:'required control hidden, missing or disabled'});
+    if(!node||!root.contains(node)||!current.visible||!current.enabled){
+     result.issues.push({id,reason:'required control outside active page, hidden, missing or disabled'});
      result.targets.push(current);
      continue;
     }
