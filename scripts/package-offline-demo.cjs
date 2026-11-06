@@ -84,9 +84,13 @@ function assertLocalAssetContent(name, data) {
   // Classic browser demo scripts have no dynamic network/worker/module
   // dependency: reject those constructs until they are explicitly bundled
   // and verified. This is a conservative source audit, not a browser proof.
+  // The import keyword needs a trailing word boundary: otherwise innocent
+  // offline identifiers such as imported, importer or importReady block ZIP
+  // packaging despite containing no module load. Actual import() and
+  // import {...} statements remain forbidden by this conservative policy.
   if (name.toLowerCase().endsWith('.js') &&
       (/\b(?:fetch|importScripts|WebSocket|EventSource|XMLHttpRequest|Worker|SharedWorker|sendBeacon)\s*\(/.test(source) ||
-       /\bimport\s*(?:\(|\{|["'*]|[A-Za-z_$])/.test(source) ||
+       /\bimport\b\s*(?:\(|\{|["'*]|[A-Za-z_$])/.test(source) ||
        /\bserviceWorker\s*\.\s*register\s*\(/.test(source) ||
        /["'`]\s*(?:https?:\/\/|wss?:\/\/|\/\/)/i.test(source)))
     throw new Error('Unsupported JavaScript dependency in ' + name);
