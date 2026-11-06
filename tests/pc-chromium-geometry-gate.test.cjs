@@ -91,3 +91,14 @@ test('failed Windows Chrome startup preserves launch evidence and fails the rele
  assert.ok(verifier.includes("transportFailure?[transportFailure.message]:[]"));
  assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
 });
+
+test('Windows cold-renderer initialization remains a measured fail-closed CDP gate',()=>{
+ const handshake=verifier.indexOf("const bootstrap=await rpc('Runtime.evaluate'");
+ const injection=verifier.indexOf("await rpc('Page.setDocumentContent'");
+ assert.ok(handshake>=0&&injection>handshake,'renderer handshake must precede real DOM injection');
+ assert.ok(verifier.includes("method==='Page.setDocumentContent'"));
+ assert.ok(verifier.includes('elapsedMs='));
+ assert.ok(verifier.includes('browserPid='));
+ assert.ok(verifier.includes('Chrome renderer did not respond before document injection'));
+ assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));
+});
