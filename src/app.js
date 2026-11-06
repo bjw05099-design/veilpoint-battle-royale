@@ -913,7 +913,12 @@ addEventListener('pageshow',event=>{
  if(!suspended)suspendMatch(); // Defensive: pagehide may have been skipped.
  $('overlay').classList.remove('hidden');
  $('play').textContent='이어하기';
- if(typeof $('play').focus==='function')$('play').focus();
+ // A visible graphics settings panel owns keyboard focus until the user
+ // explicitly closes it. Otherwise bfcache return would silently focus the
+ // underlying Resume button and Enter could leave settings unexpectedly.
+ const panelOpen=!$('graphicsPanel').classList.contains('hidden');
+ const target=panelOpen?$('graphicsClose'):$('play');
+ if(typeof target.focus==='function')target.focus();
 });
 addEventListener('focus',resetInactiveClock);
 // Escape or browser UI can release pointer lock without blurring the window.
