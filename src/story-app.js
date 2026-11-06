@@ -351,6 +351,53 @@
       $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
     }
   });
+  const storyMenuViews=['tools','settings','import','about'];
+  function setStoryMenuView(view='main',focus=false){
+    for(const name of storyMenuViews)
+      menu.classList.toggle('menu-view-'+name,view===name);
+    if(focus&&!menu.classList.contains('hidden')){
+      const first={main:'continue',tools:'storyMenuBack',settings:'quality',
+        import:'checkpointTransferText',about:'storyMenuBack'}[view];
+      if(first&&typeof $(first).focus==='function')
+        $(first).focus({preventScroll:true});
+    }
+  }
+  // A visible PC menu is a modal interaction boundary. Tab never advances
+  // gameplay or a hidden menu page; no additional 60Hz step is generated.
+  function containStoryMenuFocus(event){
+    if(menu.classList.contains('hidden')||!choices.classList.contains('hidden')||
+       !global.getComputedStyle||typeof menu.querySelectorAll!=='function')return;
+    const nodes=[...menu.querySelectorAll('button,select,input,textarea,a[href]')]
+      .filter(node=>!node.disabled&&node.tabIndex>=0&&
+        node.getClientRects().length>0&&
+        global.getComputedStyle(node).visibility!=='hidden'&&
+        global.getComputedStyle(node).display!=='none');
+    if(!nodes.length)return;
+    if(event.type==='focusin'){
+      if(!menu.contains(event.target))nodes[0].focus({preventScroll:true});
+      return;
+    }
+    if(event.key!=='Tab')return;
+    const index=nodes.indexOf(document.activeElement);
+    if(index<0||(event.shiftKey?index===0:index===nodes.length-1)){
+      event.preventDefault();
+      nodes[event.shiftKey?nodes.length-1:0].focus({preventScroll:true});
+    }
+  }
+  document.addEventListener('keydown',containStoryMenuFocus,true);
+  document.addEventListener('focusin',containStoryMenuFocus,true);
+  $('storyMenuMore').addEventListener('click',()=>setStoryMenuView('tools',true));
+  $('storyMenuAbout').addEventListener('click',()=>setStoryMenuView('about',true));
+  $('storyMenuBack').addEventListener('click',()=>{
+    if(menu.classList.contains('hidden'))return;
+    if(menu.classList.contains('menu-view-import')){
+      checkpointFileRequest++;portableImportArmed=null;
+      $('checkpointTransferPanel').classList.add('hidden');
+      $('checkpointTransferText').value='';$('checkpointFile').value='';
+    }
+    graphicsMenuFocused=false;
+    setStoryMenuView('main',true);
+  });
   function menuOpen(text){
     graphicsMenuFocused=false;
     cancelPreviousRestore();
@@ -360,6 +407,7 @@
     desktopUi.cancel();clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
+    setStoryMenuView('main');
     menu.classList.remove('hidden');choices.classList.add('hidden');
     $('fieldJournal').classList.add('hidden');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -390,6 +438,7 @@
     if(running)menuOpen('그래픽·PC 설정 · 메뉴에서 조정한 뒤 이어하기를 눌러 미션을 재개하세요.');
     if(menu.classList.contains('hidden'))return;
     graphicsMenuFocused=true;
+    setStoryMenuView('settings',true);
     if(typeof $('quality').focus==='function')$('quality').focus();
   }
   function requestAimLock(){
@@ -697,6 +746,7 @@
     $('checkpointFile').value='';
     field.value=raw;field.readOnly=true;
     panel.classList.remove('hidden');
+    setStoryMenuView('import',true);
     $('checkpointDownload').classList.remove('hidden');
     $('checkpointApply').classList.add('hidden');
     $('checkpointTransferStatus').textContent='현재 탭의 검증된 CH01 JSON입니다. 전체 선택해 별도 텍스트 파일에 보관하세요. 기존 저장 파일은 변경되지 않습니다.';
@@ -713,6 +763,7 @@
     const field=$('checkpointTransferText');
     field.value='';field.readOnly=false;
     $('checkpointTransferPanel').classList.remove('hidden');
+    setStoryMenuView('import',true);
     $('checkpointDownload').classList.add('hidden');
     $('checkpointApply').classList.remove('hidden');
     $('checkpointTransferStatus').textContent='검증된 CH01 JSON을 붙여넣으세요. 기존 저장이 있으면 덮어쓰지 않고 이 탭에서만 불러옵니다.';
@@ -851,6 +902,7 @@
     $('checkpointFile').value='';
     $('checkpointDownload').classList.add('hidden');
     $('checkpointTransferPanel').classList.add('hidden');
+    setStoryMenuView('main',true);
     $('menuText').textContent=memoryOnlyStory
       ?'CH01 가져오기 완료 · 기존 저장 기록은 보호했습니다. 이번 미션은 이 탭에서만 진행되므로 종료 전에 JSON을 별도로 백업하세요.'
       :saved?'CH01 가져오기 및 저장 확인 완료 · 이어하기를 눌러 진행하세요.'
@@ -1054,6 +1106,12 @@
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
+    // ESC returns from CH01's page-sized tools, settings, import and about
+    // views before the ordinary paused-game Escape shortcut can resume play.
+    if(e.code==='Escape'&&!e.repeat&&!menu.classList.contains('hidden')&&
+       storyMenuViews.some(name=>menu.classList.contains('menu-view-'+name))){
+      e.preventDefault();$('storyMenuBack').click();return;
+    }
     // J opens the field journal through the existing protected pause path.
     // Do not steal the key when the player remapped J to a gameplay action.
     // The explicit menu button remains available for all binding layouts.
@@ -1071,7 +1129,7 @@
       e.preventDefault();
       if(graphicsMenuFocused&&!menu.classList.contains('hidden')){
         graphicsMenuFocused=false;
-        if(typeof $('continue').focus==='function')$('continue').focus();
+        setStoryMenuView('main',true);
       }else openStoryGraphicsSettings();
       return;
     }
