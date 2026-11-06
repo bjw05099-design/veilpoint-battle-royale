@@ -429,4 +429,4 @@ async function run(){
  console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit};
+module.exports={audit,auditStoryRoute};
