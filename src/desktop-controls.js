@@ -85,6 +85,21 @@
   if(/^Arrow(?:Up|Down|Left|Right)$/.test(code))return code.slice(5).toUpperCase();
   return code;
  }
+ // CH01 mission copy is authored with legacy default-key cues. Render the
+ // bindings the PC player actually owns, including keyboard fire and uncommon
+ // Numpad/Shift remaps. This changes HUD text only, never 60Hz gameplay input.
+ function storyHintText(text,bindings){
+  const map=bindings&&typeof bindings==='object'?bindings:DEFAULT_BINDINGS;
+  const label=action=>keyLabel(map[action]);
+  return String(text??'')
+   .replaceAll('E로',label('interact')+'로')
+   .replaceAll('E를',label('interact')+'를')
+   .replaceAll('E 누르',label('interact')+' 누르')
+   .replaceAll('R키',label('reload')+'키')
+   .replaceAll('R 재장전',label('reload')+' 재장전')
+   .replaceAll('Q 상황 보고',label('support')+' 상황 보고')
+   .replaceAll('SPACE 발사',label('fire')+' 발사');
+ }
  function actionFor(code,value){
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
@@ -280,7 +295,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
