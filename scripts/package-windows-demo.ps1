@@ -104,6 +104,22 @@ TRUST AND SCOPE
   }
   $after=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($after -cne $sha) { throw 'Windows EXE ZIP SHA-256 mismatch after extraction' }
+  # This is a REAL PE execution on windows-latest, not a static source check.
+  # --verify-package checks the bundled manifest without initializing GUI or
+  # claiming WebView2/graphics/keyboard runtime acceptance.
+  $publishedExe=Join-Path $probe 'VEILPOINT.Demo.exe'
+  $clean=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($clean.ExitCode -ne 0) {
+    throw "Actual Windows EXE preflight rejected the clean bundled game: $($clean.ExitCode)"
+  }
+  # Negative test must modify only the disposable extracted TEST copy, never
+  # the release ZIP or the stage from which it was published.
+  Add-Content -LiteralPath (Join-Path $probe 'game/src/app.js') -Value '// altered after extraction'
+  $tampered=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($tampered.ExitCode -eq 0) {
+    throw 'Actual Windows EXE preflight accepted corrupted game JavaScript'
+  }
+  Write-Host '[VEILPOINT] PE preflight executed: clean=0, tampered=nonzero (correct)'
   Write-Host "[VEILPOINT] Windows EXE package verified: $zip"
   Write-Host "[VEILPOINT] SHA256: $sha"
   Write-Host '[VEILPOINT] Windows CI build only. No interactive launch, UE5 build, signing or FPS benchmark.'
