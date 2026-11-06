@@ -489,8 +489,8 @@
         if(originalBackup===null)return;
         try{
           if(global.localStorage.getItem(BACKUP_KEY)!==null)return;
-          if(storage.set(BACKUP_KEY,originalBackup))
-            global.localStorage.getItem(BACKUP_KEY)===originalBackup;
+          if(!storage.set(BACKUP_KEY,originalBackup))return false;
+          return global.localStorage.getItem(BACKUP_KEY)===originalBackup;
         }catch(_){}
       };
       try{
