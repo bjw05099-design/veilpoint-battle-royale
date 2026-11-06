@@ -16,7 +16,7 @@ const browserCi=read('.github/workflows/ci.yml');
 
 test('Win64 demo is a real self-contained .NET WinExe project, separately labeled from UE5',()=>{
  assert.match(csproj,/<OutputType>WinExe<\/OutputType>/);
- assert.match(csproj,/<TargetFramework>net8\.0-windows<\/TargetFramework>/);
+ assert.match(csproj,/<TargetFramework>net10\.0-windows<\/TargetFramework>/);
  assert.match(csproj,/<RuntimeIdentifier>win-x64<\/RuntimeIdentifier>/);
  assert.match(csproj,/<SelfContained>true<\/SelfContained>/);
  assert.match(csproj,/<UseWindowsForms>true<\/UseWindowsForms>/);
@@ -71,7 +71,7 @@ test('Windows EXE zip is independently verified after actual Win64 dotnet publis
 test('Windows runner produces separate EXE artifact without replacing P0 browser ZIP gate',()=>{
  assert.match(workflow,/runs-on: windows-latest/);
  assert.match(workflow,/setup-dotnet@v4/);
- assert.match(workflow,/dotnet-version: '8\.0\.x'/);
+ assert.match(workflow,/dotnet-version: '10\.0\.x'/);
  assert.match(workflow,/package-windows-demo\.ps1/);
  assert.match(workflow,/veilpoint-windows-demo-exe-candidate/);
  assert.match(workflow,/veilpoint-windows-demo-exe\.zip\.sha256/);
@@ -103,4 +103,16 @@ test('Windows runner launches compiled EXE preflight and rejects a post-extracti
  assert.match(winbuild,/if \(\$tampered\.ExitCode -eq 0\)/);
  assert.match(winbuild,/clean=0, tampered=nonzero/);
  assert.match(host,/not an Unreal Engine native game/i);
+});
+
+test('Win64 build tracks supported .NET 10 LTS and retains release candidate through demo day',()=>{
+ assert.ok(csproj.includes('<TargetFramework>net10.0-windows</TargetFramework>'));
+ assert.ok(workflow.includes("dotnet-version: '10.0.x'"));
+ assert.ok(winbuild.includes('.NET SDK 10'));
+ assert.ok(workflow.includes('retention-days: 45'));
+ for(const source of ['README.md','docs/DEMO_DELIVERY_GATES.md','docs/GRAPHICS_PROFILES.md']){
+  const needle="      - '"+source+"'";
+  assert.equal(workflow.split(needle).length-1,2,
+    'Windows EXE must rebuild on changes to bundled browser docs: '+source);
+ }
 });

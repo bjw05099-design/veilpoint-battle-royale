@@ -33,7 +33,7 @@ From the repository root in PowerShell:
 The command:
 1. Builds and independently verifies the existing static browser ZIP, including
    asset closure, ZIP CRC32, SHA-256 sidecar and `MANIFEST.sha256`.
-2. Runs `dotnet publish` for Win64 Release with self-contained .NET 8 and a
+2. Runs `dotnet publish` for Win64 Release with self-contained .NET 10 and a
    single-file `VEILPOINT.Demo.exe`. WebView2Loader.dll remains a native
    companion where published by the SDK; all publisher outputs are retained.
 3. Verifies PE executable header, WebView2 native loader and bundled BR/CH01
@@ -53,6 +53,10 @@ accidental corruption or incomplete extraction, **not** a malicious adversary
 who can rewrite the whole unsigned ZIP and its checksums. The noninteractive
 preflight confirms the Windows PE can run validation logic, **not** that its
 WebView2 game window has launched successfully.
+
+The Windows candidate artifact uses a 45-day retention policy so a build produced
+before the November 27 demo target remains available through its first acceptance
+window. Each new PR/head still requires its own passing Windows and browser checks.
 
 The separate GitHub Actions workflow
 `/.github/workflows/windows-demo-exe.yml` performs this on `windows-latest`.
