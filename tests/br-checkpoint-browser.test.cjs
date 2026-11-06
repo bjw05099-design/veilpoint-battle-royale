@@ -7,7 +7,7 @@ const vm=require('node:vm');
 const ROOT=path.resolve(__dirname,'..');
 const KEY='veilpoint.brCheckpoint.v1';
 
-function boot(store=new Map()){
+function boot(store=new Map(),fixedRandom=null){
  const nodes=new Map(),events=new Map(),selectors=new Map();
  let now=0,frameCallback,rendered;
  const on=(map,name,fn)=>map.set(name,[...(map.get(name)||[]),fn]);
@@ -30,6 +30,12 @@ function boot(store=new Map()){
   addEventListener:(name,fn)=>on(events,name,fn),console,
   VeilpointRenderer:class{constructor(canvas){if(this.constructor.failNext){this.constructor.failNext=false;throw new Error('GPU renderer rebuild denied');}this.canvas=canvas;this.gpuTimer={supported:false};}setGraphicsQuality(){}draw(g){rendered=g;}setAdaptiveResolution(){}}};
  global.globalThis=global;
+ if(fixedRandom!==null){
+  // Reproduce repeated entropy draws without changing the simulator's Math API.
+  const mockMath=Object.create(Math);
+  mockMath.random=()=>fixedRandom;
+  global.Math=mockMath;
+ }
  for(const file of ['src/simulation.js','src/visibility.js','src/performance.js','src/benchmark.js','src/graphics.js','src/clock.js','src/fps.js','src/desktop-controls.js','src/gate-motor-audio.js','src/app.js'])
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,file),'utf8'),global,{filename:file,timeout:1500});
  return {node,store,global,emit:(name,arg)=>emit(events,name,arg),frame(ms){now=ms;assert.equal(typeof frameCallback,'function');frameCallback(ms);},get game(){return rendered;}};
@@ -1470,4 +1476,59 @@ test('BR failed GPU rebuild keeps pause until a successful retry focuses Resume'
  assert.equal(app.game,world);
  assert.equal(app.node('overlay').classList.contains('hidden'),true);
  assert.equal(app.game.status,'playing');
+});
+
+test('BR repeated random seed draws still create distinct and durable new PC rounds',()=>{
+ const store=new Map(),app=boot(store,.8733);
+ const seeds=[];
+ app.node('play').click();app.frame(1000/60);
+ seeds.push(app.game.seed);
+ let last=store.get(KEY);
+ assert.ok(last);
+ for(let attempt=0;attempt<4;attempt++){
+  app.node('newMatch').click();app.frame((attempt+2)*1000/60);
+  const saved=store.get(KEY);
+  assert.ok(saved&&saved!==last,
+   'every explicit fresh round has a distinct recoverable checkpoint');
+  assert.equal(JSON.parse(saved).seed,app.game.seed);
+  seeds.push(app.game.seed);
+  last=saved;
+ }
+ assert.equal(new Set(seeds).size,seeds.length,
+  'a constant random source cannot produce identical rounds in the same tab');
+});
+
+test('BR denied reset preserves durable checkpoint and later recovery writes a different new generation',()=>{
+ const key=KEY,previous=KEY+'.previous';
+ class SilentRemove extends Map {
+  blocked=false;
+  delete(name){if(this.blocked&&name===key)return true;return super.delete(name);}
+ }
+ const store=new SilentRemove(),app=boot(store,.8733);
+ app.node('play').click();app.frame(1000/60);
+ const original=store.get(key),oldSeed=app.game.seed;
+ store.set(previous,original);
+ store.blocked=true;
+ app.node('newMatch').click();app.frame(2000/60);
+ assert.equal(store.get(key),original,'failed deletion must preserve the previous playable save');
+ assert.match(app.node('message').textContent,/SAVE FAILED/);
+ store.blocked=false;
+ app.node('newMatch').click();app.frame(3000/60);
+ assert.notEqual(store.get(key),original);
+ assert.notEqual(app.game.seed,oldSeed);
+ assert.equal(JSON.parse(store.get(key)).seed,app.game.seed);
+});
+
+test('BR restoring a saved round reserves its seed before a later New Match',()=>{
+ const store=new Map();
+ const first=boot(store,.1111);
+ first.node('play').click();first.frame(1000/60);
+ const saved=store.get(KEY),seed=first.game.seed;
+ const reopened=boot(store,.1111);
+ reopened.node('play').click();reopened.frame(1000/60);
+ assert.equal(reopened.game.seed,seed);
+ assert.equal(store.get(KEY),saved);
+ reopened.node('newMatch').click();reopened.frame(2000/60);
+ assert.notEqual(reopened.game.seed,seed);
+ assert.notEqual(store.get(KEY),saved);
 });

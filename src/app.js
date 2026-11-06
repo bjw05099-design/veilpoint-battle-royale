@@ -544,6 +544,17 @@ function requestAimLock(){
   });
  }catch(_){suspendMatch('pointer');resetInactiveClock();}
 }
+// A fresh offline BR round must not accidentally recreate an earlier exact
+// checkpoint when two Math.random draws collide (or return a fixed test value).
+// Keep this bounded to the current PC tab: explicit same-seed retry is still
+// available, while cross-tab checkpoint ownership remains independently checked.
+const issuedMatchSeeds=new Set();
+function nextFreshMatchSeed(){
+ let seed=20261027+(Math.random()*10000|0);
+ while(issuedMatchSeeds.has(seed))seed++;
+ issuedMatchSeeds.add(seed);
+ return seed;
+}
 function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false){
  if(graphicsContextLost||!renderer)return;
  // A stale Windows BR tab may request New Match while another tab already
@@ -574,7 +585,8 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  bookmarkIssue=null;lastAutosaveElapsed=0;lastSavedHealth=100;
  const selected=Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value)?loadoutSelect.value:'carbine';
  const weaponId=Object.prototype.hasOwnProperty.call(Game.FIREARMS,weaponOverride)?weaponOverride:selected;
- const seed=Number.isInteger(seedOverride)?seedOverride:20261027+(Math.random()*10000|0);
+ const seed=Number.isInteger(seedOverride)?seedOverride:nextFreshMatchSeed();
+ issuedMatchSeeds.add(seed); // Replay overrides remain exact but reserve the ID.
  const rivals=[1,4,18].includes(rosterOverride)?rosterOverride:selectedRoster();
  simulation=Game.newMatch(seed,rivals,weaponId,rivals===1);simulation.status='playing';running=true;suspended=false;
  rosterSelect.value=String(rivals);
@@ -596,6 +608,8 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
 }
 function resumeStoredMatch(restored){
  if(graphicsContextLost||!renderer||!restored)return;
+ // A later explicit New Match must differ from this restored generation, too.
+ issuedMatchSeeds.add(restored.seed);
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=memoryOnlyMatch;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=memoryOnlyMatch?'write-failed':null;bookmarkIssue=null;lastSavedHealth=simulation.player.health;
