@@ -955,6 +955,8 @@ function look(mx,my){const delta=Desktop.mouseDelta(mx,my,desktopUi.get());simul
 addEventListener('mousemove',e=>{if(canAct()&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
 canvas.addEventListener('click',()=>{if(!canAct()||isTouch)return;if(document.pointerLockElement!==canvas)requestAimLock();});
 canvas.addEventListener('mousedown',e=>{
+ // OS-level Ctrl/Alt/Meta clicks must not invoke gameplay actions or leave held input.
+ if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
  if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
  fire();
  if(Game.FIREARMS[simulation.player.weaponId].automatic)input.fireHeld=trigger.press('mouse');
