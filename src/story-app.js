@@ -1083,6 +1083,36 @@
     $('fieldJournalPrev').disabled=journalPage===0;
     $('fieldJournalNext').disabled=journalPage+1>=pages;
   }
+  function journalFocusControls(){
+    // Only enabled, genuinely visible buttons take part in the journal's
+    // keyboard cycle. The first/last pages disable opposite arrows.
+    return ['fieldJournalPrev','fieldJournalNext','fieldJournalClose']
+      .map($).filter(node=>node&&!node.disabled&&
+        typeof node.getClientRects==='function'&&node.getClientRects().length>0&&
+        (!global.getComputedStyle||
+          (global.getComputedStyle(node).display!=='none'&&
+           global.getComputedStyle(node).visibility!=='hidden')));
+  }
+  function containJournalFocus(event){
+    if($('fieldJournal').classList.contains('hidden'))return;
+    const controls=journalFocusControls();
+    if(!controls.length)return;
+    if(event.type==='focusin'){
+      // A pointer click or another dialog must not leave focus behind the
+      // visible journal. Do not interfere with an allowed journal button.
+      if(controls.includes(event.target))return;
+      $('fieldJournalClose').focus({preventScroll:true});
+      return;
+    }
+    if(event.key!=='Tab')return;
+    const index=controls.indexOf(document.activeElement);
+    if(index<0||(event.shiftKey?index===0:index===controls.length-1)){
+      event.preventDefault();
+      controls[event.shiftKey?controls.length-1:0].focus({preventScroll:true});
+    }
+  }
+  document.addEventListener('keydown',containJournalFocus,true);
+  document.addEventListener('focusin',containJournalFocus,true);
   function renderFieldJournal(){
     // J from live play returns to Main for the next Escape; the menu
     // button returns to Tools, where its focus target is visible.
