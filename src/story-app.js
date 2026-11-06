@@ -983,6 +983,8 @@
     if(document.pointerLockElement!==canvas)requestAimLock();
   });
   canvas.addEventListener('mousedown',e=>{
+    // OS-level Ctrl/Alt/Meta clicks must not invoke gameplay actions or leave held input.
+    if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
     if(e.button!==0||!canAct()||isTouch||document.pointerLockElement!==canvas)return;
     fire();
     if(Sim.FIREARMS[state.world.player.weaponId].automatic)input.fireHeld=trigger.press('mouse');
