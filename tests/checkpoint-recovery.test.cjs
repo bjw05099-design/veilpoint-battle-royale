@@ -59,3 +59,28 @@ test('CH01 backup exception and forged primary fallback are never accepted',()=>
  assert.equal(Recovery.recover('bad',backup,()=>{throw new Error('decode');}),null);
  assert.equal(Recovery.recover('bad',backup,(p)=>p===null?{source:'primary',state:{}}:(()=>{throw Error('decode')})()),null);
 });
+
+test('CH01 rejects malformed backup decoder results without corrupting stored generations',()=>{
+ const primary='{invalid-primary}',backup='{backup-snapshot}';
+ const invalid=[
+  {source:'primary',state:{phase:'terminal',world:{player:{x:0,z:12}}}},
+  {source:'backup',state:[]},
+  {source:'backup',state:{phase:'terminal',world:{player:{x:Infinity,z:12}}}},
+  {source:'backup',state:{phase:'terminal',world:{player:{x:0,z:NaN}}}},
+  {source:'backup',state:{phase:'terminal',world:null}},
+  {source:'backup',state:{phase:'terminal',world:{player:null}}}
+ ];
+ for(const candidate of invalid){
+  const calls=[];
+  const restore=(p,b)=>{calls.push([p,b]);if(p!==null)throw Error('primary failed');return candidate;};
+  assert.equal(Recovery.recover(primary,backup,restore),null);
+  assert.deepEqual(calls,[[primary,backup],[null,backup]]);
+ }
+});
+test('CH01 recovery boundary contains throwing backup getters',()=>{
+ const result=Recovery.recover('broken','backup',(p)=>{
+  if(p!==null)throw Error('primary failed');
+  return {source:'backup',get state(){throw Error('backup state getter failed');}};
+ });
+ assert.equal(result,null);
+});
