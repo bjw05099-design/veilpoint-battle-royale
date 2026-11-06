@@ -369,6 +369,11 @@
     $('saveExit').classList.toggle('hidden',!sessionStarted||completed);
     $('saveCheckpoint').classList.toggle('hidden',!sessionStarted||completed);
     $('restorePrevious').classList.toggle('hidden',!sessionStarted||completed);
+    $('checkpointExport').classList.toggle('hidden',!sessionStarted||completed);
+    // Do not leave a previous portable snapshot or an untrusted paste visible
+    // when a new pause/menu session begins.
+    $('checkpointTransferPanel').classList.add('hidden');
+    $('checkpointTransferText').value='';
     // PC keyboard users must not remain focused on the now-hidden game canvas.
     // The dialog's primary action is the safe focus target after an Esc pause.
     if(!$('continue').disabled)$('continue').focus();
@@ -628,6 +633,93 @@
   // action. Pausing automatically writes the current checkpoint; the rotated
   // backup is the last safe recovery point if a route becomes unplayable.
   // Never roll back another tab's newer primary, or grant an unverified world.
+  // Portable CH01 snapshots allow offline backup when Windows browser/file
+  // origins differ. Export never reads or overwrites another tab's disk slot.
+  // Imports are always schema-validated. If any existing generation is present
+  // or storage cannot be read, the candidateState world stays memory-only.
+  $('checkpointExport').addEventListener('click',()=>{
+    if(!sessionStarted||running||menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden')||
+       state.phase==='complete'||state.phase==='failed')return;
+    let raw;
+    try{raw=Story.serialize(state);}
+    catch(_){
+      $('menuText').textContent='체크포인트 백업 실패 · 현재 진행 상태를 검증할 수 없습니다.';
+      return;
+    }
+    const panel=$('checkpointTransferPanel'),field=$('checkpointTransferText');
+    field.value=raw;field.readOnly=true;
+    panel.classList.remove('hidden');
+    $('checkpointApply').classList.add('hidden');
+    $('checkpointTransferStatus').textContent='현재 탭의 검증된 CH01 JSON입니다. 전체 선택해 별도 텍스트 파일에 보관하세요. 기존 저장 파일은 변경되지 않습니다.';
+    if(typeof field.focus==='function')field.focus();
+    if(typeof field.select==='function')field.select();
+  });
+  $('checkpointImport').addEventListener('click',()=>{
+    if(running||menu.classList.contains('hidden')||
+       !choices.classList.contains('hidden')||
+       !$('fieldJournal').classList.contains('hidden'))return;
+    const field=$('checkpointTransferText');
+    field.value='';field.readOnly=false;
+    $('checkpointTransferPanel').classList.remove('hidden');
+    $('checkpointApply').classList.remove('hidden');
+    $('checkpointTransferStatus').textContent='검증된 CH01 JSON을 붙여넣으세요. 기존 저장이 있으면 덮어쓰지 않고 이 탭에서만 불러옵니다.';
+    if(typeof field.focus==='function')field.focus();
+  });
+  $('checkpointApply').addEventListener('click',()=>{
+    if(running||menu.classList.contains('hidden')||
+       $('checkpointTransferPanel').classList.contains('hidden')||
+       $('checkpointApply').classList.contains('hidden')||
+       !choices.classList.contains('hidden'))return;
+    const text=String($('checkpointTransferText').value||'').trim();
+    let candidateState,raw;
+    try{
+      if(!text||text.length>8192)throw new RangeError('checkpoint length');
+      candidateState=Story.restore(text);
+      if(candidateState.phase==='complete'||candidateState.phase==='failed')
+        throw new RangeError('terminal checkpoint cannot resume');
+      raw=Story.serialize(candidateState);
+    }catch(_){
+      $('checkpointTransferStatus').textContent='가져오기 실패 · CH01 형식이나 진행 상태가 올바르지 않습니다. 현재 미션과 저장 파일은 변경되지 않았습니다.';
+      return;
+    }
+    // Storage getters can be denied or race with another tab. Only a truly
+    // empty primary+backup permits automatic first-save of an candidateState world.
+    let emptyDisk=false;
+    try{
+      emptyDisk=global.localStorage.getItem(SAVE_KEY)===null&&
+        global.localStorage.getItem(BACKUP_KEY)===null;
+    }catch(_){}
+    state=candidateState;sessionStarted=true;memoryOnlyStory=!emptyDisk;
+    checkpoint=raw;pendingReplayReset=false;recoveredFromBackup=false;
+    guidanceId=null;shotSavePending=false;firstShotSaved=false;
+    lastAutosaveAt=state.world.elapsed;
+    $('storyWeapon').value=state.world.player.weaponId;
+    running=false;clearInput();clock.reset();limiter.reset();last=performance.now();
+    let saved=false;
+    if(emptyDisk){
+      diskGeneration=null;checkpointInvalidStored=false;
+      saved=persist('가져온 CH01 체크포인트');
+    }
+    saveFailed=memoryOnlyStory||!saved;
+    if(memoryOnlyStory){
+      const notice=$('saveStatus');
+      notice.textContent='임시 가져오기 · 현재 CH01 진행은 이 탭에만 보존됩니다. 종료 전에 JSON을 백업하세요.';
+      notice.classList.remove('hidden');
+    }
+    $('continue').textContent='가져온 CH01 이어하기';
+    $('saveExit').classList.toggle('hidden',memoryOnlyStory);
+    $('saveCheckpoint').classList.toggle('hidden',memoryOnlyStory);
+    $('restorePrevious').classList.toggle('hidden',memoryOnlyStory);
+    $('checkpointExport').classList.remove('hidden');
+    $('checkpointTransferText').value='';
+    $('checkpointTransferPanel').classList.add('hidden');
+    $('menuText').textContent=memoryOnlyStory
+      ?'CH01 가져오기 완료 · 기존 저장 기록은 보호했습니다. 이번 미션은 이 탭에서만 진행되므로 종료 전에 JSON을 별도로 백업하세요.'
+      :saved?'CH01 가져오기 및 저장 확인 완료 · 이어하기를 눌러 진행하세요.'
+        :'CH01 가져오기 완료 · 디스크 저장을 확인할 수 없습니다. 현재 탭의 진행을 보호하고 JSON을 별도로 백업하세요.';
+    updateHud();
+  });
   $('restorePrevious').addEventListener('click',()=>{
     if(!sessionStarted||menu.classList.contains('hidden')||
        !choices.classList.contains('hidden')||
