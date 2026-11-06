@@ -10,12 +10,12 @@ function scene({active=true,waiting=false,wall=false}={}){
  const s=Story.createState();
  s.phase='exit';s.choice='evacuation';s.musterConfirmed=true;
  s.guide.active=active;s.guide.arrived=false;s.guide.released=false;
- s.guide.waiting=waiting;s.guide.x=0;s.guide.z=-61;
- s.world.player.x=-3;s.world.player.z=-61;s.world.player.yaw=0;
+ s.guide.waiting=waiting;s.guide.x=0;s.guide.z=-45;
+ s.world.player.x=-3;s.world.player.z=-45;s.world.player.yaw=0;
  s.world.player.stamina=50;
  // Isolate finite, clear physical corridor without changing the production
  // movement controller; real Sim.moveEntity remains in use.
- s.world.obstacles=wall?[{x:-1.5,z:-61,w:.3,d:3}]:[];
+ s.world.obstacles=wall?[{x:-1.5,z:-45,w:.3,d:3}]:[];
  return s;
 }
 function advance(s,input,frames=60){
@@ -31,7 +31,7 @@ test('CH01 visible civilian sets a bounded 60Hz crouch pace that a walking guide
  const fast=advance(normal,{left:true,crouch:true});
  assert.ok(slow>0.3&&slow<=1.61,'crouched local guide pace must remain below a 1.65m/s walking guide');
  assert.ok(fast>slow*1.6,'regular crouch remains faster outside accepted escort');
- assert.ok(Math.hypot(paced.guide.x,paced.guide.z+61)>0,
+ assert.ok(Math.hypot(paced.guide.x,paced.guide.z+45)>0,
   'escort civilian moves through actual fixed-step world and does not teleport');
 });
 test('CH01 walking pace is not activated for waiting or unseen guide',()=>{
