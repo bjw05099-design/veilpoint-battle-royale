@@ -23,11 +23,11 @@ test('BR primary menu fits its display without a scrollable overlay',()=>{
 });
 test('BR main/advanced/import/export pages are mutually exclusive and all fit within a viewport',()=>{
  assert.match(html,/#overlay\.menu-view-more \.cta>:not\(#brViewBack\)/);
- assert.match(html,/#overlay\.menu-view-import \.cta>:not\(#brImportPanel\):not\(#brViewBack\)/);
+ assert.match(html,/#overlay\.menu-view-load \.cta>:not\(#brImportPanel\):not\(#brViewBack\)/);
  assert.match(html,/#overlay\.menu-view-export \.cta>:not\(#brExportPanel\):not\(#brViewBack\)/);
- assert.match(html,/#overlay:is\(\.menu-view-import,\.menu-view-export\) \.landing \.cta\{[^}]*height:100%;min-height:0;max-height:min\(100%,670px\)/);
- assert.match(html,/#overlay:is\(\.menu-view-import,\.menu-view-export\) \.landing \.cta>#brViewBack\{[^}]*grid-row:2/);
- assert.match(html,/#overlay:is\(\.menu-view-import,\.menu-view-export\) \.landing \.cta>:is\(#brImportPanel,#brExportPanel\)\{[^}]*grid-row:1/);
+ assert.match(html,/#overlay:is\(\.menu-view-load,\.menu-view-export\) \.landing \.cta\{[^}]*height:100%;min-height:0;max-height:min\(100%,670px\)/);
+ assert.match(html,/#overlay:is\(\.menu-view-load,\.menu-view-export\) \.landing \.cta>#brViewBack\{[^}]*grid-row:2/);
+ assert.match(html,/#overlay:is\(\.menu-view-load,\.menu-view-export\) \.landing \.cta>:is\(#brImportPanel,#brExportPanel\)\{[^}]*grid-row:1/);
  assert.match(html,/#overlay :is\(#brImportText,#brExportText\)\{[^}]*flex:1 1 120px;max-height:38dvh/);
 });
 test('BR accessible controls and menu navigation are preserved without scrolling',()=>{
