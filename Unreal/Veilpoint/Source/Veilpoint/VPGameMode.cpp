@@ -63,5 +63,10 @@ void AVPGameMode::Tick(float DeltaSeconds)
     // GameMode is never replicated to remote clients. Publish only factual
     // finite round status through the server-owned GameState.
     if(AVPGameState* NativeState=GetWorld()->GetGameState<AVPGameState>())
+    {
         NativeState->UpdateRoundState(Living,bRoundComplete);
+        // The first real multi-participant round opens the zone clock.
+        // Merely launching the offline native scene must not consume it.
+        if(bSeenMultiplePlayers) NativeState->MarkRoundStarted();
+    }
 }
