@@ -21,7 +21,9 @@ test('PC release gate checks all BR modes and graphics settings, not only defaul
   assert.ok(verifier.includes("'"+name+"'"),'BR screen missing: '+name);
  for(const id of ['graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage'])
   assert.ok(verifier.includes(id),'graphics screen missing: '+id);
- assert.match(verifier,/throw new Error\('Viewport clipping found/);
+ assert.match(verifier,/throw new Error\('Viewport geometry gate failed:/);
+ assert.match(verifier,/transportFailure\?\[transportFailure\.message\]:\[\]/);
+ assert.match(verifier,/if\(result\.failures\.length\)/);
  assert.match(verifier,/throw new Error\('Chrome\/Chromium unavailable/);
 });
 test('PC geometry runner is mandatory in CI and is shipped as evidence beside demo ZIP',()=>{

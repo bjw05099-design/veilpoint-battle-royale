@@ -16,7 +16,9 @@ test('real Chromium geometry gate checks document overflow and keyboard focus',(
 test('real viewport evidence remains strict for seven screens at four resolutions',()=>{
  assert.match(script,/\[\[2560,1440\],\[1366,768\],\[1280,720\],\[1024,600\]\]/);
  assert.match(script,/data\.cases\.length,7/);
- assert.match(script,/throw new Error\('Viewport clipping found:/);
+ assert.match(script,/throw new Error\('Viewport geometry gate failed:/);
+ assert.match(script,/records\.length\+'\/'\+SIZES\.length/);
+ assert.match(script,/if\(result\.failures\.length\)/);
  assert.match(script,/Emulation\.setDeviceMetricsOverride/);
 });
 
