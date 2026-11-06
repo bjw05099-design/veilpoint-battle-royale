@@ -3612,8 +3612,10 @@ test('CH01 PC file picker stages validated file text without changing game until
  app.element('checkpointFile').dispatch('change',{target:{
   files:[{size:Buffer.byteLength(raw),text:()=>Promise.resolve(raw)}]
  }});
- await Promise.resolve();await Promise.resolve();
- assert.equal(app.element('checkpointTransferText').value,raw);
+ // Flush the file.text() promise from the separate browser VM realm.
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(app.element('checkpointTransferText').value,raw,
+  app.element('checkpointTransferStatus').textContent);
  assert.match(app.element('checkpointTransferStatus').textContent,/파일 읽기 완료/);
  assert.equal(app.store.has('veilpoint.story.ch01'),false,'read is not an automatic import');
  app.element('checkpointApply').click();
