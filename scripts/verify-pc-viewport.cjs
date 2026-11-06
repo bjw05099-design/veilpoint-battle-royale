@@ -67,12 +67,18 @@ function audit(){
      continue;
     }
     const rect=node.getBoundingClientRect();
-    const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
-    const top=document.elementFromPoint(cx,cy);
-    // document.elementFromPoint follows the real browser hit-test stack,
-    // including pointer-events, z-index, and obstructing modal elements.
-    current.hit=!!top&&(node===top||node.contains(top));
-    current.hitElement=top?.id||top?.tagName?.toLowerCase()||null;
+    // Center-only hit testing misses partially covered controls. Keep probes
+    // well inside rounded button corners while checking every quadrant.
+    const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+    const hits=probes.map(([fx,fy])=>{
+     const top=document.elementFromPoint(rect.left+rect.width*fx,
+      rect.top+rect.height*fy);
+     return {ok:!!top&&(node===top||node.contains(top)),
+      element:top?.id||top?.tagName?.toLowerCase()||null};
+    });
+    current.hit=hits.every(hit=>hit.ok);
+    current.hitElement=hits.find(hit=>!hit.ok)?.element||hits[0].element;
+    current.probesPassed=hits.filter(hit=>hit.ok).length;
     // A visible button that cannot receive keyboard focus is not PC accessible.
     if(node.matches('button,select,input,textarea,a')){
      node.focus({preventScroll:true});
@@ -83,7 +89,7 @@ function audit(){
     result.targets.push(current);
     if(!current.hit)
      result.issues.push({id,reason:'required button is covered or not clickable',
-      hitElement:current.hitElement});
+      hitElement:current.hitElement,probesPassed:current.probesPassed});
    }
    return result;
   }
@@ -145,29 +151,63 @@ async function run(){
  const html=bundled.replace('</body>',
   '<script>('+audit.toString()+')()</script></body>');
  const chrome=browser(),records=[];
- const userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
- const child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
-  '--disable-dev-shm-usage','--disable-background-networking',
-  '--disable-extensions','--no-first-run','--no-default-browser-check',
-  '--remote-debugging-port=0','--user-data-dir='+userDir,'about:blank'],
-  {stdio:['ignore','ignore','pipe']});
- let stderr='',ws=null,transportFailure=null;
- child.stderr.on('data',part=>{stderr+=part.toString();});
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
- try{
+ let child=null,userDir=null,stderr='',ws=null,transportFailure=null;
+ let startupAttempts=0;
+ async function stopBrowser(){
+  if(child&&child.exitCode===null&&!child.signalCode){
+   const closed=once(child,'close').catch(()=>{});
+   child.kill('SIGTERM');
+   await Promise.race([closed,sleep(1800)]);
+   if(child.exitCode===null&&!child.signalCode)child.kill('SIGKILL');
+  }
+  if(userDir){
+   try{fs.rmSync(userDir,{recursive:true,force:true,maxRetries:5,retryDelay:150});}
+   catch(_){}
+  }
+ }
+ async function startBrowser(){
+  userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
+  stderr='';
+  child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
+   '--disable-dev-shm-usage','--disable-background-networking',
+   '--disable-extensions','--no-first-run','--no-default-browser-check',
+   '--remote-debugging-port=0','--user-data-dir='+userDir,'about:blank'],
+   {stdio:['ignore','ignore','pipe']});
+  child.stderr.on('data',part=>{stderr+=part.toString();});
   const active=path.join(userDir,'DevToolsActivePort');
-  let cdpPort=null;
   for(let tries=0;tries<120;tries++){
-   if(fs.existsSync(active)){
-    cdpPort=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
-    if(Number.isInteger(cdpPort)&&cdpPort>0)break;
+   try{
+    if(fs.existsSync(active)){
+     const port=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
+     if(Number.isInteger(port)&&port>0)return port;
+    }
+   }catch(error){
+    // Windows Chrome briefly locks DevToolsActivePort while writing it.
+    // Keep the strict geometry gate; retry only this transient file read.
+    if(!['EBUSY','EPERM','ENOENT'].includes(error.code))throw error;
    }
    if(child.exitCode!==null)
     throw new Error('Chromium exited before DevTools initialized: '+stderr.slice(-600));
    await sleep(100);
   }
-  if(!cdpPort)throw new Error('Chromium DevTools did not become ready: '+stderr.slice(-600));
-  const pages=await (await fetch('http://127.0.0.1:'+cdpPort+'/json/list')).json();
+  throw new Error('Chromium DevTools did not become ready: '+stderr.slice(-600));
+ }
+ try{
+  let cdpPort=null;
+  const startupErrors=[];
+  // Headless Chrome occasionally stalls before opening DevTools on CI.
+  // A fresh profile/process gets one bounded recovery attempt. Never pass
+  // without actually measuring all seven pages at every viewport.
+  for(startupAttempts=1;startupAttempts<=2;startupAttempts++){
+   try{cdpPort=await startBrowser();break;}
+   catch(error){
+    startupErrors.push('attempt '+startupAttempts+': '+String(error.message||error));
+    await stopBrowser();
+    if(startupAttempts===2)throw new Error(startupErrors.join(' | '));
+   }
+  }
+    const pages=await (await fetch('http://127.0.0.1:'+cdpPort+'/json/list')).json();
   const page=pages.find(x=>x.type==='page'&&x.webSocketDebuggerUrl);
   if(!page)throw new Error('No Chrome page target available');
   ws=new WebSocket(page.webSocketDebuggerUrl);
@@ -235,14 +275,10 @@ async function run(){
    browserStderr:stderr.slice(-4000),completedViewports:records.length};
  }finally{
   if(ws&&ws.readyState===WebSocket.OPEN)ws.close();
-  child.kill('SIGTERM');
-  await Promise.race([once(child,'close').catch(()=>{}),sleep(1800)]);
-  if(child.exitCode===null)child.kill('SIGKILL');
-  try{fs.rmSync(userDir,{recursive:true,force:true,maxRetries:5,retryDelay:150});}
-  catch(_){}
+  await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(chrome),
-  checks:records,transportFailure,
+  checks:records,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...(transportFailure?[transportFailure.message]:[])]};

@@ -42,7 +42,7 @@ test('real PC browser checks visible, enabled and unobstructed click targets on 
   'graphicsTabBenchmark','graphicsPreset','desktopBindKey','benchmarkStart']){
   assert.ok(verifier.includes("'"+id+"'"),'required actionable target missing: '+id);
  }
- assert.match(verifier,/document\.elementFromPoint\(cx,cy\)/);
+ assert.match(verifier,/document\.elementFromPoint\(rect\.left\+rect\.width\*fx,/);
  assert.match(verifier,/node===top\|\|node\.contains\(top\)/);
  assert.match(verifier,/required control hidden, missing or disabled/);
  assert.match(verifier,/required button is covered or not clickable/);
