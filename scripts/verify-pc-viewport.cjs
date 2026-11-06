@@ -179,7 +179,7 @@ async function run(){
   for(let tries=0;tries<120;tries++){
    try{
     if(fs.existsSync(active)){
-     const port=Number(fs.readFileSync(active,'utf8').split('\\n')[0]);
+     const port=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
      if(Number.isInteger(port)&&port>0)return port;
     }
    }catch(error){
