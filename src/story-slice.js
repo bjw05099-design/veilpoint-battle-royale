@@ -555,6 +555,16 @@
     while(previous[first]>0)first=previous[first];
     return previous[first]===0&&first!==goal?nodes[first]:null;
   }
+  function escortPaceAvailable(state) {
+    // Only a locally observed, already-following civilian can set a walking
+    // pace. A distant/occluded guide is not tracked or located by this HUD.
+    if(state.phase!=='exit'||state.choice!=='evacuation'||
+       !state.guide.active||state.guide.arrived||state.guide.released||
+       state.guide.waiting)return false;
+    const p=state.world.player,g=state.guide;
+    return Math.hypot(g.x-p.x,g.z-p.z)<7&&
+      !Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles);
+  }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
@@ -584,8 +594,14 @@
     const len=Math.hypot(ix,iz)||1;ix/=len;iz/=len;
     // A bulky civilian supply crate occupies the player's hands. It is
     // physically carried to the aid team: no instant remote delivery or sprint.
-    const sprint=!state.world.carryingAid&&Sim.canSprint(p,input,iz);
-    const speed=(input.crouch?3.1:sprint?9.5:6.1)*Sim.FIREARMS[p.weaponId].mobility*
+    // Pressing Sprint while crouched must never drain running stamina. Near
+    // the observed escort, crouch gives a deliberate, slower pace a civilian
+    // can physically keep up with; ordinary crouch remains unchanged outside
+    // the accepted, visible guide route.
+    const sprint=!input.crouch&&!state.world.carryingAid&&Sim.canSprint(p,input,iz);
+    const paced=!!input.crouch&&escortPaceAvailable(state);
+    const speed=(input.crouch?(paced?1.6:3.1):sprint?9.5:6.1)*
+      Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     // The guide remains a solid person while waiting at muster and after
@@ -1161,6 +1177,7 @@
       eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60-1e-8)/60):0,
       routeReviewAvailable:state.phase==='exit'&&markers(state).some(m=>m.id==='decision'),
       visibleEscortDistance:visibleEscortDistance(state),
+      escortPaceAvailable:escortPaceAvailable(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
       headlamp:state.flashlightTicks===0?'휴대 헤드램프 배터리 소진':`휴대 헤드램프 ${state.flashlightOn?'점등 · 노출 증가':'소등'} · 잔량 약 ${Math.ceil(state.flashlightTicks/60)}초`,
        warning:state.beaconEnabled?'현장 수동 경고등 점등 · 현지 구조단 확인':state.relayRestored?'항구 수동 경고등 소등 · 현장 재점등 가능':'항구 수동 경고등 미점등',
