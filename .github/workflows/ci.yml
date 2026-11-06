@@ -36,8 +36,8 @@ jobs:
           path: |
             dist/veilpoint-offline-demo.zip
             dist/veilpoint-offline-demo.zip.sha256
-            dist/ch01-route-evidence.json
             dist/START_HERE.txt
+            dist/ch01-route-evidence.json
       - name: Upload browser prototype
         uses: actions/upload-artifact@v4
         with:
