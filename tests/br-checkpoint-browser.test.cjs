@@ -1532,3 +1532,99 @@ test('BR restoring a saved round reserves its seed before a later New Match',()=
  assert.notEqual(reopened.game.seed,seed);
  assert.notEqual(store.get(KEY),saved);
 });
+
+
+test('BR pause menu exports a validated live match without rotating the saved generations',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');
+ const primary=store.get(KEY),backup=store.get(KEY+'.previous');
+ assert.equal(app.node('brExport').classList.contains('hidden'),false);
+ app.node('brExport').click();
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),false);
+ const json=app.node('brExportText').value;
+ const restored=app.global.VeilpointSim.restoreMatch(json);
+ assert.equal(restored.seed,app.game.seed);
+ assert.equal(restored.status,'playing');
+ assert.equal(app.global.VeilpointSim.snapshotMatch(restored),json);
+ assert.equal(store.get(KEY),primary);
+ assert.equal(store.get(KEY+'.previous'),backup);
+});
+
+test('BR memory-only match can still create a portable, validated JSON snapshot',()=>{
+ const denied={get:()=>null,set:()=>{throw Error('storage denied');},
+  delete:()=>{throw Error('storage denied');}};
+ const app=boot(denied);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');
+ app.node('brExport').click();
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),false);
+ const raw=app.node('brExportText').value;
+ assert.equal(app.global.VeilpointSim.restoreMatch(raw).status,'playing');
+ assert.match(app.node('brExportStatus').textContent,/저장 기록은 변경하지/);
+});
+
+test('BR JSON backup requests a local file containing the exact paused snapshot',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');app.node('brExport').click();
+ const raw=app.node('brExportText').value;
+ let blob=null,link=null,revoked=null;
+ app.global.Blob=class{constructor(parts,config){this.parts=parts;this.type=config.type;blob=this;}};
+ app.global.URL={
+  createObjectURL(b){assert.equal(b,blob);return 'blob:veilpoint-br';},
+  revokeObjectURL(url){revoked=url;}
+ };
+ app.global.setTimeout=cb=>{cb();return 1;};
+ app.global.document.createElement=()=>({click(){link={href:this.href,download:this.download};}});
+ app.node('brExportDownload').click();
+ assert.deepEqual(link,{href:'blob:veilpoint-br',download:'VEILPOINT-BR-checkpoint.json'});
+ assert.equal(blob.parts.join(''),raw);
+ assert.match(blob.type,/application\/json/);
+ assert.equal(revoked,'blob:veilpoint-br');
+ assert.match(app.node('brExportStatus').textContent,/저장 요청 완료/);
+});
+
+test('BR export rejects stale game data and falls back to manual copy when downloads are denied',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');app.node('brExport').click();
+ const raw=app.node('brExportText').value,primary=store.get(KEY);
+ app.node('brExportDownload').click();
+ assert.match(app.node('brExportStatus').textContent,/직접 복사/);
+ assert.equal(app.node('brExportText').value,raw);
+ app.game.player.x+=.125; // Simulate a changed world before stale file download.
+ app.global.Blob=class{constructor(){throw Error('should never construct stale blob');}};
+ app.node('brExportDownload').click();
+ assert.match(app.node('brExportStatus').textContent,/직접 복사/);
+ assert.equal(store.get(KEY),primary);
+});
+
+test('BR paused export panel closes on resume and new rounds, preserving 60Hz input reset',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);
+ app.emit('blur');app.node('brExport').click();
+ assert.ok(app.node('brExportText').value.length>100);
+ app.node('play').click();
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brExport').classList.contains('hidden'),true);
+ assert.equal(app.node('brExportText').value,'');
+ assert.equal(app.global.VeilpointInput.forward,false);
+ app.emit('blur');app.node('brExport').click();
+ app.node('newMatch').click();
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brExport').classList.contains('hidden'),true);
+ assert.equal(app.node('brExportText').value,'');
+});
+
+test('BR portable JSON export controls exist in the Windows overlay, not a network endpoint',()=>{
+ const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+ assert.match(html,/id="brExport"[^>]*aria-controls="brExportPanel"/);
+ assert.match(html,/id="brExportText"[^>]*readonly/);
+ assert.match(html,/id="brExportDownload"/);
+ assert.match(html,/id="brExportStatus"[^>]*aria-live="polite"/);
+ const js=fs.readFileSync(path.join(ROOT,'src/app.js'),'utf8');
+ assert.match(js,/Game\.snapshotMatch\(simulation\)/);
+ assert.match(js,/Game\.restoreMatch\(raw\)/);
+ assert.doesNotMatch(js,/fetch\(['"]https?:/);
+});
