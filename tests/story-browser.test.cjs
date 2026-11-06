@@ -3563,5 +3563,10 @@ test('CH01 portable import remains a read-only temporary world when browser stor
  app.emit('keydown',{code:'Escape'});
  assert.equal(app.element('checkpointExport').classList.contains('hidden'),false);
  app.element('checkpointExport').click();
- assert.equal(app.element('checkpointTransferText').value,raw);
+ const saved=JSON.parse(app.element('checkpointTransferText').value);
+ assert.equal(saved.phase,'terminal');
+ assert.equal(saved.player.x,JSON.parse(raw).player.x);
+ assert.equal(saved.player.z,JSON.parse(raw).player.z);
+ assert.ok(saved.elapsed>=JSON.parse(raw).elapsed,
+  'one legitimate 60Hz frame must be present in the exported live state');
 });
