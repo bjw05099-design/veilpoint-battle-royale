@@ -403,6 +403,21 @@ function browser(){
   if(fs.existsSync(bin))return bin;
  throw new Error('Chrome/Chromium unavailable; viewport geometry is NOT verified');
 }
+// Windows runners may launch Chrome without writing DevToolsActivePort.
+// Reserve a loopback port for a direct /json/version readiness probe instead.
+// The server is closed before Chrome starts, so Chrome owns the endpoint.
+async function reserveLoopbackPort(){
+ const server=http.createServer();
+ await new Promise((resolve,reject)=>{
+  server.once('error',reject);
+  server.listen(0,'127.0.0.1',resolve);
+ });
+ const port=server.address().port;
+ await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+ assert.ok(Number.isInteger(port)&&port>0,'No available local DevTools port');
+ return port;
+}
+
 async function run(){
  const idx=process.argv.indexOf('--output');
  const dest=idx<0?null:process.argv[idx+1];
@@ -450,53 +465,49 @@ async function run(){
  async function startBrowser(){
   userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
   stderr='';
-  // On Windows CI, Chrome can remain alive without creating
-  // DevToolsActivePort for --remote-debugging-port=0. Reserve a loopback
-  // port before spawning, then verify the actual CDP endpoint responds.
-  // The geometry audit still fails closed if DevTools never becomes ready.
-  let reservedPort=null;
-  if(process.platform==='win32'){
-   const listener=http.createServer();
-   await new Promise((resolve,reject)=>{
-    listener.once('error',reject);
-    listener.listen(0,'127.0.0.1',resolve);
-   });
-   reservedPort=listener.address().port;
-   await new Promise((resolve,reject)=>listener.close(error=>error?reject(error):resolve()));
-  }
+  // On Windows use the DevTools HTTP readiness endpoint instead of relying
+  // on a profile-file notification that may never arrive on hosted runners.
+  // Linux retains the already-validated ephemeral Chrome port-file path.
+  const windowsProbe=process.platform==='win32';
+  const port=windowsProbe?await reserveLoopbackPort():0;
   child=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu',
    '--disable-dev-shm-usage','--disable-background-networking',
    '--disable-extensions','--no-first-run','--no-default-browser-check',
-   '--remote-debugging-port='+(reservedPort||0),'--user-data-dir='+userDir,'about:blank'],
+   '--remote-debugging-port='+port,'--user-data-dir='+userDir,'about:blank'],
    {stdio:['ignore','ignore','pipe']});
   child.stderr.on('data',part=>{stderr+=part.toString();});
+  child.on('error',error=>{stderr+='\\nChrome spawn: '+String(error);});
   const active=path.join(userDir,'DevToolsActivePort');
   for(let tries=0;tries<120;tries++){
-   try{
-    if(reservedPort){
-     const response=await fetch('http://127.0.0.1:'+reservedPort+'/json/version',
-      {signal:AbortSignal.timeout(400)}).catch(()=>null);
-     if(response&&response.ok){
-      const info=await response.json();
-      if(info.webSocketDebuggerUrl)return reservedPort;
+   if(windowsProbe){
+    try{
+     const response=await fetch('http://127.0.0.1:'+port+'/json/version',
+      {signal:AbortSignal.timeout(300)});
+     if(response.ok){
+      const version=await response.json();
+      if(version.webSocketDebuggerUrl)return port;
      }
+    }catch(_){
+     // Connection refused during startup is expected, never a pass.
     }
-    if(!reservedPort&&fs.existsSync(active)){
-     const port=Number(fs.readFileSync(active,'utf8').split('\n')[0]);
-     if(Number.isInteger(port)&&port>0)return port;
+   }else{
+    try{
+     if(fs.existsSync(active)){
+      const discovered=Number(fs.readFileSync(active,'utf8').split('\\n')[0]);
+      if(Number.isInteger(discovered)&&discovered>0)return discovered;
+     }
+    }catch(error){
+     if(!['EBUSY','EPERM','ENOENT'].includes(error.code))throw error;
     }
-   }catch(error){
-    // Windows Chrome briefly locks DevToolsActivePort while writing it.
-    // Keep the strict geometry gate; retry only this transient file read.
-    if(!['EBUSY','EPERM','ENOENT'].includes(error.code))throw error;
    }
    if(child.exitCode!==null)
     throw new Error('Chromium exited before DevTools initialized: '+stderr.slice(-600));
    await sleep(100);
   }
-  throw new Error('Chromium DevTools did not become ready (platform='+process.platform+
-   ', pid='+child.pid+', exit='+child.exitCode+', port='+(reservedPort||'auto')+
-   ', profile='+userDir+'): '+stderr.slice(-600));
+  throw new Error('Chromium DevTools not ready ('+
+   (windowsProbe?'Windows HTTP probe':'Linux port file')+', port='+port+
+   ', pid='+child.pid+', exit='+child.exitCode+', signal='+child.signalCode+
+   '): '+stderr.slice(-900));
  }
  try{
   let cdpPort=null;
@@ -669,4 +680,4 @@ async function run(){
  console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route, 6 CH01 menu and 2 CH01 journal screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit,auditStoryRoute,auditStoryMenu,auditStoryJournal};
+module.exports={audit,auditStoryRoute,auditStoryMenu,auditStoryJournal,reserveLoopbackPort};
