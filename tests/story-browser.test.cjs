@@ -3362,3 +3362,50 @@ test('CH01 restore confirmation rejects backup rotation after the newly restored
    'backup recovery cannot touch the independent BR checkpoint');
  shared.get=get;shared.set=set;
 });
+
+test('CH01 Windows WebGL loss during route choice restores the focused decision without losing progress',()=>{
+ const store=new Map([['veilpoint.brCheckpoint.v1','BR-independent']]);
+ const app=boot(store,false,'granted',true,true);
+ enterPCStoryDecision(app);
+ const choice=app.element('choiceEvac'),before=store.get('veilpoint.story.ch01');
+ assert.equal(app.context.document.activeElement,choice);
+ app.element('scene').dispatch('webglcontextlost');
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.equal(app.element('choices').classList.contains('hidden'),true);
+ assert.equal(app.element('continue').disabled,true);
+ app.frame(180000);
+ assert.equal(store.get('veilpoint.story.ch01'),before,
+   'no pending route or 60Hz progress may change during GPU interruption');
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,false);
+ assert.equal(app.element('choices').classList.contains('hidden'),false,
+   'the interrupted route decision must reappear, not generic resume');
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.equal(app.context.document.activeElement,choice,
+   'keyboard focus must return to the visible PC choice button');
+ assert.equal(store.get('veilpoint.story.ch01'),before);
+ app.emit('keydown',{code:'Digit1',target:choice});
+ assert.equal(app.element('choices').classList.contains('hidden'),true);
+ assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).choice,'evacuation');
+ assert.equal(store.get('veilpoint.brCheckpoint.v1'),'BR-independent');
+});
+
+test('CH01 Windows route dialog survives a failed GPU rebuild and a later successful restoration',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ enterPCStoryDecision(app);
+ const before=app.store.get('veilpoint.story.ch01');
+ app.element('scene').dispatch('webglcontextlost');
+ app.context.VeilpointRenderer.failNext=true;
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,true);
+ assert.equal(app.element('choices').classList.contains('hidden'),true);
+ assert.match(app.element('menuText').textContent,/복구 실패/);
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,false);
+ assert.equal(app.element('choices').classList.contains('hidden'),false);
+ assert.equal(app.context.document.activeElement,app.element('choiceEvac'));
+ assert.equal(app.store.get('veilpoint.story.ch01'),before);
+ app.emit('keydown',{code:'Escape',target:app.element('choiceEvac')});
+ assert.equal(app.element('choices').classList.contains('hidden'),true);
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).choice,null);
+});
