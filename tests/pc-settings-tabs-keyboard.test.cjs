@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../src/app.js'),'utf8');
 const start=source.indexOf('function setGraphicsSettingsScreen(');
-const end=source.indexOf('function setGraphicsPanelOpen(',start);
+const end=source.indexOf('function visibleGraphicsDialogControls(',start);
 assert.ok(start>=0&&end>start,'settings keyboard controller must exist');
 function setup(){
  const elements=new Map();
