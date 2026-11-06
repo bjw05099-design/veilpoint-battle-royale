@@ -77,3 +77,47 @@ test('CH01 keyboard focus gate does not intercept number choices or Escape',()=>
  assert.match(html,/<section id="choices"[^>]*role="dialog" aria-modal="true"/);
  assert.match(source,/document\.addEventListener\('keydown',containRouteDialogFocus,true\)/);
 });
+
+test('CH01 route arrow keys skip unavailable choices and wrap without activating a route',()=>{
+ const f=fixture();
+ f.nodes.choiceVerified.disabled=true;
+ f.document.activeElement=f.nodes.choiceEvac;
+ let prevented=0;
+ for(const [key,expected] of [
+  ['ArrowRight','choiceBack'],
+  ['ArrowDown','choiceEvac'],
+  ['ArrowLeft','choiceBack'],
+  ['ArrowUp','choiceEvac']]){
+  f.handlers.keydown({type:'keydown',key,preventDefault(){prevented++;}});
+  assert.equal(f.document.activeElement,f.nodes[expected],
+   key+' must move to a visible enabled choice');
+ }
+ assert.equal(prevented,4,'all arrow movement stays inside the route dialog');
+ assert.equal(f.nodes.choiceVerified.disabled,true,'locked route is never enabled implicitly');
+});
+
+test('CH01 route redirects focus from a disabled choice instead of accepting background focus',()=>{
+ const f=fixture();
+ f.nodes.choiceVerified.disabled=true;
+ f.document.activeElement=f.nodes.choiceVerified;
+ f.handlers.focusin({type:'focusin',target:f.nodes.choiceVerified});
+ assert.equal(f.document.activeElement,f.nodes.choiceEvac);
+ f.document.activeElement=f.nodes.choiceBack;
+ f.handlers.focusin({type:'focusin',target:f.nodes.choiceBack});
+ assert.equal(f.document.activeElement,f.nodes.choiceBack);
+});
+
+test('CH01 arrow navigation preserves operating-system shortcuts and releases after dialog closes',()=>{
+ const f=fixture();
+ f.document.activeElement=f.nodes.choiceEvac;
+ let prevented=0;
+ f.handlers.keydown({type:'keydown',key:'ArrowRight',ctrlKey:true,
+  preventDefault(){prevented++;}});
+ assert.equal(prevented,0);
+ assert.equal(f.document.activeElement,f.nodes.choiceEvac);
+ f.choices.hidden=true;
+ f.handlers.keydown({type:'keydown',key:'ArrowRight',
+  preventDefault(){prevented++;}});
+ assert.equal(prevented,0);
+ assert.equal(f.document.activeElement,f.nodes.choiceEvac);
+});
