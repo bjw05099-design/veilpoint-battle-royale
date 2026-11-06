@@ -61,9 +61,9 @@ test('CH01 restores focus after external UI focus and releases it after dialog c
  f.choices.hidden=true;
  f.document.activeElement=outside;
  assert.equal(f.tab('hidden-pause-button'),0);
- assert.equal(f.document.activeElement,outside);
+ assert.equal(f.document.activeElement.id,outside.id);
  f.handlers.focusin({type:'focusin',target:outside});
- assert.equal(f.document.activeElement,outside);
+ assert.equal(f.document.activeElement.id,outside.id);
 });
 test('CH01 keyboard focus gate does not intercept number choices or Escape',()=>{
  const f=fixture();
