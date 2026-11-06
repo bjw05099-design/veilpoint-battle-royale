@@ -636,15 +636,33 @@
       return;
     }
     cancelPreviousRestore();
-    const live=state,oldCheckpoint=checkpoint,oldAutosaveAt=lastAutosaveAt;
+    const live=state,oldCheckpoint=checkpoint,oldAutosaveAt=lastAutosaveAt,
+      oldShotPending=shotSavePending,oldFirstShotSaved=firstShotSaved;
     state=restored;
-    // persist() validates/rotates the latest primary and reads back the exact
-    // restored v2 world. Do not discard the live session if the commit fails.
-    if(!persist('이전 체크포인트 복구')){
+    // Persist may succeed before another PC tab replaces the newly restored
+    // primary or its rotated backup. Verify both generations again BEFORE
+    // replacing the live in-memory mission with the restored world.
+    const targetGeneration=Story.serialize(restored);
+    const wrote=persist('이전 체크포인트 복구');
+    let committed=false;
+    if(wrote){
+      try{
+        committed=global.localStorage.getItem(SAVE_KEY)===targetGeneration&&
+          global.localStorage.getItem(BACKUP_KEY)===primary;
+      }catch(_){}
+    }
+    if(!committed){
       state=live;
       checkpoint=oldCheckpoint;
       lastAutosaveAt=oldAutosaveAt;
-      $('menuText').textContent='이전 체크포인트의 저장을 확인하지 못해 기존 진행으로 돌아왔습니다. 브라우저 저장 공간을 확인하세요.';
+      shotSavePending=oldShotPending;
+      firstShotSaved=oldFirstShotSaved;
+      saveFailed=true;
+      nextSaveRetryAt=state.world.elapsed+1;
+      const notice=$('saveStatus');
+      notice.textContent='이전 체크포인트 복구 재확인 실패 · 다른 창의 기록 변경 또는 저장소 읽기 오류가 발생했습니다. 현재 진행은 이 탭에 유지됩니다.';
+      notice.classList.remove('hidden');
+      $('menuText').textContent='이전 체크포인트 복구 확정 후 저장 세대가 변경되거나 확인할 수 없어 기존 진행으로 돌아왔습니다. 다른 게임 창과 저장 공간을 확인하세요.';
       updateHud();
       return;
     }
