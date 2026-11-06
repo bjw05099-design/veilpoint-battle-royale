@@ -42,7 +42,8 @@ test('BR accessible controls and menu navigation are preserved without scrolling
  assert.match(html,/id="brImportStatus"[^>]*aria-live="polite"/);
  assert.match(html,/id="brExportStatus"[^>]*aria-live="polite"/);
  const code=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
- assert.match(code,/function setBRMenuView\(view='main'\)/);
+ assert.match(code,/function setBRMenuView\(view='main',restoreFocus=false\)/);
+ assert.match(code,/if\(restoreFocus&&!overlay\.classList\.contains\('hidden'\)\)/);
  assert.match(code,/setBRMenuView\('load'\)/);
  assert.match(code,/setBRMenuView\('export'\)/);
  assert.match(code,/\$\('brViewBack'\)\.click\(\)/);
