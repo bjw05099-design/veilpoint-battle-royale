@@ -27,6 +27,8 @@ jobs:
           cd dist
           sha256sum -c veilpoint-offline-demo.zip.sha256
           unzip -t veilpoint-offline-demo.zip
+      - name: Verify both CH01 endings and record checkpoint evidence
+        run: node scripts/verify-ch01-routes.cjs --output dist/ch01-route-evidence.json
       - name: Upload offline demo ZIP and checksum
         uses: actions/upload-artifact@v4
         with:
@@ -34,6 +36,7 @@ jobs:
           path: |
             dist/veilpoint-offline-demo.zip
             dist/veilpoint-offline-demo.zip.sha256
+            dist/ch01-route-evidence.json
             dist/START_HERE.txt
       - name: Upload browser prototype
         uses: actions/upload-artifact@v4
