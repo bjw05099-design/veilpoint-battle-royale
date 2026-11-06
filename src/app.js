@@ -886,6 +886,18 @@ function resetInactiveClock(){
 }
 addEventListener('blur',()=>{suspendMatch();resetInactiveClock();});
 addEventListener('pagehide',()=>{suspendMatch();resetInactiveClock();});
+// A back-forward cache return is not a new round and must not implicitly
+// restart the paused 60Hz world. Keyboard users need a visible, focused resume
+// action instead of the hidden pointer-locked canvas after navigation.
+addEventListener('pageshow',event=>{
+ if(!event.persisted)return;
+ resetInactiveClock();
+ if(!running||simulation.status!=='playing')return;
+ if(!suspended)suspendMatch(); // Defensive: pagehide may have been skipped.
+ $('overlay').classList.remove('hidden');
+ $('play').textContent='이어하기';
+ if(typeof $('play').focus==='function')$('play').focus();
+});
 addEventListener('focus',resetInactiveClock);
 // Escape or browser UI can release pointer lock without blurring the window.
 // Do not leave the 60Hz hostile simulation running while the player cannot aim.

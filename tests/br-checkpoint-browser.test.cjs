@@ -1254,3 +1254,53 @@ test('BR Save & Exit refuses a concurrent replacement after writer readback but 
  app.node('play').click();app.frame(2000/60);
  assert.equal(app.game,live,'the existing 60Hz world remains resumable');
 });
+
+test('BR PC bfcache return stays paused with visible focused resume and unchanged saved round',()=>{
+ const store=new Map([['veilpoint.story.ch01','CH01-untouched']]);
+ const app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game,play=app.node('play');
+ let focusCount=0;play.focus=()=>{focusCount++;};
+ const before=game.elapsed;
+ app.emit('pagehide');
+ const saved=store.get(KEY);
+ assert.ok(saved,'pagehide should preserve the active BR checkpoint');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.emit('pageshow',{persisted:true});
+ assert.equal(play.textContent,'이어하기');
+ assert.equal(focusCount,1,'keyboard focus returns to the visible PC Resume action');
+ app.frame(120000);
+ assert.equal(game.elapsed,before,'bfcache downtime must never advance the 60Hz simulation');
+ assert.equal(store.get(KEY),saved,'pageshow is read-only for a verified disk generation');
+ assert.equal(store.get('veilpoint.story.ch01'),'CH01-untouched');
+ play.click();app.frame(120000+1000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.game,game,'resume returns to the same in-memory round');
+ assert.equal(game.status,'playing');
+});
+
+test('BR ordinary pageshow does not pause a live match or steal keyboard focus',()=>{
+ const app=boot(new Map());
+ app.node('play').click();app.frame(1000/60);
+ const game=app.game;
+ let focuses=0;app.node('play').focus=()=>{focuses++;};
+ app.emit('pageshow',{persisted:false});
+ assert.equal(focuses,0);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ app.frame(2000/60);
+ assert.equal(app.game,game);
+ assert.equal(game.status,'playing');
+});
+
+test('BR bfcache return of terminal round cannot resurrect a saved active match',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);
+ app.global.VeilpointSim.receiveDamage(app.game,100);
+ app.frame(2000/60);
+ const status=app.game.status;
+ assert.notEqual(status,'playing');
+ app.emit('pagehide');app.emit('pageshow',{persisted:true});
+ assert.equal(app.game.status,status);
+ assert.equal(store.has(KEY),false,'a finished match must not become resumable');
+ assert.notEqual(app.node('play').textContent,'이어하기');
+});
