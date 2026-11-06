@@ -25,9 +25,17 @@
     if(typeof restorePair!=='function')throw new TypeError('restorePair required');
     try{
       const result=restorePair(primary,backup);
-      // Some decoders signal an unreadable primary with null rather than throw.
-      // Retry the backup independently without modifying either saved slot.
-      return result===null&&primary!=null?retryBackup(backup,restorePair):result;
+      // Some decoders return null for an unreadable generation even if the
+      // primary is absent. Independently try the previous saved checkpoint.
+      if(result===null)return retryBackup(backup,restorePair);
+      // A reported backup must be playable regardless of which decode path
+      // selected it. Never hand malformed world state to the CH01 renderer.
+      if(result&&result.source==='backup')
+        return isPlayableBackup(result)?result:retryBackup(backup,restorePair);
+      // A primary result without an actual primary generation is stale.
+      if(result&&result.source==='primary'&&primary==null)
+        return retryBackup(backup,restorePair);
+      return result;
     }catch(_){
       // Independently validate the backup after a primary decoder exception.
       // Never mutate either persisted generation on a read failure.
