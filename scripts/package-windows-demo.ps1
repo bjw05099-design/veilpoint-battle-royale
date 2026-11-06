@@ -1,5 +1,5 @@
 # VEILPOINT offline Windows EXE host candidate (NOT the independent UE5 build).
-# Requires Windows 10/11 x64 build runner, .NET SDK 8 and Node 22.
+# Requires Windows 10/11 x64 build runner, .NET SDK 10 and Node 22.
 # Downloads WebView2 SDK/.NET publish dependencies ONLY at build time.
 [CmdletBinding()]
 param()
@@ -64,7 +64,7 @@ VEILPOINT WINDOWS OFFLINE EXE - CANDIDATE
 3. Requires Windows 10/11 x64 AND an installed Microsoft Edge WebView2
    Evergreen runtime. Windows 11 typically includes the runtime; if absent,
    install it from the official Microsoft source before launching the demo.
-   The packaged .NET 8 runtime is self-contained. This ZIP does not silently
+   The packaged .NET 10 runtime is self-contained. This ZIP does not silently
    download or install WebView2 and cannot run without that browser runtime.
 4. Existing browser ZIP (veilpoint-offline-demo.zip) remains a separate way
    to run the same offline game in a full browser.

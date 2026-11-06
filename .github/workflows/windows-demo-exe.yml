@@ -9,6 +9,9 @@ on:
       - 'index.html'
       - 'story.html'
       - 'src/**'
+      - 'README.md'
+      - 'docs/DEMO_DELIVERY_GATES.md'
+      - 'docs/GRAPHICS_PROFILES.md'
       - 'scripts/package-offline-demo.cjs'
       - 'scripts/verify-offline-demo.cjs'
   pull_request:
@@ -19,6 +22,9 @@ on:
       - 'index.html'
       - 'story.html'
       - 'src/**'
+      - 'README.md'
+      - 'docs/DEMO_DELIVERY_GATES.md'
+      - 'docs/GRAPHICS_PROFILES.md'
       - 'scripts/package-offline-demo.cjs'
       - 'scripts/verify-offline-demo.cjs'
   workflow_dispatch:
@@ -35,7 +41,7 @@ jobs:
           node-version: '22'
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
       - name: Verify existing browser game contract
         shell: pwsh
         run: |
@@ -54,4 +60,4 @@ jobs:
             dist/windows-exe/veilpoint-windows-demo-exe.zip
             dist/windows-exe/veilpoint-windows-demo-exe.zip.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 45
