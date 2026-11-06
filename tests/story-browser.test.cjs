@@ -3265,7 +3265,8 @@ test('CH01 Windows Save & Exit refuses cross-tab replacement after successful sa
  assert.equal(realGet('veilpoint.brCheckpoint.v1'),'BR-kept');
  app.element('continue').click();
  assert.equal(app.element('menu').classList.contains('hidden'),true);
- assert.match(app.element('objective').textContent,/무장 대치자/);
+ assert.match(app.element('objective').textContent,/중계기/,
+   'an interrupted menu transition preserves the original terminal mission phase');
 });
 
 test('CH01 Save & Exit does not navigate when last disk generation read is denied',()=>{
