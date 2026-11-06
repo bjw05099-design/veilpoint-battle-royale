@@ -1062,9 +1062,11 @@
       $('menuText').textContent='완료 기록을 검증할 수 없습니다. 처음부터 다시 시작할 수 있습니다.';
     }
   });
+  let fieldJournalReturnView='main';
   function renderFieldJournal(){
-    // When opened by J from live play the pause menu is on its main page.
-    // Return to the actual Tools page so Close can restore visible PC focus.
+    // Preserve the caller's visible menu page. J from live play returns to
+    // Main so the second Escape resumes; the Tools button returns to Tools.
+    fieldJournalReturnView=menu.classList.contains('menu-view-tools')?'tools':'main';
     if(!menu.classList.contains('hidden'))setStoryMenuView('tools');
     const rows=global.VeilpointFieldJournal.entries(state);
     const panel=$('fieldJournalEntries');
@@ -1080,9 +1082,11 @@
   $('fieldJournalOpen').addEventListener('click',renderFieldJournal);
   $('fieldJournalClose').addEventListener('click',()=>{
     $('fieldJournal').classList.add('hidden');
-    if(!menu.classList.contains('hidden'))setStoryMenuView('tools');
+    if(!menu.classList.contains('hidden'))
+      setStoryMenuView(fieldJournalReturnView,true);
     // Never leave keyboard focus inside a hidden journal or menu page.
-    $('fieldJournalOpen').focus({preventScroll:true});
+    if(fieldJournalReturnView==='tools')
+      $('fieldJournalOpen').focus({preventScroll:true});
   });
   $('pauseButton').addEventListener('click',()=>menuOpen('일시정지됨. 이어하기를 누르면 현재 체크포인트부터 재개합니다.'));
   $('storyGraphicsOpen').addEventListener('click',openStoryGraphicsSettings);
@@ -1122,7 +1126,8 @@
     // and unexpectedly discard the currently edited menu page.
     if((e.code==='KeyJ'||e.code==='KeyG')&&e.target&&
        (e.target.isContentEditable||
-        /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||'')))return;
+        /^(INPUT|TEXTAREA)$/.test(e.target.tagName||'')||
+        (e.code==='KeyJ'&&e.target.tagName==='SELECT')))return;
     // J opens the field journal through the existing protected pause path.
     // Do not steal the key when the player remapped J to a gameplay action.
     // The explicit menu button remains available for all binding layouts.
