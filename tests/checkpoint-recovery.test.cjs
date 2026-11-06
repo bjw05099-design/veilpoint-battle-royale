@@ -84,3 +84,26 @@ test('CH01 recovery boundary contains throwing backup getters',()=>{
  });
  assert.equal(result,null);
 });
+
+test('CH01 null-returning primary decoder retries independently playable backup',()=>{
+ const backup=Story.serialize(Story.createState());
+ const calls=[];
+ const restore=(p,b)=>{
+   calls.push([p,b]);
+   return p===null?Story.recoverCheckpoint(null,b):null;
+ };
+ const result=Recovery.recover('{invalid-primary',backup,restore);
+ assert.equal(result.source,'backup');
+ assert.equal(result.state.phase,'terminal');
+ assert.deepEqual(calls,[['{invalid-primary',backup],[null,backup]]);
+});
+test('CH01 null primary result never overwrites slots or accepts forged backup',()=>{
+ const primary='bad-primary',backup='backup-data';
+ let calls=0;
+ assert.equal(Recovery.recover(primary,backup,(p)=>{
+   calls++;
+   return p===null?{source:'primary',state:{phase:'terminal',world:{player:{x:0,z:12}}}}:null;
+ }),null);
+ assert.equal(calls,2);
+ assert.equal(Recovery.recover(null,null,()=>null),null);
+});
