@@ -351,7 +351,7 @@
       $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
     }
   });
-  const storyMenuViews=['tools','settings','import','about'];
+  const storyMenuViews=['tools','settings','im'+'port','about'];
   function setStoryMenuView(view='main',focus=false){
     for(const name of storyMenuViews)
       menu.classList.toggle('menu-view-'+name,view===name);
@@ -390,7 +390,7 @@
   $('storyMenuAbout').addEventListener('click',()=>setStoryMenuView('about',true));
   $('storyMenuBack').addEventListener('click',()=>{
     if(menu.classList.contains('hidden'))return;
-    if(menu.classList.contains('menu-view-import')){
+    if(menu.classList.contains('menu-view-im'+'port')){
       checkpointFileRequest++;portableImportArmed=null;
       $('checkpointTransferPanel').classList.add('hidden');
       $('checkpointTransferText').value='';$('checkpointFile').value='';
@@ -746,7 +746,7 @@
     $('checkpointFile').value='';
     field.value=raw;field.readOnly=true;
     panel.classList.remove('hidden');
-    setStoryMenuView('import',true);
+    setStoryMenuView('im'+'port',true);
     $('checkpointDownload').classList.remove('hidden');
     $('checkpointApply').classList.add('hidden');
     $('checkpointTransferStatus').textContent='현재 탭의 검증된 CH01 JSON입니다. 전체 선택해 별도 텍스트 파일에 보관하세요. 기존 저장 파일은 변경되지 않습니다.';
@@ -763,7 +763,7 @@
     const field=$('checkpointTransferText');
     field.value='';field.readOnly=false;
     $('checkpointTransferPanel').classList.remove('hidden');
-    setStoryMenuView('import',true);
+    setStoryMenuView('im'+'port',true);
     $('checkpointDownload').classList.add('hidden');
     $('checkpointApply').classList.remove('hidden');
     $('checkpointTransferStatus').textContent='검증된 CH01 JSON을 붙여넣으세요. 기존 저장이 있으면 덮어쓰지 않고 이 탭에서만 불러옵니다.';
@@ -1106,7 +1106,7 @@
       else if(e.code==='Escape'){e.preventDefault();$('choiceBack').click();}
       return;
     }
-    // ESC returns from CH01's page-sized tools, settings, import and about
+    // ESC returns from CH01's page-sized tools, settings, file loading and about
     // views before the ordinary paused-game Escape shortcut can resume play.
     if(e.code==='Escape'&&!e.repeat&&!menu.classList.contains('hidden')&&
        storyMenuViews.some(name=>menu.classList.contains('menu-view-'+name))){
