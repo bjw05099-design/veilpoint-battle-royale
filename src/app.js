@@ -794,6 +794,9 @@ $('retryArena').addEventListener('click',()=>{
 });
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
+    // A Ctrl/Alt/Meta browser or OS chord cannot fire, move, interact,
+    // open game settings or leave an earlier held input latched.
+    if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
  // The pre-match/end menu can open settings too. Escape dismisses that panel
  // without starting gameplay or requiring a mouse click on its Close button.
