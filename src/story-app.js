@@ -640,7 +640,7 @@
   // origins differ. Export never reads or overwrites another tab's disk slot.
   // Imports are always schema-validated. If any existing generation is present
   // or storage cannot be read, the candidateState world stays memory-only.
-  // A pending file read can finish after Escape/Continue or an import reset.
+  // A pending file read can finish after Escape/Continue or a transfer-menu reset.
   // Only the current explicitly open input session may receive its text.
   let checkpointFileRequest=0;
   $('checkpointExport').addEventListener('click',()=>{
