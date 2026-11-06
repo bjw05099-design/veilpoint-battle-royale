@@ -22,9 +22,20 @@ function audit(){
    const style=getComputedStyle(el);
    return style.display!=='none'&&style.visibility!=='hidden'&&el.getClientRects().length>0;
   }
+  // Contract of actionable controls for each dedicated non-scrolling page.
+  // Mere visibility is insufficient if an overlay intercepts the click target.
+  const requiredTargets={
+   'BR-main':['play','newMatch','brViewMore','graphicsPauseOpen'],
+   'BR-more':['brViewBack','brImport','brExport'],
+   'BR-load':['brViewBack','brImportFile','brImportApply'],
+   'BR-export':['brViewBack','brExportDownload'],
+   'settings-visual':['graphicsClose','graphicsTabVisual','graphicsPreset'],
+   'settings-controls':['graphicsClose','graphicsTabControls','desktopBindKey'],
+   'settings-benchmark':['graphicsClose','graphicsTabBenchmark','benchmarkStart']
+  };
   function check(name,root){
    const outer=root.getBoundingClientRect();
-   const result={name,controls:0,issues:[]};
+   const result={name,controls:0,issues:[],targets:[]};
    const nodes=[root,...root.querySelectorAll('button,select,input,textarea,a,label,h1,h2,p,[role="status"]')];
    for(const node of nodes){
     if(!visible(node))continue;
@@ -40,6 +51,26 @@ function audit(){
    }
    if(root.scrollHeight>root.clientHeight+2)
     result.issues.push({id:'scrollHeight',scroll:root.scrollHeight,client:root.clientHeight});
+   for(const id of requiredTargets[name]||[]){
+    const node=get(id);
+    const current={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
+    if(!node||!current.visible||!current.enabled){
+     result.issues.push({id,reason:'required control hidden, missing or disabled'});
+     result.targets.push(current);
+     continue;
+    }
+    const rect=node.getBoundingClientRect();
+    const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+    const top=document.elementFromPoint(cx,cy);
+    // document.elementFromPoint follows the real browser hit-test stack,
+    // including pointer-events, z-index, and obstructing modal elements.
+    current.hit=!!top&&(node===top||node.contains(top));
+    current.hitElement=top?.id||top?.tagName?.toLowerCase()||null;
+    result.targets.push(current);
+    if(!current.hit)
+     result.issues.push({id,reason:'required button is covered or not clickable',
+      hitElement:current.hitElement});
+   }
    return result;
   }
   graphics.classList.add('hidden');
