@@ -591,18 +591,18 @@
     // knowledge is used to manufacture an arrival.
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(range>1.7&&range<11){
-        // The guide may briefly need more than the ordinary 7m follow radius
-        // to walk around a tall, solid obstacle. This only permits local
-        // physical detours when the collision corridor is actually blocked;
-        // an unobstructed guide beyond 7m continues waiting for the player.
+      if(range>1.7&&range<14){
+        // A long physical wall can increase separation beyond 11m while
+        // the guide walks around its end. Permit a bounded 14m local
+        // detour only when the corridor is obstructed, and keep the
+        // ordinary 7m limit on clear open ground. No teleport or remote chase.
         const blocked=guideBodyPathBlocked(g,p,state.world.obstacles);
         const detour=blocked?guideDetour(state,g,p):null;
         // At the edge of a real wall the straight corridor becomes clear
         // before the guide is back within the ordinary 7m following radius.
-        // Finish that last short physical segment only while beside solid
+        // Finish this locally bounded segment only while beside solid
         // scenery, without extending pursuit across open ground.
-        const clearingDetour=!blocked&&range>=7&&range<11&&
+        const clearingDetour=!blocked&&range>=7&&range<14&&
           Sim.blocked(g.x,g.z,1.8,state.world.obstacles);
         const target=blocked?detour:((range<7||clearingDetour)?p:null);
         if(target){
