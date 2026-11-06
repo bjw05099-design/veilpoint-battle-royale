@@ -88,3 +88,14 @@ test('disabled and hidden buttons are not used as keyboard focus targets',()=>{
  assert.equal(prevented,1);
  assert.equal(f.document.activeElement,f.nodes.newMatch);
 });
+
+test('BR focus boundary never inspects controls for Escape or other gameplay keys',()=>{
+ const f=fixture();
+ f.overlay.querySelectorAll=()=>{throw new Error('non-navigation key must not enumerate DOM');};
+ for(const key of ['Escape','KeyG','KeyW','Space']){
+  let prevented=0;
+  f.handlers.keydown({type:'keydown',key,shiftKey:false,
+   preventDefault(){prevented++;}});
+  assert.equal(prevented,0);
+ }
+});
