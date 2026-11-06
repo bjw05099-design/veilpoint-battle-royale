@@ -249,15 +249,19 @@
       [-Math.SQRT1_2,Math.SQRT1_2],[Math.SQRT1_2,Math.SQRT1_2]
     ];
     const candidates=[];
-    // A narrow row of newly solid props can require a wider bounded search.
-    // Keep recovery local to the authored evacuation district; no live teleport.
-    for(const radius of [1,1.6,2.2,3,4,5,6]){
+    // Historical saves may place the guide inside a now-solid large harbor
+    // structure. Expand only during checkpoint load, never in 60Hz gameplay.
+    // Every candidate stays in the authored 19m evacuation district.
+    for(const radius of [1,1.6,2.2,3,4,5,6,7.5,9,11,13]){
       for(const [dx,dz] of directions){
         const next={x:g.x+dx*radius,z:g.z+dz*radius};
         if(Math.hypot(next.x-GUIDE_START.x,next.z-GUIDE_START.z)>19||
            Sim.blocked(next.x,next.z,.55,occupied))continue;
         candidates.push(next);
       }
+      // The first safe ring is the smallest permitted displacement; do
+      // not roam farther once a physically clear local placement exists.
+      if(candidates.length)break;
     }
     if(!candidates.length)throw new RangeError('No collision-free escort guide checkpoint recovery');
     candidates.sort((a,b)=>

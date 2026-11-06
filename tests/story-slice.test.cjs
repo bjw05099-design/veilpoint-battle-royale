@@ -2065,7 +2065,9 @@ test('CH01 fails closed on a fully enclosed historic escort and restores a safe 
   try{
     Sim.newMatch=(...args)=>{
       const world=originalMatch(...args);
-      world.obstacles.push({x:-10.5,z:-55,w:12,d:12,h:3,type:'new-enclosed-scenery'});
+      // This fixture must enclose the expanded 13m load-only search horizon.
+      // Still fail closed rather than relocate the civilian through a sealed structure.
+      world.obstacles.push({x:-10.5,z:-55,w:32,d:32,h:3,type:'new-enclosed-scenery'});
       return world;
     };
     assert.throws(()=>story.restore(damaged),/No collision-free escort guide checkpoint recovery/);
