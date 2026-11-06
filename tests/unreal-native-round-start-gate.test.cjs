@@ -39,7 +39,7 @@ test('native zone does not shrink during waiting lobby and starts its clock from
  assert.match(update,/if \(!bZoneClockStarted\)[\s\S]*?StartServerTimeSeconds=GetWorld\(\)->GetTimeSeconds\(\);[\s\S]*?bZoneClockStarted=true/);
  assert.match(update,/else return; \/\/ GameState not replicated\/ready/);
  assert.match(update,/ClearTimer\(ZoneTimer\)/);
- assert.match(update,/GetWorldTimerManager\(\)\.SetTimer\(ZoneTimer,this,&AVPZone::UpdateZone,\.25f,true\)/);
+ assert.match(zone,/GetWorldTimerManager\(\)\.SetTimer\(ZoneTimer,this,&AVPZone::UpdateZone,\.25f,true\)/);
 });
 
 test('native Windows HUD keeps paused lobby distinct from active zone countdown and round result',()=>{
