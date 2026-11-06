@@ -558,7 +558,7 @@ function nextFreshMatchSeed(){
 // The pause menu has fixed-height screens, not one long scrollable overlay.
 function setBRMenuView(view='main'){
  const overlay=$('overlay');
- for(const name of ['more','import','export'])
+ for(const name of ['more','load','export'])
   overlay.classList.toggle('menu-view-'+name,view===name);
  $('brViewMore').classList.toggle('hidden',view!=='main');
  $('brViewBack').classList.toggle('hidden',view==='main');
@@ -723,7 +723,7 @@ $('brImport').addEventListener('click',()=>{
  brFileReadSerial++;brReplacementArmed=null;
  $('brExportPanel').classList.add('hidden');
  $('brImportPanel').classList.remove('hidden');
- setBRMenuView('import');
+ setBRMenuView('load');
  $('brImportText').value='';$('brImportFile').value='';
  $('brImportStatus').textContent='저장된 BR JSON을 선택하거나 붙여넣으세요. 검증 전에는 게임과 저장 파일을 변경하지 않습니다.';
  if(typeof $('brImportText').focus==='function')$('brImportText').focus();
@@ -1006,7 +1006,7 @@ addEventListener('keydown',e=>{
  // accidentally resuming the 60Hz game. Graphics dialog retains priority.
  if(e.code==='Escape'&&!$('overlay').classList.contains('hidden')&&
     $('graphicsPanel').classList.contains('hidden')&&
-    ['menu-view-more','menu-view-import','menu-view-export'].some(
+    ['menu-view-more','menu-view-load','menu-view-export'].some(
       name=>$('overlay').classList.contains(name))){
   e.preventDefault();
   if(!e.repeat)$('brViewBack').click();
