@@ -298,6 +298,21 @@
         candidates.push(q);
       }
     }
+    // A legacy overlap beside newly added harbor scenery can block every
+    // immediate 1.7-3m placement. Search a bounded local ring before
+    // discarding an otherwise valid offline checkpoint. Never move the guide,
+    // and never place the captain inside scenery or through a solid wall.
+    if(!candidates.length){
+      for(let radius=3.5;radius<=12&&!candidates.length;radius+=.5){
+        for(let i=0;i<32;i++){
+          const angle=i*Math.PI/16;
+          const q={x:g.x+Math.cos(angle)*radius,z:g.z+Math.sin(angle)*radius};
+          if(Sim.blocked(q.x,q.z,.85,occupied)||
+             Sim.lineBlocked(g.x,g.z,q.x,q.z,state.world.obstacles))continue;
+          candidates.push(q);
+        }
+      }
+    }
     if(!candidates.length)throw new RangeError('No collision-free escort checkpoint recovery');
     candidates.sort((a,b)=>
       Math.hypot(a.x-original.x,a.z-original.z)-
