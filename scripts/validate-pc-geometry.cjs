@@ -21,7 +21,8 @@ function validate(evidence){
   assert.ok(SIZES.includes(size),'Unexpected viewport '+size);
   assert.ok(!seen.has(size),'Duplicate viewport '+size);
   seen.add(size);
-  assert.deepEqual(record.errors||[],[],'Geometry errors at '+size);
+  assert.ok(Array.isArray(record.errors),'Missing geometry error array at '+size);
+  assert.deepEqual(record.errors,[],'Geometry errors at '+size);
   assert.ok(Array.isArray(record.cases),'Missing cases at '+size);
   const cases=new Map();
   for(const entry of record.cases){
@@ -31,7 +32,8 @@ function validate(evidence){
   for(const name of REQUIRED){
    const page=cases.get(name);
    assert.ok(page,'Missing measured screen '+name+' at '+size);
-   assert.deepEqual(page.issues||[],[],'Clipping or scrolling at '+size+' '+name);
+   assert.ok(Array.isArray(page.issues),'Missing geometry issues at '+size+' '+name);
+   assert.deepEqual(page.issues,[],'Clipping or scrolling at '+size+' '+name);
    assert.ok(Array.isArray(page.targets)&&page.targets.length>0,
     'No measured actionable targets at '+size+' '+name);
    const ids=new Set(page.targets.map(target=>target.id));
@@ -56,10 +58,12 @@ function validate(evidence){
    const size=row.width+'x'+row.height;
    assert.ok(SIZES.includes(size)&&!sizes.has(size),'Invalid '+key+' viewport '+size);
    sizes.add(size);
+   assert.ok(Array.isArray(row.errors),'Missing CH01 error array at '+size);
    assert.deepEqual(row.errors,[],'CH01 errors at '+size);
    assert.ok(Array.isArray(row.cases),'Missing '+key+' cases');
    assert.deepEqual(row.cases.map(c=>c.name).sort(),[...names].sort(),'Incomplete '+key+' screens');
    for(const page of row.cases){
+    assert.ok(Array.isArray(page.issues),'Missing CH01 issues at '+size+' '+page.name);
     assert.deepEqual(page.issues,[],'CH01 clipping at '+size+' '+page.name);
     assert.ok(Array.isArray(page.targets)&&page.targets.length>0,'CH01 targets missing');
     for(const target of page.targets){
