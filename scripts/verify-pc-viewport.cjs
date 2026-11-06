@@ -36,6 +36,11 @@ function audit(){
   function check(name,root){
    const outer=root.getBoundingClientRect();
    const result={name,controls:0,issues:[],targets:[]};
+   // The viewport must not acquire a hidden document-level scrollbar.
+   const doc=document.documentElement;
+   if(doc.scrollHeight>innerHeight+2||doc.scrollWidth>innerWidth+2)
+    result.issues.push({id:'document-scroll',scrollWidth:doc.scrollWidth,
+     scrollHeight:doc.scrollHeight,viewport:[innerWidth,innerHeight]});
    const nodes=[root,...root.querySelectorAll('button,select,input,textarea,a,label,h1,h2,p,[role="status"]')];
    for(const node of nodes){
     if(!visible(node))continue;
@@ -66,6 +71,13 @@ function audit(){
     // including pointer-events, z-index, and obstructing modal elements.
     current.hit=!!top&&(node===top||node.contains(top));
     current.hitElement=top?.id||top?.tagName?.toLowerCase()||null;
+    // A visible button that cannot receive keyboard focus is not PC accessible.
+    if(node.matches('button,select,input,textarea,a')){
+     node.focus({preventScroll:true});
+     current.focused=document.activeElement===node;
+     if(!current.focused)
+      result.issues.push({id,reason:'required control cannot receive keyboard focus'});
+    }
     result.targets.push(current);
     if(!current.hit)
      result.issues.push({id,reason:'required button is covered or not clickable',
