@@ -193,3 +193,30 @@ test('offline HTML cannot hide an inline network script, event handler or redire
     assert.doesNotThrow(() => collectFiles(dir));
   } finally {fs.rmSync(dir, {recursive: true, force: true});}
 });
+
+test('offline scanner accepts ordinary import-prefixed identifiers but still refuses actual module loading',()=>{
+ const dir=fixture(),script=path.join(dir,'src/game.js');
+ try{
+  for(const selfContained of [
+   'const imported = 1; const importer = () => imported; console.log(importer());',
+   'const importReady = true; const imports = []; if(importReady) imports.push(1);',
+   'function importFallback(){return 2;} console.log(importFallback());'
+  ]){
+   fs.writeFileSync(script,selfContained);
+   assert.doesNotThrow(()=>collectFiles(dir),
+     'an identifier beginning with import is not JavaScript module syntax');
+   const packageInfo=packageDemo(dir);
+   assert.ok(packageInfo.bytes>0);
+  }
+  for(const unsafe of [
+   'import("./remote-module.js")',
+   'import {game} from "./remote-module.js";',
+   'const game = import( "./remote-module.js" );',
+   'import Game from "./remote-module.js";'
+  ]){
+   fs.writeFileSync(script,unsafe);
+   assert.throws(()=>collectFiles(dir),/Unsupported JavaScript dependency/,
+     'actual dynamic/static module loads remain prohibited');
+  }
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
