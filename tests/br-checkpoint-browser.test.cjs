@@ -1799,3 +1799,83 @@ test('BR Windows offline UI has deliberate file input and no auto-applied raw JS
  assert.match(code,/candidate=Game\.restoreMatch\(text\)/);
  assert.match(code,/memoryOnlyMatch=true/);
 });
+
+
+test('BR fixed-height main and advanced screens switch without losing the initial menu',()=>{
+ const app=boot();
+ assert.equal(app.node('brViewMore').classList.contains('hidden'),false);
+ assert.equal(app.node('brViewBack').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),false);
+ app.node('brViewMore').click();
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),true);
+ assert.equal(app.node('brViewMore').classList.contains('hidden'),true);
+ assert.equal(app.node('brViewBack').classList.contains('hidden'),false);
+ // The real initial HTML closes graphics; the lazy VM DOM needs that class.
+ app.node('graphicsPanel').classList.add('hidden');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),false);
+ assert.equal(app.node('brViewMore').classList.contains('hidden'),false);
+ assert.equal(app.node('brViewBack').classList.contains('hidden'),true);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+});
+
+test('BR paused JSON import is its own screen; Back and Escape never resume the round',()=>{
+ const store=new Map(),app=boot(store);
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ const saved=store.get(KEY);
+ app.node('brViewMore').click();
+ app.node('brImport').click();
+ assert.equal(app.node('overlay').classList.contains('menu-view-load'),true);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),false);
+ app.node('brImportText').value='example';
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),true);
+ assert.equal(app.node('overlay').classList.contains('menu-view-load'),false);
+ assert.equal(app.node('brImportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brImportText').value,'');
+ assert.equal(store.get(KEY),saved);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false,
+  'closing subpage must not resume a paused game');
+ app.emit('keydown',{code:'Escape'});
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),false);
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.node('play').click();app.frame(2000/60);
+ assert.equal(app.node('overlay').classList.contains('hidden'),true);
+ assert.equal(app.node('brViewBack').classList.contains('hidden'),true);
+});
+
+test('BR paused JSON export has its own fitted page, with explicit return to advanced menu',()=>{
+ const app=boot();
+ app.node('play').click();app.frame(1000/60);app.emit('blur');
+ app.node('brViewMore').click();
+ app.node('brExport').click();
+ assert.equal(app.node('overlay').classList.contains('menu-view-export'),true);
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),false);
+ assert.ok(app.node('brExportText').value.length>100);
+ app.node('brViewBack').click();
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),true);
+ assert.equal(app.node('overlay').classList.contains('menu-view-export'),false);
+ assert.equal(app.node('brExportPanel').classList.contains('hidden'),true);
+ assert.equal(app.node('brExportText').value,'');
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+});
+
+test('BR menu navigation invalidates a late file.read so it cannot overwrite a second screen',async()=>{
+ const app=boot();
+ app.node('brViewMore').click();
+ app.node('brImport').click();
+ let done;
+ app.node('brImportFile').dispatch('change',{target:{files:[{
+  size:400,text:()=>new Promise(resolve=>{done=resolve;})
+ }]}});
+ assert.equal(typeof done,'function');
+ app.node('brViewBack').click();
+ assert.equal(app.node('overlay').classList.contains('menu-view-more'),true);
+ app.node('brImport').click();
+ assert.equal(app.node('brImportText').value,'');
+ done('{"version":1,"fake":true}');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(app.node('brImportText').value,'');
+ assert.equal(app.node('overlay').classList.contains('menu-view-load'),true);
+ assert.equal(app.store.has(KEY),false);
+});
