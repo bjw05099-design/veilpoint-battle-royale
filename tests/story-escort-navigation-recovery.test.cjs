@@ -8,9 +8,13 @@ const Navigation=require('../src/navigation.js');
 
 function escortFixture(waiting=true){
  const s=Story.createState();
- s.phase='exit';s.choice='evacuation';s.musterConfirmed=true;
- s.combat.started=true;s.combat.cleared=true;
+ // Use the real CH01 terminal transition to populate its encounter actors;
+ // merely toggling combat flags would forge an invalid checkpoint fixture.
+ s.world.player.x=Story.POINTS.terminal.x;
+ s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).ok,true);
  for(const actor of s.world.bots){actor.health=0;actor.alive=false;}
+ s.combat.cleared=true;s.phase='exit';s.choice='evacuation';s.musterConfirmed=true;
  s.guide={active:true,arrived:false,released:false,waiting,
   x:-10.5,z:-55};
  s.world.player.x=0;s.world.player.z=-61;
