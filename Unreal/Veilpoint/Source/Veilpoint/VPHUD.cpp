@@ -76,11 +76,24 @@ void AVPHUD::DrawHUD()
         return;
     }
 
-    if (RoundState && !RoundState->bRoundStarted)
+    // A missing replicated GameState is not permission to show the zone's
+    // default 90-second value as an authoritative countdown.
+    if (!RoundState)
     {
-        // A native one-player lobby has not begun the BR round. Do not show
-        // a fictitious shrinking-zone countdown before the server starts it.
-        DrawText(TEXT("WAITING FOR PLAYERS - ROUND NOT STARTED"),
+        DrawText(TEXT("ROUND STATUS NOT AVAILABLE - TIMER HIDDEN"),
+                 FLinearColor(.83f,.90f,.84f,1.f),
+                 X, Y + 144.f * Scale, nullptr, .8f * Scale, false);
+        return;
+    }
+    if (!RoundState->bRoundStarted)
+    {
+        // A standalone Windows process has no multiplayer lobby to join.
+        // Keep its interactive world preview distinct from a real BR round;
+        // the server-owned zone timer stays paused until an actual match.
+        const bool bOfflinePreview=GetWorld() && GetWorld()->GetNetMode()==NM_Standalone;
+        DrawText(bOfflinePreview
+                   ? TEXT("OFFLINE SOLO WORLD PREVIEW - BR ROUND NOT STARTED")
+                   : TEXT("WAITING FOR PLAYERS - ROUND NOT STARTED"),
                  FLinearColor(.83f,.90f,.84f,1.f),
                  X, Y + 144.f * Scale, nullptr, .8f * Scale, false);
         return;
