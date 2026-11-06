@@ -44,10 +44,13 @@ test('native zone does not shrink during waiting lobby and starts its clock from
 
 test('native Windows HUD keeps paused lobby distinct from active zone countdown and round result',()=>{
  const finished=hud.indexOf('if (RoundState && RoundState->bRoundComplete)');
- const lobby=hud.indexOf('if (RoundState && !RoundState->bRoundStarted)');
+ const missing=hud.indexOf('if (!RoundState)');
+ const lobby=hud.indexOf('if (!RoundState->bRoundStarted)');
  const zoneFetch=hud.indexOf('AVPZone* Zone = CachedZone.Get()');
- assert.ok(finished>=0&&lobby>finished&&zoneFetch>lobby);
- assert.match(hud.slice(lobby,zoneFetch),/WAITING FOR PLAYERS - ROUND NOT STARTED[\s\S]*?return;/);
+ assert.ok(finished>=0&&missing>finished&&lobby>missing&&zoneFetch>lobby,
+  'native HUD first checks server round completion, then missing/paused GameState before publishing a zone countdown');
+ assert.match(hud.slice(missing,lobby),/TIMER HIDDEN[\s\S]*?return;/);
+ assert.match(hud.slice(lobby,zoneFetch),/OFFLINE SOLO WORLD PREVIEW - BR ROUND NOT STARTED[\s\S]*?WAITING FOR PLAYERS - ROUND NOT STARTED[\s\S]*?return;/);
  assert.match(hud,/RoundState->ActiveSurvivors/);
  assert.match(hud,/FMath::CeilToInt\(Remaining\)/);
  assert.doesNotMatch(hud,/ClientPredictedLobby|ClientStartsMatch|WebBrowser/);
