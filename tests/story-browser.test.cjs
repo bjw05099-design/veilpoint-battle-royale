@@ -3232,3 +3232,63 @@ test('CH01 finished debrief survives bfcache pagehide/pageshow without false res
  assert.equal(store.get(preview),fixture.debrief);
  assert.equal(store.get('veilpoint.brCheckpoint.v1'),'BR-independent');
 });
+
+test('CH01 Windows Save & Exit refuses cross-tab replacement after successful save readback',()=>{
+ const Story=require('../src/story-slice.js');
+ const key='veilpoint.story.ch01',shared=new Map([['veilpoint.brCheckpoint.v1','BR-kept']]);
+ const app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,360);
+ app.element('pauseButton').click();
+ const last=JSON.parse(shared.get(key));
+ const foreign=JSON.stringify({...last,elapsed:last.elapsed+.25});
+ const realGet=shared.get.bind(shared),realSet=shared.set.bind(shared);
+ let readsAfterWrite=-1;
+ shared.set=(name,value)=>{
+   const result=realSet(name,value);
+   if(name===key)readsAfterWrite=0;
+   return result;
+ };
+ shared.get=name=>{
+   const current=realGet(name);
+   if(name===key&&readsAfterWrite>=0){
+     readsAfterWrite++;
+     if(readsAfterWrite===2)realSet(key,foreign);
+   }
+   return current;
+ };
+ app.element('saveExit').click();
+ assert.ok(readsAfterWrite>=3,'second readback must occur after writer and menu verification');
+ assert.deepEqual(app.navigations,[],'a changed save must not abandon the playable CH01 session');
+ assert.equal(realGet(key),foreign,'the other tab generation must remain intact');
+ assert.match(app.element('menuText').textContent,/저장 확인 직후/);
+ assert.equal(app.element('saveStatus').classList.contains('hidden'),false);
+ assert.equal(realGet('veilpoint.brCheckpoint.v1'),'BR-kept');
+ app.element('continue').click();
+ assert.equal(app.element('menu').classList.contains('hidden'),true);
+ assert.match(app.element('objective').textContent,/무장 대치자/);
+});
+
+test('CH01 Save & Exit does not navigate when last disk generation read is denied',()=>{
+ const key='veilpoint.story.ch01',shared=new Map(),app=boot(shared,false,'granted',true,true);
+ app.element('continue').click();app.moveForward(0,360);app.element('pauseButton').click();
+ const realGet=shared.get.bind(shared),realSet=shared.set.bind(shared);
+ let readsAfterWrite=-1;
+ shared.set=(name,value)=>{
+   const result=realSet(name,value);
+   if(name===key)readsAfterWrite=0;
+   return result;
+ };
+ shared.get=name=>{
+   if(name===key&&readsAfterWrite>=0&&++readsAfterWrite===3)
+     throw new Error('temporary checkpoint read denied');
+   return realGet(name);
+ };
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,[]);
+ assert.match(app.element('menuText').textContent,/읽기 오류/);
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ shared.get=realGet;shared.set=realSet;
+ app.element('saveExit').click();
+ assert.deepEqual(app.navigations,['index.html'],
+   'a later real verified write can still exit without resetting CH01');
+});
