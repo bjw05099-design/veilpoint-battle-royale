@@ -28,6 +28,26 @@
     'district-crisis', 'multi-objective-city', 'separated-squad',
     'moving-transit', 'final-passage', 'multi-stage-finale'
   ]);
+  // Story causality contract, not a second set of collectible mission documents.
+  // The pre-departure briefing is already known to Lee; the escalation is not.
+  // These beats are presentation metadata, not mandatory player interactions.
+  const CH01_CAUSAL_BEATS = Object.freeze([
+    Object.freeze({id:'korea-briefing',order:0,location:'korea',trigger:'opening',
+      event:'이수혁은 출국 전에 합법적인 민간 통신 지원 파견 목적과 복귀 계획을 브리핑받는다.',
+      consequence:'현지에서 파견 명령을 발견하거나 임무를 새로 배우지 않는다.',requiresInteraction:false}),
+    Object.freeze({id:'harbor-arrival',order:1,location:'fictional-harbor',trigger:'arrival',
+      event:'현지 구조 책임자 유수프가 예정된 민간 통신 지원 업무를 안내한다.',
+      consequence:'이수혁은 현지인 주도 하에 통신 상태를 확인한다.',requiresInteraction:false}),
+    Object.freeze({id:'unexpected-escalation',order:2,location:'fictional-harbor',trigger:'communications-fail',
+      event:'예상하지 못한 내전 확대로 민간 통신이 두절되고 예정된 복귀가 불가능해진다.',
+      consequence:'현지 구조단과 협의해 주민 대피 지원을 우선한다.',requiresInteraction:false}),
+    Object.freeze({id:'civilian-agency',order:3,location:'fictional-harbor',trigger:'route-choice',
+      event:'유수프와 주민들이 안전한 이동 경로를 결정하고 지원을 요청한다.',
+      consequence:'이수혁은 현지 지휘권을 대신하지 않고 지원과 생존을 선택한다.',requiresInteraction:false})
+  ]);
+  function ch01Causality() {
+    return CH01_CAUSAL_BEATS.map(beat=>({...beat}));
+  }
   const MISSION_DEFS = [
     ['M01', '정전의 새벽', 'The Last Broadcast', 50, 'night-arrival', 'route', ['evacuation', 'verification']],
     ['M02', '두 개의 지도', 'Two Maps', 55, 'dynamic-travel', 'map', ['fast', 'verified']],
@@ -132,7 +152,7 @@
     };
   }
   return Object.freeze({
-    VERSION, MISSIONS, TARGET_MINUTES, LEAD, SUPPORT_CAST, COMBAT_FOCUS,
+    VERSION, MISSIONS, TARGET_MINUTES, LEAD, SUPPORT_CAST, COMBAT_FOCUS, CH01_CAUSAL_BEATS, ch01Causality,
     freshProgress, validate,
     nextMission, completeMission, plannedRemainingMinutes,
     serialize, deserialize, campaignStatus
