@@ -17,7 +17,10 @@ function fakeGl(){
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
- assert.equal(buildings.length,10);
+ assert.equal(buildings.length,12);
+ assert.deepEqual(buildings.filter(o=>o.type==='story-container'&&o.z < -80)
+  .map(o=>[o.x,o.z,o.h]),[[-72,-84,5.2],[72,-91,2.6]],
+  'both outer-quay solid stacks must exist without replacing old buildings');
  assert.ok(buildings.some(o=>o.x===-24&&o.z===-55&&o.type==='story-desk'),
   'south aid intake must be a physically visible counter with collision');
  for(const o of buildings)assert.equal(Sim.blocked(o.x,o.z,.85,s.world.obstacles),true);
