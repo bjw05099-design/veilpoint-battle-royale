@@ -131,6 +131,17 @@ function partitionStaticTriangles(data,cell=56){
 // or gameplay rules read this density.
 function atmosphereDensity(state){
  if(state&&state.scene==='nahrin')return .009;
+ // When a 96-human server-controlled weather snapshot is available, the
+ // existing WebGL fog shader AND Canvas fallback depict the same sea haze.
+ // Server visibility remains authoritative; a renderer cannot alter range,
+ // player position or wall occlusion. Default offline BR haze is unchanged.
+ const coastal=state&&state.coastalWeather;
+ if(coastal&&typeof coastal==='object'){
+  if(coastal.code==='sea-haze')return .035;
+  if(coastal.code==='gusty')return .021;
+  if(coastal.code==='clearing')return .013;
+  if(coastal.code==='clear')return .009;
+ }
  const elapsed=state&&state.elapsed;
  return Number.isFinite(elapsed)&&elapsed>=0
   ? (state.lighting==='dusk'?.012:.009)+.0011*(1-Math.cos(elapsed/36))/2:.009;

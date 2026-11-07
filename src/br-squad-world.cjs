@@ -5,6 +5,7 @@
 const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY}=require('./br-squad-lobby.cjs');
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
+const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // 10-second presence window is only a reconnect diagnostic; a stale
@@ -142,6 +143,7 @@ class BrSquadWorld {
       if(this.tick>=notice.expiresAtTick)this.squadSignals.delete(squad);
     }
     const players=[...this.actors.values()].filter(p=>p.eligible);
+    const nearbyBodies=new BrSpatialIndex(players);
     // All 96 proposals read the SAME start-of-tick actor poses. Updating
     // join-order first would grant early squad seats an unfair body advantage.
     const proposals=players.map(actor=>{
@@ -152,8 +154,7 @@ class BrSquadWorld {
         this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
-      if(players.some(other=>other!==actor&&
-        Math.abs(other.x-next.x)<2*RADIUS&&Math.abs(other.z-next.z)<2*RADIUS&&
+      if(nearbyBodies.nearby(next.x,next.z,2*RADIUS).some(other=>other!==actor&&
         Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
         next.x=actor.x;next.z=actor.z;
       }
@@ -174,13 +175,21 @@ class BrSquadWorld {
     const mates=[],seen=[];
     const weather=coastalWeatherAtTick(this.tick);
     const active=Array(SQUADS).fill(0);
-    for(const p of this.actors.values())if(p.eligible)active[p.team]++;
-    for(const p of this.actors.values()){
-      const limited={id:p.id,x:p.x,z:p.z};
-      if(p.team===me.team)mates.push({...limited,slot:p.slot+1,eligible:p.eligible,
+    const participants=[...this.actors.values()];
+    for(const p of participants){
+      if(p.eligible)active[p.team]++;
+      if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
-      else if(me.eligible&&p.eligible&&Math.hypot(p.x-me.x,p.z-me.z)<=weather.visibilityMeters&&
-        !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))seen.push(limited);
+    }
+    if(me.eligible){
+      // The broadphase cuts needless long-distance sightline tests while
+      // preserving roster insertion order, true distance and wall occlusion.
+      const nearby=new BrSpatialIndex(participants.filter(p=>p.eligible));
+      for(const p of nearby.nearby(me.x,me.z,weather.visibilityMeters)){
+        if(p.team===me.team||Math.hypot(p.x-me.x,p.z-me.z)>weather.visibilityMeters||
+          Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))continue;
+        seen.push({id:p.id,x:p.x,z:p.z});
+      }
     }
     const signal=this.squadSignals.get(me.team);
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
