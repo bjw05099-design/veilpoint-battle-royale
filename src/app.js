@@ -635,6 +635,8 @@ function collectAmmo(){
  // the player stands beside it. Otherwise E retains normal finite loot use.
  const gate=Game.operateServiceGate(simulation);
  if(gate.ok){syncMotorSound(true);persistMatch();updateHud();return;}
+ const quay=Game.inspectQuayNotice(simulation);
+ if(quay.ok){updateHud();return;} // Public sign is read-only, not a save event.
  Game.pickup(simulation);persistMatch();updateHud();
 }
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
