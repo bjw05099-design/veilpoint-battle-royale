@@ -755,7 +755,7 @@ class TeamMatch {
     const operatorPlayer = nearby.find(p => p.capturing && p.captureArmed &&
       Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
       p.reloadTicks === 0 && !p.triggerHeld &&
-      (this.objectiveSite!=='courier'||this.courier.carrierId===null||
+      (!this.isCourierMode()||this.courier.carrierId===null||
        this.courier.carrierId===p.id));
     const operator=!!operatorPlayer;
     if (teams.size !== 1 || !operator) {
