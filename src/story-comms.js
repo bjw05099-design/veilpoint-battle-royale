@@ -13,7 +13,21 @@
   if(!state||typeof state!=='object')return line('현장 통신','교신 정보 확인 중');
   const phase=state.phase,found=Array.isArray(state.found)?state.found:[];
   if(phase==='terminal')return line('이수혁 대위','나흐린 중계기 상태를 현장에서 확인한다. 민간 대피 지원 범위에서 움직인다.');
-  if(phase==='engagement')return line('조현지','현장 통신 불안정. 확인되지 않은 보고를 사실로 확정하지 않겠습니다.');
+  if(phase==='engagement'){
+   // Every status comes only from the captain's own playable 60Hz state
+   // or an explicitly completed ally report. Never disclose opponents
+   // hidden behind cover, live coordinates or unobserved activity.
+   const p=state.world?.player;
+   if(p&&Number.isFinite(p.health)&&p.health>0&&p.health<=35)
+    return line('이수혁 대위','부상 상태를 확인했다. 현장 상황에 따라 임무 진행 여부를 판단하겠다.');
+   if(p&&Number.isFinite(p.reloadRemaining)&&p.reloadRemaining>0)
+    return line('김도겸 중사','대위님 장비 상태를 확인 중입니다. 상황이 정리되는 대로 다시 보고하겠습니다.');
+   if(p&&Number.isFinite(p.charges)&&p.charges<=5)
+    return line('이수혁 대위','휴대 자원이 얼마 남지 않았다. 보유량을 정확히 확인하겠다.');
+   if(state.combat?.supportUsed===true)
+    return line('김도겸 중사','요청하신 현장 확인 보고는 전달했습니다. 확인되지 않은 대상의 위치는 알 수 없습니다.');
+   return line('조현지','현장 통신 불안정. 확인되지 않은 보고를 사실로 확정하지 않겠습니다.');
+  }
   if(phase==='records'||phase==='decision'){
    if(found.includes('recordA')&&found.includes('recordB'))
     return line('김지윤','항구 04:12, 대피소 04:07. 기록은 일치하지 않으며 원인은 아직 확인되지 않았습니다.');
