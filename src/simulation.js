@@ -135,6 +135,7 @@
   const DOCK_DEPOTS=Object.freeze([
     Object.freeze({x:108,z:-121}),Object.freeze({x:144,z:-121})
   ]);
+  const DOCK_NOTICE=Object.freeze({x:-135,z:-135});
   function makeObstacles() {
     const o = [];
     const clusters = [
