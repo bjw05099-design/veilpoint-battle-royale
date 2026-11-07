@@ -47,6 +47,9 @@ public:
     bool IsAlive() const { return Health > 0.f && !bEliminated; }
 
 protected:
+    // Derived from physical world position on both client and server;
+    // no extra network ownership or client-supplied wet-surface flag.
+    bool bOnWetLoadingApron = false;
     void MoveForward(float Value);
     void MoveRight(float Value);
     void LookUp(float Value);
