@@ -86,11 +86,20 @@ function validate(evidence){
    assert.ok(Array.isArray(row.errors),'Missing CH01 error array at '+size);
    assert.deepEqual(row.errors,[],'CH01 errors at '+size);
    assert.ok(Array.isArray(row.cases),'Missing '+key+' cases');
-   assert.deepEqual(row.cases.map(c=>c.name).sort(),[...names].sort(),'Incomplete '+key+' screens');
+   const observedNames=row.cases.map(c=>c.name);
+   assert.equal(new Set(observedNames).size,observedNames.length,
+    'Duplicate '+key+' screen at '+size);
+   assert.deepEqual([...observedNames].sort(),[...names].sort(),
+    'Incomplete '+key+' screens');
    for(const page of row.cases){
     assert.ok(Array.isArray(page.issues),'Missing CH01 issues at '+size+' '+page.name);
     assert.deepEqual(page.issues,[],'CH01 clipping at '+size+' '+page.name);
+    assert.ok(Number.isInteger(page.controls)&&page.controls>0,
+     'CH01 visible control count missing at '+size+' '+page.name);
     assert.ok(Array.isArray(page.targets)&&page.targets.length>0,'CH01 targets missing');
+    const targetIds=page.targets.map(target=>target.id);
+    assert.equal(new Set(targetIds).size,targetIds.length,
+     'Duplicate CH01 target at '+size+' '+page.name);
     for(const target of page.targets){
      assert.equal(target.visible,true,'CH01 hidden '+target.id);
      assert.equal(target.enabled,true,'CH01 disabled '+target.id);
