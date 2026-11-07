@@ -102,9 +102,9 @@ void AVPWorldBootstrap::BeginPlay()
     }
     // Native UE5 west quay: 100 cm/m matches the offline BR collision AABBs.
     // Same instance transforms on host and Windows client class bootstrap.
-    AddBlock(Buildings,FVector(-13500.f,-12600.f,115.f),FVector(.22f,.02f,2.3f));
-    AddBlock(Buildings,FVector(-13500.f,-14400.f,115.f),FVector(.22f,.02f,2.3f));
-    AddBlock(Buildings,FVector(-15100.f,-13500.f,150.f),FVector(.02f,.03f,3.f));
+    AddBlock(Buildings,FVector(-13500.f,-12600.f,115.f),FVector(22.f,2.f,2.3f));
+    AddBlock(Buildings,FVector(-13500.f,-14400.f,115.f),FVector(22.f,2.f,2.3f));
+    AddBlock(Buildings,FVector(-15100.f,-13500.f,150.f),FVector(2.f,3.f,3.f));
     // Stable seed and loop order keep instance transforms identical on all
     // machines without transmitting 250 per-instance transforms every tick.
     FRandomStream Random(19771);
