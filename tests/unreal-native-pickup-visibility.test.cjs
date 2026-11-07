@@ -15,9 +15,9 @@ const interaction=character.slice(character.indexOf('void AVPCharacter::ServerTr
 
 test('UE5 finite item selection ignores full inventories and unknown legacy resources',()=>{
  assert.match(interaction,/if \(It->bConsumed\) continue/);
- assert.match(interaction,/It->Resource==TEXT\("health"\) && Health<100\.f/);
+ assert.doesNotMatch(interaction,/It->Resource==TEXT\("health"\)/);
  assert.match(interaction,/It->Resource==TEXT\("charges"\) && Charges<60/);
- assert.match(interaction,/if \(!bNeedHealth && !bNeedSupplies\) continue/);
+ assert.match(interaction,/if \(!bNeedSupplies\) continue/);
  assert.match(interaction,/const float d=FVector::DistSquared/);
  assert.match(interaction,/if \(d>=BestSq\) continue/);
  assert.match(interaction,/BestSq=d;\s*Nearest=\*It/);
