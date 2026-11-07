@@ -24,7 +24,10 @@ test('native Windows actor derives wet footing from physical coordinates, includ
  assert.match(character,/Position\.Y \+ 4000\.f/);
  assert.match(character,/bOnWetLoadingApron \? \.86f : 1\.f/);
  assert.match(character,/MaxWalkSpeedCrouched/);
- assert.ok(character.indexOf('const FVector Position = GetActorLocation()') <
-   character.indexOf('if (!HasAuthority() || !IsAlive()) return;',character.indexOf('void AVPCharacter::Tick')),
-   'locally predicted PC movement should use the same physical pad bounds');
+ const tick=character.slice(character.indexOf('void AVPCharacter::Tick'),
+  character.indexOf('void AVPCharacter::UpdateSprintFixedStep'));
+ const position=tick.indexOf('const FVector Position = GetActorLocation()');
+ const authority=tick.indexOf('if (!HasAuthority() || !IsAlive()) return;');
+ assert.ok(position>=0 && authority>position,
+   'native Tick must derive wet footing before its authority-only stamina step');
 });
