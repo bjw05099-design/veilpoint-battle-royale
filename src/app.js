@@ -1501,6 +1501,17 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
   ctx.fillStyle='#e7b852';ctx.beginPath();
   ctx.arc(tx(simulation.trailMarker.x),tz(simulation.trailMarker.z),3.6,0,Math.PI*2);ctx.fill();
  }
+ // When outside the public circle, mark the nearest point just INSIDE
+ // the present safe zone. This is not an all-clear route: use an amber dot
+ // when the straight segment crosses locally authored cover geometry.
+ if(Navigation){
+  const entry=Navigation.zoneEntry(simulation.player,simulation.zone,simulation.obstacles);
+  if(entry){
+   ctx.fillStyle=entry.straightLineBlocked===true?'#e8ad67':'#a3eed0';
+   ctx.beginPath();ctx.arc(tx(entry.x),tz(entry.z),3.5,0,Math.PI*2);ctx.fill();
+   ctx.strokeStyle='#0b2825';ctx.lineWidth=1;ctx.stroke();
+  }
+ }
  // No omniscient opponent positions: the map is a local map, not a live enemy tracker.
  const p=simulation.player;ctx.fillStyle='#eaffbd';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#eaffbd';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*15,tz(p.z)-Math.cos(p.yaw)*15);ctx.stroke();
 }
