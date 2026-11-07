@@ -68,10 +68,14 @@
   // Finite, local sound awareness: walking is audible nearby, crouching quieter,
   // and sprinting farther. Sound-only memory is imprecise; cover attenuates the
   // authored hearing radius; this is a game abstraction, not an acoustic model.
-  function hearsFootsteps(listener, source, movedDistance, sprinting, obstacles, crouching=false) {
+  function hearsFootsteps(listener, source, movedDistance, sprinting, obstacles, crouching=false, wet=false) {
     if (!(movedDistance > 1e-7)) return false;
-    const clearRange=crouching?1.5:sprinting?12:3.5;
-    const occludedRange=crouching?0.75:sprinting?6:1.75;
+    // Wet boots splashing on the authored waterlogged apron are modestly
+    // louder than dry steps; a wall still attenuates them. No exact-location
+    // leak or global sound event is generated.
+    const surfaceGain=wet?1.3:1;
+    const clearRange=(crouching?1.5:sprinting?12:3.5)*surfaceGain;
+    const occludedRange=(crouching?0.75:sprinting?6:1.75)*surfaceGain;
     const distance=dist(listener,source);
     if(distance>clearRange)return false;
     return distance<=(lineBlocked(listener.x,listener.z,source.x,source.z,obstacles)
@@ -737,7 +741,7 @@
         const heard=approximateSoundPosition(SERVICE_YARD);
         b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
         b.lastSeenUntil=game.elapsed+1.5;
-      } else if(!outsideBot&&!driving&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
+      } else if(!outsideBot&&!driving&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch,wetApronFooting(p).wet)){
         // Investigate only the last audible footstep position. Quiet movement
         // behind cover cannot continuously update this memory.
         const heard=approximateSoundPosition(p); // Sound cannot reveal exact hidden coordinates.
@@ -916,7 +920,7 @@
       if(!source.alive)continue;
       for(const listener of game.bots){
         if(listener===source||!listener.alive||listener.lastSeenUntil>game.elapsed)continue;
-        if(!hearsFootsteps(listener,source,footstep.distance,false,obstacles))continue;
+        if(!hearsFootsteps(listener,source,footstep.distance,false,obstacles,false,wetApronFooting(source).wet))continue;
         const heard=approximateSoundPosition(source);
         listener.lastSeenX=heard.x;listener.lastSeenZ=heard.z;
         listener.lastSeenUntil=game.elapsed+2.5;

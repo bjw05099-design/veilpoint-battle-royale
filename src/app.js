@@ -1652,7 +1652,8 @@ function frame(now){requestAnimationFrame(frame);
    if(footstepSound)footstepSound.sync({
       enabled:soundEnabled,playable:canAct(),
       distance:Math.hypot(simulation.player.x-footX,simulation.player.z-footZ),
-      crouched:!!input.crouch,running:!!input.sprint&&!input.crouch
+      crouched:!!input.crouch,running:!!input.sprint&&!input.crouch,
+      surface:Game.wetApronFooting(simulation.player).wet?'wet':'dry'
    });
    if(input.fireHeld&&simulation.status==='playing'&&Game.autoFire(simulation,true,input.crouch).ok)shotFeedback();
   });
