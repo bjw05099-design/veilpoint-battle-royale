@@ -223,6 +223,7 @@ class SoftwareRenderer {
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-building'?'story-building':
      o.type==='story-warehouse'?'story-warehouse':
+     o.type==='story-water-kiosk'?'story-water-kiosk':
      o.type==='story-drydock-hull'?'story-drydock-hull':
      o.type==='story-rescue-locker'?'story-rescue-locker':
      o.type==='volcanic-outcrop'?'volcanic-outcrop':
@@ -276,7 +277,7 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -523,7 +524,16 @@ class Renderer {
     m.box(o.x,.23,o.z+o.d/2,.10,.12,.04,[.29,.29,.27]);
     continue;
    }
-   if(o.type==='story-desk'){
+   if(o.type==='story-water-kiosk'){
+     // Hand-built waterfront masonry, with roof and front recess entirely
+     // inside the existing 60Hz solid footprint (no decorative ghost walls).
+     m.box(o.x,0,o.z,o.w,o.h,o.d,[.55,.48,.39]);
+     m.box(o.x,o.h-.20,o.z,o.w,.25,o.d,[.37,.35,.31]);
+     m.box(o.x,o.h*.40,o.z+o.d/2-.025,.72,.64,.05,[.24,.29,.31]);
+     m.box(o.x-.7,.65,o.z+o.d/2-.02,.35,.8,.05,[.34,.38,.38]);
+     continue;
+    }
+    if(o.type==='story-desk'){
     // This counter uses the same solid footprint as the 60Hz collision body.
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.37,.34,.30]);
     m.box(o.x,o.h-.10,o.z,o.w+.10,.12,o.d+.10,[.48,.44,.36]);

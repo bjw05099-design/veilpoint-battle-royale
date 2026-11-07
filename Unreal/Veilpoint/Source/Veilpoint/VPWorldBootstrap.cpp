@@ -167,6 +167,20 @@ void AVPWorldBootstrap::BeginPlay()
         // wall across the 10m-wide playable, independently collidable aisle.
         AddBlock(Buildings,FVector(4775.f,3000.f,55.f),FVector(1.8f,2.2f,1.1f));
         AddBlock(Buildings,FVector(6225.f,3000.f,55.f),FVector(1.8f,2.2f,1.1f));
+        // Native CH01 public loading dais: an actually walkable elevated
+        // surface approached by a continuous shallow ramp, not a teleporter.
+        // 100cm per metre, identical solid instances on server and clients.
+        // At the ramp's lower lip the walking surface meets the ground near
+        // Z=-5cm; its upper lip meets the 131cm deck within a normal step.
+        Buildings->AddInstance(FTransform(FRotator(0.f,0.f,7.3f),
+            FVector(8400.f,2050.f,55.f),FVector(7.2f,11.f,.2f)));
+        AddBlock(Buildings,FVector(8400.f,3200.f,120.f),FVector(8.f,12.f,.22f));
+        // Two edge rails sit beyond the clear central pedestrian deck.
+        AddBlock(Buildings,FVector(8000.f,3200.f,200.f),FVector(.18f,12.f,1.3f));
+        AddBlock(Buildings,FVector(8800.f,3200.f,200.f),FVector(.18f,12.f,1.3f));
+        // Short supports beneath the raised platform, no mid-aisle wall.
+        AddBlock(Buildings,FVector(8050.f,3100.f,60.f),FVector(.35f,.35f,1.2f));
+        AddBlock(Buildings,FVector(8750.f,3100.f,60.f),FVector(.35f,.35f,1.2f));
         // Ordered, deterministic harbor-edge decoration; noncolliding and
         // identical on server/client without replicating instance arrays.
         for(int32 i=0;i<18;++i)

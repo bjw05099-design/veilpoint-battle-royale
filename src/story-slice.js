@@ -39,6 +39,9 @@
     // They are deliberately outside both CH01 evacuation/verification routes.
     {x:-72,z:-84,w:9,d:4,h:5.2,type:'story-container'},
     {x:72,z:-91,w:9,d:4,h:2.6,type:'story-container'},
+    // Public harbor water kiosk beside the physical pedestrian path;
+    // the body and roof share one small, collidable authored footprint.
+    {x:34,z:-12,w:2.6,d:2.2,h:2.4,type:'story-water-kiosk'},
     // Shore maintenance apron: an upturned workboat and a separate physical
     // lifesaving-equipment cabinet. Both are solid, visible from the public
     // quay and deliberately clear of CH01's two mission exits.

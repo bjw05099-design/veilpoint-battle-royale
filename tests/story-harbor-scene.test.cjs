@@ -17,7 +17,8 @@ function fakeGl(){
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
- assert.equal(buildings.length,14,'twelve existing harbor solids plus the drydock workboat and rescue cabinet');
+ assert.equal(buildings.length,15,'original harbor solids, drydock pair and one distinct masonry water kiosk');
+ assert.equal(buildings.filter(o=>o.type==='story-water-kiosk').length,1,'the public water kiosk must not be silently dropped');
  assert.deepEqual(buildings.filter(o=>o.type==='story-container'&&o.z < -80)
   .map(o=>[o.x,o.z,o.h]),[[-72,-84,5.2],[72,-91,2.6]],
   'both outer-quay solid stacks must exist without replacing old buildings');
