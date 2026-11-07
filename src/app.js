@@ -193,7 +193,16 @@ function containGraphicsDialogFocus(event){
  const panel=$('graphicsPanel');
  if(panel.classList.contains('hidden'))return;
  if(event.type==='focusin'){
-  if(!panel.contains(event.target))$('graphicsClose').focus({preventScroll:true});
+  // Roving-tabindex PC tabs may intentionally use tabIndex=-1 while their
+  // visible button still accepts direct focus. Tab traversal excludes them,
+  // but focusin must not reject an active, visible programmatic target.
+  // Hidden/disabled descendants remain invalid even inside the modal DOM.
+  const targets=[...panel.querySelectorAll('button,select,input,textarea,a[href],[tabindex]')]
+   .filter(node=>!node.disabled&&node.getClientRects().length>0&&
+    getComputedStyle(node).visibility!=='hidden');
+  if(!targets.some(node=>node===event.target||
+     (typeof node.contains==='function'&&node.contains(event.target))))
+   $('graphicsClose').focus({preventScroll:true});
   return;
  }
  if(event.key!=='Tab')return;
@@ -735,7 +744,11 @@ function containBRMenuFocus(event){
    getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden');
  if(!controls.length)return;
  if(event.type==='focusin'){
-  if(!overlay.contains(event.target))controls[0].focus({preventScroll:true});
+  // A control can remain in the menu DOM after its screen is hidden or
+  // disabled. Containment alone is not proof of a usable keyboard target.
+  if(!controls.some(node=>node===event.target||
+     (typeof node.contains==='function'&&node.contains(event.target))))
+   controls[0].focus({preventScroll:true});
   return;
  }
  if(event.key!=='Tab')return;

@@ -74,3 +74,26 @@ test('graphics settings exposes accessible modal semantics without changing game
  assert.match(source,/document\.addEventListener\('focusin',containGraphicsDialogFocus,true\)/);
  assert.match(source,/document\.addEventListener\('keydown',containGraphicsDialogFocus,true\)/);
 });
+
+test('visible graphics dialog rejects focus on hidden and disabled tab controls',()=>{
+ const f=fixture();
+ f.document.activeElement=f.hidden;
+ f.handlers.focusin({type:'focusin',target:f.hidden});
+ assert.equal(f.document.activeElement,f.close,
+  'hidden graphics-tab controls cannot keep keyboard focus');
+ f.select.disabled=true;
+ f.document.activeElement=f.select;
+ f.handlers.focusin({type:'focusin',target:f.select});
+ assert.equal(f.document.activeElement,f.close,
+  'disabled graphics controls must not retain focus');
+ f.select.disabled=false;
+ f.document.activeElement=f.select;
+ f.handlers.focusin({type:'focusin',target:f.select});
+ assert.equal(f.document.activeElement,f.select,
+  'visible settings dropdown retains native keyboard focus');
+ f.select.tabIndex=-1;
+ f.document.activeElement=f.select;
+ f.handlers.focusin({type:'focusin',target:f.select});
+ assert.equal(f.document.activeElement,f.select,
+  'visible roving-tabindex buttons may receive direct focus without becoming Tab destinations');
+});

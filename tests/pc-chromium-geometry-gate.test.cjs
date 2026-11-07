@@ -113,3 +113,13 @@ test('unresponsive Windows Chrome can fall back only to a detected local Chromiu
  assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"),
   'unavailable browsers cannot be counted as a passing geometry gate');
 });
+
+test('Graphics geometry uses tab activation rather than CSS-only screen exposure',()=>{
+ // This source contract supplements, never replaces, Linux/Windows CDP.
+ // Roving tabindex is active state: manual CSS toggles create false failures
+ // and can hide genuine keyboard-accessibility problems.
+ assert.match(verifier,/get\(tabId\)\.click\(\)/);
+ assert.match(verifier,/get\(tabId\)\.tabIndex!==0/);
+ assert.match(verifier,/get\(tabId\)\.getAttribute\('aria-selected'\)!=='true'/);
+ assert.doesNotMatch(verifier,/for\(const other of \['graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage'\]\)/);
+});

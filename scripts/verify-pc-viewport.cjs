@@ -125,10 +125,17 @@ function audit(){
   }
   overlay.classList.add('hidden');
   graphics.classList.remove('hidden');
-  for(const [name,id] of [['visual','graphicsVisualPage'],
-    ['controls','graphicsControlsPage'],['benchmark','graphicsBenchmarkPage']]){
-   for(const other of ['graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage'])
-    get(other).classList.toggle('hidden',other!==id);
+  for(const [name,id,tabId] of [['visual','graphicsVisualPage','graphicsTabVisual'],
+    ['controls','graphicsControlsPage','graphicsTabControls'],
+    ['benchmark','graphicsBenchmarkPage','graphicsTabBenchmark']]){
+   // Switching a tab only by rewriting CSS leaves its actual roving
+   // tabIndex/aria-selected state stale. Audit the *real* click route so
+   // visible controls must be keyboard-reachable with the active state.
+   get(tabId).click();
+   if(get(id).classList.contains('hidden')||
+      get(tabId).tabIndex!==0||
+      get(tabId).getAttribute('aria-selected')!=='true')
+    throw new Error('Graphics tab navigation did not activate '+name);
    const result=check('settings-'+name,graphics);
    const page=get(id);
    if(page.scrollHeight>page.clientHeight+2)
