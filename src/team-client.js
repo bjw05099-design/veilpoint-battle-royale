@@ -497,6 +497,19 @@
       meter.value = targetScore !== null && Number.isSafeInteger(state.score?.[team])
         ? Math.min(targetScore,Math.max(0,state.score[team])) : 0;
     }
+    // Events originate from the authority and contain only public round
+    // milestones. Render via textContent, never as executable HTML.
+    const publicEventLabels={round_start:'경기 시작',
+      relay_complete:'중계 연결 확인',round_end:'경기 종료'};
+    const recentEvents=Array.isArray(state.events)?state.events.slice(-4):[];
+    const knownEvents=recentEvents.filter(e=>e&&
+      Object.prototype.hasOwnProperty.call(publicEventLabels,e.type)&&
+      Number.isSafeInteger(e.tick)&&e.tick>=0&&
+      (e.team===null||e.team==='red'||e.team==='blue'));
+    el('roundEvents').textContent=knownEvents.length
+      ?knownEvents.map(e=>(e.team?e.team.toUpperCase()+' · ':'')+
+          publicEventLabels[e.type]+' ('+Math.floor(e.tick/60)+'초)').join(' / ')
+      :'경기 기록 대기';
     // Both relay progress numbers are explicitly published by the server;
     // a client never invents capture time or discloses hidden actor positions.
     const relayDuration=state.objective?.requiredSeconds;

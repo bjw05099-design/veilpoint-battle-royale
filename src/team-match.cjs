@@ -129,6 +129,15 @@ class TeamMatch {
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
+    this.events = [];
+  }
+  // Bounded server-originated public mission events. No player names, tokens,
+  // coordinates or hidden line-of-sight state are ever recorded.
+  recordPublicEvent(type,team=null) {
+    if(!['round_start','relay_complete','round_end'].includes(type)||
+       (team!==null&&!['red','blue'].includes(team)))return;
+    this.events.push(Object.freeze({type,team,tick:this.ticks}));
+    if(this.events.length>8)this.events.shift();
   }
   pruneIdleWaitingPlayers() {
     // An abandoned lobby/finished session must not reserve both local slots forever.
@@ -466,6 +475,7 @@ class TeamMatch {
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
+    this.events = [];
     for (const p of this.players.values()) {
       p.x = p.team === 'red' ? -8 : 8;
       p.z = 0;
@@ -500,11 +510,14 @@ class TeamMatch {
   start() {
     this.resetRoundState();
     this.phase = 'playing';
+    this.recordPublicEvent('round_start');
   }
   finish(winner, reason) {
+    if(this.phase==='ended')return;
     this.phase = 'ended';
     this.winner = winner;
     this.reason = reason;
+    this.recordPublicEvent('round_end',winner);
     // A finished round cannot display an unfinished relay as still progressing.
     // Apply this to every ending (leave, timeout, injury, draw and score), not
     // only the time-limit path; completed score is preserved separately.
@@ -689,6 +702,7 @@ class TeamMatch {
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
       this.score[team]++;
       this.progress[team] = 0;
+      this.recordPublicEvent('relay_complete',team);
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
@@ -735,6 +749,9 @@ class TeamMatch {
       // A client must not guess match length or infer a victory from a timer.
       targetScore: WIN_SCORE,
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
+      // Immutable internal events are copied into a public snapshot. A local
+      // browser cannot forge or alter server history by mutating its JSON.
+      events: this.events.map(e=>({type:e.type,team:e.team,tick:e.tick})),
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS}, cover: COVER, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
