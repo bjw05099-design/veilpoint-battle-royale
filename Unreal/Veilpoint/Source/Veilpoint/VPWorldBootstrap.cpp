@@ -100,6 +100,13 @@ void AVPWorldBootstrap::BeginPlay()
         AddBlock(Buildings,FVector(C.X+2800,C.Y+1400,225),FVector(.1f,.09f,4.5f));
         AddBlock(Buildings,FVector(C.X-2400,C.Y+2300,150),FVector(.05f,.12f,3.f));
     }
+    // Native three-sided harbor inspection shelter. The entrance on the
+    // z=-127m side is traversable; real structural collision belongs only
+    // to the three walls and elevated roof, not an opaque warehouse cuboid.
+    AddBlock(Buildings,FVector(-10000.f,-13700.f,160.f),FVector(16.f,.8f,3.2f));
+    AddBlock(Buildings,FVector(-10800.f,-13200.f,160.f),FVector(.8f,10.f,3.2f));
+    AddBlock(Buildings,FVector(-9200.f,-13200.f,160.f),FVector(.8f,10.f,3.2f));
+    AddBlock(Buildings,FVector(-10000.f,-13200.f,320.f),FVector(16.f,10.f,.2f));
     // Native UE5 west quay: 100 cm/m matches the offline BR collision AABBs.
     // Same instance transforms on host and Windows client class bootstrap.
     AddBlock(Buildings,FVector(-13500.f,-12600.f,115.f),FVector(22.f,2.f,2.3f));
