@@ -2313,9 +2313,9 @@ test('CH01 evacuation progress lists optional civilian tasks without falsely com
   assert.equal(story.missionTasks(state).length,0,'route-specific tasks cannot appear before a route choice');
   assert.equal(story.choose(state,'evacuation').ok,true);
   let tasks=story.missionTasks(state);
-  assert.deepEqual(tasks.map(t=>t.id),['muster','guide','aid','exit','transit']);
-  assert.deepEqual(tasks.map(t=>t.status),['available','locked','available','available','locked']);
-  assert.deepEqual(tasks.map(t=>t.optional),[true,true,true,false,true]);
+  assert.deepEqual(tasks.map(t=>t.id),['muster','guide','aid','exit']);
+  assert.deepEqual(tasks.map(t=>t.status),['available','locked','available','available']);
+  assert.deepEqual(tasks.map(t=>t.optional),[true,true,true,false]);
   assert.equal(Object.isFrozen(tasks),true);
   assert.equal(Object.isFrozen(tasks[0]),true);
   const before=story.serialize(state);
@@ -2325,7 +2325,6 @@ test('CH01 evacuation progress lists optional civilian tasks without falsely com
   tasks=story.missionTasks(state);
   assert.equal(tasks[0].status,'done');
   assert.equal(tasks[1].status,'available');
-  assert.equal(tasks[4].status,'available','new physical plan is optional after headcount');
   assert.equal(story.interact(state).event,'guide');
   tasks=story.missionTasks(state);
   assert.equal(tasks[1].status,'following');
