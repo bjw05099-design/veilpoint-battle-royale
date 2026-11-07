@@ -653,13 +653,15 @@ canvas.addEventListener('webglcontextrestored',()=>{
    // the 60Hz game without an explicit action.
    const focusNode=$('graphicsPanel').classList.contains('hidden')
     ?$('play'):$('graphicsClose');
-   if(typeof focusNode.focus==='function')focusNode.focus({preventScroll:true});
+   if(document.activeElement!==focusNode&&typeof focusNode.focus==='function')
+    focusNode.focus({preventScroll:true});
   }else if(!$('overlay').classList.contains('hidden')){
    // The pre-match menu is also a usable PC screen after a renderer rebuild.
    // Restore its focus without silently creating or resuming a BR match.
    const focusNode=$('graphicsPanel').classList.contains('hidden')
     ?$('play'):$('graphicsClose');
-   if(typeof focusNode.focus==='function')focusNode.focus({preventScroll:true});
+   if(document.activeElement!==focusNode&&typeof focusNode.focus==='function')
+    focusNode.focus({preventScroll:true});
   }
  }catch(err){
   renderer=null;
