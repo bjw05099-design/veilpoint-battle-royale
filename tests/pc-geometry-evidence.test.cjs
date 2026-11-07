@@ -10,10 +10,10 @@ const story={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","C
 const target=id=>({id,visible:true,enabled:true,hit:true,focused:true,probesPassed:5});
 function fixture(){
  const result={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
-  checks:sizes.map(([width,height])=>({width,height,errors:[],
+  checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
    cases:names.map(name=>({name,issues:[],targets:targets[name].map(target)}))}))};
  for(const [key,screenNames] of Object.entries(story)){
-  result[key]=sizes.map(([width,height])=>({width,height,errors:[],
+  result[key]=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
    cases:screenNames.map(name=>({name,issues:[],targets:[target('test-control')]}))}));
  }
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
@@ -30,7 +30,7 @@ test('missing viewport fails closed',()=>{
 });
 test('missing screen fails closed',()=>{
  const value=fixture();value.checks[0].cases.pop();
- assert.throws(()=>validate(value),/Missing measured screen/);
+ assert.throws(()=>validate(value),/Unexpected or missing PC screen/);
 });
 test('transport failure cannot pass',()=>{
  const value=fixture();value.transportFailure={message:'Chrome timeout'};
