@@ -50,7 +50,8 @@ test('CH01 does not follow an unobstructed player 11-14m away',()=>{
   const pose={x:s.guide.x,z:s.guide.z};
   for(let tick=0;tick<240;tick++)Story.step(s,1/60,{});
   assert.deepEqual({x:s.guide.x,z:s.guide.z},pose);
-  assert.match(Story.situation(s).guideStatus,/거리 이탈/);
+  assert.equal(s.guide.waiting,true,'civilian has stopped at the last real position');
+  assert.match(Story.situation(s).guideStatus,/현장 대기/);
 });
 
 test('CH01 never extends local obstacle detour into remote pursuit past 14m',()=>{
