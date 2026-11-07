@@ -2357,3 +2357,43 @@ test('PC team snapshot loss fails closed until server acknowledges an atomic inp
  a.doc('keyup',{code:'KeyS'});await settle();
  assert.equal(player.direction.z,0);
 });
+
+
+test('team coast-mist display uses public 60Hz forecast without extrapolating monitor FPS',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ assert.equal(server.match.phase,'playing');
+ await a.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const forecast=server.match.snapshot(token).weather.ticksUntilChange;
+ assert.ok(Number.isSafeInteger(forecast)&&forecast>=0);
+ const remaining=Math.ceil(forecast/60);
+ assert.match(a.node('weather').textContent,
+  new RegExp('다음 변화까지 '+String(Math.floor(remaining/60)).padStart(2,'0')+
+   ':'+String(remaining%60).padStart(2,'0')));
+ for(let i=0;i<60;i++)server.match.step();
+ await a.poll();await settle();
+ const newTime=Math.ceil(server.match.snapshot(token).weather.ticksUntilChange/60);
+ assert.match(a.node('weather').textContent,
+  new RegExp('다음 변화까지 '+String(Math.floor(newTime/60)).padStart(2,'0')+
+   ':'+String(newTime%60).padStart(2,'0')));
+ assert.notEqual(newTime,remaining,'forecast must advance with server world ticks');
+ assert.doesNotMatch(a.node('weather').textContent,/GPU|165Hz|RTX/);
+});
+test('team weather countdown never fabricates missing or invalid server transition time',async()=>{
+ const server=backend();
+ const noTime={fetchLocal:async(route,options={})=>{
+  const response=await server.fetchLocal(route,options);
+  if(route!=='/state'||!response.ok)return response;
+  const state=await response.json();
+  state.weather={phase:'clear',visibilityRange:80,ticksUntilChange:-1};
+  return {...response,json:async()=>state};
+ }};
+ const a=boot(noTime),b=boot(noTime);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ assert.match(a.node('weather').textContent,/맑음/);
+ assert.doesNotMatch(a.node('weather').textContent,/다음 변화까지/);
+});
