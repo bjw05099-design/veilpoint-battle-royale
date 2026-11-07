@@ -553,6 +553,28 @@
     }
     return {phase:ZONE_PHASES.length-1,radius:1.5,phaseRemaining:0};
   }
+  // Local geometry-based waypointless navigation, separate from combat.
+  // Probes only nearby solid bodies; a candidate must have a collision-free
+  // *path*, not just a clear endpoint beyond a wall. Return a bearing only:
+  // the actor still turns at its existing physical 60Hz angular rate.
+  function localDetourHeading(actor, heading, obstacles, radius=.85, preferredSide=1) {
+    const distance=2.25;
+    const clear=(candidate)=>{
+      const dx=Math.sin(candidate)*distance,dz=-Math.cos(candidate)*distance;
+      for(const t of [1/3,2/3,1]){
+        if(blocked(actor.x+dx*t,actor.z+dz*t,radius,obstacles))return false;
+      }
+      return true;
+    };
+    if(clear(heading))return heading;
+    const side=preferredSide<0?-1:1;
+    for(const arc of [.42,.82,1.20,Math.PI/2]){
+      if(clear(heading+arc*side))return normalizeAngle(heading+arc*side);
+      if(clear(heading-arc*side))return normalizeAngle(heading-arc*side);
+    }
+    // Cul-de-sac: existing limited sidestep/retreat handles local release.
+    return heading;
+  }
   function moveEntity(entity, vx, vz, dt, obstacles, radius=0.85) {
     // Sweep large displacements in bounded increments so a frame catch-up or
     // fast actor cannot tunnel through thin physical cover. Retain axis-wise
@@ -795,11 +817,15 @@
         aim=Math.atan2(b.lastSeenX-b.x,-(b.lastSeenZ-b.z));
       else if(supplyTarget&&supplyDistance>PICKUP_REACH*.65)
         aim=Math.atan2(supplyTarget.x-b.x,-(supplyTarget.z-b.z));
-      const desired=normalizeAngle(aim-b.angle);
+      // When a wall is directly ahead, steer toward its actual open side
+      // instead of repeatedly returning toward an unreachable point.
+      // Neither the route nor its candidate directions are exposed to HUD.
+      const movementObstacles=obstacles.concat(actorObstacles(game,b));
+      const navigatedAim=localDetourHeading(b,aim,movementObstacles,.85,b.id%2===0?1:-1);
+      const desired=normalizeAngle(navigatedAim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
         investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b)*wetApronFooting(b).mobility;
-      const movementObstacles=obstacles.concat(actorObstacles(game,b));
       const startX=b.x,startZ=b.z;
       const vx=Math.sin(b.angle)*botSpeed,vz=-Math.cos(b.angle)*botSpeed;
       moveEntity(b,vx,vz,dt,movementObstacles);
@@ -1595,6 +1621,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {ENTRY_SITES,BR_LIGHTING,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
