@@ -149,6 +149,9 @@
   // Only its three physical walls collide; the roof is an elevated visual
   // surface. Interior and entrance remain traversable at the real actor radius.
   const INSPECTION_SHELTER=Object.freeze({x:-100,z:-132,width:16,depth:10,roofHeight:3.2});
+  // One manually pushed, low-speed dock handcart: a real collision body,
+  // not a free-floating movable marker or an instantly relocated supply.
+  const DOCK_HANDCART=Object.freeze({x:132,z:-121,w:1.4,d:.9,h:1.0,speed:1.6});
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -187,6 +190,7 @@
     o.push({x:SERVICE_YARD.x+10.5,z:SERVICE_YARD.z,w:15,d:.6,h:2.2,type:'yard-fence'});
     o.push({x:SERVICE_YARD.x,z:SERVICE_YARD.z,w:6,d:.6,h:2.3,
       type:'yard-gate',routeId:'br-service-gate'});
+    o.push({...DOCK_HANDCART,type:'dock-handcart',routeId:'br-dock-handcart'});
     return o;
   }
   const ZONE_PHASES = [
@@ -242,6 +246,7 @@
       seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
+      handcart:{x:DOCK_HANDCART.x,z:DOCK_HANDCART.z,engaged:false,dirX:0,dirZ:0},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -316,6 +321,68 @@
     if(sample.next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
     if(sample.next===0&&game.yardGate.closing){game.yardGate.engaged=false;game.yardGate.closing=false;
       game.message='SERVICE GATE CLOSED · LOCAL CONTROL READY';game.messageTime=3;}
+  }
+  function handcartStatus(game) {
+    const body=game?.obstacles?.find(o=>o.routeId==='br-dock-handcart');
+    if(!body||!game.handcart||!game.player)return {near:false,engaged:false};
+    const p=game.player;
+    const distance=Math.hypot(p.x-body.x,p.z-body.z);
+    const near=distance<=2.6&&
+      !lineBlocked(p.x,p.z,body.x,body.z,game.obstacles.filter(o=>o!==body));
+    return {near,engaged:game.handcart.engaged,x:body.x,z:body.z};
+  }
+  function operateHandcart(game) {
+    if(!game||game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
+    const status=handcartStatus(game),cart=game.handcart;
+    if(!status.near)return {ok:false,reason:'out_of_reach'};
+    if(cart.engaged){
+      cart.engaged=false;cart.dirX=0;cart.dirZ=0;
+      game.message='DOCK HANDCART RELEASED · STATIONARY';
+      game.messageTime=2;
+      return {ok:true,action:'release'};
+    }
+    const p=game.player;
+    const dx=status.x-p.x,dz=status.z-p.z;
+    const axisX=Math.abs(dx)>=Math.abs(dz);
+    const dirX=axisX?Math.sign(dx):0,dirZ=axisX?0:Math.sign(dz);
+    const facing=dirX*Math.sin(p.yaw)-dirZ*Math.cos(p.yaw);
+    if(facing<.75||Math.hypot(dx,dz)<1.45)
+      return {ok:false,reason:'stand_behind_cart'};
+    cart.engaged=true;cart.dirX=dirX;cart.dirZ=dirZ;
+    game.message='DOCK HANDCART GRIPPED · WALK FORWARD TO PUSH · E RELEASE';
+    game.messageTime=3;
+    return {ok:true,action:'grip'};
+  }
+  function advanceHandcart(game,dt,input) {
+    const cart=game.handcart;
+    if(!cart?.engaged)return {engaged:false,moved:false};
+    if(!input.forward||input.back||input.left||input.right||input.crouch)
+      return {engaged:true,moved:false};
+    const p=game.player;
+    const facing=cart.dirX*Math.sin(p.yaw)-cart.dirZ*Math.cos(p.yaw);
+    if(facing<.75)return {engaged:true,moved:false};
+    const body=game.obstacles.find(o=>o.routeId==='br-dock-handcart');
+    if(!body)return {engaged:true,moved:false};
+    const offset=DOCK_HANDCART.speed*dt;
+    const future={...body,x:body.x+cart.dirX*offset,z:body.z+cart.dirZ*offset};
+    if(Math.abs(future.x)+future.w/2>=WORLD||Math.abs(future.z)+future.d/2>=WORLD)
+      return {engaged:true,moved:false,blocked:true};
+    const other=game.obstacles.filter(o=>o!==body);
+    if(other.some(o=>Math.abs(future.x-o.x)*2<future.w+o.w&&
+                     Math.abs(future.z-o.z)*2<future.d+o.d)||
+       game.bots.some(b=>b.alive&&intersectsCircleAABB(b.x,b.z,ACTOR_RADIUS,future)))
+      return {engaged:true,moved:false,blocked:true};
+    // If the pusher would hit a wall or another person this tick, the cart
+    // must not glide away while their own feet remain stationary.
+    const actorFuture={x:p.x,z:p.z};
+    moveEntity(actorFuture,cart.dirX*DOCK_HANDCART.speed,
+      cart.dirZ*DOCK_HANDCART.speed,dt,other.concat(actorObstacles(game,p)));
+    if(Math.hypot(actorFuture.x-p.x-cart.dirX*offset,
+      actorFuture.z-p.z-cart.dirZ*offset)>1e-5)
+      return {engaged:true,moved:false,blocked:true};
+    body.x=future.x;body.z=future.z;
+    cart.x=future.x;cart.z=future.z;
+    return {engaged:true,moved:true};
   }
   // PC J places or recovers one tangible field marker for self-navigation.
   // The marker is not a radar or teleport destination and cannot be recalled
@@ -492,17 +559,20 @@
     game.elapsed+=dt;
     advanceReload(game,dt);
     advanceServiceGate(game,dt);
+    const cartMotion=advanceHandcart(game,dt,input);
     game.damageFlash=Math.max(0,game.damageFlash-dt*2.4);
     game.messageTime=Math.max(0,game.messageTime-dt);
     const {player:p,obstacles} = game;
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
-    const wantsSprint=canSprint(p,input,iz);
+    const wantsSprint=!cartMotion.engaged&&canSprint(p,input,iz);
     const loadMobility=supplyLoadMobility(p);
-    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility;
+    const speed=cartMotion.engaged?(cartMotion.moved?DOCK_HANDCART.speed:0):
+      (input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     const beforeX=p.x,beforeZ=p.z;
-    moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
+    moveEntity(p,(cartMotion.engaged?game.handcart.dirX:ix*cos+iz*sin)*speed,
+      (cartMotion.engaged?game.handcart.dirZ:ix*sin-iz*cos)*speed,dt,
       obstacles.concat(actorObstacles(game,p)));
     // Colliding with solid cover is not actual sprint travel. Exertion follows
     // resolved displacement, not a held key, while unobstructed movement is unchanged.
@@ -1044,6 +1114,7 @@
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
+      handcart:game.handcart===null?null:{...game.handcart},
       trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
@@ -1060,6 +1131,14 @@
       }),
       message:game.message,messageTime:game.messageTime,
       lastTagAt:game.lastTagAt,recentDamage:game.recentDamage};
+    if(checkpoint.handcart!==null){
+      const c=checkpoint.handcart;
+      if(!c||!finite(c.x,-WORLD,WORLD)||!finite(c.z,-WORLD,WORLD)||
+         typeof c.engaged!=='boolean'||![-1,0,1].includes(c.dirX)||
+         ![-1,0,1].includes(c.dirZ)||
+         (c.engaged?Math.abs(c.dirX)+Math.abs(c.dirZ)!==1:c.dirX!==0||c.dirZ!==0))
+        throw new RangeError('Invalid handcart checkpoint');
+    }
     if(typeof checkpoint.yardGate.engaged!=='boolean' ||
        !finite(checkpoint.yardGate.progress,0,1) ||
        (!checkpoint.yardGate.engaged&&checkpoint.yardGate.progress!==0) ||
@@ -1164,6 +1243,30 @@
       throw new RangeError('Invalid restored service-yard gate');
     game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress,
       ...(oldGate.closing===true?{closing:true}:{})};
+    // Pre-handcart checkpoints retain their original authored collision world.
+    // Introducing a new movable crate inside an old active match could
+    // invalidate legitimate historical spawn/loot placements.
+    if(saved.handcart===undefined||saved.handcart===null){
+      game.handcart=null;
+      game.obstacles=game.obstacles.filter(o=>o.routeId!=='br-dock-handcart');
+    }else{
+      const c=saved.handcart;
+      if(!c||Array.isArray(c)||typeof c!=='object'||
+         Object.keys(c).sort().join(',')!=='dirX,dirZ,engaged,x,z'||
+         !finite(c.x,-WORLD,WORLD)||!finite(c.z,-WORLD,WORLD)||
+         typeof c.engaged!=='boolean'||
+         ![-1,0,1].includes(c.dirX)||![-1,0,1].includes(c.dirZ)||
+         (c.engaged?Math.abs(c.dirX)+Math.abs(c.dirZ)!==1:c.dirX!==0||c.dirZ!==0))
+        throw new RangeError('Invalid saved handcart');
+      const cartBody=game.obstacles.find(o=>o.routeId==='br-dock-handcart');
+      const candidate={...cartBody,x:c.x,z:c.z};
+      if(Math.abs(c.x)+cartBody.w/2>=WORLD||Math.abs(c.z)+cartBody.d/2>=WORLD||
+         game.obstacles.some(o=>o!==cartBody&&
+           Math.abs(o.x-c.x)*2<o.w+cartBody.w&&Math.abs(o.z-c.z)*2<o.d+cartBody.d))
+        throw new RangeError('Handcart embedded in wall');
+      cartBody.x=c.x;cartBody.z=c.z;
+      game.handcart={x:c.x,z:c.z,engaged:c.engaged,dirX:c.dirX,dirZ:c.dirZ};
+    }
     const gateBody=game.obstacles.find(o=>o.routeId==='br-service-gate');
     gateBody.x=SERVICE_YARD.x+SERVICE_YARD.slide*oldGate.progress;
     // Reject malformed checkpoint flags instead of silently coercing strings,
@@ -1304,5 +1407,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+    DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
