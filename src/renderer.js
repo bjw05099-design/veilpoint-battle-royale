@@ -476,10 +476,10 @@ class Renderer {
    m.box(77,.015,z,17,.006,.14,[.49,.44,.37]);
   // Same second block exists in BR and CH01 without another collision map.
   // The first person may walk through the west entrance beneath its roof.
-  m.box(136,3.84,111,24,.17,18,[.41,.39,.35]);
-  m.box(136,-.008,111,23,.016,17,[.37,.34,.29]);
-  m.box(102,.002,109,20,.006,3,[.37,.35,.32]);
-  for(const z of [105,111,117])
+  m.box(136,3.84,85,24,.17,18,[.41,.39,.35]);
+  m.box(136,-.008,85,23,.016,17,[.37,.34,.29]);
+  m.box(102,.002,83,20,.006,3,[.37,.35,.32]);
+  for(const z of [79,85,91])
    m.box(136,.01,z,17,.006,.14,[.49,.45,.38]);
  }
  if(this.sceneMode==='br'){
