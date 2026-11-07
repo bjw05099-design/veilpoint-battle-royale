@@ -7,13 +7,16 @@ test('local team health truthfully reports ready seats without disclosing player
  let clock=0;
  const server=createTeamServer({port:0,autoTick:false,now:()=>clock});
  const {port}=await server.listen(),base='http://127.0.0.1:'+port;
- const health=async()=>{const r=await fetch(base+'/health');assert.equal(r.status,200);return r.json();};
+ const health=async()=>{const r=await fetch(base+'/health/diagnostics');assert.equal(r.status,200);return r.json();};
+ const legacy=async()=>{const r=await fetch(base+'/health');assert.equal(r.status,200);return r.json();};
  const join=async name=>{
   const r=await fetch(base+'/join',{method:'POST',
    headers:{'content-type':'application/json'},body:JSON.stringify({name})});
   assert.equal(r.status,201);return r.json();
  };
  try{
+  assert.deepEqual(await legacy(),{status:'ok',protocol:1,phase:'lobby'},
+   'existing health clients must retain the exact public JSON contract');
   assert.deepEqual(await health(),{
    status:'ok',protocol:1,phase:'lobby',connectedPlayers:0,lobbyReadyPlayers:0,simulationTick:0
   });
