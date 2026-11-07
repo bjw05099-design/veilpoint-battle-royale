@@ -23,6 +23,7 @@ test('PC courier disables weapons but preserves E interaction and ordinary relay
  assert.match(source,/state\.relayVariant!=='courier'\) void send\('fire'\)/);
  assert.match(source,/state\.relayVariant!=='courier'\) void send\('reload'\)/);
  assert.match(source,/state\.relayVariant==='courier'\) \{triggering = false;return;\}/);
+ assert.match(source,/state\?\.phase === 'playing' && state\.relayVariant!=='courier'\) \{/);
  assert.match(source,/if \(action === 'interact' && !e\.repeat\) setCapture\(true\)/);
  assert.match(source,/const hint = courierMode/);
  assert.match(source,/:' · 중계 중단\/목표 이탈\/전송 완료/);
