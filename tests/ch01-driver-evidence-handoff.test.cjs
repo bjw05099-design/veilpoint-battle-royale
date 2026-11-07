@@ -40,7 +40,8 @@ test('driver testimony needs direct contact and the separate staffed intake ledg
  assert.equal(s.driverReportFiled,true);
  assert.match(s.subtitle,/차량 도착 증빙은 없습니다/);
  assert.equal(Story.markers(s).some(x=>x.id==='driverReportDesk'),false);
- assert.equal(Story.missionTasks(s).find(x=>x.id==='driver-report').status,'done');
+ assert.equal(Story.missionTasks(s).some(x=>x.id==='driver-report'),false,
+   'optional conversation must not turn the CH01 route into paperwork tasks');
  assert.match(Comms.briefing(s).message,/후속 확인/);
  const save=Story.serialize(s),restored=Story.restore(save);
  assert.equal(restored.driverReportFiled,true);
