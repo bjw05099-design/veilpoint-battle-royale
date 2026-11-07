@@ -146,3 +146,37 @@ test('CH01 cannot claim a missing primary generation was restored',()=>{
   p===null&&b===backup?{source:'primary',state:Story.createState()}:null);
  assert.equal(result,null);
 });
+
+test('CH01 refuses a malformed primary decoder result and restores playable backup',()=>{
+ const primary=Story.serialize(Story.createState());
+ const backup=Story.serialize(Story.createState());
+ const calls=[];
+ const restore=(p,b)=>{
+  calls.push([p,b]);
+  if(p!==null)return {source:'primary',state:{phase:'terminal',world:{player:{x:NaN,z:12}}}};
+  return Story.recoverCheckpoint(p,b);
+ };
+ const recovered=Recovery.recover(primary,backup,restore);
+ assert.equal(recovered.source,'backup');
+ assert.equal(recovered.state.world.player.z,12);
+ assert.deepEqual(calls,[[primary,backup],[null,backup]]);
+});
+test('CH01 invalid primary never reaches renderer when backup is missing',()=>{
+ const raw=Story.serialize(Story.createState());
+ const candidates=[
+  {source:'primary',state:null},
+  {source:'primary',state:{phase:'terminal',world:{player:{x:0,z:Infinity}}}},
+  {source:'primary',state:{phase:'terminal',world:{player:null}}},
+  {source:'primary',state:{phase:'terminal',world:{player:{x:0,z:12}}},get invalid(){throw Error('bad');}},
+  {source:'unknown',state:Story.createState()}
+ ];
+ for(const candidate of candidates){
+  assert.equal(Recovery.recover(raw,null,()=>candidate),null);
+ }
+});
+test('CH01 playable primary remains preferred over a playable backup',()=>{
+ const primary=Story.serialize(Story.createState()),backup=primary;
+ const restored=Recovery.recover(primary,backup,Story.recoverCheckpoint);
+ assert.equal(restored.source,'primary');
+ assert.equal(restored.state.phase,'terminal');
+});
