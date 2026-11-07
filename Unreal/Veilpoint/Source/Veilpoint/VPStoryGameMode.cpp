@@ -21,8 +21,8 @@ void AVPStoryGameMode::BeginPlay()
     // Deliberately skip AVPGameMode::BeginPlay: it spawns the BR zone.
     AGameModeBase::BeginPlay();
     if (!HasAuthority() || !GetWorld()) return;
-    GetWorld()->SpawnActor<AVPWorldBootstrap>(
-        AVPWorldBootstrap::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
+    GetWorld()->SpawnActor<AVPStoryWorldBootstrap>(
+        AVPStoryWorldBootstrap::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
 
     struct FMarkerPlacement
     {
