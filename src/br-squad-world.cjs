@@ -72,12 +72,11 @@ class BrSquadWorld {
       const next={x:actor.x,z:actor.z};
       Sim.moveEntity(next,direction.x*SPEED,direction.z*SPEED,STEP,
         this.obstacles,RADIUS);
-      const solids=players.filter(other=>other!==actor).map(other=>({
-        x:other.x,z:other.z,w:2*RADIUS,d:2*RADIUS
-      }));
-      Sim.moveEntity(next,0,0,STEP,solids,RADIUS);
-      // Moving into another player's start-of-tick body is not allowed.
-      if(solids.some(o=>Math.hypot(o.x-next.x,o.z-next.z)<2*RADIUS-1e-8)){
+      // A near-neighbor body query needs no short-lived 96x96 collider
+      // allocation on each server tick; moveEntity already swept all walls.
+      if(players.some(other=>other!==actor&&
+        Math.abs(other.x-next.x)<2*RADIUS&&Math.abs(other.z-next.z)<2*RADIUS&&
+        Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
         next.x=actor.x;next.z=actor.z;
       }
       return {actor,next};
