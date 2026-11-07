@@ -846,6 +846,34 @@ test('PC WebGL context loss checkpoints CH01 and requires explicit resume',()=>{
  assert.ok(Number(app.element('status').textContent.match(/경과 ([0-9]+)초/)[1])>elapsed);
 });
 
+test('CH01 GPU loss keeps PC focus on a usable menu item until renderer recovery',()=>{
+ const app=boot(new Map(),false,'granted',true,true);
+ app.element('continue').click();
+ app.moveForward(0,15);
+ app.element('scene').dispatch('webglcontextlost');
+ // Pause intentionally persists the current 60Hz frame; this is the durable
+ // boundary that must remain stable while the GPU is unavailable.
+ const previous=app.store.get('veilpoint.story.ch01');
+ assert.ok(previous);
+ assert.equal(app.element('continue').disabled,true);
+ assert.equal(app.context.document.activeElement,app.element('storyMenuMore'),
+  'GPU loss must not strand keyboard focus on the disabled Continue button');
+ app.context.VeilpointRenderer.failNext=true;
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.context.document.activeElement,app.element('storyMenuMore'),
+  'a failed renderer rebuild cannot focus or enable Continue');
+ assert.equal(app.element('continue').disabled,true);
+ app.frame(10000);
+ assert.equal(app.store.get('veilpoint.story.ch01'),previous,
+  'paused world must not advance during unavailable GPU rendering');
+ app.element('scene').dispatch('webglcontextrestored');
+ assert.equal(app.element('continue').disabled,false);
+ assert.equal(app.context.document.activeElement,app.element('continue'),
+  'successful renderer rebuild must return keyboard focus to Resume');
+ assert.equal(app.element('menu').classList.contains('hidden'),false,
+  'GPU restoration never auto-resumes the paused 60Hz world');
+});
+
 test('CH01 renderer recreation failure remains paused with a durable checkpoint',()=>{
  const app=boot(new Map(),false,'granted',true,true);
  app.element('continue').click();app.moveForward(0,15);
