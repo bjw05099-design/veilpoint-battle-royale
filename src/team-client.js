@@ -394,7 +394,7 @@
     // Match the server's 80m clear-arena disclosure bound and 9m dense mist.
     // This only tints the local map; it does not simulate volumetric optics.
     const fog = Math.max(0, Math.min(1, (80 - (state?.weather?.visibilityRange ?? 80)) / 71));
-    ctx.fillStyle = `rgb(${Math.round(25 + 23 * fog)},${Math.round(39 + 22 * fog)},${Math.round(44 + 21 * fog)})`;
+    ctx.fillStyle = state?.lighting==='dusk' ? '#111c21' : `rgb(${Math.round(25 + 23 * fog)},${Math.round(39 + 22 * fog)},${Math.round(44 + 21 * fog)})`;
     ctx.fillRect(0, 0, 500, 500);
     ctx.strokeStyle = '#41565a';ctx.lineWidth = 1;
     for (let i = 0; i <= 10; i++) {ctx.beginPath();ctx.moveTo(i*50,0);ctx.lineTo(i*50,500);ctx.stroke();
@@ -606,7 +606,7 @@
       ? ' · 다음 변화까지 '+String(Math.floor(Math.ceil(changeTicks/60)/60)).padStart(2,'0')+
         ':'+String(Math.ceil(changeTicks/60)%60).padStart(2,'0')
       : '';
-    el('weather').textContent = (weatherLabels[state.weather?.phase] || '관측 대기') +
+    el('weather').textContent = (state.lighting==='dusk'?'해질녘 · 현장 시야 제한 · ':'') + (weatherLabels[state.weather?.phase] || '관측 대기') +
       (Number.isFinite(state.weather?.visibilityRange)
         ? ` · 시야 약 ${state.weather.visibilityRange.toFixed(1)}m` : '') + weatherTimer;
     el('health').textContent = String(state.self.health);
