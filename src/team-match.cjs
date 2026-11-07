@@ -226,6 +226,7 @@ class TeamMatch {
       capturing: false, captureHeld: false, captureArmed: false, weaponId: 'carbine', health: 100, ammo: MAGAZINE_ROUNDS, reserve: SPARE_ROUNDS,
       reloadTicks: 0, reloadHesitation: false, reloadAssist: false, stress: 0,
       lastShotTick: -FIRE_INTERVAL_TICKS, seq: 0, lastSeen: this.now(),
+      distanceMeters:0,relayCompletions:0,
       lastMoveTick: 0, lastCaptureTick: 0, lastAimTick: 0, triggerHeld: false, lastTriggerTick: 0};
     // A ready vote consents to the current pairing, not an open lobby seat.
     // If someone readied while alone, a later join must require fresh consent
@@ -524,6 +525,7 @@ class TeamMatch {
       p.captureHeld = false;
       p.captureArmed = false;
       p.health = 100;
+      p.distanceMeters=0;p.relayCompletions=0;
       p.ammo = LOADOUTS[p.weaponId].magazine;
       p.reserve = LOADOUTS[p.weaponId].reserve;
       p.reloadTicks = 0;
@@ -686,6 +688,10 @@ class TeamMatch {
       if (p.stamina <= 1) {p.sprintExhausted = true;p.sprinting = false;}
       p.x = next.x;
       p.z = next.z;
+      // Signed distance of accepted server movement only; rejected collisions
+      // and impossible client-provided coordinates cannot inflate results.
+      p.distanceMeters=Math.min(100000,p.distanceMeters+
+        Math.hypot(next.x-from.x,next.z-from.z));
       // Walking away physically releases the relay. A later active:true
       // renewal cannot re-arm it without a genuine key release and press.
       if (Math.hypot(p.x-this.objective.x, p.z-this.objective.z) > CAPTURE_RADIUS) {
@@ -725,9 +731,10 @@ class TeamMatch {
     // hands free. Entering the objective while moving, reloading or holding
     // the trigger cannot silently earn score; interruption resets progress.
     // The server checks its own intent/weapon state, not a client claim.
-    const operator = nearby.some(p => p.capturing && p.captureArmed &&
+    const operatorPlayer = nearby.find(p => p.capturing && p.captureArmed &&
       Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
       p.reloadTicks === 0 && !p.triggerHeld);
+    const operator=!!operatorPlayer;
     if (teams.size !== 1 || !operator) {
       this.progress.red = 0;
       this.progress.blue = 0;
@@ -739,6 +746,7 @@ class TeamMatch {
     this.progress[team] += STEP;
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
       this.score[team]++;
+      operatorPlayer.relayCompletions=Math.min(1000,operatorPlayer.relayCompletions+1);
       this.progress[team] = 0;
       this.recordPublicEvent('relay_complete',team);
       // One operator interaction transmits one point, not a perpetual stream.
@@ -814,6 +822,8 @@ class TeamMatch {
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
       self: {id: me.id, name: me.name, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
+        personalMetrics:{distanceMeters:Math.round(me.distanceMeters*10)/10,
+          relays:me.relayCompletions},
         facing: {...me.facing}, direction: {...me.direction},
         triggerHeld: me.triggerHeld, captureHeld: me.captureHeld, sprintHeld: me.sprintHeld,
         aiming: me.aiming,

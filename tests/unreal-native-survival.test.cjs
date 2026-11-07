@@ -22,11 +22,11 @@ test('native survival contains no arcade shield pool or simulated armor replenis
  assert.match(character,/if \(!HasAuthority\(\) \|\| !IsAlive\(\)\) return 0\.f;/);
 });
 
-test('native medical and finite supply pickups are consumed only if resource transfer succeeds',()=>{
+test('native finite supplies are consumed only if physical transfer succeeds',()=>{
  assert.match(header,/bool CollectResource\(FName Resource\)/);
  assert.match(character,/bool AVPCharacter::CollectResource\(FName Resource\)/);
  assert.match(character,/if \(!HasAuthority\(\) \|\| !IsAlive\(\)\) return false/);
- assert.match(character,/Resource==TEXT\("health"\) && Health < 100\.f/);
+ assert.doesNotMatch(character,/Resource==TEXT\("health"\)/);
  assert.match(character,/Resource==TEXT\("charges"\) && Charges < 60/);
  assert.match(character,/return false;\s*\}/);
  assert.match(pickup,/if \(!Character->CollectResource\(Resource\)\) return;\s*bConsumed=true;\s*Destroy\(\)/);
@@ -34,9 +34,9 @@ test('native medical and finite supply pickups are consumed only if resource tra
 });
 
 test('native world generates valid resource types only with consistent finite distribution',()=>{
- assert.match(world,/for\(int32 i=0;i<36;\+\+i\)/);
- assert.match(world,/i%2==0\?TEXT\("health"\):TEXT\("charges"\)/);
- assert.match(character,/Health=FMath::Min\(100\.f,Health\+45\.f\)/);
+ assert.match(world,/for\(int32 i=0;i<18;\+\+i\)/);
+ assert.match(world,/if\(P\)P->Resource=TEXT\("charges"\)/);
+ assert.doesNotMatch(character,/Health=FMath::Min\(100\.f,Health\+45\.f\)/);
  assert.match(character,/Charges=FMath::Min\(60,Charges\+24\)/);
  assert.match(pickup,/HasAuthority\(\) \|\| bConsumed/);
  assert.match(pickup,/FVector::DistSquared/);

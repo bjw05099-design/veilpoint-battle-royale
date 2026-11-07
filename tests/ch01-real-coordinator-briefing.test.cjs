@@ -1,0 +1,60 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const Story=require('../src/story-slice.js');
+const Journal=require('../src/field-journal.js');
+const fs=require('node:fs'),path=require('node:path');
+function evacuation(){
+ // Reach the genuine branch through the existing deterministic CH01 rules;
+ // a manually forced phase would not be a valid v2 combat checkpoint.
+ const state=Story.createState();
+ const go=id=>{state.world.player.x=Story.POINTS[id].x;
+   state.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(state).ok,true);
+ for(const actor of state.world.bots)for(let i=0;i<2;i++){
+  state.world.player.yaw=Math.atan2(actor.x-state.world.player.x,
+    -(actor.z-state.world.player.z));
+  state.world.player.pitch=0;state.world.elapsed+=.21;
+  assert.equal(Story.fire(state).hit,true);
+ }
+ assert.equal(state.phase,'records');
+ go('decision');assert.equal(Story.interact(state).ok,true);
+ assert.equal(Story.choose(state,'evacuation').ok,true);
+ return state;
+}
+test('CH01 south muster is a physically reached coordinator conversation, not a form inspection',()=>{
+ const s=evacuation();
+ const mark=Story.POINTS.muster;
+ assert.equal(mark.kind,'evac');
+ assert.match(mark.label,/구조단.*담당자/);
+ assert.doesNotMatch(mark.label,/계획표|확인표|기록서/);
+ assert.equal(s.musterConfirmed,false);
+ assert.ok(Story.markers(s).some(m=>m.id==='muster'));
+ s.world.player.x=mark.x;s.world.player.z=mark.z;
+ const action=Story.interact(s);
+ assert.equal(action.ok,true);
+ assert.equal(action.event,'muster');
+ assert.equal(s.musterConfirmed,true,'the local conversation unlocks further civilian assistance');
+ assert.match(s.subtitle,/유수프/);
+ assert.match(s.subtitle,/직접 인수/);
+ assert.doesNotMatch(s.subtitle,/확인표|계획표/);
+ assert.ok(Story.markers(s).some(m=>m.id==='guide'),'real guide is available after meeting coordinator');
+ const notes=Journal.entries(s);
+ const fact=notes.find(n=>n.id==='muster');
+ assert.ok(fact);
+ assert.match(fact.detail,/직접 협의/);
+ assert.doesNotMatch(fact.detail,/인원 수 확정/);
+ // This isolated interaction fixture does not contain a legitimately
+ // completed CH01 encounter; restore() correctly rejects that impossible
+ // overall checkpoint. Verify the saved field here, while full legacy
+ // restore and replay are exercised by story-muster-review.test.cjs.
+ assert.equal(JSON.parse(Story.serialize(s)).musterConfirmed,true,
+   'muster field persists in the serialized story without inventing combat history');
+});
+test('CH01 scene retains no paperwork-only transit marker or remote headcount',()=>{
+ const body=fs.readFileSync(path.join(__dirname,'../src/story-slice.js'),'utf8');
+ const journal=fs.readFileSync(path.join(__dirname,'../src/field-journal.js'),'utf8');
+ assert.doesNotMatch(body,/POINTS\.transitBoard|marker\.id==='transitBoard'/);
+ assert.doesNotMatch(body,/집결지 인원 확인표|근처 인원 확인표/);
+ assert.doesNotMatch(journal,/인원 확인표를 현장에서 직접 대조/);
+});

@@ -219,9 +219,10 @@ void AVPCharacter::ServerTryInteract_Implementation()
         if (It->bConsumed) continue;
         // A nearby but unusable or occluded supply must not prevent the
         // player from collecting another usable one within reach.
-        const bool bNeedHealth=It->Resource==TEXT("health") && Health<100.f;
+        // Native BR has finite physical supplies only. A map object cannot
+        // instantly restore health or erase an existing injury.
         const bool bNeedSupplies=It->Resource==TEXT("charges") && Charges<60;
-        if (!bNeedHealth && !bNeedSupplies) continue;
+        if (!bNeedSupplies) continue;
         const float d=FVector::DistSquared(GetActorLocation(),It->GetActorLocation());
         if (d>=BestSq) continue;
         // Server-authoritative visibility check uses actual blocking world
@@ -239,11 +240,6 @@ bool AVPCharacter::CollectResource(FName Resource)
 {
     if (!HasAuthority() || !IsAlive()) return false;
     // A supply must not disappear when the character is already at capacity.
-    if (Resource==TEXT("health") && Health < 100.f)
-    {
-        Health=FMath::Min(100.f,Health+45.f);
-        return true;
-    }
     if (Resource==TEXT("charges") && Charges < 60)
     {
         Charges=FMath::Min(60,Charges+24);

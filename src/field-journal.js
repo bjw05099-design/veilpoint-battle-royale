@@ -51,7 +51,7 @@
         '동쪽 통제문 개방 요청 접수. 현지 구조단의 현장 개방 작업이 끝나기 전에는 통과할 수 없다.');
     }
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
-      '유수프 구조단의 인원 확인표를 현장에서 직접 대조했다.');
+      '남쪽 집결지에 실제로 있는 유수프 구조단 담당자와 대피 지원을 직접 협의했다. 미확인 인원은 확인된 수로 간주하지 않는다.');
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
       state.aidDelivered?'비상 물품을 현지 구조단에 직접 전달했다.':
         state.aidStaged?'비상 물품이 임시 적재대에 남아 있다. 구조단 현장 인계는 아직 완료되지 않았다.':
@@ -72,7 +72,7 @@
        ['evacuation','verification'].includes(state.choice)){
       const facts=state.choice==='evacuation'
         ?['남쪽 안뜰 대피 경로 완료',
-          state.musterConfirmed?'집결 인원 확인 완료':'집결 인원 확인 미실시',
+          state.musterConfirmed?'구조단 담당자 현장 협의 완료':'구조단 담당자 현장 협의 미실시',
           state.aidDelivered?'비상 물품 인계 완료':'비상 물품 인계 미완료',
           state.guide?.arrived?'안내원 안뜰 도착':
             state.guide?.released?'안내원 구조단 인계 완료':'안내원 동행 선택 미완료']

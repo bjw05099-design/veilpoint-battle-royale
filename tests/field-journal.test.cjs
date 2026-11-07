@@ -17,7 +17,7 @@ test('CH01 field journal earns each civilian outcome only after its actual world
   assert.equal(entries.some(entry=>entry.id==='muster'),false);
   state.musterConfirmed=true;
   entries=Journal.entries(state);
-  assert.match(entries.find(entry=>entry.id==='muster').detail,/직접 대조/);
+  assert.match(entries.find(entry=>entry.id==='muster').detail,/직접 협의/);
   state.aidPickedUp=true;
   assert.match(Journal.entries(state).find(entry=>entry.id==='aid').detail,/운반 중/);
   state.aidStaged=true;
