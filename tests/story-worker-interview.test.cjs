@@ -37,7 +37,7 @@ test('CH01 worker interview requires approaching a moving witness on foot',()=>{
 });
 test('blocked or distant worker cannot be questioned with a remote E action',()=>{
  const s=reachedRecords(),p=s.world.player;
- p.x=20;p.z=-9;
+ p.x=18;p.z=-9;
  s.world.obstacles.push({x:20,z:-10.5,w:5,d:.5,h:1.7});
  assert.equal(Story.markers(s).some(m=>m.id==='harborWorker'),false);
  assert.notEqual(Story.nearest(s)?.id,'harborWorker');
