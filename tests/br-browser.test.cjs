@@ -959,6 +959,38 @@ test('PC BR shot HUD updates immediately then batches rapid fire without stale R
  assert.equal(app.node('hitText').textContent,'READY');
 });
 
+test('BR WebGL failure preserves keyboard access and recovery restores Resume focus',()=>{
+ const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
+ const game=app.game,elapsed=game.elapsed;
+ app.node('scene').dispatch('webglcontextlost');
+ assert.equal(app.node('play').disabled,true);
+ assert.equal(app.context.document.activeElement,app.node('brViewMore'),
+  'GPU loss must focus an enabled menu control instead of disabled Resume');
+ app.context.VeilpointRenderer.failNext=true;
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.context.document.activeElement,app.node('brViewMore'),
+  'failed GPU recovery cannot return keyboard focus to a disabled control');
+ assert.equal(app.node('play').disabled,true);
+ app.frame(2000);assert.equal(game.elapsed,elapsed);
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,false);
+ assert.equal(app.context.document.activeElement,app.node('play'));
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+ app.frame(3000);assert.equal(game.elapsed,elapsed,
+  'successful GPU restoration must not auto-resume the 60Hz game');
+});
+
+test('BR pre-match GPU reset returns keyboard focus without starting an offline round',()=>{
+ const app=boot({windows:true});
+ app.node('scene').dispatch('webglcontextlost');
+ assert.equal(app.context.document.activeElement,app.node('brViewMore'));
+ assert.equal(app.node('play').disabled,true);
+ app.node('scene').dispatch('webglcontextrestored');
+ assert.equal(app.node('play').disabled,false);
+ assert.equal(app.context.document.activeElement,app.node('play'));
+ assert.equal(app.node('overlay').classList.contains('hidden'),false);
+});
+
 test('PC WebGL context loss preserves paused BR and explicit resume',()=>{
  const app=boot({windows:true});app.node('play').click();app.frame(1000/60);
  const game=app.game,elapsed=game.elapsed;let prevented=false;
