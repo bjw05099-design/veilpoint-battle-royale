@@ -855,8 +855,8 @@ test('relay self diagnostic reflects only physically earned input and never a hi
  const {TeamMatch}=require('../src/team-match.cjs');
  const m=new TeamMatch({now:()=>0});
  m.join('a','A');m.join('b','B');
- m.command('a',{seq:1,type:'ready',active:true});
- m.command('b',{seq:1,type:'ready',active:true});
+ m.command('a',{seq:1,type:'ready'});
+ m.command('b',{seq:1,type:'ready'});
  assert.equal(m.phase,'playing');
  const player=m.players.get('a'),other=m.players.get('b');
  assert.equal(m.snapshot('a').self.relayInteraction,'approach');
