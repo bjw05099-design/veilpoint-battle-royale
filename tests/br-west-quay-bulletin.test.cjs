@@ -21,7 +21,14 @@ test('west-quay board is a local read-only public countdown, not a remote game r
  assert.equal(entry.seconds,Math.ceil(g.zone.phaseRemaining));
  assert.match(g.message,/WEST QUAY NOTICE/);
  assert.doesNotMatch(g.message,/BOT|ENEMY|OPPONENT|HEALTH/);
- assert.equal(Sim.snapshotMatch(g),atNotice,'reading a public sign changes no checkpoint data');
+ const after=JSON.parse(Sim.snapshotMatch(g)),beforeRead=JSON.parse(atNotice);
+ assert.equal(after.message,g.message,'the local public sign becomes visible mission feedback');
+ assert.equal(after.messageTime,4);
+ // BR serializes the on-screen message on purpose, but this interaction must
+ // not alter the actual 60Hz competition, inventory, RNG or public zone clock.
+ after.message=beforeRead.message;
+ after.messageTime=beforeRead.messageTime;
+ assert.deepEqual(after,beforeRead,'the notice cannot change gameplay or finite resources');
  g.obstacles.push({x:-135,z:-134.2,w:3,d:.18,h:2,type:'test-wall'});
  assert.deepEqual(Sim.inspectDockNotice(g),{ok:false,reason:'out_of_reach'});
 });
