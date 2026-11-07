@@ -180,3 +180,18 @@ test('CH01 playable primary remains preferred over a playable backup',()=>{
  assert.equal(restored.source,'primary');
  assert.equal(restored.state.phase,'terminal');
 });
+
+test('CH01 refuses backup claims without a durable backup generation',()=>{
+ const raw=Story.serialize(Story.createState());
+ for(const primary of [raw,null]){
+  let called=0;
+  const result=Recovery.recover(primary,null,()=>{
+   called++;
+   return {source:'backup',state:Story.createState()};
+  });
+  assert.equal(result,null,'missing backup must not be presented as restored');
+  assert.equal(called,1,'never retry a nonexistent backup generation');
+ }
+ const backup=Story.serialize(Story.createState());
+ assert.equal(Recovery.recover('{broken',backup,Story.recoverCheckpoint).source,'backup');
+});
