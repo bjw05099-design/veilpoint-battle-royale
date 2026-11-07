@@ -171,6 +171,13 @@ test('WebGL draws a low-LOD 210m precision target and its brief impact cue',()=>
  Object.assign(state.bots[0],{x:105,z:-20,alive:true,health:100});
  const boxes=[];
  const original=renderer.dynamic.box.bind(renderer.dynamic);
+ const originalYaw=renderer.dynamic.boxYaw.bind(renderer.dynamic);
+ // The new character silhouette uses actual world-space facing, while
+ // physical impact marks still use axis-aligned shallow boxes.
+ renderer.dynamic.boxYaw=(x,y,z,w,h,d,yaw,color)=>{
+  if(x===105&&z===-20)boxes.push({x,y,z,w,h,d,yaw});
+  return originalYaw(x,y,z,w,h,d,yaw,color);
+ };
  renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
   if(x===105&&z===-20)boxes.push({x,y,z,w,h,d});
   return original(x,y,z,w,h,d,color);
