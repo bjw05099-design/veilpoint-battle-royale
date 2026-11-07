@@ -898,12 +898,16 @@
   // when the actual world collision considers it blocked.
   function nearestRelocatableCache(game) {
     if(!game||game.status!=='playing'||game.scene)return null;
-    const p=game.player;
-    const available=game.loot.filter(item=>dist(item,p)<PICKUP_REACH&&
-      !lineBlocked(p.x,p.z,item.x,item.z,
-        game.obstacles.concat(actorObstacles(game,p,null,false))));
-    available.sort((a,b)=>dist(a,p)-dist(b,p)||a.id-b.id);
-    return available[0]||null;
+    const p=game.player,cover=game.obstacles.concat(actorObstacles(game,p,null,false));
+    let closest=null,best=Infinity;
+    for(const item of game.loot){
+      const distance=dist(item,p);
+      if(distance>=PICKUP_REACH||distance>best||
+         (distance===best&&closest&&item.id>=closest.id)||
+         lineBlocked(p.x,p.z,item.x,item.z,cover))continue;
+      closest=item;best=distance;
+    }
+    return closest;
   }
   // Physically move one existing field cache to an adjacent clear position.
   // No stock is created: the same cache ID and finite inventory travel together.
