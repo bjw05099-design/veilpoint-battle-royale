@@ -10,6 +10,7 @@
 #include "Engine/World.h"
 #include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
+#include "InputCoreTypes.h"
 
 void AVPHUD::DrawHUD()
 {
@@ -76,9 +77,47 @@ void AVPHUD::DrawHUD()
     {
         DrawText(Story->GetObjectiveLabel(), FLinearColor(.82f,.94f,.87f,1.f),
                  X, Y + 95.f * Scale, nullptr, .8f * Scale, false);
-        DrawText(TEXT("LOCAL STORY PROTOTYPE  |  E: INTERACT WITH MARKERS"),
+        DrawText(TEXT("LOCAL STORY PROTOTYPE | E: INTERACT | J: FIELD NOTES"),
                  FLinearColor(.78f,.87f,.92f,1.f),
                  X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
+        // A player-controlled, local-only notebook: no cursor/omniscient
+        // world marker, no gameplay-state mutation and no client-authority RPC.
+        // Only facts already replicated as physically inspected are readable.
+        if (PlayerOwner->WasInputKeyJustPressed(EKeys::J))
+            bStoryJournalOpen = !bStoryJournalOpen;
+        if (bStoryJournalOpen)
+        {
+            const float Width=FMath::Min(410.f*Scale,Canvas->ClipX*.47f);
+            const float Left=Canvas->ClipX-Width-18.f*Scale;
+            const float Top=FMath::Min(168.f*Scale,
+                FMath::Max(36.f,Canvas->ClipY-214.f*Scale));
+            DrawRect(FLinearColor(.025f,.09f,.11f,.95f),
+                     Left,Top,Width,186.f*Scale);
+            const float TextX=Left+12.f*Scale;
+            DrawText(TEXT("FIELD NOTES | J TO CLOSE"),
+                     FLinearColor(.89f,.94f,.85f,1.f),
+                     TextX,Top+10.f*Scale,nullptr,.82f*Scale,false);
+            DrawText(Story->bReadHarbor
+                       ? TEXT("HARBOR RECORD 04:12 | OBSERVED")
+                       : TEXT("HARBOR RECORD | NOT YET INSPECTED"),
+                     FLinearColor(.78f,.88f,.87f,1.f),
+                     TextX,Top+43.f*Scale,nullptr,.70f*Scale,false);
+            DrawText(Story->bReadShelter
+                       ? TEXT("SHELTER RECORD 04:07 | OBSERVED")
+                       : TEXT("SHELTER RECORD | NOT YET INSPECTED"),
+                     FLinearColor(.78f,.88f,.87f,1.f),
+                     TextX,Top+74.f*Scale,nullptr,.70f*Scale,false);
+            DrawText(Story->bReadHarbor && Story->bReadShelter
+                       ? TEXT("TIMESTAMPS DIFFER | CAUSE UNKNOWN")
+                       : TEXT("COMPARE AFTER INSPECTING BOTH"),
+                     FLinearColor(.91f,.86f,.63f,1.f),
+                     TextX,Top+105.f*Scale,nullptr,.70f*Scale,false);
+            DrawText(Story->bBeaconActivated
+                       ? TEXT("HARBOR SIGNAL | SWITCH ON")
+                       : TEXT("HARBOR SIGNAL | NOT ACTIVE"),
+                     FLinearColor(.78f,.88f,.87f,1.f),
+                     TextX,Top+136.f*Scale,nullptr,.70f*Scale,false);
+        }
         // Nearby optional mission wayfinding must come from a truly observed,
         // currently available physical marker. Never turn an unseen route
         // choice or occluded record into an omniscient HUD location.
