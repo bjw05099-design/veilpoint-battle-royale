@@ -164,14 +164,14 @@
   function shuttleBody(game){
     return game.obstacles.find(o=>o.routeId==='br-yard-shuttle');
   }
-  function shuttleClear(game,x,z,yaw){
+  function shuttleClear(game,x,z,yaw,actors=game.bots){
     // Three longitudinal probes approximate the vehicle's real footprint
     // against the same collidable world used for pedestrian movement.
     const staticWorld=game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle');
     for(const offset of [-1.25,0,1.25]){
       const px=x+Math.sin(yaw)*offset,pz=z-Math.cos(yaw)*offset;
       if(blocked(px,pz,.95,staticWorld)||
-        game.bots.some(b=>b.alive&&Math.hypot(b.x-px,b.z-pz)<1.65))return false;
+        actors.some(b=>b.alive&&Math.hypot(b.x-px,b.z-pz)<1.65))return false;
     }
     return true;
   }
@@ -197,13 +197,14 @@
         const z=v.z+side*Math.sin(v.yaw)*length;
         if(blocked(x,z,.85,game.obstacles)||
           game.bots.some(b=>b.alive&&Math.hypot(b.x-x,b.z-z)<1.8))continue;
-        p.x=x;p.z=z;v.driver=false;
+        p.x=x;p.z=z;v.driver=false;v.speed=0;
         game.message='YARD VEHICLE PARKED · ON FOOT';game.messageTime=2;
         return {ok:true,event:'exit'};
       }
       return {ok:false,reason:'exit_obstructed'};
     }
     if(Math.abs(v.speed)>.01)return {ok:false,reason:'vehicle_moving'};
+    if(game.handcart?.engaged)return {ok:false,reason:'hands_occupied'};
     v.driver=true;p.x=v.x;p.z=v.z;p.yaw=v.yaw;
     game.message='YARD VEHICLE · W/S DRIVE · A/D TURN · E EXIT WHEN STOPPED';
     game.messageTime=4;
@@ -616,6 +617,7 @@
   }
   function reload(game) {
     if(game.status!=='playing')return {ok:false,reason:'not_playing'};
+    if(game.vehicle?.driver)return {ok:false,reason:'vehicle_controls_active'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.reloadRemaining>0){
       // A stressed fumble has one recoverable, player-initiated correction.
@@ -733,7 +735,7 @@
         const heard=approximateSoundPosition(SERVICE_YARD);
         b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
         b.lastSeenUntil=game.elapsed+1.5;
-      } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
+      } else if(!outsideBot&&!driving&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
         // Investigate only the last audible footstep position. Quiet movement
         // behind cover cannot continuously update this memory.
         const heard=approximateSoundPosition(p); // Sound cannot reveal exact hidden coordinates.
@@ -929,6 +931,7 @@
   }
   function tag(game, crouching=false) {
     if(game.status!=='playing') return {ok:false,reason:'not_playing'};
+    if(game.vehicle?.driver)return {ok:false,reason:'vehicle_controls_active'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.charges<=0) return {ok:false,reason:'empty'};
     if(p.reloadRemaining>0) return {ok:false,reason:'reloading'};
@@ -1042,7 +1045,7 @@
     return selected;
   }
   function pickup(game) {
-    if(game.status!=='playing') return null;
+    if(game.status!=='playing'||game.vehicle?.driver) return null;
     const closest=nearestReachablePickup(game);
     if(!closest) return null;
     const p=game.player;
@@ -1358,7 +1361,7 @@
       const body=shuttleBody(game),bounds=shuttleAabb(v.yaw);
       if(!body)throw new RangeError('Missing vehicle collider');
       body.x=v.x;body.z=v.z;body.w=bounds.w;body.d=bounds.d;
-      if(!shuttleClear(game,v.x,v.z,v.yaw))
+      if(!shuttleClear(game,v.x,v.z,v.yaw,saved.bots))
         throw new RangeError('Saved vehicle intersects architecture');
       if(v.driver&&(Math.abs(saved.player.x-v.x)>1e-5||
         Math.abs(saved.player.z-v.z)>1e-5))
