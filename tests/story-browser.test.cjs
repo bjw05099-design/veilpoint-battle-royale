@@ -850,8 +850,11 @@ test('CH01 GPU loss keeps PC focus on a usable menu item until renderer recovery
  const app=boot(new Map(),false,'granted',true,true);
  app.element('continue').click();
  app.moveForward(0,15);
- const previous=app.store.get('veilpoint.story.ch01');
  app.element('scene').dispatch('webglcontextlost');
+ // Pause intentionally persists the current 60Hz frame; this is the durable
+ // boundary that must remain stable while the GPU is unavailable.
+ const previous=app.store.get('veilpoint.story.ch01');
+ assert.ok(previous);
  assert.equal(app.element('continue').disabled,true);
  assert.equal(app.context.document.activeElement,app.element('storyMenuMore'),
   'GPU loss must not strand keyboard focus on the disabled Continue button');
