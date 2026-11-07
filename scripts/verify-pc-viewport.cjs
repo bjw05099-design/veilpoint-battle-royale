@@ -582,6 +582,13 @@ async function run(){
    await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
    await rpc('Input.dispatchKeyEvent',{type:'keyUp',...key});
   }
+  async function pressTab(shift=false){
+   // Dispatch physical browser keyboard navigation, not DOM focus rewriting.
+   const key={key:'Tab',code:'Tab',windowsVirtualKeyCode:9,nativeVirtualKeyCode:9,
+    modifiers:shift?8:0};
+   await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
+   await rpc('Input.dispatchKeyEvent',{type:'keyUp',...key});
+  }
   async function pressG(){
    const key={key:'g',code:'KeyG',windowsVirtualKeyCode:71,nativeVirtualKeyCode:71};
    await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
@@ -646,6 +653,25 @@ async function run(){
    })()`,'BR-more Escape '+width+'x'+height);
    assert.equal(back,'main|brViewMore',
     'Escape must return to BR main and focus More at '+width+'x'+height);
+   const mainTabSetup=await evaluateValue(`(()=>{
+    const overlay=document.getElementById('overlay');
+    const nodes=[...overlay.querySelectorAll('button,select,input,textarea,a[href]')]
+     .filter(node=>!node.disabled&&node.tabIndex>=0&&node.getClientRects().length>0&&
+      getComputedStyle(node).visibility!=='hidden'&&getComputedStyle(node).display!=='none');
+    if(nodes.length<2)return 'missing';
+    nodes[nodes.length-1].focus({preventScroll:true});
+    return nodes[0].id+'|'+nodes[nodes.length-1].id;
+   })()`,'BR main Tab setup '+width+'x'+height);
+   assert.notEqual(mainTabSetup,'missing','BR main needs two focusable controls');
+   const [mainFirst,mainLast]=mainTabSetup.split('|');
+   await pressTab();
+   assert.equal(await evaluateValue('document.activeElement?.id||""',
+    'BR main Tab '+width+'x'+height),mainFirst,
+    'BR main Tab must wrap to first control at '+width+'x'+height);
+   await pressTab(true);
+   assert.equal(await evaluateValue('document.activeElement?.id||""',
+    'BR main Shift+Tab '+width+'x'+height),mainLast,
+    'BR main Shift+Tab must wrap to last control at '+width+'x'+height);
    const graphics=await evaluateValue(`(()=>{
     const get=id=>document.getElementById(id);
     get('graphicsPauseOpen').click();
@@ -668,6 +694,25 @@ async function run(){
    })()`,'settings G typeahead '+width+'x'+height);
    assert.equal(nativeSelect,'open|graphicsPreset',
     'G must remain a native settings select key at '+width+'x'+height);
+   const settingsTabSetup=await evaluateValue(`(()=>{
+    const panel=document.getElementById('graphicsPanel');
+    const nodes=[...panel.querySelectorAll('button,select,input,textarea,a[href],[tabindex]')]
+     .filter(node=>!node.disabled&&node.tabIndex>=0&&node.getClientRects().length>0&&
+      getComputedStyle(node).visibility!=='hidden');
+    if(nodes.length<2)return 'missing';
+    nodes[nodes.length-1].focus({preventScroll:true});
+    return nodes[0].id+'|'+nodes[nodes.length-1].id;
+   })()`,'graphics Tab setup '+width+'x'+height);
+   assert.notEqual(settingsTabSetup,'missing','settings need two focusable controls');
+   const [settingsFirst,settingsLast]=settingsTabSetup.split('|');
+   await pressTab();
+   assert.equal(await evaluateValue('document.activeElement?.id||""',
+    'graphics Tab '+width+'x'+height),settingsFirst,
+    'Graphics Tab must wrap inside settings at '+width+'x'+height);
+   await pressTab(true);
+   assert.equal(await evaluateValue('document.activeElement?.id||""',
+    'graphics Shift+Tab '+width+'x'+height),settingsLast,
+    'Graphics Shift+Tab must stay inside settings at '+width+'x'+height);
    await pressEscape();
    const closed=await evaluateValue(`(()=>{
     const get=id=>document.getElementById(id);
@@ -678,6 +723,10 @@ async function run(){
     'Escape must close settings and restore opener focus at '+width+'x'+height);
    keyboardRecords.push({width,height,cases:[
     {name:'BR-more-Escape',passed:true,focused:true},
+    {name:'BR-main-Tab-wrap',passed:true,focused:true},
+    {name:'BR-main-ShiftTab-wrap',passed:true,focused:true},
+    {name:'settings-Tab-wrap',passed:true,focused:true},
+    {name:'settings-ShiftTab-wrap',passed:true,focused:true},
     {name:'settings-Escape',passed:true,focused:true},
     {name:'settings-select-G',passed:true,focused:true}
    ]});
