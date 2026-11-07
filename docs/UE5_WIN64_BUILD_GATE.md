@@ -9,6 +9,16 @@ This is an **executable PowerShell build/preflight workflow**, not a supplied Wi
 - Browser BR/CH01 demo remains the primary Nov 27 delivery track. This script neither modifies nor replaces its ZIP.
 - Only inspect, compile and package sources you are authorized to build. No downloaded binaries or external executable dependencies are fetched by this script.
 
+## Author the first native CH01 map in Unreal Editor (not yet executed here)
+
+The repository now includes `scripts/ue5-author-ch01-map.py`. This is an **Editor-only asset generator**, not a checked-in `.umap` or a proof of an Unreal 5.8 build. After installing the matching engine and compiling the C++ native module, open the project in the **Unreal Editor** and use **Tools → Execute Python Script** to run the file. The project explicitly enables `PythonScriptPlugin` for Editor only. Epic documents `LevelEditorSubsystem.new_level`, actor spawning and `save_current_level` in its Editor API:
+https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/LevelEditorSubsystem
+https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEditorActorSubsystem/SpawnActorFromClass
+
+The script refuses to overwrite an existing `Content/Maps/CH01_Coast.umap`, requires the compiled `VPStoryGameMode`, creates a non-partitioned `/Game/Maps/CH01_Coast` map, assigns the CH01 native mode to its world settings, adds one real `PlayerStart` and simple lighting, then checks that the new `.umap` was actually saved. The existing C++ mode spawns the deterministic coastal blockout and seven physical mission markers during native gameplay. **No final textures, civilians, narrative sequences, measured RTX 3070 frame rate or UE5 launch are implied.**
+
+Once `Unreal/Veilpoint/Content/Maps/CH01_Coast.umap` has been created and reviewed in the editor, set `GameDefaultMap=/Game/Maps/CH01_Coast` in `Unreal/Veilpoint/Config/DefaultEngine.ini` for the standalone CH01 test. Do not change BR's default map in source until both modes have separate launch/menu paths. Check the saved map, physical interactions and CH01 HUD in PIE, and only then run the native Win64 preflight. The script deliberately leaves the current source default map unchanged to prevent a missing asset from breaking the browser demo or native build gate. If an Editor action fails after creating an empty map, examine/delete the incomplete asset manually before rerunning; the script never overwrites it automatically.
+
 ## Local Windows checks
 
 On a Windows PC with a compatible Unreal Engine **5.8** installation and supported Visual Studio C++ build tools, open PowerShell at the checked-out repository root:

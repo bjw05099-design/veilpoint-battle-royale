@@ -3,9 +3,31 @@
   "EngineAssociation": "5.8",
   "Category": "Games",
   "Description": "VEILPOINT high-fidelity Unreal Engine 5.8 development scaffold",
-  "Modules": [{ "Name": "Veilpoint", "Type": "Runtime", "LoadingPhase": "Default" }],
+  "Modules": [
+    {
+      "Name": "Veilpoint",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
   "Plugins": [
-    {"Name": "EnhancedInput", "Enabled": true},
-    {"Name": "ModelingToolsEditorMode", "Enabled": true, "TargetAllowList": ["Editor"]}
+    {
+      "Name": "EnhancedInput",
+      "Enabled": true
+    },
+    {
+      "Name": "ModelingToolsEditorMode",
+      "Enabled": true,
+      "TargetAllowList": [
+        "Editor"
+      ]
+    },
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true,
+      "TargetAllowList": [
+        "Editor"
+      ]
+    }
   ]
 }
