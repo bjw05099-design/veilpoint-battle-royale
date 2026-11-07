@@ -37,3 +37,26 @@ test('snapshot restore rejects invalid state and preserves movement',()=>{
  assert.throws(()=>V.restore({...v,teleport:true}),RangeError);
  assert.throws(()=>V.tick(v,{},.2,()=>false),RangeError);
 });
+
+test('parking brake overrides throttle and stops a moving vehicle',()=>{
+ const v=V.create(0,0);V.enter(v,{x:0,z:0},()=>false);
+ for(let i=0;i<120;i++)V.tick(v,{toggleEngine:i===0,throttle:1},1/60,()=>false);
+ const before=v.speed;
+ for(let i=0;i<120;i++)V.tick(v,{parkingBrake:true,throttle:1},1/60,()=>false);
+ assert.ok(before>1);assert.equal(v.speed,0);assert.equal(v.engineOn,true);
+ for(let i=0;i<30;i++)V.tick(v,{parkingBrake:true,throttle:1},1/60,()=>false);
+ assert.equal(v.speed,0);
+});
+test('swept road collision checks intermediate positions before the endpoint',()=>{
+ const v=V.create(0,0);V.enter(v,{x:0,z:0},()=>false);
+ for(let i=0;i<180;i++)V.tick(v,{toggleEngine:i===0,throttle:1},1/60,()=>false);
+ const before={x:v.x,z:v.z};
+ const endZ=v.z-v.speed*.05;
+ const barrierZ=(v.z+endZ)/2;
+ let probes=0;
+ V.tick(v,{throttle:1},.05,box=>{probes++;return box.z<=barrierZ;});
+ assert.ok(probes>=2);
+ assert.ok(v.z>barrierZ);
+ assert.equal(v.speed,0);
+ assert.ok(v.z<=before.z);
+});
