@@ -63,11 +63,13 @@ test('BR normal P-key bookmark loading validates exact round without deleting it
  assert.equal(f.removes,0);
  assert.equal(f.fn.state.bookmarkIssue,null);
 });
-test('BR unreadable corrupt bookmark may be cleared only for the owning active round',()=>{
+test('BR corrupt bookmark is quarantined in place, never destructively cleared on an automatic read',()=>{
  const f=fixture({invalid:true});
  assert.equal(f.fn.loadFieldBookmark(),null);
- assert.equal(f.slots.has(KEY),false);
- assert.equal(f.removes,1);
+ assert.equal(f.slots.get(KEY),f.saved);
+ assert.equal(f.removes,0);
+ assert.equal(f.fn.state.manualCheckpoint,'in-memory-rewind');
+ assert.equal(f.fn.state.bookmarkIssue,'write-failed');
 });
 test('BR corrupt bookmark under a newer tab save remains intact',()=>{
  const f=fixture({invalid:true,otherTab:true});
@@ -97,4 +99,15 @@ test('BR preserves the previous bookmark when the repair read loses storage perm
  assert.equal(f.slots.get(KEY),f.saved);
  assert.equal(f.removes,0);
  assert.equal(f.fn.state.bookmarkIssue,'write-failed');
+});
+
+
+test('BR a second corrupt bookmark read never erases the only stored generation',()=>{
+ const f=fixture({invalid:true});
+ assert.equal(f.fn.loadFieldBookmark(),null);
+ assert.equal(f.fn.loadFieldBookmark(),null);
+ assert.equal(f.slots.get(KEY),f.saved);
+ assert.equal(f.removes,0,'no automatic read may clear shared localStorage');
+ assert.equal(f.sets,0,'do not overwrite a corrupt bookmark to hide validation errors');
+ assert.equal(f.fn.state.manualCheckpoint,'in-memory-rewind');
 });

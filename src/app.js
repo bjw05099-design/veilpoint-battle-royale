@@ -357,8 +357,11 @@ function loadFieldBookmark(){
     return null;
    }
   }catch(_readError){bookmarkIssue='write-failed';return null;}
-  // This is a best-effort comparison, not a cross-tab atomic delete.
-  clearFieldBookmark();
+  // localStorage has no atomic compare-and-delete. Even matching bytes can
+  // be replaced between this check and removeItem by another running tab.
+  // Never destroy the disk generation during an automatic failed read;
+  // explicit New Match and a later verified P-key save own replacement.
+  bookmarkIssue='write-failed';
   return null;
  }
 }
