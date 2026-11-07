@@ -1544,7 +1544,7 @@ function updateHud(){const s=simulation,p=s.player;
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
  $('weaponName').textContent=Game.FIREARMS[p.weaponId].label;
  $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+'</span>';
- $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · '+reloadLabel+' TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF');
+ $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · '+reloadLabel+' TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF')+(Game.wetApronFooting(p).wet?' · WET LOADING APRON · FOOTING 86%':'');
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
