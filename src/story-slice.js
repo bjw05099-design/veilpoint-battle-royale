@@ -1161,7 +1161,6 @@
         :state.aidPickedUp?'carrying':'available';
       return Object.freeze([
         item('muster','집결지 인원 확인',state.musterConfirmed?'done':'available',true),
-        item('driver','현장 운송 담당자 면담',state.transportContact===2?'done':'available',true),
          item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
