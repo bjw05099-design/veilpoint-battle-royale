@@ -72,6 +72,23 @@ test('PC UI focus excludes form controls and buttons from gameplay key handling'
  assert.equal(C.isInteractiveTarget(null),false);
 });
 
+test('undefined synthetic contenteditable attribute does not suppress PC gameplay keys',()=>{
+ const absent={tagName:'CANVAS',getAttribute:()=>undefined};
+ assert.equal(C.isInteractiveTarget(absent),false,
+  'missing wrapper attribute must not make a gameplay canvas editable');
+ const child={tagName:'SPAN',parentNode:{tagName:'DIV',
+  getAttribute:()=>undefined}};
+ assert.equal(C.isInteractiveTarget(child),false,
+  'nested noninteractive synthetic wrapper must not capture PC input');
+ const editable={tagName:'DIV',getAttribute:key=>
+  key==='contenteditable'?'':undefined};
+ assert.equal(C.isInteractiveTarget(editable),true,
+  'an explicitly empty contenteditable attribute remains interactive');
+ const off={tagName:'DIV',getAttribute:key=>
+  key==='contenteditable'?'false':undefined};
+ assert.equal(C.isInteractiveTarget(off),false);
+});
+
 test('nested PC menu and editable descendants never dispatch gameplay hotkeys',()=>{
  const button={tagName:'BUTTON'};
  const icon={tagName:'SPAN',parentElement:button};
