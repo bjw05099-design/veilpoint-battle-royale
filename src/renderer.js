@@ -186,7 +186,7 @@ class SoftwareRenderer {
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-  type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
+  type:o.type==='dock-handcart'?'dock-handcart':o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
     o.type==='yard-fence'?'yard-fence':'building'});
  if(!harborNight){
   // The roof is an elevated surface, not a fictitious ground-level cube.
@@ -225,7 +225,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -303,7 +303,7 @@ class Renderer {
  sim.obstacles.forEach((o,i)=>{
   // A sliding gate must not remain as a solid closed panel in the static mesh:
   // it is drawn once from the live world by the dynamic geometry planner.
-  if(o.routeId==='br-service-gate')return;
+  if(o.routeId==='br-service-gate'||o.routeId==='br-dock-handcart')return;
   if(o.type==='yard-fence'){
    if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
    return;
@@ -485,6 +485,10 @@ class Renderer {
     status.obstructed?[.81,.20,.14]:status.motorActive?[.96,.59,.18]:
       status.open?[.21,.70,.36]:[.43,.62,.65]);
  }
+ // Player-operated handcart: draw the SAME obstacle that blocks all actors.
+ // Do not leave a permanent second static cart at its original loading pad.
+ for(const cart of plan.handcarts||[])
+   mesh.box(cart.x,0,cart.z,cart.w,cart.h,cart.d,[.28,.37,.40]);
  // A single physical navigation sign follows the saved match world state.
  // Its narrow post and cloth flag require two cull-accounted boxes.
  for(const mark of plan.trailMarkers||[]){
