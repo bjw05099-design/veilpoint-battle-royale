@@ -6,6 +6,7 @@ const Visibility=require('../src/visibility.js');
 
 function dock(seed=71226,bots=0){
  const game=Sim.newMatch(seed,bots);
+ game.status='playing';
  game.player.x=129.7;game.player.z=-121;game.player.yaw=Math.PI/2;
  return game;
 }
@@ -17,6 +18,7 @@ test('new BR handcart is a real collision body at the east harbor, not a remote 
  assert.equal(Sim.blocked(132,-121,.85,game.obstacles),true);
  assert.equal(Sim.handcartStatus(game).near,true);
  const far=Sim.newMatch(11,0);
+ far.status='playing';
  assert.deepEqual(Sim.operateHandcart(far),{ok:false,reason:'out_of_reach'});
  const before=JSON.stringify(game.handcart);
  game.player.yaw=0;
