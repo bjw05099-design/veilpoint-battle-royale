@@ -19,6 +19,7 @@
   const limiter=global.VeilpointFPS.createFrameLimiter(60);
   const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};
   global.VeilpointInput=input;
+  let stillRequested=false;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
   // G is reserved by the PC input binder. It focuses the existing story
   // settings inside the pause menu without permitting any 60Hz world step.
@@ -1203,6 +1204,9 @@
     // leave a held movement/trigger latch active in the fixed-step world.
     if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
      if(Desktop.isGameplayShortcut(e)){clearInput();return;}
+    if(e.code==='F8'&&!e.repeat&&canAct()){
+      e.preventDefault();stillRequested=true;return;
+    }
     // Route-choice keys are owned by the visible dialog, even when the
     // focused target is one of its accessible buttons. Previously the generic
     // focused-button guard swallowed all three actions.
@@ -1647,7 +1651,17 @@
     // The existing finite damageFlash timer is already advanced by the fixed
     // 60Hz story step. Present a brief non-directional edge cue (no enemy radar).
     $('damageIndicator').style.opacity=String(running?Math.min(.65,Math.max(0,state.world.damageFlash/.45*.65)):0);
-    if(renderer&&limiter.shouldRender(now))renderer.draw(state.world);
+    if(renderer&&limiter.shouldRender(now)){
+      renderer.draw(state.world);
+      if(stillRequested){
+        stillRequested=false;
+        if(canAct())try{
+          global.VeilpointBodycamStill.saveStill({
+            canvas,renderer,document,mode:'ch01',elapsed:state.world.elapsed
+          });
+        }catch(error){console.warn('VEILPOINT bodycam still failed',error);}
+      }
+    }
     if(now-lastHud>180){lastHud=now;updateHud();}
   }
   const loaded=readCheckpoint();
