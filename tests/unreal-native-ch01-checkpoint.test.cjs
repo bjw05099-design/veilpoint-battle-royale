@@ -15,7 +15,8 @@ test('UE5 CH01 native objective save is versioned, local and independent of brow
  assert.match(save,/class VEILPOINT_API UVPStoryCheckpoint : public USaveGame/);
  for(const field of ['SchemaVersion','SavedStage','bSavedHarborRecord','bSavedShelterRecord'])
   assert.match(save,new RegExp('UPROPERTY\\(SaveGame\\)[\\s\\S]*?\\b'+field+'\\b'));
- assert.match(save,/SchemaVersion = 1/);
+ assert.match(save,/SchemaVersion = 2/);
+ assert.match(save,/bSavedBeaconActivated = false/);
  assert.match(mode,/veilpoint\.ch01\.native\.v1/);
  assert.doesNotMatch(mode,/veilpoint\.brCheckpoint|ve​ilpoint\.graphics|cloud/);
  assert.doesNotMatch(mode,/SavedPlayerTransform|SavedAmmo|SavedHealth/);
@@ -42,11 +43,11 @@ test('UE5 CH01 rejects impossible restore states and does not mint unearned obje
  assert.match(fn,/case EVPStoryStage::InspectRecords:[\s\S]*?bCoherent = !\(bHarbor && bShelter\)/);
  assert.match(fn,/case EVPStoryStage::ChooseRoute:[\s\S]*?case EVPStoryStage::Complete:[\s\S]*?bCoherent = bHarbor && bShelter/);
  assert.match(fn,/default:\s*return false/);
- assert.match(fn,/if \(!bCoherent\) return false/);
- assert.ok(fn.indexOf('if (!bCoherent) return false')<fn.indexOf('StoryStage = Stage'),
+ assert.match(fn,/if \(!bCoherent \|\| \(bBeacon && Stage == EVPStoryStage::RestoreRelay\)\) return false/);
+ assert.ok(fn.indexOf('if (!bCoherent || (bBeacon && Stage == EVPStoryStage::RestoreRelay)) return false')<fn.indexOf('StoryStage = Stage'),
   'validate before altering the authoritative mission');
  assert.match(fn,/ForceNetUpdate\(\)/);
- assert.match(stateH,/bool RestoreProgress\(EVPStoryStage Stage, bool bHarbor, bool bShelter\)/);
+ assert.match(stateH,/bool RestoreProgress\(EVPStoryStage Stage, bool bHarbor, bool bShelter, bool bBeacon\)/);
 });
 
 test('UE5 CH01 progression attempts persistence only after a valid physical objective interaction',()=>{

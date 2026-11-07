@@ -12,7 +12,7 @@ class VEILPOINT_API UVPStoryCheckpoint : public USaveGame
     GENERATED_BODY()
 public:
     UPROPERTY(SaveGame)
-    int32 SchemaVersion = 1;
+    int32 SchemaVersion = 2;
 
     UPROPERTY(SaveGame)
     EVPStoryStage SavedStage = EVPStoryStage::RestoreRelay;
@@ -22,4 +22,8 @@ public:
 
     UPROPERTY(SaveGame)
     bool bSavedShelterRecord = false;
+
+    // V2 optional objective, absent/false in V1 local saves.
+    UPROPERTY(SaveGame)
+    bool bSavedBeaconActivated = false;
 };

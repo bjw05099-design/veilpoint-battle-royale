@@ -43,6 +43,8 @@ void AVPStoryGameMode::BeginPlay()
     // Replace them with authentic authored harbor/courtyard assets later.
     const FMarkerPlacement Markers[] = {
         {EVPStoryAction::RestoreRelay, FVector(650.f, 0.f, 120.f)},
+        // Optional physical warning light on the harbor's public walkway.
+        {EVPStoryAction::ActivateBeacon, FVector(650.f, -650.f, 120.f)},
         {EVPStoryAction::ReadHarbor, FVector(1700.f, -500.f, 120.f)},
         {EVPStoryAction::ReadShelter, FVector(1700.f, 500.f, 120.f)},
         {EVPStoryAction::ChooseSouth, FVector(2800.f, -400.f, 120.f)},
@@ -84,12 +86,13 @@ constexpr int32 CH01UserIndex = 0;
 // The final authority check still happens in AVPStoryGameState::RestoreProgress.
 bool IsCoherentSaved(const UVPStoryCheckpoint* Saved)
 {
-    if (!Saved || Saved->SchemaVersion != 1) return false;
+    if (!Saved || (Saved->SchemaVersion != 1 && Saved->SchemaVersion != 2)) return false;
+    const bool Beacon = Saved->SchemaVersion == 2 && Saved->bSavedBeaconActivated;
     const bool Harbor = Saved->bSavedHarborRecord;
     const bool Shelter = Saved->bSavedShelterRecord;
     switch (Saved->SavedStage)
     {
-    case EVPStoryStage::RestoreRelay: return !Harbor && !Shelter;
+    case EVPStoryStage::RestoreRelay: return !Harbor && !Shelter && !Beacon;
     case EVPStoryStage::InspectRecords: return !(Harbor && Shelter);
     case EVPStoryStage::ChooseRoute:
     case EVPStoryStage::SouthExit:
@@ -127,11 +130,13 @@ void AVPStoryGameMode::RestoreStoryCheckpoint()
     if (!State) return;
     UVPStoryCheckpoint* Primary = ReadVerifiedCheckpoint(CH01Slot);
     if (Primary && State->RestoreProgress(
-        Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord))
+        Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord,
+        Primary->SchemaVersion == 2 && Primary->bSavedBeaconActivated))
         return;
     UVPStoryCheckpoint* Backup = ReadVerifiedCheckpoint(CH01BackupSlot);
     if (Backup && State->RestoreProgress(
-        Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord))
+        Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord,
+        Backup->SchemaVersion == 2 && Backup->bSavedBeaconActivated))
     {
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective backup"));
         return;
@@ -150,10 +155,11 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
     UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
         UGameplayStatics::CreateSaveGameObject(UVPStoryCheckpoint::StaticClass()));
     if (!Saved) return false;
-    Saved->SchemaVersion = 1;
+    Saved->SchemaVersion = 2;
     Saved->SavedStage = State->StoryStage;
     Saved->bSavedHarborRecord = State->bReadHarbor;
     Saved->bSavedShelterRecord = State->bReadShelter;
+    Saved->bSavedBeaconActivated = State->bBeaconActivated;
     // Copy only a coherent, previously confirmed primary into the backup slot
     // BEFORE overwriting the active slot. If that copy fails, retain primary.
     // This is best-effort redundancy, not an atomic filesystem transaction.
@@ -169,7 +175,9 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
     UVPStoryCheckpoint* Check = bWritten ? ReadVerifiedCheckpoint(CH01Slot) : nullptr;
     const bool bVerified = Check && Check->SavedStage == Saved->SavedStage &&
         Check->bSavedHarborRecord == Saved->bSavedHarborRecord &&
-        Check->bSavedShelterRecord == Saved->bSavedShelterRecord;
+        Check->bSavedShelterRecord == Saved->bSavedShelterRecord &&
+        Check->SchemaVersion == Saved->SchemaVersion &&
+        Check->bSavedBeaconActivated == Saved->bSavedBeaconActivated;
     if (!bVerified)
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save verification failed)"));
     return bVerified;

@@ -118,7 +118,11 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => performance.now(), timeoutMs = 30000} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE} = {}) {
+    // Host-selected, finite match format. The server owns this target for the
+    // entire round; client JSON cannot shorten or prolong the match.
+    if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
+    this.targetScore = targetScore;
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -706,7 +710,7 @@ class TeamMatch {
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
-      if (this.score[team] >= WIN_SCORE) this.finish(team, 'objective_score');
+      if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
     }
     // A valid objective completed on the final tick wins before the timer
     // adjudicates a lower score or tie. All other rounds end at the deadline.
@@ -747,7 +751,7 @@ class TeamMatch {
       score: {...this.score},
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
-      targetScore: WIN_SCORE,
+      targetScore: this.targetScore,
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       // Immutable internal events are copied into a public snapshot. A local
       // browser cannot forge or alter server history by mutating its JSON.

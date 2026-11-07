@@ -5,6 +5,7 @@
 #include "VPStoryMarker.generated.h"
 
 class UStaticMeshComponent;
+class UPointLightComponent;
 class AVPCharacter;
 
 // Editor-placeable or bootstrap-spawned physical local mission interactions.
@@ -21,6 +22,9 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
     TObjectPtr<UStaticMeshComponent> Model;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
+    TObjectPtr<UPointLightComponent> BeaconLight;
+
     UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
     EVPStoryAction Action = EVPStoryAction::RestoreRelay;
 
@@ -36,4 +40,5 @@ private:
     // Physical silhouette reflects the replicated objective type. Native
     // placeholder markers remain usable without missing external assets.
     void ApplyStageShape();
+    void SyncBeaconLight();
 };
