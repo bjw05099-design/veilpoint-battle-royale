@@ -48,6 +48,8 @@ void AVPStoryMarker::ApplyStageShape()
     {
     case EVPStoryAction::RestoreRelay:
         Shape = FVector(.52f, .52f, 1.2f); break; // Local relay mast
+    case EVPStoryAction::ActivateBeacon:
+        Shape = FVector(.32f, .32f, 1.05f); break; // Manual harbor signal pedestal
     case EVPStoryAction::ReadHarbor:
     case EVPStoryAction::ReadShelter:
         Shape = FVector(.60f, .60f, .32f); break; // Physical record station
