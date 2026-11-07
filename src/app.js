@@ -1517,12 +1517,13 @@ function updateHud(){const s=simulation,p=s.player;
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [saveMessage,bookmarkMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const yardGate=Game.serviceGateStatus(s);
+ const gateGuide=Navigation?Navigation.serviceGate(p,yardGate,Game.SERVICE_YARD,s.obstacles):'';
  const nearby=Game.nearestReachablePickup(s);
  const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
    item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
- $('pickupPrompt').style.display=yardGate.near||nearby||restock?'block':'none';
+ $('pickupPrompt').style.display=yardGate.near||nearby||restock||gateGuide?'block':'none';
  if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
   :yardGate.closing
@@ -1536,6 +1537,7 @@ function updateHud(){const s=simulation,p=s.player;
    :interactPrompt+' COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
    (restock?' · [V] RETURN SPARE ROUNDS':'');
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
+ else if(gateGuide)$('pickupPrompt').textContent=gateGuide;
  minimap();
 }
 function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}

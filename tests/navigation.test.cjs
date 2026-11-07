@@ -117,3 +117,32 @@ test('BR authored field sign guidance reflects true reach and solid obstacles',(
  const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
  assert.match(app,/Navigation\.fieldSign\(p,s\.trailMarker,s\.obstacles\)/);
 });
+
+
+test('BR physical service-yard switch is discoverable only nearby and never through an asserted clear path',()=>{
+ const s=sim.newMatch(20261107,0);
+ s.status='playing';
+ const site=sim.SERVICE_YARD;
+ const player={x:site.switchX-12,z:site.switchZ,yaw:Math.PI/2};
+ const state=sim.serviceGateStatus({...s,player});
+ assert.equal(state.near,false);
+ const guide=nav.serviceGate(player,state,site,[]);
+ assert.match(guide,/YARD SWITCH/);
+ assert.match(guide,/12m/);
+ assert.match(guide,/APPROACH FOR LOCAL CONTROL/);
+ assert.equal(nav.serviceGate({...player,x:site.switchX-80},state,site,[]),'');
+ assert.match(nav.serviceGate(player,state,[site][0],
+   [{x:site.switchX-6,z:site.switchZ,w:2,d:2}]),/DIRECT PATH BLOCKED/);
+ const near={...player,x:site.switchX,z:site.switchZ};
+ const reachable=sim.serviceGateStatus({...s,player:near,obstacles:[]});
+ assert.equal(reachable.near,true);
+ assert.equal(nav.serviceGate(near,reachable,site,[]),'');
+ assert.match(nav.serviceGate(player,{...state,open:true},site,[]),/PASSAGE AVAILABLE/);
+ assert.match(nav.serviceGate(player,{...state,obstructed:true},site,[]),/TRACK OBSTRUCTED/);
+ assert.equal(nav.serviceGate(player,state,{switchX:NaN,switchZ:0},[]),'');
+ assert.equal(nav.serviceGate({x:NaN,z:0,yaw:0},state,site,[]),'');
+ const js=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
+ assert.match(js,/Navigation\.serviceGate\(p,yardGate,Game\.SERVICE_YARD,s\.obstacles\)/);
+ assert.match(js,/yardGate\.near\|\|nearby\|\|restock\|\|gateGuide/);
+ assert.match(js,/else if\(gateGuide\)\$\('pickupPrompt'\)\.textContent=gateGuide/);
+});
