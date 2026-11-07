@@ -23,6 +23,7 @@ small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
 <button id="join">서버 입장</button><button id="ready" disabled>준비 / 재대전</button><button id="leave" disabled aria-label="서버에서 퇴장">퇴장</button>
 <p><label for="loadout">서버 검증 장비 선택 (준비 전)</label>
 <select id="loadout" disabled aria-label="장비 유형"><option value="carbine">CARBINE · 균형형</option><option value="compact">COMPACT · 기동형</option><option value="marksman">MARKSMAN · 장거리형</option><option value="shotgun">SHOTGUN · 근거리형</option><option value="support">SUPPORT · 중장비형</option><option value="sidearm">SIDEARM · 경량형</option><option value="precision">PRECISION · 정밀형</option></select></p>
+<p><button id="teamSound" type="button" aria-pressed="false">경기 효과음 켜기</button><small> PC에서 직접 켠 경우에만 경기 시작·연장전·종료를 짧은 원본 합성음으로 알립니다. 상대의 비공개 정보는 소리에 포함하지 않습니다.</small></p>
 <p>상태: <strong id="phase">LOBBY</strong></p><p>팀: <strong id="team">—</strong></p>
 <p>점수: <strong id="score">0 : 0</strong> · 승리 목표: <strong id="scoreGoal">서버 확인 중</strong></p>
 <p>현재 상대와의 재대전 기록: <strong id="series" role="status" aria-live="off">서버 확인 중</strong></p>
@@ -40,4 +41,4 @@ small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
 <div id="touch" aria-label="터치 조작"><span></span><button data-dir="up">↑</button><span></span>
 <button data-dir="left">←</button><button id="capture">E 점령</button><button data-dir="right">→</button>
 <span></span><button data-dir="down">↓</button><span></span></div></section></main>
-<script src="/desktop-controls.js" defer></script><script src="/team-client.js" defer></script></body></html>
+<script src="/desktop-controls.js" defer></script><script src="/team-audio.js" defer></script><script src="/team-client.js" defer></script></body></html>
