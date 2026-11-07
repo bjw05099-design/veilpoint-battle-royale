@@ -98,3 +98,22 @@ test('CH01 observed waiting guide can be preferred without exposing a hidden civ
   assert.doesNotMatch(nav.story(p,hidden,null,[],'guideControl'),/현장 대기 안내원/);
   assert.match(nav.story(p,hidden,null,[],'guideControl'),/가장 가까운 임무 표식.*안전한 안뜰/);
 });
+
+
+test('BR authored field sign guidance reflects true reach and solid obstacles',()=>{
+ const game=sim.newMatch(20261107,0);
+ game.status='playing';
+ assert.match(nav.fieldSign(game.player,null,game.obstacles),/PLACE ROUTE SIGN/);
+ assert.equal(sim.toggleTrailMarker(game).action,'placed');
+ assert.match(nav.fieldSign(game.player,game.trailMarker,game.obstacles),/\[J\] RECOVER/);
+ game.player.x=10;game.player.z=0;game.player.yaw=0;
+ assert.match(nav.fieldSign(game.player,game.trailMarker,game.obstacles),/APPROACH TO RECOVER/);
+ assert.doesNotMatch(nav.fieldSign(game.player,game.trailMarker,game.obstacles),/\[J\] RECOVER/);
+ game.player.x=0;game.player.z=0;
+ game.obstacles.push({x:0,z:-.45,w:.3,d:.1});
+ assert.match(nav.fieldSign(game.player,game.trailMarker,game.obstacles),/PATH BLOCKED/);
+ assert.doesNotMatch(nav.fieldSign(game.player,game.trailMarker,game.obstacles),/\[J\] RECOVER/);
+ assert.match(nav.fieldSign(game.player,{x:NaN,z:0},[]),/UNAVAILABLE/);
+ const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
+ assert.match(app,/Navigation\.fieldSign\(p,s\.trailMarker,s\.obstacles\)/);
+});
