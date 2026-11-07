@@ -103,7 +103,7 @@
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
     officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
-    waterSite: Object.freeze({id:'waterSite',x:140,z:113,kind:'evidence',
+    waterSite: Object.freeze({id:'waterSite',x:140,z:87,kind:'evidence',
       label:'공동 급수대 실제 수압을 현장에서 확인'}),
     waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
       label:'현장 조사 메모를 남쪽 구조단 접수대에 전달'})
