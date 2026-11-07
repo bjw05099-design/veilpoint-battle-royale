@@ -43,9 +43,9 @@ test('new local transport NPC supports two deliberate conversation stages and re
  assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
  assert.equal(Story.nearest(s)?.id==='transportDriver',false);
  assert.ok(s.world.witness&&s.world.witness.x===10&&s.world.witness.z===-54);
- const task=Story.missionTasks(s).find(t=>t.id==='driver');
- assert.equal(task.status,'done');
- assert.equal(task.optional,true);
+ assert.equal(Story.missionTasks(s).some(t=>t.id==='driver'),false,
+   'an optional observed conversation is not a compulsory mission checklist');
+ assert.match(Journal.entries(s).find(t=>t.id==='transport').detail,/현장 도착/);
  const done=Story.serialize(s);
  assert.equal(Story.serialize(Story.restore(done)),done);
 });
