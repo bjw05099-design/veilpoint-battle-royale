@@ -40,8 +40,10 @@
   if(!Number.isFinite(dt)||dt<=0||dt>0.05)throw new RangeError('Invalid vehicle timestep');
   if(!v.occupied)return v;
   if(input.toggleEngine)v.engineOn=!v.engineOn;
-  const throttle=v.engineOn?clamp(Number(input.throttle)||0,-1,1):0;
-  const brake=clamp(Number(input.brake)||0,0,1);
+  // A parking brake is a physical stop control, not an engine switch.
+  const parkingBrake=input.parkingBrake===true;
+  const throttle=v.engineOn&&!parkingBrake?clamp(Number(input.throttle)||0,-1,1):0;
+  const brake=parkingBrake?1:clamp(Number(input.brake)||0,0,1);
   const resistance=v.speed===0?0:Math.sign(v.speed)*(.65+brake*9)*dt;
   const acceleration=throttle*(v.speed<0?2.5:3.2)*dt;
   let next=clamp(v.speed+acceleration,-REVERSE_SPEED,MAX_SPEED);
@@ -50,9 +52,21 @@
   const steering=clamp(Number(input.steer)||0,-1,1);
   const yaw=v.yaw+steering*clamp(next/6,-1,1)*.52*dt;
   const x=v.x+Math.sin(yaw)*next*dt,z=v.z-Math.cos(yaw)*next*dt;
-  // Swept collision is delegated to the caller's world; do not penetrate a wall.
-  if(collides({x,z,yaw,length:LENGTH,width:WIDTH},v)){
-   v.speed=0;return v;
+  // Probe the entire swept trajectory at <= 0.2m intervals. A single
+  // endpoint probe could skip a thin bollard during a high-speed frame.
+  const distance=Math.hypot(x-v.x,z-v.z);
+  const probes=Math.max(1,Math.ceil(distance/.2));
+  let lastX=v.x,lastZ=v.z,lastYaw=v.yaw;
+  for(let i=1;i<=probes;i++){
+   const t=i/probes;
+   const candidate={x:v.x+(x-v.x)*t,z:v.z+(z-v.z)*t,
+     yaw:v.yaw+(yaw-v.yaw)*t,length:LENGTH,width:WIDTH};
+   if(collides(candidate,v)){
+    // Stop at the last clear point; no collision penetration or teleport.
+    Object.assign(v,{x:lastX,z:lastZ,yaw:lastYaw,speed:0});
+    return v;
+   }
+   lastX=candidate.x;lastZ=candidate.z;lastYaw=candidate.yaw;
   }
   Object.assign(v,{x,z,yaw,speed:next});
   return v;
