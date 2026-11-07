@@ -13,7 +13,7 @@ public:
     UPROPERTY(VisibleAnywhere)
     TObjectPtr<UStaticMeshComponent> Model;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category="Resource")
-    FName Resource = TEXT("health");
+    FName Resource = TEXT("charges");
     UPROPERTY(Replicated, VisibleAnywhere)
     bool bConsumed=false;
     void Claim(AVPCharacter* Character);
