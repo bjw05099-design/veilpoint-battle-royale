@@ -1,5 +1,7 @@
 #include "VPStoryGameState.h"
 #include "Net/UnrealNetwork.h"
+#include "VPStoryGameMode.h"
+#include "Engine/World.h"
 
 void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
 {
@@ -7,6 +9,33 @@ void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
     DOREPLIFETIME(AVPStoryGameState, StoryStage);
     DOREPLIFETIME(AVPStoryGameState, bReadHarbor);
     DOREPLIFETIME(AVPStoryGameState, bReadShelter);
+}
+
+bool AVPStoryGameState::RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool bShelter)
+{
+    if (!HasAuthority()) return false;
+    // Reject fabricated impossible phases without mutating any live data.
+    bool bCoherent = false;
+    switch (Stage)
+    {
+    case EVPStoryStage::RestoreRelay:
+        bCoherent = !bHarbor && !bShelter; break;
+    case EVPStoryStage::InspectRecords:
+        bCoherent = !(bHarbor && bShelter); break;
+    case EVPStoryStage::ChooseRoute:
+    case EVPStoryStage::SouthExit:
+    case EVPStoryStage::EastExit:
+    case EVPStoryStage::Complete:
+        bCoherent = bHarbor && bShelter; break;
+    default:
+        return false;
+    }
+    if (!bCoherent) return false;
+    StoryStage = Stage;
+    bReadHarbor = bHarbor;
+    bReadShelter = bShelter;
+    ForceNetUpdate();
+    return true;
 }
 
 bool AVPStoryGameState::IsAvailable(EVPStoryAction Action) const
@@ -58,6 +87,10 @@ bool AVPStoryGameState::TryAdvance(EVPStoryAction Action)
         break;
     }
     ForceNetUpdate();
+    // Offline single-player checkpoints never come from the client: the
+    // authoritative game mode decides if this world may persist progress.
+    if (AVPStoryGameMode* Mode = GetWorld() ? GetWorld()->GetAuthGameMode<AVPStoryGameMode>() : nullptr)
+        Mode->PersistStoryCheckpoint();
     return true;
 }
 
