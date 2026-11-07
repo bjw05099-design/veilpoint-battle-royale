@@ -146,3 +146,35 @@ test('BR physical service-yard switch is discoverable only nearby and never thro
  assert.match(js,/yardGate\.near\|\|nearby\|\|restock\|\|movable\|\|gateGuide/);
  assert.match(js,/else if\(gateGuide\)\$\('pickupPrompt'\)\.textContent=gateGuide/);
 });
+
+
+test('BR minimap exposes only locally seen finite physical supply caches without rewriting game state',()=>{
+ const player={x:0,z:0,yaw:0,weaponId:'carbine'};
+ const stock=[
+  {id:1,x:0,z:-4,remaining:5,weaponId:'carbine'},
+  {id:2,x:3,z:-5,remaining:8,weaponId:'compact'},
+  {id:3,x:0,z:-11,remaining:9,weaponId:'carbine'},
+  {id:4,x:0,z:4,remaining:9,weaponId:'carbine'},
+  {id:5,x:2,z:-2,remaining:0,weaponId:'carbine'},
+  {id:6,x:-2,z:-2,remaining:10,weaponId:'carbine',picked:true},
+  {id:7,x:NaN,z:-3,remaining:4,weaponId:'carbine'}
+ ];
+ const original=JSON.stringify(stock.map(o=>({...o,x:Number.isNaN(o.x)?'NaN':o.x})));
+ const visible=nav.visibleLocalCaches(player,stock,[],'carbine');
+ assert.deepEqual(visible.map(x=>x.id),[1,2]);
+ assert.equal(visible[0].compatible,true);
+ assert.equal(visible[1].compatible,false);
+ assert.equal(visible[0].distance,4);
+ assert.ok(Object.isFrozen(visible)&&visible.every(Object.isFrozen));
+ assert.equal(JSON.stringify(stock.map(o=>({...o,x:Number.isNaN(o.x)?'NaN':o.x}))),original);
+ const block=[{x:0,z:-2,w:1,d:.5}];
+ assert.deepEqual(nav.visibleLocalCaches(player,stock,block,'carbine').map(x=>x.id),[2]);
+ const turn={...player,yaw:Math.PI};
+ assert.deepEqual(nav.visibleLocalCaches(turn,stock,[],'carbine').map(x=>x.id),[4]);
+ assert.deepEqual(nav.visibleLocalCaches({...player,x:NaN},stock,[],'carbine'),[]);
+ assert.deepEqual(nav.visibleLocalCaches(player,null,[],'carbine'),[]);
+ const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
+ assert.match(app,/Navigation\.visibleLocalCaches\(\s*simulation\.player,simulation\.loot,simulation\.obstacles,simulation\.player\.weaponId\)/);
+ assert.match(app,/cache\.compatible\?'#8ecfb3':'#d9a97b'/);
+ assert.doesNotMatch(app.slice(app.indexOf('function minimap(){'),app.indexOf('function updateHud(){')),/for\(const (?:bot|enemy) of simulation\.bots/);
+});
