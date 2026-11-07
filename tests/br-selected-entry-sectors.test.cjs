@@ -28,9 +28,10 @@ test('the default central BR stream and seed remain deterministic and unchanged'
  for(const seed of [4,20261027,20261107]){
   const legacy=Sim.newMatch(seed,4,'carbine');
   const explicit=Sim.newMatch(seed,4,'carbine',false,'central');
-  assert.deepEqual(explicit,legacy);
-  assert.deepEqual(Sim.newMatch(seed,4,'carbine',false,'east'),
-   Sim.newMatch(seed,4,'carbine',false,'east'));
+  assert.equal(JSON.stringify(explicit),JSON.stringify(legacy));
+  assert.equal(explicit.random.getState(),legacy.random.getState());
+  assert.equal(JSON.stringify(Sim.newMatch(seed,4,'carbine',false,'east')),
+   JSON.stringify(Sim.newMatch(seed,4,'carbine',false,'east')));
  }
  assert.throws(()=>Sim.newMatch(10,0,'carbine',false,'teleport'),/Unknown BR entry sector/);
  assert.throws(()=>Sim.newMatch(10,0,'carbine',false,'__proto__'),/Unknown BR entry sector/);
