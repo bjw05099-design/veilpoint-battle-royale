@@ -1543,7 +1543,7 @@ function updateHud(){const s=simulation,p=s.player;
    :interactPrompt+' COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
    (restock?' · [V] RETURN SPARE ROUNDS':'');
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
- else if(movable)$('pickupPrompt').textContent='['+Desktop.keyLabel(bindings.cacheMove)+'] MOVE FIELD CACHE';
+ else if(movable)$('pickupPrompt').textContent='LOCAL FIELD CACHE';
  else if(gateGuide)$('pickupPrompt').textContent=gateGuide;
  if(movable&&!yardGate.near)
   $('pickupPrompt').textContent+=' · ['+Desktop.keyLabel(bindings.cacheMove)+'] SHIFT CACHE';
