@@ -272,7 +272,7 @@ loadoutSelect.addEventListener('change',()=>{
  if(!Object.prototype.hasOwnProperty.call(Game.FIREARMS,loadoutSelect.value))loadoutSelect.value='carbine';
  try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
 });
-const canvas=$('scene');let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,graphicsContextLost=false,last=performance.now(),lastHud=0,shake=0;
+const canvas=$('scene');let stillRequested=false;let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,graphicsContextLost=false,last=performance.now(),lastHud=0,shake=0;
 const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
 const trigger=Desktop.createTriggerLatch();
 function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
@@ -1235,6 +1235,11 @@ addEventListener('keydown',e=>{
     // open game settings or leave an earlier held input latched.
     if(Desktop.isModifiedGameplayKey(e)){clearInput();return;}
   if(Desktop.isGameplayShortcut(e)){clearInput();return;}
+ // F8 records ONLY the next actually drawn bodycam frame, with no separate
+ // spectator camera or 60 Hz simulation pause. Never hijack desktop menus.
+ if(e.code==='F8'&&!e.repeat&&canAct()){
+  e.preventDefault();stillRequested=true;return;
+ }
  // The pre-match/end menu can open settings too. Escape dismisses that panel
  // without starting gameplay or requiring a mouse click on its Close button.
  if(e.code==='Escape'&&!running&&!$('graphicsPanel').classList.contains('hidden')){
@@ -1644,6 +1649,14 @@ function frame(now){requestAnimationFrame(frame);
   const cpuStart=performance.now();renderer.draw(simulation);
   const cpuMs=performance.now()-cpuStart;
   telemetry.record('cpu',cpuMs);
+  if(stillRequested){
+   stillRequested=false;
+   if(canAct())try{
+    global.VeilpointBodycamStill.saveStill({
+      canvas,renderer,document,mode:'br',elapsed:simulation.elapsed
+    });
+   }catch(error){console.warn('VEILPOINT bodycam still failed',error);}
+  }
   if(canAct()){
    const measuredScale=renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale;
    if(benchmark)benchmark.frame(now,cpuMs,measuredScale,{width:canvas.width,height:canvas.height});
