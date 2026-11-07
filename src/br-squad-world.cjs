@@ -13,6 +13,10 @@ class BrSquadWorld {
     const game=Sim.newMatch(seed,0,'carbine');
     this.obstacles=game.obstacles.map(o=>({...o}));
     this.actors=new Map();this.tick=0;
+    // No client may author a squad result. Only real server-owned eligibility
+    // transitions change this scorecard; ties cannot be invented by the HUD.
+    this.phase='moving';this.activeSquads=SQUADS;
+    this.placements=Array(SQUADS).fill(null);
     const occupied=[];
     const teams=Array.from({length:SQUADS},(_,n)=>n);
     for(const team of teams) {
@@ -41,13 +45,15 @@ class BrSquadWorld {
         if(!point)throw new Error('no_room_for_96_real_bodies');
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
-          direction:{x:0,z:0},seq:-1,lastMoveTick:0});
+          direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true});
       }
     }
   }
   move(token,command){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
     if(!command||typeof command!=='object'||Array.isArray(command)||
        Object.keys(command).sort().join(',')!=='dx,dz,seq'||
        !Number.isSafeInteger(command.seq)||command.seq<0||command.seq>2147483647||
@@ -61,9 +67,35 @@ class BrSquadWorld {
     actor.seq=command.seq;actor.lastMoveTick=this.tick;
     return {ok:true,seq:actor.seq};
   }
+  // A participant may withdraw only their OWN authenticated body.
+  // Later elimination sources must live behind the game server, not a client
+  // command naming another actor. There is deliberately no arbitrary
+  // "eliminate opponent" HTTP endpoint or hidden remote interaction.
+  withdraw(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(!actor.eligible)return {ok:false,reason:'already_withdrawn'};
+    if(this.phase!=='moving')return {ok:false,reason:'round_complete'};
+    actor.eligible=false;
+    actor.direction={x:0,z:0};
+    const peers=[...this.actors.values()];
+    if(!peers.some(p=>p.team===actor.team&&p.eligible)){
+      this.activeSquads--;
+      this.placements[actor.team]=this.activeSquads+1;
+      if(this.activeSquads===1){
+        const champion=peers.find(p=>p.eligible);
+        if(!champion)throw new Error('missing_winning_squad');
+        this.placements[champion.team]=1;
+        this.phase='finished';
+      }
+    }
+    return {ok:true,eligible:false,remainingSquads:this.activeSquads,
+      squadPlacement:this.placements[actor.team],phase:this.phase};
+  }
   step(){
+    if(this.phase!=='moving')return;
     this.tick++;
-    const players=[...this.actors.values()];
+    const players=[...this.actors.values()].filter(p=>p.eligible);
     // All 96 proposals read the SAME start-of-tick actor poses. Updating
     // join-order first would grant early squad seats an unfair body advantage.
     const proposals=players.map(actor=>{
@@ -94,16 +126,22 @@ class BrSquadWorld {
     const me=this.actors.get(token);
     if(!me)throw new RangeError('unknown_session');
     const mates=[],seen=[];
+    const active=Array(SQUADS).fill(0);
+    for(const p of this.actors.values())if(p.eligible)active[p.team]++;
     for(const p of this.actors.values()){
       const limited={id:p.id,x:p.x,z:p.z};
-      if(p.team===me.team)mates.push({...limited,slot:p.slot+1});
-      else if(Math.hypot(p.x-me.x,p.z-me.z)<=18&&
+      if(p.team===me.team)mates.push({...limited,slot:p.slot+1,eligible:p.eligible});
+      else if(me.eligible&&p.eligible&&Math.hypot(p.x-me.x,p.z-me.z)<=18&&
         !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))seen.push(limited);
     }
-    return {mode:'br-96-traversal-prototype',phase:'moving',tick:this.tick,
+    return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
+      remainingSquads:this.activeSquads,
+      standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
+        placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
-        x:me.x,z:me.z,seq:me.seq},squad:mates,visible:seen};
+        x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        placement:this.placements[me.team]},squad:mates,visible:seen};
   }
 }
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,LEASE_TICKS};

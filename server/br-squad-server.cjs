@@ -56,6 +56,17 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     const result=world.move(token,body);
     return send(res,result.ok?200:409,{...result,...(result.ok?{world:world.snapshot(token)}:{})});
    }
+   if(req.method==='POST'&&url.pathname==='/withdraw'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==0)
+       return send(res,400,{error:'invalid_withdraw'});
+    const result=world.withdraw(token);
+    return send(res,result.ok?200:409,{
+      ...result,...(result.ok?{world:world.snapshot(token)}:{})
+    });
+   }
    if(req.method==='POST'&&url.pathname==='/ready'){
     const body=await readJson(req,128,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||
