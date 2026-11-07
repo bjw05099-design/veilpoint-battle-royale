@@ -65,10 +65,10 @@ test('CH01 journal keeps unknown signal evidence hidden and a read-only route re
 
 
 test('CH01 journal route tracks the actual 60Hz clearance clock across a checkpoint restore',()=>{
- const state=Story.createState();
- state.choice='verification';state.phase='exit';
- state.found=['recordA','recordB'];
- state.world.elapsed=10;state.gateReadyAt=18;state.gateClearanceDuration=8;
+ const legacy={version:1,phase:'exit',found:['recordA','recordB'],choice:'verification',
+  player:{x:0,z:12,yaw:0,pitch:0,stamina:100},elapsed:10};
+ const state=Story.restore(JSON.stringify(legacy));
+ state.gateReadyAt=18;state.gateClearanceDuration=8;
  let rows=Journal.entries(state);
  assert.match(rows.find(row=>row.id==='route').detail,/개방 요청 접수/);
  assert.doesNotMatch(rows.find(row=>row.id==='route').detail,/개방 확인/);
