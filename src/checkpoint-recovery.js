@@ -31,7 +31,8 @@
       // A reported backup must be playable regardless of which decode path
       // selected it. Never hand malformed world state to the CH01 renderer.
       if(result&&result.source==='backup')
-        return isPlayableGeneration(result,'backup')?result:retryBackup(backup,restorePair);
+        return backup!=null&&isPlayableGeneration(result,'backup')
+          ?result:retryBackup(backup,restorePair);
       // A decoder may accidentally return a partial/forged primary. Never
       // pass it into the 60Hz renderer, even if the raw generation exists.
       if(result&&result.source==='primary')
