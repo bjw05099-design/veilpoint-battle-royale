@@ -2478,18 +2478,18 @@ test('ended PC team lobby reports authoritative rematch votes then begins only w
  assert.equal(commands.length,4,'two initial ready and two fresh rematch consents only');
 });
 test('ended PC team HUD never fabricates opponent rematch consent if lobby data is missing',async()=>{
- const server=backend(),a=boot(server),b=boot(server);
- a.node('join').click();b.node('join').click();await settle();
- a.node('ready').click();b.node('ready').click();await settle();
- server.match.finish(null,'time_limit');
- const original=server.fetchLocal;
- server.fetchLocal=async(route,opts)=>{
-  const response=await original(route,opts);
+ const server=backend();
+ const missingLobby={fetchLocal:async(route,opts)=>{
+  const response=await server.fetchLocal(route,opts);
   if(route!=='/state'||!response.ok)return response;
   const state=await response.json();
   state.lobby={};
   return {...response,json:async()=>state};
- };
+ }};
+ const a=boot(missingLobby),b=boot(missingLobby);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ server.match.finish(null,'time_limit');
  await a.poll();await settle();
  assert.match(a.node('status').textContent,/동점 무승부/);
  assert.match(a.node('status').textContent,/재대전 준비 상태 확인 중/);
