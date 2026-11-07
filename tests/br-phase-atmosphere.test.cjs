@@ -35,5 +35,5 @@ test('WebGL and low-detail fallback render the same cosmetic phase source',()=>{
  assert.match(source,/fogDensity:g\.getUniformLocation\(this\.prog,'uFogDensity'\)/);
  assert.match(source,/g\.uniform1f\(l\.fogDensity,atmosphereDensity\(state\)\)/);
  assert.match(source,/const haze=Math\.min\(\.16,Math\.max\(0,\(atmosphereDensity\(state\)-\.009\)\*22\)\)/);
- assert.doesNotMatch(source.slice(start,end+2),/state\.[a-z]+\s*=/);
+ assert.doesNotMatch(source.slice(start,end+2),/state\.[a-z]+\s*=(?!=)/);
 });
