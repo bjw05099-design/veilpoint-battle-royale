@@ -220,6 +220,8 @@ class SoftwareRenderer {
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type==='dock-handcart'?'dock-handcart':
+     o.type==='story-building'?'story-building':
+     o.type==='story-warehouse'?'story-warehouse':
      o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
      o.type==='yard-fence'?'yard-fence':'building'});
  }
@@ -269,7 +271,7 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -281,6 +283,21 @@ class SoftwareRenderer {
   }
  }
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':o.type==='wet-apron'?'#516a72':'#9cb09a');
+ // Canvas fallback preserves the two historic harbor building profiles.
+ // Front windows are not shown from behind a solid wall.
+ if((o.type==='story-building'||o.type==='story-warehouse')&&p.z>o.z+o.d/2){
+  const front=o.z+o.d/2+.06,older=o.type==='story-building';
+  for(let level=1;level<=(older?3:2);level++){
+   const y=1.15+level*(older?1.55:2.2);
+   if(y+.85>=o.h-.35)continue;
+   for(const side of [-1,1]){
+    const x=o.x+side*o.w*.27;
+    const a=proj(x-.625,y+.92,front),b=proj(x+.625,y,front);
+    if(a&&b){ctx.fillStyle='#283638';ctx.fillRect(Math.min(a[0],b[0]),
+     Math.min(a[1],b[1]),Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]));}
+   }
+  }
+ }
  if(heading){
   // Physical uniform front panel, not a UI marker or through-wall indicator.
   const q=proj(heading.front.x,1.40,heading.front.z);
@@ -460,7 +477,11 @@ class Renderer {
     continue;
    }
    const container=o.type==='story-container',crane=o.type==='story-crane';
-   const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:o.type==='story-warehouse'?[.44,.42,.38]:[.51,.47,.40];
+   const oldCity=o.type==='story-building',portWare=o.type==='story-warehouse';
+   // Original, Aden-inspired plaster residential facades contrast with
+   // industrial harbor fronts. This is not a replica of a real building.
+   const col=container?[.30,.34,.33]:crane?[.42,.39,.29]:
+     portWare?[.42,.41,.37]:oldCity?[.55,.50,.43]:[.51,.47,.40];
    m.box(o.x,0,o.z,o.w,o.h,o.d,col);
    if(crane){
     m.box(o.x-5,o.h-1.3,o.z,18,.75,1.4,[.43,.41,.31]);
@@ -475,6 +496,26 @@ class Renderer {
      const x=o.x+sign*o.w*.28;
      m.box(x,o.h*.42,front,1.8,1.9,.13,[.17,.22,.24]);
      m.box(x,o.h*.42,front+.09,1.4,1.5,.07,[.27,.36,.38]);
+    }
+    if(oldCity||portWare){
+     // Window surface trim extends <10cm outside its existing collider.
+     // No invented climbable balcony or collision discrepancy is introduced.
+     const frontSurface=o.z+o.d/2+.025;
+     const floors=oldCity?3:2;
+     for(let level=1;level<=floors;level++){
+      const y=1.15+level*(oldCity?1.55:2.2);
+      if(y+.85>=o.h-.35)continue;
+      for(const side of [-1,1]){
+       const x=o.x+side*o.w*.27;
+       m.box(x,y,frontSurface,1.25,.92,.07,[.19,.23,.24]);
+       m.box(x,y+.53,frontSurface,1.45,.12,.08,
+         oldCity?[.63,.58,.50]:[.50,.49,.44]);
+      }
+     }
+     // Recessed parapets do not protrude beyond solid building footprints.
+     for(const side of [-1,1])
+      m.box(o.x+side*(o.w/2-.22),o.h-.40,o.z,.20,.36,o.d-.14,
+        oldCity?[.61,.55,.45]:[.39,.38,.35]);
     }
    }
   }
