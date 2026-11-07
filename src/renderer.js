@@ -102,6 +102,15 @@ function partitionStaticTriangles(data,cell=56){
  }
  return {packed,chunks};
 }
+// A bounded, cosmetic coastal haze stage: no changes to collision, actor
+// disclosure, RNG, or the 60Hz simulation. The story's authored night
+// atmosphere stays fixed while the BR map gains gradual phase variation.
+function atmosphereDensity(state){
+ if(state&&state.scene==='nahrin')return .009;
+ const phase=state&&state.zone&&state.zone.phase;
+ return Number.isInteger(phase)&&phase>=0&&phase<=5
+  ? .009+phase*.0009 : .009;
+}
 const VS=`#version 300 es
 precision highp float;
 in vec3 aPosition,inNormal,inColor;
@@ -114,7 +123,7 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn,uFlashOn;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn,uFlashOn,uFogDensity;
 uniform vec3 uFlashEye,uFlashDir;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -158,7 +167,7 @@ if(uNight>.5&&uFlashOn>.5){
 }
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
-float fogFactor=1.-exp(-pow(vDistance*.009,1.7));
+float fogFactor=1.-exp(-pow(vDistance*uFogDensity,1.7));
 vec3 linear=mix(diffuse,uFog,clamp(fogFactor,0.,.97));
 vec3 graded=aces(linear*uExposure);
 graded=pow(graded,vec3(.96));
@@ -250,11 +259,16 @@ class SoftwareRenderer {
  }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
+ const haze=Math.min(.16,Math.max(0,(atmosphereDensity(state)-.009)*22));
+ if(!harborNight&&haze>0){
+  ctx.fillStyle='rgba(153,178,169,'+haze.toFixed(3)+')';
+  ctx.fillRect(0,0,w,h);
+ }
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -524,6 +538,7 @@ class Renderer {
  const night=scene==='nahrin';
  g.uniform3f(l.sun,night?-.35:-.50,night?.28:.88,night?.10:.20);
  g.uniform3f(l.fog,night?.065:.34,night?.085:.40,night?.11:.39);
+ g.uniform1f(l.fogDensity,atmosphereDensity(state));
  g.uniform1f(l.exposure,night?1.25:1.35);g.uniform1f(l.night,night?1:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
  g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
