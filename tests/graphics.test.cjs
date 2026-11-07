@@ -33,3 +33,14 @@ test('frame budget helper does not claim actual measured FPS',()=>{
  assert.equal(g.frameBudgetStatus(6.05),'within-budget');
  assert.equal(g.frameBudgetStatus(8),'over-budget');
 });
+test('graphics restores custom-adjusted values without falsely labeling them as a stock preset',()=>{
+ const altered={...g.fromPreset('balanced'),fpsCap:165};
+ const serialized=g.serialize(altered);
+ assert.equal(JSON.parse(serialized).preset,'custom');
+ assert.deepEqual(g.deserialize(serialized),{...altered,preset:'custom'});
+ const legacy=JSON.stringify(altered);
+ assert.deepEqual(g.deserialize(legacy),{...altered,preset:'custom'},
+  'older mismatched saved presets must retain the chosen quality and fps');
+ assert.deepEqual(g.deserialize(g.serialize(g.fromPreset('balanced'))),g.fromPreset('balanced'));
+ assert.deepEqual(g.deserialize(JSON.stringify({...altered,preset:'unknown'})),g.fromPreset('hyperreal165'));
+});
