@@ -27,7 +27,11 @@
    const additions=['headlamp','guidance','cacheMove'];
    const used=new Set(ACTIONS.filter(a=>!additions.includes(a)).map(a=>expanded[a]));
    for(const extra of additions){
-    if(expanded[extra]===undefined)
+    // Older profiles may reuse U for a real remapped action. Preserve their
+    // previous control and relocate this newly introduced optional binding
+    // to an actually free key instead of resetting the entire profile.
+    if(expanded[extra]===undefined||
+       (extra==='cacheMove'&&used.has(expanded[extra])))
      expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyK','KeyO','KeyI','KeyP','KeyJ','KeyU','KeyT','KeyY','KeyX','KeyZ','KeyV','KeyF','KeyN']
       .find(code=>!used.has(code));
     used.add(expanded[extra]);
@@ -67,7 +71,15 @@
   const next=normalize(value);
   if(!Object.prototype.hasOwnProperty.call(DEFAULT_BINDINGS,action))return {ok:false,reason:'unknown-action',value:next};
   if(!validCode(code))return {ok:false,reason:'reserved-key',value:next};
-  if(ACTIONS.some(a=>a!==action&&next.bindings[a]===code))return {ok:false,reason:'key-in-use',value:next};
+  const occupied=ACTIONS.find(a=>a!==action&&next.bindings[a]===code);
+  if(occupied){
+   // The new BR-only cache key must never prevent a previously existing
+   // movement/fire/support remap. Swap to the displaced action's old,
+   // already-validated key; collisions with all other actions remain errors.
+   if(occupied==='cacheMove'&&action!=='cacheMove')
+    next.bindings.cacheMove=next.bindings[action];
+   else return {ok:false,reason:'key-in-use',value:next};
+  }
   next.bindings[action]=code;
   return {ok:true,value:next};
  }
