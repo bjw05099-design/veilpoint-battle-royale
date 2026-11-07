@@ -33,6 +33,7 @@ const WIN_SCORE = 3;
 // The local competitive round has a deterministic 5-minute simulation deadline.
 // A connected but inactive pair must not hold a match open indefinitely.
 const ROUND_LIMIT_TICKS = 5 * 60 * 60;
+const OVERTIME_TICKS = 60 * 60; // Optional one-minute extension at 60Hz.
 const MAX_PLAYERS = 2;
 // Shared grounded geometry: the server owns cover, collision and visibility.
 // Clear central access keeps the original two-player capture route playable.
@@ -132,16 +133,20 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day'} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day', suddenDeath=false} = {}) {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
     if(objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
+    if(typeof suddenDeath!=='boolean')throw new RangeError('invalid_sudden_death');
+    if(suddenDeath&&objectiveSite==='courier')throw new RangeError('sudden_death_relay_only');
     if(lighting!=='day'&&lighting!=='dusk')
       throw new RangeError('invalid_lighting');
     this.lighting=lighting;
+    this.suddenDeath=suddenDeath;
+    this.suddenDeathActive=false;
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
@@ -168,7 +173,7 @@ class TeamMatch {
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
   recordPublicEvent(type,team=null) {
-    if(!['round_start','relay_complete','relay_shift','parcel_collected','parcel_delivered','round_end'].includes(type)||
+    if(!['round_start','relay_complete','relay_shift','parcel_collected','parcel_delivered','overtime_start','round_end'].includes(type)||
        (team!==null&&!['red','blue'].includes(team)))return;
     this.events.push(Object.freeze({type,team,tick:this.ticks}));
     if(this.events.length>8)this.events.shift();
@@ -512,6 +517,7 @@ class TeamMatch {
   // Preserve authenticated identity, loadout choice, accessibility preference,
   // command sequence and live session lease; never carry old injuries or inputs.
   resetRoundState() {
+    this.suddenDeathActive=false;
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
@@ -594,7 +600,20 @@ class TeamMatch {
     }
   }
   finishIfDeadline() {
-    if (this.phase !== 'playing' || this.ticks < ROUND_LIMIT_TICKS) return false;
+    const limit=ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0);
+    if(this.phase!=='playing'||this.ticks<limit)return false;
+    // Only a tied, host-authorized relay round enters sudden death.
+    // Retain real world positions, injuries and finite resources; require
+    // fresh physical relay input rather than carrying incomplete progress.
+    if(this.suddenDeath&&!this.suddenDeathActive&&this.score.red===this.score.blue){
+      this.suddenDeathActive=true;
+      this.progress.red=0;this.progress.blue=0;
+      for(const p of this.players.values()){
+        p.capturing=false;p.captureArmed=false;
+      }
+      this.recordPublicEvent('overtime_start');
+      return false;
+    }
     // The server owns both the clock and the score. A tied round is a draw;
     // no client can claim extra time or a victory from an unconfirmed capture.
     const winner = this.score.red > this.score.blue ? 'red' :
@@ -781,7 +800,8 @@ class TeamMatch {
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
-      if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
+      if (this.score[team] >= this.targetScore || this.suddenDeathActive)
+        this.finish(team, 'objective_score');
       else if(this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'){
         // Transmission permission transfers to an EXISTING fixed terminal.
         // The fixtures stay physically installed throughout the round.
@@ -832,8 +852,10 @@ class TeamMatch {
       });
     });
     return {phase: this.phase, tick: this.ticks, lighting:this.lighting,
-      round: {id:this.roundId,limitTicks: ROUND_LIMIT_TICKS,
-        remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
+      round: {id:this.roundId,
+        limitTicks: ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0),
+        remainingTicks: Math.max(0,ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0)-this.ticks),
+        ...(this.suddenDeath?{suddenDeathActive:this.suddenDeathActive}: {})},
       // Public consent only: no opponent health, inventory or hidden coordinates.
       lobby: {participants: this.players.size,
         ready: [...this.players.values()].filter(p => p.ready).length},
@@ -896,4 +918,4 @@ class TeamMatch {
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, LOADOUTS,
   RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK,
-  relayInteractionState, ROUND_LIMIT_TICKS, SPRINT_SPEED_FACTOR, SPRINT_DRAIN_PER_TICK, SPRINT_RECOVER_PER_TICK, SPRINT_RESTART_STAMINA};
+  relayInteractionState, ROUND_LIMIT_TICKS, OVERTIME_TICKS, SPRINT_SPEED_FACTOR, SPRINT_DRAIN_PER_TICK, SPRINT_RECOVER_PER_TICK, SPRINT_RESTART_STAMINA};
