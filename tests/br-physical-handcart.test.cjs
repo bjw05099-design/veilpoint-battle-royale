@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const Sim=require('../src/simulation.js');
 const Visibility=require('../src/visibility.js');
 
-function dock(seed=71226,bots=0){
+function dock(seed=71226,bots=1){
  const game=Sim.newMatch(seed,bots);
  game.status='playing';
  game.player.x=129.7;game.player.z=-121;game.player.yaw=Math.PI/2;
