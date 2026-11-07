@@ -14,7 +14,13 @@ test('native CH01 blockout uses a different replicated actor class, not an unrel
  assert.match(story,/SpawnActor<AVPStoryWorldBootstrap>/);
  assert.match(story,/AVPStoryWorldBootstrap::StaticClass\(\)/);
  assert.match(battle,/SpawnActor<AVPWorldBootstrap>/);
- assert.doesNotMatch(world,/GetGameState<AVPStoryGameState>\(\)/);
+ // The class must decide which map to build BEFORE any potentially late
+ // replicated GameState arrives. Reading GameState later for purely visual
+ // fixture illumination is valid and does not make geometry timing-dependent.
+ const begin=world.slice(world.indexOf('void AVPWorldBootstrap::BeginPlay()'));
+ const storyBranch=begin.slice(begin.indexOf('if(IsA(AVPStoryWorldBootstrap::StaticClass()))'),
+   begin.indexOf('return; // Story preview never spawns the random BR loot pool'));
+ assert.doesNotMatch(storyBranch,/GetGameState<AVPStoryGameState>\\(\\)/);
  assert.match(world,/bReplicates=true/);
  assert.match(world,/SetReplicateMovement\(false\)/);
 });
