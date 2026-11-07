@@ -567,7 +567,7 @@ class Renderer {
     // the same footprint as its CH01 collision volume.
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.47,.40,.33]);
     m.box(o.x,o.h-.14,o.z,o.w,.15,o.d,[.62,.54,.43]);
-    return;
+    continue;
    }
    if(o.type==='story-office-desk'){
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.40,.36,.31]);
