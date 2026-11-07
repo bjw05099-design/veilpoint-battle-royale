@@ -116,10 +116,15 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         // Diagnostics clean up expired lobby seats without renewing a lease,
         // advancing simulation or erasing the readable end-of-round result.
         if (match.phase === 'lobby') match.pruneIdleWaitingPlayers();
+        // Finished rounds retain seats for read-only debriefs, but a timed-out
+        // seat is not a *connected* player. Count one monotonic lease snapshot.
+        const timestamp = match.now();
+        const active = [...match.players.values()].filter(player =>
+          timestamp - player.lastSeen <= match.timeoutMs);
         return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase,
-          connectedPlayers: match.players.size,
+          connectedPlayers: active.length,
           lobbyReadyPlayers: match.phase === 'lobby'
-            ? [...match.players.values()].filter(player => player.ready).length : null,
+            ? active.filter(player => player.ready).length : null,
           simulationTick: match.ticks});
       }
       // No state snapshot or game command may use a partially mutated world.
