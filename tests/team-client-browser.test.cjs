@@ -2572,6 +2572,7 @@ test('team PC relay HUD displays only its authenticated self interaction status'
  other.x=0;other.z=0;
  const before=a.node('relayProgress').textContent;
  await a.poll();await settle();
- assert.equal(a.node('relayProgress').textContent,before);
+ assert.match(a.node('relayProgress').textContent,/중계기/);
+ assert.doesNotMatch(a.node('relayProgress').textContent,/상대 위치|상대 점령 중|경쟁자 감지/);
  assert.doesNotMatch(before,/상대 위치|상대 점령 중|경쟁자 감지/);
 });
