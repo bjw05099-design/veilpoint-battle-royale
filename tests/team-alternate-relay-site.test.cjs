@@ -30,6 +30,10 @@ test('real 60Hz relay capture respects each physical host-chosen location',()=>{
   assert.equal(p.captureArmed,true);
   for(let i=0;i<121;i++){
    g.step();
+   // A held E is leased for 90 ticks. A real live PC renews its intent,
+   // without a release/press or any extra point, while it stays stationary.
+   if(i===59&&g.phase==='playing')
+    assert.equal(g.command(A,{seq:z===0?3:5,type:'capture',active:true}).ok,true);
    if(g.phase==='ended')break;
   }
   assert.equal(g.score.red,1);
