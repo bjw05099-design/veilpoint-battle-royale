@@ -623,6 +623,14 @@ canvas.addEventListener('webglcontextlost',event=>{
  renderer=null; // Context loss invalidates all previous GPU buffers, shaders and queries.
  $('play').disabled=true;$('newMatch').disabled=true;
  $('message').textContent='GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY';
+ // Disabling a currently focused Resume/New Match button otherwise sends
+ // keyboard focus to the document behind the paused UI. Keep one usable
+ // PC menu control focused while the GPU is unavailable.
+ if(!$('graphicsPanel').classList.contains('hidden')){
+  if(typeof $('graphicsClose').focus==='function')$('graphicsClose').focus({preventScroll:true});
+ }else if(!$('overlay').classList.contains('hidden')&&typeof $('brViewMore').focus==='function'){
+  $('brViewMore').focus({preventScroll:true});
+ }
 });
 canvas.addEventListener('webglcontextrestored',()=>{
  if(!graphicsContextLost)return;
@@ -638,7 +646,13 @@ canvas.addEventListener('webglcontextrestored',()=>{
    // the 60Hz game without an explicit action.
    const focusNode=$('graphicsPanel').classList.contains('hidden')
     ?$('play'):$('graphicsClose');
-   if(typeof focusNode.focus==='function')focusNode.focus();
+   if(typeof focusNode.focus==='function')focusNode.focus({preventScroll:true});
+  }else if(!$('overlay').classList.contains('hidden')){
+   // The pre-match menu is also a usable PC screen after a renderer rebuild.
+   // Restore its focus without silently creating or resuming a BR match.
+   const focusNode=$('graphicsPanel').classList.contains('hidden')
+    ?$('play'):$('graphicsClose');
+   if(typeof focusNode.focus==='function')focusNode.focus({preventScroll:true});
   }
  }catch(err){
   renderer=null;
