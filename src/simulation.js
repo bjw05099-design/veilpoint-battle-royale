@@ -128,7 +128,7 @@
   // The north service-yard road has a physically sliding, locally controlled
   // gate. There is no remote unlocking, infinite stock or supernatural sensor.
   const SERVICE_YARD=Object.freeze({x:30,z:-24,switchX:30,switchZ:-21.8,slide:7.2,seconds:2});
-  const QUAY_NOTICE=Object.freeze({x:-135,z:-135});
+  const QUAY_NOTICE=Object.freeze({x:-148,z:-135}); // Side of the 18m public lane; passage remains clear.
   // Two identifiable, non-respawning supply shelves on the east-dock public
   // walkway. These reuse the existing 40 finite caches, never mint extra stock.
   // If an actor spawned on a shelf, leave that item at its original seeded
