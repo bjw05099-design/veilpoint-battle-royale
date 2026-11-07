@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "VPFrameTelemetry.h"
 #include "VPHUD.generated.h"
 
 class AVPZone;
@@ -17,4 +18,5 @@ private:
     // Avoid a full actor scan on every render frame (including 165Hz).
     // The zone is a replicated server-owned actor; clients only read its data.
     TWeakObjectPtr<AVPZone> CachedZone;
+    FVPFrameTelemetry FrameTelemetry;
 };
