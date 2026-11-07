@@ -3,6 +3,7 @@
 #include "VPStoryMarker.h"
 #include "VPWorldBootstrap.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "VPStoryCheckpoint.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
@@ -21,8 +22,16 @@ void AVPStoryGameMode::BeginPlay()
     // Deliberately skip AVPGameMode::BeginPlay: it spawns the BR zone.
     AGameModeBase::BeginPlay();
     if (!HasAuthority() || !GetWorld()) return;
-    GetWorld()->SpawnActor<AVPStoryWorldBootstrap>(
-        AVPStoryWorldBootstrap::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
+    // A future authored UE5 map may contain a custom coastal bootstrap. Do
+    // not spawn a second stack of colliding buildings over that editor actor.
+    bool bHasStoryWorld = false;
+    for (TActorIterator<AVPStoryWorldBootstrap> It(GetWorld()); It; ++It)
+    {
+        if (IsValid(*It)) { bHasStoryWorld = true; break; }
+    }
+    if (!bHasStoryWorld)
+        GetWorld()->SpawnActor<AVPStoryWorldBootstrap>(
+            AVPStoryWorldBootstrap::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
 
     struct FMarkerPlacement
     {
@@ -41,11 +50,24 @@ void AVPStoryGameMode::BeginPlay()
         {EVPStoryAction::ReachSouth, FVector(4600.f, -1400.f, 120.f)},
         {EVPStoryAction::ReachEast, FVector(4600.f, 1400.f, 120.f)}
     };
+    // Prefer physical marker positions hand-authored in the editor. Bootstrap
+    // only absent actions so edited maps never get duplicate E prompts or
+    // an automatic cylinder competing with the authored mission object.
+    TArray<EVPStoryAction> AuthoredActions;
+    for (TActorIterator<AVPStoryMarker> It(GetWorld()); It; ++It)
+    {
+        if (IsValid(*It)) AuthoredActions.AddUnique(It->Action);
+    }
     for (const FMarkerPlacement& Placement : Markers)
     {
+        if (AuthoredActions.Contains(Placement.Action)) continue;
         AVPStoryMarker* Marker = GetWorld()->SpawnActor<AVPStoryMarker>(
             AVPStoryMarker::StaticClass(), Placement.Location, FRotator::ZeroRotator);
-        if (Marker) Marker->Action = Placement.Action;
+        if (Marker)
+        {
+            Marker->Action = Placement.Action;
+            AuthoredActions.AddUnique(Placement.Action);
+        }
     }
     // Native progression currently persists only in standalone story preview.
     // Multiplayer PIE must not share one machine-wide local save slot.
