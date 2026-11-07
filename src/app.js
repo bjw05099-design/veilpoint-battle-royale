@@ -1448,7 +1448,9 @@ function syncMotorSound(unlock=false){
  const distance=Math.hypot(simulation.player.x-gate.x,simulation.player.z-gate.z);
  // A valid PC interaction can unlock the ambient context. rAF updates never
  // create a new AudioContext by themselves or resume a paused match.
- if(unlock&&soundEnabled&&canAct())ensureAudio();
+ if(unlock&&soundEnabled&&canAct()&&
+   (windSound||(gate.motorActive&&
+      distance<global.VeilpointGateMotorAudio.HEARING_RADIUS)))ensureAudio();
  motorSound.sync({enabled:soundEnabled,playable:canAct(),active:gate.motorActive,distance});
  if(windSound)windSound.sync({enabled:soundEnabled,playable:canAct(),
    phase:simulation.zone&&simulation.zone.phase});
