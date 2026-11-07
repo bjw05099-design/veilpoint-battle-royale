@@ -518,6 +518,15 @@
     el('series').textContent=validSeries
       ?'RED '+series.red+'승 · BLUE '+series.blue+'승 · 무승부 '+series.draw
       :'서버 확인 중';
+    const myMetrics=state.self?.personalMetrics;
+    const validMetrics=myMetrics&&Number.isFinite(myMetrics.distanceMeters)&&
+      myMetrics.distanceMeters>=0&&myMetrics.distanceMeters<=100000&&
+      Number.isSafeInteger(myMetrics.relays)&&myMetrics.relays>=0&&myMetrics.relays<=1000;
+    // Only this authenticated player's metrics are exposed; neither team
+    // obtains unseen opponent movement or captures through match statistics.
+    el('personalMetrics').textContent=validMetrics
+      ?'실제 이동 '+myMetrics.distanceMeters.toFixed(1)+'m · 중계기 직접 연결 '+myMetrics.relays+'회'
+      :'서버 확인 중';
     // Only the server can define the objective threshold. These are public
     // team scores, not inferred opponents' positions or private resources.
     const targetScore = Number.isSafeInteger(state.targetScore) &&
