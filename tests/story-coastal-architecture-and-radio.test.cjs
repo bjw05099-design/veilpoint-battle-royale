@@ -70,8 +70,8 @@ test('authored harbor facade window geometry uploads for older residences and in
  }
  assert.ok(visibleAt(-46.05,-27.975,2.7,.19,.23,.24),
   'historic frontage must actually emit a second-floor window quad');
- assert.ok(visibleAt(41.6,-67.475,3.35,.19,.23,.24)||visibleAt(42.14,-67.475,3.35,.19,.23,.24)||
-  renderer.static.count>2500,'harbor scene must generate distinct warehouse geometry');
+ assert.ok(visibleAt(42.14,-69.475,3.35,.19,.23,.24),
+  'industrial harbor warehouse facade must have its own authored window geometry');
  assert.equal(JSON.stringify(story.world),before,'render-only historic styling may not change the world');
  for(const point of Object.values(Story.POINTS))
   assert.equal(Sim.blocked(point.x,point.z,.85,story.world.obstacles),false,
