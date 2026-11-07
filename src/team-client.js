@@ -25,6 +25,7 @@
   };
   let activeTouchAimPointer = null;
   let joining = false, restoring = false, polling = false, leaving = false;
+  let authorityStale = false; // A disconnected PC tab cannot keep issuing gameplay intents.
   let windowFocused = true; // A visible but unfocused desktop window is also inactive.
   let pending = Promise.resolve();
   // Coalesce only consecutive unsent aim or movement intents of the SAME type.
@@ -104,6 +105,7 @@
     // A restarted local server may forget the token while this tab stays open.
     // Drop all held PC input and old snapshots before enabling a fresh join.
     token = null; seq = 0; state = null; previousPhase = null;
+    authorityStale = false;
     readyIntent = null; readyIntentSeq = 0; readyIntentGeneration++;
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
     lastCrouchIntent = false; lastCrouchRefreshTick = -Infinity;
@@ -128,7 +130,7 @@
   const send = (type, payload = {}) => {
     // Until the server acknowledges an atomic reset, no new PC intent may
     // race the resumed tab's stale movement, aim, trigger or relay state.
-    if (!token || restoring || leaving) return Promise.resolve();
+    if (!token || restoring || leaving || authorityStale) return Promise.resolve();
     const sessionToken = token;
     const command = {seq: ++seq, type, ...payload};
     const coalescible = type === 'aim' || type === 'move';
@@ -760,8 +762,25 @@
     polling = true;
     const polledToken = token;
     try {
-      const nextState = await request('/state', undefined, polledToken);
+      let nextState = await request('/state', undefined, polledToken);
       if (token !== polledToken) return;
+      if (authorityStale) {
+        // A timed-out snapshot may conceal an active server-held movement,
+        // aim or relay intent. A fresh snapshot alone is not a reset receipt.
+        // Clear local keys and get one server-authoritative atomic release
+        // before re-enabling PC input after the network has returned.
+        releaseHeldInput();
+        if (nextState.phase === 'playing') {
+          const resetSeq = Math.max(seq, nextState.self.seq) + 1;
+          const acknowledged = await request('/command',
+            {seq: resetSeq, type: 'resetInput'}, polledToken);
+          if (acknowledged?.ok !== true) throw new Error('reset_unacknowledged');
+          seq = resetSeq;
+          nextState = await request('/state', undefined, polledToken);
+          if (token !== polledToken) return;
+        }
+        authorityStale = false;
+      }
       // A fresh server sequence is authoritative even if a newly joined peer
       // revoked an earlier solo ready vote. Do not leave a stale optimistic
       // consent stuck on screen when the server legitimately reset it.
@@ -819,7 +838,13 @@
       else if (err.message === 'simulation_unavailable') {
         if (state?.phase === 'playing') invalidateSession(polledToken);
         status(readableError(err));
-      } else status(`연결 확인 필요: ${readableError(err)}`);
+      } else {
+        if (state?.phase === 'playing') {
+          authorityStale = true;
+          releaseHeldInput();
+          status('연결 확인 필요 · PC 입력 일시 정지 · 서버 조작 초기화 후 재개: '+readableError(err));
+        } else status(`연결 확인 필요: ${readableError(err)}`);
+      }
     }
     finally {polling = false;}
   }, 150);
