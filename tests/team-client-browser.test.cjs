@@ -2402,6 +2402,8 @@ test('team weather countdown never fabricates missing or invalid server transiti
 test('PC team relay progress HUD reflects only published authoritative team percentages',async()=>{
  const server=backend(),a=boot(server),b=boot(server);
  a.node('join').click();b.node('join').click();await settle();
+ // A newly joined tab has no authoritative snapshot until its first poll.
+ await a.poll();await settle();
  assert.match(a.node('relayProgress').textContent,/대전 시작 전/);
  a.node('ready').click();b.node('ready').click();await settle();
  await a.poll();await b.poll();await settle();
