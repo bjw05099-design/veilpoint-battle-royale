@@ -5,8 +5,21 @@ const Story=require('../src/story-slice.js');
 const Journal=require('../src/field-journal.js');
 const fs=require('node:fs'),path=require('node:path');
 function evacuation(){
+ // Reach the genuine branch through the existing deterministic CH01 rules;
+ // a manually forced phase would not be a valid v2 combat checkpoint.
  const state=Story.createState();
- state.phase='exit';state.choice='evacuation';
+ const go=id=>{state.world.player.x=Story.POINTS[id].x;
+   state.world.player.z=Story.POINTS[id].z;};
+ go('terminal');assert.equal(Story.interact(state).ok,true);
+ for(const actor of state.world.bots)for(let i=0;i<2;i++){
+  state.world.player.yaw=Math.atan2(actor.x-state.world.player.x,
+    -(actor.z-state.world.player.z));
+  state.world.player.pitch=0;state.world.elapsed+=.21;
+  assert.equal(Story.fire(state).hit,true);
+ }
+ assert.equal(state.phase,'records');
+ go('decision');assert.equal(Story.interact(state).ok,true);
+ assert.equal(Story.choose(state,'evacuation').ok,true);
  return state;
 }
 test('CH01 south muster is a physically reached coordinator conversation, not a form inspection',()=>{
