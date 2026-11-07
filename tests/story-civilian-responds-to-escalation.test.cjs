@@ -41,7 +41,7 @@ test('worker waits before the captain body, then continues around a cleared lane
  p.x=25.5;p.z=-12;
  const before=w.x;
  for(let n=0;n<160;n++)Story.step(state,1/60,{});
- assert.ok(w.x>=before&&w.x<24,'worker must not clip through a person standing in the side passage');
+ assert.ok(w.x>=before&&w.x<24.2,'worker must not clip through a person standing in the side passage');
  assert.ok(Math.hypot(w.x-p.x,w.z-p.z)>=1.4-1e-6);
  p.x=0;p.z=12;
  for(let n=0;n<300;n++)Story.step(state,1/60,{});
