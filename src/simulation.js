@@ -152,6 +152,94 @@
   // One manually pushed, low-speed dock handcart: a real collision body,
   // not a free-floating movable marker or an instantly relocated supply.
   const DOCK_HANDCART=Object.freeze({x:132,z:-121,w:1.4,d:.9,h:1.0,speed:1.6});
+  // A small, non-combat port service vehicle. This is an authored, low-speed
+  // transport prototype, not an arcade boost or real driving instruction.
+  const YARD_SHUTTLE=Object.freeze({x:22,z:-9,yaw:Math.PI/2,w:2.05,d:4.1,h:2.1,
+    forwardSpeed:6,reverseSpeed:2.2,accelerate:2.5,coast:3,steering:.78,fuel:6});
+  function shuttleAabb(yaw){
+    const c=Math.abs(Math.cos(yaw)),t=Math.abs(Math.sin(yaw));
+    return {w:YARD_SHUTTLE.w*c+YARD_SHUTTLE.d*t,
+      d:YARD_SHUTTLE.w*t+YARD_SHUTTLE.d*c};
+  }
+  function shuttleBody(game){
+    return game.obstacles.find(o=>o.routeId==='br-yard-shuttle');
+  }
+  function shuttleClear(game,x,z,yaw,actors=game.bots,stores=game.loot){
+    // Three longitudinal probes approximate the vehicle's real footprint
+    // against the same collidable world used for pedestrian movement.
+    const staticWorld=game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle');
+    for(const offset of [-1.25,0,1.25]){
+      const px=x+Math.sin(yaw)*offset,pz=z-Math.cos(yaw)*offset;
+      if(blocked(px,pz,.95,staticWorld)||
+        actors.some(b=>b.alive&&Math.hypot(b.x-px,b.z-pz)<1.65)||
+        stores.some(item=>!item.picked&&Math.hypot(item.x-px,item.z-pz)<1.45))
+        return false;
+    }
+    return true;
+  }
+  function shuttleStatus(game){
+    if(!game?.vehicle||game.scene||game.status!=='playing')
+      return {near:false,driving:false};
+    const v=game.vehicle,p=game.player;
+    const near=Math.hypot(v.x-p.x,v.z-p.z)<=3.5&&
+      !lineBlocked(p.x,p.z,v.x,v.z,game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle'));
+    return {near:near||v.driver,driving:v.driver,speed:Math.abs(v.speed),
+      fuel:v.fuel,x:v.x,z:v.z};
+  }
+  function operateYardShuttle(game){
+    const info=shuttleStatus(game);
+    if(!info.near)return {ok:false,reason:'out_of_reach'};
+    const v=game.vehicle,p=game.player;
+    if(v.driver){
+      if(Math.abs(v.speed)>.12)return {ok:false,reason:'vehicle_moving'};
+      // Leave into a physical clear space beside the vehicle, never through
+      // scenery. A stopped truck must not force the player into a wall.
+      for(const side of [1,-1])for(const length of [2.5,3.25,4.0]){
+        const x=v.x+side*Math.cos(v.yaw)*length;
+        const z=v.z+side*Math.sin(v.yaw)*length;
+        if(blocked(x,z,.85,game.obstacles)||
+          game.bots.some(b=>b.alive&&Math.hypot(b.x-x,b.z-z)<1.8))continue;
+        p.x=x;p.z=z;v.driver=false;v.speed=0;
+        game.message='YARD VEHICLE PARKED · ON FOOT';game.messageTime=2;
+        return {ok:true,event:'exit'};
+      }
+      return {ok:false,reason:'exit_obstructed'};
+    }
+    if(Math.abs(v.speed)>.01)return {ok:false,reason:'vehicle_moving'};
+    if(game.handcart?.engaged)return {ok:false,reason:'hands_occupied'};
+    v.driver=true;p.x=v.x;p.z=v.z;p.yaw=v.yaw;
+    game.message='YARD VEHICLE · W/S DRIVE · A/D TURN · E EXIT WHEN STOPPED';
+    game.messageTime=4;
+    return {ok:true,event:'enter'};
+  }
+  function advanceYardShuttle(game,dt,input={}){
+    const v=game?.vehicle;
+    if(!v?.driver)return false;
+    const forward=Number(!!input.forward)-Number(!!input.back);
+    if(v.fuel<=0){v.speed=0;return true;}
+    if(forward!==0)
+      v.speed=clamp(v.speed+forward*YARD_SHUTTLE.accelerate*dt,
+        -YARD_SHUTTLE.reverseSpeed,YARD_SHUTTLE.forwardSpeed);
+    else {
+      const change=YARD_SHUTTLE.coast*dt;
+      v.speed=Math.abs(v.speed)<=change?0:v.speed-Math.sign(v.speed)*change;
+    }
+    const steer=Number(!!input.right)-Number(!!input.left);
+    const turn=steer*YARD_SHUTTLE.steering*dt*
+      Math.min(1,Math.abs(v.speed)/2)*Math.sign(v.speed);
+    const yaw=v.yaw+turn;
+    const dx=Math.sin(yaw)*v.speed*dt,dz=-Math.cos(yaw)*v.speed*dt;
+    const nextX=v.x+dx,nextZ=v.z+dz;
+    if(shuttleClear(game,nextX,nextZ,yaw)){
+      v.x=nextX;v.z=nextZ;v.yaw=yaw;
+      const aabb=shuttleAabb(yaw),body=shuttleBody(game);
+      if(body){body.x=v.x;body.z=v.z;body.w=aabb.w;body.d=aabb.d;}
+      game.player.x=v.x;game.player.z=v.z;
+      v.fuel=Math.max(0,v.fuel-Math.hypot(dx,dz)*.0025);
+    }else v.speed=0;
+    if(v.fuel===0){v.speed=0;game.message='YARD VEHICLE OUT OF FUEL';game.messageTime=2;}
+    return true;
+  }
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -191,6 +279,10 @@
     o.push({x:SERVICE_YARD.x,z:SERVICE_YARD.z,w:6,d:.6,h:2.3,
       type:'yard-gate',routeId:'br-service-gate'});
     o.push({...DOCK_HANDCART,type:'dock-handcart',routeId:'br-dock-handcart'});
+    const footprint=shuttleAabb(YARD_SHUTTLE.yaw);
+    o.push({x:YARD_SHUTTLE.x,z:YARD_SHUTTLE.z,w:footprint.w,
+      d:footprint.d,h:YARD_SHUTTLE.h,
+      type:'yard-service-vehicle',routeId:'br-yard-shuttle'});
     return o;
   }
   const ZONE_PHASES = [
@@ -247,6 +339,8 @@
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
       handcart:{x:DOCK_HANDCART.x,z:DOCK_HANDCART.z,engaged:false,dirX:0,dirZ:0},
+      vehicle:{x:YARD_SHUTTLE.x,z:YARD_SHUTTLE.z,yaw:YARD_SHUTTLE.yaw,
+        speed:0,fuel:YARD_SHUTTLE.fuel,driver:false},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
       obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -525,6 +619,7 @@
   }
   function reload(game) {
     if(game.status!=='playing')return {ok:false,reason:'not_playing'};
+    if(game.vehicle?.driver)return {ok:false,reason:'vehicle_controls_active'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.reloadRemaining>0){
       // A stressed fumble has one recoverable, player-initiated correction.
@@ -565,15 +660,18 @@
     const {player:p,obstacles} = game;
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
-    const wantsSprint=!cartMotion.engaged&&canSprint(p,input,iz);
+    const driving=!!game.vehicle?.driver;
+    const beforeX=p.x,beforeZ=p.z;
+    if(driving)advanceYardShuttle(game,dt,input);
+    const wantsSprint=!driving&&!cartMotion.engaged&&canSprint(p,input,iz);
     const loadMobility=supplyLoadMobility(p);
-    const speed=cartMotion.engaged?(cartMotion.moved?DOCK_HANDCART.speed:0):
+    const speed=driving?0:cartMotion.engaged?(cartMotion.moved?DOCK_HANDCART.speed:0):
       (input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
-    const beforeX=p.x,beforeZ=p.z;
-    moveEntity(p,(cartMotion.engaged?game.handcart.dirX:ix*cos+iz*sin)*speed,
-      (cartMotion.engaged?game.handcart.dirZ:ix*sin-iz*cos)*speed,dt,
-      obstacles.concat(actorObstacles(game,p)));
+    if(!driving)
+      moveEntity(p,(cartMotion.engaged?game.handcart.dirX:ix*cos+iz*sin)*speed,
+        (cartMotion.engaged?game.handcart.dirZ:ix*sin-iz*cos)*speed,dt,
+        obstacles.concat(actorObstacles(game,p)));
     // Colliding with solid cover is not actual sprint travel. Exertion follows
     // resolved displacement, not a held key, while unobstructed movement is unchanged.
     const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
@@ -639,7 +737,7 @@
         const heard=approximateSoundPosition(SERVICE_YARD);
         b.lastSeenX=heard.x;b.lastSeenZ=heard.z;
         b.lastSeenUntil=game.elapsed+1.5;
-      } else if(!outsideBot&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
+      } else if(!outsideBot&&!driving&&hearsFootsteps(b,p,movedDistance,sprinting,obstacles,!!input.crouch)){
         // Investigate only the last audible footstep position. Quiet movement
         // behind cover cannot continuously update this memory.
         const heard=approximateSoundPosition(p); // Sound cannot reveal exact hidden coordinates.
@@ -835,6 +933,7 @@
   }
   function tag(game, crouching=false) {
     if(game.status!=='playing') return {ok:false,reason:'not_playing'};
+    if(game.vehicle?.driver)return {ok:false,reason:'vehicle_controls_active'};
     const p=game.player,firearm=FIREARMS[p.weaponId]||FIREARMS.carbine;
     if(p.charges<=0) return {ok:false,reason:'empty'};
     if(p.reloadRemaining>0) return {ok:false,reason:'reloading'};
@@ -948,7 +1047,7 @@
     return selected;
   }
   function pickup(game) {
-    if(game.status!=='playing') return null;
+    if(game.status!=='playing'||game.vehicle?.driver) return null;
     const closest=nearestReachablePickup(game);
     if(!closest) return null;
     const p=game.player;
@@ -1115,6 +1214,7 @@
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
       handcart:game.handcart===null?null:{...game.handcart},
+      vehicle:game.vehicle===null?null:{...game.vehicle},
       trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
@@ -1157,6 +1257,22 @@
     }
     // Refuse to overwrite a usable save with internally contradictory actor
     // state. The restore path already rejects these, but autosave must too.
+    if(checkpoint.vehicle!==null){
+      const v=checkpoint.vehicle,body=shuttleBody(game);
+      if(!v||typeof v!=='object'||Array.isArray(v)||
+         Object.keys(v).sort().join(',')!=='driver,fuel,speed,x,yaw,z'||
+         !finite(v.x,-WORLD,WORLD)||!finite(v.z,-WORLD,WORLD)||
+         !finite(v.yaw,-100000,100000)||
+         !finite(v.speed,-YARD_SHUTTLE.reverseSpeed,YARD_SHUTTLE.forwardSpeed)||
+         !finite(v.fuel,0,YARD_SHUTTLE.fuel)||
+         typeof v.driver!=='boolean'||(!v.driver&&Math.abs(v.speed)>.000001)||
+         (v.fuel===0&&Math.abs(v.speed)>.000001)||
+         !body||Math.abs(body.x-v.x)>1e-5||Math.abs(body.z-v.z)>1e-5||
+         (v.driver&&(Math.abs(checkpoint.player.x-v.x)>1e-5||
+           Math.abs(checkpoint.player.z-v.z)>1e-5))||
+         !shuttleClear(game,v.x,v.z,v.yaw,checkpoint.bots,checkpoint.loot))
+        throw new RangeError('Invalid BR yard vehicle checkpoint');
+    }
     if (checkpoint.player.alive !== true || checkpoint.player.health <= 0 ||
         typeof checkpoint.player.reloadAssist !== 'boolean' ||
         typeof checkpoint.player.reloadHesitation !== 'boolean' ||
@@ -1175,7 +1291,8 @@
     if (!firearm || p.maxCharges!==firearm.maxRounds || p.charges>p.maxCharges ||
         p.loaded>p.charges || p.loaded>firearm.magazine ||
         (p.reloadHesitation && p.reloadRemaining<=0) ||
-        blocked(p.x,p.z,ACTOR_RADIUS,game.obstacles) ||
+        blocked(p.x,p.z,ACTOR_RADIUS,game.vehicle?.driver?
+          game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle'):game.obstacles) ||
         checkpoint.bots.some((b,i)=>b.id!==i ||
           blocked(b.x,b.z,ACTOR_RADIUS,game.obstacles)) ||
         overlappingLivingActors(checkpoint.player,checkpoint.bots))
@@ -1243,7 +1360,33 @@
       throw new RangeError('Invalid restored service-yard gate');
     game.yardGate={engaged:oldGate.engaged,progress:oldGate.progress,
       ...(oldGate.closing===true?{closing:true}:{})};
-    // Pre-handcart checkpoints retain their original authored collision world.
+      // A first-generation save may predate the utility vehicle. Never
+    // materialize an occupied truck into an older valid player or bot spawn.
+    if(saved.vehicle===undefined||saved.vehicle===null){
+      game.vehicle=null;
+      game.obstacles=game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle');
+    }else{
+      const v=saved.vehicle;
+      if(!v||typeof v!=='object'||Array.isArray(v)||
+        Object.keys(v).sort().join(',')!=='driver,fuel,speed,x,yaw,z'||
+        !finite(v.x,-WORLD,WORLD)||!finite(v.z,-WORLD,WORLD)||
+        !finite(v.yaw,-100000,100000)||
+        !finite(v.speed,-YARD_SHUTTLE.reverseSpeed,YARD_SHUTTLE.forwardSpeed)||
+        !finite(v.fuel,0,YARD_SHUTTLE.fuel)||
+        typeof v.driver!=='boolean'||(!v.driver&&Math.abs(v.speed)>.000001)||
+        (v.fuel===0&&Math.abs(v.speed)>.000001))
+        throw new RangeError('Invalid saved yard vehicle');
+      game.vehicle={...v};
+      const body=shuttleBody(game),bounds=shuttleAabb(v.yaw);
+      if(!body)throw new RangeError('Missing vehicle collider');
+      body.x=v.x;body.z=v.z;body.w=bounds.w;body.d=bounds.d;
+      if(!shuttleClear(game,v.x,v.z,v.yaw,saved.bots,saved.loot))
+        throw new RangeError('Saved vehicle intersects architecture');
+      if(v.driver&&(Math.abs(saved.player.x-v.x)>1e-5||
+        Math.abs(saved.player.z-v.z)>1e-5))
+        throw new RangeError('Saved driver is not in vehicle');
+    }
+  // Pre-handcart checkpoints retain their original authored collision world.
     // Introducing a new movable crate inside an old active match could
     // invalidate legitimate historical spawn/loot placements.
     if(saved.handcart===undefined||saved.handcart===null){
@@ -1283,7 +1426,9 @@
     if (!p.alive || p.health<=0 || p.charges>p.maxCharges || p.maxCharges!==firearm.maxRounds ||
         p.loaded>firearm.magazine || p.loaded>p.charges ||
         (p.reloadHesitation && p.reloadRemaining<=0)) throw new RangeError('Invalid player inventory');
-    if (blocked(p.x,p.z,0.85,game.obstacles)) throw new RangeError('Invalid player collision');
+    if (blocked(p.x,p.z,0.85,game.vehicle?.driver?
+      game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle'):game.obstacles))
+      throw new RangeError('Invalid player collision');
     const bots=saved.bots.map((raw,i)=>{
       if (!raw || typeof raw.alive !== 'boolean' ||
           (raw.disqualified !== undefined && typeof raw.disqualified !== 'boolean'))
@@ -1407,6 +1552,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });

@@ -634,6 +634,16 @@ function collectAmmo(){
  if(!canAct())return;
  // The same PC E interaction operates a physical service-yard control when
  // the player stands beside it. Otherwise E retains normal finite loot use.
+ const vehicle=Game.operateYardShuttle(simulation);
+ if(vehicle.ok){persistMatch();updateHud();return;}
+ if(['vehicle_moving','exit_obstructed','hands_occupied'].includes(vehicle.reason)){
+  simulation.message=vehicle.reason==='vehicle_moving'
+    ?'PARK VEHICLE BEFORE EXIT'
+    :vehicle.reason==='exit_obstructed'
+      ?'DOORWAY BLOCKED · STOP AT A CLEAR SPACE'
+      :'RELEASE HANDCART BEFORE ENTERING VEHICLE';
+  simulation.messageTime=2;updateHud();return;
+ }
  const gate=Game.operateServiceGate(simulation);
  if(gate.ok){syncMotorSound(true);persistMatch();updateHud();return;}
  const cart=Game.operateHandcart(simulation);
@@ -1575,6 +1585,7 @@ function updateHud(){const s=simulation,p=s.player;
    [saveMessage,bookmarkMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const yardGate=Game.serviceGateStatus(s);
  const handcart=Game.handcartStatus(s);
+ const vehicle=Game.shuttleStatus(s);
  const gateGuide=Navigation?Navigation.serviceGate(p,yardGate,Game.SERVICE_YARD,s.obstacles):'';
  const nearby=Game.nearestReachablePickup(s);
  const movable=Game.nearestRelocatableCache(s);
@@ -1582,8 +1593,10 @@ function updateHud(){const s=simulation,p=s.player;
    item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
- $('pickupPrompt').style.display=yardGate.near||handcart.near||nearby||restock||movable||gateGuide?'block':'none';
- if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
+ $('pickupPrompt').style.display=vehicle.near||yardGate.near||handcart.near||nearby||restock||movable||gateGuide?'block':'none';
+ if(vehicle.driving)$('pickupPrompt').textContent='PORT YARD VEHICLE · '+vehicle.speed.toFixed(1)+' m/s · FUEL '+vehicle.fuel.toFixed(2)+' L · W/S DRIVE · A/D TURN · '+interactPrompt+' EXIT WHEN STOPPED';
+ else if(vehicle.near)$('pickupPrompt').textContent=interactPrompt+' ENTER PARKED PORT YARD VEHICLE · HANDS ON CONTROLS';
+ else if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
   :yardGate.closing
   ?interactPrompt+' REVERSE TO OPEN · SERVICE YARD GATE CLOSING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'

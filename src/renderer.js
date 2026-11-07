@@ -46,6 +46,22 @@ class Mesh {
    this.quad(p[a],p[b],p[c],p[d],tinted);
   }
  }
+ // All visible corners share the physical vehicle heading. The ordinary
+ // AABB Mesh.box remains unchanged for every other scene object.
+ boxYaw(x,y,z,w,h,d,yaw,col){
+  const c=Math.cos(yaw),sn=Math.sin(yaw);
+  const v=(dx,dy,dz)=>V3(x+dx*c-dz*sn,y+dy,z+dx*sn+dz*c);
+  const p=[v(-w/2,0,-d/2),v(w/2,0,-d/2),
+    v(w/2,h,-d/2),v(-w/2,h,-d/2),
+    v(-w/2,0,d/2),v(w/2,0,d/2),
+    v(w/2,h,d/2),v(-w/2,h,d/2)];
+  const tinted=this.faceColor;
+  for(let i=0;i<6;i++){
+   const [a,b,c,d]=BOX_FACES[i],tint=i===4?1.06:i===5?.72:i===0?.81:i===2?.7:1;
+   tinted[0]=col[0]*tint;tinted[1]=col[1]*tint;tinted[2]=col[2]*tint;
+   this.quad(p[a],p[b],p[c],p[d],tinted);
+  }
+ }
  // Vertical low-poly plant silhouette, dark at the roots and glossy on leaves.
  tree(x,z,h,green){const r=h*0.13;this.box(x,0,z,r*0.9,h*0.45,r*0.9,[0.17,0.16,0.12]);for(let n=0;n<3;n++){const hh=h*(0.37+n*0.21),rr=h*(0.19-n*0.045);this.cone(x,hh*0.15,z,rr,hh,7,green.map(c=>c*(0.95+n*0.05)));}}
  cone(x,y,z,r,h,s,col){for(let i=0;i<s;i++){const a=i/s*Math.PI*2,b=(i+1)/s*Math.PI*2;this.tri([x+r*Math.cos(a),y,z+r*Math.sin(a)],[x+r*Math.cos(b),y,z+r*Math.sin(b)],[x,y+h,z],col);}}
@@ -185,9 +201,16 @@ class SoftwareRenderer {
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
- for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-  type:o.type==='dock-handcart'?'dock-handcart':o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
-    o.type==='yard-fence'?'yard-fence':'building'});
+ for(const o of state.obstacles){
+  // Driver camera occupies the vehicle cabin; no duplicate opaque box
+  // should obscure the actual road during first-person travel.
+  if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
+  objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
+   type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+     o.type==='dock-handcart'?'dock-handcart':
+     o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
+     o.type==='yard-fence'?'yard-fence':'building'});
+ }
  if(!harborNight){
   // The roof is an elevated surface, not a fictitious ground-level cube.
   const hut=global.VeilpointSim.INSPECTION_SHELTER;
@@ -226,7 +249,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -305,6 +328,7 @@ class Renderer {
   // A sliding gate must not remain as a solid closed panel in the static mesh:
   // it is drawn once from the live world by the dynamic geometry planner.
   if(o.routeId==='br-service-gate'||o.routeId==='br-dock-handcart')return;
+  if(o.routeId==='br-yard-shuttle')return;
   if(o.type==='yard-fence'){
    if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
    return;
@@ -490,6 +514,22 @@ class Renderer {
  // Do not leave a permanent second static cart at its original loading pad.
  for(const cart of plan.handcarts||[])
    mesh.box(cart.x,0,cart.z,cart.w,cart.h,cart.d,[.28,.37,.40]);
+ // One original port vehicle, with the real wheelbase and heading from
+ // the fixed-step world state. Eight boxes are budgeted in visibility.js.
+ for(const v of plan.vehicles||[]){
+  const at=(lx,lz)=>[v.x+lx*Math.cos(v.yaw)-lz*Math.sin(v.yaw),
+    v.z+lx*Math.sin(v.yaw)+lz*Math.cos(v.yaw)];
+  mesh.boxYaw(v.x,.35,v.z,2.05,.58,4.1,v.yaw,[.26,.34,.37]);
+  const cab=at(0,-.8);
+  mesh.boxYaw(cab[0],.85,cab[1],1.83,.85,1.7,v.yaw,[.30,.41,.44]);
+  mesh.boxYaw(cab[0],1.68,cab[1],1.85,.18,1.75,v.yaw,[.25,.31,.33]);
+  for(const x of [-.95,.95])for(const z of [-1.4,1.4]){
+   const wheel=at(x,z);
+   mesh.boxYaw(wheel[0],.15,wheel[1],.28,.55,.52,v.yaw,[.10,.11,.11]);
+  }
+  const bumper=at(0,-2.07);
+  mesh.boxYaw(bumper[0],.37,bumper[1],1.95,.22,.16,v.yaw,[.42,.43,.42]);
+ }
  // A single physical navigation sign follows the saved match world state.
  // Its narrow post and cloth flag require two cull-accounted boxes.
  for(const mark of plan.trailMarkers||[]){
