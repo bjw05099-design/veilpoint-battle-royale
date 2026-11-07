@@ -66,6 +66,21 @@
         guide.waiting?'안내원은 현장에서 대기 중이다. 가까이 돌아가서 동행을 재개할 수 있다.':
           '안내원이 함께 이동 중이다. 안뜰 도착이나 구조단 인계는 아직 완료되지 않았다.');
     }
+    // A debrief is earned only after the existing world completes a physical
+    // exit. It summarizes observed outcomes; it never awards optional tasks.
+    if(state&&state.phase==='complete'&&state.world&&state.world.status==='won'&&
+       ['evacuation','verification'].includes(state.choice)){
+      const facts=state.choice==='evacuation'
+        ?['남쪽 안뜰 대피 경로 완료',
+          state.musterConfirmed?'집결 인원 확인 완료':'집결 인원 확인 미실시',
+          state.aidDelivered?'비상 물품 인계 완료':'비상 물품 인계 미완료',
+          state.guide?.arrived?'안내원 안뜰 도착':
+            state.guide?.released?'안내원 구조단 인계 완료':'안내원 동행 선택 미완료']
+        :['동쪽 추가 확인 경로 완료',
+          state.gateLogReviewed?'현장 중계 로그 열람 완료':'현장 중계 로그 미열람',
+          state.logHandedOff?'현장 기록 전달 완료':'현장 기록 미전달'];
+      note('debrief','CH01 현장 종료 보고',facts.join(' · '));
+    }
     return Object.freeze(rows);
   }
   return Object.freeze({entries});
