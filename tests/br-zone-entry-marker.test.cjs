@@ -35,6 +35,7 @@ test('BR PC rendering uses public safe-zone waypoint without altering the saved 
  assert.match(map,/entry\.straightLineBlocked===true\?'#e8ad67':'#a3eed0'/);
  assert.doesNotMatch(map,/simulation\.bots/);
  const s=Sim.newMatch(20261107,0);
+ s.status='playing'; // The release gate only snapshots an actual active 60Hz round.
  const before=Sim.snapshotMatch(s);
  Nav.zoneEntry(s.player,{x:0,z:0,radius:1},s.obstacles);
  assert.equal(Sim.snapshotMatch(s),before,'map calculation cannot mutate a checkpoint');
