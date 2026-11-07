@@ -137,7 +137,8 @@ class TeamMatch {
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
-    if(objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(objectiveSite==='courier-double'&&targetScore!==2)throw new RangeError('courier_double_two_deliveries_only');
+    if(objectiveSite!=='courier'&&objectiveSite!=='courier-double'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     if(lighting!=='day'&&lighting!=='dusk')
       throw new RangeError('invalid_lighting');
@@ -145,7 +146,7 @@ class TeamMatch {
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
-    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
+    this.objective=(objectiveSite==='courier'||objectiveSite==='courier-double')?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -158,17 +159,20 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.isCourierMode()?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
     this.events = [];
     this.series = {red:0,blue:0,draw:0};
   }
+  // Both courier formats use the same physical, server-owned parcels; the
+  // double format requires a second independent trip after the first delivery.
+  isCourierMode(){return this.objectiveSite==='courier'||this.objectiveSite==='courier-double';}
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
   recordPublicEvent(type,team=null) {
-    if(!['round_start','relay_complete','relay_shift','parcel_collected','parcel_delivered','round_end'].includes(type)||
+    if(!['round_start','relay_complete','relay_shift','parcel_collected','parcel_delivered','parcel_restocked','round_end'].includes(type)||
        (team!==null&&!['red','blue'].includes(team)))return;
     this.events.push(Object.freeze({type,team,tick:this.ticks}));
     if(this.events.length>8)this.events.shift();
@@ -457,7 +461,7 @@ class TeamMatch {
   }
   fireShot(p, deferredHits = null) {
     const weapon = LOADOUTS[p.weaponId];
-    if(this.objectiveSite==='courier')return {ok:false,reason:'courier_noncombat'};
+    if(this.isCourierMode())return {ok:false,reason:'courier_noncombat'};
     if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
     // A rejected trigger attempt still interrupts a physical relay operation:
     // empty magazines, cooldown and active reload cannot bank a score.
@@ -516,7 +520,7 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.isCourierMode()?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -648,7 +652,7 @@ class TeamMatch {
       // Carried equipment affects traversal as well as the server-owned shot rules.
       const sprintRequested = p.sprintHeld && !p.crouching && !p.sprintExhausted &&
         p.stamina > 1 && Math.hypot(p.direction.x, p.direction.z) > 1e-6;
-      const carryingParcel=this.objectiveSite==='courier'&&
+      const carryingParcel=this.isCourierMode()&&
         this.courier.carrierId===p.id;
       const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : sprintRequested ? SPRINT_SPEED_FACTOR : 1) *
         LOADOUTS[p.weaponId].mobility * injuryMobility(p) * (carryingParcel ? .80 : 1);
@@ -764,7 +768,7 @@ class TeamMatch {
     this.progress[team === 'red' ? 'blue' : 'red'] = 0;
     this.progress[team] += STEP;
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
-      if(this.objectiveSite==='courier'&&this.courier.carrierId===null){
+      if(this.isCourierMode()&&this.courier.carrierId===null){
         this.courier={carrierId:operatorPlayer.id,team};
         this.objective=COURIER_DROPOFF;
         this.progress.red=0;this.progress.blue=0;
@@ -776,12 +780,20 @@ class TeamMatch {
       this.score[team]++;
       operatorPlayer.relayCompletions=Math.min(1000,operatorPlayer.relayCompletions+1);
       this.progress[team] = 0;
-      if(this.objectiveSite==='courier')this.recordPublicEvent('parcel_delivered',team);
+      if(this.isCourierMode())this.recordPublicEvent('parcel_delivered',team);
       else this.recordPublicEvent('relay_complete',team);
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
+      else if(this.objectiveSite==='courier-double'){
+        // The completed package is handed over at the actual receiving desk.
+        // A second consignment is now available at the original fixed depot;
+        // neither a carrier nor a parcel materializes at the player's feet.
+        this.courier={carrierId:null,team:null};
+        this.objective=COURIER_PICKUP;
+        this.recordPublicEvent('parcel_restocked');
+      }
       else if(this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'){
         // Transmission permission transfers to an EXISTING fixed terminal.
         // The fixtures stay physically installed throughout the round.
@@ -841,10 +853,10 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
-      relayVariant:this.objectiveSite==='courier'?'courier':
+      relayVariant:this.isCourierMode()?'courier':
         this.objectiveSite==='rotation-wide'?'rotation-wide':
         this.objectiveSite==='rotation'?'rotation':'fixed',
-      ...(this.objectiveSite==='courier'?{courier:{
+      ...(this.isCourierMode()?{courier:{
         stage:this.courier.carrierId===null?'pickup':'delivery',
         team:this.courier.team,
         pickup:{...COURIER_PICKUP},dropoff:{...COURIER_DROPOFF}
@@ -859,18 +871,18 @@ class TeamMatch {
       // changes which existing terminal is authorized, never teleports metal.
       objective: {x: this.objective.x, z: this.objective.z,
         radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
-        stations: (this.objectiveSite==='courier'
+        stations: (this.isCourierMode()
           ? ['pickup','dropoff']
           : this.objectiveSite==='rotation-wide'
           ? WIDE_RELAY_ORDER
           : this.objectiveSite==='east'||this.objectiveSite==='west'
             ? [...ROTATING_RELAY_ORDER,this.objectiveSite]
             : ROTATING_RELAY_ORDER).map(id=>({
-          id,x:this.objectiveSite==='courier'
+          id,x:this.isCourierMode()
             ?(id==='pickup'?COURIER_PICKUP.x:COURIER_DROPOFF.x):RELAY_SITES[id].x,
-          z:this.objectiveSite==='courier'
+          z:this.isCourierMode()
             ?(id==='pickup'?COURIER_PICKUP.z:COURIER_DROPOFF.z):RELAY_SITES[id].z,
-          active:this.objectiveSite==='courier'
+          active:this.isCourierMode()
             ?(id==='pickup'?this.courier.carrierId===null:this.courier.carrierId!==null)
             :RELAY_SITES[id]===this.objective
         }))}, cover: COVER, weather,
