@@ -102,7 +102,11 @@
     exitVerify: Object.freeze({id:'exitVerify', x:27, z:-61, kind:'verify', label:'추가 확인 경로'}),
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
-    officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'})
+    officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
+    waterSite: Object.freeze({id:'waterSite',x:140,z:87,kind:'evidence',
+      label:'공동 급수대 실제 수압을 현장에서 확인'}),
+    waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
+      label:'현장 조사 메모를 남쪽 구조단 접수대에 전달'})
   });
   const RECORDS = Object.freeze({
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
@@ -357,10 +361,10 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+      subtitle:'마라(기술자): 이 대위님, 원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견되셨잖아요. 그런데 내전이 이렇게 격화될 줄은 몰랐죠. 주민 통로는 유수프 구조단이 결정하고, 국정원 보고는 현장 기록과 대조해야 합니다.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
     state.world.aidPickedUp=false;state.world.aidDelivered=false;
     syncRoute(state);syncMarkers(state);
@@ -387,6 +391,13 @@
     // An unvisited office never reveals its contents on the global HUD.
     return state.officeBoardRead?[]:[POINTS.officeBoard];
   }
+  function waterSurveyMarkers(state){
+    // Unlike a HUD objective, the second city-block task only appears after
+    // the captain physically reaches the original shared civic courtyard.
+    if(!state.civicVisited||!['records','decision','exit'].includes(state.phase)||
+       state.waterReportFiled)return [];
+    return state.waterSurveyed?[POINTS.waterReportDesk]:[POINTS.waterSite];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -395,12 +406,13 @@
       POINTS.decision,
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...officeMarkers(state),
+      ...waterSurveyMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...waterSurveyMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...waterSurveyMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
          ...(state.transportContact<2?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -518,6 +530,7 @@
       if(guideInReach&&(priority>bestPriority||(priority===bestPriority&&d<best))&&
         d<(marker.id==='beacon'?SWITCH_REACH:
           marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
+          marker.id==='waterSite'?SUPPLY_REACH:
           marker.id==='transportDriver'?2.3:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
@@ -983,6 +996,22 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='waterSite'&&state.civicVisited&&!state.waterSurveyed&&
+       ['records','decision','exit'].includes(state.phase)){
+      state.waterSurveyed=true;
+      state.subtitle='이수혁 대위: 주민 공동 급수대에서 물이 거의 나오지 않는 것을 직접 확인했습니다. 단수 원인과 복구 시점은 현장에서 알 수 없습니다.';
+      state.message='시가지 급수대 현장 점검 완료 · 기록 인계 필요';
+      syncMarkers(state);
+      return {ok:true,event:'water_surveyed',phase:state.phase};
+    }
+    if(marker.id==='waterReportDesk'&&state.waterSurveyed&&!state.waterReportFiled&&
+       ['records','decision','exit'].includes(state.phase)){
+      state.waterReportFiled=true;
+      state.subtitle='유수프(현지 구조단): 공동 급수대 상황을 접수했습니다. 확인되지 않은 복구 일정을 주민에게 안내하지 않겠습니다.';
+      state.message='시가지 현장 점검 기록 · 구조단 접수 완료';
+      syncMarkers(state);
+      return {ok:true,event:'water_report_filed',phase:state.phase};
+    }
     if(marker.id==='officeBoard'&&!state.officeBoardRead&&
        ['records','decision','exit'].includes(state.phase)){
       // The optional physical board says only that residents were asked to
@@ -1375,7 +1404,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1394,7 +1423,9 @@
         (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
-        (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')
+        (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')+
+        (state.waterReportFiled?' 공동 급수대 상태를 직접 확인해 현지 구조단에 현장 기록을 인계했습니다. 복구 완료 여부는 미확인입니다.':
+          state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
     });
   }
   function objective(state) {
@@ -1437,7 +1468,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1463,8 +1494,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+21||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited').includes(k))||
+      Object.keys(data).length>expectedKeys.length+23||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1485,6 +1516,13 @@
           !Number.isInteger(data.transportContact)||
           data.transportContact<0||data.transportContact>2||
           (data.transportContact>0&&!['exit','complete'].includes(data.phase))))||
+       (hasOwn(data,'waterSurveyed')&&
+         (typeof data.waterSurveyed!=='boolean'||
+          (data.waterSurveyed&&(data.civicVisited!==true||
+            !['records','decision','exit','complete'].includes(data.phase)))))||
+       (hasOwn(data,'waterReportFiled')&&
+         (typeof data.waterReportFiled!=='boolean'||
+          (data.waterReportFiled&&data.waterSurveyed!==true)))||
        (hasOwn(data,'civicVisited')&&
          (typeof data.civicVisited!=='boolean'||
           (data.civicVisited&&!['records','decision','exit','complete'].includes(data.phase))))||
@@ -1693,6 +1731,8 @@
     state.driverReportFiled=hasOwn(data,'driverReportFiled')?data.driverReportFiled:false;
     state.officeBoardRead=hasOwn(data,'officeBoardRead')?data.officeBoardRead:false;
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
+    state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
+    state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
      // Historic v2 files may carry a now-retired, non-essential planning-board
      // flag. It is validated above but intentionally discarded on restore;
      // genuine escort, supply and evidence progress remains untouched.

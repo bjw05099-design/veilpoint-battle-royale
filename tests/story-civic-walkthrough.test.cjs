@@ -27,8 +27,10 @@ test('CH01 physically walks across the common Aden-inspired neighborhood before 
  assert.equal(Sim.blocked(p.x,p.z,.85,state.world.obstacles),false);
  assert.match(state.subtitle,/조현지/);
  assert.match(state.subtitle,/접수 상태는 아직 확인되지/);
- assert.deepEqual(Story.markers(state).map(m=>m.id),baseline,
-  'urban scene observation must not erase original mission records or choices');
+ assert.deepEqual(Story.markers(state).map(m=>m.id).filter(id=>id!=='waterSite'),baseline,
+  'urban visit must preserve all earlier objectives while revealing the new physical survey');
+ assert.equal(Story.markers(state).some(m=>m.id==='waterSite'),true,
+  'arriving in the shared city reveals the separate water supply investigation');
  const message=state.message;
  for(let tick=0;tick<60;tick++)Story.step(state,1/60,{});
  assert.equal(state.message,message,'arrival only triggers once');

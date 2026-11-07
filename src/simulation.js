@@ -321,6 +321,20 @@
       [85,116,10,.6,4,'aden-civic-wall'],
       [69,127,3,2,1.3,'aden-civic-stall']
     ])o.push({x,z,w,d,h,type});
+    // Second shared public quarter: an open-west pedestrian arcade with a
+    // real continuous six-metre entrance, a roofed lane and a public tap.
+    // The eastern site uses ordinary fictional urban scale, not surveyed
+    // layouts of any modern sensitive building in Aden.
+    // These same solids are used by both BR and CH01 without duplicated maps.
+    // Keep the feature in terrain revision 1; older BR saves remain exact.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [148,85,.6,18,3.8,'aden-arcade-wall'],
+      [136,94,24,.6,3.8,'aden-arcade-wall'],
+      [136,76,24,.6,3.8,'aden-arcade-wall'],
+      [124,90,.6,8,3.8,'aden-arcade-wall'],
+      [124,78,.6,4,3.8,'aden-arcade-wall'],
+      [142,88,.9,.7,1.3,'aden-arcade-water']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -354,7 +368,7 @@
     // pickups simply because an additional, distant civic block was authored.
     // Draw from the original unmodified candidate sequence, then resolve only
     // rare local overlap with the new block deterministically below.
-    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-'));
+    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)

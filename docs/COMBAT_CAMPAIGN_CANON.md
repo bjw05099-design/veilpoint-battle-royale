@@ -2,6 +2,19 @@
 
 **Approved by owner:** 2026-10-27. **Priority:** binding narrative/design direction for future campaign work. **Implementation status:** specification, not 12 playable hours or a military combat system.
 
+## Binding story inciting incident — 2026-11-08 owner clarification
+
+**Confirmed cause-and-effect premise:** Captain **이수혁** is first dispatched to the fictional Sahir Coast/Nahrin region on a separate, authorized and limited international protection/observation assignment. **He is not deployed there with the original intention of fighting a civil war.** Only **after he arrives and begins that original mission** does a rapidly escalating internal conflict derail the assignment and entangle him and his squad in the civil war. This change of circumstances is the inciting incident of the **entire campaign**, not merely optional lore.
+
+For production continuity, require every new chapter and introductory scene to preserve:
+- **Before:** an understandable original dispatch order, narrow mission scope and expected completion/return arrangements, which CH01 can establish through the existing on-site communications and civilian support work. Exact commanding agency, unit identities and sensitive operational detail remain fictional and unspecified unless written consistently into canon later.
+- **During:** visible changes to the civilian city, fractured local information, conflicting requests and disrupted expected support/return arrangements; these developments must occur *after* the captain's dispatch and must cause changes in his objectives rather than appearing as arbitrary action scenes.
+- **After:** the captain and his team are caught in the expanding internal conflict and must make credible decisions about colleagues, civilian protection, mission legitimacy and exit, while original civilian partners retain independent agency. Neither government nor military is falsely said to have dispatched the captain specifically to prosecute the civil war.
+- **Chronology and agency:** later chapters should refer back to the initial limited assignment, mark the escalation through grounded observable events, and never quietly rewrite the original deployment purpose. Fictional conflict is not a documentary depiction of Yemen's actual combatants or any real country's deployment.
+- **Current status:** only the short browser CH01 slice exists; 12 chapters / 12 playable hours and fully cinematic escalation are **not** already implemented.
+
+This explicit owner's storyline takes precedence over earlier ambiguous descriptions such as “in a regional war” that could imply the captain went to war intentionally.
+
 ## Canon continuity decision
 
 - **Geographic reference updated 2026-11-07:** The primary **real-world landscape, neighborhood and architectural reference is Aden, southern Yemen, in the 2015-era conflict context**; see [Aden world reference](WORLD_REFERENCE_ADEN.md). Keep **Sahir Coast / Nahrin** as the fictional *narrative* district and keep all named characters and incidents original. Reconstruct natural geography and civilian built environment from dated, licensed sources; do not copy current sensitive facilities, tactical sites or attribute fictional events to real groups. This supersedes the earlier generic-geography/no-specific-historical-reference sentence, **not** the fictional character or combat-first canon. Present browser and native maps remain grayboxes rather than verified historical replicas.
