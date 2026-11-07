@@ -1,0 +1,94 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const Story=require('../src/story-slice.js');
+const Journal=require('../src/field-journal.js');
+const Visibility=require('../src/visibility.js');
+const go=(s,id)=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+function evacuation(){
+ const state=Story.createState();go(state,'terminal');
+ assert.equal(Story.interact(state).ok,true);
+ for(const person of state.world.bots)for(let i=0;i<2;i++){
+  state.world.player.yaw=Math.atan2(person.x-state.world.player.x,
+    -(person.z-state.world.player.z));
+  state.world.player.pitch=0;state.world.elapsed+=.21;
+  assert.equal(Story.fire(state).hit,true);
+ }
+ assert.equal(state.phase,'records');
+ go(state,'decision');assert.equal(Story.interact(state).ok,true);
+ assert.equal(Story.choose(state,'evacuation').ok,true);
+ return state;
+}
+test('new local transport NPC supports two deliberate conversation stages and real story feedback',()=>{
+ const s=evacuation();
+ assert.equal(s.transportContact,0);
+ assert.equal(Story.markers(s).some(p=>p.id==='transportDriver'),true);
+ assert.equal(Story.interact(s).ok,false,'no long-distance conversation');
+ go(s,'transportDriver');
+ assert.equal(Story.nearest(s).id,'transportDriver');
+ let reply=Story.interact(s);
+ assert.equal(reply.ok,true);
+ assert.equal(s.transportContact,1);
+ assert.match(s.subtitle,/나딤/);
+ assert.match(s.subtitle,/도착하지 않았/);
+ assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),true);
+ assert.equal(Journal.entries(s).some(m=>m.id==='transport'),true);
+ assert.match(Journal.entries(s).find(m=>m.id==='transport').detail,/재확인 전/);
+ const first=Story.serialize(s);
+ assert.equal(Story.serialize(Story.restore(first)),first);
+ reply=Story.interact(s);
+ assert.equal(reply.ok,true);
+ assert.equal(s.transportContact,2);
+ assert.match(s.subtitle,/조현지/);
+ assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
+ assert.equal(Story.nearest(s)?.id==='transportDriver',false);
+ assert.ok(s.world.witness&&s.world.witness.x===10&&s.world.witness.z===-54);
+ const task=Story.missionTasks(s).find(t=>t.id==='driver');
+ assert.equal(task.status,'done');
+ assert.equal(task.optional,true);
+ const done=Story.serialize(s);
+ assert.equal(Story.serialize(Story.restore(done)),done);
+});
+test('the witness is an actual locally visible solid human and never an unseen world map marker',()=>{
+ const s=evacuation(),npc=s.world.witness;
+ assert.deepEqual(npc,{x:10,z:-54});
+ s.world.player.x=10;s.world.player.z=-58;s.world.player.yaw=Math.PI;
+ const view=Visibility.planVisible(s.world,16/9);
+ assert.equal(view.witnesses.length,1);
+ assert.equal(view.witnesses[0].entity,npc);
+ for(let i=0;i<60;i++)Story.step(s,1/60,{forward:true});
+ assert.ok(s.world.player.z < -55,
+  'the player must not walk straight through a visible human body');
+ s.world.player.x=10;s.world.player.z=-58;s.world.player.yaw=0;
+ assert.equal(Visibility.planVisible(s.world,16/9).witnesses.length,0,
+  'turning away cannot leave a hidden civilian rendered on camera');
+ const render=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
+ assert.match(render,/for\(const \{entity:w\} of plan\.witnesses\|\|\[\]\)/);
+ assert.match(render,/type:'witness'/);
+ assert.match(render,/mesh\.box\(w\.x,\.05,w\.z/);
+ const before=Story.createState();
+ assert.equal(before.world.witness,null);
+ assert.equal(Visibility.planVisible(before.world,16/9).witnesses.length,0);
+});
+test('previous saves migrate safely and invented conversations are rejected',()=>{
+ const s=evacuation(),raw=JSON.parse(Story.serialize(s));
+ delete raw.transportContact;
+ const old=Story.restore(JSON.stringify(raw));
+ assert.equal(old.transportContact,0);
+ assert.equal(Story.markers(old).some(m=>m.id==='transportDriver'),true);
+ for(const invalid of [3,-1,'2',null,1.5]){
+  const bad={...raw,transportContact:invalid};
+  assert.throws(()=>Story.restore(JSON.stringify(bad)),/checkpoint|Unknown|Invalid|fields/i);
+ }
+ const forged=JSON.parse(Story.serialize(Story.createState()));
+ forged.transportContact=1;
+ assert.throws(()=>Story.restore(JSON.stringify(forged)),/checkpoint|Unknown|Invalid|fields/i);
+ // Optional meeting cannot block the existing south exit and cannot grant
+ // arrival/vehicle completion even if the player skips the staff conversation.
+ go(old,'exitEvac');
+ assert.equal(Story.interact(old).ok,true);
+ assert.match(Journal.entries(old).find(r=>r.id==='debrief').detail,/운송 담당자 면담 미진행/);
+ const completed=Story.restore(Story.serialize(old));
+ assert.equal(completed.phase,'complete');
+ assert.equal(completed.transportContact,0);
+});
