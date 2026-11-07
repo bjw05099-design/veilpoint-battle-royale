@@ -64,6 +64,22 @@
   // Share PC keyboard preferences with the BR and CH01 browser prototypes.
   // The server remains authoritative for all movement and gameplay commands.
   const Desktop = window.VeilpointDesktopControls;
+  // Original optional round cues use only this client's authenticated public
+  // round phase/id/overtime; do not synthesize unseen opponent movement.
+  const TeamAudio=window.VeilpointTeamAudio;
+  const teamAudio=TeamAudio?TeamAudio.create({
+    AudioContextClass:window.AudioContext||window.webkitAudioContext||null}):null;
+  const soundButton=el('teamSound');
+  if(soundButton){
+    if(!teamAudio){
+      soundButton.disabled=true;soundButton.textContent='효과음 지원 안 됨';
+    }else soundButton.addEventListener('click',()=>{
+      const next=teamAudio.setEnabled(!teamAudio.enabled);
+      soundButton.textContent=next?'경기 효과음 끄기':'경기 효과음 켜기';
+      if(typeof soundButton.setAttribute==='function')
+        soundButton.setAttribute('aria-pressed',String(next));
+    });
+  }
   // Browser privacy policy can deny the localStorage property itself, before
   // Desktop.load() has a chance to catch getItem failures.
   const desktopStorage = (() => {try {return window.localStorage;} catch (_) {return null;}})();
@@ -493,6 +509,9 @@
   };
   const render = () => {
     if (!state) return;
+    // Muted by default. Sound follows only authenticated public state edges;
+    // browser polling never starts an oscillator for a hidden opponent.
+    if(teamAudio)teamAudio.sync(state);
     if (state.phase === 'playing') {
       // Server has accepted both participants; an older lobby intent cannot
       // overwrite the new round's controls or the ready button label.
