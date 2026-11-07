@@ -873,6 +873,7 @@ class TeamMatch {
       });
     });
     return {phase: this.phase, tick: this.ticks, lighting:this.lighting,
+      ...(this.objectiveSite==='duel-docks'?{arena:'dockyard'}:{}),
       round: {id:this.roundId,
         limitTicks: ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0),
         remainingTicks: Math.max(0,ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0)-this.ticks),
