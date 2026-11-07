@@ -26,6 +26,7 @@ void AVPStoryMarker::BeginPlay()
 {
     Super::BeginPlay();
     if (Model) Model->SetVisibility(IsAvailable());
+    ApplyStageShape();
 }
 
 void AVPStoryMarker::Tick(float DeltaSeconds)
