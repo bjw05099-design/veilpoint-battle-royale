@@ -40,6 +40,18 @@ test('one handoff never wins; depot requires a second physical pickup and delive
  assert.equal(game.courier.carrierId,red.id);
  assert.equal(game.objective.z,10);
  assert.equal(game.score.red,0);
+ // An opposing player cannot hand in the carrier's parcel remotely.
+ const other=game.players.get(BLUE);
+ other.x=0;other.z=10;
+ game.command(BLUE,{seq:2,type:'capture',active:true});
+ for(let i=0;i<126;i++){
+  if(i===60)game.command(BLUE,{seq:3,type:'capture',active:true});
+  game.step();
+ }
+ assert.deepEqual(game.score,{red:0,blue:0});
+ assert.equal(game.courier.carrierId,red.id);
+ game.command(BLUE,{seq:4,type:'capture',active:false});
+ other.x=8;other.z=0;
  red.x=0;red.z=10;
  work(ctx);
  assert.equal(game.score.red,1);
