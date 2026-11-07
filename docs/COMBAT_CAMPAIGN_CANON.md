@@ -7,13 +7,26 @@
 **Confirmed cause-and-effect premise:** Captain **이수혁** is first dispatched to the fictional Sahir Coast/Nahrin region on a separate, authorized and limited international protection/observation assignment. **He is not deployed there with the original intention of fighting a civil war.** Only **after he arrives and begins that original mission** does a rapidly escalating internal conflict derail the assignment and entangle him and his squad in the civil war. This change of circumstances is the inciting incident of the **entire campaign**, not merely optional lore.
 
 For production continuity, require every new chapter and introductory scene to preserve:
-- **Before:** an understandable original dispatch order, narrow mission scope and expected completion/return arrangements, which CH01 can establish through the existing on-site communications and civilian support work. Exact commanding agency, unit identities and sensitive operational detail remain fictional and unspecified unless written consistently into canon later.
+- **Before (in Korea, not Aden):** the captain receives his formal order, a narrow authorized assignment, and expected return arrangements **in Korea before departure**. The officer and his squad know their mission before boarding transport. Introduce that fact through a short pre-departure briefing in later production or through natural team dialogue in the current CH01 slice; **do not invent a dispatch order lying in an Aden street for the captain to discover and read by pressing E**. Exact commanding agency, unit identities and sensitive operational detail remain fictional and unspecified unless written consistently into canon later.
 - **During:** visible changes to the civilian city, fractured local information, conflicting requests and disrupted expected support/return arrangements; these developments must occur *after* the captain's dispatch and must cause changes in his objectives rather than appearing as arbitrary action scenes.
 - **After:** the captain and his team are caught in the expanding internal conflict and must make credible decisions about colleagues, civilian protection, mission legitimacy and exit, while original civilian partners retain independent agency. Neither government nor military is falsely said to have dispatched the captain specifically to prosecute the civil war.
 - **Chronology and agency:** later chapters should refer back to the initial limited assignment, mark the escalation through grounded observable events, and never quietly rewrite the original deployment purpose. Fictional conflict is not a documentary depiction of Yemen's actual combatants or any real country's deployment.
 - **Current status:** only the short browser CH01 slice exists; 12 chapters / 12 playable hours and fully cinematic escalation are **not** already implemented.
 
 This explicit owner's storyline takes precedence over earlier ambiguous descriptions such as “in a regional war” that could imply the captain went to war intentionally.
+
+## Story realism and pacing correction — 2026-11-08
+
+The owner explicitly rejected the implausible on-site "original deployment orders" pickup and lengthy repetitive evidence-checklist loops. **Chronology, character motivation and credible human decisions are more important than accumulating tiny investigation actions.**
+
+- The first briefing took place **before departure in Korea**. CH01 should begin after arrival and use brief organic squad radio dialogue to recall only details that matter to current decisions.
+- The first serious disruption is the **unexpected escalation of internal conflict after arrival**, the resulting breakdown of the original schedule and uncertain return conditions. The captain does not begin his operation as a civil-war combatant.
+- Do not require players to search a fictional coastal street for the paperwork they already received in Korea. The on-site dispatch-case object, associated pickup and its factual-debrief claim are retired in CH01. Old checkpoint keys are accepted only for backward compatibility.
+- Priority playable verbs: character-led decisions, grounded traversal, urgent civilian assistance and consequential encounters. Keep genuinely useful optional field checks; do not inflate campaign runtime with repeated paper record comparisons, journal filing or long fetch-and-return trips.
+- The public communications mysteries are **background context or a short optional route**, not the central dramatic engine of the entire story. Avoid always-visible distant markers for trivial errands; later chapters should escalate through authored events, team cohesion and regional change.
+- Preserve the fictional setting, local civilian agency, existing route outcomes, and save-file compatibility. Future plot/script reviews must explicitly check when and why each character learned a fact, whether they could be at a location in time, and what caused their next decision.
+
+
 
 ## Canon continuity decision
 

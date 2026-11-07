@@ -147,10 +147,17 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
   assert.throws(()=>story.restore('x'.repeat(8300)),TypeError);
 });
 
-test('CH01 accurately frames the captain as protagonist and Mara as ally without claiming combat is implemented', () => {
+test('CH01 starts with an informed Korean captain, authentic squad report and Mara as a later civilian ally', () => {
   const opening = story.createState();
-  assert.match(opening.subtitle, /이 대위님/);
-  assert.match(opening.subtitle, /마라\(기술자\)/);
+  assert.match(opening.subtitle, /김도겸 중사/);
+  assert.match(opening.subtitle, /대위님/);
+  assert.match(opening.subtitle, /한국에서 출국하기 전에 받은 파견 지시/);
+  assert.match(opening.subtitle, /도착한 뒤 내전이 예상보다 빠르게/);
+  const supported = story.createState();
+  go(supported,'terminal');story.interact(supported);clearEncounter(supported);
+  go(supported,'relay');story.interact(supported);
+  assert.match(supported.subtitle, /마라\(기술자\)/,
+    'Mara remains an on-site technical partner, not the captain’s pre-departure briefer');
   const html = fs.readFileSync(path.resolve(__dirname, '../story.html'), 'utf8');
   assert.match(html, /이수혁 대위/);
   assert.match(html, /국정원/);
@@ -376,7 +383,7 @@ test('CH01 hostile pressure raises stress deterministically without phantom ammu
 
 test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=>{
   const s=story.createState();
-  assert.match(s.subtitle,/대피 지원 요청/);
+  assert.match(s.subtitle,/유수프 구조단.*주민 대피 지원을 요청/);
   const opening=story.situation(s);
   assert.match(opening.mandate,/제한적 민간 대피 지원 승인/);
   assert.match(opening.liaison,/김지윤.*조현지/);
@@ -529,7 +536,9 @@ test('CH01 legacy v2 shot time migrates conservatively and tampered timing is re
   unknown.combat.unknownTimestamp=0;
   assert.throws(()=>story.restore(JSON.stringify(unknown)),RangeError);
   assert.match(story.situation(s).command,/이수혁.*지휘관.*유수프.*국정원/);
-  assert.match(story.createState().subtitle,/유수프 구조단.*국정원 보고/);
+  assert.match(story.createState().subtitle,/한국에서 출국.*내전.*유수프 구조단/);
+  assert.match(story.situation(s).liaison,/김지윤.*조현지/,
+    'existing NIS cast retains its bounded advisory role after corrected squad dialogue');
 });
 
 test('CH01 60Hz loop expires shot visuals, damage flash and messages without touching ammunition',()=>{

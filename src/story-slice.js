@@ -56,10 +56,6 @@
     {x:82.5,z:17,w:5,d:.5,h:4,type:'story-office-wall'},
     {x:91.5,z:17,w:5,d:.5,h:4,type:'story-office-wall'},
     {x:87,z:30,w:2,d:.7,h:1,type:'story-office-desk'},
-    // One optional, grounded physical copy of the ORIGINAL assignment.
-    // Its arrival-side location and independent interaction are playable,
-    // not a remotely accessible fictional magic mission checklist.
-    {x:-12,z:9.8,w:2.2,d:.8,h:1.2,type:'story-dispatch-case'},
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
@@ -107,8 +103,6 @@
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
     officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
-    dispatchOrders: Object.freeze({id:'dispatchOrders',x:-12,z:11.4,kind:'evidence',
-      label:'이수혁 대위 · 내전 격화 전 최초 파견 지시서'}),
     waterSite: Object.freeze({id:'waterSite',x:140,z:87,kind:'evidence',
       label:'공동 급수대 실제 수압을 현장에서 확인'}),
     waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
@@ -367,10 +361,12 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,deploymentReviewed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
+      // Retained solely to load v2 saves produced before the Korea-briefing correction.
+      deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견되셨잖아요. 그런데 내전이 이렇게 격화될 줄은 몰랐죠. 주민 통로는 유수프 구조단이 결정하고, 국정원 보고는 현장 기록과 대조해야 합니다.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+      subtitle:'김도겸 중사(무전): 대위님, 한국에서 출국하기 전에 받은 파견 지시는 현지 연락망 확인과 구호 인력 지원이었습니다. 우리가 도착한 뒤 내전이 예상보다 빠르게 번졌고, 귀환 경로도 불확실해졌습니다. 유수프 구조단이 주민 대피 지원을 요청하고 있습니다.',message:'CH01 / 마지막 방송 · 예상 밖 내전 격화'};
     state.world.carryingAid=false;state.world.aidStaged=false;
     state.world.aidPickedUp=false;state.world.aidDelivered=false;
     syncRoute(state);syncMarkers(state);
@@ -404,14 +400,8 @@
        state.waterReportFiled)return [];
     return state.waterSurveyed?[POINTS.waterReportDesk]:[POINTS.waterSite];
   }
-  function dispatchOrderMarkers(state){
-    if(state.phase!=='terminal'||state.deploymentReviewed)return [];
-    const p=state.world.player,doc=POINTS.dispatchOrders;
-    // A personal paper copy can be discovered only at its real arrival spot.
-    return Math.hypot(p.x-doc.x,p.z-doc.z)<8?[doc]:[];
-  }
   function markers(state) {
-    if (state.phase==='terminal') return [POINTS.terminal,...dispatchOrderMarkers(state)];
+    if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
@@ -1008,13 +998,6 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
-    if(marker.id==='dispatchOrders'&&state.phase==='terminal'&&!state.deploymentReviewed){
-      state.deploymentReviewed=true;
-      state.subtitle='원래 파견 지시서: 현지 공공 통신 상황을 확인하고 현지 구조단 요청을 지원한 뒤 복귀할 예정이었습니다. 도착 후 내전이 급격히 확산됐고, 내전 참전은 최초 파견 목적이 아니었습니다.';
-      state.message='최초 파견 목적 확인 · 예상 밖 내전 격화 이전의 지시';
-      syncMarkers(state);
-      return {ok:true,event:'original_dispatch_orders',phase:'terminal'};
-    }
     if(marker.id==='waterSite'&&state.civicVisited&&!state.waterSurveyed&&
        ['records','decision','exit'].includes(state.phase)){
       state.waterSurveyed=true;
@@ -1055,7 +1038,7 @@
       state.phase='engagement';state.combat.started=true;
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeHostiles();
-      state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
+      state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대돼 중계기 주변이 위험해졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 주민과 연락하려면 먼저 주변 안전부터 확보해야 합니다.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
@@ -1104,7 +1087,7 @@
         :'항구 경고등 수동 소등 · 현장 스위치로 재점등 가능';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
-      state.subtitle='마라(기술자): 유수프 구조단이 남쪽 대피 통로를 확보했어요. 동쪽 통로는 기록 두 건을 대조해야 현지 통제소에 개방을 요청할 수 있어요.';
+      state.subtitle='김도겸 중사(무전): 한국에서 지시받은 원래 임무와 상황이 달라졌습니다. 귀환은 아직 불확실합니다. 유수프 구조단이 남쪽 주민 대피 통로를 확보했습니다. 다른 경로를 확인할 수도 있지만, 우선 주민 지원부터 결정해야 합니다.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='exit'){
       // A physical desk opens explicit choice UI: simply pressing E must never
@@ -1442,7 +1425,7 @@
         (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
-        (state.deploymentReviewed?' 최초 파견 지시서를 직접 확인했습니다. 내전 참여는 처음부터 계획된 임무가 아니었습니다.':'')+
+
         (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')+
         (state.waterReportFiled?' 공동 급수대 상태를 직접 확인해 현지 구조단에 현장 기록을 인계했습니다. 복구 완료 여부는 미확인입니다.':
           state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
@@ -1457,13 +1440,12 @@
           ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'
           :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
-      case 'records':return '선택: 양쪽 기록을 조사하거나 중앙 콘솔에서 대피 경로를 선택하세요.'+
+      case 'records':return '남쪽 주민 대피가 가능합니다. 중앙 통제소에서 경로를 결정하세요. 동쪽 통로가 필요할 때만 기록을 대조할 수 있습니다.'+
         (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
         (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
-        ?'두 기록의 시각 차이 확인 완료. 대피 우선 또는 추가 확인 경로를 선택하세요.'+
-          (state.relayRestored?' 선택: 항구 건물의 수동 경고등을 E로 켜거나 끌 수 있습니다.':'')
-        :'대피 우선을 선택하거나, 두 기록을 찾아 추가 확인 경로를 여세요.';
+        ?'필요한 현장 기록 확인 완료. 현지 구조단의 남쪽 대피 지원 또는 동쪽 통로 중 선택하세요.'
+        :'현지 구조단의 남쪽 대피 지원은 바로 선택할 수 있습니다. 동쪽 통로는 두 기록을 확인했을 때만 선택 가능합니다.';
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
@@ -1754,6 +1736,8 @@
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
+    // Compatibility only: older v2 saves may retain a record of a retired
+    // on-site document action. It no longer gates or alters the campaign.
     state.deploymentReviewed=hasOwn(data,'deploymentReviewed')?data.deploymentReviewed:false;
      // Historic v2 files may carry a now-retired, non-essential planning-board
      // flag. It is validated above but intentionally discarded on restore;
