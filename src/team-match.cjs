@@ -14,6 +14,11 @@ const SPRINT_DRAIN_PER_TICK = 0.20;
 const SPRINT_RECOVER_PER_TICK = 0.12;
 const SPRINT_RESTART_STAMINA = 25;
 const CAPTURE_RADIUS = 2.6;
+const RELAY_SITES=Object.freeze({
+  center:Object.freeze({x:0,z:0}),
+  north:Object.freeze({x:0,z:-3.2}),
+  south:Object.freeze({x:0,z:3.2})
+});
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
 // The local competitive round has a deterministic 5-minute simulation deadline.
@@ -84,9 +89,9 @@ const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
 // Read-only, owner-only diagnostic for the real local relay. This cannot
 // reveal an unseen opponent contesting the objective, nor award capture
 // progress. The server's existing 60Hz physical rules remain authoritative.
-function relayInteractionState(player,phase,teamProgress) {
+function relayInteractionState(player,phase,teamProgress,objective=RELAY_SITES.center) {
   if(phase!=='playing'||player.health<=0)return 'inactive';
-  if(Math.hypot(player.x,player.z)>CAPTURE_RADIUS)return 'approach';
+  if(Math.hypot(player.x-objective.x,player.z-objective.z)>CAPTURE_RADIUS)return 'approach';
   if(Math.hypot(player.direction.x,player.direction.z)>1e-6)return 'stop';
   if(player.reloadTicks>0)return 'wait_reload';
   if(player.triggerHeld)return 'hands_free';
@@ -118,11 +123,15 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center'} = {}) {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
+    if(!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+      throw new RangeError('invalid_objective_site');
     this.targetScore = targetScore;
+    this.objectiveSite=objectiveSite;
+    this.objective=RELAY_SITES[objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -415,7 +424,7 @@ class TeamMatch {
       // merely renewing active:true must never queue future interaction.
        // Holding the key while approaching from outside must not queue a remote capture.
        if (data.active && !p.captureHeld)
-         p.captureArmed = Math.hypot(p.x, p.z) <= CAPTURE_RADIUS &&
+         p.captureArmed = Math.hypot(p.x-this.objective.x, p.z-this.objective.z) <= CAPTURE_RADIUS &&
            Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
            p.reloadTicks === 0 && !p.triggerHeld;
       if (!data.active) {p.captureArmed = false;this.progress[p.team] = 0;}
@@ -669,7 +678,7 @@ class TeamMatch {
       p.z = next.z;
       // Walking away physically releases the relay. A later active:true
       // renewal cannot re-arm it without a genuine key release and press.
-      if (Math.hypot(p.x, p.z) > CAPTURE_RADIUS) {
+      if (Math.hypot(p.x-this.objective.x, p.z-this.objective.z) > CAPTURE_RADIUS) {
         p.captureArmed = false;
         p.capturing = false;
       }
@@ -698,7 +707,8 @@ class TeamMatch {
       else if (survivors.length === 1) this.finish(survivors[0].team, 'opponent_incapacitated');
     }
     if (this.phase !== 'playing') return;
-    const nearby = [...this.players.values()].filter(p => Math.hypot(p.x, p.z) <= CAPTURE_RADIUS);
+    const nearby = [...this.players.values()].filter(p =>
+      Math.hypot(p.x-this.objective.x,p.z-this.objective.z) <= CAPTURE_RADIUS);
     const teams = new Set(nearby.map(p => p.team));
     // An interrupted capture must restart; stored partial progress is exploitable.
     // A physical relay/control interaction needs a stationary operator with
@@ -772,7 +782,8 @@ class TeamMatch {
       // Immutable internal events are copied into a public snapshot. A local
       // browser cannot forge or alter server history by mutating its JSON.
       events: this.events.map(e=>({type:e.type,team:e.team,tick:e.tick})),
-      objective: {x: 0, z: 0, radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS}, cover: COVER, weather,
+      objective: {x: this.objective.x, z: this.objective.z,
+        radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS}, cover: COVER, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
       self: {id: me.id, name: me.name, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
@@ -784,7 +795,7 @@ class TeamMatch {
         ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
         stamina: me.stamina, sprintExhausted: me.sprintExhausted,
         captureArmed: me.captureArmed,
-        relayInteraction: relayInteractionState(me,this.phase,this.progress[me.team]), seq: me.seq},
+        relayInteraction: relayInteractionState(me,this.phase,this.progress[me.team],this.objective), seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
         incapacitated: p.health === 0, crouching: p.crouching}))};

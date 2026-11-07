@@ -9,6 +9,7 @@
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
+  const Comms=global.VeilpointStoryComms;
   const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
   const BACKUP_KEY='veilpoint.story.ch01.previous';
@@ -1496,6 +1497,12 @@
     $('status').textContent=controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(state.subtitle);
+    if(Comms&&$('fieldRadio')){
+      const radio=Comms.briefing(state);
+      // Text-only original dialogue. Never interpolate user data into HTML.
+      $('fieldRadio').textContent=radio.speaker+' / '+radio.message;
+      $('fieldRadio').title=$('fieldRadio').textContent;
+    }
     const lampKey=Desktop.actionFor('KeyF',desktopUi.get())==='headlamp'
        ?'F':Desktop.keyLabel(bindings.headlamp);
      $('flashlightStatus').textContent=Story.situation(state).headlamp+' · ['+lampKey+'] 켜기/끄기';

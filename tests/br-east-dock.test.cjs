@@ -8,7 +8,8 @@ const Story=require('../src/story-slice.js');
 
 test('east dock structures have matching solid footprints in the live BR world',()=>{
  const game=Sim.newMatch(20261104,0);
- const dock=game.obstacles.filter(o=>o.type.startsWith('dock-'));
+ const dock=game.obstacles.filter(o=>
+  ['dock-warehouse','dock-container','dock-crane'].includes(o.type));
  assert.equal(dock.length,5);
  assert.equal(dock.filter(o=>o.type==='dock-warehouse').length,2);
  assert.equal(dock.filter(o=>o.type==='dock-container').length,2);

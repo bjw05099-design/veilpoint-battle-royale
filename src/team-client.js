@@ -399,8 +399,16 @@
     for (let i = 0; i <= 10; i++) {ctx.beginPath();ctx.moveTo(i*50,0);ctx.lineTo(i*50,500);ctx.stroke();
       ctx.beginPath();ctx.moveTo(0,i*50);ctx.lineTo(500,i*50);ctx.stroke();}
     const point = (x,z) => ({x:250+x*9.5,y:250+z*9.5});
-    ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;ctx.beginPath();ctx.arc(250,250,25,0,Math.PI*2);ctx.stroke();
     if (!state) return;
+    // The public relay ring is a real server-authored position and radius,
+    // never a decorative circle that stays at the old canvas center.
+    const objective=state.objective;
+    const validSite=Number.isFinite(objective?.x)&&Number.isFinite(objective?.z)&&
+      Number.isFinite(objective?.radius)&&objective.radius>0&&objective.radius<=10;
+    const site=validSite?point(objective.x,objective.z):point(0,0);
+    const relayRadius=(validSite?objective.radius:2.6)*9.5;
+    ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;
+    ctx.beginPath();ctx.arc(site.x,site.y,relayRadius,0,Math.PI*2);ctx.stroke();
     // Both team arcs show ONLY the public relay clock published by the
     // authoritative 60Hz game. Draw in the physical arena, not a new panel
     // that would overflow the 1024x600 PC viewport.
@@ -417,7 +425,7 @@
         const fraction=Math.min(1,progress[team]/duration);
         if(fraction<=0)continue;
         ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=3;
-        ctx.arc(250,250,radius,-Math.PI/2,-Math.PI/2+2*Math.PI*fraction);
+        ctx.arc(site.x,site.y,radius,-Math.PI/2,-Math.PI/2+2*Math.PI*fraction);
         ctx.stroke();
       }
     }
