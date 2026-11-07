@@ -95,8 +95,10 @@ void AVPCharacter::OnRep_Eliminated()
 void AVPCharacter::ApplySprintSpeed()
 {
     const float Footing = bOnWetLoadingApron ? .86f : 1.f;
-    GetCharacterMovement()->MaxWalkSpeed =
-        (IsAlive() && bSprinting ? 720.f : 490.f) * Footing;
+    // Preserve the original finite sprint speed before applying local
+    // surface traction; existing stamina and exhaustion rules are unchanged.
+    GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
+    GetCharacterMovement()->MaxWalkSpeed *= Footing;
     GetCharacterMovement()->MaxWalkSpeedCrouched =
         490.f * (3.1f / 6.1f) * Footing;
 }
@@ -115,7 +117,7 @@ void AVPCharacter::Tick(float DeltaSeconds)
         bOnWetLoadingApron = bWet;
         ApplySprintSpeed();
     }
-    if (!HasAuthority()) return;
+    if (!HasAuthority() || !IsAlive()) return;
     constexpr float FixedStep = 1.f / 60.f;
     constexpr int32 MaxSteps = 8;
     // A stalled window may not simulate unbounded catch-up; the server's
