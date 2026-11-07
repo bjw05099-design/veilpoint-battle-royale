@@ -1490,7 +1490,8 @@ function updateHud(){const s=simulation,p=s.player;
   ?saveIssue==='conflict'?'SAVE CONFLICT · ANOTHER TAB OWNS THE CHECKPOINT'
    :'SAVE FAILED · PROGRESS ONLY IN THIS TAB': '';
  const bookmarkMessage=running&&bookmarkIssue==='write-failed'
-  ?'FIELD BOOKMARK NOT SAVED · MEMORY ONLY':'';
+  ?'FIELD BOOKMARK NOT SAVED · MEMORY ONLY':running&&bookmarkIssue==='conflict'
+   ?'FIELD BOOKMARK CONFLICT · ANOTHER TAB UPDATED SAVE':'';
  // Every published phase, including the last one, has a real deadline.
  const deadline=s.zone.phaseRemaining>0?' · DEADLINE '+tt+'s':' · FINAL LIMIT ACTIVE';
  const boundaryMessage=boundary.outside?'OUTSIDE MATCH BOUNDARY · RETURN '+boundary.meters+'m'+deadline:
