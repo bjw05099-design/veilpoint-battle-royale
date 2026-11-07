@@ -893,11 +893,21 @@ test('BR remapped PC T pickup prompt matches actual resource interaction and per
  const app=boot(store);
  app.node('play').click();app.frame(1000/60);
  const game=app.game;
- game.loot.forEach(item=>{item.x=120;item.z=120;});
+ // The old fixture stacked all 40 caches on one arbitrary real-world
+ // coordinate. That spot can be obstructed by a genuine city collider and
+ // makes the strict saved-world validator correctly reject persistence.
+ // Empty the *contents* of unrelated pickups without rewriting their
+ // original physically legal world positions or simulating a false spawn.
+ game.loot.forEach(item=>{item.remaining=0;item.picked=true;});
  const cache=game.loot.find(item=>item.weaponId===game.player.weaponId);
  assert.ok(cache,'a finite local cache exists');
  cache.x=game.player.x;cache.z=game.player.z;
  cache.remaining=12;cache.picked=false;
+ const Game=require('../src/simulation.js');
+ assert.equal(Game.blocked(cache.x,cache.z,.85,game.obstacles),false,
+  'actual pickup fixture must be physically valid before testing durability');
+ assert.doesNotThrow(()=>Game.snapshotMatch(game),
+  'a remapped-key regression must start from a valid world, not corrupted test scenery');
  app.frame(500);
  assert.match(app.node('pickupPrompt').textContent,/\[T\]/,
   'HUD displays actual remapped PC interaction key for reachable finite ammo');
