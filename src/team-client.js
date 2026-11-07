@@ -411,7 +411,15 @@
     // The active ring is a status of a physical fixture, not a newly
     // materialized object on score change.
     if(Array.isArray(objective?.stations)){
+      // Preserve the three original installed terminals and additionally
+      // draw the two lateral consoles when a host chooses wide rotation.
       for(const terminal of objective.stations.slice(0,3)){
+        if(!Number.isFinite(terminal.x)||!Number.isFinite(terminal.z))continue;
+        const p=point(terminal.x,terminal.z);
+        ctx.fillStyle=terminal.active?'#d8c88d':'#566c70';
+        ctx.fillRect(p.x-4,p.y-4,8,8);
+      }
+      for(const terminal of objective.stations.slice(3,5)){
         if(!Number.isFinite(terminal.x)||!Number.isFinite(terminal.z))continue;
         const p=point(terminal.x,terminal.z);
         ctx.fillStyle=terminal.active?'#d8c88d':'#566c70';
@@ -447,8 +455,18 @@
       const topLeft = point(wall.x - wall.w / 2, wall.z - wall.d / 2);
       ctx.fillRect(topLeft.x, topLeft.y, wall.w * 9.5, wall.d * 9.5);
     }
+    // The only consignment originates on the actual fixed pickup point,
+    // then follows its physically visible carrier. Never transmit or display
+    // a concealed player's exact coordinates as parcel metadata.
+    if(state.courier?.stage==='pickup'){
+      const parcel=point(state.courier.pickup.x,state.courier.pickup.z);
+      ctx.fillStyle='#d9ba78';ctx.fillRect(parcel.x-5,parcel.y-5,10,10);
+    }
     for (const p of state.visible) {
       const pos = point(p.x,p.z);
+      if(state.courier?.stage==='delivery'&&p.team===state.courier.team){
+        ctx.fillStyle='#d9ba78';ctx.fillRect(pos.x-3,pos.y-14,6,6);
+      }
       ctx.fillStyle = p.team === 'red' ? '#e58b84' : '#8abcf2';
       if (p.incapacitated) {
         // A finished combatant must not remain a standing actor marker.
@@ -541,7 +559,7 @@
     // Events originate from the authority and contain only public round
     // milestones. Render via textContent, never as executable HTML.
     const publicEventLabels={round_start:'경기 시작',
-      relay_complete:'중계 연결 확인',relay_shift:'중계 위치 변경',round_end:'경기 종료'};
+      relay_complete:'중계 연결 확인',relay_shift:'중계 위치 변경',parcel_collected:'물품 현장 인수',parcel_delivered:'물품 현장 인계',round_end:'경기 종료'};
     const recentEvents=Array.isArray(state.events)?state.events.slice(-4):[];
     const knownEvents=recentEvents.filter(e=>e&&
       Object.prototype.hasOwnProperty.call(publicEventLabels,e.type)&&
@@ -564,6 +582,13 @@
       ?'우리 팀 '+asPercent(state.progress[ownTeam])+'% · 상대 팀 '+
        asPercent(state.progress[enemyTeam])+'% · 서버 진행'
       :state.phase==='lobby'?'대전 시작 전':'중계 진행 기록 없음';
+    if(state.courier&&state.phase==='playing'){
+      el('relayProgress').textContent=state.courier.stage==='pickup'
+        ?'물품 접수대에 접근해 E로 실제 상자를 인수하세요 · 서버 확인 중'
+        :state.courier.team===state.self.team
+          ?'물품 인수 완료 · 실물 상자를 인계대로 운반하세요'
+          :'상대 팀이 물품을 인수했습니다 · 위치는 직접 관측해야 합니다';
+    }
     // The server discloses only our own local relay eligibility, never why
     // the other team may be preventing progress behind cover or in coastal mist.
     const relayHints={inactive:'',approach:'중계기 가까이 이동',
@@ -585,7 +610,7 @@
       ?Math.ceil(Math.max(0,Math.hypot(px-goal.x,pz-goal.z)-goal.radius))
       :null;
     if(state.phase==='playing'&&validRelay&&localHint)
-      el('relayProgress').textContent+=' · '+localHint+
+      el('relayProgress').textContent+=' · '+(state.courier?'인수·인계':'중계')+' · '+localHint+
         (state.self.relayInteraction==='approach'&&reach!==null?' · 접근까지 약 '+reach+'m':'');
     // The remaining time comes from the server's 60Hz simulation, not the
     // browser's wall clock. Keep older mock/protocol snapshots compatible.

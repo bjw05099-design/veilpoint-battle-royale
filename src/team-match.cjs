@@ -24,6 +24,10 @@ const RELAY_SITES=Object.freeze({
 });
 const ROTATING_RELAY_ORDER=Object.freeze(['center','north','south']);
 const WIDE_RELAY_ORDER=Object.freeze(['center','north','south','east','west']);
+// A locally carried, finite consignment in the optional courier game.
+// Pickup and handoff are permanent ground installations, never a teleport.
+const COURIER_PICKUP=Object.freeze({x:0,z:0});
+const COURIER_DROPOFF=Object.freeze({x:0,z:10});
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
 // The local competitive round has a deterministic 5-minute simulation deadline.
@@ -132,7 +136,8 @@ class TeamMatch {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
-    if(objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
+    if(objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     if(lighting!=='day'&&lighting!=='dusk')
       throw new RangeError('invalid_lighting');
@@ -140,7 +145,7 @@ class TeamMatch {
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
+    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -151,8 +156,9 @@ class TeamMatch {
     this.phase = 'lobby';
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
+    this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -162,7 +168,7 @@ class TeamMatch {
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
   recordPublicEvent(type,team=null) {
-    if(!['round_start','relay_complete','relay_shift','round_end'].includes(type)||
+    if(!['round_start','relay_complete','relay_shift','parcel_collected','parcel_delivered','round_end'].includes(type)||
        (team!==null&&!['red','blue'].includes(team)))return;
     this.events.push(Object.freeze({type,team,tick:this.ticks}));
     if(this.events.length>8)this.events.shift();
@@ -451,6 +457,7 @@ class TeamMatch {
   }
   fireShot(p, deferredHits = null) {
     const weapon = LOADOUTS[p.weaponId];
+    if(this.objectiveSite==='courier')return {ok:false,reason:'courier_noncombat'};
     if (this.phase !== 'playing') return {ok: false, reason: 'not_playing'};
     // A rejected trigger attempt still interrupts a physical relay operation:
     // empty magazines, cooldown and active reload cannot bank a score.
@@ -507,8 +514,9 @@ class TeamMatch {
   resetRoundState() {
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
+    this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -640,8 +648,10 @@ class TeamMatch {
       // Carried equipment affects traversal as well as the server-owned shot rules.
       const sprintRequested = p.sprintHeld && !p.crouching && !p.sprintExhausted &&
         p.stamina > 1 && Math.hypot(p.direction.x, p.direction.z) > 1e-6;
+      const carryingParcel=this.objectiveSite==='courier'&&
+        this.courier.carrierId===p.id;
       const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : sprintRequested ? SPRINT_SPEED_FACTOR : 1) *
-        LOADOUTS[p.weaponId].mobility * injuryMobility(p);
+        LOADOUTS[p.weaponId].mobility * injuryMobility(p) * (carryingParcel ? .80 : 1);
       moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
         COVER, PLAYER_RADIUS);
       next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
@@ -740,7 +750,9 @@ class TeamMatch {
     // The server checks its own intent/weapon state, not a client claim.
     const operatorPlayer = nearby.find(p => p.capturing && p.captureArmed &&
       Math.hypot(p.direction.x, p.direction.z) < 1e-6 &&
-      p.reloadTicks === 0 && !p.triggerHeld);
+      p.reloadTicks === 0 && !p.triggerHeld &&
+      (this.objectiveSite!=='courier'||this.courier.carrierId===null||
+       this.courier.carrierId===p.id));
     const operator=!!operatorPlayer;
     if (teams.size !== 1 || !operator) {
       this.progress.red = 0;
@@ -752,10 +764,20 @@ class TeamMatch {
     this.progress[team === 'red' ? 'blue' : 'red'] = 0;
     this.progress[team] += STEP;
     if (this.progress[team] + 1e-9 >= CAPTURE_SECONDS) {
+      if(this.objectiveSite==='courier'&&this.courier.carrierId===null){
+        this.courier={carrierId:operatorPlayer.id,team};
+        this.objective=COURIER_DROPOFF;
+        this.progress.red=0;this.progress.blue=0;
+        for(const actor of nearby)actor.captureArmed=false;
+        this.recordPublicEvent('parcel_collected',team);
+        this.finishIfDeadline();
+        return;
+      }
       this.score[team]++;
       operatorPlayer.relayCompletions=Math.min(1000,operatorPlayer.relayCompletions+1);
       this.progress[team] = 0;
-      this.recordPublicEvent('relay_complete',team);
+      if(this.objectiveSite==='courier')this.recordPublicEvent('parcel_delivered',team);
+      else this.recordPublicEvent('relay_complete',team);
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
@@ -819,8 +841,14 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
-      relayVariant:this.objectiveSite==='rotation-wide'?'rotation-wide':
+      relayVariant:this.objectiveSite==='courier'?'courier':
+        this.objectiveSite==='rotation-wide'?'rotation-wide':
         this.objectiveSite==='rotation'?'rotation':'fixed',
+      ...(this.objectiveSite==='courier'?{courier:{
+        stage:this.courier.carrierId===null?'pickup':'delivery',
+        team:this.courier.team,
+        pickup:{...COURIER_PICKUP},dropoff:{...COURIER_DROPOFF}
+      }}:{}),
       // Across rematches only; reset when either local seat changes owner.
       series: {...this.series},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
@@ -831,13 +859,20 @@ class TeamMatch {
       // changes which existing terminal is authorized, never teleports metal.
       objective: {x: this.objective.x, z: this.objective.z,
         radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
-        stations: (this.objectiveSite==='rotation-wide'
+        stations: (this.objectiveSite==='courier'
+          ? ['pickup','dropoff']
+          : this.objectiveSite==='rotation-wide'
           ? WIDE_RELAY_ORDER
           : this.objectiveSite==='east'||this.objectiveSite==='west'
             ? [...ROTATING_RELAY_ORDER,this.objectiveSite]
             : ROTATING_RELAY_ORDER).map(id=>({
-          id,x:RELAY_SITES[id].x,z:RELAY_SITES[id].z,
-          active:RELAY_SITES[id]===this.objective
+          id,x:this.objectiveSite==='courier'
+            ?(id==='pickup'?COURIER_PICKUP.x:COURIER_DROPOFF.x):RELAY_SITES[id].x,
+          z:this.objectiveSite==='courier'
+            ?(id==='pickup'?COURIER_PICKUP.z:COURIER_DROPOFF.z):RELAY_SITES[id].z,
+          active:this.objectiveSite==='courier'
+            ?(id==='pickup'?this.courier.carrierId===null:this.courier.carrierId!==null)
+            :RELAY_SITES[id]===this.objective
         }))}, cover: COVER, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
