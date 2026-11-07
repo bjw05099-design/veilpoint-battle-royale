@@ -26,5 +26,5 @@ test('PC local 2D interface presents two accessible server-goal meters without d
  assert.match(client,/targetScore = Number\.isSafeInteger\(state\.targetScore\)/);
  assert.match(client,/meter\.max = targetScore \?\? 1/);
  assert.match(client,/Math\.min\(targetScore,Math\.max\(0,state\.score\[team\]\)\)/);
- assert.doesNotMatch(client.slice(client.indexOf('const targetScore ='),client.indexOf('// Both relay progress numbers')),/state\.visible|opponent/);
+ assert.doesNotMatch(client.slice(client.indexOf('const targetScore ='),client.indexOf('// Both relay progress numbers')),/state\.visible|state\.bots|state\.players/);
 });
