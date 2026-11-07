@@ -455,6 +455,19 @@
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
+    // Both relay progress numbers are explicitly published by the server;
+    // a client never invents capture time or discloses hidden actor positions.
+    const relayDuration=state.objective?.requiredSeconds;
+    const ownTeam=state.self.team;
+    const enemyTeam=ownTeam==='red'?'blue':'red';
+    const validRelay=Number.isFinite(relayDuration)&&relayDuration>0&&
+      Number.isFinite(state.progress?.[ownTeam])&&
+      Number.isFinite(state.progress?.[enemyTeam]);
+    const asPercent=value=>Math.round(Math.min(1,Math.max(0,value/relayDuration))*100);
+    el('relayProgress').textContent=state.phase==='playing'&&validRelay
+      ?'우리 팀 '+asPercent(state.progress[ownTeam])+'% · 상대 팀 '+
+       asPercent(state.progress[enemyTeam])+'% · 서버 진행'
+      :state.phase==='lobby'?'대전 시작 전':'중계 진행 기록 없음';
     // The remaining time comes from the server's 60Hz simulation, not the
     // browser's wall clock. Keep older mock/protocol snapshots compatible.
     const remainingTicks = state.round?.remainingTicks;

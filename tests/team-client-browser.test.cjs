@@ -2397,3 +2397,55 @@ test('team weather countdown never fabricates missing or invalid server transiti
  assert.match(a.node('weather').textContent,/맑음/);
  assert.doesNotMatch(a.node('weather').textContent,/다음 변화까지/);
 });
+
+
+test('PC team relay progress HUD reflects only published authoritative team percentages',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ // A newly joined tab has no authoritative snapshot until its first poll.
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/대전 시작 전/);
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ assert.equal(server.match.phase,'playing');
+ const aToken=a.storage.get('veilpoint.team.tabSession');
+ const player=server.match.players.get(aToken);
+ const duration=server.match.snapshot(aToken).objective.requiredSeconds;
+ assert.equal(duration,2);
+ assert.match(a.node('relayProgress').textContent,/우리 팀 0% · 상대 팀 0% · 서버 진행/);
+ player.x=0;player.z=0;
+ const other=[...server.match.players.values()].find(p=>p!==player);
+ other.x=8;other.z=0;
+ a.doc('keydown',{code:'KeyE',target:a.node('arena')});await settle();
+ for(let i=0;i<60;i++){
+  server.match.step();
+  if(i===50)await a.heartbeat();
+ }
+ await a.poll();await b.poll();await settle();
+ const progress=server.match.progress[player.team];
+ const expected=Math.round(Math.min(1,Math.max(0,progress/duration))*100);
+ assert.ok(expected>0&&expected<100);
+ assert.match(a.node('relayProgress').textContent,new RegExp('우리 팀 '+expected+'%'));
+ assert.match(b.node('relayProgress').textContent,new RegExp('상대 팀 '+expected+'%'));
+ assert.doesNotMatch(a.node('relayProgress').textContent,/x:|z:|Player/);
+ a.doc('keyup',{code:'KeyE',target:a.node('arena')});await settle();
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/우리 팀 0%/);
+ const markup=fs.readFileSync(path.join(__dirname,'../team.html'),'utf8');
+ assert.match(markup,/id="relayProgress" aria-live="off"/);
+});
+test('PC team progress HUD never fabricates duration when a server omits it',async()=>{
+ const server=backend();
+ const incomplete={fetchLocal:async(route,opts)=>{
+  const r=await server.fetchLocal(route,opts);
+  if(route!=='/state'||!r.ok)return r;
+  const state=await r.json();delete state.objective.requiredSeconds;
+  return {...r,json:async()=>state};
+ }};
+ const a=boot(incomplete),b=boot(incomplete);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ assert.equal(server.match.phase,'playing');
+ assert.equal(a.node('relayProgress').textContent,'중계 진행 기록 없음');
+});

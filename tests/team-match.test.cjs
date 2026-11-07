@@ -839,3 +839,13 @@ test('live command after opponent lease expiry settles the same winner before mo
   assert.deepEqual(a.direction, {x: 0, z: 0});
   assert.equal(a.seq, 2);
 });
+
+test('objective snapshot publishes a finite public relay duration, without exposing hidden players',()=>{
+ const {m}=setup();
+ const red=m.snapshot('a'),blue=m.snapshot('b');
+ assert.equal(red.objective.requiredSeconds,2);
+ assert.deepEqual(red.objective,blue.objective);
+ assert.deepEqual(red.progress,{red:0,blue:0});
+ assert.equal('enemyPosition' in red.objective,false);
+ assert.equal('token' in red.objective,false);
+});
