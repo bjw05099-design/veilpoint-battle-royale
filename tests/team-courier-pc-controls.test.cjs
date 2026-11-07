@@ -25,7 +25,9 @@ test('PC courier disables weapons but preserves E interaction and ordinary relay
  assert.match(source,/state\.relayVariant==='courier'\) \{triggering = false;return;\}/);
  assert.match(source,/state\?\.phase === 'playing' && state\.relayVariant!=='courier'\) \{/);
  assert.match(source,/if \(action === 'interact' && !e\.repeat\) setCapture\(true\)/);
- assert.match(source,/const hint = courierMode/);
+ assert.match(source,/const hint = duelMode/);
+ assert.match(source,/:\s*courierMode\s*\?\s*'비전투 물품 운반/,
+  'legacy courier retains its distinct on-screen explanation after adding duel');
  assert.match(source,/:' · 중계 중단\/목표 이탈\/전송 완료/);
 });
 test('new courier UI label is only for the explicit server-selected parcel round',()=>{
