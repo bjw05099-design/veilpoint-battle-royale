@@ -4,6 +4,7 @@
 // full Aden-sized streaming world remain separate, unimplemented milestones.
 const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY}=require('./br-squad-lobby.cjs');
+const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // 10-second presence window is only a reconnect diagnostic; a stale
@@ -171,17 +172,19 @@ class BrSquadWorld {
     const me=this.actors.get(token);
     if(!me)throw new RangeError('unknown_session');
     const mates=[],seen=[];
+    const weather=coastalWeatherAtTick(this.tick);
     const active=Array(SQUADS).fill(0);
     for(const p of this.actors.values())if(p.eligible)active[p.team]++;
     for(const p of this.actors.values()){
       const limited={id:p.id,x:p.x,z:p.z};
       if(p.team===me.team)mates.push({...limited,slot:p.slot+1,eligible:p.eligible,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
-      else if(me.eligible&&p.eligible&&Math.hypot(p.x-me.x,p.z-me.z)<=18&&
+      else if(me.eligible&&p.eligible&&Math.hypot(p.x-me.x,p.z-me.z)<=weather.visibilityMeters&&
         !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))seen.push(limited);
     }
     const signal=this.squadSignals.get(me.team);
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
+      coastalWeather:weather,
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
