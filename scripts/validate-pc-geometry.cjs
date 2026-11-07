@@ -21,6 +21,8 @@ function validate(evidence){
   assert.ok(SIZES.includes(size),'Unexpected viewport '+size);
   assert.ok(!seen.has(size),'Duplicate viewport '+size);
   seen.add(size);
+  assert.deepEqual(record.requested,{width:record.width,height:record.height},
+   'Requested and measured viewport mismatch at '+size);
   assert.ok(Array.isArray(record.errors),'Missing geometry error array at '+size);
   assert.deepEqual(record.errors,[],'Geometry errors at '+size);
   assert.ok(Array.isArray(record.cases),'Missing cases at '+size);
@@ -29,6 +31,8 @@ function validate(evidence){
    assert.ok(!cases.has(entry.name),'Duplicate case '+entry.name);
    cases.set(entry.name,entry);
   }
+  assert.deepEqual([...cases.keys()].sort(),[...REQUIRED].sort(),
+   'Unexpected or missing PC screen at '+size);
   for(const name of REQUIRED){
    const page=cases.get(name);
    assert.ok(page,'Missing measured screen '+name+' at '+size);
@@ -58,6 +62,8 @@ function validate(evidence){
    const size=row.width+'x'+row.height;
    assert.ok(SIZES.includes(size)&&!sizes.has(size),'Invalid '+key+' viewport '+size);
    sizes.add(size);
+   assert.deepEqual(row.requested,{width:row.width,height:row.height},
+    'Requested and measured CH01 viewport mismatch at '+size);
    assert.ok(Array.isArray(row.errors),'Missing CH01 error array at '+size);
    assert.deepEqual(row.errors,[],'CH01 errors at '+size);
    assert.ok(Array.isArray(row.cases),'Missing '+key+' cases');
