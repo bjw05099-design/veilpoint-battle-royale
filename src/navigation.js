@@ -110,6 +110,21 @@
     return ' · FIELD SIGN '+Math.round(target.meters)+'m · '+target.label+
       (blocked?' · PATH BLOCKED':target.meters<1.8?' · [J] RECOVER':' · APPROACH TO RECOVER');
   }
+  // Authored local control panel only: a heading is not a pathfinding claim.
+  function serviceGate(player,status,site,obstacles){
+    if(!status||!site||![site.switchX,site.switchZ].every(Number.isFinite))return '';
+    const target={x:site.switchX,z:site.switchZ};
+    const nav=direction(player,target);
+    if(!nav||nav.meters>24||status.near)return '';
+    const distance=Math.ceil(nav.meters);
+    if(directLineBlocked(player,target,obstacles))
+      return 'YARD SWITCH '+distance+'m '+nav.label+' · DIRECT PATH BLOCKED';
+    if(status.obstructed)return 'YARD GATE STOPPED · TRACK OBSTRUCTED';
+    if(status.open)return 'YARD GATE OPEN · LOCAL PASSAGE AVAILABLE';
+    if(status.engaged)return 'YARD GATE '+(status.closing?'CLOSING':'OPENING')+
+      ' · SWITCH '+distance+'m '+nav.label;
+    return 'YARD SWITCH '+distance+'m '+nav.label+' · APPROACH FOR LOCAL CONTROL';
+  }
   function zone(player,zone){
     if(!zone||![zone.x,zone.z,zone.radius].every(Number.isFinite)||zone.radius<=0)
       return '안전 구역 안내 불가';
@@ -119,5 +134,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign,serviceGate});
 });
