@@ -51,7 +51,21 @@ test('PC remap remains playable in current tab but warns when disk silently disc
  assert.equal(h.resets(),1,'rebind still releases any held movement input');
  h.emit('desktopReset','click');
  assert.equal(h.ui.get().bindings.fire,'Space');
+ // The disk ALREADY holds the defaults: identical readback is a durable
+ // outcome even if the storage shim ignores an unnecessary identical write.
+ assert.match(h.nodes.get('desktopBindStatus').textContent,/복원하고 저장/);
+});
+test('PC reset warns when a different persisted custom binding cannot be replaced',()=>{
+ const persisted=JSON.stringify(Controls.normalize({bindings:{
+  ...Controls.DEFAULT_BINDINGS,fire:'KeyT'}}));
+ const storage={getItem(){return persisted;},setItem(){ /* write denied silently */ }};
+ const h=harness(storage);
+ assert.equal(h.ui.get().bindings.fire,'KeyT');
+ h.emit('desktopReset','click');
+ assert.equal(h.ui.get().bindings.fire,'Space');
  assert.match(h.nodes.get('desktopBindStatus').textContent,/현재 탭에만 적용/);
+ assert.equal(Controls.load(storage).bindings.fire,'KeyT',
+  'persistent custom keys must remain until a real saved generation is confirmed');
 });
 test('PC sensitivity and invert-Y changes warn when localStorage readback is refused',()=>{
  const storage={getItem(){throw Error('blocked');},setItem(){}};
