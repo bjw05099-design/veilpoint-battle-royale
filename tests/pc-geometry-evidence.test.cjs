@@ -16,6 +16,10 @@ function fixture(){
   result[key]=sizes.map(([width,height])=>({width,height,errors:[],
    cases:screenNames.map(name=>({name,issues:[],targets:[target('test-control')]}))}));
  }
+ result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
+  {name:'BR-more-Escape',passed:true,focused:true},
+  {name:'settings-Escape',passed:true,focused:true}
+ ]}));
  return result;
 }
 test('complete CDP evidence is accepted',()=>assert.equal(validate(fixture()),true));
@@ -75,4 +79,21 @@ test('omitted CH01 error and clipping arrays fail closed',()=>{
  value.storyChecks[0].errors=[];
  delete value.storyChecks[0].cases[0].issues;
  assert.throws(()=>validate(value),/Missing CH01 issues/);
+});
+
+test('missing CDP Escape viewport or transition fails the release gate',()=>{
+ const value=fixture();
+ value.keyboardChecks.pop();
+ assert.throws(()=>validate(value),/Incomplete CDP Escape viewports/);
+ value.keyboardChecks=fixture().keyboardChecks;
+ value.keyboardChecks[0].cases.pop();
+ assert.throws(()=>validate(value),/Missing real CDP Escape route/);
+});
+test('failed Escape transition or lost keyboard focus fails the release gate',()=>{
+ const value=fixture();
+ value.keyboardChecks[0].cases[0].passed=false;
+ assert.throws(()=>validate(value),/Escape route failed/);
+ value.keyboardChecks[0].cases[0].passed=true;
+ value.keyboardChecks[0].cases[0].focused=false;
+ assert.throws(()=>validate(value),/Escape keyboard focus lost/);
 });
