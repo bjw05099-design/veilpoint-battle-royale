@@ -94,12 +94,28 @@ void AVPCharacter::OnRep_Eliminated()
 }
 void AVPCharacter::ApplySprintSpeed()
 {
-    GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
+    const float Footing = bOnWetLoadingApron ? .86f : 1.f;
+    GetCharacterMovement()->MaxWalkSpeed =
+        (IsAlive() && bSprinting ? 720.f : 490.f) * Footing;
+    GetCharacterMovement()->MaxWalkSpeedCrouched =
+        490.f * (3.1f / 6.1f) * Footing;
 }
 void AVPCharacter::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    if (!HasAuthority() || !IsAlive()) return;
+    if (!IsAlive()) return;
+    // The actual cargo apron is visible at X=35m, Y=-40m. Update locally
+    // for responsive PC movement prediction, while the server independently
+    // authorizes the same movement speed from its own actor position.
+    const FVector Position = GetActorLocation();
+    const bool bWet = FMath::Abs(Position.X - 3500.f) <= 700.f &&
+                      FMath::Abs(Position.Y + 4000.f) <= 900.f;
+    if (bWet != bOnWetLoadingApron)
+    {
+        bOnWetLoadingApron = bWet;
+        ApplySprintSpeed();
+    }
+    if (!HasAuthority()) return;
     constexpr float FixedStep = 1.f / 60.f;
     constexpr int32 MaxSteps = 8;
     // A stalled window may not simulate unbounded catch-up; the server's
