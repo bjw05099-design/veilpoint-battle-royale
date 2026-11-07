@@ -53,7 +53,14 @@
   catch(_){return normalize(DEFAULT);}
  }
  function save(storage,value){
-  try{storage.setItem(STORAGE_KEY,JSON.stringify(normalize(value)));return true;}catch(_){return false;}
+  // Some offline WebViews accept setItem without committing the value. Do not
+  // claim PC remaps/sensitivity survived a restart until exact readback.
+  try{
+   if(!storage||typeof storage.setItem!=='function'||typeof storage.getItem!=='function')return false;
+   const raw=JSON.stringify(normalize(value));
+   storage.setItem(STORAGE_KEY,raw);
+   return storage.getItem(STORAGE_KEY)===raw;
+  }catch(_){return false;}
  }
  function bind(value,action,code){
   const next=normalize(value);
@@ -271,15 +278,21 @@
    button.textContent=capturing?'다음 키 입력 · ESC 취소':current.bindings[selected()];
   }
   function change(next){
-   current=normalize(next);save(storage,current);
+   current=normalize(next);
+   const saved=save(storage,current);
    if(typeof onChange==='function')onChange();
    refresh();
+   if(!saved)status.textContent='PC 조작 설정을 디스크에 저장하지 못했습니다. 현재 탭에만 적용됩니다.';
+   return saved;
   }
   sensitivity.addEventListener('change',()=>change({...current,sensitivity:Number(sensitivity.value)}));
   invert.addEventListener('change',()=>change({...current,invertY:!!invert.checked}));
   action.addEventListener('change',refresh);
   button.addEventListener('click',()=>{capturing=true;status.textContent='원하는 키를 누르세요. ESC는 취소합니다.';refresh();});
-  reset.addEventListener('click',()=>{capturing=false;change(DEFAULT);status.textContent='PC 조작 설정을 기본값으로 복원했습니다.';});
+  reset.addEventListener('click',()=>{
+   capturing=false;
+   if(change(DEFAULT))status.textContent='PC 조작 설정을 기본값으로 복원하고 저장했습니다.';
+  });
   // Other Windows browser tabs share the same desktop binding key. A remote
   // remap (or localStorage.clear) must not leave BR/CH01 with stale held fire,
   // movement or mouse sensitivity. Storage events do not fire in the writer tab.
@@ -320,7 +333,8 @@
    if(event.repeat)return true;
    const result=bind(current,selected(),event.code);
    if(!result.ok){status.textContent=result.reason==='key-in-use'?'이미 사용 중인 키입니다. 다른 키를 누르세요.':'사용할 수 없는 키입니다. 다른 키를 누르세요.';return true;}
-   capturing=false;change(result.value);status.textContent='키 설정을 저장했습니다.';
+   capturing=false;
+   if(change(result.value))status.textContent='키 설정을 저장했습니다.';
    return true;
   }
   function cancel(){capturing=false;refresh();}
