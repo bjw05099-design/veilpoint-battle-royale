@@ -5,8 +5,8 @@
   else root.VeilpointCheckpointRecovery=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
-  function isPlayableBackup(result){
-    if(!result||result.source!=='backup')return false;
+  function isPlayableGeneration(result,source){
+    if(!result||result.source!==source)return false;
     const state=result.state;
     return state!==null&&typeof state==='object'&&!Array.isArray(state)
       &&typeof state.phase==='string'
@@ -18,7 +18,7 @@
     if(backup==null)return null;
     try{
       const recovered=restorePair(null,backup);
-      return isPlayableBackup(recovered)?recovered:null;
+      return isPlayableGeneration(recovered,'backup')?recovered:null;
     }catch(_backupError){return null;}
   }
   function recover(primary,backup,restorePair){
@@ -31,11 +31,14 @@
       // A reported backup must be playable regardless of which decode path
       // selected it. Never hand malformed world state to the CH01 renderer.
       if(result&&result.source==='backup')
-        return isPlayableBackup(result)?result:retryBackup(backup,restorePair);
-      // A primary result without an actual primary generation is stale.
-      if(result&&result.source==='primary'&&primary==null)
-        return retryBackup(backup,restorePair);
-      return result;
+        return isPlayableGeneration(result,'backup')?result:retryBackup(backup,restorePair);
+      // A decoder may accidentally return a partial/forged primary. Never
+      // pass it into the 60Hz renderer, even if the raw generation exists.
+      if(result&&result.source==='primary')
+        return primary!=null&&isPlayableGeneration(result,'primary')
+          ?result:retryBackup(backup,restorePair);
+      // An unknown source is not an independently verified generation.
+      return result==null?null:retryBackup(backup,restorePair);
     }catch(_){
       // Independently validate the backup after a primary decoder exception.
       // Never mutate either persisted generation on a read failure.
