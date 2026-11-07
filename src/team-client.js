@@ -568,8 +568,14 @@
     const series=state.series;
     const validSeries=series&&['red','blue','draw'].every(team=>
       Number.isSafeInteger(series[team])&&series[team]>=0&&series[team]<=999);
+    const seriesFormat=state.seriesFormat;
+    const seriesChampion=seriesFormat&&[2,3].includes(seriesFormat.targetWins)&&
+      ['red','blue'].includes(seriesFormat.champion)?seriesFormat.champion:null;
     el('series').textContent=validSeries
-      ?'RED '+series.red+'승 · BLUE '+series.blue+'승 · 무승부 '+series.draw
+      ?'RED '+series.red+'승 · BLUE '+series.blue+'승 · 무승부 '+series.draw+
+        (seriesFormat&&[2,3].includes(seriesFormat.targetWins)
+          ?' · '+seriesFormat.targetWins+'승 선취'+
+            (seriesChampion?' · '+seriesChampion.toUpperCase()+' 최종 우승':''):'')
       :'서버 확인 중';
     const myMetrics=state.self?.personalMetrics;
     const validMetrics=myMetrics&&Number.isFinite(myMetrics.distanceMeters)&&
@@ -684,8 +690,9 @@
       (state.self.sprintExhausted ? ' · 질주 회복 중' : state.self.sprinting ? ' · 질주 중' : '');
     el('assist').textContent = state.self.reloadAssist ? '장전 보조 ON' : '장전 보조 OFF';
     const displayedReady = readyIntent === null ? state.self.ready : readyIntent;
-    el('ready').disabled = state.phase === 'playing';
-    el('ready').textContent = state.phase === 'playing' ? '대전 중' :
+    el('ready').disabled = state.phase === 'playing'||!!seriesChampion;
+    el('ready').textContent = seriesChampion?'시리즈 종료 · 새 참가자와 재시작' :
+      state.phase === 'playing' ? '대전 중' :
       displayedReady ? '준비 취소' : '준비 / 재대전';
     if (state.phase === 'ended') {
       const outcome = state.winner ? '승리 팀 ' + state.winner :
@@ -709,7 +716,8 @@
         mutual_incapacitation:'양측 활동 불가',player_left:'참가자 퇴장',
         connection_timeout:'참가자 연결 만료'};
       const cause=reasons[state.reason]||'서버 판정';
-      status('종료 · '+outcome+' · '+cause+' · '+consent);
+      status('종료 · '+outcome+' · '+cause+' · '+
+        (seriesChampion?'최종 시리즈 '+seriesChampion.toUpperCase()+' 우승 · 기존 2인 재대전 종료':consent));
     }
     else if (state.phase === 'lobby') {
       const participants = state.lobby?.participants ?? 2;
