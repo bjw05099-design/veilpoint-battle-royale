@@ -10,7 +10,7 @@ function evacuation(){
  return state;
 }
 test('CH01 south muster is a physically reached coordinator conversation, not a form inspection',()=>{
- const s=evac();
+ const s=evacuation();
  const mark=Story.POINTS.muster;
  assert.equal(mark.kind,'evac');
  assert.match(mark.label,/구조단.*담당자/);
