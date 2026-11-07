@@ -116,3 +116,13 @@ test('Win64 build tracks supported .NET 10 LTS and retains release candidate thr
     'Windows EXE must rebuild on changes to bundled browser docs: '+source);
  }
 });
+
+test('Windows geometry evidence changes trigger Windows build and real regression tests',()=>{
+ for(const changed of ['scripts/validate-pc-geometry.cjs','tests/pc-geometry-evidence.test.cjs']){
+  const trigger="      - '"+changed+"'";
+  assert.equal(workflow.split(trigger).length-1,2,
+   'Both push and PR Windows workflows must run when '+changed+' changes');
+ }
+ assert.match(workflow,/node --test tests\/pc-chromium-geometry-gate\.test\.cjs tests\/pc-geometry-evidence\.test\.cjs/,
+  'Win64 must execute the same geometry evidence regression tests');
+});
