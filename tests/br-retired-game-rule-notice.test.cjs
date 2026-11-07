@@ -4,6 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const Sim=require('../src/simulation.js');
 test('BR west quay remains physical and traversable without an impossible boundary-deadline bulletin',()=>{
  const game=Sim.newMatch(20261107,0);
+ game.status='playing';
  const before=Sim.snapshotMatch(game);
  assert.equal(Object.prototype.hasOwnProperty.call(Sim,'DOCK_NOTICE'),false);
  assert.equal(Object.prototype.hasOwnProperty.call(Sim,'inspectDockNotice'),false);
