@@ -62,3 +62,27 @@ test('CH01 journal keeps unknown signal evidence hidden and a read-only route re
   state.logHandedOff=true;
   assert.match(Journal.entries(state).find(row=>row.id==='gateLog').detail,/접수 완료/);
 });
+
+
+test('CH01 journal route tracks the actual 60Hz clearance clock across a checkpoint restore',()=>{
+ const legacy={version:1,phase:'exit',found:['recordA','recordB'],choice:'verification',
+  player:{x:0,z:12,yaw:0,pitch:0,stamina:100},elapsed:10};
+ const state=Story.restore(JSON.stringify(legacy));
+ state.gateReadyAt=18;state.gateClearanceDuration=8;
+ let rows=Journal.entries(state);
+ assert.match(rows.find(row=>row.id==='route').detail,/개방 요청 접수/);
+ assert.doesNotMatch(rows.find(row=>row.id==='route').detail,/개방 확인/);
+ assert.equal(rows.some(row=>row.id==='gateLog'),false,'unreviewed record stays undisclosed');
+ const before=Story.serialize(state);
+ Journal.entries(state);
+ assert.equal(Story.serialize(state),before,'journal reads must not advance or alter a mission');
+ state.world.elapsed=17.99;
+ assert.match(Journal.entries(state).find(row=>row.id==='route').detail,/통과할 수 없다/);
+ state.world.elapsed=18;
+ assert.match(Journal.entries(state).find(row=>row.id==='route').detail,/개방 확인/);
+ assert.equal(Journal.entries(state).some(row=>row.id==='gateLog'),false);
+ assert.match(Journal.entries(Story.restore(Story.serialize(state))).find(row=>row.id==='route').detail,/개방 확인/);
+ state.gateLogReviewed=true;
+ assert.match(Journal.entries(state).find(row=>row.id==='gateLog').detail,/전달 전/);
+ assert.equal(Journal.entries(state).find(row=>row.id==='route').unlocked,true);
+});
