@@ -1437,7 +1437,11 @@ function ensureAudio(){
  }catch(_){return null;}
 }
 motorSound=global.VeilpointGateMotorAudio.createGateMotorAudio(()=>audio);
-windSound=global.VeilpointCoastalWindAudio.createCoastalWindAudio(()=>audio);
+// Legacy embedded WebView test pages may omit the optional ambience module;
+// the normal offline page bundles it before app.js.
+windSound=global.VeilpointCoastalWindAudio&&
+ typeof global.VeilpointCoastalWindAudio.createCoastalWindAudio==='function'
+ ?global.VeilpointCoastalWindAudio.createCoastalWindAudio(()=>audio):null;
 function syncMotorSound(unlock=false){
  if(!motorSound)return;
  const gate=Game.serviceGateStatus(simulation);
