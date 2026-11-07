@@ -103,10 +103,6 @@
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
     officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
-    waterSite: Object.freeze({id:'waterSite',x:140,z:87,kind:'evidence',
-      label:'공동 급수대 실제 수압을 현장에서 확인'}),
-    waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
-      label:'현장 조사 메모를 남쪽 구조단 접수대에 전달'})
   });
   const RECORDS = Object.freeze({
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
@@ -393,13 +389,6 @@
     // An unvisited office never reveals its contents on the global HUD.
     return state.officeBoardRead?[]:[POINTS.officeBoard];
   }
-  function waterSurveyMarkers(state){
-    // Unlike a HUD objective, the second city-block task only appears after
-    // the captain physically reaches the original shared civic courtyard.
-    if(!state.civicVisited||!['records','decision','exit'].includes(state.phase)||
-       state.waterReportFiled)return [];
-    return state.waterSurveyed?[POINTS.waterReportDesk]:[POINTS.waterSite];
-  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -408,13 +397,12 @@
       POINTS.decision,
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...officeMarkers(state),
-      ...waterSurveyMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...waterSurveyMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...waterSurveyMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
          ...(state.transportContact<2?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -532,7 +520,6 @@
       if(guideInReach&&(priority>bestPriority||(priority===bestPriority&&d<best))&&
         d<(marker.id==='beacon'?SWITCH_REACH:
           marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
-          marker.id==='waterSite'?SUPPLY_REACH:
           marker.id==='transportDriver'?2.3:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
@@ -998,22 +985,6 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
-    if(marker.id==='waterSite'&&state.civicVisited&&!state.waterSurveyed&&
-       ['records','decision','exit'].includes(state.phase)){
-      state.waterSurveyed=true;
-      state.subtitle='이수혁 대위: 주민 공동 급수대에서 물이 거의 나오지 않는 것을 직접 확인했습니다. 단수 원인과 복구 시점은 현장에서 알 수 없습니다.';
-      state.message='시가지 급수대 현장 점검 완료 · 기록 인계 필요';
-      syncMarkers(state);
-      return {ok:true,event:'water_surveyed',phase:state.phase};
-    }
-    if(marker.id==='waterReportDesk'&&state.waterSurveyed&&!state.waterReportFiled&&
-       ['records','decision','exit'].includes(state.phase)){
-      state.waterReportFiled=true;
-      state.subtitle='유수프(현지 구조단): 공동 급수대 상황을 접수했습니다. 확인되지 않은 복구 일정을 주민에게 안내하지 않겠습니다.';
-      state.message='시가지 현장 점검 기록 · 구조단 접수 완료';
-      syncMarkers(state);
-      return {ok:true,event:'water_report_filed',phase:state.phase};
-    }
     if(marker.id==='officeBoard'&&!state.officeBoardRead&&
        ['records','decision','exit'].includes(state.phase)){
       // The optional physical board says only that residents were asked to
