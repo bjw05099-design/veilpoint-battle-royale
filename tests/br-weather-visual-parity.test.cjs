@@ -8,7 +8,7 @@ const start=source.indexOf('function atmosphereDensity(state){');
 const end=source.indexOf('\n}',start);
 const atmosphere=vm.runInNewContext('('+source.slice(start,end+2)+')');
 test('96-person server weather is reflected in actual shared renderer haze without touching physics',()=>{
- const scene=Sim.newMatch(23,0),before=Sim.snapshotMatch(scene);
+ const scene=Sim.newMatch(23,0);scene.status='playing';const before=Sim.snapshotMatch(scene);
  for(const [tick,expected] of [[0,.009],[2700,.035],[5400,.021],[8100,.013],[10800,.009]]){
   scene.coastalWeather=coastalWeatherAtTick(tick);
   assert.equal(atmosphere(scene),expected);
