@@ -89,10 +89,13 @@ test('CH01 journal route tracks the actual 60Hz clearance clock across a checkpo
 
 
 test('CH01 earned radio and beacon evidence enters the journal only after physical state confirmation',()=>{
- const state=Story.createState();
- const initial=Story.serialize(state);
- assert.deepEqual(Journal.entries(state).map(x=>x.id),['recordA','recordB']);
- assert.equal(Story.serialize(state),initial);
+ const fresh=Story.createState(),initial=Story.serialize(fresh);
+ assert.deepEqual(Journal.entries(fresh).map(x=>x.id),['recordA','recordB']);
+ assert.equal(Story.serialize(fresh),initial);
+ // Do not forge post-mission progress into an impossible terminal checkpoint.
+ const savedLegacy={version:1,phase:'exit',found:['recordA','recordB'],choice:'verification',
+  player:{x:0,z:12,yaw:0,pitch:0,stamina:100},elapsed:10};
+ const state=Story.restore(JSON.stringify(savedLegacy));
  state.combat.supportUsed=true;
  let rows=Journal.entries(state);
  assert.match(rows.find(x=>x.id==='support').detail,/현장에서 동료 상황 보고/);
