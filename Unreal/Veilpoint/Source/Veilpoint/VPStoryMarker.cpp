@@ -1,6 +1,7 @@
 #include "VPStoryMarker.h"
 #include "VPCharacter.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/World.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
@@ -20,6 +21,15 @@ AVPStoryMarker::AVPStoryMarker()
     if (Mesh.Succeeded()) Model->SetStaticMesh(Mesh.Object);
     Model->SetRelativeScale3D(FVector(.40f, .40f, 1.f));
     Model->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    // Light is locally derived from the replicated, authority-owned
+    // beacon state. All other mission markers keep this component dark.
+    BeaconLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("HarborSignalLight"));
+    BeaconLight->SetupAttachment(RootComponent);
+    BeaconLight->SetRelativeLocation(FVector(0.f,0.f,125.f));
+    BeaconLight->SetIntensity(1400.f);
+    BeaconLight->SetAttenuationRadius(650.f);
+    BeaconLight->SetLightColor(FLinearColor(1.f,.53f,.16f));
+    BeaconLight->SetVisibility(false);
 }
 
 void AVPStoryMarker::BeginPlay()
@@ -27,6 +37,7 @@ void AVPStoryMarker::BeginPlay()
     Super::BeginPlay();
     if (Model) Model->SetVisibility(IsAvailable());
     ApplyStageShape();
+    SyncBeaconLight();
 }
 
 void AVPStoryMarker::Tick(float DeltaSeconds)
@@ -38,6 +49,17 @@ void AVPStoryMarker::Tick(float DeltaSeconds)
     // the placeholder silhouette once it actually arrives, without reloading
     // a mesh or regenerating native actors on every frame.
     ApplyStageShape();
+    SyncBeaconLight();
+}
+
+void AVPStoryMarker::SyncBeaconLight()
+{
+    if (!BeaconLight) return;
+    const AVPStoryGameState* State =
+        GetWorld() ? GetWorld()->GetGameState<AVPStoryGameState>() : nullptr;
+    const bool bLit = Action == EVPStoryAction::ActivateBeacon &&
+        State && State->bBeaconActivated;
+    if (BeaconLight->IsVisible() != bLit) BeaconLight->SetVisibility(bLit);
 }
 
 void AVPStoryMarker::ApplyStageShape()
@@ -95,6 +117,7 @@ bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
     if (!State || !State->TryAdvance(Action)) return false;
     bUsed = true;
     if (Model) Model->SetVisibility(false);
+    SyncBeaconLight();
     ForceNetUpdate();
     return true;
 }
