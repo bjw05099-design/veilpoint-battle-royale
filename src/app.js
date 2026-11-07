@@ -100,7 +100,12 @@ const profileSelect=$('graphicsPreset');
 const resolutionSelect=$('renderScale');
 const vegetationSelect=$('vegetation');
 const effectsSelect=$('effects');
-const Camera=global.VeilpointCameraView;
+const Camera=global.VeilpointCameraView||Object.freeze({
+ read:()=>55,validate:value=>{
+  if(![48,55,63,70,78].includes(value))throw new RangeError('Invalid camera FOV');
+  return value;
+ },persist:()=>false
+});
 const cameraSelect=$('cameraFov');
 const cameraStorage=()=>{try{return global.localStorage;}catch(_){return null;}};
 let cameraFov=Camera.read(cameraStorage());
@@ -108,7 +113,7 @@ cameraSelect.value=String(cameraFov);
 cameraSelect.addEventListener('change',()=>{
  try{
   cameraFov=Camera.validate(Number(cameraSelect.value));
-  if(renderer)renderer.setFieldOfView(cameraFov);
+  if(renderer&&typeof renderer.setFieldOfView==='function')renderer.setFieldOfView(cameraFov);
   if(!Camera.persist(cameraStorage(),cameraFov))
    $('qualityInfo').textContent='카메라 시야각 적용됨 · 이 탭에만 적용 (저장 실패)';
  }catch(_){cameraSelect.value=String(cameraFov);}
@@ -680,7 +685,7 @@ function initializeRenderer(){
   if(benchmark)benchmark.invalidateGpu();if(governor)governor.resetEvidence();
  };
  renderer=next;applyGraphicsSettings();
- renderer.setFieldOfView(cameraFov);
+ if(typeof renderer.setFieldOfView==='function')renderer.setFieldOfView(cameraFov);
  const supported=!!(renderer.gpuTimer&&renderer.gpuTimer.supported);
  autoResolutionCheckbox.disabled=!supported;
  autoResolutionCheckbox.title=supported?'':'이 브라우저에서 WebGL2 GPU 타이머 확장을 지원하지 않습니다';
