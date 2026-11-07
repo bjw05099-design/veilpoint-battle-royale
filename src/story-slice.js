@@ -1196,6 +1196,18 @@
           :'유수프 구조단: 남쪽 대피 통로 확보 · 추가 확인 여부는 현장 선택'
     });
   }
+  // Read-only factual audit for the selected CH01 route. Optional tasks
+  // cannot become mandatory, advance the world, or unlock any campaign content.
+  function optionalTaskAudit(state){
+    const optional=missionTasks(state).filter(task=>task.optional);
+    const completed=optional.filter(task=>task.status==='done');
+    const remaining=optional.filter(task=>task.status!=='done');
+    return Object.freeze({
+      total:optional.length,done:completed.length,
+      finished:Object.freeze(completed.map(task=>task.label)),
+      unfinished:Object.freeze(remaining.map(task=>task.label))
+    });
+  }
   // A completed *preview* produces a factual, bounded handoff for future authored
   // scenes. No unseen motive, chapter unlock, or resolved clock discrepancy is invented.
   function debrief(state) {
@@ -1205,6 +1217,7 @@
     const conflict=records.length===2;
     return Object.freeze({
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
+      optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
@@ -1568,6 +1581,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,missionTasks,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,missionTasks,optionalTaskAudit,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
