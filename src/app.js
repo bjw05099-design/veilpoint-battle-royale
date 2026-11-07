@@ -112,7 +112,15 @@ function setSoundEnabled(enabled){
 }
 soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
-function saveGraphics(){try{global.localStorage.setItem('veilpoint.graphics',graphics.serialize(graphicsSettings));}catch(_){}}
+function saveGraphics(){
+ try{
+  const serialized=graphics.serialize(graphicsSettings);
+  global.localStorage.setItem('veilpoint.graphics',serialized);
+  // A denied or silently discarded write must not be presented as a saved
+  // quality preset. An existing identical generation still counts as durable.
+  return global.localStorage.getItem('veilpoint.graphics')===serialized;
+ }catch(_){return false;}
+}
 function applyGraphicsSettings(){
  if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))benchmark.finish('graphics-settings-changed');
  fpsLimiter.setLimit(graphicsSettings.fpsCap);
@@ -128,7 +136,7 @@ function applyGraphicsSettings(){
  $('qualityInfo').textContent=graphicsSettings.preset==='hyperreal165'
   ?'화질과 165Hz 대응을 함께 최우선합니다. 실제 165FPS 달성은 GPU/모니터에 따라 달라집니다.'
   :'성능은 사용 중인 장치에서 실제 측정해야 합니다.';
- saveGraphics();
+ if(!saveGraphics())$('qualityInfo').textContent='화질 적용됨 · 저장 확인 실패 (현재 탭 전용)';
 }
 profileSelect.addEventListener('change',()=>{
  // Selecting Custom must actually enter editable, persisted custom mode while
