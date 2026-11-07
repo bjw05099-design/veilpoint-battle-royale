@@ -25,7 +25,9 @@ function fixture(){
   checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
    cases:Object.entries(targets).map(([name,ids])=>page(name,ids))})),
   keyboardChecks:sizes.map(([width,height])=>({width,height,cases:
-   ['BR-more-Escape','settings-Escape','settings-select-G'].map(name=>({name,passed:true,focused:true}))}))};
+   ['BR-more-Escape','BR-main-Tab-wrap','BR-main-ShiftTab-wrap',
+    'settings-Escape','settings-select-G','settings-Tab-wrap','settings-ShiftTab-wrap']
+    .map(name=>({name,passed:true,focused:true}))}))};
  for(const [key,names] of Object.entries(story))
   evidence[key]=sizes.map(([width,height])=>row(width,height,names));
  return evidence;
