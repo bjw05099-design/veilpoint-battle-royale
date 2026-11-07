@@ -94,8 +94,8 @@
   // A living person standing between an observer and a shooter blocks exact
   // visual identification. This cheap segment/circle test avoids per-target
   // obstacle arrays inside the 60Hz rival perception loop.
-  function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject), actors = null) {
-    if (distance >= 55) return false;
+  function canSeeActor(observer, subject, obstacles, distance = dist(observer, subject), actors = null, sightRange=55) {
+    if (distance >= sightRange) return false;
     // A standing actor may be partially visible beside solid cover even when
     // their centre is concealed. Use three finite silhouette samples, as the
     // authoritative team snapshot does, rather than granting see-through walls
@@ -106,7 +106,7 @@
     const rayVisible = (x, z) => {
       const vx = x - observer.x, vz = z - observer.z;
       const range = Math.hypot(vx, vz);
-      if (range >= 55 || lineBlocked(observer.x, observer.z, x, z, obstacles)) return false;
+      if (range >= sightRange || lineBlocked(observer.x, observer.z, x, z, obstacles)) return false;
       const bearing = Math.atan2(vx, -vz);
       if (Math.abs(normalizeAngle(bearing - observer.angle)) > 1.4) return false;
       if (actors && range > 1e-6) {
@@ -293,6 +293,7 @@
   // never a mid-match position command or a client-authored teleport.
   // All sectors are inside the initial 170m eligibility radius and outside
   // the current solid buildings, crates, service vehicle and yard gate.
+  const BR_LIGHTING=Object.freeze({day:'day',dusk:'dusk'});
   const ENTRY_SITES=Object.freeze({
     central:Object.freeze({x:0,z:0,label:'Central approach'}),
     service:Object.freeze({x:46,z:-5,label:'North service road'}),
@@ -304,11 +305,13 @@
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
     { duration: 70, radius: 12 }, { duration: 999, radius: 1.5 }
   ];
-  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false, entrySite='central') {
+  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false, entrySite='central', lighting='day') {
     const firearm=Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)?FIREARMS[weaponId]:null;
     if(!firearm)throw new RangeError('Unknown firearm class');
     if(typeof entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,entrySite))
       throw new RangeError('Unknown BR entry sector');
+    if(typeof lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,lighting))
+      throw new RangeError('Unknown BR lighting');
     const random = rngFromSeed(seed);
     const obstacles = makeObstacles();
     const deployment=ENTRY_SITES[entrySite];
@@ -357,7 +360,7 @@
         remaining:i%2===0?12:24,picked:false};
     });
     return {
-      seed, random, entrySite, status:'ready', elapsed:0, kills:0, damageFlash:0,
+      seed, random, entrySite, lighting, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
       handcart:{x:DOCK_HANDCART.x,z:DOCK_HANDCART.z,engaged:false,dirX:0,dirZ:0},
@@ -741,7 +744,8 @@
       const consider=(other)=>{
         if(other===b||!other.alive)return;
         const d=dist(b,other);
-        if(d>=targetDistance||!canSeeActor(b,other,obstacles,d,visibleActors))return;
+        if(d>=targetDistance||!canSeeActor(b,other,obstacles,d,visibleActors,
+          game.lighting==='dusk'?37:55))return;
         target=other;targetDistance=d;
         targetAngle=Math.atan2(other.x-b.x,-(other.z-b.z));
       };
@@ -899,7 +903,8 @@
             if(listener!==b&&listener.alive&&hearsImpulse(listener,b,obstacles)){
               // A new shot supersedes old search memory, but unseen shooters
               // never disclose more than a coarse audible source estimate.
-              const observed=canSeeActor(listener,b,obstacles,dist(listener,b),visibleActors)?b:heard;
+              const observed=canSeeActor(listener,b,obstacles,dist(listener,b),visibleActors,
+                game.lighting==='dusk'?37:55)?b:heard;
               listener.lastSeenX=observed.x;listener.lastSeenZ=observed.z;
               listener.lastSeenUntil=game.elapsed+2.5;
             }
@@ -1002,7 +1007,8 @@
       if(b.alive&&hearsImpulse(b,p,game.obstacles)){
         // A fresh sound replaces stale search evidence, while visible
         // actors remain precise and hidden actors stay imprecise.
-        const observed=canSeeActor(b,p,game.obstacles,dist(b,p),sightActors)?p:heard;
+        const observed=canSeeActor(b,p,game.obstacles,dist(b,p),sightActors,
+          game.lighting==='dusk'?37:55)?p:heard;
         b.lastSeenX=observed.x;b.lastSeenZ=observed.z;
         b.lastSeenUntil=game.elapsed+2.5;
       }
@@ -1236,7 +1242,9 @@
       ['lastTagAt',-2,3600],['recentDamage',0,100]]);
     if(typeof game.entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,game.entrySite))
       throw new RangeError('Invalid BR entry sector');
-    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,rngState:game.random.getState(),
+    if(typeof game.lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,game.lighting))
+      throw new RangeError('Invalid BR lighting');
+    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,lighting:game.lighting,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
       handcart:game.handcart===null?null:{...game.handcart},
@@ -1378,7 +1386,10 @@
     const entrySite=saved.entrySite===undefined?'central':saved.entrySite;
     if(typeof entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,entrySite))
       throw new RangeError('Invalid saved BR entry sector');
-    const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite);
+    const lighting=saved.lighting===undefined?'day':saved.lighting;
+    if(typeof lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,lighting))
+      throw new RangeError('Invalid saved BR lighting');
+    const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting);
     if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
       throw new RangeError('Route sign inside solid cover');
     game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
@@ -1584,6 +1595,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {ENTRY_SITES,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {ENTRY_SITES,BR_LIGHTING,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });

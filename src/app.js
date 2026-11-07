@@ -266,6 +266,8 @@ $('graphicsClose').addEventListener('click',()=>setGraphicsPanelOpen(false));
 const loadoutSelect=$('weaponClass');
 const rosterSelect=$('brRoster');
 const entrySelect=$('brEntrySite');
+const lightingSelect=$('brLighting');
+const selectedLighting=()=>Object.prototype.hasOwnProperty.call(Game.BR_LIGHTING,lightingSelect.value)?lightingSelect.value:'day';
 const selectedEntry=()=>Object.prototype.hasOwnProperty.call(Game.ENTRY_SITES,entrySelect.value)?entrySelect.value:'central';
 const selectedRoster=()=>[1,4,18].includes(Number(rosterSelect.value))?Number(rosterSelect.value):18;
 try{const saved=global.localStorage.getItem('veilpoint.weaponClass');loadoutSelect.value=Object.prototype.hasOwnProperty.call(Game.FIREARMS,saved)?saved:'carbine';}
@@ -821,7 +823,7 @@ function resetPortableMatchExport(){
  $('brImportText').value='';
  $('brImportFile').value='';
 }
-function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false,entryOverride=null){
+function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offlineOnly=false,entryOverride=null,lightingOverride=null){
  if(graphicsContextLost||!renderer)return;
  resetPortableMatchExport();
  // A stale Windows BR tab may request New Match while another tab already
@@ -857,9 +859,11 @@ function start(seedOverride=null,weaponOverride=null,rosterOverride=null,offline
  const rivals=[1,4,18].includes(rosterOverride)?rosterOverride:selectedRoster();
  const sector=typeof entryOverride==='string'&&
   Object.prototype.hasOwnProperty.call(Game.ENTRY_SITES,entryOverride)?entryOverride:selectedEntry();
- simulation=Game.newMatch(seed,rivals,weaponId,rivals===1,sector);
+ const lighting=typeof lightingOverride==='string'&&
+  Object.prototype.hasOwnProperty.call(Game.BR_LIGHTING,lightingOverride)?lightingOverride:selectedLighting();
+ simulation=Game.newMatch(seed,rivals,weaponId,rivals===1,sector,lighting);
  simulation.status='playing';running=true;suspended=false;
- rosterSelect.value=String(rivals);entrySelect.value=sector;
+ rosterSelect.value=String(rivals);entrySelect.value=sector;lightingSelect.value=lighting;
  lastFinishedMatch=null;pauseRestartArmed=false;forfeitArmed=false;manualCheckpoint=null;loadoutSelect.value=weaponId;
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -882,7 +886,7 @@ function resumeStoredMatch(restored){
  // A later explicit New Match must differ from this restored generation, too.
  issuedMatchSeeds.add(restored.seed);
  simulation=restored;loadoutSelect.value=restored.player.weaponId;
- entrySelect.value=restored.entrySite||'central';
+ entrySelect.value=restored.entrySite||'central';lightingSelect.value=restored.lighting||'day';
  if([1,4,18].includes(restored.bots.length))rosterSelect.value=String(restored.bots.length);
  running=true;suspended=false;saveWarning=memoryOnlyMatch;nextMatchSaveRetryAt=0;lastAutosaveElapsed=simulation.elapsed;saveIssue=memoryOnlyMatch?'write-failed':null;bookmarkIssue=null;lastSavedHealth=simulation.player.health;
  if(memoryOnlyMatch){
@@ -1037,7 +1041,7 @@ $('brImportApply').addEventListener('click',()=>{
  brReplacementArmed=null;
  issuedMatchSeeds.add(candidate.seed);
  simulation=candidate;running=true;suspended=true;memoryOnlyMatch=true;
- entrySelect.value=candidate.entrySite||'central';
+ entrySelect.value=candidate.entrySite||'central';lightingSelect.value=candidate.lighting||'day';
  matchDiskGeneration=null;manualCheckpoint=null;lastFinishedMatch=null;
  saveWarning=true;saveIssue='write-failed';bookmarkIssue=null;
  nextMatchSaveRetryAt=0;lastAutosaveElapsed=candidate.elapsed;
@@ -1230,7 +1234,7 @@ $('restartArena').addEventListener('click',()=>{
   return;
  }
  const seed=simulation.seed,weapon=simulation.player.weaponId,rivals=simulation.bots.length;
- start(seed,weapon,rivals,false,simulation.entrySite||'central');
+ start(seed,weapon,rivals,false,simulation.entrySite||'central',simulation.lighting||'day');
 });
 $('forfeitMatch').addEventListener('click',()=>{
  if(!running||!suspended||simulation.status!=='playing')return;
@@ -1247,7 +1251,7 @@ $('retryArena').addEventListener('click',()=>{
  // A retry of a memory-only match must never erase an unrelated saved
  // disk round if storage permission becomes available during play.
  start(lastFinishedMatch.seed,lastFinishedMatch.weaponId,lastFinishedMatch.rivals,
-  memoryOnlyMatch,lastFinishedMatch.entrySite);
+  memoryOnlyMatch,lastFinishedMatch.entrySite,lastFinishedMatch.lighting);
 });
 addEventListener('keydown',e=>{
  if(desktopUi.captureKey(e))return;
@@ -1628,7 +1632,8 @@ function updateHud(){const s=simulation,p=s.player;
 }
 function end(){if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,
-  rivals:simulation.bots.length,entrySite:simulation.entrySite||'central'};manualCheckpoint=null;
+  rivals:simulation.bots.length,entrySite:simulation.entrySite||'central',
+  lighting:simulation.lighting||'day'};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');

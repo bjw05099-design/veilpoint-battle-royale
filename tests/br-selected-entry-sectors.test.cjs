@@ -62,9 +62,9 @@ test('PC selector is functional and remains out of live movement/position comman
  const app=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
  assert.match(html,/<select id="brEntrySite"/);
  for(const site of sites)assert.match(html,new RegExp('value="'+site+'"'));
- assert.match(app,/Game\.newMatch\(seed,rivals,weaponId,rivals===1,sector\)/);
+ assert.match(app,/Game\.newMatch\(seed,rivals,weaponId,rivals===1,sector,lighting\)/);
  assert.match(app,/entrySelect\.value=restored\.entrySite\|\|'central'/);
- assert.match(app,/start\(seed,weapon,rivals,false,simulation\.entrySite\|\|'central'\)/);
+ assert.match(app,/start\(seed,weapon,rivals,false,simulation\.entrySite\|\|'central',simulation\.lighting\|\|'day'\)/);
  assert.match(app,/memoryOnlyMatch,lastFinishedMatch\.entrySite/);
  assert.doesNotMatch(app,/simulation\.player\.x\s*=\s*entrySelect/);
 });
