@@ -164,14 +164,16 @@
   function shuttleBody(game){
     return game.obstacles.find(o=>o.routeId==='br-yard-shuttle');
   }
-  function shuttleClear(game,x,z,yaw,actors=game.bots){
+  function shuttleClear(game,x,z,yaw,actors=game.bots,stores=game.loot){
     // Three longitudinal probes approximate the vehicle's real footprint
     // against the same collidable world used for pedestrian movement.
     const staticWorld=game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle');
     for(const offset of [-1.25,0,1.25]){
       const px=x+Math.sin(yaw)*offset,pz=z-Math.cos(yaw)*offset;
       if(blocked(px,pz,.95,staticWorld)||
-        actors.some(b=>b.alive&&Math.hypot(b.x-px,b.z-pz)<1.65))return false;
+        actors.some(b=>b.alive&&Math.hypot(b.x-px,b.z-pz)<1.65)||
+        stores.some(item=>!item.picked&&Math.hypot(item.x-px,item.z-pz)<1.45))
+        return false;
     }
     return true;
   }
@@ -1255,6 +1257,22 @@
     }
     // Refuse to overwrite a usable save with internally contradictory actor
     // state. The restore path already rejects these, but autosave must too.
+    if(checkpoint.vehicle!==null){
+      const v=checkpoint.vehicle,body=shuttleBody(game);
+      if(!v||typeof v!=='object'||Array.isArray(v)||
+         Object.keys(v).sort().join(',')!=='driver,fuel,speed,x,yaw,z'||
+         !finite(v.x,-WORLD,WORLD)||!finite(v.z,-WORLD,WORLD)||
+         !finite(v.yaw,-100000,100000)||
+         !finite(v.speed,-YARD_SHUTTLE.reverseSpeed,YARD_SHUTTLE.forwardSpeed)||
+         !finite(v.fuel,0,YARD_SHUTTLE.fuel)||
+         typeof v.driver!=='boolean'||(!v.driver&&Math.abs(v.speed)>.000001)||
+         (v.fuel===0&&Math.abs(v.speed)>.000001)||
+         !body||Math.abs(body.x-v.x)>1e-5||Math.abs(body.z-v.z)>1e-5||
+         (v.driver&&(Math.abs(checkpoint.player.x-v.x)>1e-5||
+           Math.abs(checkpoint.player.z-v.z)>1e-5))||
+         !shuttleClear(game,v.x,v.z,v.yaw,checkpoint.bots,checkpoint.loot))
+        throw new RangeError('Invalid BR yard vehicle checkpoint');
+    }
     if (checkpoint.player.alive !== true || checkpoint.player.health <= 0 ||
         typeof checkpoint.player.reloadAssist !== 'boolean' ||
         typeof checkpoint.player.reloadHesitation !== 'boolean' ||
@@ -1273,7 +1291,8 @@
     if (!firearm || p.maxCharges!==firearm.maxRounds || p.charges>p.maxCharges ||
         p.loaded>p.charges || p.loaded>firearm.magazine ||
         (p.reloadHesitation && p.reloadRemaining<=0) ||
-        blocked(p.x,p.z,ACTOR_RADIUS,game.obstacles) ||
+        blocked(p.x,p.z,ACTOR_RADIUS,game.vehicle?.driver?
+          game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle'):game.obstacles) ||
         checkpoint.bots.some((b,i)=>b.id!==i ||
           blocked(b.x,b.z,ACTOR_RADIUS,game.obstacles)) ||
         overlappingLivingActors(checkpoint.player,checkpoint.bots))
@@ -1361,7 +1380,7 @@
       const body=shuttleBody(game),bounds=shuttleAabb(v.yaw);
       if(!body)throw new RangeError('Missing vehicle collider');
       body.x=v.x;body.z=v.z;body.w=bounds.w;body.d=bounds.d;
-      if(!shuttleClear(game,v.x,v.z,v.yaw,saved.bots))
+      if(!shuttleClear(game,v.x,v.z,v.yaw,saved.bots,saved.loot))
         throw new RangeError('Saved vehicle intersects architecture');
       if(v.driver&&(Math.abs(saved.player.x-v.x)>1e-5||
         Math.abs(saved.player.z-v.z)>1e-5))
