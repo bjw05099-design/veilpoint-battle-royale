@@ -6,6 +6,7 @@ const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY}=require('./br-squad-lobby.cjs');
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
+const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // 10-second presence window is only a reconnect diagnostic; a stale
@@ -55,7 +56,7 @@ class BrSquadWorld {
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
-          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0});
+          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,outsideAreaTicks:0});
       }
     }
   }
@@ -167,18 +168,24 @@ class BrSquadWorld {
         b.next={x:b.actor.x,z:b.actor.z};
       }
     }
-    for(const {actor,next} of proposals){actor.x=next.x;actor.z=next.z;}
+    const area=brPlayableArea(this.tick);
+    for(const {actor,next} of proposals){
+      actor.x=next.x;actor.z=next.z;
+      if(positionInArea(area,next.x,next.z).outside)actor.outsideAreaTicks++;
+    }
   }
   snapshot(token){
     const me=this.actors.get(token);
     if(!me)throw new RangeError('unknown_session');
     const mates=[],seen=[];
     const weather=coastalWeatherAtTick(this.tick);
+    const playableArea=brPlayableArea(this.tick);
     const active=Array(SQUADS).fill(0);
     const participants=[...this.actors.values()];
     for(const p of participants){
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
+        outsideArea:positionInArea(playableArea,p.x,p.z).outside,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
     }
     if(me.eligible){
@@ -194,6 +201,7 @@ class BrSquadWorld {
     const signal=this.squadSignals.get(me.team);
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       coastalWeather:weather,
+      playableArea,
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
@@ -201,6 +209,8 @@ class BrSquadWorld {
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        area:positionInArea(playableArea,me.x,me.z),
+        outsideAreaTicks:me.outsideAreaTicks,
         connection:me.eligible&&this.tick-me.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale',
         placement:this.placements[me.team]},squad:mates,visible:seen};
   }
