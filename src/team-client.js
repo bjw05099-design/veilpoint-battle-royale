@@ -514,7 +514,7 @@
     // Events originate from the authority and contain only public round
     // milestones. Render via textContent, never as executable HTML.
     const publicEventLabels={round_start:'경기 시작',
-      relay_complete:'중계 연결 확인',round_end:'경기 종료'};
+      relay_complete:'중계 연결 확인',relay_shift:'중계 위치 변경',round_end:'경기 종료'};
     const recentEvents=Array.isArray(state.events)?state.events.slice(-4):[];
     const knownEvents=recentEvents.filter(e=>e&&
       Object.prototype.hasOwnProperty.call(publicEventLabels,e.type)&&
