@@ -1453,7 +1453,7 @@ function syncMotorSound(unlock=false){
       distance<global.VeilpointGateMotorAudio.HEARING_RADIUS)))ensureAudio();
  motorSound.sync({enabled:soundEnabled,playable:canAct(),active:gate.motorActive,distance});
  if(windSound)windSound.sync({enabled:soundEnabled,playable:canAct(),
-   phase:simulation.zone&&simulation.zone.phase,
+   elapsed:simulation.elapsed,
    exposure:global.VeilpointCoastalWindAudio.localWindExposure(
      simulation.player,simulation.obstacles,Game.lineBlocked)});
 }
