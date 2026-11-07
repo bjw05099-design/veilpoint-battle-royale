@@ -298,7 +298,8 @@
       activeTouchAimPointer = event.pointerId ?? -1;
     }
     const validAim = aimFromPointer(event, event.pointerType === 'mouse' && event.button === 0);
-    if (validAim && event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
+    if (validAim && event.pointerType === 'mouse' && event.button === 0 &&
+        state?.phase === 'playing' && state.relayVariant!=='courier') {
       // A click exactly on the local avatar has no physical aim ray: do not
       // spend finite rounds or latch automatic fire in the previous direction.
       // Valid PC pointer aim and fire still share the canvas and server cadence.
@@ -381,7 +382,7 @@
   };
   const setTrigger = active => {
     if (leaving) {triggering = false;return;}
-    if (state?.phase !== 'playing') {triggering = false;return;}
+    if (state?.phase !== 'playing' || state.relayVariant==='courier') {triggering = false;return;}
     if (triggering === active) return;
     triggering = active;
     lastTriggerRefreshTick = state.tick;
@@ -527,6 +528,14 @@
       if(state.phase === 'playing') Desktop.focusGameplay(document,canvas);
     }
     if(currentRoundId!==null)previousRoundId=currentRoundId;
+    const courierMode=state.relayVariant==='courier';
+    // A noncombat server round must never advertise active weapon controls.
+    el('fire').disabled=courierMode;
+    el('reload').disabled=courierMode;
+    el('assist').disabled=courierMode;
+    el('loadout').disabled=courierMode || state.phase==='playing';
+    el('capture').textContent=controls.bindings.interact+
+      (courierMode?' 물품 인수·인계':' 점령');
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
@@ -543,7 +552,7 @@
     // Only this authenticated player's metrics are exposed; neither team
     // obtains unseen opponent movement or captures through match statistics.
     el('personalMetrics').textContent=validMetrics
-      ?'실제 이동 '+myMetrics.distanceMeters.toFixed(1)+'m · 중계기 직접 연결 '+myMetrics.relays+'회'
+      ?'실제 이동 '+myMetrics.distanceMeters.toFixed(1)+'m · '+(courierMode?'물품 인계 ':'중계기 직접 연결 ')+myMetrics.relays+'회'
       :'서버 확인 중';
     // Only the server can define the objective threshold. These are public
     // team scores, not inferred opponents' positions or private resources.
@@ -684,11 +693,16 @@
           : `양쪽 플레이어가 준비 버튼을 눌러야 시작합니다. (${ready}/2)`);
     }
     else {
-      const hint = '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
+      const hint = courierMode
+        ? '비전투 물품 운반 · 중앙 접수대에서 정지 후 '+controls.bindings.interact+
+          ' 키로 인수 · 실제 물품을 든 채 남쪽 인계대로 이동 · 다시 정지해 같은 키로 인계 · 점수는 서버가 판정합니다.'
+        : '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
         controls.bindings.fire+' 누르면 발사/유지하면 연속 발사 · '+controls.bindings.reload+' 재장전 · '+
         controls.bindings.crouch+' 낮은 자세 · '+controls.bindings.sprint+' 누르면 지구력 범위에서 질주 (낮은 자세에서는 불가). 시야·피해·탄약·이동은 서버에서 검증합니다.';
       const rearmHint = capturing && !state.self.captureArmed
-        ? ' · 중계 중단/목표 이탈/전송 완료: 점령 키를 놓고 다시 눌러 중계기 근처에서 재시도하세요' : '';
+        ? courierMode?' · 이동 중에는 인수·인계가 중단됩니다. 키를 놓고 현장에서 다시 누르세요.'
+          :' · 중계 중단/목표 이탈/전송 완료: 점령 키를 놓고 다시 눌러 중계기 근처에서 재시도하세요'
+        : '';
       status((actionFeedback && state.tick <= feedbackUntil
         ? hint + ' · ' + actionFeedback : hint) + rearmHint);
     }
@@ -698,7 +712,7 @@
   const refreshControlLabels = () => {
     el('fire').textContent = controls.bindings.fire + ' 발사';
     el('reload').textContent = controls.bindings.reload + ' 재장전';
-    el('capture').textContent = controls.bindings.interact + ' 점령';
+    el('capture').textContent = controls.bindings.interact + (state?.relayVariant==='courier'?' 물품 인수·인계':' 점령');
   };
   refreshControlLabels();
   el('join').addEventListener('click', async () => {
@@ -807,8 +821,8 @@
   el('loadout').addEventListener('change', () => {
     if (token && state?.phase !== 'playing') void send('loadout', {weaponId: el('loadout').value});
   });
-  el('fire').addEventListener('click', () => {if (state?.phase === 'playing') void send('fire');});
-  el('reload').addEventListener('click', () => {if (state?.phase === 'playing') void send('reload');});
+  el('fire').addEventListener('click', () => {if (state?.phase === 'playing'&&state.relayVariant!=='courier') void send('fire');});
+  el('reload').addEventListener('click', () => {if (state?.phase === 'playing'&&state.relayVariant!=='courier') void send('reload');});
   el('assist').addEventListener('click', () => {if (token && state) void send('assist', {enabled: !state.self.reloadAssist});});
   document.addEventListener('keydown', e => {
     if (leaving) return;
@@ -828,7 +842,7 @@
     // or capture, even if the next server snapshot is already playing.
     if (e.repeat && !keys.has(e.code)) return;
     keys.add(e.code);
-    if (!e.repeat && state?.phase === 'playing') {
+    if (!e.repeat && state?.phase === 'playing'&&state.relayVariant!=='courier') {
       // F is a legacy alias only while the default Space fire binding is active.
       if (action === 'fire' || (e.code === 'KeyF' && (action === null || action === 'headlamp') && controls.bindings.fire === 'Space')) {
         void send('fire'); // Immediate click feedback; the authority enforces cooldown.
