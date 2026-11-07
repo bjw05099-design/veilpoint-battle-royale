@@ -351,8 +351,7 @@
       ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
-         ...(state.musterConfirmed&&!state.transitReviewed?[POINTS.transitBoard]:[]),
-        ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
+         ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
         ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,POINTS.guideTransfer]:[]),
          // Companion control is an observed, local objective — never a hidden
          // moving marker on the map when the civilian is beyond visible range.
@@ -363,7 +362,10 @@
             ?[{id:'guideControl',x:state.guide.x,z:state.guide.z,kind:'evac',
               label:state.guide.waiting?'안내원 동행 재개':'안내원 현장 대기 지시'}]:[]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
-        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
+        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay,
+         // Preserve existing marker indices while exposing the optional new
+         // planning document at the end of the PC navigation cycle.
+         ...(state.musterConfirmed&&!state.transitReviewed?[POINTS.transitBoard]:[])];
     return [];
   }
   function syncMarkers(state) {
@@ -1132,12 +1134,14 @@
         :state.aidPickedUp?'carrying':'available';
       return Object.freeze([
         item('muster','집결지 인원 확인',state.musterConfirmed?'done':'available',true),
-         item('transit','대피 통행 계획표 확인',state.transitReviewed?'done':
-           state.musterConfirmed?'available':'locked',true),
-        item('guide','현장 안내원 동행·인계',guideStatus,true),
+         item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
-          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available')
+          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available'),
+        // New optional report follows the original task order so historic
+        // guide/aid/exit indices and keyboard HUD expectations remain stable.
+        item('transit','대피 통행 계획표 확인',state.transitReviewed?'done':
+          state.musterConfirmed?'available':'locked',true)
       ]);
     }
     return Object.freeze([
