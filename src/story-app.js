@@ -1096,7 +1096,8 @@
       const report=reviewed.report;
       $('debriefReview').textContent='CH01 완료 · 경로: '+
         (report.route==='verification'?'동쪽 기록 검증':'남쪽 대피')+
-        ' · 조사 기록 '+report.records.length+'/2 · '+report.summary;
+        ' · 조사 기록 '+report.records.length+'/2 · 선택 과제 '+
+        report.optionalTasks.done+'/'+report.optionalTasks.total+' 완료 · '+report.summary;
       $('debriefReview').classList.remove('hidden');
       $('menuText').textContent='저장된 CH01 종료 당시의 세계 상태와 분기 결과를 확인 중입니다. 결과를 확인한 뒤 새 미션을 시작할 수 있습니다.';
       $('continue').textContent='CH01 다시 시작';
