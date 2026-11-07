@@ -160,7 +160,7 @@
    if(typeof role==='string'&&/^(?:textbox|searchbox|combobox|spinbutton|listbox)$/.test(role.trim().toLowerCase()))
     return true;
    const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
-   if(editable!==null&&editable!=='false')return true;
+   if(editable!=null&&editable!=='false')return true;
    node=node.parentElement||node.parentNode||node.host||null;
   }
   return false;
