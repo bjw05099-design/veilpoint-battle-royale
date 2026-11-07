@@ -31,4 +31,9 @@ public:
     bool TryActivate(AVPCharacter* Player);
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+
+private:
+    // Physical silhouette reflects the replicated objective type. Native
+    // placeholder markers remain usable without missing external assets.
+    void ApplyStageShape();
 };
