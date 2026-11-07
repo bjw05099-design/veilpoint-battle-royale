@@ -16,8 +16,8 @@ const SPRINT_RESTART_STAMINA = 25;
 const CAPTURE_RADIUS = 2.6;
 const RELAY_SITES=Object.freeze({
   center:Object.freeze({x:0,z:0}),
-  north:Object.freeze({x:0,z:-2.5}),
-  south:Object.freeze({x:0,z:2.5})
+  north:Object.freeze({x:0,z:-3.2}),
+  south:Object.freeze({x:0,z:3.2})
 });
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
