@@ -33,7 +33,7 @@ function customize(settings,field,value){
  return {...validate({...validate(settings),[field]:value}),preset:'custom'};
 }
 function canonicalPreset(validated,claimed){
- if(claimed==='custom')return 'custom';
+ if(claimed==='custom'||claimed===undefined)return 'custom';
  if(!Object.prototype.hasOwnProperty.call(PRESETS,claimed))return null;
  // A named preset is truthful only when all independently saved options
  // still match it. Preserve adjusted quality values instead of relabeling them.
