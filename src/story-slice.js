@@ -103,7 +103,7 @@
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
     officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
-    waterSite: Object.freeze({id:'waterSite',x:128,z:113,kind:'evidence',
+    waterSite: Object.freeze({id:'waterSite',x:140,z:113,kind:'evidence',
       label:'공동 급수대 실제 수압을 현장에서 확인'}),
     waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
       label:'현장 조사 메모를 남쪽 구조단 접수대에 전달'})
@@ -364,7 +364,7 @@
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 원래는 현지 상황 확인과 제한적인 대피 지원 때문에 파견되셨잖아요. 그런데 내전이 이렇게 격화될 줄은 몰랐죠. 주민 통로는 유수프 구조단이 결정하고, 국정원 보고는 현장 기록과 대조해야 합니다.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+      subtitle:'마라(기술자): 이 대위님, 원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견되셨잖아요. 그런데 내전이 이렇게 격화될 줄은 몰랐죠. 주민 통로는 유수프 구조단이 결정하고, 국정원 보고는 현장 기록과 대조해야 합니다.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
     state.world.aidPickedUp=false;state.world.aidDelivered=false;
     syncRoute(state);syncMarkers(state);
