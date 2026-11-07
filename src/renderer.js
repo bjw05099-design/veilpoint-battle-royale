@@ -635,6 +635,13 @@ class Renderer {
   }
   const bumper=at(0,-2.07);
   mesh.boxYaw(bumper[0],.37,bumper[1],1.95,.22,.16,v.yaw,[.42,.43,.42]);
+  // Two real rear stop lamps, mechanically linked to the 60Hz driver
+  // brake input. Never a glowing directional marker or through-wall hint.
+  for(const side of [-.79,.79]){
+   const rear=at(side,2.04);
+   mesh.boxYaw(rear[0],.59,rear[1],.29,.16,.10,v.yaw,
+     state.vehicleBrake===true?[1.25,.08,.05]:[.27,.045,.04]);
+  }
  }
  // A single physical navigation sign follows the saved match world state.
  // Its narrow post and cloth flag require two cull-accounted boxes.

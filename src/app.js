@@ -1625,7 +1625,11 @@ function updateHud(){const s=simulation,p=s.player;
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
  $('pickupPrompt').style.display=vehicle.near||yardGate.near||handcart.near||nearby||restock||movable||gateGuide?'block':'none';
- if(vehicle.driving)$('pickupPrompt').textContent='PORT YARD VEHICLE · '+vehicle.speed.toFixed(1)+' m/s · FUEL '+vehicle.fuel.toFixed(2)+' L · W/S DRIVE · A/D TURN · '+interactPrompt+' EXIT WHEN STOPPED';
+ if(vehicle.driving)$('pickupPrompt').textContent='PORT YARD VEHICLE · '+
+   (vehicle.speed*3.6).toFixed(0)+' km/h · FUEL '+vehicle.fuel.toFixed(2)+' L · '+
+   (vehicle.braking?'SERVICE BRAKE ACTIVE · ':'')+
+   'W/S DRIVE · A/D TURN · ['+Desktop.keyLabel(bindings.crouch)+'] BRAKE · '+
+   interactPrompt+' EXIT WHEN STOPPED';
  else if(vehicle.near)$('pickupPrompt').textContent=interactPrompt+' ENTER PARKED PORT YARD VEHICLE · HANDS ON CONTROLS';
  else if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'

@@ -171,7 +171,8 @@ function planVisible(state,aspect=16/9){
   const body=state.obstacles.find(o=>o.routeId==='br-yard-shuttle');
   if(body&&inView(p,body.x,body.z,2.5,MAX_DISTANCE,halfFov)&&
      hasExposedSilhouette(p,body,1.15,state.obstacles.filter(o=>o!==body))){
-    vehicles.push(state.vehicle);boxes+=8;
+    // Eight existing vehicle meshes plus two physical rear stop lamps.
+    vehicles.push(state.vehicle);boxes+=10;
   }
  }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.

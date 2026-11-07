@@ -101,7 +101,7 @@ test('both PC renderer paths and live keyboard/HUD use the same service vehicle'
  assert.match(renderer,/for\(const v of plan\.vehicles\|\|\[\]\)/);
  assert.match(renderer,/routeId==='br-yard-shuttle'/);
  assert.match(renderer,/type:o\.type==='yard-service-vehicle'/);
- assert.match(visibility,/vehicles\.push\(state\.vehicle\);boxes\+=8/);
+ assert.match(visibility,/vehicles\.push\(state\.vehicle\);boxes\+=10/);
  assert.match(app,/Game\.operateYardShuttle\(simulation\)/);
  assert.match(app,/Game\.shuttleStatus\(s\)/);
  assert.match(app,/W\/S DRIVE/);

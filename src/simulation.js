@@ -188,6 +188,7 @@
     const near=Math.hypot(v.x-p.x,v.z-p.z)<=3.5&&
       !lineBlocked(p.x,p.z,v.x,v.z,game.obstacles.filter(o=>o.routeId!=='br-yard-shuttle'));
     return {near:near||v.driver,driving:v.driver,speed:Math.abs(v.speed),
+      braking:v.driver&&game.vehicleBrake===true,
       fuel:v.fuel,x:v.x,z:v.z};
   }
   function operateYardShuttle(game){
@@ -203,7 +204,7 @@
         const z=v.z+side*Math.sin(v.yaw)*length;
         if(blocked(x,z,.85,game.obstacles)||
           game.bots.some(b=>b.alive&&Math.hypot(b.x-x,b.z-z)<1.8))continue;
-        p.x=x;p.z=z;v.driver=false;v.speed=0;
+        p.x=x;p.z=z;v.driver=false;v.speed=0;game.vehicleBrake=false;
         game.message='YARD VEHICLE PARKED · ON FOOT';game.messageTime=2;
         return {ok:true,event:'exit'};
       }
@@ -211,17 +212,26 @@
     }
     if(Math.abs(v.speed)>.01)return {ok:false,reason:'vehicle_moving'};
     if(game.handcart?.engaged)return {ok:false,reason:'hands_occupied'};
-    v.driver=true;p.x=v.x;p.z=v.z;p.yaw=v.yaw;
-    game.message='YARD VEHICLE · W/S DRIVE · A/D TURN · E EXIT WHEN STOPPED';
+    v.driver=true;game.vehicleBrake=false;p.x=v.x;p.z=v.z;p.yaw=v.yaw;
+    game.message='YARD VEHICLE · W/S DRIVE · A/D TURN · CROUCH BRAKE · E EXIT WHEN STOPPED';
     game.messageTime=4;
     return {ok:true,event:'enter'};
   }
   function advanceYardShuttle(game,dt,input={}){
     const v=game?.vehicle;
-    if(!v?.driver)return false;
-    const forward=Number(!!input.forward)-Number(!!input.back);
+    if(!v?.driver){if(game)game.vehicleBrake=false;return false;}
+    // The remappable crouch input becomes a real held service brake only
+    // while seated. Driver cannot crouch or fire from this vehicle. Braking
+    // uses fixed 60Hz deceleration, no instantaneous velocity reversal.
+    const braking=!!input.crouch;
+    game.vehicleBrake=braking;
+    const forward=braking?0:Number(!!input.forward)-Number(!!input.back);
     if(v.fuel<=0){v.speed=0;return true;}
-    if(forward!==0)
+    if(braking){
+      const reduction=8.5*dt;
+      v.speed=Math.abs(v.speed)<=reduction?0:
+        v.speed-Math.sign(v.speed)*reduction;
+    }else if(forward!==0)
       v.speed=clamp(v.speed+forward*YARD_SHUTTLE.accelerate*dt,
         -YARD_SHUTTLE.reverseSpeed,YARD_SHUTTLE.forwardSpeed);
     else {
