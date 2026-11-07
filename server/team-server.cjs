@@ -230,7 +230,7 @@ if (require.main === module) {
     process.stdout.write(`VEILPOINT local team prototype listening at http://${addr.address}:${addr.port}\n`);
     process.stdout.write('Open the displayed URL in two separate browser tabs to test the team round.\n');
     process.stdout.write('Server-owned win target: '+targetScore+' relay points.\n');
-    process.stdout.write('Physical relay site: '+objectiveSite+' (center/north/south).\n');
+    process.stdout.write('Physical relay site: '+objectiveSite+' (center/north/south/east/west/rotation/rotation-wide).\n');
   }).catch(err => {console.error(err);process.exitCode = 1;});
 }
 module.exports = {createTeamServer, createFixedStepClock};
