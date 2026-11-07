@@ -9,7 +9,7 @@ const expected=[
  {x:104,z:108,w:.65,d:.65,h:2.15,type:'aden-pedestrian-post'}
 ];
 function walkRoute(world){
- const p={x:77,z:112},stages=[[88,109],[99,103],[112,95],[123,83],[130,83]];
+ const p={x:77,z:112},stages=[[88,109],[99,103],[112,97],[121,97],[121,83],[130,83]];
  assert.equal(Sim.blocked(p.x,p.z,.85,world.obstacles),false,'courtyard exit is open');
  for(const [x,z] of stages){
   for(let tick=0;tick<1400&&Math.hypot(x-p.x,z-p.z)>.20;tick++){
@@ -37,6 +37,7 @@ test('real narrow Aden-inspired pedestrian link is one shared physical geometry 
 test('historical terrain checkpoint has no surprise new street colliders',()=>{
  const old=Sim.newMatch(42,0,'carbine',false,'central','day',0);
  const fresh=Sim.newMatch(42,0,'carbine',false,'central','day',1);
+ old.status='playing';fresh.status='playing';
  assert.deepEqual(link(old),[]);
  assert.deepEqual(link(fresh),expected);
  assert.deepEqual(link(Sim.restoreMatch(Sim.snapshotMatch(fresh))),expected);
