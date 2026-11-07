@@ -66,6 +66,9 @@
   // CH01 civilian harbor worker traverses one small publicly reachable
   // sidewalk at walking speed. No military intelligence or courier objective.
   const WORKER_PATH=Object.freeze({minX:20,maxX:28,z:-12,speed:1.05,radius:.55});
+  // The same civic courtyard collision/road geometry is authored once in
+  // Sim.makeObstacles and reused by both BR and this story chapter.
+  const CIVIC_COURTYARD=Object.freeze({x:77,z:125,arrivalRadius:4.1});
   const newWorker=()=>({x:WORKER_PATH.minX,z:WORKER_PATH.z,direction:1});
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
@@ -354,7 +357,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -686,6 +689,16 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // An optional geographically distant story beat is earned by walking
+    // into the real shared civic courtyard, not by map clicking or remote
+    // reading. Do not infer which civilians or vehicles have actually left.
+    if(!state.civicVisited&&['records','decision','exit'].includes(state.phase)&&
+       Math.hypot(p.x-CIVIC_COURTYARD.x,p.z-CIVIC_COURTYARD.z)<
+         CIVIC_COURTYARD.arrivalRadius){
+      state.civicVisited=true;
+      state.subtitle='조현지: 오래된 항구 거리에서 주민 공동 안뜰까지 직접 확인했습니다. 현지 구조단의 접수 상태는 아직 확인되지 않았습니다.';
+      state.message='공통 도시 안뜰 직접 도착 · 실제 현장 확인 완료';
+    }
     // A different civilian uses actual 60Hz movement and the same walkable
     // scene AABBs as the captain. If the lane is occupied, the worker waits,
     // rather than clipping through a person or teleporting to the far end.
@@ -1362,7 +1375,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1380,7 +1393,8 @@
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')+
         (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
-        (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')
+        (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
+        (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')
     });
   }
   function objective(state) {
@@ -1423,7 +1437,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1449,8 +1463,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+20||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead').includes(k))||
+      Object.keys(data).length>expectedKeys.length+21||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1471,6 +1485,9 @@
           !Number.isInteger(data.transportContact)||
           data.transportContact<0||data.transportContact>2||
           (data.transportContact>0&&!['exit','complete'].includes(data.phase))))||
+       (hasOwn(data,'civicVisited')&&
+         (typeof data.civicVisited!=='boolean'||
+          (data.civicVisited&&!['records','decision','exit','complete'].includes(data.phase))))||
        (hasOwn(data,'officeBoardRead')&&
         (typeof data.officeBoardRead!=='boolean'||
          (data.officeBoardRead&&['terminal','engagement','failed'].includes(data.phase))))||
@@ -1675,6 +1692,7 @@
     state.transportContact=hasOwn(data,'transportContact')?data.transportContact:0;
     state.driverReportFiled=hasOwn(data,'driverReportFiled')?data.driverReportFiled:false;
     state.officeBoardRead=hasOwn(data,'officeBoardRead')?data.officeBoardRead:false;
+    state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
      // Historic v2 files may carry a now-retired, non-essential planning-board
      // flag. It is validated above but intentionally discarded on restore;
      // genuine escort, supply and evidence progress remains untouched.
