@@ -231,7 +231,7 @@ if (require.main === module) {
     process.stdout.write(`VEILPOINT local team prototype listening at http://${addr.address}:${addr.port}\n`);
     process.stdout.write('Open the displayed URL in two separate browser tabs to test the team round.\n');
     process.stdout.write('Server-owned win target: '+targetScore+' relay points.\n');
-    process.stdout.write('Physical relay site: '+objectiveSite+' (center/north/south/east/west/rotation/rotation-wide).\n');
+    process.stdout.write('Local course: '+objectiveSite+' (relay sites, rotation, rotation-wide or courier with score target 1).\n');
     process.stdout.write('Round lighting: '+lighting+' (day/dusk).\n');
   }).catch(err => {console.error(err);process.exitCode = 1;});
 }
