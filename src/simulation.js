@@ -335,6 +335,17 @@
       [124,78,.6,4,3.8,'aden-arcade-wall'],
       [142,88,.9,.7,1.3,'aden-arcade-water']
     ])o.push({x,z,w,d,h,type});
+    // A third, open pedestrian link physically joins the public courtyard
+    // to the western doorway of the street arcade. Two benches and a post
+    // are low-volume cover/streetscape, not magic barriers; the central
+    // walkable lane stays clear and identical in BR and CH01.
+    // This is a fictional Aden-inspired neighborhood, not a survey or
+    // reproduction of any real military or protected facility.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [93,114,4,.65,.65,'aden-pedestrian-bench'],
+      [111,101,3.4,.65,.65,'aden-pedestrian-bench'],
+      [104,108,.65,.65,2.15,'aden-pedestrian-post']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
