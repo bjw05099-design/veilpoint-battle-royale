@@ -34,6 +34,11 @@
     {x:64,z:-53,w:12,d:3,h:2.6,type:'story-container'},
     {x:79,z:-81,w:5,d:5,h:14,type:'story-crane'},
     {x:55,z:-9,w:12,d:14,h:7,type:'story-building'},
+    // Two distinct freight stacks on the outer harbor apron. Their full
+    // footprints are solid in the same fixed-step world used by rendering.
+    // They are deliberately outside both CH01 evacuation/verification routes.
+    {x:-72,z:-84,w:9,d:4,h:5.2,type:'story-container'},
+    {x:72,z:-91,w:9,d:4,h:2.6,type:'story-container'},
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
