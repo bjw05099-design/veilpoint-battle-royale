@@ -11,7 +11,7 @@ const target=id=>({id,visible:true,enabled:true,hit:true,focused:true,probesPass
 function fixture(){
  const result={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
   checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
-   cases:names.map(name=>({name,issues:[],targets:targets[name].map(target)})),
+   cases:names.map(name=>({name,controls:targets[name].length,issues:[],targets:targets[name].map(target)})),
    benchmarkCopy:{name:'settings-benchmark-copy',issues:[],targets:[
     target('graphicsClose'),target('graphicsTabBenchmark'),target('benchmarkRawJson')
    ]}}))};
@@ -139,6 +139,14 @@ test('benchmark JSON copy evidence is required on all real Chromium viewports',(
  assert.throws(()=>validate(clipped),/Benchmark JSON clipped or scrolling/);
 });
 
+test('incomplete real Chromium control counts fail closed across BR and CH01',()=>{
+ const br=fixture();
+ br.checks[0].cases[0].controls=br.checks[0].cases[0].targets.length-1;
+ assert.throws(()=>validate(br),/PC actionable control count inconsistent/);
+ const story=fixture();
+ story.storyMenuChecks[0].cases[0].targets.push(target('second-visible-control'));
+ assert.throws(()=>validate(story),/CH01 actionable control count inconsistent/);
+});
 test('CH01 evidence rejects duplicate target identities',()=>{
  const value=fixture();
  value.storyChecks[0].cases[0].targets.push(target('test-control'));
