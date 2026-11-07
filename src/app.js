@@ -735,7 +735,11 @@ function containBRMenuFocus(event){
    getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden');
  if(!controls.length)return;
  if(event.type==='focusin'){
-  if(!overlay.contains(event.target))controls[0].focus({preventScroll:true});
+  // A control can remain in the menu DOM after its screen is hidden or
+  // disabled. Containment alone is not proof of a usable keyboard target.
+  if(!controls.some(node=>node===event.target||
+     (typeof node.contains==='function'&&node.contains(event.target))))
+   controls[0].focus({preventScroll:true});
   return;
  }
  if(event.key!=='Tab')return;
