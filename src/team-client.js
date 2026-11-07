@@ -390,6 +390,26 @@
     const point = (x,z) => ({x:250+x*9.5,y:250+z*9.5});
     ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;ctx.beginPath();ctx.arc(250,250,25,0,Math.PI*2);ctx.stroke();
     if (!state) return;
+    // Both team arcs show ONLY the public relay clock published by the
+    // authoritative 60Hz game. Draw in the physical arena, not a new panel
+    // that would overflow the 1024x600 PC viewport.
+    const duration=state.objective?.requiredSeconds;
+    const progress=state.progress;
+    const hasPublicProgress=state.phase==='playing'&&
+      Number.isFinite(duration)&&duration>0&&
+      Number.isFinite(progress?.red)&&progress.red>=0&&
+      Number.isFinite(progress?.blue)&&progress.blue>=0;
+    if(hasPublicProgress){
+      for(const [team,radius,color] of [
+        ['red',32,'#e58b84'],['blue',38,'#8abcf2']
+      ]){
+        const fraction=Math.min(1,progress[team]/duration);
+        if(fraction<=0)continue;
+        ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=3;
+        ctx.arc(250,250,radius,-Math.PI/2,-Math.PI/2+2*Math.PI*fraction);
+        ctx.stroke();
+      }
+    }
     // Server-authored cover is shown in both views; opponents behind it stay hidden.
     ctx.fillStyle = '#677b79';
     for (const wall of state.cover || []) {
