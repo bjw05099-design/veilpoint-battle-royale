@@ -126,3 +126,14 @@ test('Windows geometry evidence changes trigger Windows build and real regressio
  assert.match(workflow,/node --test tests\/pc-chromium-geometry-gate\.test\.cjs tests\/pc-geometry-evidence\.test\.cjs/,
   'Win64 must execute the same geometry evidence regression tests');
 });
+
+test('every test-only or script-only change must trigger both Windows release checks',()=>{
+ for(const glob of ['scripts/**','tests/**']){
+  const line="      - '"+glob+"'";
+  assert.equal(workflow.split(line).length-1,2,
+   'Windows push and PR filters must both include '+glob);
+ }
+ assert.match(workflow,/name: Verify existing browser game contract/);
+ assert.match(workflow,/name: Verify Win64 Chromium screen bounds and clickable controls/);
+ assert.match(workflow,/name: Upload unsigned Windows EXE demo candidate/);
+});
