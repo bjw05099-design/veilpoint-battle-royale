@@ -104,11 +104,15 @@ const autoResolutionCheckbox=$('autoResolution');autoResolutionCheckbox.checked=
 const soundEnabledCheckbox=$('soundEnabled');
 let soundEnabled=true;
 let motorSound=null;
+let windSound=null;
 try{soundEnabled=global.localStorage.getItem('veilpoint.br.audio')!=='off';}catch(_){}
 function setSoundEnabled(enabled){
  soundEnabled=!!enabled;soundEnabledCheckbox.checked=soundEnabled;
  try{global.localStorage.setItem('veilpoint.br.audio',soundEnabled?'on':'off');}catch(_){}
- if(motorSound){if(!soundEnabled)motorSound.stop();else syncMotorSound(true);}
+ if(!soundEnabled){
+  if(motorSound)motorSound.stop();
+  if(windSound)windSound.stop();
+ }else if(motorSound||windSound)syncMotorSound(true);
 }
 soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
@@ -1035,7 +1039,7 @@ $('brImportApply').addEventListener('click',()=>{
  document.querySelector('.eyebrow').textContent='OFFLINE BR / PORTABLE SESSION';
  document.querySelector('h1').textContent='BR IMPORTED.';
  document.querySelector('.tagline').textContent='BR 체크포인트 검증 완료 · 기존 저장 기록은 보호됩니다. 이 임시 경기는 현재 탭에서만 진행되므로 종료 전에 JSON을 백업하세요.';
- if(motorSound)motorSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();
  desktopUi.cancel();resetInactiveClock();updateHud();
 });
 $('brExport').addEventListener('click',()=>{
@@ -1121,7 +1125,7 @@ $('saveExit').addEventListener('click',()=>{
  }
  running=false;suspended=false;
  resetPortableMatchExport();
- if(motorSound)motorSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();
  desktopUi.cancel();resetInactiveClock();
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -1338,7 +1342,7 @@ function suspendMatch(reason='background'){
  if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))
   benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- if(motorSound)motorSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();
  const checkpointSaved=persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
@@ -1433,13 +1437,17 @@ function ensureAudio(){
  }catch(_){return null;}
 }
 motorSound=global.VeilpointGateMotorAudio.createGateMotorAudio(()=>audio);
+windSound=global.VeilpointCoastalWindAudio.createCoastalWindAudio(()=>audio);
 function syncMotorSound(unlock=false){
  if(!motorSound)return;
  const gate=Game.serviceGateStatus(simulation);
  const distance=Math.hypot(simulation.player.x-gate.x,simulation.player.z-gate.z);
- if(unlock&&soundEnabled&&canAct()&&gate.motorActive&&
-    distance<global.VeilpointGateMotorAudio.HEARING_RADIUS)ensureAudio();
+ // A valid PC interaction can unlock the ambient context. rAF updates never
+ // create a new AudioContext by themselves or resume a paused match.
+ if(unlock&&soundEnabled&&canAct())ensureAudio();
  motorSound.sync({enabled:soundEnabled,playable:canAct(),active:gate.motorActive,distance});
+ if(windSound)windSound.sync({enabled:soundEnabled,playable:canAct(),
+   phase:simulation.zone&&simulation.zone.phase});
 }
 function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!ensureAudio())return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
 function fire(){if(!canAct())return;const result=Game.tag(simulation,input.crouch);if(!result.ok)return;shotFeedback(true);}
@@ -1574,7 +1582,7 @@ function updateHud(){const s=simulation,p=s.player;
   $('pickupPrompt').textContent+=' · ['+Desktop.keyLabel(bindings.cacheMove)+'] SHIFT CACHE';
  minimap();
 }
-function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
+function end(){if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
