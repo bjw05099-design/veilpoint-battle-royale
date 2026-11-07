@@ -13,7 +13,7 @@ test('CH01 opens with the captain on his original limited deployment, before unp
  assert.equal(state.choice,null);
  const saved=Story.serialize(state);
  const restored=Story.restore(saved);
- assert.equal(restored.subtitle,state.subtitle,'new opening must survive checkpoint restoration');
+ assert.match(restored.subtitle,/체크포인트를 불러왔습니다/,'restore uses the existing checkpoint recap rather than replaying the arrival conversation');
  assert.equal(Story.serialize(restored),saved);
 });
 test('original deployment followed by unexpected escalation is explicitly binding campaign canon',()=>{
