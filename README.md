@@ -3,6 +3,8 @@
 > **Status (2026-10-27): playable browser prototype + uncompiled UE5.8 source scaffold.**
 > No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
 
+**World reference decision (2026-11-07):** VEILPOINT uses **Aden, southern Yemen (approximately 2015)** as its researched real-world geographic, coastal and architecture reference. **Nahrin / Sahir Coast** remains the original fictional story setting and named cast. Historical terrain and neighborhood/building character are requirements **not yet realized** in the procedural browser and uncompiled UE5 graybox. See [source-backed Aden reference and acceptance gates](docs/WORLD_REFERENCE_ADEN.md).
+
 VEILPOINT is a developing original first-person game with **three required final modes**: story campaign (~12h authored target), online team multiplayer, and battle royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The BR browser combat uses fictional firearm-class abstractions with finite carried ammunition; these are not verified real-world ballistics or production weapon assets. The project has no account system, telemetry, external assets, analytics or dependency downloads.
 
 
