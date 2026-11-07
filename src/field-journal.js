@@ -28,8 +28,16 @@
     const note=(id,title,detail)=>rows.push(Object.freeze({id,unlocked:true,title,detail}));
     if(state&&state.choice==='evacuation')note('route','선택 경로 / 남쪽 대피',
       '유수프 구조단이 남쪽 대피 통로를 확보했다. 집결지 확인과 물품 인계 및 안내원 동행은 현장 선택 과제다.');
-    else if(state&&state.choice==='verification')note('route','선택 경로 / 동쪽 추가 확인',
-      '두 기록을 조사한 뒤 동쪽 통제문 개방을 요청했다. 개방은 현지 구조단이 실제로 확인한다.');
+    else if(state&&state.choice==='verification'){
+      const elapsed=state.world&&state.world.elapsed;
+      // Only the existing authored local gate clock may confirm opening. The
+      // notebook must never claim future access before the 60Hz world earns it.
+      const gateOpen=Number.isFinite(elapsed)&&Number.isFinite(state.gateReadyAt)&&
+        elapsed>=state.gateReadyAt;
+      note('route','선택 경로 / 동쪽 추가 확인',
+        gateOpen?'현지 구조단의 동쪽 통제문 개방 확인. 현장 중계 기록은 직접 열람해야 한다.':
+        '동쪽 통제문 개방 요청 접수. 현지 구조단의 현장 개방 작업이 끝나기 전에는 통과할 수 없다.');
+    }
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
       '유수프 구조단의 인원 확인표를 현장에서 직접 대조했다.');
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
