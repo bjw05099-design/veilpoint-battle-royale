@@ -5,7 +5,7 @@
  const DEFAULT_BINDINGS=Object.freeze({
   forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',
   crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyE',assist:'KeyH',support:'KeyQ',
-  headlamp:'KeyL',guidance:'KeyB'
+  headlamp:'KeyL',guidance:'KeyB',cacheMove:'KeyU'
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
  const RESERVED=new Set(['Escape','Enter','KeyG','KeyM','Digit1','Digit2']);
@@ -21,13 +21,14 @@
   const invertY=typeof source.invertY==='boolean'?source.invertY:false;
   const bindings={...DEFAULT_BINDINGS};
   if(source.bindings&&typeof source.bindings==='object'&&!Array.isArray(source.bindings)){
-   // Old saved layouts predate CH01's remappable headlamp and objective guide.
+   // Older saved profiles predate the CH01 guide and BR cache-shift action.
    // Preserve every existing PC binding, even when it already uses L or B.
    const expanded={...source.bindings};
-   const used=new Set(ACTIONS.filter(a=>a!=='headlamp'&&a!=='guidance').map(a=>expanded[a]));
-   for(const extra of ['headlamp','guidance']){
+   const additions=['headlamp','guidance','cacheMove'];
+   const used=new Set(ACTIONS.filter(a=>!additions.includes(a)).map(a=>expanded[a]));
+   for(const extra of additions){
     if(expanded[extra]===undefined)
-     expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyP','KeyO','KeyJ','KeyK','KeyU']
+     expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyK','KeyO','KeyI','KeyP','KeyJ','KeyU','KeyT','KeyY','KeyX','KeyZ','KeyV','KeyF','KeyN']
       .find(code=>!used.has(code));
     used.add(expanded[extra]);
    }
