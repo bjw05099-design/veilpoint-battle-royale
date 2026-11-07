@@ -2,6 +2,7 @@
 #include "VPCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
@@ -30,6 +31,14 @@ AVPStoryMarker::AVPStoryMarker()
     BeaconLight->SetAttenuationRadius(650.f);
     BeaconLight->SetLightColor(FLinearColor(1.f,.53f,.16f));
     BeaconLight->SetVisibility(false);
+    ObjectiveLabel=CreateDefaultSubobject<UTextRenderComponent>(TEXT("MissionNameplate"));
+    ObjectiveLabel->SetupAttachment(RootComponent);
+    ObjectiveLabel->SetAbsolute(false,false,true);
+    ObjectiveLabel->SetRelativeLocation(FVector(0.f,0.f,150.f));
+    ObjectiveLabel->SetWorldSize(36.f);
+    ObjectiveLabel->SetHorizontalAlignment(EHTA_Center);
+    ObjectiveLabel->SetTextRenderColor(FColor(202,225,215));
+    ObjectiveLabel->SetVisibility(false);
 }
 
 void AVPStoryMarker::BeginPlay()
@@ -38,6 +47,7 @@ void AVPStoryMarker::BeginPlay()
     if (Model) Model->SetVisibility(IsAvailable());
     ApplyStageShape();
     SyncBeaconLight();
+    SyncObjectiveText();
 }
 
 void AVPStoryMarker::Tick(float DeltaSeconds)
@@ -50,6 +60,7 @@ void AVPStoryMarker::Tick(float DeltaSeconds)
     // a mesh or regenerating native actors on every frame.
     ApplyStageShape();
     SyncBeaconLight();
+    SyncObjectiveText();
 }
 
 void AVPStoryMarker::SyncBeaconLight()
@@ -60,6 +71,31 @@ void AVPStoryMarker::SyncBeaconLight()
     const bool bLit = Action == EVPStoryAction::ActivateBeacon &&
         State && State->bBeaconActivated;
     if (BeaconLight->IsVisible() != bLit) BeaconLight->SetVisibility(bLit);
+}
+
+void AVPStoryMarker::SyncObjectiveText()
+{
+    if (!ObjectiveLabel) return;
+    FString Label=TEXT("MISSION");
+    switch(Action)
+    {
+    case EVPStoryAction::RestoreRelay: Label=TEXT("RELAY POWER");break;
+    case EVPStoryAction::ActivateBeacon: Label=TEXT("HARBOR SIGNAL");break;
+    case EVPStoryAction::ReadHarbor: Label=TEXT("HARBOR RECORD");break;
+    case EVPStoryAction::ReadShelter: Label=TEXT("SHELTER RECORD");break;
+    case EVPStoryAction::ChooseSouth: Label=TEXT("SOUTH ROUTE");break;
+    case EVPStoryAction::ChooseEast: Label=TEXT("EAST ROUTE");break;
+    case EVPStoryAction::ReachSouth: Label=TEXT("SOUTH COURTYARD");break;
+    case EVPStoryAction::ReachEast: Label=TEXT("EAST EXIT");break;
+    }
+    if (LastObjectiveText != Label)
+    {
+        LastObjectiveText=Label;
+        ObjectiveLabel->SetText(FText::FromString(Label));
+    }
+    const bool bShown=IsAvailable();
+    if(ObjectiveLabel->IsVisible()!=bShown)
+        ObjectiveLabel->SetVisibility(bShown);
 }
 
 void AVPStoryMarker::ApplyStageShape()
@@ -119,6 +155,7 @@ bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
         bUsed = true; // The signal switch is reusable; all other goals are one-shot.
     if (Model) Model->SetVisibility(IsAvailable());
     SyncBeaconLight();
+    SyncObjectiveText();
     ForceNetUpdate();
     return true;
 }
