@@ -7,7 +7,7 @@ const Story=require('../src/story-slice.js');
 test('CH01 opens with the captain on his original limited deployment, before unplanned civil-war entanglement',()=>{
  const state=Story.createState();
  assert.equal(state.phase,'terminal');
- assert.match(state.subtitle,/원래는 현지 상황 확인과 제한적인 대피 지원 때문에 파견/);
+ assert.match(state.subtitle,/원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견/);
  assert.match(state.subtitle,/내전이 이렇게 격화될 줄은 몰랐/);
  assert.match(state.subtitle,/유수프 구조단/);
  assert.equal(state.choice,null);
