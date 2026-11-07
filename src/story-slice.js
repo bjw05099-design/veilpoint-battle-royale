@@ -1160,6 +1160,11 @@
     const distance=Math.hypot(p.x-g.x,p.z-g.z);
     if(distance>=7||Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles))
       return null;
+    // A nearby but rearward companion is NOT a visually observed exact
+    // distance. Only a genuine forward-facing sightline may populate HUD.
+    const yaw=p.yaw,dx=g.x-p.x,dz=g.z-p.z;
+    if(!Number.isFinite(yaw)||distance>1e-6&&
+       (dx*Math.sin(yaw)-dz*Math.cos(yaw))/distance<.34)return null;
     return Math.round(distance*10)/10;
   }
   function situation(state) {

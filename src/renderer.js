@@ -102,14 +102,14 @@ function partitionStaticTriangles(data,cell=56){
  }
  return {packed,chunks};
 }
-// A bounded, cosmetic coastal haze stage: no changes to collision, actor
-// disclosure, RNG, or the 60Hz simulation. The story's authored night
-// atmosphere stays fixed while the BR map gains gradual phase variation.
+// Ocean haze varies slowly with actual simulation time, not shrinking safe
+// zones or scored points. This is cosmetic only: no visibility, collision
+// or gameplay rules read this density.
 function atmosphereDensity(state){
  if(state&&state.scene==='nahrin')return .009;
- const phase=state&&state.zone&&state.zone.phase;
- return Number.isInteger(phase)&&phase>=0&&phase<=5
-  ? .009+phase*.0009 : .009;
+ const elapsed=state&&state.elapsed;
+ return Number.isFinite(elapsed)&&elapsed>=0
+  ? .009+.0011*(1-Math.cos(elapsed/36))/2:.009;
 }
 const VS=`#version 300 es
 precision highp float;

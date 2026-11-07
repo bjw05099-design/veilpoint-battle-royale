@@ -1,0 +1,21 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const Story=require('../src/story-slice.js');
+test('CH01 exact civilian spacing is only HUD-visible in a genuine local sightline',()=>{
+ const state=Story.createState();
+ state.phase='exit';state.choice='evacuation';state.musterConfirmed=true;
+ Object.assign(state.guide,{active:true,released:false,arrived:false,waiting:false,x:0,z:-3});
+ Object.assign(state.world.player,{x:0,z:0,yaw:0});
+ state.world.obstacles=[];
+ const before=JSON.stringify(state);
+ assert.equal(Story.situation(state).visibleEscortDistance,3,'visible companion in front is observed');
+ assert.equal(JSON.stringify(state),before,'read-only sightline cannot move a civilian');
+ state.guide.z=3;
+ assert.equal(Story.situation(state).visibleEscortDistance,null,'a civilian directly behind cannot appear as visually observed');
+ state.world.player.yaw=Math.PI;
+ assert.equal(Story.situation(state).visibleEscortDistance,3,'physically turning restores observed spacing');
+ state.world.obstacles.push({x:0,z:1.5,w:1,d:.3,h:2,type:'wall'});
+ assert.equal(Story.situation(state).visibleEscortDistance,null,'solid wall blocks the actual line of sight');
+ state.world.obstacles=[];state.guide.z=10;
+ assert.equal(Story.situation(state).visibleEscortDistance,null,'no remote civilian radar');
+});

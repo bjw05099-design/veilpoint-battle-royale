@@ -10,26 +10,31 @@ const end=source.indexOf('\n}',start);
 assert.ok(start>0&&end>start,'actual renderer has a standalone atmosphere calculation');
 const atmosphere=vm.runInNewContext('('+source.slice(start,end+2)+')');
 
-test('BR coastal haze smoothly increases with the actual public zone phase',()=>{
+test('BR coastal haze follows the elapsed world clock and ignores competitive zone phases',()=>{
  const state=Sim.newMatch(20261107,0);
  const before=JSON.stringify(state);
  const values=[];
- for(let phase=0;phase<=5;phase++){
-  state.zone.phase=phase;
+ for(const elapsed of [0,20,40,60,80,100]){
+  state.elapsed=elapsed;
   values.push(atmosphere(state));
  }
  assert.equal(values[0],.009);
- assert.ok(Math.abs(values[5]-.0135)<1e-9);
+ assert.ok(values[5]>.010&&values[5]<.0102);
  for(let i=1;i<values.length;i++)assert.ok(values[i]>values[i-1]);
+ state.elapsed=35;
+ const unchanged=atmosphere(state);
+ state.zone.phase=5;
+ assert.equal(atmosphere(state),unchanged,'safe-zone phase cannot magically control sea haze');
+ state.zone.phase=0;
  state.scene='nahrin';
  assert.equal(atmosphere(state),.009,'CH01 authored night stays fixed');
- assert.equal(atmosphere({zone:{phase:Infinity}}),.009);
- assert.equal(atmosphere({zone:{phase:-1}}),.009);
+ assert.equal(atmosphere({elapsed:Infinity}),.009);
+ assert.equal(atmosphere({elapsed:-1}),.009);
  assert.equal(atmosphere(null),.009);
- state.scene=undefined;state.zone.phase=0;
+ delete state.scene;state.elapsed=0;
  assert.equal(JSON.stringify(state),before,'reading atmosphere does not mutate the game world');
 });
-test('WebGL and low-detail fallback render the same cosmetic phase source',()=>{
+test('WebGL and low-detail fallback render the same actual world-time density',()=>{
  assert.match(source,/uniform float [^;]*uFogDensity/);
  assert.match(source,/pow\(vDistance\*uFogDensity,1\.7\)/);
  assert.match(source,/fogDensity:g\.getUniformLocation\(this\.prog,'uFogDensity'\)/);

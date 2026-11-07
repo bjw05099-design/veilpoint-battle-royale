@@ -17,6 +17,8 @@ function reachEscort() {
   go('muster');assert.equal(story.interact(s).ok,true);
   assert.equal(story.interact(s).event,'guide');
   s.guide.waiting=true;
+  // The PC player is west of the guide in these tests; look east to observe.
+  s.world.player.yaw=Math.PI/2;
   return s;
 }
 

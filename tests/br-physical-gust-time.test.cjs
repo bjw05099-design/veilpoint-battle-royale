@@ -1,0 +1,26 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const Wind=require('../src/coastal-wind-audio.js');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const render=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+const begin=render.indexOf('function atmosphereDensity(state){');
+const end=render.indexOf('\n}',begin);
+assert.ok(begin>0&&end>begin);
+const haze=vm.runInNewContext('('+render.slice(begin,end+2)+')');
+test('time-based coastal ambience is independent of artificial ring size and scoring',()=>{
+ const st={scene:'br',zone:{phase:0},elapsed:62};
+ const a=haze(st),b=Wind.gustLevel(st.elapsed);
+ st.zone.phase=5;
+ assert.equal(haze(st),a);
+ assert.equal(Wind.gustLevel(st.elapsed),b);
+ assert.equal(haze({scene:'nahrin',elapsed:62}),.009);
+ assert.equal(haze({elapsed:-1}),.009);
+ assert.equal(Wind.gustLevel(-1),null);
+ assert.equal(Wind.gustLevel(Infinity),null);
+ assert.equal(Wind.gustLevel(0),.005);
+ assert.ok(b>.005&&b<=.009);
+ assert.ok(a>=.009&&a<=.0101);
+ assert.match(render,/g\.uniform1f\(l\.fogDensity,atmosphereDensity\(state\)\)/);
+ const app=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
+ assert.match(app,/elapsed:simulation\.elapsed/);
+});

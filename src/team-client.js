@@ -407,6 +407,17 @@
     const validSite=Number.isFinite(objective?.x)&&Number.isFinite(objective?.z)&&
       Number.isFinite(objective?.radius)&&objective.radius>0&&objective.radius<=10;
     const site=validSite?point(objective.x,objective.z):point(0,0);
+    // Draw fixed steel terminals even when their input is not authorized.
+    // The active ring is a status of a physical fixture, not a newly
+    // materialized object on score change.
+    if(Array.isArray(objective?.stations)){
+      for(const terminal of objective.stations.slice(0,3)){
+        if(!Number.isFinite(terminal.x)||!Number.isFinite(terminal.z))continue;
+        const p=point(terminal.x,terminal.z);
+        ctx.fillStyle=terminal.active?'#d8c88d':'#566c70';
+        ctx.fillRect(p.x-4,p.y-4,8,8);
+      }
+    }
     const relayRadius=(validSite?objective.radius:2.6)*9.5;
     ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;
     ctx.beginPath();ctx.arc(site.x,site.y,relayRadius,0,Math.PI*2);ctx.stroke();
