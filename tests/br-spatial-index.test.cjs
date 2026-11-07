@@ -41,7 +41,7 @@ test('spatial interest list matches actual range and cover rules without leaking
  const w=world(),a=w.actors.get(token(0)),b=w.actors.get(token(6));
  const me=w.snapshot(token(0));
  assert.equal(me.squad.length,6);
- assert.ok(me.visible.every(v=>w.actors.values().some(p=>p.id===v.id&&p.team!==0&&p.eligible)));
+ assert.ok(me.visible.every(v=>[...w.actors.values()].some(p=>p.id===v.id&&p.team!==0&&p.eligible)));
  const actual=[...w.actors.values()];
  const expected=actual.filter(p=>p.team!==a.team&&p.eligible&&
    Math.hypot(p.x-a.x,p.z-a.z)<=me.coastalWeather.visibilityMeters&&
