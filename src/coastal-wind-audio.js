@@ -8,6 +8,14 @@
  const MAX_GAIN=.017;
  const BUFFER_SAMPLES=4096;
  const allowedPhase=phase=>Number.isInteger(phase)&&phase>=0&&phase<=5;
+ // Simplified physical west-wind obstruction: nearby solid scenery to the
+ // windward side reduces audible air flow. No opponent, future phase or RNG
+ // information is consumed and the match world is never modified.
+ function localWindExposure(player,obstacles,lineBlocked){
+  if(!player||!Number.isFinite(player.x)||!Number.isFinite(player.z)||
+     !Array.isArray(obstacles)||typeof lineBlocked!=='function')return 1;
+  return lineBlocked(player.x,player.z,player.x-12,player.z,obstacles)? .4:1;
+ }
  function createCoastalWindAudio(getContext){
   if(typeof getContext!=='function')throw new TypeError('Audio context provider required');
   let context=null,source=null,volume=null,level=0;
@@ -25,11 +33,12 @@
     oldSource.stop(at+.12);
    }catch(_){try{oldSource.stop();}catch(__){}}
   }
-  function sync({enabled=false,playable=false,phase=null}={}){
+  function sync({enabled=false,playable=false,phase=null,exposure=1}={}){
    // Read only the public current zone phase. This atmosphere is cosmetic,
    // not a concealed-actor sensor or a substitute for weather simulation.
+   const shelter=Number.isFinite(exposure)?Math.max(.4,Math.min(1,exposure)):1;
    const target=enabled&&playable&&allowedPhase(phase)
-    ?Math.min(MAX_GAIN,.005+phase*.0024):0;
+    ?Math.min(MAX_GAIN,.005+phase*.0024)*shelter:0;
    if(target===0){stop();return 0;}
    try{
     if(!source){
@@ -68,5 +77,5 @@
   }
   return Object.freeze({sync,stop,get active(){return source!==null;},get level(){return level;}});
  }
- return Object.freeze({MAX_GAIN,BUFFER_SAMPLES,createCoastalWindAudio});
+ return Object.freeze({MAX_GAIN,BUFFER_SAMPLES,localWindExposure,createCoastalWindAudio});
 });
