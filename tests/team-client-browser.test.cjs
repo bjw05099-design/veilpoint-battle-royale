@@ -2449,3 +2449,49 @@ test('PC team progress HUD never fabricates duration when a server omits it',asy
  assert.equal(server.match.phase,'playing');
  assert.equal(a.node('relayProgress').textContent,'중계 진행 기록 없음');
 });
+
+
+test('ended PC team lobby reports authoritative rematch votes then begins only with two new consent packets',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ assert.equal(server.match.phase,'playing');
+ server.match.finish('red','objective_score');
+ await a.poll();await b.poll();await settle();
+ assert.equal(server.match.phase,'ended');
+ assert.match(a.node('status').textContent,/승리 팀 red/);
+ assert.match(a.node('status').textContent,/중계기 점수 달성/);
+ assert.match(a.node('status').textContent,/재대전 준비 0\/2/);
+ a.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ assert.equal(server.match.phase,'ended','one player cannot silently start a new match');
+ assert.match(a.node('status').textContent,/재대전 준비 1\/2/);
+ assert.match(b.node('status').textContent,/재대전 준비 1\/2/);
+ assert.match(a.node('status').textContent,/내 준비 확인/);
+ b.node('ready').click();await settle();
+ await a.poll();await b.poll();await settle();
+ assert.equal(server.match.phase,'playing');
+ assert.deepEqual(server.match.score,{red:0,blue:0});
+ assert.match(a.node('score').textContent,/0 : 0/);
+ assert.doesNotMatch(a.node('status').textContent,/재대전 준비/);
+ const commands=server.requests.filter(x=>x.route==='/command'&&x.body?.type==='ready');
+ assert.equal(commands.length,4,'two initial ready and two fresh rematch consents only');
+});
+test('ended PC team HUD never fabricates opponent rematch consent if lobby data is missing',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ server.match.finish(null,'time_limit');
+ const original=server.fetchLocal;
+ server.fetchLocal=async(route,opts)=>{
+  const response=await original(route,opts);
+  if(route!=='/state'||!response.ok)return response;
+  const state=await response.json();
+  state.lobby={};
+  return {...response,json:async()=>state};
+ };
+ await a.poll();await settle();
+ assert.match(a.node('status').textContent,/동점 무승부/);
+ assert.match(a.node('status').textContent,/재대전 준비 상태 확인 중/);
+ assert.doesNotMatch(a.node('status').textContent,/[012]\/2/);
+});
