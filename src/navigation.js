@@ -158,6 +158,26 @@
     seen.sort((a,b)=>a.distance-b.distance||String(a.id).localeCompare(String(b.id)));
     return Object.freeze(seen.slice(0,6));
   }
+  // Public BR zone only: mark the nearest point just inside the visible
+  // boundary. This is a geometric destination, not pathfinding; obstacles
+  // may block the straight line and must be verified separately.
+  function zoneEntry(player,area,obstacles){
+    if(!player||!area||![player.x,player.z,area.x,area.z,area.radius].every(Number.isFinite)||
+       area.radius<=.85)return null;
+    const dx=player.x-area.x,dz=player.z-area.z;
+    const metres=Math.hypot(dx,dz);
+    if(!Number.isFinite(metres)||metres<=area.radius)return null;
+    const safeRadius=area.radius-.85;
+    const target=Object.freeze({
+      x:area.x+dx/metres*safeRadius,
+      z:area.z+dz/metres*safeRadius
+    });
+    return Object.freeze({
+      x:target.x,z:target.z,
+      straightLineBlocked:Array.isArray(obstacles)
+        ?directLineBlocked(player,target,obstacles):null
+    });
+  }
   function zone(player,zone){
     if(!zone||![zone.x,zone.z,zone.radius].every(Number.isFinite)||zone.radius<=0)
       return '안전 구역 안내 불가';
@@ -167,5 +187,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign,serviceGate,visibleLocalCaches});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,zoneEntry,fieldSign,serviceGate,visibleLocalCaches});
 });
