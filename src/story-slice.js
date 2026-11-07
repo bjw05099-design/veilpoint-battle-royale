@@ -55,7 +55,7 @@
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
-    muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
+    muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evac', label:'유수프 구조단 집결지 현장 담당자'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
     guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
@@ -969,11 +969,11 @@
       state.subtitle='유수프(현지 구조단): 비상 물품을 현장에서 인수했어. 주민 지원은 우리 구조단이 맡을게.';
       state.message='민간 구조단 물품 인계 완료 · 안전한 안뜰로 이동';
     }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
-      // Optional, physical civilian headcount review. No automatic knowledge,
-      // teleportation, reward or competitive benefit is granted by this choice.
+      // Optional direct conversation with the coordinator physically present at
+      // muster. No hidden headcount, remote paperwork or automatic reward.
       state.musterConfirmed=true;
-      state.subtitle='유수프(현지 구조단): 남쪽 집결지의 현장 인원 확인표를 대조했어. 미확인 인원은 후속 구조단에 인계하겠어.';
-      state.message='남쪽 집결지 인원 확인 완료 · 안전한 안뜰로 이동하세요';
+      state.subtitle='유수프(현지 구조단): 내가 남쪽 집결지를 맡고 있어. 안내원과 비상 물품은 여기서 직접 인수할게. 미확인 주민은 후속 구조단이 찾고 있어.';
+      state.message='현지 구조단 담당자 직접 확인 · 안전한 안뜰로 이동';
     }else if(marker.id==='guide'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.musterConfirmed&&!state.guide.active&&!state.guide.released){
       state.guide.active=true;
@@ -1203,7 +1203,7 @@
       guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?(['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 현장 대기 · E로 구조단에 현장 인계 가능':nearest(state)?.id==='exitEvac'&&canResumeGuideAtExit(state)?'대피 안내원 안뜰 근처 대기 · 출구에서 E로 동행 재개 가능':nearest(state)?.id==='guideControl'?'대피 안내원 현장 대기 · E로 재개 가능':visibleEscortDistance(state)===null?'대피 안내원 현장 대기 · 마지막으로 확인한 위치로 돌아가세요':'대피 안내원 현장 대기 · 직접 닿을 만큼 다가가 E로 재개하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=14?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':(nearest(state)?.id==='guideControl'?'대피 안내원 동행 중 · E로 대기 지시 가능':['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 동행 중 · E로 구조단 현장 인계 가능':'대피 안내원 동행 중 · 안내원 곁으로 다가가 E로 대기 지시하세요')):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
-        ?(state.musterConfirmed?'유수프 구조단: 남쪽 집결지 인원 확인표 대조 완료 · 후속 구조단 인계':'유수프 구조단: 남쪽 대피 인원 확인 우선 · 집결지 확인표 미대조')
+        ?(state.musterConfirmed?'유수프 구조단: 집결지 담당자와 직접 협조 · 미확인 주민은 후속 구조단 확인':'유수프 구조단: 남쪽 현장 담당자와 아직 만나지 않음')
         :state.choice==='verification'
           ?(gateOpen(state)?(state.gateLogReviewed?'유수프 구조단: 동쪽 통로 개방 · 현장 재전송 기록 확인':'유수프 구조단: 동쪽 통로 점검 완료 · 시각 차이 원인 조사 계속')
             :'유수프 구조단: 남쪽 대피 유지 · 동쪽 통제물 해제 대기')
@@ -1245,7 +1245,7 @@
         ?(state.gateLogReviewed?'동쪽 현장 기록함에서 04:07 최초 수신과 04:12 동일 메시지 재전송을 확인했습니다. 통로는 유수프 구조단이 개방했습니다.':'유수프 구조단의 동쪽 통로 개방을 확인했습니다. 두 기록의 5분 차이는 여전히 원인 미확정입니다.')+
           (state.logHandedOff?' 확인한 기록을 현지 통제소 접수대에 직접 전달했습니다.':'')
         :(state.musterConfirmed
-          ?'남쪽 집결지 인원 확인표를 대조하고 미확인 인원을 후속 구조단에 인계했습니다. 동쪽 통로는 통제 중입니다.'
+          ?'남쪽 집결지의 구조단 담당자와 직접 상황을 확인했습니다. 미확인 주민은 후속 구조단의 현장 확인 대상입니다. 동쪽 통로는 통제 중입니다.'
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
         (state.aidDelivered?' 현지 구조단에 비상 물품을 직접 전달했습니다.':
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
@@ -1273,7 +1273,7 @@
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.world.carryingAid?' 운반 중인 비상 물품은 구조단에 인계하거나 임시 적재대에 내려놓아야 출구를 통과할 수 있습니다.':'')+
-          (state.musterConfirmed?' 집결지 인원 확인표 대조 완료.':' 선택: 근처 인원 확인표(황금 표식)를 E로 대조할 수 있습니다.')+
+          (state.musterConfirmed?' 집결지 구조단 담당자와 현장 협의 완료.':' 선택: 집결지의 유수프 구조단 담당자에게 직접 접근해 E로 협의할 수 있습니다.')+
           (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
             ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지 또는 남쪽 구조단 접수소에 직접 인계하세요.'):state.musterConfirmed
             ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
