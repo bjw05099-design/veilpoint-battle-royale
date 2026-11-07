@@ -98,19 +98,28 @@ test('BR yard panel is rendered at the live collider position without changing s
  const renderer=new context.VeilpointRenderer({clientWidth:800,clientHeight:600,
   getContext:type=>type==='webgl2'?GL:null});
  state.player.x=30;state.player.z=-21.8;state.player.yaw=0;
- const observed=[];
+ const observed=[],lamps=[];
  const box=renderer.dynamic.box.bind(renderer.dynamic);
  renderer.dynamic.box=(x,y,z,w,h,d,color)=>{
   if(w===6&&h===2.3&&d===.6)observed.push({x,z});
+  if(w===.22&&h===.14&&d===.22)lamps.push({x,z,color:[...color]});
   return box(x,y,z,w,h,d,color);
  };
  const before=JSON.stringify(state.yardGate);
  renderer.draw(state);
  assert.deepEqual(observed.at(-1),{x:30,z:-24});
+ assert.deepEqual(lamps.at(-1),{x:30,z:-21.8,color:[.43,.62,.65]},
+  'the close-range physical lamp starts in the idle color');
  assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
  assert.equal(JSON.stringify(state.yardGate),before,'drawing never advances the panel');
  assert.equal(Sim.operateServiceGate(state).ok,true);
+ renderer.draw(state);
+ assert.deepEqual(lamps.at(-1).color,[.96,.59,.18],'active motor lights the actual switch amber');
+ assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
  for(let i=0;i<120;i++)Sim.tick(state,1/60,{});
+ renderer.draw(state);
+ assert.deepEqual(lamps.at(-1).color,[.21,.70,.36],'physically open gate changes lamp to green');
+ assert.equal(renderer.dynamic.count,renderer.lastVisibilityStats.estimatedDynamicVertices);
  // The parked gate has moved to the player's right. Turn the camera to
  // physically face it before asserting that its new 3D mesh is in frame.
  state.player.yaw=Math.atan2(panel(state).x-state.player.x,state.player.z-panel(state).z);
@@ -127,4 +136,31 @@ test('BR PC input, HUD and minimap use the real service gate instead of a menu-o
  const story=require('../src/story-slice.js').createState();
  assert.equal(story.world.obstacles.some(o=>o.routeId==='br-service-gate'),false,
   'CH01 must not acquire a BR-only obstacle');
+});
+
+
+test('BR service-yard panel lamp is local, occlusion-correct and render-only',()=>{
+ const game=yard(21109),original=Sim.snapshotMatch(game);
+ const site=Sim.SERVICE_YARD;
+ game.player.x=site.switchX;game.player.z=site.switchZ+4;
+ game.player.yaw=0;
+ const clear=Visibility.planVisible(game,16/9);
+ assert.deepEqual(clear.yardIndicators,[{x:site.switchX,z:site.switchZ}]);
+ const base={...game,yardGate:null};
+ assert.equal(clear.stats.estimatedDynamicVertices-
+  Visibility.planVisible(base,16/9).stats.estimatedDynamicVertices,36,
+  'one indicator uses exactly 36 WebGL triangle vertices');
+ game.player.yaw=Math.PI;
+ assert.equal(Visibility.planVisible(game,16/9).yardIndicators.length,0,
+  'an off-camera switch cannot create a globally visible magic marker');
+ game.player.yaw=0;
+ game.obstacles.push({x:site.switchX,z:site.switchZ+2,w:4,d:.5,h:2,type:'test-wall'});
+ assert.equal(Visibility.planVisible(game,16/9).yardIndicators.length,0,
+  'a fully occluded physical status light is not rendered through cover');
+ assert.equal(Visibility.planVisible({...game,scene:'nahrin'},16/9).yardIndicators.length,0);
+ assert.ok(original.length>0,'reading or planning a lamp never mutates the saved BR world');
+ const renderer=fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8');
+ assert.match(renderer,/for\(const lamp of plan\.yardIndicators\|\|\[\]\)/);
+ assert.match(renderer,/serviceGateStatus\(state\)\.obstructed/);
+ assert.match(renderer,/status\.open\?\[\.21,\.70,\.36\]/);
 });
