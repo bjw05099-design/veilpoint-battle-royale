@@ -167,7 +167,7 @@ test('CH01 invalid primary never reaches renderer when backup is missing',()=>{
   {source:'primary',state:null},
   {source:'primary',state:{phase:'terminal',world:{player:{x:0,z:Infinity}}}},
   {source:'primary',state:{phase:'terminal',world:{player:null}}},
-  {source:'primary',state:{phase:'terminal',world:{player:{x:0,z:12}}},get invalid(){throw Error('bad');}},
+  {source:'primary',state:{get phase(){throw Error('malformed phase');},world:{player:{x:0,z:12}}}},
   {source:'unknown',state:Story.createState()}
  ];
  for(const candidate of candidates){
