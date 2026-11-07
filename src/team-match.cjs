@@ -746,8 +746,9 @@ class TeamMatch {
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
       else if(this.objectiveSite==='rotation'){
-        // Only the authoritative completed transmission advances the physical
-        // console. The operator must release E and move to the next pad;
+        // Transmission permission transfers to an EXISTING fixed terminal.
+        // The fixtures stay physically installed throughout the round.
+        // The operator must release E and move to the next pad;
         // existing input leases and captureArmed=false prevent banked score.
         this.objectiveStage=(this.objectiveStage+1)%ROTATING_RELAY_ORDER.length;
         this.objective=RELAY_SITES[ROTATING_RELAY_ORDER[this.objectiveStage]];
@@ -802,8 +803,14 @@ class TeamMatch {
       // Immutable internal events are copied into a public snapshot. A local
       // browser cannot forge or alter server history by mutating its JSON.
       events: this.events.map(e=>({type:e.type,team:e.team,tick:e.tick})),
+      // Three permanent, public ground fixtures. A successful transmission
+      // changes which existing terminal is authorized, never teleports metal.
       objective: {x: this.objective.x, z: this.objective.z,
-        radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS}, cover: COVER, weather,
+        radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
+        stations: ROTATING_RELAY_ORDER.map(id=>({
+          id,x:RELAY_SITES[id].x,z:RELAY_SITES[id].z,
+          active:RELAY_SITES[id]===this.objective
+        }))}, cover: COVER, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
       self: {id: me.id, name: me.name, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
