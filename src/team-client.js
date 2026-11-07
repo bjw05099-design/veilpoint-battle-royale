@@ -497,7 +497,7 @@
       transmitting:'중계기 연결 진행 중',server_checking:'서버 확인 중'};
     const localHint=Object.prototype.hasOwnProperty.call(relayHints,state.self.relayInteraction)
       ?relayHints[state.self.relayInteraction]:'';
-    if(state.phase==='playing'&&localHint)
+    if(state.phase==='playing'&&validRelay&&localHint)
       el('relayProgress').textContent+=' · '+localHint;
     // The remaining time comes from the server's 60Hz simulation, not the
     // browser's wall clock. Keep older mock/protocol snapshots compatible.
