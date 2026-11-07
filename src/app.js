@@ -341,8 +341,15 @@ function loadFieldBookmark(){
   Game.restoreFieldBookmark(simulation,saved);
   return saved;
  }catch(_){
-  // Only a retrieved but invalid bookmark may be discarded. A different
-  // tab's newer checkpoint is still protected by clearFieldBookmark().
+  // Another tab can replace a corrupt bookmark while its contents are being
+  // validated. Only repair the generation we actually read, never its successor.
+  try{
+   if(global.localStorage.getItem(FIELD_BOOKMARK_KEY)!==saved){
+    bookmarkIssue='conflict';
+    return null;
+   }
+  }catch(_readError){bookmarkIssue='write-failed';return null;}
+  // This is a best-effort comparison, not a cross-tab atomic delete.
   clearFieldBookmark();
   return null;
  }

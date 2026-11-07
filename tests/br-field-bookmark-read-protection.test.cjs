@@ -16,16 +16,20 @@ const code=extract('function ownsStoredMatch(){','// All automatic BR checkpoint
  + '\n'+extract('function loadFieldBookmark(){','function recordFieldBookmark(){');
 const KEY='veilpoint.brFieldBookmark.v1',PRIMARY='veilpoint.brCheckpoint.v1';
 
-function fixture({denyRead=false,invalid=false,otherTab=false}={}){
+function fixture({denyRead=false,invalid=false,otherTab=false,replaceDuringRepair=false,denyRepairRead=false}={}){
  const sim=Sim.newMatch(20261106,2,'carbine');
  sim.status='playing';
  const saved=invalid?'{corrupt-bookmark':Sim.snapshotMatch(sim);
  const owned='our-round';
  const slots=new Map([[PRIMARY,otherTab?'newer-tab':owned],[KEY,saved]]);
- let removes=0,sets=0;
+ let removes=0,sets=0,bookmarkReads=0;
  const storage={
   getItem(key){
-   if(denyRead&&key===KEY)throw new Error('transient localStorage SecurityError');
+   if(key===KEY){
+    bookmarkReads++;
+    if(denyRead||(denyRepairRead&&bookmarkReads===2))throw new Error('transient localStorage SecurityError');
+    if(replaceDuringRepair&&bookmarkReads===2)slots.set(KEY,'newer-tab-bookmark');
+   }
    return slots.has(key)?slots.get(key):null;
   },
   setItem(key,val){sets++;slots.set(key,val);},
@@ -78,4 +82,19 @@ test('BR temporary read denial in an older tab never deletes another tab bookmar
  assert.equal(f.slots.get(KEY),f.saved);
  assert.equal(f.slots.get(PRIMARY),'newer-tab');
  assert.equal(f.removes,0);assert.equal(f.sets,0);
+});
+
+test('BR does not erase a different tab bookmark arriving during corrupt-slot validation',()=>{
+ const f=fixture({invalid:true,replaceDuringRepair:true});
+ assert.equal(f.fn.loadFieldBookmark(),null);
+ assert.equal(f.slots.get(KEY),'newer-tab-bookmark');
+ assert.equal(f.removes,0);
+ assert.equal(f.fn.state.bookmarkIssue,'conflict');
+});
+test('BR preserves the previous bookmark when the repair read loses storage permission',()=>{
+ const f=fixture({invalid:true,denyRepairRead:true});
+ assert.equal(f.fn.loadFieldBookmark(),null);
+ assert.equal(f.slots.get(KEY),f.saved);
+ assert.equal(f.removes,0);
+ assert.equal(f.fn.state.bookmarkIssue,'write-failed');
 });
