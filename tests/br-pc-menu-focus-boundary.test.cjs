@@ -99,3 +99,22 @@ test('BR focus boundary never inspects controls for Escape or other gameplay key
   assert.equal(prevented,0);
  }
 });
+
+test('BR rejects focus on hidden and disabled controls inside its own menu',()=>{
+ const f=fixture();
+ const hidden=f.nodes.brViewBack;
+ f.document.activeElement=hidden;
+ f.handlers.focusin({type:'focusin',target:hidden});
+ assert.equal(f.document.activeElement,f.nodes.play,
+  'an inactive subpage control is not a valid keyboard focus destination');
+ const disabled=f.nodes.brImportApply;
+ disabled.disabled=true;
+ f.document.activeElement=disabled;
+ f.handlers.focusin({type:'focusin',target:disabled});
+ assert.equal(f.document.activeElement,f.nodes.play,
+  'disabled menu actions cannot retain focus after a screen transition');
+ f.document.activeElement=f.nodes.brViewMore;
+ f.handlers.focusin({type:'focusin',target:f.nodes.brViewMore});
+ assert.equal(f.document.activeElement,f.nodes.brViewMore,
+  'a genuinely visible active menu control keeps its focus');
+});
