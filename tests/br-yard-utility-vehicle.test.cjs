@@ -6,7 +6,7 @@ const path=require('node:path');
 const Sim=require('../src/simulation.js');
 
 function ready(seed=20261107){
- const g=Sim.newMatch(seed,0);
+ const g=Sim.newMatch(seed,1);
  g.status='playing';return g;
 }
 function approach(g){
@@ -61,7 +61,7 @@ test('steering turns vehicle and world collider together without instant lateral
 });
 test('vehicle stops at architectural collision and retains actual last position',()=>{
  const g=ready(20261109);approach(g);Sim.operateYardShuttle(g);
- g.obstacles.push({x:26,z:0,w:1,d:5,h:2,type:'test-building'});
+ g.obstacles.push({x:26,z:g.vehicle.z,w:1,d:5,h:2,type:'test-building'});
  const initial=g.vehicle.x;
  for(let i=0;i<120;i++)Sim.tick(g,1/60,{forward:true});
  assert.ok(g.vehicle.x>initial,'truck should reach the wall');
