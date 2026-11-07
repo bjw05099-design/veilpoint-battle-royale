@@ -310,13 +310,16 @@
     // both BR and CH01 consume these same fixed collision coordinates.
     // Five perimeter walls leave a six-metre street-level southern entrance,
     // and a staffed market stall occupies the west side of a walkable yard.
-    for(const [x,z,w,d,h,type] of [
-      [-39,53,.6,18,4,'aden-civic-wall'],
-      [-13,53,.6,18,4,'aden-civic-wall'],
-      [-26,62,26,.6,4,'aden-civic-wall'],
-      [-34,44,10,.6,4,'aden-civic-wall'],
-      [-18,44,10,.6,4,'aden-civic-wall'],
-      [-34,55,3,2,1.3,'aden-civic-stall']
+    // This independent neighborhood is well beyond existing central BR
+    // encounter/industrial-yard fixtures and remains inside the map square.
+    // Legacy revision-0 saves retain their earlier collision geography.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [64,125,.6,18,4,'aden-civic-wall'],
+      [90,125,.6,18,4,'aden-civic-wall'],
+      [77,134,26,.6,4,'aden-civic-wall'],
+      [69,116,10,.6,4,'aden-civic-wall'],
+      [85,116,10,.6,4,'aden-civic-wall'],
+      [69,127,3,2,1.3,'aden-civic-stall']
     ])o.push({x,z,w,d,h,type});
     return o;
   }
