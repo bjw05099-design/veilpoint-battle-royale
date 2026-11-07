@@ -133,7 +133,7 @@ function atmosphereDensity(state){
  if(state&&state.scene==='nahrin')return .009;
  const elapsed=state&&state.elapsed;
  return Number.isFinite(elapsed)&&elapsed>=0
-  ? .009+.0011*(1-Math.cos(elapsed/36))/2:.009;
+  ? (state.lighting==='dusk'?.012:.009)+.0011*(1-Math.cos(elapsed/36))/2:.009;
 }
 const VS=`#version 300 es
 precision highp float;
@@ -202,8 +202,12 @@ class SoftwareRenderer {
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
- const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);const harborNight=state.scene==='nahrin';sky.addColorStop(0,harborNight?'#192a35':'#536b70');sky.addColorStop(.65,harborNight?'#3b4b52':'#89948a');sky.addColorStop(1,harborNight?'#6a6a63':'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
- const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,harborNight?'#343c3d':'#5b6551');ground.addColorStop(1,harborNight?'#1e292c':'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
+ const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);const harborNight=state.scene==='nahrin';const dusk=!harborNight&&state.lighting==='dusk';
+ sky.addColorStop(0,harborNight?'#192a35':dusk?'#46505e':'#536b70');
+ sky.addColorStop(.65,harborNight?'#3b4b52':dusk?'#776b70':'#89948a');
+ sky.addColorStop(1,harborNight?'#6a6a63':dusk?'#c39d83':'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+ const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,harborNight?'#343c3d':dusk?'#495253':'#5b6551');
+ ground.addColorStop(1,harborNight?'#1e292c':dusk?'#2b343c':'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
  const focal=Math.min(w,h)*.98,yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
  const eyeHeight=1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0);
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
@@ -650,11 +654,13 @@ class Renderer {
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
  const look=[eye[0]+dir[0],eye[1]+dir[1],eye[2]+dir[2]];
  g.uniformMatrix4fv(l.projection,false,m4Perspective(Math.PI/3.25,this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
- const night=scene==='nahrin';
- g.uniform3f(l.sun,night?-.35:-.50,night?.28:.88,night?.10:.20);
- g.uniform3f(l.fog,night?.065:.34,night?.085:.40,night?.11:.39);
+ const night=scene==='nahrin',dusk=!night&&state.lighting==='dusk';
+ g.uniform3f(l.sun,night?-.35:dusk?-.75:-.50,night?.28:dusk?.40:.88,night?.10:dusk?.18:.20);
+ g.uniform3f(l.fog,night?.065:dusk?.23:.34,night?.085:dusk?.26:.40,night?.11:dusk?.29:.39);
  g.uniform1f(l.fogDensity,atmosphereDensity(state));
- g.uniform1f(l.exposure,night?1.25:1.35);g.uniform1f(l.night,night?1:0);
+ g.uniform1f(l.exposure,night?1.25:dusk?1.18:1.35);
+ // Dusk uses reduced daylight without enabling CH01-only powered lamps.
+ g.uniform1f(l.night,night?1:dusk?.44:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
  g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
  g.uniform1f(l.flashOn,night&&state.flashlightOn&&state.flashlightTicks>0?1:0);
