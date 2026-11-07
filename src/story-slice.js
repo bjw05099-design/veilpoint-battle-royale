@@ -39,6 +39,11 @@
     // They are deliberately outside both CH01 evacuation/verification routes.
     {x:-72,z:-84,w:9,d:4,h:5.2,type:'story-container'},
     {x:72,z:-91,w:9,d:4,h:2.6,type:'story-container'},
+    // Shore maintenance apron: an upturned workboat and a separate physical
+    // lifesaving-equipment cabinet. Both are solid, visible from the public
+    // quay and deliberately clear of CH01's two mission exits.
+    {x:-67,z:-106,w:8,d:3.2,h:2.2,type:'story-drydock-hull'},
+    {x:-56,z:-106,w:1.8,d:1.2,h:1.8,type:'story-rescue-locker'},
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
