@@ -3,6 +3,8 @@
 #include "VPStoryMarker.h"
 #include "VPWorldBootstrap.h"
 #include "Engine/World.h"
+#include "VPStoryCheckpoint.h"
+#include "Kismet/GameplayStatics.h"
 
 AVPStoryGameMode::AVPStoryGameMode()
 {
@@ -43,4 +45,45 @@ void AVPStoryGameMode::BeginPlay()
             AVPStoryMarker::StaticClass(), Placement.Location, FRotator::ZeroRotator);
         if (Marker) Marker->Action = Placement.Action;
     }
+    // Native progression currently persists only in standalone story preview.
+    // Multiplayer PIE must not share one machine-wide local save slot.
+    RestoreStoryCheckpoint();
+}
+
+namespace
+{
+const FString CH01Slot = TEXT("veilpoint.ch01.native.v1");
+constexpr int32 CH01UserIndex = 0;
+}
+
+void AVPStoryGameMode::RestoreStoryCheckpoint()
+{
+    if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode() != NM_Standalone) return;
+    if (!UGameplayStatics::DoesSaveGameExist(CH01Slot, CH01UserIndex)) return;
+    const UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
+        UGameplayStatics::LoadGameFromSlot(CH01Slot, CH01UserIndex));
+    if (!Saved || Saved->SchemaVersion != 1) return;
+    AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
+    if (State && !State->RestoreProgress(
+        Saved->SavedStage, Saved->bSavedHarborRecord, Saved->bSavedShelterRecord))
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: ignored invalid local checkpoint"));
+}
+
+bool AVPStoryGameMode::PersistStoryCheckpoint()
+{
+    if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode() != NM_Standalone)
+        return false;
+    const AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
+    if (!State) return false;
+    UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
+        UGameplayStatics::CreateSaveGameObject(UVPStoryCheckpoint::StaticClass()));
+    if (!Saved) return false;
+    Saved->SchemaVersion = 1;
+    Saved->SavedStage = State->StoryStage;
+    Saved->bSavedHarborRecord = State->bReadHarbor;
+    Saved->bSavedShelterRecord = State->bReadShelter;
+    const bool bWritten = UGameplayStatics::SaveGameToSlot(Saved, CH01Slot, CH01UserIndex);
+    if (!bWritten)
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save failed)"));
+    return bWritten;
 }

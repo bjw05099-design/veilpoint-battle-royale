@@ -33,6 +33,8 @@ public:
     // Only the authoritative server may change a mission phase.
     bool TryAdvance(EVPStoryAction Action);
     bool IsAvailable(EVPStoryAction Action) const;
+    // Validated, authority-only restore from an offline native SaveGame record.
+    bool RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool bShelter);
 
     UFUNCTION(BlueprintPure, Category="VEILPOINT|CH01")
     FString GetObjectiveLabel() const;

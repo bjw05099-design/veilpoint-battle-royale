@@ -12,4 +12,8 @@ class VEILPOINT_API AVPStoryGameMode : public AVPGameMode
 public:
     AVPStoryGameMode();
     virtual void BeginPlay() override;
+    // Explicit server-only API; no player-controlled SaveGame RPC.
+    bool PersistStoryCheckpoint();
+private:
+    void RestoreStoryCheckpoint();
 };
