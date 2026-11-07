@@ -13,7 +13,7 @@ enum class EVPStoryStage : uint8
 UENUM(BlueprintType)
 enum class EVPStoryAction : uint8
 {
-    RestoreRelay, ReadHarbor, ReadShelter, ChooseSouth, ChooseEast, ReachSouth, ReachEast
+    RestoreRelay, ReadHarbor, ReadShelter, ChooseSouth, ChooseEast, ReachSouth, ReachEast, ActivateBeacon
 };
 
 UCLASS()
@@ -27,6 +27,9 @@ public:
     bool bReadHarbor = false;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
     bool bReadShelter = false;
+    // Optional physical harbor warning beacon; replicated from the authority.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
+    bool bBeaconActivated = false;
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
 
@@ -34,7 +37,7 @@ public:
     bool TryAdvance(EVPStoryAction Action);
     bool IsAvailable(EVPStoryAction Action) const;
     // Validated, authority-only restore from an offline native SaveGame record.
-    bool RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool bShelter);
+    bool RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool bShelter, bool bBeacon);
 
     UFUNCTION(BlueprintPure, Category="VEILPOINT|CH01")
     FString GetObjectiveLabel() const;
