@@ -822,7 +822,10 @@
       // A rival never reads distant cache coordinates as global navigation data;
       // boundary safety and an observed opponent retain priority.
       let supplyTarget=null,supplyDistance=9;
-      if(!outsideBot&&!target&&!investigating&&b.charges<12){
+      // A rival may seek locally visible supplies before its last magazine
+      // runs dry. Existing finite cache inventory is shared with the player;
+      // no additional rounds, world-spanning loot knowledge or new save data.
+      if(!outsideBot&&!target&&!investigating&&b.charges<24){
         for(const cache of game.loot){
           if(cache.weaponId!=='carbine'||cache.remaining<=0)continue;
           const distance=dist(b,cache);
