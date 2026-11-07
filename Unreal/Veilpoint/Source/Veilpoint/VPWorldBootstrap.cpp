@@ -1,5 +1,7 @@
 #include "VPWorldBootstrap.h"
 #include "VPPickup.h"
+#include "VPStoryGameState.h"
+#include "Components/PointLightComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
@@ -14,7 +16,11 @@ AVPWorldBootstrap::AVPWorldBootstrap()
     bReplicates=true;
     bAlwaysRelevant=true;
     SetReplicateMovement(false);
-    PrimaryActorTick.bCanEverTick=false;
+    // Only the CH01 subclass enables quarter-second checks. Native BR
+    // instances remain unticked; render FPS is never the story power clock.
+    PrimaryActorTick.bCanEverTick=true;
+    PrimaryActorTick.bStartWithTickEnabled=false;
+    PrimaryActorTick.TickInterval=.25f;
     Ground=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("WorldGround"));
     RootComponent=Ground;
     Buildings=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("BuildingInstances"));
@@ -41,6 +47,55 @@ void AVPWorldBootstrap::AddBlock(UInstancedStaticMeshComponent* Comp,FVector Pos
 {
     if(Comp)Comp->AddInstance(FTransform(FRotator::ZeroRotator,Position,Scale));
 }
+void AVPWorldBootstrap::CreateStoryHarborLamps()
+{
+    if (!IsA(AVPStoryWorldBootstrap::StaticClass()) || StoryHarborLamps.Num()) return;
+    // Three fixed wall-mounted lights along the actual native harbor route.
+    // Locations follow the same 100cm/m scale as the authored building blocks.
+    // Lights have no collider, objective marker, or opponent-information effect.
+    static const FVector Locations[] = {
+        FVector(1250.f,-950.f,350.f),
+        FVector(2050.f,950.f,350.f),
+        FVector(3550.f,-1700.f,330.f)
+    };
+    for (const FVector& Position : Locations)
+    {
+        UPointLightComponent* Lamp=NewObject<UPointLightComponent>(this);
+        if (!Lamp) continue;
+        Lamp->SetupAttachment(RootComponent);
+        Lamp->SetRelativeLocation(Position);
+        Lamp->SetIntensity(1450.f);
+        Lamp->SetAttenuationRadius(900.f);
+        Lamp->SetLightColor(FLinearColor(1.f,.78f,.55f));
+        Lamp->SetVisibility(false);
+        Lamp->RegisterComponent();
+        StoryHarborLamps.Add(Lamp);
+    }
+    SyncStoryHarborLamps();
+}
+
+void AVPWorldBootstrap::SyncStoryHarborLamps()
+{
+    if (!IsA(AVPStoryWorldBootstrap::StaticClass()) || !GetWorld()) return;
+    // GameState may replicate AFTER a client's world bootstrap BeginPlay.
+    // Derive visible local lights from the actual replicated CH01 stage.
+    // An older offline save restored into InspectRecords also powers lights.
+    const AVPStoryGameState* State=GetWorld()->GetGameState<AVPStoryGameState>();
+    const bool bPowered=State && State->StoryStage!=EVPStoryStage::RestoreRelay;
+    for (const TObjectPtr<UPointLightComponent>& Lamp : StoryHarborLamps)
+    {
+        if (IsValid(Lamp.Get()) && Lamp->IsVisible()!=bPowered)
+            Lamp->SetVisibility(bPowered);
+    }
+}
+
+void AVPWorldBootstrap::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (IsA(AVPStoryWorldBootstrap::StaticClass()))
+        SyncStoryHarborLamps();
+}
+
 void AVPWorldBootstrap::BeginPlay()
 {
     Super::BeginPlay();
@@ -86,6 +141,8 @@ void AVPWorldBootstrap::BeginPlay()
             const float Y=(i%2==0?-2450.f:2450.f);
             AddBlock(Vegetation,FVector(X,Y,145.f),FVector(.13f,.13f,2.9f));
         }
+        CreateStoryHarborLamps();
+        SetActorTickEnabled(true);
         return; // Story preview never spawns the random BR loot pool.
     }
     static const FVector2D Centers[] = {
