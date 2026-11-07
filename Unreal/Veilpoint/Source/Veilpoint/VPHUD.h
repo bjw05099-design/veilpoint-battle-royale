@@ -26,4 +26,7 @@ private:
     TWeakObjectPtr<UWorld> ObservedStoryWorld;
     TArray<TWeakObjectPtr<AVPStoryMarker>> ObservedStoryMarkers;
     double NextObjectiveScanAt = 0.0;
+    // Local J-key notebook visibility is a presentation flag. Facts are
+    // read from the replicated CH01 story authority, never invented here.
+    bool bStoryJournalOpen = false;
 };
