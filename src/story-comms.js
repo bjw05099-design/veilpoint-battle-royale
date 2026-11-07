@@ -30,7 +30,9 @@
   }
   if(phase==='records'||phase==='decision'){
    if(found.includes('recordA')&&found.includes('recordB'))
-    return line('김지윤','항구 04:12, 대피소 04:07. 기록은 일치하지 않으며 원인은 아직 확인되지 않았습니다.');
+    return state.workerInterviewed
+      ?line('김지윤','항구 04:12, 대피소 04:07은 원본 기록입니다. 현장 작업자의 조명 이상 목격담은 시각이 미확인된 별도 진술로 보존하겠습니다.')
+      :line('김지윤','항구 04:12, 대피소 04:07. 기록은 일치하지 않으며 원인은 아직 확인되지 않았습니다.');
    if(found.includes('recordA'))
     return line('김지윤','항구 기록 04:12 확인. 대피소 원본을 보기 전에는 선후관계를 확정할 수 없습니다.');
    if(found.includes('recordB'))

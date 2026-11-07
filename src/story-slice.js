@@ -39,6 +39,11 @@
     // They are deliberately outside both CH01 evacuation/verification routes.
     {x:-72,z:-84,w:9,d:4,h:5.2,type:'story-container'},
     {x:72,z:-91,w:9,d:4,h:2.6,type:'story-container'},
+    // Shore maintenance apron: an upturned workboat and a separate physical
+    // lifesaving-equipment cabinet. Both are solid, visible from the public
+    // quay and deliberately clear of CH01's two mission exits.
+    {x:-67,z:-106,w:8,d:3.2,h:2.2,type:'story-drydock-hull'},
+    {x:-56,z:-106,w:1.8,d:1.2,h:1.8,type:'story-rescue-locker'},
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
@@ -337,7 +342,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -350,6 +355,17 @@
   function warningMarkers(state) {
     return state.relayRestored?[POINTS.beacon]:[];
   }
+  // A moving witness only offers an optional, *local* conversation.
+  // Do not expose a worker's position through walls or from across the map.
+  function workerInterviewMarkers(state) {
+    if(state.workerInterviewed||!state.worker||
+       !['records','decision','exit'].includes(state.phase))return [];
+    const w=state.worker,p=state.world.player;
+    if(Math.hypot(w.x-p.x,w.z-p.z)>=7||
+       Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles))return [];
+    return [{id:'harborWorker',x:w.x,z:w.z,kind:'evidence',
+      label:'항구 작업자에게 현장에서 목격 사실 확인'}];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -357,13 +373,13 @@
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
          ...(state.transportContact<2?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -400,13 +416,11 @@
     state.world.loot=markers(state).map((p,i)=>({id:i,markerId:p.id,x:p.x,z:p.z,kind:p.kind,picked:false}));
     return state;
   }
-  function refreshEscortWorldMarker(state) {
-    // The guide may advance 60 times per second while PC rendering runs at
-    // 165 Hz. Recreating every static 3D marker for each centimetre of movement
-    // allocates a new array and new entities throughout the escort. Instead,
-    // mutate only the observed companion marker, keeping renderer references
-    // stable across fixed ticks. Rebuild on visibility or list changes.
-    if(state.phase!=='exit'||state.choice!=='evacuation'||!state.guide.active)return;
+  function refreshMovingActorMarkers(state) {
+    // Both the on-foot witness and optional escort can move at 60Hz. Retain
+    // static marker identity and update only the position of locally visible
+    // actors. Rebuild markers only when approaching/leaving observation range
+    // or when an interaction changes the available objectives.
     const visible=markers(state),rendered=state.world.loot;
     if(!Array.isArray(rendered)||rendered.length!==visible.length||
        visible.some((marker,i)=>!rendered[i]||rendered[i].kind!==marker.kind||
@@ -414,12 +428,11 @@
       syncMarkers(state);
       return;
     }
-    const guideIndex=visible.findIndex(marker=>marker.id==='guideControl');
-    if(guideIndex<0)return;
-    const guideMarker=rendered[guideIndex];
-    if(guideMarker.x!==state.guide.x||guideMarker.z!==state.guide.z){
-      guideMarker.x=state.guide.x;
-      guideMarker.z=state.guide.z;
+    for(const id of ['guideControl','harborWorker']){
+      const i=visible.findIndex(marker=>marker.id===id);
+      if(i<0)continue;
+      rendered[i].x=visible[i].x;
+      rendered[i].z=visible[i].z;
     }
   }
   function actorBlockers(state,except=null) {
@@ -725,10 +738,9 @@
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
       }
     }
-    // Keep physical 3D E markers aligned with the actual guide location and
-    // remove them as soon as the player loses direct observation. The mission
-    // state and checkpoint schema are unchanged.
-    refreshEscortWorldMarker(state);
+    // Keep physical 3D E markers aligned with the actual moving civilian
+    // or escort, removing them when their local observation range ends.
+    refreshMovingActorMarkers(state);
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
     // shot/impact visuals and damage feedback here, or they persist indefinitely.
     state.world.damageFlash=Math.max(0,state.world.damageFlash-t*2.4);
@@ -940,6 +952,15 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='harborWorker'&&!state.workerInterviewed&&state.worker){
+      // This is testimony obtained directly from a moving person on the
+      // pedestrian lane, never a remote position ping or verified timestamp.
+      state.workerInterviewed=true;
+      state.subtitle='항구 작업자: 정비 구역의 조명이 잠깐 약해진 건 기억해요. 정확한 시간이나 통신 장애와의 관계는 모르겠습니다.';
+      state.message='현장 작업자 면담 완료 · 목격담은 기록과 별도 보존';
+      syncMarkers(state);
+      return {ok:true,event:'harbor_worker_interview',phase:state.phase};
+    }
     if(marker.id==='terminal'&&state.phase==='terminal'){
       state.phase='engagement';state.combat.started=true;
       state.combat.nextPulseAt=state.world.elapsed+3;
@@ -1312,7 +1333,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1328,7 +1349,8 @@
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
         (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 물품 접수소의 현지 구조단에 직접 인계했습니다.':' 안내원은 집결지에서 현지 구조단에 직접 인계했습니다.'):state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')+
-        (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')
+        (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
+        (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')
     });
   }
   function objective(state) {
@@ -1373,6 +1395,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
+      workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
@@ -1396,8 +1419,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+18||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker').includes(k))||
+      Object.keys(data).length>expectedKeys.length+19||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1425,6 +1448,10 @@
              data.dispatchReviewed!==true||data.transportContact!==2))))||
        (hasOwn(data,'transitReviewed')&&typeof data.transitReviewed!=='boolean')||
       // Existing saves omit the worker; they stay on the old NPC layout.
+      (hasOwn(data,'workerInterviewed')&&
+       (typeof data.workerInterviewed!=='boolean'||
+        (data.workerInterviewed&&
+         (['terminal','engagement'].includes(data.phase)||data.worker===null))))||
       (hasOwn(data,'worker')&&data.worker!==null&&
        (!data.worker||typeof data.worker!=='object'||Array.isArray(data.worker)||
         Object.keys(data.worker).sort().join(',')!=='direction,x,z'||
@@ -1621,6 +1648,7 @@
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
     state.worker=hasOwn(data,'worker')?(data.worker===null?null:{...data.worker}):null;
+    state.workerInterviewed=hasOwn(data,'workerInterviewed')?data.workerInterviewed:false;
     state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true,
        waiting:data.guide.waiting===true}:
       {active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z};

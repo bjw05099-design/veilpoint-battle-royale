@@ -1601,7 +1601,8 @@
       :nearby.id==='aidDrop'?interactPrompt+' '+nearby.label+' 인계'
       :nearby.id==='aidStage'?interactPrompt+' '+nearby.label+'에 내려놓기 · 이동 제한 해제'
       :nearby.id==='aidResume'?interactPrompt+' '+nearby.label+' 다시 들기'
-       :nearby.id==='gateLog'?interactPrompt+' '+nearby.label+' 열람 · 최초 수신/재전송 대조'
+       :nearby.id==='harborWorker'?interactPrompt+' 항구 작업자에게 직접 목격 상황을 묻기'
+      :nearby.id==='gateLog'?interactPrompt+' '+nearby.label+' 열람 · 최초 수신/재전송 대조'
       :nearby.id==='reportDesk'?interactPrompt+' '+nearby.label+'에 현장 기록 전달'
       :nearby.id==='beacon'?interactPrompt+' '+nearby.label+(state.beaconEnabled?' 끄기':' 작동')+' · 현장 수동 스위치'
       :interactPrompt+' '+nearby.label+' 조사';
