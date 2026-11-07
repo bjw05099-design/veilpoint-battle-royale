@@ -636,6 +636,8 @@ function collectAmmo(){
  // the player stands beside it. Otherwise E retains normal finite loot use.
  const gate=Game.operateServiceGate(simulation);
  if(gate.ok){syncMotorSound(true);persistMatch();updateHud();return;}
+ const cart=Game.operateHandcart(simulation);
+ if(cart.ok){persistMatch();updateHud();return;}
  Game.pickup(simulation);persistMatch();updateHud();
 }
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
@@ -1572,6 +1574,7 @@ function updateHud(){const s=simulation,p=s.player;
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [saveMessage,bookmarkMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
  const yardGate=Game.serviceGateStatus(s);
+ const handcart=Game.handcartStatus(s);
  const gateGuide=Navigation?Navigation.serviceGate(p,yardGate,Game.SERVICE_YARD,s.obstacles):'';
  const nearby=Game.nearestReachablePickup(s);
  const movable=Game.nearestRelocatableCache(s);
@@ -1579,7 +1582,7 @@ function updateHud(){const s=simulation,p=s.player;
    item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
- $('pickupPrompt').style.display=yardGate.near||nearby||restock||movable||gateGuide?'block':'none';
+ $('pickupPrompt').style.display=yardGate.near||handcart.near||nearby||restock||movable||gateGuide?'block':'none';
  if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
   :yardGate.closing
@@ -1587,6 +1590,9 @@ function updateHud(){const s=simulation,p=s.player;
   :yardGate.open?'SERVICE YARD GATE OPEN · PASSAGE CLEAR · '+interactPrompt+' CLOSE GATE'
   :yardGate.engaged?interactPrompt+' REVERSE TO CLOSE · SERVICE YARD GATE OPENING '+Math.round(yardGate.progress*100)+'% · MOTOR AUDIBLE NEARBY'
   :interactPrompt+' OPERATE SERVICE YARD SLIDING GATE · OPEN';
+ else if(handcart.near)$('pickupPrompt').textContent=handcart.engaged
+  ?interactPrompt+' RELEASE DOCK HANDCART · WALK FORWARD TO PUSH'
+  :interactPrompt+' GRIP DOCK HANDCART · WALK FORWARD TO MOVE IT';
  else if(nearby)$('pickupPrompt').textContent=(nearby.weaponId!==p.weaponId?'INCOMPATIBLE AMMUNITION'
   :p.charges>=p.maxCharges?'AMMUNITION FULL':nearby.fieldPouch
    ?interactPrompt+' RECOVER FIELD POUCH · '+nearby.remaining+' CARBINE ROUNDS'
