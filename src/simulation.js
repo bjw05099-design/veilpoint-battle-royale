@@ -145,6 +145,10 @@
       Math.abs(actor.z-WET_LOADING_PAD.z)<=WET_LOADING_PAD.depth/2;
     return {wet,mobility:wet?WET_LOADING_PAD.mobility:1};
   }
+  // Permanently installed inspection shelter with a walk-in southern entrance.
+  // Only its three physical walls collide; the roof is an elevated visual
+  // surface. Interior and entrance remain traversable at the real actor radius.
+  const INSPECTION_SHELTER=Object.freeze({x:-100,z:-132,width:16,depth:10,roofHeight:3.2});
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -172,6 +176,11 @@
     o.push({x:-135,z:-126,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-135,z:-144,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-151,z:-135,w:2,d:3,h:3,type:'dock-bollard'});
+    // Open-front harbor inspection shelter: one rear wall and two side walls.
+    // The southern-looking opening at z=-127 is intentionally not blocked.
+    o.push({x:-100,z:-137,w:16,d:.8,h:3.2,type:'dock-inspection-wall'});
+    o.push({x:-108,z:-132,w:.8,d:10,h:3.2,type:'dock-inspection-wall'});
+    o.push({x:-92,z:-132,w:.8,d:10,h:3.2,type:'dock-inspection-wall'});
     // Two fixed perimeter segments flank the movable service gate. The gate
     // itself stays in the world array so both player and AI use its live body.
     o.push({x:SERVICE_YARD.x-10.5,z:SERVICE_YARD.z,w:15,d:.6,h:2.2,type:'yard-fence'});
@@ -1295,5 +1304,5 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
