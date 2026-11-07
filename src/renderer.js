@@ -186,7 +186,7 @@ class SoftwareRenderer {
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
  const objects=[];
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-  type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
+  type:o.type==='story-desk'?'report-desk':o.type==='dock-notice'?'dock-notice':o.type==='yard-gate'?'yard-gate':
     o.type==='yard-fence'?'yard-fence':'building'});
  if(!harborNight)objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
@@ -211,7 +211,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='dock-notice'?'#b8a873':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -289,6 +289,12 @@ class Renderer {
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='dock-notice'){
+   // Same finite AABB as the live 60Hz west-quay notice obstacle.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.49,.43,.30]);
+   m.box(o.x,o.h-.23,o.z+o.d/2,.75,.39,.05,[.78,.70,.48]);
+   return;
+  }
   if(o.type==='dock-breakwater'){
    // Visible solid waterfront walls use precisely the BR AABB footprints.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.31,.37,.39]);
