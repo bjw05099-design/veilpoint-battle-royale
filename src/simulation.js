@@ -306,6 +306,18 @@
     o.push({x:YARD_SHUTTLE.x,z:YARD_SHUTTLE.z,w:footprint.w,
       d:footprint.d,h:YARD_SHUTTLE.h,
       type:'yard-service-vehicle',routeId:'br-yard-shuttle'});
+    // The original Aden-inspired civic quarter is SHARED, not duplicated:
+    // both BR and CH01 consume these same fixed collision coordinates.
+    // Five perimeter walls leave a six-metre street-level southern entrance,
+    // and a staffed market stall occupies the west side of a walkable yard.
+    for(const [x,z,w,d,h,type] of [
+      [-39,53,.6,18,4,'aden-civic-wall'],
+      [-13,53,.6,18,4,'aden-civic-wall'],
+      [-26,62,26,.6,4,'aden-civic-wall'],
+      [-34,44,10,.6,4,'aden-civic-wall'],
+      [-18,44,10,.6,4,'aden-civic-wall'],
+      [-34,55,3,2,1.3,'aden-civic-stall']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
