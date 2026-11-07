@@ -14,13 +14,14 @@ test('west-quay board is a local read-only public countdown, not a remote game r
  assert.equal(Sim.snapshotMatch(g),before,'distant E request cannot modify world');
  g.player.x=-135;g.player.z=-133.4;
  assert.equal(Sim.blocked(g.player.x,g.player.z,.85,g.obstacles),false);
+ const atNotice=Sim.snapshotMatch(g);
  const entry=Sim.inspectDockNotice(g);
  assert.equal(entry.ok,true);
  assert.equal(entry.phase,0);
  assert.equal(entry.seconds,Math.ceil(g.zone.phaseRemaining));
  assert.match(g.message,/WEST QUAY NOTICE/);
  assert.doesNotMatch(g.message,/BOT|ENEMY|OPPONENT|HEALTH/);
- assert.equal(Sim.snapshotMatch(g),before,'reading a public sign changes no checkpoint data');
+ assert.equal(Sim.snapshotMatch(g),atNotice,'reading a public sign changes no checkpoint data');
  g.obstacles.push({x:-135,z:-134.2,w:3,d:.18,h:2,type:'test-wall'});
  assert.deepEqual(Sim.inspectDockNotice(g),{ok:false,reason:'out_of_reach'});
 });
