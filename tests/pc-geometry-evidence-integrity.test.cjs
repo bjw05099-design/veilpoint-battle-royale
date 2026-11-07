@@ -18,7 +18,7 @@ const story={
  storyJournalChecks:['CH01-journal-first','CH01-journal-last']
 };
 function target(id){return {id,visible:true,enabled:true,hit:true,focused:true,probesPassed:5};}
-function page(name,ids){return {name,issues:[],targets:ids.map(target)};}
+function page(name,ids){return {name,controls:ids.length,issues:[],targets:ids.map(target)};}
 function row(width,height,names){return {width,height,requested:{width,height},errors:[],cases:names.map(name=>({...page(name,['action']),controls:1}))};}
 function fixture(){
  const evidence={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],

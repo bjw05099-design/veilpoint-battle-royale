@@ -31,7 +31,7 @@
     // previous control and relocate this newly introduced optional binding
     // to an actually free key instead of resetting the entire profile.
     if(expanded[extra]===undefined||
-       (extra==='cacheMove'&&used.has(expanded[extra])))
+       used.has(expanded[extra]))
      expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyK','KeyO','KeyI','KeyP','KeyJ','KeyU','KeyT','KeyY','KeyX','KeyZ','KeyV','KeyF','KeyN']
       .find(code=>!used.has(code));
     used.add(expanded[extra]);

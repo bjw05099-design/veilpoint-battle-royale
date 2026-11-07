@@ -53,18 +53,24 @@
   function nextMarkerId(markers,selectedId=null){
     if(!Array.isArray(markers)||markers.length===0)return null;
     const index=markerIndex(markers,selectedId);
-    const next=index===null?0:index+1;
-    return next<markers.length&&markers[next]&&typeof markers[next].id==='string'
-      ?markers[next].id:null;
+    // A temporary missing/invalid marker must not consume the N-key step.
+    // Keep the null end-of-list automatic-guidance state; do not wrap.
+    for(let i=index===null?0:index+1;i<markers.length;i++){
+      if(markers[i]&&typeof markers[i].id==='string'&&markers[i].id)
+        return markers[i].id;
+    }
+    return null;
   }
   function previousMarkerId(markers,selectedId=null){
     if(!Array.isArray(markers)||markers.length===0)return null;
     // The automatic guidance position is shared by forward and reverse
     // cycling. Stable IDs survive insertion/removal of optional objectives.
     const index=markerIndex(markers,selectedId);
-    const previous=index===null?markers.length-1:index-1;
-    return previous>=0&&markers[previous]&&typeof markers[previous].id==='string'
-      ?markers[previous].id:null;
+    for(let i=index===null?markers.length-1:index-1;i>=0;i--){
+      if(markers[i]&&typeof markers[i].id==='string'&&markers[i].id)
+        return markers[i].id;
+    }
+    return null;
   }
   function story(player,markers,selectedIndex=null,obstacles=null,preferredId=null,blockedHint=null){
     if(!Array.isArray(markers)||!markers.length)return '현재 안내할 임무 표식 없음';

@@ -40,6 +40,10 @@ function validate(evidence){
    assert.deepEqual(page.issues,[],'Clipping or scrolling at '+size+' '+name);
    assert.ok(Array.isArray(page.targets)&&page.targets.length>0,
     'No measured actionable targets at '+size+' '+name);
+   // The real CDP audit counts every visible native action in the page.
+   // A truncated/contradictory measurement cannot be called a release pass.
+   assert.ok(Number.isInteger(page.controls)&&page.controls>=page.targets.length,
+    'PC actionable control count inconsistent at '+size+' '+name);
    const ids=new Set(page.targets.map(target=>target.id));
    for(const id of TARGETS[name])assert.ok(ids.has(id),'Missing required target '+id+' at '+size+' '+name);
    assert.equal(ids.size,page.targets.length,'Duplicate target at '+size+' '+name);
@@ -100,6 +104,8 @@ function validate(evidence){
     const targetIds=page.targets.map(target=>target.id);
     assert.equal(new Set(targetIds).size,targetIds.length,
      'Duplicate CH01 target at '+size+' '+page.name);
+    assert.ok(page.controls>=page.targets.length,
+     'CH01 actionable control count inconsistent at '+size+' '+page.name);
     for(const target of page.targets){
      assert.equal(target.visible,true,'CH01 hidden '+target.id);
      assert.equal(target.enabled,true,'CH01 disabled '+target.id);
