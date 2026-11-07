@@ -119,7 +119,7 @@ test('BR PC menu has an explicit New Match control and protects temporarily unre
  assert.match(source,/const resetBlocked=!offlineOnly&&!clearStoredMatch\(\)/);
  assert.match(source,/if\(resetBlocked\)offlineOnly=true/);
  assert.match(source,/if\(!offlineOnly\)\{clearFieldBookmark\(true\);clearLastResult\(\);checkpointInvalidStored=false;\}/);
- assert.match(source,/if\(!memoryOnlyMatch\)\{archiveLastResult\(\);clearFieldBookmark\(\);clearStoredMatch\(\);\}/);
+ assert.match(source,/let archivedResult=null;if\(!memoryOnlyMatch\)\{archivedResult=archiveLastResult\(\);clearFieldBookmark\(\);clearStoredMatch\(\);\}/);
  assert.match(source,/if\(!running\|\|memoryOnlyMatch\)return false/);
  assert.match(source,/memoryOnlyMatch\)start\(null,null,null,true\)/);
  assert.match(source,/if\(saved\)resumeStoredMatch\(saved\)/);

@@ -581,14 +581,15 @@ test('BR withdrawn result can be reviewed on refresh but never revived as a live
  assert.equal(refreshed.game.player.charges,48,'new round starts with original finite resources');
 });
 
-test('BR corrupt last-result data is discarded without preventing new game',()=>{
+test('BR corrupt last-result data remains quarantined until explicit new game without blocking play',()=>{
  const key='veilpoint.brLastResult.v1';
  const store=new Map([[key,JSON.stringify({version:1,mode:'offline-br',outcome:'won',placement:1,seed:'forged'})]]);
  const app=boot(store);
- assert.equal(store.has(key),false);
+ assert.equal(store.has(key),true,'automatic startup must not erase another tab result');
  assert.doesNotMatch(app.node('selector-.tagline').textContent,/지난 경기/);
  app.node('play').click();app.frame(1000/60);
  assert.equal(app.game.status,'playing');
+ assert.equal(store.has(key),false,'a deliberate new round can clear the old result slot');
 });
 
 

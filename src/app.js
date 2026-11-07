@@ -309,15 +309,21 @@ function clearLastResult(){
  catch(_){try{global.localStorage.setItem(LAST_RESULT_KEY,'');}catch(_){}}
 }
 function readLastResult(){
+ // An invalid read or privacy-policy denial is not permission to erase a
+ // shared report that a different tab may have just updated.
  try{const raw=global.localStorage.getItem(LAST_RESULT_KEY);
   return raw?Game.restoreLastResult(raw):null;
- }catch(_){clearLastResult();return null;}
+ }catch(_){return null;}
 }
 function archiveLastResult(){
- // An older tab's terminal screen must not overwrite the newer tab's report.
+ // A terminal archive is factual only if the exact report bytes persist.
+ // The saved result is not an active checkpoint and cannot restore gameplay.
  if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return null;
- try{const report=Game.createLastResult(simulation);
-  global.localStorage.setItem(LAST_RESULT_KEY,JSON.stringify(report));
+ try{
+  const report=Game.createLastResult(simulation),raw=JSON.stringify(report);
+  global.localStorage.setItem(LAST_RESULT_KEY,raw);
+  if(global.localStorage.getItem(LAST_RESULT_KEY)!==raw)return null;
+  if(running&&simulation.status!=='playing'&&!ownsStoredMatch())return null;
   return report;
  }catch(_){return null;}
 }
@@ -1532,14 +1538,14 @@ function updateHud(){const s=simulation,p=s.player;
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
  minimap();
 }
-function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}if(!memoryOnlyMatch){archiveLastResult();clearFieldBookmark();clearStoredMatch();}
+function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
  const won=simulation.status==='won',draw=simulation.status==='draw';document.querySelector('.eyebrow').textContent=won?'LAST SIGNAL / CHAMPION':draw?'FINAL DEADLINE / DRAW':'SIGNAL LOST / MATCH FINISHED';
  document.querySelector('h1').innerHTML=won?'VICT<span>ORY.</span>':draw?'DRAW.':'RE<span>DEPLOY.</span>';
- document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':draw?'최종 제한시간이 끝났지만 단독 생존자가 없어 공동 종료되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명`+(draw?' · 공동 종료':` · 순위 ${Game.getFinalPlacement(simulation)}위`);
+ document.querySelector('.tagline').textContent=(won?'최후의 생존자가 되었습니다. ':draw?'최종 제한시간이 끝났지만 단독 생존자가 없어 공동 종료되었습니다. ':'이번 라운드는 종료되었습니다. ')+`생존 ${Math.floor(simulation.elapsed)}초 · 제거 ${simulation.kills}명`+(draw?' · 공동 종료':` · 순위 ${Game.getFinalPlacement(simulation)}위`)+(!memoryOnlyMatch&&!archivedResult?' · 경기 결과 저장 확인 실패':'');
  if(document.pointerLockElement===canvas)document.exitPointerLock();
 }
 function frame(now){requestAnimationFrame(frame);
