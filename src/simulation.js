@@ -350,6 +350,11 @@
       throw new RangeError('Invalid BR terrain revision');
     const random = rngFromSeed(seed);
     const obstacles = makeObstacles(terrainRevision);
+    // Existing seeded offline matches must not reshuffle ALL opponents and
+    // pickups simply because an additional, distant civic block was authored.
+    // Draw from the original unmodified candidate sequence, then resolve only
+    // rare local overlap with the new block deterministically below.
+    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
@@ -361,7 +366,7 @@
     const safeSpot = (minRadius = 30, clearance = 0, occupied = [], maxRadius = Infinity) => {
       for (let tries=0; tries<2000; tries++) {
         const x = (random() * 2 - 1) * 152, z = (random() * 2 - 1) * 152;
-        if (blocked(x,z,2.4,obstacles) ||
+        if (blocked(x,z,2.4,historicalSpawnObstacles) ||
             Math.hypot(x-deployment.x,z-deployment.z) <= minRadius ||
             Math.hypot(x-deployment.x,z-deployment.z) > maxRadius ||
             occupied.some(pos => Math.hypot(pos.x-x,pos.z-z) < clearance)) continue;
@@ -395,6 +400,30 @@
         weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],
         remaining:i%2===0?12:24,picked:false};
     });
+    // Only colliding newcomers move. No added RNG draws, no invisible actors
+    // inside scenery and no wholesale reshuffle of established solo matches.
+    if(terrainRevision===1){
+      const residents=[...bots,...loot];
+      for(const item of residents){
+        if(!blocked(item.x,item.z,2.4,obstacles))continue;
+        const origin={x:item.x,z:item.z};
+        let found=null;
+        for(let ring=1;ring<=20&&!found;ring++)for(let n=0;n<24&&!found;n++){
+          const angle=n*Math.PI/12,radius=ring*2;
+          const x=origin.x+Math.cos(angle)*radius,z=origin.z+Math.sin(angle)*radius;
+          if(blocked(x,z,2.4,obstacles)||
+             Math.hypot(x-deployment.x,z-deployment.z)<3||
+             residents.some(other=>other!==item&&Math.hypot(other.x-x,other.z-z)<2.6))
+            continue;
+          found={x,z};
+        }
+        if(!found)throw new RangeError('No safe relocation from civic geometry');
+        item.x=found.x;item.z=found.z;
+        if(Object.prototype.hasOwnProperty.call(item,'lastSeenX')){
+          item.lastSeenX=found.x;item.lastSeenZ=found.z;
+        }
+      }
+    }
     return {
       seed, random, entrySite, lighting, terrainRevision, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
