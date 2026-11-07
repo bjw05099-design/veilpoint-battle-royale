@@ -29,7 +29,7 @@ test('UE5 CH01 gets a dedicated selectable game mode without changing the defaul
 
 test('UE5 CH01 physically creates seven non-combat objective markers on an authoritative local world',()=>{
  assert.match(mode,/if \(!HasAuthority\(\) \|\| !GetWorld\(\)\) return/);
- assert.match(mode,/SpawnActor<AVPWorldBootstrap>/);
+ assert.match(mode,/SpawnActor<AVPStoryWorldBootstrap>/);
  const actions=['RestoreRelay','ReadHarbor','ReadShelter','ChooseSouth','ChooseEast','ReachSouth','ReachEast'];
  for(const action of actions){
   assert.match(mode,new RegExp('EVPStoryAction::'+action+', FVector\\('));
@@ -88,10 +88,11 @@ test('UE5 story HUD hides the BR-only zone and supply UI until a real BR game mo
  assert.ok(storyAt>=0&&brSupplies>storyAt&&brZone>brSupplies);
  assert.match(hud.slice(storyAt,brSupplies),/Story->GetObjectiveLabel\(\)/);
  assert.match(hud.slice(storyAt,brSupplies),/return;/);
- const storyResources=world.indexOf('GetGameState<AVPStoryGameState>()');
+ const classBranch=world.indexOf('IsA(AVPStoryWorldBootstrap::StaticClass())');
+ const storyReturn=world.indexOf('return; // Story preview never spawns the random BR loot pool');
  const brSpawn=world.indexOf('SpawnActor<AVPPickup>');
- assert.ok(storyResources>=0&&brSpawn>storyResources,
-  'native story shares scenery but never spawns BR-only pickups');
+ assert.ok(classBranch>=0&&storyReturn>classBranch&&brSpawn>storyReturn,
+  'native story uses a class-stable local blockout rather than BR loot and world state race');
 });
 
 test('UE5 CH01 only shows live replicated objectives and prioritizes physically reachable markers',()=>{
