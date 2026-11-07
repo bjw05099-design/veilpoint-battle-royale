@@ -59,3 +59,23 @@ test('stutter detection uses two frame budgets at 165Hz rather than a 50ms floor
  assert.match(fast.stutterMethod,/callback interval/);
  assert.match(fast.gpuTimerSampleNote,/asynchronous/);
 });
+
+test('only observed render-clock coverage can certify benchmark completion',()=>{
+ const early=createBenchmark({durationMs:1000,warmupMs:0});
+ early.arm({fpsCap:165});
+ early.finish('completed');
+ assert.equal(early.report().completed,false,'an armed benchmark cannot be declared complete');
+ assert.equal(early.report().measurementStatus,'partial');
+ assert.equal(early.report().renderedFrameCount,0);
+ assert.equal(early.gpu(1,0),false,'a forged completion cannot admit late GPU data');
+ const interrupted=createBenchmark({durationMs:1000,warmupMs:0});
+ interrupted.arm({fpsCap:165});interrupted.frame(0,1,1);interrupted.frame(100,1,1);
+ interrupted.finish('completed');
+ assert.equal(interrupted.report().completed,false);
+ assert.equal(interrupted.report().measuredPercent,10);
+ assert.equal(interrupted.gpu(1,100),false);
+ const real=createBenchmark({durationMs:1000,warmupMs:0});
+ real.arm({fpsCap:165});real.frame(0,1,1);
+ for(let t=100;t<=1000;t+=100)real.frame(t,1,1);
+ assert.equal(real.report().completed,true,'render-clock coverage must retain genuine completion');
+});
