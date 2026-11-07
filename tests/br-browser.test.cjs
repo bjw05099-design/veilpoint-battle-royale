@@ -982,6 +982,9 @@ test('BR WebGL failure preserves keyboard access and recovery restores Resume fo
 
 test('BR pre-match GPU reset returns keyboard focus without starting an offline round',()=>{
  const app=boot({windows:true});
+ // The Node DOM fixture has no parsed HTML class attributes; the actual
+ // pre-match HTML starts with graphicsPanel.hidden.
+ app.node('graphicsPanel').classList.add('hidden');
  app.node('scene').dispatch('webglcontextlost');
  assert.equal(app.context.document.activeElement,app.node('brViewMore'));
  assert.equal(app.node('play').disabled,true);
