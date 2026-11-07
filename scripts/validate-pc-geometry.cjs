@@ -85,21 +85,24 @@ function validate(evidence){
 
 
  const keyboard=evidence.keyboardChecks;
- assert.ok(Array.isArray(keyboard),'Real CDP Escape evidence missing');
- assert.equal(keyboard.length,SIZES.length,'Incomplete CDP Escape viewports');
+ assert.ok(Array.isArray(keyboard),'Real CDP keyboard evidence missing');
+ assert.equal(keyboard.length,SIZES.length,'Incomplete CDP keyboard viewports');
  const observed=new Set();
- const requiredKeys=['BR-more-Escape','settings-Escape','settings-select-G'];
+ const requiredKeys=[
+  'BR-more-Escape','BR-main-Tab-wrap','BR-main-ShiftTab-wrap',
+  'settings-Escape','settings-select-G','settings-Tab-wrap','settings-ShiftTab-wrap'
+ ].sort();
  for(const row of keyboard){
   const size=row.width+'x'+row.height;
   assert.ok(SIZES.includes(size)&&!observed.has(size),
-   'Invalid or duplicate CDP Escape viewport '+size);
+   'Invalid or duplicate CDP keyboard viewport '+size);
   observed.add(size);
-  assert.ok(Array.isArray(row.cases),'Missing CDP Escape cases at '+size);
+  assert.ok(Array.isArray(row.cases),'Missing CDP keyboard cases at '+size);
   assert.deepEqual(row.cases.map(c=>c.name).sort(),requiredKeys,
-   'Missing real CDP Escape route at '+size);
+   'Missing real CDP keyboard route at '+size);
   for(const item of row.cases){
-   assert.equal(item.passed,true,'Escape route failed: '+size+' '+item.name);
-   assert.equal(item.focused,true,'Escape keyboard focus lost: '+size+' '+item.name);
+   assert.equal(item.passed,true,'CDP keyboard route failed: '+size+' '+item.name);
+   assert.equal(item.focused,true,'CDP keyboard focus lost: '+size+' '+item.name);
   }
  }
 
