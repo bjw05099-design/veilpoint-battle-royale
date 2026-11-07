@@ -34,6 +34,32 @@ void AVPStoryMarker::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     if (Model && Model->IsVisible() != IsAvailable())
         Model->SetVisibility(IsAvailable());
+    // Action is replicated after BeginPlay on a remote client. Correct
+    // the placeholder silhouette once it actually arrives, without reloading
+    // a mesh or regenerating native actors on every frame.
+    ApplyStageShape();
+}
+
+void AVPStoryMarker::ApplyStageShape()
+{
+    if (!Model) return;
+    FVector Shape(.40f, .40f, 1.f);
+    switch (Action)
+    {
+    case EVPStoryAction::RestoreRelay:
+        Shape = FVector(.52f, .52f, 1.2f); break; // Local relay mast
+    case EVPStoryAction::ReadHarbor:
+    case EVPStoryAction::ReadShelter:
+        Shape = FVector(.60f, .60f, .32f); break; // Physical record station
+    case EVPStoryAction::ChooseSouth:
+    case EVPStoryAction::ChooseEast:
+        Shape = FVector(.42f, .42f, .65f); break; // Decision console
+    case EVPStoryAction::ReachSouth:
+    case EVPStoryAction::ReachEast:
+        Shape = FVector(.70f, .70f, .15f); break; // Ground arrival marker
+    }
+    if (!Model->GetRelativeScale3D().Equals(Shape, .001f))
+        Model->SetRelativeScale3D(Shape);
 }
 
 void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
