@@ -12,7 +12,7 @@
   if(typeof getContext!=='function')throw new TypeError('audio provider required');
   let carried=0;
   function stop(){carried=0;}
-  function sync({enabled=false,playable=false,distance=0,crouched=false,running=false}={}){
+  function sync({enabled=false,playable=false,distance=0,crouched=false,running=false,surface='dry'}={}){
    if(!enabled||!playable){stop();return 0;}
    if(!Number.isFinite(distance)||distance<=0||distance>2)return 0;
    // Approximately one audible step per true gait distance. Being blocked
@@ -28,8 +28,12 @@
      const osc=ctx.createOscillator(),gain=ctx.createGain();
      const at=ctx.currentTime;
      osc.type='triangle';
-     osc.frequency.setValueAtTime(crouched?58:running?89:74,at);
-     gain.gain.setValueAtTime(crouched?.008:running?.019:.013,at);
+     // The waterlogged apron is audible as a subtle, short splashing gait;
+     // never produce a step without real fixed-tick player displacement.
+     const wet=surface==='wet';
+     osc.frequency.setValueAtTime(wet?(crouched?81:running?124:105):
+       crouched?58:running?89:74,at);
+     gain.gain.setValueAtTime((crouched?.008:running?.019:.013)*(wet?1.3:1),at);
      gain.gain.exponentialRampToValueAtTime(.00001,at+.095);
      osc.connect(gain);gain.connect(ctx.destination);
      osc.start(at);osc.stop(at+.095);
