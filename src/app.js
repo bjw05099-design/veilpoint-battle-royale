@@ -1482,6 +1482,17 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
   ctx.fillStyle=gate.open?'#89c6a1':'#d5b478';
   ctx.fillRect(tx(gate.x)-3,tz(gate.z)-3,6,6);
  }
+ // Nearby, directly visible local caches support exploration without
+ // revealing hidden/distant loot or any enemy location. Never mark caches
+ // outside the actual view cone or behind physical structures.
+ if(Navigation){
+  const visibleCaches=Navigation.visibleLocalCaches(
+    simulation.player,simulation.loot,simulation.obstacles,simulation.player.weaponId);
+  for(const cache of visibleCaches){
+   ctx.fillStyle=cache.compatible?'#8ecfb3':'#d9a97b';
+   ctx.beginPath();ctx.arc(tx(cache.x),tz(cache.z),2.6,0,Math.PI*2);ctx.fill();
+  }
+ }
  // Show only the survivor's own manually placed physical navigation sign.
  if(simulation.trailMarker){
   ctx.fillStyle='#e7b852';ctx.beginPath();
