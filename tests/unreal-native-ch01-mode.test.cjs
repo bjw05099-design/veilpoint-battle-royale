@@ -22,7 +22,7 @@ test('UE5 CH01 gets a dedicated selectable game mode without changing the defaul
  assert.match(mode,/PrimaryActorTick\.bCanEverTick = false/);
  assert.match(mode,/AGameModeBase::BeginPlay\(\)/);
  assert.doesNotMatch(mode,/SpawnActor<AVPZone>/);
- const ini=fs.readFileSync(path.resolve(base,'../../../Config/DefaultEngine.ini'),'utf8');
+ const ini=fs.readFileSync(path.resolve(base,'../../Config/DefaultEngine.ini'),'utf8');
  assert.match(ini,/GlobalDefaultGameMode=\/Script\/Veilpoint\.VPGameMode/);
  assert.match(ini,/GameDefaultMap=\/Engine\/Maps\/Entry/);
 });
