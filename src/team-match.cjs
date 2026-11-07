@@ -81,6 +81,20 @@ const validDirection = v => v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v).length === 2 && Object.keys(v).every(k => k === 'x' || k === 'z') &&
   Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) <= 1 && Math.abs(v.z) <= 1;
 
+// Read-only, owner-only diagnostic for the real local relay. This cannot
+// reveal an unseen opponent contesting the objective, nor award capture
+// progress. The server's existing 60Hz physical rules remain authoritative.
+function relayInteractionState(player,phase,teamProgress) {
+  if(phase!=='playing'||player.health<=0)return 'inactive';
+  if(Math.hypot(player.x,player.z)>CAPTURE_RADIUS)return 'approach';
+  if(Math.hypot(player.direction.x,player.direction.z)>1e-6)return 'stop';
+  if(player.reloadTicks>0)return 'wait_reload';
+  if(player.triggerHeld)return 'hands_free';
+  if(player.captureHeld&&(!player.captureArmed||!player.capturing))return 'release_press';
+  if(!player.captureHeld)return 'press';
+  return teamProgress>0?'transmitting':'server_checking';
+}
+
 // 60Hz authoritative passing-mist event: gradual arrival, a sustained bank,
 // then gradual clearing. One bank per round; no client-controlled visibility.
 // Accelerated durations are gameplay abstractions, not meteorological measurements.
@@ -729,7 +743,8 @@ class TeamMatch {
         stress: me.stress, reloadAssist: me.reloadAssist, reloadHesitation: me.reloadHesitation,
         ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
         stamina: me.stamina, sprintExhausted: me.sprintExhausted,
-        captureArmed: me.captureArmed, seq: me.seq},
+        captureArmed: me.captureArmed,
+        relayInteraction: relayInteractionState(me,this.phase,this.progress[me.team]), seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
         incapacitated: p.health === 0, crouching: p.crouching}))};
@@ -738,4 +753,4 @@ class TeamMatch {
 module.exports = {TeamMatch, STEP, SPEED, CAPTURE_SECONDS, WIN_SCORE, COVER,
   FIRE_RANGE, FIRE_INTERVAL_TICKS, MAGAZINE_ROUNDS, SPARE_ROUNDS, RELOAD_TICKS, LOADOUTS,
   RELOAD_HESITATION_TICKS, STRESS_THRESHOLD, INPUT_LEASE_TICKS, weatherAt, MIST_END_TICK,
-  ROUND_LIMIT_TICKS, SPRINT_SPEED_FACTOR, SPRINT_DRAIN_PER_TICK, SPRINT_RECOVER_PER_TICK, SPRINT_RESTART_STAMINA};
+  relayInteractionState, ROUND_LIMIT_TICKS, SPRINT_SPEED_FACTOR, SPRINT_DRAIN_PER_TICK, SPRINT_RECOVER_PER_TICK, SPRINT_RESTART_STAMINA};
