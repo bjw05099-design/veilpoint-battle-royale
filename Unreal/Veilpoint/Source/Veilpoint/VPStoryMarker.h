@@ -15,6 +15,8 @@ class VEILPOINT_API AVPStoryMarker : public AActor
     GENERATED_BODY()
 public:
     AVPStoryMarker();
+    virtual void BeginPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
     TObjectPtr<UStaticMeshComponent> Model;
