@@ -57,12 +57,12 @@ test('real 60Hz input advances one authenticated actor without rewriting other s
 test('shared-actor traversal cannot walk through a grounded city wall',()=>{
  const w=started();
  const actor=w.actors.get(token(0));
- actor.x=-44;actor.z=53;
+ actor.x=59;actor.z=125;
  assert.equal(Sim.blocked(actor.x,actor.z,RADIUS,w.obstacles),false);
  w.move(token(0),{seq:1,dx:1,dz:0});
  for(let i=0;i<20;i++)w.step();
  assert.equal(Sim.blocked(actor.x,actor.z,RADIUS,w.obstacles),false);
- assert.ok(actor.x < -39-0.3-RADIUS+.001,
+ assert.ok(actor.x < 64-0.3-RADIUS+.001,
    'fixed physical market courtyard wall stops the live character');
 });
 test('one squad can inspect mates but not off-screen enemy coordinates or secret tokens',()=>{
@@ -72,7 +72,7 @@ test('one squad can inspect mates but not off-screen enemy coordinates or secret
  assert.deepEqual(view.squad.map(a=>a.slot),[1,2,3,4,5,6]);
  assert.equal(JSON.stringify(view).includes(token(0)),false);
  const me=w.actors.get(token(0)),rival=w.actors.get(token(6));
- me.x=-43;me.z=53;rival.x=-35;rival.z=53;
+ me.x=59;me.z=125;rival.x=69;rival.z=125;
  view=w.snapshot(token(0));
  assert.equal(view.visible.some(a=>a.id===rival.id),false,'opaque wall occludes opponent');
  me.x=0;me.z=0;rival.x=3;rival.z=0;
