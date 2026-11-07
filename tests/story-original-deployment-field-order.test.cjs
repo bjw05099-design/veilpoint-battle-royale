@@ -2,71 +2,46 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const Story=require('../src/story-slice.js'),Sim=require('../src/simulation.js');
-test('original deployment is a discoverable physical document before the unexpected conflict, not a mandatory war mission',()=>{
+test('captain is already briefed in Korea: no Aden field orders, interactive paper or unnecessary detour',()=>{
  const s=Story.createState(),p=s.world.player;
  assert.equal(s.phase,'terminal');
- assert.equal(s.deploymentReviewed,false);
- assert.deepEqual(Story.markers(s).map(m=>m.id),['terminal'],
-  'a paper assignment is NOT a global marker across the map');
- const body=s.world.obstacles.filter(o=>o.type==='story-dispatch-case');
- assert.deepEqual(body,[{x:-12,z:9.8,w:2.2,d:.8,h:1.2,type:'story-dispatch-case'}]);
- assert.equal(Sim.blocked(body[0].x,body[0].z,.85,s.world.obstacles),true);
- p.yaw=-Math.PI/2;
- let ticks=0;
- while(p.x>-11.4&&ticks++<190)Story.step(s,1/60,{forward:true});
- assert.ok(p.x<=-11.4&&p.x>-14,'the captain has to WALK to the original arrival record');
- assert.equal(Sim.blocked(p.x,p.z,.85,s.world.obstacles),false);
- assert.equal(Story.markers(s).some(m=>m.id==='dispatchOrders'),true);
- const marker=Story.POINTS.dispatchOrders;
- assert.equal(Sim.blocked(marker.x,marker.z,.85,s.world.obstacles),false);
- assert.equal(Story.nearest(s)?.id,'dispatchOrders');
- const opened=Story.interact(s);
- assert.deepEqual(opened,{ok:true,event:'original_dispatch_orders',phase:'terminal'});
- assert.equal(s.deploymentReviewed,true);
- assert.match(s.subtitle,/원래 파견 지시서/);
- assert.match(s.subtitle,/도착 후 내전이 급격히 확산/);
- assert.match(s.subtitle,/내전 참전은 최초 파견 목적이 아니었습니다/);
- assert.deepEqual(Story.markers(s).map(m=>m.id),['terminal'],
-  'once read the field record does not repeat or replace the original main mission');
+ assert.match(s.subtitle,/한국에서 출국 전 브리핑받은 임무/);
+ assert.match(s.subtitle,/도착하고 나서 충돌이 항구까지 번졌습니다/);
+ assert.deepEqual(Story.markers(s).map(m=>m.id),['terminal']);
+ assert.equal(Object.hasOwn(Story.POINTS,'dispatchOrders'),false);
+ assert.equal(s.world.obstacles.some(o=>o.type==='story-dispatch-case'),false);
+ p.x=-12;p.z=11.4;
+ assert.equal(Story.nearest(s),null,'standing where the retired prop was yields no inspection');
  assert.equal(Story.interact(s).reason,'too_far');
  p.x=Story.POINTS.terminal.x;p.z=Story.POINTS.terminal.z;
- assert.equal(Story.interact(s).phase,'engagement',
-  'reading original orders cannot gate or skip existing gameplay');
+ assert.deepEqual(Story.interact(s),{ok:true,event:'terminal',phase:'engagement'});
+ assert.match(s.subtitle,/도착 후 무력 충돌이 항구까지 확대/);
+ assert.equal(s.deploymentReviewed,false,'no gameplay action can set the legacy field-paper flag');
 });
-test('original dispatch evidence survives save/load and factual ending without modifying v2 format',()=>{
- const s=Story.createState(),p=s.world.player;
- p.x=Story.POINTS.dispatchOrders.x;p.z=Story.POINTS.dispatchOrders.z;
- assert.equal(Story.interact(s).event,'original_dispatch_orders');
- const saved=Story.serialize(s),back=Story.restore(saved);
- assert.equal(back.deploymentReviewed,true);
- assert.equal(Story.serialize(back),saved);
- const old=JSON.parse(saved);delete old.deploymentReviewed;
- assert.equal(Story.restore(JSON.stringify(old)).deploymentReviewed,false,
-  'historical genuine saves omit an optional paper document');
+test('legacy deployment-paper flags are loadable without reviving the abandoned task',()=>{
+ const s=Story.createState();
+ const baseline=Story.serialize(s),old=JSON.parse(baseline);
+ old.deploymentReviewed=true;
+ const restored=Story.restore(JSON.stringify(old));
+ assert.equal(restored.deploymentReviewed,true,
+   'respect historical stored metadata rather than corrupting a saved checkpoint');
+ assert.equal(Story.serialize(restored),JSON.stringify(old));
+ assert.deepEqual(Story.markers(restored).map(m=>m.id),['terminal']);
+ assert.equal(Object.hasOwn(Story.POINTS,'dispatchOrders'),false);
+ assert.equal(Story.restore(baseline).deploymentReviewed,false);
  for(const forged of ['yes',1,null]){
   assert.throws(()=>Story.restore(JSON.stringify({...old,deploymentReviewed:forged})),
-   /checkpoint/i,'untrusted save cannot forge the review flag');
+   /checkpoint/i,'legacy flag must still be type validated');
  }
- p.x=Story.POINTS.terminal.x;p.z=Story.POINTS.terminal.z;
- assert.equal(Story.interact(s).phase,'engagement');
- for(const b of s.world.bots){b.health=0;b.alive=false;}
- s.combat.cleared=true;s.phase='records';
- p.x=Story.POINTS.decision.x;p.z=Story.POINTS.decision.z;
- assert.equal(Story.interact(s).phase,'decision');
- assert.equal(Story.choose(s,'evacuation').ok,true);
- p.x=Story.POINTS.exitEvac.x;p.z=Story.POINTS.exitEvac.z;
- assert.equal(Story.interact(s).phase,'complete');
- const result=Story.debrief(s);
- assert.equal(result.deploymentReviewed,true);
- assert.match(result.summary,/최초 파견 지시서를 직접 확인했습니다/);
- assert.match(result.summary,/처음부터 계획된 임무가 아니었습니다/);
+ assert.equal(Story.restore(JSON.stringify({...old,phase:'terminal'})).phase,'terminal');
 });
-test('original documents render as actual waist-high solid geometry in both story visual paths',()=>{
- const code=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
- assert.match(code,/if\(o\.type==='story-dispatch-case'\)/);
- assert.match(code,/o\.type==='story-dispatch-case'\?'#86735c'/);
- assert.match(code,/m\.box\(o\.x,0,o\.z,o\.w,o\.h,o\.d,\[\.47,\.40,\.33\]\)/);
- const br=Sim.newMatch(23,0);
- assert.equal(br.obstacles.some(o=>o.type==='story-dispatch-case'),false,
-  'arrival story orders must not be injected into the BR competition world');
+test('retired field paperwork does not exist in WebGL, Canvas or the BR world',()=>{
+ const text=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
+ assert.doesNotMatch(text,/story-dispatch-case/);
+ const s=Story.createState(),br=Sim.newMatch(23,0);
+ assert.equal(s.world.obstacles.some(o=>o.type==='story-dispatch-case'),false);
+ assert.equal(br.obstacles.some(o=>o.type==='story-dispatch-case'),false);
+ const canon=fs.readFileSync(path.resolve(__dirname,'../docs/COMBAT_CAMPAIGN_CANON.md'),'utf8');
+ assert.match(canon,/before departure/);
+ assert.match(canon,/explicitly rejected by the owner/);
 });
