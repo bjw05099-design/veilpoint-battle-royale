@@ -947,8 +947,8 @@
         // Keep the shared world live until the authored mission actually ends.
         state.world.status='playing';
         state.phase='records';state.combat.cleared=true;
-        state.subtitle='조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 중계 기록을 확인할 수 있어요.';
-        state.message='안전 확보 · 기록 확인은 선택 사항';
+        state.subtitle='조현지(국정원): 도착 뒤 충돌이 항구까지 확산돼 한국에서 브리핑받은 임무 범위를 벗어났습니다. 유수프 구조단은 남쪽 통로에서 주민을 인도하고 있습니다. 대피를 바로 우선할 수 있고, 동쪽 경로가 필요하면 현장 기록을 더 확인해야 합니다.';
+        state.message='남쪽 주민 이동 우선 가능 · 동쪽 경로의 기록 확인은 선택';
         syncMarkers(state);
       }
     }
