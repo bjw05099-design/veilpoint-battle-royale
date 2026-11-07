@@ -128,6 +128,7 @@
   // The north service-yard road has a physically sliding, locally controlled
   // gate. There is no remote unlocking, infinite stock or supernatural sensor.
   const SERVICE_YARD=Object.freeze({x:30,z:-24,switchX:30,switchZ:-21.8,slide:7.2,seconds:2});
+  const QUAY_NOTICE=Object.freeze({x:-135,z:-135});
   // Two identifiable, non-respawning supply shelves on the east-dock public
   // walkway. These reuse the existing 40 finite caches, never mint extra stock.
   // If an actor spawned on a shelf, leave that item at its original seeded
@@ -162,6 +163,10 @@
     o.push({x:-135,z:-126,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-135,z:-144,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-151,z:-135,w:2,d:3,h:3,type:'dock-bollard'});
+    // Physical public wayfinding cabinet in the new west-quay corridor.
+    // One AABB serves collision, WebGL and Canvas, with no new inventory.
+    o.push({x:QUAY_NOTICE.x,z:QUAY_NOTICE.z,w:.9,d:.25,h:1.65,
+      type:'dock-notice',routeId:'br-quay-notice'});
     // Two fixed perimeter segments flank the movable service gate. The gate
     // itself stays in the world array so both player and AI use its live body.
     o.push({x:SERVICE_YARD.x-10.5,z:SERVICE_YARD.z,w:15,d:.6,h:2.2,type:'yard-fence'});
@@ -297,6 +302,19 @@
     if(sample.next===1){game.message='SERVICE GATE OPEN · YARD ROAD ACCESSIBLE';game.messageTime=3;}
     if(sample.next===0&&game.yardGate.closing){game.yardGate.engaged=false;game.yardGate.closing=false;
       game.message='SERVICE GATE CLOSED · LOCAL CONTROL READY';game.messageTime=3;}
+  }
+  function inspectQuayNotice(game) {
+    if(!game||game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
+    const p=game.player;
+    if(!p||Math.hypot(p.x-QUAY_NOTICE.x,p.z-QUAY_NOTICE.z)>2.2||
+       lineBlocked(p.x,p.z,QUAY_NOTICE.x,QUAY_NOTICE.z,
+         game.obstacles.filter(o=>o.routeId!=='br-quay-notice')))
+      return {ok:false,reason:'out_of_reach'};
+    // The sign is a physical, public notice, not an enemy detector or
+    // remotely actionable route. No resource or checkpoint field is created.
+    game.message='WEST QUAY NOTICE · OPEN PUBLIC WALKWAY · WATCH LOCAL CONDITIONS';
+    game.messageTime=4;
+    return {ok:true,action:'read_quay_notice'};
   }
   // PC J places or recovers one tangible field marker for self-navigation.
   // The marker is not a radar or teleport destination and cannot be recalled
@@ -1285,5 +1303,5 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,inspectQuayNotice,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,QUAY_NOTICE,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
