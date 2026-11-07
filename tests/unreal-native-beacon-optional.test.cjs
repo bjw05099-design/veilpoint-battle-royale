@@ -12,8 +12,8 @@ test('UE5 story has a real optional physical action with server-replicated beaco
  assert.match(sc,/DOREPLIFETIME\(AVPStoryGameState, bBeaconActivated\)/);
  assert.match(sc,/if \(Action == EVPStoryAction::ActivateBeacon\)/);
  assert.match(sc,/StoryStage != EVPStoryStage::RestoreRelay/);
- assert.match(sc,/StoryStage != EVPStoryStage::Complete && !bBeaconActivated/);
- assert.match(sc,/case EVPStoryAction::ActivateBeacon:\s*bBeaconActivated = true/);
+ assert.match(sc,/StoryStage != EVPStoryStage::Complete;/);
+ assert.match(sc,/case EVPStoryAction::ActivateBeacon:[\s\S]*?bBeaconActivated = !bBeaconActivated/);
  assert.match(gh,/EVPStoryAction::ActivateBeacon, FVector\(650\.f, -650\.f, 120\.f\)/);
  assert.match(mh,/TObjectPtr<UPointLightComponent> BeaconLight/);
  assert.match(mc,/CreateDefaultSubobject<UPointLightComponent>\(TEXT\("HarborSignalLight"\)\)/);
@@ -21,6 +21,8 @@ test('UE5 story has a real optional physical action with server-replicated beaco
  assert.match(mc,/BeaconLight->SetVisibility\(bLit\)/);
  assert.match(mc,/SyncBeaconLight\(\);/);
  assert.match(mc,/FMath::Square\(275\.f\)/,'same physical E interaction check is required');
+ assert.match(mc,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
+ assert.match(mc,/if \(Model\) Model->SetVisibility\(IsAvailable\(\)\)/);
 });
 test('UE5 native CH01 V2 beacon save keeps V1 checkpoint compatibility and readback proof',()=>{
  const data=read('VPStoryCheckpoint.h'),mode=read('VPStoryGameMode.cpp'),state=read('VPStoryGameState.cpp');
