@@ -56,7 +56,10 @@ void AVPWorldBootstrap::CreateStoryHarborLamps()
     static const FVector Locations[] = {
         FVector(1250.f,-950.f,350.f),
         FVector(2050.f,950.f,350.f),
-        FVector(3550.f,-1700.f,330.f)
+        FVector(3550.f,-1700.f,330.f),
+        // The restored local relay also powers the real indoor fittings.
+        FVector(2050.f,3450.f,305.f),
+        FVector(2550.f,3450.f,305.f)
     };
     for (const FVector& Position : Locations)
     {
@@ -133,6 +136,22 @@ void AVPWorldBootstrap::BeginPlay()
         };
         for(const FCoastalBlock& Block : StoryBlocks)
             AddBlock(Buildings,Block.Center,Block.Scale);
+        // A genuinely ENTERABLE CH01 warehouse, rather than a solid facade.
+        // Four individually colliding walls leave a 3m front doorway at
+        // (X=2300,Y=2900). Roof is elevated above the walkable floor.
+        // Geometry is identical in standalone PIE and replicated clients.
+        // One cube unit is one metre; all positions are UE centimetres.
+        AddBlock(Buildings,FVector(1600.f,3500.f,190.f),FVector(.25f,12.f,3.8f)); // west wall
+        AddBlock(Buildings,FVector(3000.f,3500.f,190.f),FVector(.25f,12.f,3.8f)); // east wall
+        AddBlock(Buildings,FVector(2300.f,4100.f,190.f),FVector(14.f,.25f,3.8f)); // rear wall
+        AddBlock(Buildings,FVector(1875.f,2900.f,190.f),FVector(5.5f,.25f,3.8f));
+        AddBlock(Buildings,FVector(2725.f,2900.f,190.f),FVector(5.5f,.25f,3.8f));
+        AddBlock(Buildings,FVector(2300.f,3500.f,390.f),FVector(14.f,12.f,.25f)); // raised roof
+        // A readable service interior with separate solid low storage units.
+        // Clear central 3m entry and middle aisle permit actual capsule travel.
+        AddBlock(Buildings,FVector(1790.f,3760.f,60.f),FVector(1.4f,2.f,1.2f));
+        AddBlock(Buildings,FVector(2810.f,3760.f,60.f),FVector(1.4f,2.f,1.2f));
+        AddBlock(Buildings,FVector(2300.f,3980.f,45.f),FVector(2.f,1.f,.9f));
         // Ordered, deterministic harbor-edge decoration; noncolliding and
         // identical on server/client without replicating instance arrays.
         for(int32 i=0;i<18;++i)
