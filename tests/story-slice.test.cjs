@@ -63,7 +63,7 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'terminal');
   assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
   clearEncounter(state);
-  assert.equal(story.markers(state).length,5);
+  assert.equal(story.markers(state).length,6,'original records/decision and the new walk-in office notice');
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(state.found.length,2);
