@@ -2615,3 +2615,32 @@ test('team relay HUD does not guess reach distance when public objective geometr
  assert.match(a.node('relayProgress').textContent,/중계기 가까이 이동/);
  assert.doesNotMatch(a.node('relayProgress').textContent,/접근까지 약/);
 });
+
+
+test('malformed local join response never persists a fake team identity or consumes another seat',async()=>{
+ for(const invalid of [null,[],{token:'not-a-session'},{}]){
+  const server=backend();
+  let corrupt=true;
+  const adapter={fetchLocal:async(route,options)=>{
+   const response=await server.fetchLocal(route,options);
+   if(route==='/join'&&corrupt){
+    corrupt=false;
+    return {...response,json:async()=>invalid};
+   }
+   return response;
+  }};
+  const storage=new Map(),a=boot(adapter,storage);
+  a.node('join').click();await settle();
+  assert.equal(server.match.players.size,1,'first join reached the authoritative server');
+  assert.equal(a.node('join').disabled,false,'invalid acknowledgement permits safe retry');
+  assert.equal(storage.has('veilpoint.team.tabSession'),false,
+   'a fake token must never enter persistent tab identity');
+  assert.match(a.node('status').textContent,/서버 응답 형식 오류/);
+  const firstAttempt=storage.get('veilpoint.team.pendingJoin');
+  assert.match(firstAttempt,/^[a-f0-9]{32}$/);
+  a.node('join').click();await settle();
+  assert.equal(server.match.players.size,1,'retry with same attempt reuses server seat');
+  assert.equal(storage.get('veilpoint.team.tabSession'),[...server.match.players.keys()][0]);
+  assert.equal(storage.has('veilpoint.team.pendingJoin'),false);
+ }
+});

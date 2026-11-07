@@ -91,7 +91,15 @@
         ...(body ? {body: JSON.stringify(body)} : {}),
         ...(controller ? {signal: controller.signal} : {})}), timeout]);
       const data = await Promise.race([response.json(), timeout]);
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      // Local server errors and malformed replies must not be mistaken for
+      // an authenticated seat or an authoritative 60Hz state snapshot.
+      if (!data || typeof data !== 'object' || Array.isArray(data))
+        throw new Error('invalid_server_response');
+      if (!response.ok) throw new Error(typeof data.error === 'string'
+        ? data.error : `HTTP ${response.status}`);
+      if (path === '/join' &&
+          (typeof data.token !== 'string' || !/^[a-f0-9]{48}$/.test(data.token)))
+        throw new Error('invalid_server_response');
       return data;
     } finally {
       clearTimeout(timer);
@@ -99,7 +107,10 @@
   };
   const status = msg => {el('status').textContent = msg;};
   const readableError = err => err.message === 'simulation_unavailable'
-    ? '서버 시뮬레이션이 중단되었습니다. 로컬 서버를 재시작한 뒤 재연결하세요.' : err.message;
+    ? '서버 시뮬레이션이 중단되었습니다. 로컬 서버를 재시작한 뒤 재연결하세요.'
+    : err.message === 'invalid_server_response'
+      ? '로컬 서버 응답 형식 오류 · 연결 상태를 확인한 뒤 다시 시도하세요.'
+      : err.message;
   function invalidateSession(expiredToken, retryable = false) {
     if (!expiredToken || token !== expiredToken) return;
     // A restarted local server may forget the token while this tab stays open.

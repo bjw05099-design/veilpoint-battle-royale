@@ -8,11 +8,21 @@
   function isPlayableGeneration(result,source){
     if(!result||result.source!==source)return false;
     const state=result.state;
-    return state!==null&&typeof state==='object'&&!Array.isArray(state)
-      &&typeof state.phase==='string'
-      &&state.world!==null&&typeof state.world==='object'&&!Array.isArray(state.world)
-      &&state.world.player!==null&&typeof state.world.player==='object'
-      &&Number.isFinite(state.world.player.x)&&Number.isFinite(state.world.player.z);
+    if(state===null||typeof state!=='object'||Array.isArray(state)||
+      !['terminal','engagement','records','decision','exit','complete','failed'].includes(state.phase))
+      return false;
+    const world=state.world;
+    if(world===null||typeof world!=='object'||Array.isArray(world)||
+       !Number.isFinite(world.elapsed)||world.elapsed<0||
+       !Array.isArray(world.bots)||!Array.isArray(world.obstacles)||
+       !Array.isArray(state.found)||!state.combat||typeof state.combat!=='object')
+      return false;
+    const player=world.player;
+    // A decoder that returns only plausible x/z is not a playable fixed-step
+    // checkpoint. Never hand an incomplete actor or clock to the renderer.
+    return player!==null&&typeof player==='object'&&!Array.isArray(player)&&
+      ['x','z','yaw','pitch','stamina','health','charges'].every(
+        key=>Number.isFinite(player[key]));
   }
   function retryBackup(backup,restorePair){
     if(backup==null)return null;
