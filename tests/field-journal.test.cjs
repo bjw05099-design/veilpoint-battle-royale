@@ -86,3 +86,38 @@ test('CH01 journal route tracks the actual 60Hz clearance clock across a checkpo
  assert.match(Journal.entries(state).find(row=>row.id==='gateLog').detail,/전달 전/);
  assert.equal(Journal.entries(state).find(row=>row.id==='route').unlocked,true);
 });
+
+
+test('CH01 earned radio and beacon evidence enters the journal only after physical state confirmation',()=>{
+ const fresh=Story.createState(),initial=Story.serialize(fresh);
+ assert.deepEqual(Journal.entries(fresh).map(x=>x.id),['recordA','recordB']);
+ assert.equal(Story.serialize(fresh),initial);
+ // Do not forge post-mission progress into an impossible terminal checkpoint.
+ const savedLegacy={version:1,phase:'exit',found:['recordA','recordB'],choice:'verification',
+  player:{x:0,z:12,yaw:0,pitch:0,stamina:100},elapsed:10};
+ const state=Story.restore(JSON.stringify(savedLegacy));
+ state.combat.supportUsed=true;
+ let rows=Journal.entries(state);
+ assert.match(rows.find(x=>x.id==='support').detail,/현장에서 동료 상황 보고/);
+ assert.equal(rows.some(x=>x.id==='relay'||x.id==='beacon'),false);
+ state.beaconEnabled=true; // invalid out-of-order external fixture: cannot claim restored power.
+ assert.equal(Journal.entries(state).some(x=>x.id==='beacon'),false);
+ state.beaconEnabled=false;
+ state.relayRestored=true;
+ rows=Journal.entries(state);
+ assert.match(rows.find(x=>x.id==='relay').detail,/직접 연결/);
+ assert.equal(rows.some(x=>x.id==='beacon'),false);
+ const saved=Story.serialize(state);
+ rows=Journal.entries(Story.restore(saved));
+ assert.match(rows.find(x=>x.id==='relay').detail,/비상 무전/);
+ assert.equal(rows.some(x=>x.id==='beacon'),false);
+ state.beaconEnabled=true;
+ const before=Story.serialize(state);
+ rows=Journal.entries(state);
+ assert.match(rows.find(x=>x.id==='beacon').detail,/현장 스위치를 직접 작동/);
+ assert.equal(Story.serialize(state),before,'read-only log never changes the 60Hz world');
+ assert.ok(rows.every(Object.isFrozen));
+ state.beaconEnabled=false;
+ assert.equal(Journal.entries(state).some(x=>x.id==='beacon'),false,
+  'turning a manual warning light off must not falsely claim it remains active');
+});

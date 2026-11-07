@@ -18,6 +18,18 @@
       id:'comparison',unlocked:true,title:'기록 교차 확인',
       detail:'대피소 04:07 / 항구 04:12 · 기록 시각이 다르지만 원인은 아직 확정되지 않았습니다.'
     }));
+    // These events require earned physical CH01 actions. A field journal
+    // cannot infer an unlocked radio or manually operated warning light from
+    // an unvisited marker or an incomplete future objective.
+    const event=(id,title,detail)=>rows.push(Object.freeze({
+      id,unlocked:true,title,detail
+    }));
+    if(state&&state.combat&&state.combat.supportUsed)
+      event('support','동료 현장 보고','이수혁 대위가 현장에서 동료 상황 보고를 수신했다. 아직 확인하지 않은 기록의 내용까지 검증한 것은 아니다.');
+    if(state&&state.relayRestored)
+      event('relay','비상 무전 중계기 복구','현장에서 예비 전원을 직접 연결해 현지 비상 무전과 항구 벽등을 복구했다.');
+    if(state&&state.beaconEnabled&&state.relayRestored)
+      event('beacon','수동 항구 경고등 점등','전원이 복구된 항구 경고등의 현장 스위치를 직접 작동했다. 현지 구조단의 이후 판단을 대신하지 않는다.');
     if(state&&state.gateLogReviewed)rows.push(Object.freeze({
       id:'gateLog',unlocked:true,title:'현장 중계 로그',
       detail:'04:07 최초 수신 / 04:12 동일 메시지 재전송'+(state.logHandedOff?' · 현지 통제소 접수 완료':' · 현지 통제소 전달 전')
