@@ -18,14 +18,14 @@ function cleared(){
 test('optional south muster review is physical, persists, and changes the CH01 outcome',()=>{
   const s=cleared();
   assert.equal(Story.markers(s).some(p=>p.id==='muster'),true);
-  assert.match(Story.objective(s),/인원 확인표/);
+  assert.match(Story.objective(s),/구조단 담당자/);
   assert.equal(Story.interact(s).ok,false,'remote action must not confirm the review');
   go(s,'muster');
   assert.equal(Story.nearest(s).id,'muster');
   assert.deepEqual(Story.interact(s),{ok:true,event:'muster',phase:'exit'});
   assert.equal(s.musterConfirmed,true);
   assert.equal(Story.markers(s).some(p=>p.id==='muster'),false);
-  assert.match(Story.situation(s).civilianConsequence,/대조 완료/);
+  assert.match(Story.situation(s).civilianConsequence,/직접 협조/);
   const saved=Story.serialize(s),restored=Story.restore(saved);
   assert.equal(Story.serialize(restored),saved,'checkpoint must replay identically');
   const a=Story.restore(saved),b=Story.restore(saved);
