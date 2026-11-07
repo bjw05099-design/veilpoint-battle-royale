@@ -55,6 +55,7 @@
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
+    evacPlan: Object.freeze({id:'evacPlan', x:-18, z:-47, kind:'evidence', label:'현지 구조단 남쪽 대피 계획 안내판'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
@@ -321,7 +322,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,planReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -349,6 +350,7 @@
       ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
       [POINTS.exitEvac,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+         ...(state.planReviewed?[]:[POINTS.evacPlan]),
         ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
         ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,POINTS.guideTransfer]:[]),
          // Companion control is an observed, local objective — never a hidden
@@ -959,6 +961,11 @@
       state.aidDelivered=true;state.world.aidDelivered=true;state.world.carryingAid=false;
       state.subtitle='유수프(현지 구조단): 비상 물품을 현장에서 인수했어. 주민 지원은 우리 구조단이 맡을게.';
       state.message='민간 구조단 물품 인계 완료 · 안전한 안뜰로 이동';
+    }else if(marker.id==='evacPlan'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.planReviewed){
+      // Physical review of a public local evacuation notice; no hidden intel.
+      state.planReviewed=true;
+      state.subtitle='유수프(현지 구조단): 남쪽 안뜰은 구조단이 통제한다. 인원 확인과 동행, 물품 인계는 현장에서 각각 확인해 줘.';
+      state.message='남쪽 대피 계획 현장 확인 완료 · 선택 과제는 별도 수행';
     }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
       // Optional, physical civilian headcount review. No automatic knowledge,
       // teleportation, reward or competitive benefit is granted by this choice.
@@ -1084,6 +1091,8 @@
       // Reconfirming the current route must not reset its running gate motor.
       if(choice===state.choice)return {ok:true,event:'choice_unchanged',choice};
     }
+    // Reselecting the opposite route revokes only this optional local review.
+    if(choice!==state.choice)state.planReviewed=false;
     state.choice=choice;state.phase='exit';
     state.gateClearanceDuration=state.relayRestored?4:GATE_CLEARANCE_SECONDS;
     state.gateReadyAt=choice==='verification'?state.world.elapsed+state.gateClearanceDuration:0;
@@ -1121,6 +1130,7 @@
       const aidStatus=state.aidDelivered?'done':state.aidStaged?'staged'
         :state.aidPickedUp?'carrying':'available';
       return Object.freeze([
+        item('plan','남쪽 대피 계획 현장 확인',state.planReviewed?'done':'available',true),
         item('muster','집결지 인원 확인',state.musterConfirmed?'done':'available',true),
         item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
@@ -1279,7 +1289,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,planReviewed:state.planReviewed,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
@@ -1301,8 +1311,8 @@
       throw new RangeError('Invalid story checkpoint');
     // Checkpoint data is untrusted local JSON; never copy arbitrary keys into world entities.
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
-    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+13||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration').includes(k))||
+    if(Object.keys(data).length<expectedKeys.length||Object.keys(data).length>expectedKeys.length+14||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','planReviewed').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1315,6 +1325,7 @@
        (hasOwn(data,'gateLogReviewed')&&typeof data.gateLogReviewed!=='boolean')||
        (hasOwn(data,'logHandedOff')&&typeof data.logHandedOff!=='boolean')||
       (hasOwn(data,'musterConfirmed')&&typeof data.musterConfirmed!=='boolean')||
+      (hasOwn(data,'planReviewed')&&typeof data.planReviewed!=='boolean')||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
       (hasOwn(data,'aidDelivered')&&typeof data.aidDelivered!=='boolean')||
       (hasOwn(data,'aidStaged')&&typeof data.aidStaged!=='boolean')||
@@ -1442,6 +1453,8 @@
 
       (hasOwn(data,'musterConfirmed')&&data.musterConfirmed&&
         (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
+      (data.planReviewed===true&&
+        (data.choice!=='evacuation'||!['exit','complete'].includes(data.phase)))||
       (hasOwn(data,'relayRestored')&&data.relayRestored&&
         (['terminal','engagement','failed'].includes(data.phase)))||
       (data.beaconEnabled===true&&
@@ -1490,6 +1503,7 @@
     state.logHandedOff=hasOwn(data,'logHandedOff')?data.logHandedOff:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
     state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
+    state.planReviewed=hasOwn(data,'planReviewed')?data.planReviewed:false;
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
