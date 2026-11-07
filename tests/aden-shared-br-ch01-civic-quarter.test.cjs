@@ -35,7 +35,10 @@ test('the same 60Hz movement traverses the continuous civic entrance in both mod
  br.status='playing';
  for(const p of [br.player,story.world.player]){p.x=77;p.z=107;p.yaw=Math.PI;}
  for(let i=0;i<165;i++){
-  Sim.tick(br,1/60,{forward:true});
+  // A zero-rival offline BR immediately completes after one full tick, so
+  // inspect its actual fixed-step movement collider directly without
+  // inventing a bot or bypassing the world obstacle array.
+  Sim.moveEntity(br.player,0,6.1,1/60,br.obstacles);
   Story.step(story,1/60,{forward:true});
  }
  assert.ok(br.player.z>118&&br.player.z<133,'BR body actually enters market courtyard');
