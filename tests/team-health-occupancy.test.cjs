@@ -40,3 +40,49 @@ test('local team health truthfully reports ready seats without disclosing player
    'health cannot renew the surviving client session lease');
  }finally{await server.close();}
 });
+
+
+test('local team diagnostics excludes expired combat seats without erasing results',async()=>{
+ let now=0;
+ const server=createTeamServer({port:0,autoTick:false,now:()=>now});
+ const {port}=await server.listen(),base='http://127.0.0.1:'+port;
+ const join=async name=>{
+  const response=await fetch(base+'/join',{method:'POST',
+   headers:{'content-type':'application/json'},body:JSON.stringify({name})});
+  assert.equal(response.status,201);return response.json();
+ };
+ const command=async(token,seq,type)=>{
+  const response=await fetch(base+'/command',{method:'POST',
+   headers:{'content-type':'application/json','x-player-token':token},
+   body:JSON.stringify({seq,type})});
+  assert.equal(response.status,200);return response.json();
+ };
+ const diagnostic=async()=>{
+  const response=await fetch(base+'/health/diagnostics');
+  assert.equal(response.status,200);return response.json();
+ };
+ try{
+  const a=await join('A'),b=await join('B');
+  await command(a.token,1,'ready');
+  await command(b.token,1,'ready');
+  assert.equal(server.match.phase,'playing');
+  now=25000;
+  await command(a.token,2,'heartbeat');
+  now=30001;
+  const timeout=await diagnostic();
+  assert.equal(timeout.phase,'ended','the expired peer ends the round');
+  assert.equal(timeout.connectedPlayers,1,'retained stale seat is not connected');
+  assert.equal(timeout.lobbyReadyPlayers,null);
+  assert.equal(timeout.simulationTick,0,'diagnostics never steps the simulation');
+  assert.equal(server.match.winner,'red');
+  assert.equal(server.match.players.size,2,'finished seats remain for read-only results');
+  now=56000;
+  assert.equal((await diagnostic()).connectedPlayers,0);
+  assert.equal(server.match.phase,'ended','monitoring cannot erase the finished match');
+  const result=await fetch(base+'/state',{headers:{'x-player-token':a.token}});
+  assert.equal(result.status,200);
+  assert.equal((await result.json()).winner,'red');
+  const body=JSON.stringify(await diagnostic());
+  assert.equal(body.includes(a.token)||body.includes(b.token),false);
+ }finally{await server.close();}
+});
