@@ -59,6 +59,8 @@
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evac', label:'유수프 구조단 집결지 현장 담당자'}),
     dispatchLedger: Object.freeze({id:'dispatchLedger',x:-24,z:-57,kind:'evidence',label:'남쪽 구조단 접수 장부'}),
+    // An observed person, not a remotely read dossier or a confirmed bus.
+    transportDriver: Object.freeze({id:'transportDriver',x:10,z:-54,kind:'evac',label:'운송 담당자 나딤 · 현장 대화'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
     guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
@@ -324,7 +326,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -351,7 +353,8 @@
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+      [POINTS.exitEvac,...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
+         ...(state.transportContact<2?[POINTS.transportDriver]:[]),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
          ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
         ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,POINTS.guideTransfer]:[]),
          // Companion control is an observed, local objective — never a hidden
@@ -369,6 +372,9 @@
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
+    state.world.witness=(['exit','complete'].includes(state.phase)&&
+      (state.choice==='evacuation'||state.transportContact>0))
+      ?{x:POINTS.transportDriver.x,z:POINTS.transportDriver.z}:null;
     state.world.relayRestored=state.relayRestored;
     state.world.beaconEnabled=state.beaconEnabled;
     state.world.flashlightOn=state.flashlightOn;
@@ -465,6 +471,7 @@
       if(guideInReach&&(priority>bestPriority||(priority===bestPriority&&d<best))&&
         d<(marker.id==='beacon'?SWITCH_REACH:
           marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
+          marker.id==='transportDriver'?2.3:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;bestPriority=priority;candidate=marker;
@@ -607,6 +614,12 @@
       Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
+    // A real actor blocks walking through their position. Historic saves
+    // starting in an overlap can still move out of the footprint.
+    if(state.world.witness){
+      const w=state.world.witness,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     // The guide remains a solid person while waiting at muster and after
     // the physical handoff, not an intangible prop when following stops.
     if(state.choice==='evacuation'&&state.musterConfirmed){
@@ -976,6 +989,15 @@
       state.dispatchReviewed=true;
       state.subtitle='조현지(국정원): 접수 장부를 확인했어요. 비상 물품 요청은 접수됐지만 인수 서명란은 아직 비어 있어요. 실제 전달 여부는 현장에서 확인해야 해요.';
       state.message='현장 접수 장부 확인 · 실제 물품 인계와 안내원 동행은 별도 확인';
+    }else if(marker.id==='transportDriver'&&state.phase==='exit'&&
+      state.choice==='evacuation'&&state.transportContact<2){
+      state.transportContact++;
+      state.subtitle=state.transportContact===1
+        ?'나딤(현지 운송 담당자): 구조 차량은 배정받았지만 아직 현장에 도착하지 않았습니다. 도로 상태를 직접 보고 출발 여부를 결정해야 해요.'
+        :'조현지(국정원): 나딤 담당자의 현장 발언을 기록했습니다. 차량 배정과 실제 도착은 다른 사실입니다. 도착 확인 전에는 인원 수송 완료로 보고하지 않겠습니다.';
+      state.message=state.transportContact===1
+        ?'현장 운송 담당자 면담 · E로 출발 여부 재확인'
+        :'운송 담당자 면담 완료 · 실제 차량 도착은 확인되지 않음';
     }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
       // Optional direct conversation with the coordinator physically present at
       // muster. No hidden headcount, remote paperwork or automatic reward.
@@ -1139,6 +1161,7 @@
         :state.aidPickedUp?'carrying':'available';
       return Object.freeze([
         item('muster','집결지 인원 확인',state.musterConfirmed?'done':'available',true),
+        item('driver','현장 운송 담당자 면담',state.transportContact===2?'done':'available',true),
          item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
@@ -1301,7 +1324,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
@@ -1325,8 +1348,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+15||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration').includes(k))||
+      Object.keys(data).length>expectedKeys.length+16||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1343,6 +1366,10 @@
         (typeof data.dispatchReviewed!=='boolean'||
          (data.dispatchReviewed&&(data.choice!=='evacuation'||
            !['exit','complete'].includes(data.phase)))))||
+       (hasOwn(data,'transportContact')&&(
+          !Number.isInteger(data.transportContact)||
+          data.transportContact<0||data.transportContact>2||
+          (data.transportContact>0&&!['exit','complete'].includes(data.phase))))||
        (hasOwn(data,'transitReviewed')&&typeof data.transitReviewed!=='boolean')||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
       (hasOwn(data,'aidDelivered')&&typeof data.aidDelivered!=='boolean')||
@@ -1523,6 +1550,8 @@
     state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
     // Existing checkpoint generations predate this optional observed journal.
     state.dispatchReviewed=hasOwn(data,'dispatchReviewed')?data.dispatchReviewed:false;
+    // Old current and completed story saves predate the optional conversation.
+    state.transportContact=hasOwn(data,'transportContact')?data.transportContact:0;
      // Historic v2 files may carry a now-retired, non-essential planning-board
      // flag. It is validated above but intentionally discarded on restore;
      // genuine escort, supply and evidence progress remains untouched.
