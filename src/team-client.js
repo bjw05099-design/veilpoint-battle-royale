@@ -542,6 +542,7 @@
     el('capture').textContent=duelMode?'대결 모드 · 목표 없음':controls.bindings.interact+
       (courierMode?' 물품 인수·인계':' 점령');
     el('phase').textContent = state.phase.toUpperCase()+
+      (state.arena==='dockyard'?' · 부두 대결':'')+
       (state.round?.suddenDeathActive===true?' · 연장전':'');
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;

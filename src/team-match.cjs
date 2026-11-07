@@ -41,6 +41,15 @@ const COVER = Object.freeze([
   Object.freeze({x: 0, z: 6, w: 3, d: 1.5}),
   Object.freeze({x: 0, z: -6, w: 3, d: 1.5})
 ]);
+// Optional dockside duel: permanent, physical 2D prototype barriers.
+// Two open end routes make the center barrier traversable around both ends;
+// no wall materializes or moves once either participant enters.
+const DUEL_DOCK_COVER=Object.freeze([
+  Object.freeze({x:0,z:0,w:1.2,d:5.2}),
+  Object.freeze({x:-4,z:-4,w:2,d:1.5}),
+  Object.freeze({x:4,z:4,w:2,d:1.5})
+]);
+const isDuelSite=site=>site==='duel'||site==='duel-docks';
 const PLAYER_RADIUS = 0.55;
 // In clear air, all unobstructed positions in this bounded 48m x 48m
 // prototype arena can be seen within the 120-degree view. This is not a
@@ -139,11 +148,11 @@ class TeamMatch {
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
     // Combat-only mode: the winner is decided by the authoritative round.
-    if(objectiveSite==='duel'&&targetScore!==1)throw new RangeError('duel_one_round_only');
-    if(objectiveSite!=='duel'&&objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(isDuelSite(objectiveSite)&&targetScore!==1)throw new RangeError('duel_one_round_only');
+    if(!isDuelSite(objectiveSite)&&objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     if(typeof suddenDeath!=='boolean')throw new RangeError('invalid_sudden_death');
-    if(suddenDeath&&(objectiveSite==='courier'||objectiveSite==='duel'))throw new RangeError('sudden_death_relay_only');
+    if(suddenDeath&&(objectiveSite==='courier'||isDuelSite(objectiveSite)))throw new RangeError('sudden_death_relay_only');
     if(lighting!=='day'&&lighting!=='dusk')
       throw new RangeError('invalid_lighting');
     this.lighting=lighting;
@@ -151,8 +160,9 @@ class TeamMatch {
     this.suddenDeathActive=false;
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
+    this.cover=objectiveSite==='duel-docks'?DUEL_DOCK_COVER:COVER;
     this.objectiveStage=0;
-    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'||objectiveSite==='duel'?'center':objectiveSite];
+    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'||isDuelSite(objectiveSite)?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -165,7 +175,7 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||this.objectiveSite==='duel'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||isDuelSite(this.objectiveSite)?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -305,7 +315,7 @@ class TeamMatch {
     p.seq = data.seq;
     p.lastSeen = this.now();
     // Duel cannot accumulate phantom relay progress from E presses.
-    if(this.objectiveSite==='duel'&&data.type==='capture')
+    if(isDuelSite(this.objectiveSite)&&data.type==='capture')
       return {ok:false,reason:'duel_no_capture'};
     if (data.type === 'leave') {
       this.players.delete(token);
@@ -497,7 +507,7 @@ class TeamMatch {
           : Infinity;
         const hit = contact > 0 && contact <= weapon.range &&
           !lineBlocked(p.x, p.z, p.x + p.facing.x * contact,
-            p.z + p.facing.z * contact, COVER);
+            p.z + p.facing.z * contact, this.cover);
         if (hit) {
           // Held triggers in the same 60Hz tick must resolve together. Otherwise
           // the first Map entry always wins an otherwise mutual final exchange.
@@ -527,7 +537,7 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||this.objectiveSite==='duel'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||isDuelSite(this.objectiveSite)?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -677,7 +687,7 @@ class TeamMatch {
       const speed = SPEED * (p.crouching ? CROUCH_SPEED_FACTOR : sprintRequested ? SPRINT_SPEED_FACTOR : 1) *
         LOADOUTS[p.weaponId].mobility * injuryMobility(p) * (carryingParcel ? .80 : 1);
       moveEntity(next, p.direction.x * speed, p.direction.z * speed, STEP,
-        COVER, PLAYER_RADIUS);
+        this.cover, PLAYER_RADIUS);
       next.x = clamp(next.x, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       next.z = clamp(next.z, -24 + PLAYER_RADIUS, 24 - PLAYER_RADIUS);
       proposals.push({p, from, next, sprintRequested});
@@ -764,7 +774,7 @@ class TeamMatch {
       else if (survivors.length === 1) this.finish(survivors[0].team, 'opponent_incapacitated');
     }
     if (this.phase !== 'playing') return;
-    if(this.objectiveSite==='duel'){
+    if(isDuelSite(this.objectiveSite)){
       // The existing 60Hz movement, finite resources and simultaneous combat
       // resolution have already run. No relay exists in this mode.
       this.finishIfDeadline();
@@ -859,10 +869,11 @@ class TeamMatch {
         const vx = x - me.x, vz = z - me.z, range = Math.hypot(vx, vz);
         return range <= weather.visibilityRange &&
           vx * me.facing.x + vz * me.facing.z >= range * VISION_COS &&
-          !lineBlocked(me.x, me.z, x, z, COVER);
+          !lineBlocked(me.x, me.z, x, z, this.cover);
       });
     });
     return {phase: this.phase, tick: this.ticks, lighting:this.lighting,
+      ...(this.objectiveSite==='duel-docks'?{arena:'dockyard'}:{}),
       round: {id:this.roundId,
         limitTicks: ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0),
         remainingTicks: Math.max(0,ROUND_LIMIT_TICKS+(this.suddenDeathActive?OVERTIME_TICKS:0)-this.ticks),
@@ -874,7 +885,7 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
-      relayVariant:this.objectiveSite==='duel'?'duel':
+      relayVariant:isDuelSite(this.objectiveSite)?'duel':
         this.objectiveSite==='courier'?'courier':
         this.objectiveSite==='rotation-wide'?'rotation-wide':
         this.objectiveSite==='rotation'?'rotation':'fixed',
@@ -891,7 +902,7 @@ class TeamMatch {
       events: this.events.map(e=>({type:e.type,team:e.team,tick:e.tick})),
       // Three permanent, public ground fixtures. A successful transmission
       // changes which existing terminal is authorized, never teleports metal.
-      objective: this.objectiveSite==='duel'?null:{x: this.objective.x, z: this.objective.z,
+      objective: isDuelSite(this.objectiveSite)?null:{x: this.objective.x, z: this.objective.z,
         radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
         stations: (this.objectiveSite==='courier'
           ? ['pickup','dropoff']
@@ -907,7 +918,7 @@ class TeamMatch {
           active:this.objectiveSite==='courier'
             ?(id==='pickup'?this.courier.carrierId===null:this.courier.carrierId!==null)
             :RELAY_SITES[id]===this.objective
-        }))}, cover: COVER, weather,
+        }))}, cover: this.cover, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
       // A restored PC tab must not display its HTML default as another name.
       self: {id: me.id, name: me.name, team: me.team, weaponId: me.weaponId, x: me.x, z: me.z,
@@ -921,7 +932,7 @@ class TeamMatch {
         ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
         stamina: me.stamina, sprintExhausted: me.sprintExhausted,
         captureArmed: me.captureArmed,
-        relayInteraction: this.objectiveSite==='duel'?'inactive':
+        relayInteraction: isDuelSite(this.objectiveSite)?'inactive':
           relayInteractionState(me,this.phase,this.progress[me.team],this.objective), seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
