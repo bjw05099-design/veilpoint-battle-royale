@@ -1333,7 +1333,10 @@ addEventListener('keyup',e=>{
 });
 // Background throttling must never simulate hostile fire against an unfocused player.
 function suspendMatch(reason='background'){
- if(benchmark&&benchmark.getStatus().state==='running')benchmark.finish(reason==='background'?'paused-or-hidden':reason);
+ // An armed sample has not rendered its first frame: hiding the browser
+ // must cancel it too, rather than silently starting a new test on return.
+ if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))
+  benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
  if(motorSound)motorSound.stop();
  const checkpointSaved=persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
