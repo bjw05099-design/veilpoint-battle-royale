@@ -5,7 +5,8 @@ const fs=require('node:fs'),path=require('node:path');
 const code=fs.readFileSync(path.resolve(__dirname,
  '../Unreal/Veilpoint/Source/Veilpoint/VPWorldBootstrap.cpp'),'utf8');
 const start=code.indexOf('// Native CH01 open-sided coastal trading arcade');
-const end=code.indexOf('// Ordered, deterministic harbor-edge decoration',start);
+// Inspect only the original arcade, not the later independent loading dais.
+const end=code.indexOf('// Native CH01 public loading dais',start);
 const body=code.slice(start,end);
 const raw=[...body.matchAll(/AddBlock\(Buildings,FVector\(([-\d.]+)f,([-\d.]+)f,([-\d.]+)f\),FVector\(([-\d.]+)f,([-\d.]+)f,([-\d.]+)f\)\)/g)]
  .map(m=>m.slice(1).map(Number));
