@@ -152,6 +152,21 @@ void AVPWorldBootstrap::BeginPlay()
         AddBlock(Buildings,FVector(1790.f,3760.f,60.f),FVector(1.4f,2.f,1.2f));
         AddBlock(Buildings,FVector(2810.f,3760.f,60.f),FVector(1.4f,2.f,1.2f));
         AddBlock(Buildings,FVector(2300.f,3980.f,45.f),FVector(2.f,1.f,.9f));
+        // Native CH01 open-sided coastal trading arcade. This is original
+        // Aden-inspired urban composition, NOT an actual historical building
+        // or a copy of a sensitive contemporary facility. Its physical columns,
+        // shallow stalls and raised roof leave a wide central pedestrian route.
+        // 100 cm = 1 m; generated on every peer, not client-authoritative.
+        AddBlock(Buildings,FVector(5500.f,3000.f,320.f),FVector(18.f,7.f,.25f));
+        // Four separated columns meet the underside of the 3.075m-high roof.
+        AddBlock(Buildings,FVector(4700.f,2750.f,160.f),FVector(.35f,.35f,3.2f));
+        AddBlock(Buildings,FVector(6300.f,2750.f,160.f),FVector(.35f,.35f,3.2f));
+        AddBlock(Buildings,FVector(4700.f,3250.f,160.f),FVector(.35f,.35f,3.2f));
+        AddBlock(Buildings,FVector(6300.f,3250.f,160.f),FVector(.35f,.35f,3.2f));
+        // Two grounded stalls occupy the sides, rather than placing a hidden
+        // wall across the 10m-wide playable, independently collidable aisle.
+        AddBlock(Buildings,FVector(4775.f,3000.f,55.f),FVector(1.8f,2.2f,1.1f));
+        AddBlock(Buildings,FVector(6225.f,3000.f,55.f),FVector(1.8f,2.2f,1.1f));
         // Ordered, deterministic harbor-edge decoration; noncolliding and
         // identical on server/client without replicating instance arrays.
         for(int32 i=0;i<18;++i)
