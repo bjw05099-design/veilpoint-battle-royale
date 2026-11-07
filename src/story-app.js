@@ -492,6 +492,12 @@
       $('storyWeapon').value=state.world.player.weaponId;
       guidanceId=null;shotSavePending=false;firstShotSaved=false;
       lastAutosaveAt=state.world.elapsed;
+      // A retry can select an older verified backup or create a fresh state
+      // when the last live mission failed. Commit that playable state before
+      // returning keyboard/mouse control, instead of leaving a terminal
+      // generation on disk until the next five-second autosave window.
+      // persist() protects newer tabs and rejects damaged disk generations.
+      persist('CH01 재시도 시작');
     }else if(state.phase==='complete'){
       // The replay button starts a new real CH01 session, not a temporary HUD
       // reset above a completed checkpoint. Commit the fresh 60Hz world before
