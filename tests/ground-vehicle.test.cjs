@@ -37,7 +37,6 @@ test('snapshot restore rejects invalid state and preserves movement',()=>{
  assert.throws(()=>V.restore({...v,teleport:true}),RangeError);
  assert.throws(()=>V.tick(v,{},.2,()=>false),RangeError);
 });
-
 test('parking brake overrides throttle and stops a moving vehicle',()=>{
  const v=V.create(0,0);V.enter(v,{x:0,z:0},()=>false);
  for(let i=0;i<120;i++)V.tick(v,{toggleEngine:i===0,throttle:1},1/60,()=>false);
@@ -49,16 +48,16 @@ test('parking brake overrides throttle and stops a moving vehicle',()=>{
 });
 test('swept road collision checks intermediate positions before the endpoint',()=>{
  const v=V.create(0,0);V.enter(v,{x:0,z:0},()=>false);
- for(let i=0;i<180;i++)V.tick(v,{toggleEngine:i===0,throttle:1},1/60,()=>false);
+ // Fix the initial state to an explicit, physically valid fast-moving vehicle.
+ // The regression verifies path sampling rather than the acceleration warm-up.
+ v.engineOn=true;v.speed=V.MAX_SPEED;
  const before={x:v.x,z:v.z};
  const endZ=v.z-v.speed*.05;
  const barrierZ=(v.z+endZ)/2;
  let probes=0;
- // The first collision probe can hit the barrier; count the full sweep
- // separately on an identical state to verify intermediate sampling.
  const clear=V.restore(V.snapshot(v));
  V.tick(clear,{throttle:1},.05,()=>{probes++;return false;});
- assert.ok(probes>=2);
+ assert.ok(probes>=3,'high-speed fixed-step sweep must sample intermediate positions');
  V.tick(v,{throttle:1},.05,box=>box.z<=barrierZ);
  assert.ok(v.z>barrierZ);
  assert.equal(v.speed,0);
