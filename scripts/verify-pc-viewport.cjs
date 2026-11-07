@@ -446,7 +446,7 @@ async function run(){
   logHandedOff:true,musterConfirmed:true,aidPickedUp:true,aidDelivered:true,
   guide:{active:true,arrived:true,released:true}
  });
- const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[];
+ const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[],keyboardRecords=[];
  // Windows-hosted Chrome can become unresponsive before its DevTools endpoint
  // exists. An already-installed Microsoft Edge is a Chromium/CDP alternative,
  // not a substitute for measurement or a bypass of the release gate.
@@ -570,6 +570,18 @@ async function run(){
   }
   await rpc('Page.enable');
   await rpc('Runtime.enable');
+  async function evaluateValue(expression,label){
+   const response=await rpc('Runtime.evaluate',{expression,returnByValue:true});
+   if(response.exceptionDetails||typeof response.result?.value!=='string')
+    throw new Error('Chromium interactive UI evaluation failed: '+label);
+   return response.result.value;
+  }
+  // Real Chrome keyboard events: no synthetic JS KeyboardEvent shortcuts.
+  async function pressEscape(){
+   const key={key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27};
+   await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
+   await rpc('Input.dispatchKeyEvent',{type:'keyUp',...key});
+  }
   const tree=await rpc('Page.getFrameTree');
   // The version endpoint can become ready before the first renderer frame.
   // Confirm CDP can execute a trivial expression before the heavy offline DOM.
@@ -605,7 +617,50 @@ async function run(){
    assert.ok(data.cases.every(c=>c.controls>0),'A screen has no visible controls');
    records.push({requested:{width,height},...data});
    process.stdout.write('Chromium '+width+'x'+height+': '+
-    data.errors.length+' clipping issues\n');
+    data.errors.length+' clipping issues\\n');
+   // The geometry auditor intentionally manipulates CSS for isolated screen
+   // measurement. Reset to the real paused BR menu, then use actual DOM
+   // click listeners and CDP keyboard input to exercise the Escape route.
+   const initial=await evaluateValue(`(()=>{
+    const get=id=>document.getElementById(id);
+    get('graphicsClose').click();
+    get('overlay').classList.remove('hidden');
+    get('brViewBack').click();
+    get('brViewBack').click();
+    get('brViewMore').click();
+    return (get('overlay').classList.contains('menu-view-more')?'more':'other')+
+     '|'+document.activeElement?.id;
+   })()`,'BR-more setup '+width+'x'+height);
+   assert.equal(initial,'more|brViewBack',
+    'BR-more must open and focus Back at '+width+'x'+height);
+   await pressEscape();
+   const back=await evaluateValue(`(()=>{
+    const overlay=document.getElementById('overlay');
+    return (overlay.classList.contains('menu-view-more')?'more':'main')+
+     '|'+document.activeElement?.id;
+   })()`,'BR-more Escape '+width+'x'+height);
+   assert.equal(back,'main|brViewMore',
+    'Escape must return to BR main and focus More at '+width+'x'+height);
+   const graphics=await evaluateValue(`(()=>{
+    const get=id=>document.getElementById(id);
+    get('graphicsPauseOpen').click();
+    return (get('graphicsPanel').classList.contains('hidden')?'closed':'open')+
+     '|'+document.activeElement?.id;
+   })()`,'settings setup '+width+'x'+height);
+   assert.equal(graphics,'open|graphicsClose',
+    'Settings must open with close-button focus at '+width+'x'+height);
+   await pressEscape();
+   const closed=await evaluateValue(`(()=>{
+    const get=id=>document.getElementById(id);
+    return (get('graphicsPanel').classList.contains('hidden')?'closed':'open')+
+     '|'+document.activeElement?.id;
+   })()`,'settings Escape '+width+'x'+height);
+   assert.equal(closed,'closed|graphicsPauseOpen',
+    'Escape must close settings and restore opener focus at '+width+'x'+height);
+   keyboardRecords.push({width,height,cases:[
+    {name:'BR-more-Escape',passed:true,focused:true},
+    {name:'settings-Escape',passed:true,focused:true}
+   ]});
   }
   // CH01 has a separate HTML document and CSS. Its route-choice menu now
   // receives the same four physical Chromium viewport conditions as BR.
@@ -680,7 +735,7 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(activeChrome),
-  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,transportFailure,startupAttempts,
+  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>

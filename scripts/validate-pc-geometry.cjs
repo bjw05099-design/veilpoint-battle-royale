@@ -77,6 +77,26 @@ function validate(evidence){
   }
  }
 
+
+ const keyboard=evidence.keyboardChecks;
+ assert.ok(Array.isArray(keyboard),'Real CDP Escape evidence missing');
+ assert.equal(keyboard.length,SIZES.length,'Incomplete CDP Escape viewports');
+ const observed=new Set();
+ const requiredKeys=['BR-more-Escape','settings-Escape'];
+ for(const row of keyboard){
+  const size=row.width+'x'+row.height;
+  assert.ok(SIZES.includes(size)&&!observed.has(size),
+   'Invalid or duplicate CDP Escape viewport '+size);
+  observed.add(size);
+  assert.ok(Array.isArray(row.cases),'Missing CDP Escape cases at '+size);
+  assert.deepEqual(row.cases.map(c=>c.name).sort(),requiredKeys,
+   'Missing real CDP Escape route at '+size);
+  for(const item of row.cases){
+   assert.equal(item.passed,true,'Escape route failed: '+size+' '+item.name);
+   assert.equal(item.focused,true,'Escape keyboard focus lost: '+size+' '+item.name);
+  }
+ }
+
  return true;
 }
 if(require.main===module){
