@@ -98,6 +98,15 @@
    const slowest=[...intervals].sort((a,b)=>b-a).slice(0,slowCount);
    const avgSlow=slowest.reduce((a,b)=>a+b,0)/slowest.length;
    const cap=metadata&&metadata.fpsCap;
+   const intervalStats=stats(intervals);
+   // A selected FPS cap is an expected browser callback interval budget, not
+   // proof of native display refresh or stable graphics hardware performance.
+   // Avoid certifying pacing from a handful of incomplete frame observations.
+   const capValid=Number.isFinite(cap)&&cap>=30&&cap<=240;
+   const budgetMs=capValid?1000/cap:null;
+   const pacingStatus=intervalStats.count<30||budgetMs===null
+    ?'insufficient-evidence'
+    :intervalStats.p95<=budgetMs?'within-selected-cap':'over-selected-cap';
    // A fixed 50ms floor hides several missed refresh opportunities at
    // 120/144/165Hz. Flag intervals longer than two selected frame budgets;
    // retain 50ms only when no valid FPS cap is supplied.
@@ -114,7 +123,9 @@
     renderedFrameCount:intervals.length,observedFps:measuredMs>0?1000*intervals.length/measuredMs:null,
     estimatedOnePercentLowFps:slowest.length?1000/avgSlow:null,
     onePercentLowMethod:'reciprocal of mean slowest 1% rendered callback intervals; not a native GPU benchmark',
-    renderCallbackIntervalMs:stats(intervals),cpuRendererDrawMs:stats(cpuDraw),
+    renderCallbackIntervalMs:intervalStats,cpuRendererDrawMs:stats(cpuDraw),
+    renderCallbackBudgetMs:budgetMs,renderCallbackP95BudgetStatus:pacingStatus,
+    renderCallbackBudgetNote:'Only observed browser callback pacing; at least 30 valid intervals required. Does not verify QHD native output, 165Hz display refresh, GPU or UE5 performance.',
     webglGpuTimerMs:gpuInvalidated?stats([]):stats(gpuTimer),gpuTimerInvalidated:gpuInvalidated,
     stutterThresholdMs:threshold,stutterIntervals:intervals.filter(ms=>ms>threshold).length,
     stutterMethod:'rendered callback interval > 2 selected FPS-cap frame budgets (50ms fallback); not GPU frametime or input latency',
