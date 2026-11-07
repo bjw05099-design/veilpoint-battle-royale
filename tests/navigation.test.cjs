@@ -143,7 +143,7 @@ test('BR physical service-yard switch is discoverable only nearby and never thro
  assert.equal(nav.serviceGate({x:NaN,z:0,yaw:0},state,site,[]),'');
  const js=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8');
  assert.match(js,/Navigation\.serviceGate\(p,yardGate,Game\.SERVICE_YARD,s\.obstacles\)/);
- assert.match(js,/yardGate\.near\|\|nearby\|\|restock\|\|movable\|\|gateGuide/);
+ assert.match(js,/yardGate\.near\|\|handcart\.near\|\|nearby\|\|restock\|\|movable\|\|gateGuide/);
  assert.match(js,/else if\(gateGuide\)\$\('pickupPrompt'\)\.textContent=gateGuide/);
 });
 

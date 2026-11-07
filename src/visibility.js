@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[],handcarts=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -140,13 +140,22 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.trailMarker,.25,state.obstacles)){
    trailMarkers.push(state.trailMarker);boxes+=2;
  }
+ // One actual moving dock handcart is visible only in camera and clear sight.
+ // Its physical AABB is already in the live 60Hz obstacle array.
+ if(!state.scene&&state.handcart){
+  const body=state.obstacles.find(o=>o.routeId==='br-dock-handcart');
+  if(body&&inView(p,body.x,body.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,body,.6,state.obstacles.filter(o=>o!==body))){
+    handcarts.push(body);boxes++;
+  }
+ }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,handcarts,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
