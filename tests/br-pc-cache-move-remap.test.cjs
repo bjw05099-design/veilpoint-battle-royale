@@ -36,7 +36,10 @@ test('one observed BR cache candidate powers both the remapped prompt and physic
  const candidate=game.loot.find(item=>
   !Sim.blocked(item.x-1.3,item.z,.85,game.obstacles)&&
   !Sim.blocked(item.x+1.1,item.z,.85,game.obstacles)&&
-  !Sim.lineBlocked(item.x-1.3,item.z,item.x,item.z,game.obstacles));
+  !Sim.lineBlocked(item.x-1.3,item.z,item.x,item.z,game.obstacles)&&
+  !Sim.lineBlocked(item.x,item.z,item.x+1.1,item.z,game.obstacles)&&
+  game.loot.every(other=>other===item||
+    Math.hypot(other.x-(item.x+1.1),other.z-item.z)>1.2));
  assert.ok(candidate);
  game.player.x=candidate.x-1.3;game.player.z=candidate.z;game.player.yaw=Math.PI/2;
  const stock=game.loot.reduce((sum,x)=>sum+x.remaining,0);
