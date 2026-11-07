@@ -629,8 +629,11 @@ canvas.addEventListener('webglcontextlost',event=>{
  // Preserve the user's current foreground menu focus. Only relocate
  // focus when disabling a control or hiding the live canvas invalidates it.
  const active=document.activeElement;
- const stranded=!active||active===canvas||active===$('play')||
-  active===$('newMatch')||active.disabled===true;
+ // Real Document exposes activeElement. In minimal/offline harnesses that
+ // omit it, defer the single focus handoff to the successful renderer
+ // restoration instead of issuing duplicate focus events.
+ const stranded=('activeElement' in document)&&(!active||active===canvas||
+  active===$('play')||active===$('newMatch')||active.disabled===true);
  if(stranded){
   const node=$('graphicsPanel').classList.contains('hidden')
    ?$('brViewMore'):$('graphicsClose');
