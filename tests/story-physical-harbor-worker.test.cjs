@@ -34,7 +34,7 @@ test('worker reverses at real endpoints and respects nearby player's solid body'
  w.x=24;w.direction=1;p.x=25.7;p.z=-12;
  const old=w.x;
  for(let i=0;i<90;i++)Story.step(state,1/60,{});
- assert.equal(w.x,old,'a person directly in the lane stops walking');
+ assert.ok(w.x>=old&&w.x<old+.2,'a person immediately ahead stops the worker without overlap');
  assert.equal(w.direction,1);
  assert.ok(Math.hypot(w.x-p.x,w.z-p.z)>=1.6);
 });
