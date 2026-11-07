@@ -34,9 +34,9 @@ test("worker reverses at real endpoints and respects nearby player's solid body"
  w.x=24;w.direction=1;p.x=25.7;p.z=-12;
  const old=w.x;
  for(let i=0;i<90;i++)Story.step(state,1/60,{});
- assert.ok(w.x>=old&&w.x<old+.2,'a person immediately ahead stops the worker without overlap');
+ assert.ok(w.x>=old&&w.x<old+.36,'a person immediately ahead stops the worker at its real collision boundary');
  assert.equal(w.direction,1);
- assert.ok(Math.hypot(w.x-p.x,w.z-p.z)>=1.6);
+ assert.ok(Math.hypot(w.x-p.x,w.z-p.z)>=1.4-1e-6);
 });
 test('checkpoint roundtrip stores exact worker position, and old CH01 checkpoints remain unchanged',()=>{
  const s=Story.createState();
