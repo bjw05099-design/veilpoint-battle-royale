@@ -849,3 +849,35 @@ test('objective snapshot publishes a finite public relay duration, without expos
  assert.equal('enemyPosition' in red.objective,false);
  assert.equal('token' in red.objective,false);
 });
+
+
+test('relay self diagnostic reflects only physically earned input and never a hidden opponent',()=>{
+ const {TeamMatch}=require('../src/team-match.cjs');
+ const m=new TeamMatch({now:()=>0});
+ m.join('a','A');m.join('b','B');
+ m.command('a',{seq:1,type:'ready',active:true});
+ m.command('b',{seq:1,type:'ready',active:true});
+ assert.equal(m.phase,'playing');
+ const player=m.players.get('a'),other=m.players.get('b');
+ assert.equal(m.snapshot('a').self.relayInteraction,'approach');
+ player.x=0;player.z=0;
+ assert.equal(m.snapshot('a').self.relayInteraction,'press');
+ player.direction={x:1,z:0};
+ assert.equal(m.snapshot('a').self.relayInteraction,'stop');
+ player.direction={x:0,z:0};player.reloadTicks=20;
+ assert.equal(m.snapshot('a').self.relayInteraction,'wait_reload');
+ player.reloadTicks=0;player.triggerHeld=true;
+ assert.equal(m.snapshot('a').self.relayInteraction,'hands_free');
+ player.triggerHeld=false;player.captureHeld=true;player.captureArmed=false;
+ assert.equal(m.snapshot('a').self.relayInteraction,'release_press');
+ player.captureArmed=true;player.capturing=true;
+ assert.equal(m.snapshot('a').self.relayInteraction,'server_checking');
+ m.progress[player.team]=0.4;
+ assert.equal(m.snapshot('a').self.relayInteraction,'transmitting');
+ // An opponent's hidden location is never encoded as a diagnostic cause.
+ other.x=0;other.z=0;
+ assert.equal(m.snapshot('a').self.relayInteraction,'transmitting');
+ assert.equal('opponentPosition' in m.snapshot('a').self,false);
+ m.finish('a','objective_score');
+ assert.equal(m.snapshot('a').self.relayInteraction,'inactive');
+});
