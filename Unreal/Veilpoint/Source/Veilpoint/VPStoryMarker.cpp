@@ -10,13 +10,29 @@ AVPStoryMarker::AVPStoryMarker()
     bReplicates = true;
     bAlwaysRelevant = true;
     SetReplicateMovement(false);
-    PrimaryActorTick.bCanEverTick = false;
+    // Objective visibility is derived locally from replicated story state.
+    // A quarter-second check is sufficient for seven static markers.
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.TickInterval = .25f;
     Model = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ObjectiveMarker"));
     RootComponent = Model;
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Mesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     if (Mesh.Succeeded()) Model->SetStaticMesh(Mesh.Object);
     Model->SetRelativeScale3D(FVector(.40f, .40f, 1.f));
     Model->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AVPStoryMarker::BeginPlay()
+{
+    Super::BeginPlay();
+    if (Model) Model->SetVisibility(IsAvailable());
+}
+
+void AVPStoryMarker::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (Model && Model->IsVisible() != IsAvailable())
+        Model->SetVisibility(IsAvailable());
 }
 
 void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
@@ -49,6 +65,7 @@ bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State || !State->TryAdvance(Action)) return false;
     bUsed = true;
+    if (Model) Model->SetVisibility(false);
     ForceNetUpdate();
     return true;
 }
