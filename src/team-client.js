@@ -298,7 +298,8 @@
       activeTouchAimPointer = event.pointerId ?? -1;
     }
     const validAim = aimFromPointer(event, event.pointerType === 'mouse' && event.button === 0);
-    if (validAim && event.pointerType === 'mouse' && event.button === 0 && state?.phase === 'playing') {
+    if (validAim && event.pointerType === 'mouse' && event.button === 0 &&
+        state?.phase === 'playing' && state.relayVariant!=='courier') {
       // A click exactly on the local avatar has no physical aim ray: do not
       // spend finite rounds or latch automatic fire in the previous direction.
       // Valid PC pointer aim and fire still share the canvas and server cadence.
