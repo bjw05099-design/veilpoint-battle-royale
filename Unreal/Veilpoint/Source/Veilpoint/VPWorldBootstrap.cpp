@@ -105,6 +105,18 @@ void AVPWorldBootstrap::BeginPlay()
     AddBlock(Buildings,FVector(-13500.f,-12600.f,115.f),FVector(22.f,2.f,2.3f));
     AddBlock(Buildings,FVector(-13500.f,-14400.f,115.f),FVector(22.f,2.f,2.3f));
     AddBlock(Buildings,FVector(-15100.f,-13500.f,150.f),FVector(2.f,3.f,3.f));
+    // Native east-dock warehouse/cargo footprints match the original BR
+    // 100cm-per-metre map, leaving the z=-121m central service lane open.
+    // These are real collision-enabled building instances, not visual-only cover.
+    AddBlock(Buildings,FVector(11300.f,-13700.f,450.f),FVector(24.f,10.f,9.f));
+    AddBlock(Buildings,FVector(11300.f,-10200.f,400.f),FVector(24.f,10.f,8.f));
+    AddBlock(Buildings,FVector(14300.f,-13700.f,130.f),FVector(9.f,5.f,2.6f));
+    AddBlock(Buildings,FVector(14300.f,-10300.f,130.f),FVector(9.f,5.f,2.6f));
+    AddBlock(Buildings,FVector(13200.f,-15400.f,600.f),FVector(5.f,5.f,12.f));
+    // This shallow waterlogged pad has no collision volume. The character's
+    // location-based footing (also used by browser BR) determines traversal;
+    // the visual slab itself must never form an invisible gameplay wall.
+    AddBlock(Vegetation,FVector(3500.f,-4000.f,1.f),FVector(14.f,18.f,.02f));
     // Stable seed and loop order keep instance transforms identical on all
     // machines without transmitting 250 per-instance transforms every tick.
     FRandomStream Random(19771);
