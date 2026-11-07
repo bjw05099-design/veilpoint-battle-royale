@@ -52,6 +52,9 @@
     }
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
       '유수프 구조단의 인원 확인표를 현장에서 직접 대조했다.');
+    if(state&&state.transitReviewed&&state.musterConfirmed&&state.choice==='evacuation')
+      note('transit','남쪽 대피 통행 계획표',
+        '현지 구조단의 공개된 남쪽 안뜰 이동 계획을 현장에서 확인했다. 인원 수와 실제 도착은 별도로 확인해야 한다.');
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
       state.aidDelivered?'비상 물품을 현지 구조단에 직접 전달했다.':
         state.aidStaged?'비상 물품이 임시 적재대에 남아 있다. 구조단 현장 인계는 아직 완료되지 않았다.':

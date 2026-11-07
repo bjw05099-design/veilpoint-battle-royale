@@ -1653,10 +1653,17 @@ test('CH01 Windows marker key retains selected supply objective when held guide 
   const shared=new Map([['veilpoint.story.ch01',StoryRules.serialize(state)]]);
   const app=boot(shared,false,'granted',true,true);
   app.element('continue').click();
-  // The initially visible guide-control marker precedes the supply objective
-  // in the PC HUD list; select the supply with the remappable default KeyB.
-  for(let i=0;i<6;i++)app.emit('keydown',{code:'KeyB'});
-  assert.match(app.element('navigation').textContent,/선택한 임무 표식.*민간 구조용 비상 물품 상자/);
+  // An additional optional field document must not break stable marker-ID
+  // navigation. Cycle to actual published supply rather than assuming the
+  // authored mission will always expose exactly six markers.
+  let selected=false;
+  for(let i=0;i<=StoryRules.markers(state).length;i++){
+    app.emit('keydown',{code:'KeyB'});
+    if(/선택한 임무 표식.*민간 구조용 비상 물품 상자/.test(app.element('navigation').textContent)){
+      selected=true;break;
+    }
+  }
+  assert.equal(selected,true,'PC guidance must still reach a finite physical supply marker');
   app.moveForward(0,340);
   const saved=JSON.parse(shared.get('veilpoint.story.ch01'));
   assert.ok(Math.hypot(saved.player.x-saved.guide.x,saved.player.z-saved.guide.z)>=7,
@@ -2427,7 +2434,8 @@ test('CH01 Windows route tracker follows actual optional tasks and physical miss
   assert.match(tracker.textContent,/현장 안내원 동행·인계 \(선택\) · 준비 중/);
   assert.match(tracker.textContent,/비상 물품 현장 인계 \(선택\) · 진행 가능/);
   assert.match(tracker.textContent,/○ 남쪽 안뜰 도착 · 진행 가능/);
-  assert.equal(tracker.textContent.split('\n').length,4);
+  assert.match(tracker.textContent,/대피 통행 계획표 확인 \(선택\) · 준비 중/);
+  assert.equal(tracker.textContent.split('\n').length,5);
   app.moveForward(cleared+225,193);app.interact();
   assert.match(app.element('menuText').textContent,/CH01 완료/);
   assert.match(tracker.textContent,/✓ 남쪽 안뜰 도착 · 완료/);

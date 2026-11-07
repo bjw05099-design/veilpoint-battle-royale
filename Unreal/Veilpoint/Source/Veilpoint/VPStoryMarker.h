@@ -6,6 +6,7 @@
 
 class UStaticMeshComponent;
 class UPointLightComponent;
+class UTextRenderComponent;
 class AVPCharacter;
 
 // Editor-placeable or bootstrap-spawned physical local mission interactions.
@@ -25,6 +26,10 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
     TObjectPtr<UPointLightComponent> BeaconLight;
 
+    // Native in-world nameplates, not browser HUD overlays or client RPCs.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
+    TObjectPtr<UTextRenderComponent> ObjectiveLabel;
+
     UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
     EVPStoryAction Action = EVPStoryAction::RestoreRelay;
 
@@ -41,4 +46,6 @@ private:
     // placeholder markers remain usable without missing external assets.
     void ApplyStageShape();
     void SyncBeaconLight();
+    void SyncObjectiveText();
+    FString LastObjectiveText;
 };

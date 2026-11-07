@@ -327,6 +327,11 @@ class Renderer {
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
  if(this.sceneMode==='br'){
+  // At the west quay, this fixed board marks a physical read-only
+  // interaction without adding an invisible solid collision body.
+  const notice=global.VeilpointSim.DOCK_NOTICE;
+  m.box(notice.x,0,notice.z,.24,1.9,.22,[.37,.40,.37]);
+  m.box(notice.x,1.55,notice.z,.95,.85,.18,[.62,.58,.37]);
   // The service gate is opened by a grounded, fixed wall-mounted control.
   m.box(30,0,-21.8,.55,1.3,.4,[.28,.31,.29]);
   m.box(30,1.12,-21.54,.37,.14,.07,[.80,.57,.23]);

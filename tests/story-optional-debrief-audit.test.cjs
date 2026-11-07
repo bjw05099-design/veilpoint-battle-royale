@@ -9,18 +9,19 @@ function route(choice){
  state.phase='complete';state.choice=choice;
  return state;
 }
-test('CH01 south debrief audits three optional field tasks without converting them into required exit goals',()=>{
+test('CH01 south debrief audits four optional field tasks without converting them into required exit goals',()=>{
  const state=route('evacuation');
  const before=JSON.stringify(state);
  const initial=Story.optionalTaskAudit(state);
- assert.equal(initial.total,3);
+ assert.equal(initial.total,4);
  assert.equal(initial.done,0);
  assert.deepEqual(initial.finished,[]);
- assert.deepEqual(initial.unfinished,['집결지 인원 확인','현장 안내원 동행·인계','비상 물품 현장 인계']);
+ assert.deepEqual(initial.unfinished,['집결지 인원 확인','현장 안내원 동행·인계','비상 물품 현장 인계','대피 통행 계획표 확인']);
  assert.equal(Story.missionTasks(state).find(x=>x.id==='exit').optional,false);
  state.musterConfirmed=true;state.guide.arrived=true;state.aidDelivered=true;
+ state.transitReviewed=true;
  const earned=Story.optionalTaskAudit(state);
- assert.equal(earned.total,3);assert.equal(earned.done,3);
+ assert.equal(earned.total,4);assert.equal(earned.done,4);
  assert.equal(earned.unfinished.length,0);
  assert.deepEqual(Story.debrief(state).optionalTasks,earned);
  assert.equal(Story.debrief(state).campaignUnlocked,false);

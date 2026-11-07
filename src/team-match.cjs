@@ -19,6 +19,7 @@ const RELAY_SITES=Object.freeze({
   north:Object.freeze({x:0,z:-3.2}),
   south:Object.freeze({x:0,z:3.2})
 });
+const ROTATING_RELAY_ORDER=Object.freeze(['center','north','south']);
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
 // The local competitive round has a deterministic 5-minute simulation deadline.
@@ -127,11 +128,12 @@ class TeamMatch {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
-    if(!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(objectiveSite!=='rotation'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
-    this.objective=RELAY_SITES[objectiveSite];
+    this.objectiveStage=0;
+    this.objective=RELAY_SITES[objectiveSite==='rotation'?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -139,6 +141,8 @@ class TeamMatch {
     this.phase = 'lobby';
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
+    this.objectiveStage=0;
+    this.objective=RELAY_SITES[this.objectiveSite==='rotation'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -148,7 +152,7 @@ class TeamMatch {
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
   recordPublicEvent(type,team=null) {
-    if(!['round_start','relay_complete','round_end'].includes(type)||
+    if(!['round_start','relay_complete','relay_shift','round_end'].includes(type)||
        (team!==null&&!['red','blue'].includes(team)))return;
     this.events.push(Object.freeze({type,team,tick:this.ticks}));
     if(this.events.length>8)this.events.shift();
@@ -492,6 +496,8 @@ class TeamMatch {
   resetRoundState() {
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
+    this.objectiveStage=0;
+    this.objective=RELAY_SITES[this.objectiveSite==='rotation'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -735,6 +741,14 @@ class TeamMatch {
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
+      else if(this.objectiveSite==='rotation'){
+        // Only the authoritative completed transmission advances the physical
+        // console. The operator must release E and move to the next pad;
+        // existing input leases and captureArmed=false prevent banked score.
+        this.objectiveStage=(this.objectiveStage+1)%ROTATING_RELAY_ORDER.length;
+        this.objective=RELAY_SITES[ROTATING_RELAY_ORDER[this.objectiveStage]];
+        this.recordPublicEvent('relay_shift');
+      }
     }
     // A valid objective completed on the final tick wins before the timer
     // adjudicates a lower score or tie. All other rounds end at the deadline.
@@ -776,6 +790,7 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
+      relayVariant:this.objectiveSite==='rotation'?'rotation':'fixed',
       // Across rematches only; reset when either local seat changes owner.
       series: {...this.series},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,

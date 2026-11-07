@@ -635,6 +635,8 @@ function collectAmmo(){
  // the player stands beside it. Otherwise E retains normal finite loot use.
  const gate=Game.operateServiceGate(simulation);
  if(gate.ok){syncMotorSound(true);persistMatch();updateHud();return;}
+ const notice=Game.inspectDockNotice(simulation);
+ if(notice.ok){updateHud();return;} // Reading a sign does not change checkpoint state.
  Game.pickup(simulation);persistMatch();updateHud();
 }
 function reloadWeapon(){if(!canAct())return;Game.reload(simulation);persistMatch();updateHud();}
