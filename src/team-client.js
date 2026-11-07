@@ -497,8 +497,20 @@
       transmitting:'중계기 연결 진행 중',server_checking:'서버 확인 중'};
     const localHint=Object.prototype.hasOwnProperty.call(relayHints,state.self.relayInteraction)
       ?relayHints[state.self.relayInteraction]:'';
+    // Server-published public fixed relay plus the authenticated player's
+    // own location: show distance to the circular console reach boundary,
+    // not a guessed route or a hidden opponent's position.
+    const goal=state.objective;
+    const px=state.self?.x,pz=state.self?.z;
+    const validReach=Number.isFinite(px)&&Number.isFinite(pz)&&
+      Number.isFinite(goal?.x)&&Number.isFinite(goal?.z)&&
+      Number.isFinite(goal?.radius)&&goal.radius>0;
+    const reach=validReach
+      ?Math.ceil(Math.max(0,Math.hypot(px-goal.x,pz-goal.z)-goal.radius))
+      :null;
     if(state.phase==='playing'&&validRelay&&localHint)
-      el('relayProgress').textContent+=' · '+localHint;
+      el('relayProgress').textContent+=' · '+localHint+
+        (state.self.relayInteraction==='approach'&&reach!==null?' · 접근까지 약 '+reach+'m':'');
     // The remaining time comes from the server's 60Hz simulation, not the
     // browser's wall clock. Keep older mock/protocol snapshots compatible.
     const remainingTicks = state.round?.remainingTicks;
