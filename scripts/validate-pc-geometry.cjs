@@ -101,11 +101,11 @@ function validate(evidence){
     assert.ok(Number.isInteger(page.controls)&&page.controls>0,
      'CH01 visible control count missing at '+size+' '+page.name);
     assert.ok(Array.isArray(page.targets)&&page.targets.length>0,'CH01 targets missing');
-    assert.ok(page.controls>=page.targets.length,
-     'CH01 actionable control count inconsistent at '+size+' '+page.name);
     const targetIds=page.targets.map(target=>target.id);
     assert.equal(new Set(targetIds).size,targetIds.length,
      'Duplicate CH01 target at '+size+' '+page.name);
+    assert.ok(page.controls>=page.targets.length,
+     'CH01 actionable control count inconsistent at '+size+' '+page.name);
     for(const target of page.targets){
      assert.equal(target.visible,true,'CH01 hidden '+target.id);
      assert.equal(target.enabled,true,'CH01 disabled '+target.id);
