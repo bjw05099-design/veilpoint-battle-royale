@@ -105,14 +105,15 @@ const soundEnabledCheckbox=$('soundEnabled');
 let soundEnabled=true;
 let motorSound=null;
 let windSound=null;
+let footstepSound=null;
 try{soundEnabled=global.localStorage.getItem('veilpoint.br.audio')!=='off';}catch(_){}
 function setSoundEnabled(enabled){
  soundEnabled=!!enabled;soundEnabledCheckbox.checked=soundEnabled;
  try{global.localStorage.setItem('veilpoint.br.audio',soundEnabled?'on':'off');}catch(_){}
  if(!soundEnabled){
   if(motorSound)motorSound.stop();
-  if(windSound)windSound.stop();
- }else if(motorSound||windSound)syncMotorSound(true);
+  if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();
+ }else if(motorSound||windSound||footstepSound)syncMotorSound(true);
 }
 soundEnabledCheckbox.checked=soundEnabled;
 soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
@@ -1039,7 +1040,7 @@ $('brImportApply').addEventListener('click',()=>{
  document.querySelector('.eyebrow').textContent='OFFLINE BR / PORTABLE SESSION';
  document.querySelector('h1').textContent='BR IMPORTED.';
  document.querySelector('.tagline').textContent='BR 체크포인트 검증 완료 · 기존 저장 기록은 보호됩니다. 이 임시 경기는 현재 탭에서만 진행되므로 종료 전에 JSON을 백업하세요.';
- if(motorSound)motorSound.stop();if(windSound)windSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();
  desktopUi.cancel();resetInactiveClock();updateHud();
 });
 $('brExport').addEventListener('click',()=>{
@@ -1125,7 +1126,7 @@ $('saveExit').addEventListener('click',()=>{
  }
  running=false;suspended=false;
  resetPortableMatchExport();
- if(motorSound)motorSound.stop();if(windSound)windSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();
  desktopUi.cancel();resetInactiveClock();
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.add('hidden');
  $('restoreCheckpoint').classList.add('hidden');$('restartArena').classList.add('hidden');
@@ -1342,7 +1343,7 @@ function suspendMatch(reason='background'){
  if(benchmark&&['armed','running'].includes(benchmark.getStatus().state))
   benchmark.finish(reason==='background'?'paused-or-hidden':reason);
  if(!running||suspended)return;
- if(motorSound)motorSound.stop();if(windSound)windSound.stop();
+ if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();
  const checkpointSaved=persistMatch();suspended=true;pauseRestartArmed=false;forfeitArmed=false;pointerLockAttempt++;pointerLockPendingSince=null;aimLockObserved=false;
  $('overlay').classList.remove('hidden');
  $('mobileControls').classList.remove('active');
@@ -1442,6 +1443,9 @@ motorSound=global.VeilpointGateMotorAudio.createGateMotorAudio(()=>audio);
 windSound=global.VeilpointCoastalWindAudio&&
  typeof global.VeilpointCoastalWindAudio.createCoastalWindAudio==='function'
  ?global.VeilpointCoastalWindAudio.createCoastalWindAudio(()=>audio):null;
+footstepSound=global.VeilpointFootstepAudio&&
+ typeof global.VeilpointFootstepAudio.createFootstepAudio==='function'
+ ?global.VeilpointFootstepAudio.createFootstepAudio(()=>audio):null;
 function syncMotorSound(unlock=false){
  if(!motorSound)return;
  const gate=Game.serviceGateStatus(simulation);
@@ -1590,7 +1594,7 @@ function updateHud(){const s=simulation,p=s.player;
   $('pickupPrompt').textContent+=' · ['+Desktop.keyLabel(bindings.cacheMove)+'] SHIFT CACHE';
  minimap();
 }
-function end(){if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
+function end(){if(motorSound)motorSound.stop();if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}
  lastFinishedMatch={seed:simulation.seed,weaponId:simulation.player.weaponId,rivals:simulation.bots.length};manualCheckpoint=null;
  running=false;$('overlay').classList.remove('hidden');$('mobileControls').classList.remove('active');$('play').textContent='다시 시작';
  $('saveExit').classList.add('hidden');$('forfeitMatch').classList.add('hidden');$('retryArena').classList.remove('hidden');
@@ -1619,7 +1623,13 @@ function frame(now){requestAnimationFrame(frame);
   if(joyId!==null){input.left=thumb.x<-.25;input.right=thumb.x>.25;input.forward=thumb.y<-.25;input.back=thumb.y>.25;}
   clock.advance(dt,step=>{
    if(simulation.status!=='playing')return;
+   const footX=simulation.player.x,footZ=simulation.player.z;
    Game.tick(simulation,step,input);
+   if(footstepSound)footstepSound.sync({
+      enabled:soundEnabled,playable:canAct(),
+      distance:Math.hypot(simulation.player.x-footX,simulation.player.z-footZ),
+      crouched:!!input.crouch,running:!!input.sprint&&!input.crouch
+   });
    if(input.fireHeld&&simulation.status==='playing'&&Game.autoFire(simulation,true,input.crouch).ok)shotFeedback();
   });
   if(simulation.status==='playing'&&canAutoPersistMatch()&&
