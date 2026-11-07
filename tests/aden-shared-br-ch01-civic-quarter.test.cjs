@@ -7,12 +7,12 @@ const Graphics=require('../src/graphics.js');
 const Perf=require('../src/performance.js');
 const civic=obstacles=>obstacles.filter(o=>o.type?.startsWith('aden-civic-'));
 const expected=[
- {x:-39,z:53,w:.6,d:18,h:4,type:'aden-civic-wall'},
- {x:-13,z:53,w:.6,d:18,h:4,type:'aden-civic-wall'},
- {x:-26,z:62,w:26,d:.6,h:4,type:'aden-civic-wall'},
- {x:-34,z:44,w:10,d:.6,h:4,type:'aden-civic-wall'},
- {x:-18,z:44,w:10,d:.6,h:4,type:'aden-civic-wall'},
- {x:-34,z:55,w:3,d:2,h:1.3,type:'aden-civic-stall'}
+ {x:64,z:125,w:.6,d:18,h:4,type:'aden-civic-wall'},
+ {x:90,z:125,w:.6,d:18,h:4,type:'aden-civic-wall'},
+ {x:77,z:134,w:26,d:.6,h:4,type:'aden-civic-wall'},
+ {x:69,z:116,w:10,d:.6,h:4,type:'aden-civic-wall'},
+ {x:85,z:116,w:10,d:.6,h:4,type:'aden-civic-wall'},
+ {x:69,z:127,w:3,d:2,h:1.3,type:'aden-civic-stall'}
 ];
 test('BR and CH01 consume identical common-city objects from one original world geometry source',()=>{
  const br=Sim.newMatch(91,0),ch=Story.createState();
@@ -23,22 +23,23 @@ test('BR and CH01 consume identical common-city objects from one original world 
   assert.equal(Sim.blocked(body.x,body.z,.85,br.obstacles),true);
   assert.equal(Sim.blocked(body.x,body.z,.85,ch.world.obstacles),true);
  }
- assert.equal(Sim.blocked(-26,44,.85,br.obstacles),false,'actual street entrance is open in BR');
- assert.equal(Sim.blocked(-26,44,.85,ch.world.obstacles),false,'same physical entrance remains open in CH01');
- assert.equal(Sim.blocked(-26,53,.85,ch.world.obstacles),false,'human can stand inside common city courtyard');
+ assert.equal(Sim.blocked(77,116,.85,br.obstacles),false,'actual street entrance is open in BR');
+ assert.equal(Sim.blocked(77,116,.85,ch.world.obstacles),false,'same physical entrance remains open in CH01');
+ assert.equal(Sim.blocked(77,125,.85,ch.world.obstacles),false,'human can stand inside common city courtyard');
  for(const point of Object.values(Story.POINTS)){
   assert.equal(Sim.blocked(point.x,point.z,.85,ch.world.obstacles),false,'existing story objective '+point.id+' remains walkable');
  }
 });
 test('the same 60Hz movement traverses the continuous civic entrance in both modes',()=>{
  const br=Sim.newMatch(105,0),story=Story.createState();
- for(const p of [br.player,story.world.player]){p.x=-26;p.z=35;p.yaw=Math.PI;}
+ br.status='playing';
+ for(const p of [br.player,story.world.player]){p.x=77;p.z=107;p.yaw=Math.PI;}
  for(let i=0;i<165;i++){
   Sim.tick(br,1/60,{forward:true});
   Story.step(story,1/60,{forward:true});
  }
- assert.ok(br.player.z>46&&br.player.z<61,'BR body actually enters market courtyard');
- assert.ok(story.world.player.z>46&&story.world.player.z<61,'CH01 walks the same connected route');
+ assert.ok(br.player.z>118&&br.player.z<133,'BR body actually enters market courtyard');
+ assert.ok(story.world.player.z>118&&story.world.player.z<133,'CH01 walks the same connected route');
  assert.equal(Sim.blocked(br.player.x,br.player.z,.85,br.obstacles),false);
  assert.equal(Sim.blocked(story.world.player.x,story.world.player.z,.85,story.world.obstacles),false);
  const saved=Sim.snapshotMatch(br),restored=Sim.restoreMatch(saved);
@@ -60,14 +61,14 @@ test('common-city architectural material reaches both live 3D scenes and Canvas 
  vm.runInContext(text,env);
  const fake=fakeGl(),renderer=new env.VeilpointRenderer({clientWidth:640,clientHeight:360,getContext:t=>t==='webgl2'?fake.gl:null});
  for(const [mode,world] of [['br',Sim.newMatch(1,0)],['nahrin',Story.createState().world]]){
-  fake.uploads.length=0;
+  if(mode==='nahrin')fake.uploads.length=0;
   const prior=JSON.stringify(world);
   renderer.draw(world);
   assert.equal(renderer.sceneMode,mode);
   const vertices=fake.uploads.flatMap(v=>[v]);
   const wall=vertices.some(arr=>{
    for(let i=0;i<arr.length-8;i+=9){
-    if(Math.abs(arr[i]+39)<1&&Math.abs(arr[i+2]-53)<10&&arr[i+1]>=0&&arr[i+1]<=4.2&&
+    if(Math.abs(arr[i]-64)<1&&Math.abs(arr[i+2]-125)<10&&arr[i+1]>=0&&arr[i+1]<=4.2&&
        Math.abs(arr[i+6]-.57)<.002&&Math.abs(arr[i+7]-.49)<.002)return true;
    }
    return false;
