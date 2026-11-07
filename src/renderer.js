@@ -198,7 +198,7 @@ graded=pow(graded,vec3(.96));
 outColor=vec4(graded,1.);}`;
 // Canvas2D software fallback: slow but playable on devices without GPU WebGL2.
 class SoftwareRenderer {
- constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
+ constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
@@ -208,7 +208,8 @@ class SoftwareRenderer {
  sky.addColorStop(1,harborNight?'#6a6a63':dusk?'#c39d83':'#ddd0ad');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
  const ground=ctx.createLinearGradient(0,horizon,0,h);ground.addColorStop(0,harborNight?'#343c3d':dusk?'#495253':'#5b6551');
  ground.addColorStop(1,harborNight?'#1e292c':dusk?'#2b343c':'#2d3b31');ctx.fillStyle=ground;ctx.fillRect(0,horizon,w,h);
- const focal=Math.min(w,h)*.98,yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
+ const focal=Math.min(w,h)*.98*Math.tan(55*Math.PI/360)/
+   Math.tan(this.verticalFov*Math.PI/360),yaw=p.yaw,sin=Math.sin(yaw),cos=Math.cos(yaw);
  const eyeHeight=1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0);
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
@@ -352,7 +353,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -701,6 +702,16 @@ class Renderer {
  }
  mesh.upload(this.gl,this.gl.DYNAMIC_DRAW);mesh.data.length=0;
  }
+ // Display-only vertical camera preference, completely separate from
+ // physical enemy visibility, ammo and saved 60Hz game state.
+ setFieldOfView(degrees){
+  const options=global.VeilpointCameraView?.OPTIONS||[48,55,63,70,78];
+  if(typeof degrees!=='number'||!options.includes(degrees))
+   throw new RangeError('Unsupported vertical camera FOV');
+  this.verticalFov=degrees;
+  if(this.fallback)this.fallback.verticalFov=degrees;
+  return degrees;
+ }
  setAdaptiveResolution(scale){
   if(!Number.isFinite(scale)||scale<.5||scale>1.25)throw new RangeError('Invalid adaptive resolution');
   if(this.fallback){this.fallback.adaptiveScale=scale;return;}
@@ -734,7 +745,8 @@ class Renderer {
  g.useProgram(this.prog);const eye=[p.x,1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0),p.z];
  const pitch=p.pitch,dir=[Math.sin(p.yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(p.yaw)*Math.cos(pitch)];
  const look=[eye[0]+dir[0],eye[1]+dir[1],eye[2]+dir[2]];
- g.uniformMatrix4fv(l.projection,false,m4Perspective(Math.PI/3.25,this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
+ g.uniformMatrix4fv(l.projection,false,m4Perspective(this.verticalFov*Math.PI/180,
+    this.lastWidth/Math.max(this.lastHeight,1),.1,460));g.uniformMatrix4fv(l.view,false,m4LookAt(eye,look,[0,1,0]));
  const night=scene==='nahrin',dusk=!night&&state.lighting==='dusk';
  g.uniform3f(l.sun,night?-.35:dusk?-.75:-.50,night?.28:dusk?.40:.88,night?.10:dusk?.18:.20);
  g.uniform3f(l.fog,night?.065:dusk?.23:.34,night?.085:dusk?.26:.40,night?.11:dusk?.29:.39);

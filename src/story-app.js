@@ -288,6 +288,25 @@
     audio.setEnabled($('soundEnabled').checked);
     storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
   });
+  const Camera=global.VeilpointCameraView||Object.freeze({
+   read:()=>55,validate:value=>{
+    if(![48,55,63,70,78].includes(value))throw new RangeError('Invalid camera FOV');
+    return value;
+   },persist:()=>false
+  });
+  const cameraSelect=$('storyCameraFov');
+  const cameraStorage=()=>{try{return global.localStorage;}catch(_){return null;}};
+  let cameraFov=Camera.read(cameraStorage());
+  cameraSelect.value=String(cameraFov);
+  cameraSelect.addEventListener('change',()=>{
+    try{
+      cameraFov=Camera.validate(Number(cameraSelect.value));
+      if(renderer&&typeof renderer.setFieldOfView==='function')renderer.setFieldOfView(cameraFov);
+      if(!Camera.persist(cameraStorage(),cameraFov))
+        cameraSelect.title='현재 화면에만 적용 · 설정 저장 실패';
+      else cameraSelect.title='BR과 CH01에 공유되는 시야각';
+    }catch(_){cameraSelect.value=String(cameraFov);}
+  });
   let settings=Graphics.fromPreset('balanced');
   try{const raw=storage.get('veilpoint.graphics');if(raw)settings=Graphics.deserialize(raw);}catch(_){}
   function applyQuality(){
@@ -310,6 +329,7 @@
   function initializeRenderer(){
     // WebGL restoration invalidates the old GPU resources; rebuild them.
     renderer=new global.VeilpointRenderer(canvas);applyQuality();
+    if(typeof renderer.setFieldOfView==='function')renderer.setFieldOfView(cameraFov);
   }
   try{initializeRenderer();}
   catch(err){

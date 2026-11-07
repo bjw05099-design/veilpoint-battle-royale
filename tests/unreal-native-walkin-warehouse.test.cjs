@@ -6,7 +6,11 @@ const code=fs.readFileSync(path.resolve(__dirname,
  '../Unreal/Veilpoint/Source/Veilpoint/VPWorldBootstrap.cpp'),'utf8');
 function room(){
  const start=code.indexOf('// A genuinely ENTERABLE CH01 warehouse');
- const end=code.indexOf('// Ordered, deterministic harbor-edge decoration',start);
+ // Keep the original warehouse contract independent of later added
+ // authored CH01 sites; the arcade has a separate full collision test.
+ const arcadeStart=code.indexOf('// Native CH01 open-sided coastal trading arcade',start);
+ const end=arcadeStart>start?arcadeStart:
+  code.indexOf('// Ordered, deterministic harbor-edge decoration',start);
  assert.ok(start>0&&end>start,'native warehouse must be a story-specific physical world branch');
  const body=code.slice(start,end);
  const expr=/AddBlock\(Buildings,FVector\(([-\d.]+)f,([-\d.]+)f,([-\d.]+)f\),FVector\(([-\d.]+)f,([-\d.]+)f,([-\d.]+)f\)\)/g;
