@@ -384,7 +384,11 @@
         global.getComputedStyle(node).display!=='none');
     if(!nodes.length)return;
     if(event.type==='focusin'){
-      if(!menu.contains(event.target))nodes[0].focus({preventScroll:true});
+      // Old screen controls may still be descendants of the pause menu but
+      // are disabled or clipped when a different page is active.
+      if(!nodes.some(node=>node===event.target||
+         (typeof node.contains==='function'&&node.contains(event.target))))
+        nodes[0].focus({preventScroll:true});
       return;
     }
     if(event.key!=='Tab')return;
