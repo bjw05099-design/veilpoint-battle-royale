@@ -108,7 +108,7 @@ test('powered CH01 luminaires produce physical dynamic fixture vertices, not hov
  h.renderer.draw(state.world);
  const on=h.uploads.at(-1);
  assert.ok(maxColor(on)>offPeak,'relay-powered fixtures must visibly change their material');
- assert.equal(state.world.obstacles.filter(o=>o.type?.startsWith('story-')).length,9,
+ assert.equal(state.world.obstacles.filter(o=>o.type?.startsWith('story-')).length,10,
    'wall-mounted lighting must not invent pass-through solid obstacles');
  for(const p of Object.values(Story.POINTS))
   assert.equal(Sim.blocked(p.x,p.z,.85,state.world.obstacles),false,p.id);

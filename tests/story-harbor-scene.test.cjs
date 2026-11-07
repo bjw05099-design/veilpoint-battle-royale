@@ -17,7 +17,9 @@ function fakeGl(){
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
- assert.equal(buildings.length,9);
+ assert.equal(buildings.length,10);
+ assert.ok(buildings.some(o=>o.x===-24&&o.z===-55&&o.type==='story-desk'),
+  'south aid intake must be a physically visible counter with collision');
  for(const o of buildings)assert.equal(Sim.blocked(o.x,o.z,.85,s.world.obstacles),true);
  for(const p of Object.values(Story.POINTS)){
   assert.equal(Sim.blocked(p.x,p.z,.85,s.world.obstacles),false,p.id+' must remain accessible');

@@ -50,6 +50,8 @@
         gateOpen?'현지 구조단의 동쪽 통제문 개방 확인. 현장 중계 기록은 직접 열람해야 한다.':
         '동쪽 통제문 개방 요청 접수. 현지 구조단의 현장 개방 작업이 끝나기 전에는 통과할 수 없다.');
     }
+    if(state&&state.dispatchReviewed)note('dispatch','남쪽 구조단 접수 장부',
+      '현장에서 직접 읽은 접수 장부: 비상 물품 요청은 접수됐지만 인수 서명란은 비어 있다. 실제 현장 인계 여부는 별도로 확인해야 한다.');
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
       '남쪽 집결지에 실제로 있는 유수프 구조단 담당자와 대피 지원을 직접 협의했다. 미확인 인원은 확인된 수로 간주하지 않는다.');
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
@@ -73,6 +75,7 @@
       const facts=state.choice==='evacuation'
         ?['남쪽 안뜰 대피 경로 완료',
           state.musterConfirmed?'구조단 담당자 현장 협의 완료':'구조단 담당자 현장 협의 미실시',
+          state.dispatchReviewed?'접수 장부 현장 열람 완료':'접수 장부 현장 미열람',
           state.aidDelivered?'비상 물품 인계 완료':'비상 물품 인계 미완료',
           state.guide?.arrived?'안내원 안뜰 도착':
             state.guide?.released?'안내원 구조단 인계 완료':'안내원 동행 선택 미완료']
