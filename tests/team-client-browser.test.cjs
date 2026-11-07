@@ -2548,3 +2548,31 @@ test('team capture arcs fail closed for incomplete server measurements or ended 
  server.match.finish('red','objective_score');
  assert.deepEqual(await show(),[],'finished round must not keep rendering a claimed ongoing capture');
 });
+
+
+test('team PC relay HUD displays only its authenticated self interaction status',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/중계기 가까이 이동/);
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const own=server.match.players.get(token),other=[...server.match.players.values()].find(x=>x!==own);
+ own.x=0;own.z=0;
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/상호작용 키 누르기/);
+ own.direction={x:1,z:0};
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/중계기에서 정지/);
+ own.direction={x:0,z:0};
+ own.captureHeld=true;own.captureArmed=false;
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/조작 키를 놓고 다시 누르기/);
+ // The opponent may occupy the objective unseen. Do not disclose that fact.
+ other.x=0;other.z=0;
+ const before=a.node('relayProgress').textContent;
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/중계기/);
+ assert.doesNotMatch(a.node('relayProgress').textContent,/상대 위치|상대 점령 중|경쟁자 감지/);
+ assert.doesNotMatch(before,/상대 위치|상대 점령 중|경쟁자 감지/);
+});
