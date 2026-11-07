@@ -322,6 +322,9 @@ class SoftwareRenderer {
  }
  // Eligibility boundaries remain visible on the 2D minimap and in HUD warnings,
  // not as a floating ring drawn across the physical game world.
+ // Apply the same lower ambient level to fallback props, not just its sky.
+ // This is applied to the game canvas only: DOM HUD contrast stays unchanged.
+ if(dusk){ctx.fillStyle='rgba(22,24,36,.22)';ctx.fillRect(0,0,w,h);}
  const haze=Math.min(.16,Math.max(0,(atmosphereDensity(state)-.009)*22));
  if(!harborNight&&haze>0){
   ctx.fillStyle='rgba(153,178,169,'+haze.toFixed(3)+')';
