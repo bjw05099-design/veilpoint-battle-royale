@@ -125,6 +125,27 @@
       ' · SWITCH '+distance+'m '+nav.label;
     return 'YARD SWITCH '+distance+'m '+nav.label+' · APPROACH FOR LOCAL CONTROL';
   }
+  // Observed nearby supplies only. This read-only compass/minimap overlay
+  // cannot reveal distant caches, caches behind the player, or stock behind
+  // a solid occluding wall. It does not select or move any supply item.
+  function visibleLocalCaches(player,loot,obstacles,weaponId){
+    if(!player||!Array.isArray(loot)||!Array.isArray(obstacles)||
+       ![player.x,player.z,player.yaw].every(Number.isFinite))
+      return Object.freeze([]);
+    const seen=[];
+    for(const item of loot){
+      if(!item||item.picked===true||!Number.isFinite(item.remaining)||
+         item.remaining<=0||!Number.isFinite(item.x)||!Number.isFinite(item.z))continue;
+      const nav=direction(player,item);
+      if(!nav||nav.meters>10||Math.abs(nav.delta)>Math.PI/3)continue;
+      if(directLineBlocked(player,item,obstacles))continue;
+      seen.push(Object.freeze({id:item.id,x:item.x,z:item.z,
+        remaining:item.remaining,compatible:item.weaponId===weaponId,
+        distance:nav.meters}));
+    }
+    seen.sort((a,b)=>a.distance-b.distance||String(a.id).localeCompare(String(b.id)));
+    return Object.freeze(seen.slice(0,6));
+  }
   function zone(player,zone){
     if(!zone||![zone.x,zone.z,zone.radius].every(Number.isFinite)||zone.radius<=0)
       return '안전 구역 안내 불가';
@@ -134,5 +155,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign,serviceGate});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign,serviceGate,visibleLocalCaches});
 });
