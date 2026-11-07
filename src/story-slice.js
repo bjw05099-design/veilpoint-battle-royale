@@ -358,6 +358,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
+      passageWarningHeard:false,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -691,6 +692,22 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // A brief contextual announcement is triggered by the captain's actual
+    // approach to an evacuation corridor. No fictional field paperwork or
+    // extra E interaction is created, and this does not block either exit.
+    const reachedCorridor=state.phase==='exit'&&state.choice&&
+      Math.hypot(p.x-(state.choice==='evacuation'?POINTS.exitEvac.x:POINTS.exitVerify.x),
+                 p.z-(state.choice==='evacuation'?POINTS.exitEvac.z:POINTS.exitVerify.z))<=12;
+    if(!state.passageWarningHeard&&reachedCorridor){
+      state.passageWarningHeard=true;
+      if(state.choice==='evacuation'){
+        state.subtitle='유수프(현지 구조단): 이 통로는 주민을 집결지로 안내하는 길입니다. 대위님이 출국 전에 들은 복귀 일정과는 별개의 상황입니다. 다음 이동편은 현지에서 다시 확인해야 합니다.';
+        state.message='남쪽 대피 통로 도착 · 민간인 이동 지원 · 기존 복귀 일정 불확실';
+      }else{
+        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없으며, 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.';
+        state.message='동쪽 현장 통로 도착 · 귀환 계획 재검토 필요';
+      }
+    }
     // An optional geographically distant story beat is earned by walking
     // into the real shared civic courtyard, not by map clicking or remote
     // reading. Do not infer which civilians or vehicles have actually left.
@@ -1377,7 +1394,8 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+      passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1397,6 +1415,7 @@
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
 
+        (state.passageWarningHeard?' 원래 귀환 일정과 현재 지역 이동 여건이 달라졌으며, 현지 담당자의 추가 확인이 필요합니다.':'')+
         (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')+
         (state.waterReportFiled?' 공동 급수대 상태를 직접 확인해 현지 구조단에 현장 기록을 인계했습니다. 복구 완료 여부는 미확인입니다.':
           state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
@@ -1442,6 +1461,7 @@
   function snapshot(state) {
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
+      passageWarningHeard:state.passageWarningHeard,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1467,8 +1487,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+24||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed').includes(k))||
+      Object.keys(data).length>expectedKeys.length+25||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1490,6 +1510,9 @@
           data.transportContact<0||data.transportContact>2||
           (data.transportContact>0&&!['exit','complete'].includes(data.phase))))||
        (hasOwn(data,'deploymentReviewed')&&typeof data.deploymentReviewed!=='boolean')||
+       (hasOwn(data,'passageWarningHeard')&&
+         (typeof data.passageWarningHeard!=='boolean'||
+           (data.passageWarningHeard&&!['exit','complete'].includes(data.phase))))||
        (hasOwn(data,'waterSurveyed')&&
          (typeof data.waterSurveyed!=='boolean'||
           (data.waterSurveyed&&(data.civicVisited!==true||
@@ -1705,6 +1728,7 @@
     state.driverReportFiled=hasOwn(data,'driverReportFiled')?data.driverReportFiled:false;
     state.officeBoardRead=hasOwn(data,'officeBoardRead')?data.officeBoardRead:false;
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
+    state.passageWarningHeard=hasOwn(data,'passageWarningHeard')?data.passageWarningHeard:false;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
     // Compatibility only: older v2 saves may retain a record of a retired
