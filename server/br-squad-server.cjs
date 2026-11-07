@@ -4,10 +4,19 @@
 const http=require('node:http');
 const crypto=require('node:crypto');
 const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
+const {BrSquadWorld}=require('../src/br-squad-world.cjs');
+const {createFixedStepClock}=require('./team-server.cjs');
 const {readJson}=require('./json-body.cjs');
-function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000}={}) {
+function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTick=true}={}) {
  if(!['127.0.0.1','localhost','::1'].includes(host))throw new RangeError('loopback_host_required');
  const lobby=new BrSquadLobby();
+ let world=null;
+ const advance=createFixedStepClock(()=>{if(world)world.step();});
+ let timer=null;
+ const stateFor=token=>{
+  const state=lobby.snapshot(token);
+  return world?{...state,world:world.snapshot(token)}:state;
+ };
  const send=(res,code,body)=>{
   res.writeHead(code,{'Content-Type':'application/json; charset=utf-8',
    'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
@@ -32,18 +41,29 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000}={}) {
        return send(res,400,{error:'invalid_join'});
     const token=crypto.randomBytes(32).toString('hex');
     const result=lobby.join(token,body.name);
-    return send(res,result.ok?201:409,result.ok?{token,...result,state:lobby.snapshot(token)}:result);
+    return send(res,result.ok?201:409,result.ok?{token,...result,state:stateFor(token)}:result);
    }
    const token=req.headers['x-player-token'];
    if(req.method==='GET'&&url.pathname==='/state')
-    return send(res,200,lobby.snapshot(token));
+    return send(res,200,stateFor(token));
+   if(req.method==='GET'&&url.pathname==='/world'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    return send(res,200,world.snapshot(token));
+   }
+   if(req.method==='POST'&&url.pathname==='/move'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,128,bodyTimeoutMs);
+    const result=world.move(token,body);
+    return send(res,result.ok?200:409,{...result,...(result.ok?{world:world.snapshot(token)}:{})});
+   }
    if(req.method==='POST'&&url.pathname==='/ready'){
     const body=await readJson(req,128,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||
        Object.keys(body).length!==1||typeof body.ready!=='boolean')
        return send(res,400,{error:'invalid_ready'});
     const result=lobby.ready(token,body.ready);
-    return send(res,result.ok?200:409,{...result,...(result.ok?{state:lobby.snapshot(token)}:{})});
+    if(result.ok&&result.locked&&!world)world=new BrSquadWorld(lobby);
+    return send(res,result.ok?200:409,{...result,...(result.ok?{state:stateFor(token)}:{})});
    }
    if(req.method==='POST'&&url.pathname==='/leave'){
     const body=await readJson(req,64,bodyTimeoutMs);
@@ -56,15 +76,25 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000}={}) {
   }catch(error){
    const reason=error instanceof RangeError?error.message:'server_error';
    const status=reason==='unknown_session'?401:
-    ['invalid_session','invalid_display_name','invalid_ready','invalid_json',
+    ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_json',
      'invalid_join','body_too_large','request_timeout'].includes(reason)?400:500;
    return send(res,status,{error:reason});
   }
  });
- return {lobby,listen:()=>new Promise((resolve,reject)=>{
+ return {lobby,get world(){return world;},step:()=>{if(world)world.step();},
+  listen:()=>new Promise((resolve,reject)=>{
    const fail=err=>{server.off('error',fail);reject(err);};
    server.once('error',fail);
-   server.listen(port,host,()=>{server.off('error',fail);resolve(server.address());});
-  }),close:()=>new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()))};
+   server.listen(port,host,()=>{
+    server.off('error',fail);
+    if(autoTick){advance(require('node:perf_hooks').performance.now());
+      timer=setInterval(()=>advance(require('node:perf_hooks').performance.now()),8);
+      if(timer.unref)timer.unref();}
+    resolve(server.address());
+   });
+  }),close:()=>new Promise((resolve,reject)=>{
+   if(timer){clearInterval(timer);timer=null;}
+   server.close(err=>err?reject(err):resolve());
+  })};
 }
 module.exports={createBrSquadServer};
