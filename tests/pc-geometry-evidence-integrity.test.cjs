@@ -19,7 +19,7 @@ const story={
 };
 function target(id){return {id,visible:true,enabled:true,hit:true,focused:true,probesPassed:5};}
 function page(name,ids){return {name,issues:[],targets:ids.map(target)};}
-function row(width,height,names){return {width,height,requested:{width,height},errors:[],cases:names.map(name=>page(name,['action']))};}
+function row(width,height,names){return {width,height,requested:{width,height},errors:[],cases:names.map(name=>({...page(name,['action']),controls:1}))};}
 function fixture(){
  const evidence={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
   checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
@@ -50,4 +50,11 @@ test('rejects unaccounted extra PC screens',()=>{
 test('rejects missing real hit probes even when the target is visible',()=>{
  const data=fixture();data.checks[0].cases[0].targets[0].probesPassed=4;
  assert.throws(()=>validate(data),/Partial hit coverage/);
+});
+
+test('CH01 measured control counts are required on every screen and viewport',()=>{
+ const missing=fixture(); delete missing.storyJournalChecks[3].cases[1].controls;
+ assert.throws(()=>validate(missing),/CH01 visible control count missing/);
+ const zero=fixture(); zero.storyMenuChecks[2].cases[0].controls=0;
+ assert.throws(()=>validate(zero),/CH01 visible control count missing/);
 });
