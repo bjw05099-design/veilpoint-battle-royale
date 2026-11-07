@@ -222,6 +222,7 @@ class SoftwareRenderer {
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-building'?'story-building':
      o.type==='story-warehouse'?'story-warehouse':
+     o.type==='volcanic-outcrop'?'volcanic-outcrop':
      o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
      o.type==='yard-fence'?'yard-fence':'building'});
  }
@@ -271,7 +272,7 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -378,6 +379,16 @@ class Renderer {
    if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
    return;
   }
+  if(o.type==='volcanic-outcrop'){
+   // A solid rock mass fills its exact collision footprint. Its smaller,
+   // irregular tiers and weathered dark faces never extend beyond it.
+   if(this.sceneMode==='br'){
+    m.box(o.x,0,o.z,o.w,o.h,o.d,[.27,.27,.26]);
+    m.box(o.x,o.h*.68,o.z,o.w*.86,o.h*.24,o.d*.89,[.33,.32,.29]);
+    m.box(o.x-.17,o.h*.86,o.z+.11,o.w*.69,o.h*.13,o.d*.67,[.24,.25,.25]);
+   }
+   return;
+  }
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
@@ -434,9 +445,33 @@ class Renderer {
   m.box(30,0,-21.8,.55,1.3,.4,[.28,.31,.29]);
   m.box(30,1.12,-21.54,.37,.14,.07,[.80,.57,.23]);
  }
- // Individual forest pockets, break up skyline without blocking roads.
- for(let i=0;i<Math.round(330*this.vegetationDensity);i++){const x=(r()-.5)*340,z=(r()-.5)*340;if(Math.abs(x)<15||Math.abs(z)<14)continue;if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];m.tree(x,z,h,leaf);}
- for(let i=0;i<Math.round(500*this.vegetationDensity);i++){const x=(r()-.5)*344,z=(r()-.5)*344;if(Math.abs(x)<4||Math.abs(z)<5)continue;const h=r()*.23+.08;m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);}
+ // Aden-referenced BR coast should not resemble a temperate pine forest.
+ // The optional sparse scrub is below knee height, offers no solid cover and
+ // changes neither 60Hz movement nor AI visibility. CH01 vegetation is kept
+ // on its own existing authored scene until its district gets a full pass.
+ if(this.sceneMode==='br'){
+  for(let i=0;i<Math.round(165*this.vegetationDensity);i++){
+   const x=(r()-.5)*340,z=(r()-.5)*340;
+   if(Math.abs(x)<12||Math.abs(z)<12)continue;
+   if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+3&&Math.abs(z-o.z)<o.d/2+3))continue;
+   const h=.18+r()*.42;
+   m.box(x,0,z,.4+r()*.3,h,.45+r()*.3,[.28+r()*.04,.31+r()*.05,.21+r()*.03]);
+  }
+ }else{
+  for(let i=0;i<Math.round(330*this.vegetationDensity);i++){
+   const x=(r()-.5)*340,z=(r()-.5)*340;
+   if(Math.abs(x)<15||Math.abs(z)<14)continue;
+   if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;
+   const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];
+   m.tree(x,z,h,leaf);
+  }
+ }
+ for(let i=0;i<Math.round((this.sceneMode==='br'?260:500)*this.vegetationDensity);i++){
+  const x=(r()-.5)*344,z=(r()-.5)*344;
+  if(Math.abs(x)<4||Math.abs(z)<5)continue;
+  const h=r()*.23+.08;
+  m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);
+ }
  // Original Nahrin harbor district: fixed, authored structures are shared with
  // the story collision map. No external textures, logos or remote dependencies.
  if(this.sceneMode==='nahrin'){
