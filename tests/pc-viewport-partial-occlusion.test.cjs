@@ -98,7 +98,7 @@ function geometryFixture(coverCorner=false,playOutsidePanel=false){
 }
 test('Chromium geometry audit detects one-quarter occlusion even when center remains clickable',()=>{
  const result=geometryFixture(true);
- assert.equal(result.cases.length,7);
+ assert.equal(result.cases.length,7,'Measured pages: '+result.cases.map(x=>x.name).join(',')+'; errors='+JSON.stringify(result.errors));
  const main=result.cases.find(page=>page.name==='BR-main');
  const play=main.targets.find(target=>target.id==='play');
  assert.equal(play.hit,false);
