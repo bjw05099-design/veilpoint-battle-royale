@@ -28,9 +28,11 @@ test('physical server motion, not a client snapshot, determines own meters',()=>
 });
 test('relay operation metric is credited only after actual authoritative completion, resets next round',()=>{
  const g=game(),p=g.players.get(A),other=g.players.get(B);
- p.x=0;p.z=0;p.direction={x:0,z:0};p.capturing=true;p.captureArmed=true;
+ p.x=0;p.z=0;p.direction={x:0,z:0};
  other.x=8;other.z=0;
+ assert.equal(g.command(A,{seq:1,type:'capture',active:true}).ok,true);
  for(let i=0;i<Math.ceil(CAPTURE_SECONDS/STEP)+2;i++){
+  if(i===59)assert.equal(g.command(A,{seq:2,type:'capture',active:true}).ok,true);
   g.step();if(g.phase==='ended')break;
  }
  assert.equal(g.score.red,1);
