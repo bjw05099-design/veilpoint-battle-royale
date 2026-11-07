@@ -189,6 +189,10 @@ class SoftwareRenderer {
   type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
     o.type==='yard-fence'?'yard-fence':'building'});
  if(!harborNight){
+  // The roof is an elevated surface, not a fictitious ground-level cube.
+  const hut=global.VeilpointSim.INSPECTION_SHELTER;
+  objects.push({x:hut.x,z:hut.z,h:.2,w:hut.width,d:hut.depth,
+    roofY:hut.roofHeight,type:'dock-inspection-roof'});
   const pad=global.VeilpointSim.WET_LOADING_PAD;
   objects.push({x:pad.x,z:pad.z,h:.035,w:pad.width,d:pad.depth,type:'wet-apron'});
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
@@ -213,9 +217,15 @@ class SoftwareRenderer {
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
+ if(o.type==='dock-inspection-roof'){
+  const top=o.roofY+o.h;
+  polygon([proj(x-ww,top,z-dd),proj(x+ww,top,z-dd),
+    proj(x+ww,top,z+dd),proj(x-ww,top,z+dd)],'#43555b');
+  continue;
+ }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -301,6 +311,12 @@ class Renderer {
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='dock-inspection-wall'){
+   // Static collision walls and visible material are generated from one
+   // world obstacle. The front entrance remains fully open.
+   if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.29,.38,.39]);
+   return;
+  }
   if(o.type==='dock-breakwater'){
    // Visible solid waterfront walls use precisely the BR AABB footprints.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.31,.37,.39]);
@@ -339,6 +355,11 @@ class Renderer {
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
  if(this.sceneMode==='br'){
+  // Roof is separate elevated scenery over the actual three-sided shelter:
+  // it must never fill the entrance or add invisible ground collision.
+  const hut=global.VeilpointSim.INSPECTION_SHELTER;
+  m.box(hut.x,hut.roofHeight-.11,hut.z,hut.width,.22,hut.depth,[.24,.31,.33]);
+  m.box(hut.x,hut.roofHeight+.04,hut.z,hut.width+.4,.08,hut.depth+.4,[.33,.36,.35]);
   // The service gate is opened by a grounded, fixed wall-mounted control.
   m.box(30,0,-21.8,.55,1.3,.4,[.28,.31,.29]);
   m.box(30,1.12,-21.54,.37,.14,.07,[.80,.57,.23]);
