@@ -17,9 +17,8 @@ function fakeGl(){
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
- assert.equal(buildings.length,22,'harbor solids, office pieces, and a separate original-deployment field case');
- assert.equal(buildings.filter(o=>o.type==='story-dispatch-case').length,1,
-  'arrival-side original assignment record must occupy one real physical body');
+ assert.equal(buildings.length,21,'harbor solids and civilian office without an implausible Korean predeparture document prop');
+ assert.equal(buildings.some(o=>o.type==='story-dispatch-case'),false);
  assert.equal(buildings.filter(o=>o.type==='story-office-wall').length,5);
  assert.equal(buildings.filter(o=>o.type==='story-office-desk').length,1);
  assert.equal(buildings.filter(o=>o.type==='story-water-kiosk').length,1,'the public water kiosk must not be silently dropped');
