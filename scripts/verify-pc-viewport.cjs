@@ -582,6 +582,11 @@ async function run(){
    await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
    await rpc('Input.dispatchKeyEvent',{type:'keyUp',...key});
   }
+  async function pressG(){
+   const key={key:'g',code:'KeyG',windowsVirtualKeyCode:71,nativeVirtualKeyCode:71};
+   await rpc('Input.dispatchKeyEvent',{type:'keyDown',...key});
+   await rpc('Input.dispatchKeyEvent',{type:'keyUp',...key});
+  }
   const tree=await rpc('Page.getFrameTree');
   // The version endpoint can become ready before the first renderer frame.
   // Confirm CDP can execute a trivial expression before the heavy offline DOM.
@@ -649,6 +654,20 @@ async function run(){
    })()`,'settings setup '+width+'x'+height);
    assert.equal(graphics,'open|graphicsClose',
     'Settings must open with close-button focus at '+width+'x'+height);
+   const preset=await evaluateValue(`(()=>{
+    const node=document.getElementById('graphicsPreset');
+    node.focus({preventScroll:true});
+    return document.activeElement===node?'focused':'missing';
+   })()`,'settings preset focus '+width+'x'+height);
+   assert.equal(preset,'focused','BR graphics preset is not keyboard focusable');
+   await pressG();
+   const nativeSelect=await evaluateValue(`(()=>{
+    const get=id=>document.getElementById(id);
+    return (get('graphicsPanel').classList.contains('hidden')?'closed':'open')+
+     '|'+document.activeElement?.id;
+   })()`,'settings G typeahead '+width+'x'+height);
+   assert.equal(nativeSelect,'open|graphicsPreset',
+    'G must remain a native settings select key at '+width+'x'+height);
    await pressEscape();
    const closed=await evaluateValue(`(()=>{
     const get=id=>document.getElementById(id);
@@ -659,7 +678,8 @@ async function run(){
     'Escape must close settings and restore opener focus at '+width+'x'+height);
    keyboardRecords.push({width,height,cases:[
     {name:'BR-more-Escape',passed:true,focused:true},
-    {name:'settings-Escape',passed:true,focused:true}
+    {name:'settings-Escape',passed:true,focused:true},
+    {name:'settings-select-G',passed:true,focused:true}
    ]});
   }
   // CH01 has a separate HTML document and CSS. Its route-choice menu now

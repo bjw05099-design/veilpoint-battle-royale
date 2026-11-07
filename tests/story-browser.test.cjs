@@ -3150,10 +3150,13 @@ test('CH01 menu graphics button and repeated G are safe before mission start',()
  assert.equal(app.context.document.activeElement,app.element('quality'),
    'OS held-key repeat cannot change menu state');
  app.emit('keydown',{code:'KeyG',target:{tagName:'SELECT'}});
- assert.equal(app.context.document.activeElement,app.element('continue'),
-   'G toggles back to main control with graphic selector focused');
+ assert.equal(app.context.document.activeElement,app.element('quality'),
+   'G preserves native graphics selector typing while the settings page is focused');
  assert.equal(app.element('menu').classList.contains('hidden'),false);
  assert.equal(app.context.document.pointerLockElement,null);
+ app.emit('keydown',{code:'KeyG',target:{tagName:'BUTTON'}});
+ assert.equal(app.context.document.activeElement,app.element('continue'),
+   'G from an ordinary menu button retains the explicit close shortcut');
  app.emit('keydown',{code:'KeyG'});
  assert.equal(app.context.document.activeElement,app.element('quality'));
  app.emit('keydown',{code:'Escape',target:{tagName:'SELECT'}});

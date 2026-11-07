@@ -82,7 +82,7 @@ function validate(evidence){
  assert.ok(Array.isArray(keyboard),'Real CDP Escape evidence missing');
  assert.equal(keyboard.length,SIZES.length,'Incomplete CDP Escape viewports');
  const observed=new Set();
- const requiredKeys=['BR-more-Escape','settings-Escape'];
+ const requiredKeys=['BR-more-Escape','settings-Escape','settings-select-G'];
  for(const row of keyboard){
   const size=row.width+'x'+row.height;
   assert.ok(SIZES.includes(size)&&!observed.has(size),

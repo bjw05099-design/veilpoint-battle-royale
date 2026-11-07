@@ -1202,10 +1202,8 @@
     }
     // Typing JSON or changing a PC setting must not fire global J/G shortcuts
     // and unexpectedly discard the currently edited menu page.
-    if((e.code==='KeyJ'||e.code==='KeyG')&&e.target&&
-       (e.target.isContentEditable||
-        /^(INPUT|TEXTAREA)$/.test(e.target.tagName||'')||
-        (e.code==='KeyJ'&&e.target.tagName==='SELECT')))return;
+    if((e.code==='KeyJ'||e.code==='KeyG')&&
+       Desktop.isTextEntryTarget(e.target))return;
     // J opens the field journal through the existing protected pause path.
     // Do not steal the key when the player remapped J to a gameplay action.
     // The explicit menu button remains available for all binding layouts.

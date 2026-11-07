@@ -1185,9 +1185,11 @@ addEventListener('keydown',e=>{
   }else{suspendMatch();resetInactiveClock();}
   return;
  }
- // G closes the open settings panel even while a settings select or Close
- // button has focus. The remapping/capture handler above retains priority.
- if(e.code==='KeyG'&&!e.repeat&&!$('graphicsPanel').classList.contains('hidden')){
+ // G closes settings from ordinary buttons, but must not steal G as
+ // native select typeahead or text input while editing a PC menu control.
+ // The remapping/capture handler above retains priority.
+ if(e.code==='KeyG'&&!e.repeat&&!$('graphicsPanel').classList.contains('hidden')&&
+    !Desktop.isTextEntryTarget(e.target)){
   e.preventDefault();setGraphicsPanelOpen(false);return;
  }
  // Menu/settings focus must never start a match or fire a round. In particular,

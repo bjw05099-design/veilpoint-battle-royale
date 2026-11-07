@@ -143,6 +143,28 @@
    event.keyCode===229||event.key==='Dead'||event.key==='AltGraph'||!!event.ctrlKey||!!event.altKey||!!event.metaKey||
    (typeof event.getModifierState==='function'&&event.getModifierState('AltGraph')));
  }
+ // Menu hotkeys must not steal printable letters from focused text inputs,
+ // native selects, or editable descendants (including custom PC comboboxes).
+ // Buttons are deliberately not included: G remains an explicit close shortcut
+ // when the player focuses an ordinary button in the settings dialog.
+ function isTextEntryTarget(target){
+  let node=target;
+  const seen=new Set();
+  for(let depth=0;node&&depth<32;depth++){
+   if(typeof node!=='object'||seen.has(node))return false;
+   seen.add(node);
+   const tag=typeof node.tagName==='string'?node.tagName.toUpperCase():'';
+   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||node.isContentEditable===true)
+    return true;
+   const role=typeof node.getAttribute==='function'?node.getAttribute('role'):node.role;
+   if(typeof role==='string'&&/^(?:textbox|searchbox|combobox|spinbutton|listbox)$/.test(role.trim().toLowerCase()))
+    return true;
+   const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
+   if(editable!=null&&editable!=='false')return true;
+   node=node.parentElement||node.parentNode||node.host||null;
+  }
+  return false;
+ }
  function isInteractiveTarget(target){
   // Keyboard events often originate from a child span/icon/text node inside
   // a focused button or editable control. Check the composed ancestor chain,
@@ -302,7 +324,7 @@
   refresh();
   return {get:()=>current,captureKey,cancel};
  }
- const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
+ const api={STORAGE_KEY,DEFAULT_BINDINGS,ACTIONS,normalize,load,save,bind,keyLabel,storyHintText,actionFor,isModifiedGameplayKey,pcMenuEscape,isWindowsPC,isInteractiveTarget,isTextEntryTarget,isGameplayShortcut,mouseDelta,focusGameplay,requestPrecisionPointerLock,createTriggerLatch,attach};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  root.VeilpointDesktopControls=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
