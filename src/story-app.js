@@ -483,7 +483,7 @@
       const candidates=[
         {raw:storage.get(SAVE_KEY),primary:true},
         {raw:checkpoint,primary:false},
-        {raw:storage.get(BACKUP_KEY),primary:false}
+        {raw:storage.get(BACKUP_KEY),primary:false,backup:true}
       ];
       for(const entry of candidates){
         if(!entry.raw)continue;
@@ -496,6 +496,11 @@
             if(storage.get(SAVE_KEY)!==entry.raw)continue;
             diskGeneration=entry.raw;
             checkpoint=entry.raw;
+          }else if(entry.backup){
+            // A different Windows tab can rotate the previous generation
+            // while this session validates it. Never adopt a backup that
+            // disappeared or changed between read and restore.
+            if(storage.get(BACKUP_KEY)!==entry.raw)continue;
           }
           recovered=candidate;
           break;
