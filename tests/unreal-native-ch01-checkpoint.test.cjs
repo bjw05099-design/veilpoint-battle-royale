@@ -25,11 +25,11 @@ test('UE5 standalone authority gate guards native load and save, not replicated 
  assert.match(mode,/GetNetMode\(\) != NM_Standalone/);
  assert.match(mode,/HasAuthority\(\)/);
  assert.match(mode,/DoesSaveGameExist\(CH01Slot, CH01UserIndex\)/);
- assert.match(mode,/LoadGameFromSlot\(CH01Slot, CH01UserIndex\)/);
+ assert.match(mode,/LoadGameFromSlot\(Slot, CH01UserIndex\)/);
  assert.match(mode,/Saved->SchemaVersion != 1/);
- assert.match(mode,/Saved->SavedStage, Saved->bSavedHarborRecord, Saved->bSavedShelterRecord/);
+ assert.match(mode,/Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord/);
  assert.match(mode,/SaveGameToSlot\(Saved, CH01Slot, CH01UserIndex\)/);
- assert.match(mode,/if \(!bWritten\)/);
+ assert.match(mode,/if \(!bVerified\)/);
  assert.match(mode,/memory-only/);
  assert.doesNotMatch(modeH,/UFUNCTION\(Server|NetMulticast|Client/);
 });
@@ -58,4 +58,45 @@ test('UE5 CH01 progression attempts persistence only after a valid physical obje
  assert.match(mode,/void AVPStoryGameMode::BeginPlay\(\)[\s\S]*?RestoreStoryCheckpoint\(\)/);
  assert.match(marker,/State->TryAdvance\(Action\)/);
  assert.doesNotMatch(save,/bEliminated|WinningTeam|ClientSession/);
+});
+
+test('native CH01 checkpoint restores only coherent evidence, falling back to the prior copy',()=>{
+ const clean=mode.slice(mode.indexOf('bool IsCoherentSaved('),mode.indexOf('void AVPStoryGameMode::RestoreStoryCheckpoint()'));
+ const recovery=mode.slice(mode.indexOf('void AVPStoryGameMode::RestoreStoryCheckpoint()'),mode.indexOf('bool AVPStoryGameMode::PersistStoryCheckpoint()'));
+ assert.match(clean,/Saved->SchemaVersion != 1/);
+ assert.match(clean,/case EVPStoryStage::RestoreRelay: return !Harbor && !Shelter/);
+ assert.match(clean,/case EVPStoryStage::InspectRecords: return !\(Harbor && Shelter\)/);
+ assert.match(clean,/case EVPStoryStage::Complete: return Harbor && Shelter/);
+ assert.match(clean,/return IsCoherentSaved\(Saved\) \? Saved : nullptr/);
+ assert.match(recovery,/UVPStoryCheckpoint\* Primary = ReadVerifiedCheckpoint\(CH01Slot\)/);
+ assert.match(recovery,/UVPStoryCheckpoint\* Backup = ReadVerifiedCheckpoint\(CH01BackupSlot\)/);
+ assert.ok(recovery.indexOf('ReadVerifiedCheckpoint(CH01Slot)')<
+  recovery.indexOf('ReadVerifiedCheckpoint(CH01BackupSlot)'),'only inspect backup after primary');
+ assert.match(recovery,/Backup && State->RestoreProgress\(/);
+ assert.doesNotMatch(recovery,/DeleteGameInSlot\(CH01Slot[^)]*\)\s*;\s*UVPStoryCheckpoint\* Backup/);
+});
+test('native CH01 saves preserve one previous valid generation and verify actual reread',()=>{
+ const write=mode.slice(mode.indexOf('bool AVPStoryGameMode::PersistStoryCheckpoint()'));
+ assert.match(write,/UVPStoryCheckpoint\* Previous = ReadVerifiedCheckpoint\(CH01Slot\)/);
+ assert.match(write,/SaveGameToSlot\(\s*Previous, CH01BackupSlot, CH01UserIndex\)/);
+ assert.ok(write.indexOf('SaveGameToSlot(')<write.indexOf('SaveGameToSlot(Saved, CH01Slot'),
+  'backup must be attempted before primary overwrite');
+ assert.match(write,/backup failed; retained previous checkpoint/);
+ assert.match(write,/bWritten \? ReadVerifiedCheckpoint\(CH01Slot\) : nullptr/);
+ assert.match(write,/Check->SavedStage == Saved->SavedStage/);
+ assert.match(write,/Check->bSavedHarborRecord == Saved->bSavedHarborRecord/);
+ assert.match(write,/Check->bSavedShelterRecord == Saved->bSavedShelterRecord/);
+ assert.match(write,/return bVerified/);
+});
+test('native CH01 explicitly requested fresh story cannot delete checkpoints on ordinary load',()=>{
+ const restore=mode.slice(mode.indexOf('void AVPStoryGameMode::RestoreStoryCheckpoint()'),
+  mode.indexOf('bool AVPStoryGameMode::PersistStoryCheckpoint()'));
+ assert.match(restore,/GetNetMode\(\) != NM_Standalone\) return/);
+ assert.match(restore,/FParse::Param\(FCommandLine::Get\(\), TEXT\("VeilpointCH01Fresh"\)\)/);
+ assert.match(restore,/DeleteGameInSlot\(Slot, CH01UserIndex\)/);
+ assert.match(restore,/could not delete local fresh-start slot/);
+ const conditional=restore.indexOf('FParse::Param');
+ const deletion=restore.indexOf('DeleteGameInSlot');
+ assert.ok(deletion>conditional,'destructive reset is opt-in only');
+ assert.match(restore,/starting new local story by explicit launch flag/);
 });

@@ -5,6 +5,8 @@
 #include "Engine/World.h"
 #include "VPStoryCheckpoint.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 AVPStoryGameMode::AVPStoryGameMode()
 {
@@ -53,20 +55,68 @@ void AVPStoryGameMode::BeginPlay()
 namespace
 {
 const FString CH01Slot = TEXT("veilpoint.ch01.native.v1");
+const FString CH01BackupSlot = TEXT("veilpoint.ch01.native.v1.backup");
 constexpr int32 CH01UserIndex = 0;
+
+// Never promote invalid or impossible mission evidence to a recovery slot.
+// The final authority check still happens in AVPStoryGameState::RestoreProgress.
+bool IsCoherentSaved(const UVPStoryCheckpoint* Saved)
+{
+    if (!Saved || Saved->SchemaVersion != 1) return false;
+    const bool Harbor = Saved->bSavedHarborRecord;
+    const bool Shelter = Saved->bSavedShelterRecord;
+    switch (Saved->SavedStage)
+    {
+    case EVPStoryStage::RestoreRelay: return !Harbor && !Shelter;
+    case EVPStoryStage::InspectRecords: return !(Harbor && Shelter);
+    case EVPStoryStage::ChooseRoute:
+    case EVPStoryStage::SouthExit:
+    case EVPStoryStage::EastExit:
+    case EVPStoryStage::Complete: return Harbor && Shelter;
+    default: return false;
+    }
+}
+UVPStoryCheckpoint* ReadVerifiedCheckpoint(const FString& Slot)
+{
+    if (!UGameplayStatics::DoesSaveGameExist(Slot, CH01UserIndex)) return nullptr;
+    UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
+        UGameplayStatics::LoadGameFromSlot(Slot, CH01UserIndex));
+    return IsCoherentSaved(Saved) ? Saved : nullptr;
+}
 }
 
 void AVPStoryGameMode::RestoreStoryCheckpoint()
 {
     if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode() != NM_Standalone) return;
-    if (!UGameplayStatics::DoesSaveGameExist(CH01Slot, CH01UserIndex)) return;
-    const UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
-        UGameplayStatics::LoadGameFromSlot(CH01Slot, CH01UserIndex));
-    if (!Saved || Saved->SchemaVersion != 1) return;
+    // Explicit local-only test entry point: a completed CH01 save must not
+    // trap an editor smoke test on its terminal screen forever.
+    if (FParse::Param(FCommandLine::Get(), TEXT("VeilpointCH01Fresh")))
+    {
+        for (const FString& Slot : {CH01Slot, CH01BackupSlot})
+        {
+            if (UGameplayStatics::DoesSaveGameExist(Slot, CH01UserIndex) &&
+                !UGameplayStatics::DeleteGameInSlot(Slot, CH01UserIndex))
+                UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: could not delete local fresh-start slot %s"), *Slot);
+        }
+        UE_LOG(LogTemp, Display, TEXT("VEILPOINT CH01: starting new local story by explicit launch flag"));
+        return;
+    }
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
-    if (State && !State->RestoreProgress(
-        Saved->SavedStage, Saved->bSavedHarborRecord, Saved->bSavedShelterRecord))
-        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: ignored invalid local checkpoint"));
+    if (!State) return;
+    UVPStoryCheckpoint* Primary = ReadVerifiedCheckpoint(CH01Slot);
+    if (Primary && State->RestoreProgress(
+        Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord))
+        return;
+    UVPStoryCheckpoint* Backup = ReadVerifiedCheckpoint(CH01BackupSlot);
+    if (Backup && State->RestoreProgress(
+        Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective backup"));
+        return;
+    }
+    if (UGameplayStatics::DoesSaveGameExist(CH01Slot, CH01UserIndex) ||
+        UGameplayStatics::DoesSaveGameExist(CH01BackupSlot, CH01UserIndex))
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: invalid checkpoint; starting clean in memory"));
 }
 
 bool AVPStoryGameMode::PersistStoryCheckpoint()
@@ -82,8 +132,23 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
     Saved->SavedStage = State->StoryStage;
     Saved->bSavedHarborRecord = State->bReadHarbor;
     Saved->bSavedShelterRecord = State->bReadShelter;
+    // Copy only a coherent, previously confirmed primary into the backup slot
+    // BEFORE overwriting the active slot. If that copy fails, retain primary.
+    // This is best-effort redundancy, not an atomic filesystem transaction.
+    UVPStoryCheckpoint* Previous = ReadVerifiedCheckpoint(CH01Slot);
+    if (Previous && !UGameplayStatics::SaveGameToSlot(
+        Previous, CH01BackupSlot, CH01UserIndex))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: backup failed; retained previous checkpoint"));
+        return false;
+    }
     const bool bWritten = UGameplayStatics::SaveGameToSlot(Saved, CH01Slot, CH01UserIndex);
-    if (!bWritten)
-        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save failed)"));
-    return bWritten;
+    // The API's write result alone is not evidence of reloadable progress.
+    UVPStoryCheckpoint* Check = bWritten ? ReadVerifiedCheckpoint(CH01Slot) : nullptr;
+    const bool bVerified = Check && Check->SavedStage == Saved->SavedStage &&
+        Check->bSavedHarborRecord == Saved->bSavedHarborRecord &&
+        Check->bSavedShelterRecord == Saved->bSavedShelterRecord;
+    if (!bVerified)
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save verification failed)"));
+    return bVerified;
 }
