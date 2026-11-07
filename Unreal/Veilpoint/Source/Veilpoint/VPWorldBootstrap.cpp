@@ -183,6 +183,24 @@ void AVPWorldBootstrap::BeginPlay()
     AddBlock(Buildings,FVector(-10800.f,-13200.f,160.f),FVector(.8f,10.f,3.2f));
     AddBlock(Buildings,FVector(-9200.f,-13200.f,160.f),FVector(.8f,10.f,3.2f));
     AddBlock(Buildings,FVector(-10000.f,-13200.f,320.f),FVector(16.f,10.f,.2f));
+    // Native BR observation deck: traversable by ordinary on-foot movement,
+    // rather than an inaccessible elevated facade. 100cm = one metre.
+    // Buildings instanced mesh has the same physical/visibility collision
+    // on server and Windows clients. The upper surface is Z=235cm.
+    AddBlock(Buildings,FVector(-3500.f,11900.f,220.f),FVector(4.f,22.f,.3f));
+    // 9.65-degree incline about world X: ramp rises toward positive Y.
+    // Lower tip meets Z=-5cm ground, upper tip meets 2.35m deck via a
+    // normal character step. No mid-round teleport or new game mode.
+    Buildings->AddInstance(FTransform(FRotator(0.f,0.f,9.65f),
+        FVector(-3500.f,10100.f,100.f),FVector(3.6f,14.2f,.20f)));
+    // Continuous guardrails outside the clear, 4m-wide deck surface.
+    AddBlock(Buildings,FVector(-3720.f,11900.f,315.f),FVector(.16f,22.f,1.7f));
+    AddBlock(Buildings,FVector(-3280.f,11900.f,315.f),FVector(.16f,22.f,1.7f));
+    // Four separate supporting columns. The air beneath remains traversable.
+    AddBlock(Buildings,FVector(-3620.f,11200.f,105.f),FVector(.28f,.28f,2.f));
+    AddBlock(Buildings,FVector(-3380.f,11200.f,105.f),FVector(.28f,.28f,2.f));
+    AddBlock(Buildings,FVector(-3620.f,12700.f,105.f),FVector(.28f,.28f,2.f));
+    AddBlock(Buildings,FVector(-3380.f,12700.f,105.f),FVector(.28f,.28f,2.f));
     // Native UE5 west quay: 100 cm/m matches the offline BR collision AABBs.
     // Same instance transforms on host and Windows client class bootstrap.
     AddBlock(Buildings,FVector(-13500.f,-12600.f,115.f),FVector(22.f,2.f,2.3f));
