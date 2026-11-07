@@ -23,13 +23,13 @@ test('CH01 earned debrief differentiates actual civilian outcomes without phanto
  const state=Story.createState();
  state.choice='evacuation';state.phase='complete';state.world.status='won';
  let entry=inspect(state);
- assert.match(entry.detail,/인원 확인 미실시/);
+ assert.match(entry.detail,/담당자 현장 협의 미실시/);
  assert.match(entry.detail,/비상 물품 인계 미완료/);
  assert.match(entry.detail,/안내원 동행 선택 미완료/);
  state.musterConfirmed=true;state.aidDelivered=true;state.guide.arrived=true;
  const before=JSON.stringify(state);
  entry=inspect(state);
- assert.match(entry.detail,/인원 확인 완료/);
+ assert.match(entry.detail,/담당자 현장 협의 완료/);
  assert.match(entry.detail,/비상 물품 인계 완료/);
  assert.match(entry.detail,/안내원 안뜰 도착/);
  assert.equal(JSON.stringify(state),before,'read-only journal may not mutate 60Hz checkpoint state');
