@@ -100,6 +100,16 @@
     return (selected&&selected.nav?'선택한 임무 표식':goal?'주요 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
       ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m '+(directLineBlocked(player,nearest.marker,obstacles)?'(직선 경로 차단 · 장애물 우회 필요)':'(장애물 우회 필요 가능)');
   }
+  // An authored physical sign is not remotely recoverable. The HUD only
+  // offers J within the true 1.8 m pickup reach and an unobstructed path.
+  function fieldSign(player,mark,obstacles){
+    if(mark==null)return ' · [J] PLACE ROUTE SIGN';
+    const target=direction(player,mark);
+    if(!target)return ' · FIELD SIGN POSITION UNAVAILABLE';
+    const blocked=directLineBlocked(player,mark,obstacles);
+    return ' · FIELD SIGN '+Math.round(target.meters)+'m · '+target.label+
+      (blocked?' · PATH BLOCKED':target.meters<1.8?' · [J] RECOVER':' · APPROACH TO RECOVER');
+  }
   function zone(player,zone){
     if(!zone||![zone.x,zone.z,zone.radius].every(Number.isFinite)||zone.radius<=0)
       return '안전 구역 안내 불가';
@@ -109,5 +119,5 @@
     return remaining>=0?'현재 안전 구역 내부 · 경계까지 직선거리 약 '+Math.round(remaining)+'m':
       '안전 구역 밖 · 경계까지 직선거리 약 '+Math.ceil(-remaining)+'m · 중심은 '+nav.label;
   }
-  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone});
+  return Object.freeze({direction,directLineBlocked,markerIndex,nextMarkerId,previousMarkerId,story,zone,fieldSign});
 });
