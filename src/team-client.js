@@ -411,7 +411,15 @@
     // The active ring is a status of a physical fixture, not a newly
     // materialized object on score change.
     if(Array.isArray(objective?.stations)){
-      for(const terminal of objective.stations.slice(0,5)){
+      // Preserve the three original installed terminals and additionally
+      // draw the two lateral consoles when a host chooses wide rotation.
+      for(const terminal of objective.stations.slice(0,3)){
+        if(!Number.isFinite(terminal.x)||!Number.isFinite(terminal.z))continue;
+        const p=point(terminal.x,terminal.z);
+        ctx.fillStyle=terminal.active?'#d8c88d':'#566c70';
+        ctx.fillRect(p.x-4,p.y-4,8,8);
+      }
+      for(const terminal of objective.stations.slice(3,5)){
         if(!Number.isFinite(terminal.x)||!Number.isFinite(terminal.z))continue;
         const p=point(terminal.x,terminal.z);
         ctx.fillStyle=terminal.active?'#d8c88d':'#566c70';
