@@ -91,4 +91,9 @@ test('visible graphics dialog rejects focus on hidden and disabled tab controls'
  f.handlers.focusin({type:'focusin',target:f.select});
  assert.equal(f.document.activeElement,f.select,
   'visible settings dropdown retains native keyboard focus');
+ f.select.tabIndex=-1;
+ f.document.activeElement=f.select;
+ f.handlers.focusin({type:'focusin',target:f.select});
+ assert.equal(f.document.activeElement,f.select,
+  'visible roving-tabindex buttons may receive direct focus without becoming Tab destinations');
 });
