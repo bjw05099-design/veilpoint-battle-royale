@@ -271,6 +271,15 @@
     o.push({x:-135,z:-126,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-135,z:-144,w:22,d:2,h:2.3,type:'dock-breakwater'});
     o.push({x:-151,z:-135,w:2,d:3,h:3,type:'dock-bollard'});
+    // Original volcanic rock band inspired by Aden's jagged coastal ridges,
+    // NOT satellite-measured historical structures or a military route.
+    // Each large visible outcrop is the exact collidable BR AABB, and the
+    // open spaces between them are ordinary on-foot traversable corridors.
+    for(const [x,z,w,d,h] of [
+      [-158,43,7,9,5.3],[-155,62,8,7,6.5],
+      [-151,82,7,10,4.7],[-133,74,9,7,3.9],
+      [-116,97,7,9,5.1]
+    ])o.push({x,z,w,d,h,type:'volcanic-outcrop'});
     // Open-front harbor inspection shelter: one rear wall and two side walls.
     // The southern-looking opening at z=-127 is intentionally not blocked.
     o.push({x:-100,z:-137,w:16,d:.8,h:3.2,type:'dock-inspection-wall'});
