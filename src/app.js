@@ -193,7 +193,12 @@ function containGraphicsDialogFocus(event){
  const panel=$('graphicsPanel');
  if(panel.classList.contains('hidden'))return;
  if(event.type==='focusin'){
-  if(!panel.contains(event.target))$('graphicsClose').focus({preventScroll:true});
+  // Hidden settings-tab descendants still belong to the panel DOM. They
+  // cannot own focus after a page switch or while disabled.
+  const controls=visibleGraphicsDialogControls();
+  if(!controls.some(node=>node===event.target||
+     (typeof node.contains==='function'&&node.contains(event.target))))
+   $('graphicsClose').focus({preventScroll:true});
   return;
  }
  if(event.key!=='Tab')return;
