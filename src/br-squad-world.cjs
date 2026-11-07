@@ -6,6 +6,9 @@ const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY}=require('./br-squad-lobby.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
+// 10-second presence window is only a reconnect diagnostic; a stale
+// connection never silently eliminates a human squad or awards a rank.
+const PRESENCE_STALE_TICKS=10*60;
 const OFFSETS=Object.freeze([[-4,-3],[0,-3],[4,-3],[-4,3],[0,3],[4,3]]);
 class BrSquadWorld {
   constructor(lobby,seed=20261108){
@@ -50,7 +53,7 @@ class BrSquadWorld {
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
-          lastSignalTick:-SIGNAL_COOLDOWN_TICKS});
+          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0});
       }
     }
   }
@@ -70,7 +73,19 @@ class BrSquadWorld {
     actor.direction=length>1?{x:command.dx/length,z:command.dz/length}:
       {x:command.dx,z:command.dz};
     actor.seq=command.seq;actor.lastMoveTick=this.tick;
+    actor.lastPresenceTick=this.tick;
     return {ok:true,seq:actor.seq};
+  }
+  // An explicit authenticated heartbeat refreshes server-side presence.
+  // Dropped network connections must not invent a sixth squad elimination:
+  // presence is observational, while competitive eligibility is independent.
+  heartbeat(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,tick:this.tick};
   }
   // Team-only, time-limited in-world field signals are authored at the
   // caller's actual server pose. They never identify an unseen opponent or
@@ -84,6 +99,7 @@ class BrSquadWorld {
     const remaining=SIGNAL_COOLDOWN_TICKS-(this.tick-actor.lastSignalTick);
     if(remaining>0)return {ok:false,reason:'signal_cooldown',retryTicks:remaining};
     actor.lastSignalTick=this.tick;
+    actor.lastPresenceTick=this.tick;
     const notice={squad:actor.team+1,authorId:actor.id,
       kind,x:actor.x,z:actor.z,issuedAtTick:this.tick,
       expiresAtTick:this.tick+SIGNAL_TTL_TICKS};
@@ -159,7 +175,8 @@ class BrSquadWorld {
     for(const p of this.actors.values())if(p.eligible)active[p.team]++;
     for(const p of this.actors.values()){
       const limited={id:p.id,x:p.x,z:p.z};
-      if(p.team===me.team)mates.push({...limited,slot:p.slot+1,eligible:p.eligible});
+      if(p.team===me.team)mates.push({...limited,slot:p.slot+1,eligible:p.eligible,
+        connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
       else if(me.eligible&&p.eligible&&Math.hypot(p.x-me.x,p.z-me.z)<=18&&
         !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))seen.push(limited);
     }
@@ -172,8 +189,9 @@ class BrSquadWorld {
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        connection:me.eligible&&this.tick-me.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale',
         placement:this.placements[me.team]},squad:mates,visible:seen};
   }
 }
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,LEASE_TICKS,
-  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS};
+  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS};
