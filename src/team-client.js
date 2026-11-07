@@ -488,6 +488,17 @@
       ?'우리 팀 '+asPercent(state.progress[ownTeam])+'% · 상대 팀 '+
        asPercent(state.progress[enemyTeam])+'% · 서버 진행'
       :state.phase==='lobby'?'대전 시작 전':'중계 진행 기록 없음';
+    // The server discloses only our own local relay eligibility, never why
+    // the other team may be preventing progress behind cover or in coastal mist.
+    const relayHints={inactive:'',approach:'중계기 가까이 이동',
+      stop:'중계기에서 정지',wait_reload:'재장전 완료 후 시도',
+      hands_free:'조작 전에 입력 해제',release_press:'조작 키를 놓고 다시 누르기',
+      press:'중계기에서 상호작용 키 누르기',
+      transmitting:'중계기 연결 진행 중',server_checking:'서버 확인 중'};
+    const localHint=Object.prototype.hasOwnProperty.call(relayHints,state.self.relayInteraction)
+      ?relayHints[state.self.relayInteraction]:'';
+    if(state.phase==='playing'&&localHint)
+      el('relayProgress').textContent+=' · '+localHint;
     // The remaining time comes from the server's 60Hz simulation, not the
     // browser's wall clock. Keep older mock/protocol snapshots compatible.
     const remainingTicks = state.round?.remainingTicks;
