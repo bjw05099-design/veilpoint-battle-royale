@@ -512,7 +512,23 @@
         state.reason === 'time_limit' ? '제한 시간 종료 · 동점 무승부' :
         state.reason === 'player_left' ? '승리 팀 없음 (퇴장 시 상대 연결 만료)' :
         '승리 팀 없음 (양측 연결 종료)';
-      status(`종료 · ${outcome} · 사유 ${state.reason}. 다시 준비하면 재대전할 수 있습니다.`);
+      // A finished match preserves its result while the server awaits two
+      // independent rematch votes. Never infer the peer's private identity
+      // or declare a second round from a local button press.
+      const seats=state.lobby?.participants;
+      const readyVotes=state.lobby?.ready;
+      const consent=Number.isSafeInteger(seats)&&seats>=0&&seats<=2&&
+        Number.isSafeInteger(readyVotes)&&readyVotes>=0&&readyVotes<=seats
+        ?(seats<2?'상대 참가자 입장 대기':
+          '재대전 준비 '+readyVotes+'/2'+
+          (displayedReady?' · 내 준비 확인':' · 준비 버튼으로 참여'))
+        :'재대전 준비 상태 확인 중';
+      const reasons={objective_score:'중계기 점수 달성',
+        time_limit:'경기 제한 시간 종료',opponent_incapacitated:'경기 참가자 활동 불가',
+        mutual_incapacitation:'양측 활동 불가',player_left:'참가자 퇴장',
+        connection_timeout:'참가자 연결 만료'};
+      const cause=reasons[state.reason]||'서버 판정';
+      status('종료 · '+outcome+' · '+cause+' · '+consent);
     }
     else if (state.phase === 'lobby') {
       const participants = state.lobby?.participants ?? 2;
