@@ -3,6 +3,8 @@
 #include "VPZone.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
+#include "VPGameUserSettings.h"
+#include "Misc/App.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Canvas.h"
@@ -20,6 +22,29 @@ void AVPHUD::DrawHUD()
     const float Y = 116.f * Scale;
     const float BarWidth = 210.f * Scale;
     const float BarHeight = 8.f * Scale;
+
+    // Native UE application-frame measurements are gathered in a bounded
+    // history and never inferred from graphics presets or browser benchmarks.
+    FrameTelemetry.Record(FApp::GetDeltaTime());
+    const float TelemetryX=FMath::Max(12.f,Canvas->ClipX-430.f*Scale);
+    if (FrameTelemetry.HasEvidence())
+    {
+        const FString RenderLine=FString::Printf(
+            TEXT("APP FRAMES %.0f FPS | P95 %.1fms"),
+            FrameTelemetry.GetObservedFPS(),FrameTelemetry.GetP95FrameMs());
+        DrawText(RenderLine,FLinearColor(.79f,.94f,.84f,1.f),
+                 TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
+    }
+    else DrawText(TEXT("APP FRAMES: CALIBRATING"),
+                  FLinearColor(.83f,.90f,.84f,1.f),
+                  TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
+    const UVPGameUserSettings* NativeSettings=UVPGameUserSettings::GetVeilpointSettings();
+    const float ConfiguredCap=NativeSettings?NativeSettings->GetFrameRateLimit():0.f;
+    const FString PixelLine=FString::Printf(
+        TEXT("GAME VIEWPORT %.0fx%.0f | CAP %.0f | NOT GPU TIMING"),
+        Canvas->ClipX,Canvas->ClipY,ConfiguredCap);
+    DrawText(PixelLine,FLinearColor(.75f,.83f,.90f,1.f),
+             TelemetryX,45.f*Scale,nullptr,.72f*Scale,false);
 
     // Display the actual native authoritative stamina rather than inventing
     // a local count based on render FPS. It is safe for offline and net PIE.
