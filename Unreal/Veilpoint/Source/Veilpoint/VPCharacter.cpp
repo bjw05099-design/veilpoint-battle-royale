@@ -192,8 +192,24 @@ void AVPCharacter::ServerTryInteract_Implementation()
     // A BR pickup cannot accidentally advance the story (or vice versa).
     if (GetWorld()->GetGameState<AVPStoryGameState>())
     {
+        // The first spawned marker is not necessarily the closest visible
+        // objective. Prefer the nearest actually reachable local marker.
+        AVPStoryMarker* Nearest = nullptr;
+        float BestDistanceSq = FMath::Square(275.f);
         for (TActorIterator<AVPStoryMarker> It(GetWorld()); It; ++It)
-            if (It->IsAvailable() && It->TryActivate(this)) return;
+        {
+            if (!It->IsAvailable()) continue;
+            const float DistanceSq=FVector::DistSquared(
+                GetActorLocation(),It->GetActorLocation());
+            if (DistanceSq >= BestDistanceSq) continue;
+            FCollisionQueryParams Params(SCENE_QUERY_STAT(VPStoryChoose), true, this);
+            Params.AddIgnoredActor(*It);
+            if (GetWorld()->LineTraceTestByChannel(
+                GetPawnViewLocation(),It->GetActorLocation(),ECC_Visibility,Params)) continue;
+            Nearest=*It;
+            BestDistanceSq=DistanceSq;
+        }
+        if (Nearest) Nearest->TryActivate(this);
         return;
     }
     AVPPickup* Nearest = nullptr;
