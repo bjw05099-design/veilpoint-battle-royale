@@ -326,6 +326,11 @@
     graphicsContextLost=true;
     menuOpen('그래픽 장치 연결이 끊어졌습니다. 복구될 때까지 CH01 진행이 중단됩니다.');
     renderer=null;$('continue').disabled=true;$('newGame').disabled=true;
+    // Disabling the focused Continue control after a GPU loss can strand
+    // Windows keyboard users on <body>. Keep focus inside the usable pause
+    // menu while no rendering or 60Hz simulation can resume.
+    if(!menu.classList.contains('hidden')&&typeof $('storyMenuMore').focus==='function')
+      $('storyMenuMore').focus({preventScroll:true});
   });
   canvas.addEventListener('webglcontextrestored',()=>{
     if(!graphicsContextLost)return;
@@ -345,6 +350,10 @@
       }else{
         restoreRouteDialogAfterGraphics=false;
         $('menuText').textContent='그래픽 장치가 복구되었습니다. 이어하기를 눌러 현재 체크포인트부터 재개하세요.';
+        // A real GPU rebuild re-enables Continue but does not by itself
+        // restore keyboard focus removed when it was disabled.
+        if(!menu.classList.contains('hidden')&&typeof $('continue').focus==='function')
+          $('continue').focus({preventScroll:true});
       }
     }catch(err){
       renderer=null;
