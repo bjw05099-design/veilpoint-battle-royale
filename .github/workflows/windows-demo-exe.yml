@@ -64,6 +64,11 @@ jobs:
         run: |
           node --test tests/pc-chromium-geometry-gate.test.cjs tests/pc-geometry-evidence.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Win64 menu release contracts failed' }
+      - name: Verify cross-mode PC gameplay controllers on Windows
+        shell: pwsh
+        run: |
+          node --test tests/desktop-controls.test.cjs tests/br-browser.test.cjs tests/story-browser.test.cjs tests/team-client-browser.test.cjs tests/team-match.test.cjs tests/pc-checkpoint-download-fallback.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Win64 BR, CH01, team, and checkpoint controller tests failed' }
       - name: Compile real Win64 EXE and package verified offline game
         shell: pwsh
         run: |
