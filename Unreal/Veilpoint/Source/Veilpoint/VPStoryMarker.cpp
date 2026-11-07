@@ -2,6 +2,7 @@
 #include "VPCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
@@ -30,6 +31,13 @@ AVPStoryMarker::AVPStoryMarker()
     BeaconLight->SetAttenuationRadius(650.f);
     BeaconLight->SetLightColor(FLinearColor(1.f,.53f,.16f));
     BeaconLight->SetVisibility(false);
+    ObjectiveLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("MissionObjectiveLabel"));
+    ObjectiveLabel->SetupAttachment(RootComponent);
+    ObjectiveLabel->SetRelativeLocation(FVector(0.f,0.f,150.f));
+    ObjectiveLabel->SetWorldSize(27.f);
+    ObjectiveLabel->SetHorizontalAlignment(EHTA_Center);
+    ObjectiveLabel->SetTextRenderColor(FColor(235,224,181));
+    ObjectiveLabel->SetVisibility(false);
 }
 
 void AVPStoryMarker::BeginPlay()
@@ -66,24 +74,41 @@ void AVPStoryMarker::ApplyStageShape()
 {
     if (!Model) return;
     FVector Shape(.40f, .40f, 1.f);
+    FString Label = TEXT("CHECK");
     switch (Action)
     {
     case EVPStoryAction::RestoreRelay:
-        Shape = FVector(.52f, .52f, 1.2f); break; // Local relay mast
+        Shape = FVector(.52f, .52f, 1.2f); Label=TEXT("RELAY"); break; // Local relay mast
     case EVPStoryAction::ActivateBeacon:
-        Shape = FVector(.32f, .32f, 1.05f); break; // Manual harbor signal pedestal
+        Shape = FVector(.32f, .32f, 1.05f); Label=TEXT("BEACON"); break; // Manual harbor signal pedestal
     case EVPStoryAction::ReadHarbor:
+        Shape = FVector(.60f, .60f, .32f); Label=TEXT("HARBOR RECORD"); break;
     case EVPStoryAction::ReadShelter:
-        Shape = FVector(.60f, .60f, .32f); break; // Physical record station
+        Shape = FVector(.60f, .60f, .32f); Label=TEXT("SHELTER RECORD"); break;
     case EVPStoryAction::ChooseSouth:
+        Shape = FVector(.42f, .42f, .65f); Label=TEXT("SOUTH ROUTE"); break;
     case EVPStoryAction::ChooseEast:
-        Shape = FVector(.42f, .42f, .65f); break; // Decision console
+        Shape = FVector(.42f, .42f, .65f); Label=TEXT("EAST ROUTE"); break;
     case EVPStoryAction::ReachSouth:
+        Shape = FVector(.70f, .70f, .15f); Label=TEXT("SOUTH EXIT"); break;
     case EVPStoryAction::ReachEast:
-        Shape = FVector(.70f, .70f, .15f); break; // Ground arrival marker
+        Shape = FVector(.70f, .70f, .15f); Label=TEXT("EAST EXIT"); break;
     }
     if (!Model->GetRelativeScale3D().Equals(Shape, .001f))
         Model->SetRelativeScale3D(Shape);
+    if (ObjectiveLabel)
+    {
+        if (LastObjectiveLabel != Label)
+        {
+            ObjectiveLabel->SetText(FText::FromString(Label));
+            LastObjectiveLabel = Label;
+        }
+        // An action hidden by mission progress cannot leave a stale floating
+        // waypoint, while replicated changes update without an asset reload.
+        const bool bAvailable=IsAvailable();
+        if(ObjectiveLabel->IsVisible()!=bAvailable)
+            ObjectiveLabel->SetVisibility(bAvailable);
+    }
 }
 
 void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
