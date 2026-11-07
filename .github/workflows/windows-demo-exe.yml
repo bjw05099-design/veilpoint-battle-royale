@@ -16,6 +16,8 @@ on:
       - 'scripts/verify-offline-demo.cjs'
       - 'scripts/verify-ch01-routes.cjs'
       - 'scripts/verify-pc-viewport.cjs'
+      - 'scripts/validate-pc-geometry.cjs'
+      - 'tests/pc-geometry-evidence.test.cjs'
   pull_request:
     paths:
       - 'windows/**'
@@ -31,6 +33,8 @@ on:
       - 'scripts/verify-offline-demo.cjs'
       - 'scripts/verify-ch01-routes.cjs'
       - 'scripts/verify-pc-viewport.cjs'
+      - 'scripts/validate-pc-geometry.cjs'
+      - 'tests/pc-geometry-evidence.test.cjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -54,7 +58,7 @@ jobs:
       - name: Verify Windows menu geometry contracts
         shell: pwsh
         run: |
-          node --test tests/pc-chromium-geometry-gate.test.cjs
+          node --test tests/pc-chromium-geometry-gate.test.cjs tests/pc-geometry-evidence.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Win64 menu release contracts failed' }
       - name: Compile real Win64 EXE and package verified offline game
         shell: pwsh
