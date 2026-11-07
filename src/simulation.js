@@ -289,24 +289,42 @@
       type:'yard-service-vehicle',routeId:'br-yard-shuttle'});
     return o;
   }
+  // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
+  // never a mid-match position command or a client-authored teleport.
+  // All sectors are inside the initial 170m eligibility radius and outside
+  // the current solid buildings, crates, service vehicle and yard gate.
+  const ENTRY_SITES=Object.freeze({
+    central:Object.freeze({x:0,z:0,label:'Central approach'}),
+    service:Object.freeze({x:46,z:-5,label:'North service road'}),
+    east:Object.freeze({x:90,z:-90,label:'East harbor approach'}),
+    west:Object.freeze({x:-98,z:-110,label:'West harbor approach'})
+  });
   const ZONE_PHASES = [
     { duration: 90, radius: 135 }, { duration: 95, radius: 96 },
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
     { duration: 70, radius: 12 }, { duration: 999, radius: 1.5 }
   ];
-  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false) {
+  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false, entrySite='central') {
     const firearm=Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)?FIREARMS[weaponId]:null;
     if(!firearm)throw new RangeError('Unknown firearm class');
+    if(typeof entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,entrySite))
+      throw new RangeError('Unknown BR entry sector');
     const random = rngFromSeed(seed);
     const obstacles = makeObstacles();
+    const deployment=ENTRY_SITES[entrySite];
+    if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
+       Math.hypot(deployment.x,deployment.z)>169)
+      throw new RangeError('BR entry sector obstructed');
     // The initial roster, the player and ground caches occupy physical space.
     // Reject colliding spawn proposals instead of relying on later actor movement
     // to resolve an impossible overlap. Keep the seeded 60Hz world reproducible.
-    const occupiedActors = [{x:0,z:0}]; // Fixed player spawn.
+    const occupiedActors = [{x:deployment.x,z:deployment.z}]; // Actual selected player entry.
     const safeSpot = (minRadius = 30, clearance = 0, occupied = [], maxRadius = Infinity) => {
       for (let tries=0; tries<2000; tries++) {
         const x = (random() * 2 - 1) * 152, z = (random() * 2 - 1) * 152;
-        if (blocked(x,z,2.4,obstacles) || Math.hypot(x,z) <= minRadius || Math.hypot(x,z) > maxRadius ||
+        if (blocked(x,z,2.4,obstacles) ||
+            Math.hypot(x-deployment.x,z-deployment.z) <= minRadius ||
+            Math.hypot(x-deployment.x,z-deployment.z) > maxRadius ||
             occupied.some(pos => Math.hypot(pos.x-x,pos.z-z) < clearance)) continue;
         return {x,z};
       }
@@ -339,7 +357,7 @@
         remaining:i%2===0?12:24,picked:false};
     });
     return {
-      seed, random, status:'ready', elapsed:0, kills:0, damageFlash:0,
+      seed, random, entrySite, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
       handcart:{x:DOCK_HANDCART.x,z:DOCK_HANDCART.z,engaged:false,dirX:0,dirZ:0},
@@ -347,7 +365,9 @@
         speed:0,fuel:YARD_SHUTTLE.fuel,driver:false},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
-      obstacles, bots, loot, player:{x:0,z:0,yaw:0,pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
+      obstacles, bots, loot, player:{x:deployment.x,z:deployment.z,
+        yaw:entrySite==='central'?0:Math.atan2(-deployment.x,deployment.z),
+        pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
     };
@@ -1214,7 +1234,9 @@
       throw new RangeError('Invalid BR checkpoint metadata');
     checkedFields(game,[['damageFlash',0,1],['messageTime',0,10],
       ['lastTagAt',-2,3600],['recentDamage',0,100]]);
-    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,rngState:game.random.getState(),
+    if(typeof game.entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,game.entrySite))
+      throw new RangeError('Invalid BR entry sector');
+    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
       handcart:game.handcart===null?null:{...game.handcart},
@@ -1350,7 +1372,13 @@
     const firearm=FIREARMS[weaponId];
     // Recreate authored cover once; saved positions are untrusted and must not
     // resume inside a wall or beyond the playable boundary.
-    const game=newMatch(saved.seed,saved.bots.length,weaponId);
+    // Old saved BR games had a central deployment and remain readable.
+    // Re-create the original procedural stream with the selected physical
+    // starting point; the stored player/bot positions still win on restore.
+    const entrySite=saved.entrySite===undefined?'central':saved.entrySite;
+    if(typeof entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,entrySite))
+      throw new RangeError('Invalid saved BR entry sector');
+    const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite);
     if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
       throw new RangeError('Route sign inside solid cover');
     game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
@@ -1556,6 +1584,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {ENTRY_SITES,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
