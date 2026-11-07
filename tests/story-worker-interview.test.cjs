@@ -19,7 +19,7 @@ test('CH01 worker interview requires approaching a moving witness on foot',()=>{
  const s=reachedRecords();
  assert.equal(Story.markers(s).some(m=>m.id==='harborWorker'),false);
  assert.equal(s.workerInterviewed,false);
- s.world.player.x=20;s.world.player.z=-9;
+ s.world.player.x=18;s.world.player.z=-9;
  const marker=Story.markers(s).find(m=>m.id==='harborWorker');
  assert.ok(marker,'witness must be physically nearby and unobstructed');
  assert.equal(marker.x,s.worker.x);
@@ -46,7 +46,7 @@ test('blocked or distant worker cannot be questioned with a remote E action',()=
 });
 test('witness statement persists in existing v2 saves without promoting it to verified timestamps',()=>{
  const s=reachedRecords();
- s.world.player.x=20;s.world.player.z=-9;
+ s.world.player.x=18;s.world.player.z=-9;
  assert.equal(Story.interact(s).event,'harbor_worker_interview');
  s.found=['recordA','recordB'];
  assert.match(Comms.briefing(s).message,/시각이 미확인된 별도 진술/);
