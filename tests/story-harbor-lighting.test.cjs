@@ -95,6 +95,8 @@ test('CH01 dusk lighting responds to an actual radio relay interaction and survi
 test('powered CH01 luminaires produce physical dynamic fixture vertices, not hovering markers',()=>{
  const h=harness();
  const state=Story.createState();
+ const beforeSolids=state.world.obstacles.filter(o=>o.type?.startsWith('story-'))
+  .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type}));
  h.renderer.draw(state.world);
  const off=h.uploads.at(-1);
  assert.ok(off.length>0);
@@ -108,8 +110,9 @@ test('powered CH01 luminaires produce physical dynamic fixture vertices, not hov
  h.renderer.draw(state.world);
  const on=h.uploads.at(-1);
  assert.ok(maxColor(on)>offPeak,'relay-powered fixtures must visibly change their material');
- assert.equal(state.world.obstacles.filter(o=>o.type?.startsWith('story-')).length,10,
-   'wall-mounted lighting must not invent pass-through solid obstacles');
+ assert.deepEqual(state.world.obstacles.filter(o=>o.type?.startsWith('story-'))
+  .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type})),beforeSolids,
+  'powering local luminaires must never create or move a solid obstacle');
  for(const p of Object.values(Story.POINTS))
   assert.equal(Sim.blocked(p.x,p.z,.85,state.world.obstacles),false,p.id);
 });
