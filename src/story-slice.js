@@ -723,10 +723,17 @@
     // rather than clipping through a person or teleporting to the far end.
     if(state.worker){
       const w=state.worker;
-      if(w.x>=WORKER_PATH.maxX-1e-8)w.direction=-1;
+      // Before the unexpected escalation the harbor worker follows a normal
+      // short, observable work route. Once the local encounter starts, walking
+      // back and forth as if nothing changed would be implausible. They move
+      // toward the existing side of the pedestrian lane and stay there;
+      // no new quest, teleport, new collision object or hidden danger radar.
+      const conflictActive=state.phase!=='terminal';
+      if(conflictActive)w.direction=1;
+      else if(w.x>=WORKER_PATH.maxX-1e-8)w.direction=-1;
       else if(w.x<=WORKER_PATH.minX+1e-8)w.direction=1;
       const toEnd=w.direction>0?WORKER_PATH.maxX-w.x:w.x-WORKER_PATH.minX;
-      const step=Math.max(0,Math.min(WORKER_PATH.speed*t,toEnd));
+      const step=Math.max(0,Math.min((conflictActive?1.45:WORKER_PATH.speed)*t,toEnd));
       if(step>0){
         const solids=state.world.obstacles.concat(
           {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
