@@ -7,6 +7,9 @@ const Sim=require('../src/simulation.js');
 
 function oneStep(x,z){
  const game=Sim.newMatch(20261107,1);
+ // Match construction waits at the PC start menu; a real Start Match sets
+ // playing before the first authored 60 Hz movement input.
+ game.status='playing';
  game.player.x=x;game.player.z=z;game.player.yaw=0;
  const before=game.player.z;
  Sim.tick(game,1/60,{forward:true});
