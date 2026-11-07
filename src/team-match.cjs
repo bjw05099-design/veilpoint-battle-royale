@@ -776,7 +776,8 @@ class TeamMatch {
       this.score[team]++;
       operatorPlayer.relayCompletions=Math.min(1000,operatorPlayer.relayCompletions+1);
       this.progress[team] = 0;
-      this.recordPublicEvent(this.objectiveSite==='courier'?'parcel_delivered':'relay_complete',team);
+      if(this.objectiveSite==='courier')this.recordPublicEvent('parcel_delivered',team);
+      else this.recordPublicEvent('relay_complete',team);
       // One operator interaction transmits one point, not a perpetual stream.
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
