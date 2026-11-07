@@ -2,6 +2,7 @@
 #include "VPCharacter.h"
 #include "VPZone.h"
 #include "VPGameState.h"
+#include "VPStoryGameState.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Canvas.h"
@@ -41,6 +42,19 @@ void AVPHUD::DrawHUD()
     const FString HealthLabel = FString::Printf(TEXT("HEALTH  %3.0f / 100"), Pawn->Health);
     DrawText(HealthLabel, FLinearColor::White,
              X, Y + 69.f * Scale, nullptr, .8f * Scale, false);
+
+    // Story and BR are deliberately different native modes. Do not render
+    // a BR zone timer or BR supply counter on the CH01 story screen.
+    if (const AVPStoryGameState* Story =
+        GetWorld() ? GetWorld()->GetGameState<AVPStoryGameState>() : nullptr)
+    {
+        DrawText(Story->GetObjectiveLabel(), FLinearColor(.82f,.94f,.87f,1.f),
+                 X, Y + 95.f * Scale, nullptr, .8f * Scale, false);
+        DrawText(TEXT("LOCAL STORY PROTOTYPE  |  E: INTERACT WITH MARKERS"),
+                 FLinearColor(.78f,.87f,.92f,1.f),
+                 X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
+        return;
+    }
 
     // Finite supplies stay visible without opening a menu; this is the
     // currently replicated pawn inventory, not an inferred client cache.

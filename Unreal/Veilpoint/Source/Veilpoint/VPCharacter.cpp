@@ -1,5 +1,7 @@
 #include "VPCharacter.h"
 #include "VPPickup.h"
+#include "VPStoryMarker.h"
+#include "VPStoryGameState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -185,6 +187,15 @@ void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive()) Serve
 void AVPCharacter::ServerTryInteract_Implementation()
 {
     if (!IsAlive() || !GetWorld()) return;
+    // The native CH01 mode reuses the PC E key, but the server alone
+    // validates the actual physical marker and advances story progress.
+    // A BR pickup cannot accidentally advance the story (or vice versa).
+    if (GetWorld()->GetGameState<AVPStoryGameState>())
+    {
+        for (TActorIterator<AVPStoryMarker> It(GetWorld()); It; ++It)
+            if (It->IsAvailable() && It->TryActivate(this)) return;
+        return;
+    }
     AVPPickup* Nearest = nullptr;
     float BestSq = FMath::Square(275.f);
     for (TActorIterator<AVPPickup> It(GetWorld()); It; ++It)

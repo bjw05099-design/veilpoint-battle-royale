@@ -1,5 +1,6 @@
 #include "VPWorldBootstrap.h"
 #include "VPPickup.h"
+#include "VPStoryGameState.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
@@ -74,6 +75,8 @@ void AVPWorldBootstrap::BeginPlay()
     }
     if(HasAuthority())
     {
+        // CH01 shares the native environment, not the BR resource pool.
+        if (GetWorld()->GetGameState<AVPStoryGameState>()) return;
         for(int32 i=0;i<36;++i)
         {
             const FVector Position(Random.FRandRange(-15200.f,15200.f),Random.FRandRange(-15200.f,15200.f),110.f);
