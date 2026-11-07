@@ -2495,3 +2495,56 @@ test('ended PC team HUD never fabricates opponent rematch consent if lobby data 
  assert.match(a.node('status').textContent,/재대전 준비 상태 확인 중/);
  assert.doesNotMatch(a.node('status').textContent,/[012]\/2/);
 });
+
+
+test('local 2D relay rings render only server-published 60Hz red/blue progress without adding viewport panels',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ assert.equal(server.match.phase,'playing');
+ const ctx=a.node('arena').getContext(),arcs=[];
+ const originalArc=ctx.arc,originalStroke=ctx.stroke;
+ ctx.arc=(x,y,r,start,end)=>{arcs.push({x,y,r,start,end,color:ctx.strokeStyle});originalArc(x,y,r,start,end);};
+ const colorAt=(r)=>arcs.find(entry=>entry.r===r);
+ server.match.progress.red=.5;server.match.progress.blue=1;
+ await a.poll();await settle();
+ assert.ok(colorAt(32)&&colorAt(38),'red and blue team arcs must both use visible physical relay centre');
+ assert.ok(Math.abs(colorAt(32).end-colorAt(32).start-Math.PI/2)<1e-8);
+ assert.ok(Math.abs(colorAt(38).end-colorAt(38).start-Math.PI)<1e-8);
+ assert.equal(colorAt(32).color,'#e58b84');
+ assert.equal(colorAt(38).color,'#8abcf2');
+ arcs.length=0;
+ server.match.progress.red=0;server.match.progress.blue=0;
+ await a.poll();await settle();
+ assert.equal(colorAt(32),undefined);
+ assert.equal(colorAt(38),undefined,'empty server progress cannot display a fictitious partial capture');
+ ctx.arc=originalArc;ctx.stroke=originalStroke;
+});
+test('team capture arcs fail closed for incomplete server measurements or ended matches',async()=>{
+ const server=backend();
+ let hideDuration=false,invalidProgress=false;
+ const guarded={fetchLocal:async(route,options={})=>{
+  const response=await server.fetchLocal(route,options);
+  if(route!=='/state'||!response.ok)return response;
+  const snapshot=await response.json();
+  if(hideDuration)delete snapshot.objective.requiredSeconds;
+  if(invalidProgress)snapshot.progress.red=NaN;
+  return {...response,json:async()=>snapshot};
+ }};
+ const a=boot(guarded),b=boot(guarded);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ const arcs=[],ctx=a.node('arena').getContext(),original=ctx.arc;
+ ctx.arc=(x,y,r,start,end)=>{arcs.push(r);original(x,y,r,start,end);};
+ const show=async()=>{arcs.length=0;await a.poll();await settle();return arcs.filter(r=>r===32||r===38);};
+ server.match.progress.red=1;
+ hideDuration=true;
+ assert.deepEqual(await show(),[]);
+ hideDuration=false;invalidProgress=true;
+ assert.deepEqual(await show(),[]);
+ invalidProgress=false;
+ server.match.finish('red','objective_score');
+ assert.deepEqual(await show(),[],'finished round must not keep rendering a claimed ongoing capture');
+});
