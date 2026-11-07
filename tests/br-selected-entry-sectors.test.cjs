@@ -16,7 +16,7 @@ test('four authored BR entry sectors place a real on-foot player on clear terrai
   assert.ok(Math.hypot(p.x,p.z)<170,'all sectors remain within the initial BR boundary');
   assert.equal(game.bots.length,rivals);
   for(const bot of game.bots){
-   assert.ok(Math.hypot(bot.x-p.x,bot.z-p.z)>36,site+' opponent not beside player's spawn');
+   assert.ok(Math.hypot(bot.x-p.x,bot.z-p.z)>36,site+' opponent must not spawn beside the player');
    assert.equal(Sim.blocked(bot.x,bot.z,.85,game.obstacles),false);
   }
   if(rivals===1)assert.ok(Math.hypot(game.bots[0].x-p.x,game.bots[0].z-p.z)<=65,
