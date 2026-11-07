@@ -29,10 +29,13 @@
    intervals=[];cpuDraw=[];gpuTimer=[];scales=[];gpuInvalidated=false;
    canvasRange=null;canvasSamples=0;
   }
-  function finish(why='manual'){
+  function finalize(why){
    if(state==='running'||state==='armed'){state='finished';reason=why;}
    return report();
   }
+  // Completion is an observation made only by the rendered-frame clock.
+  // A menu, test harness or caller cannot certify an incomplete run by name.
+  function finish(why='manual'){return finalize(why==='completed'?'manual':why);}
   function frame(nowMs,drawMs,scale,canvasSize){
    if(state==='armed'){
     if(!Number.isFinite(nowMs))return false;
@@ -69,7 +72,7 @@
     // for the last incomplete callback; never invent samples to fill it.
     const toleranceMs=Math.min(100,durationMs*.01);
     const covered=measuredMs>=durationMs-toleranceMs;
-    finish(elapsed>=warmupMs+durationMs
+    finalize(elapsed>=warmupMs+durationMs
       ?(covered?'completed':'measurement-window-incomplete'):'sample-limit');
    }
    return true;
