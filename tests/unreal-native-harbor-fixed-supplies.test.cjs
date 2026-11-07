@@ -11,8 +11,9 @@ test('native UE5 harbor supplies map to actual physical BR east dock shelves',()
  for(const xy of dock)assert.ok(matches.some(m=>m[0]===xy[0]&&m[1]===xy[1]));
  assert.match(cpp,/if\(HasAuthority\(\)\)\s*\{/);
  assert.match(cpp,/i<UE_ARRAY_COUNT\(DockSupplySites\)/);
- assert.match(cpp,/for\(int32 i=0;i<36;\+\+i\)/,
-  'keep the original finite native inventory count');
+ assert.match(cpp,/for\(int32 i=0;i<18;\+\+i\)/,
+  'retain a finite native supply count without instant recovery');
  assert.match(cpp,/SpawnActor<AVPPickup>/);
- assert.match(cpp,/P->Resource=\(i%2==0\?TEXT\("health"\):TEXT\("charges"\)\)/);
+ assert.match(cpp,/P->Resource=TEXT\("charges"\)/);
+ assert.doesNotMatch(cpp,/TEXT\("health"\)/);
 });
