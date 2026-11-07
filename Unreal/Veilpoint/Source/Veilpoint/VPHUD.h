@@ -5,6 +5,8 @@
 #include "VPHUD.generated.h"
 
 class AVPZone;
+class AVPStoryMarker;
+class UWorld;
 
 // Native Windows fallback UI; no web runtime, imported widget or map required.
 // Visuals are derived only from this client's replicated pawn state.
@@ -19,4 +21,9 @@ private:
     // The zone is a replicated server-owned actor; clients only read its data.
     TWeakObjectPtr<AVPZone> CachedZone;
     FVPFrameTelemetry FrameTelemetry;
+    // Replicated objective actors are small and static. Refresh discovery at
+    // bounded intervals instead of scanning every 165Hz HUD paint.
+    TWeakObjectPtr<UWorld> ObservedStoryWorld;
+    TArray<TWeakObjectPtr<AVPStoryMarker>> ObservedStoryMarkers;
+    double NextObjectiveScanAt = 0.0;
 };
