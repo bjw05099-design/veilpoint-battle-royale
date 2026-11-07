@@ -137,3 +137,21 @@ test('every test-only or script-only change must trigger both Windows release ch
  assert.match(workflow,/name: Verify Win64 Chromium screen bounds and clickable controls/);
  assert.match(workflow,/name: Upload unsigned Windows EXE demo candidate/);
 });
+
+test('Windows EXE candidate runs BR, CH01 and team gameplay controllers, not only source syntax',()=>{
+ const suites=[
+  'tests/desktop-controls.test.cjs',
+  'tests/br-browser.test.cjs',
+  'tests/story-browser.test.cjs',
+  'tests/team-client-browser.test.cjs',
+  'tests/team-match.test.cjs',
+  'tests/pc-checkpoint-download-fallback.test.cjs'
+ ];
+ assert.match(workflow,/name: Verify cross-mode PC gameplay controllers on Windows/);
+ const gate=workflow.match(/name: Verify cross-mode PC gameplay controllers on Windows[\s\S]*?(?=      - name: Compile real Win64 EXE and package verified offline game)/);
+ assert.ok(gate,'Win64 functional tests must precede Win64 binary packaging');
+ for(const file of suites)
+  assert.ok(gate[0].includes(file),'Win64 cross-mode test coverage missing '+file);
+ assert.ok(gate[0].includes('$LASTEXITCODE -ne 0'),
+  'Any failing Win64 controller suite must fail the EXE release gate');
+});
