@@ -7,6 +7,14 @@
 const V3=(x,y,z)=>[x,y,z];
 const Visibility=global.VeilpointVisibility;
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
+// Visible actor orientation is sourced only from an actually rendered 60Hz
+// opponent, never from an invisible opponent/radar or inferred client target.
+function actorFacing(actor) {
+ const yaw=Number.isFinite(actor?.angle)?Math.atan2(Math.sin(actor.angle),Math.cos(actor.angle)):0;
+ const x=actor?.x||0,z=actor?.z||0,c=Math.cos(yaw),s=Math.sin(yaw);
+ const place=(dx,dz)=>({x:x+dx*c-dz*s,z:z+dx*s+dz*c});
+ return {yaw,left:place(-.18,0),right:place(.18,0),front:place(0,-.28)};
+}
 const safeNorm=(a)=>{const d=Math.hypot(...a)||1;return a.map(v=>v/d);};
 function m4Perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),a=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*a,-1,0,0,2*far*near*a,0]);}
 function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safeNorm([up[1]*z[2]-up[2]*z[1],up[2]*z[0]-up[0]*z[2],up[0]*z[1]-up[1]*z[0]]),y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-(x[0]*e[0]+x[1]*e[1]+x[2]*e[2]),-(y[0]*e[0]+y[1]*e[1]+y[2]*e[2]),-(z[0]*e[0]+z[1]*e[1]+z[2]*e[2]),1]);}
@@ -221,7 +229,7 @@ class SoftwareRenderer {
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  }
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
- for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
+ for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,angle:b.angle,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
  for(const {entity:w} of plan.witnesses||[])objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'witness'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
@@ -247,7 +255,15 @@ class SoftwareRenderer {
     proj(x+ww,top,z+dd),proj(x-ww,top,z+dd)],'#43555b');
   continue;
  }
- const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
+ // Canvas fallback projects each *visible* bot's real direction in 3D,
+ // matching the WebGL character and the 60Hz server/solo simulation.
+ const heading=o.type==='bot'?actorFacing(o):null;
+ const cc=heading?Math.cos(heading.yaw):1,ss=heading?Math.sin(heading.yaw):0;
+ const corner=(dx,dy,dz)=>proj(x+dx*cc-dz*ss,dy,z+dx*ss+dz*cc);
+ const p000=corner(-ww,0,-dd),p100=corner(ww,0,-dd),
+  p010=corner(-ww,o.h,-dd),p110=corner(ww,o.h,-dd),
+  p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
+  p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
@@ -261,6 +277,11 @@ class SoftwareRenderer {
   }
  }
  polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':o.type==='wet-apron'?'#516a72':'#9cb09a');
+ if(heading){
+  // Physical uniform front panel, not a UI marker or through-wall indicator.
+  const q=proj(heading.front.x,1.40,heading.front.z);
+  if(q&&q[2]>.3){ctx.fillStyle='#222d29';ctx.fillRect(q[0]-2,q[1]-3,4,6);}
+ }
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
  // their front faces from the harbor-road side; do not reveal a light through
@@ -556,15 +577,15 @@ class Renderer {
   mesh.box(w.x,1.39,w.z,.42,.42,.40,[.60,.48,.37]);
  }
  for(const {entity:b,lod} of plan.bots){
-  const c=[.24,.29,.26],x=b.x,z=b.z;
-  mesh.box(x,0.06,z,.7,1.3,.45,c);
+  const c=[.24,.29,.26],x=b.x,z=b.z,facing=actorFacing(b),angle=facing.yaw;
+  mesh.boxYaw(x,0.06,z,.7,1.3,.45,angle,c);
   if(lod==='low')continue;
-  mesh.box(x,1.37,z,.48,.45,.46,[.24,.20,.17]);
-  mesh.box(x-.18,0,z,.24,.65,.27,[.19,.20,.19]);
+  mesh.boxYaw(x,1.37,z,.48,.45,.46,angle,[.24,.20,.17]);
+  mesh.boxYaw(facing.left.x,0,facing.left.z,.24,.65,.27,angle,[.19,.20,.19]);
   if(lod==='medium')continue;
-  mesh.box(x+.18,0,z,.24,.65,.27,[.19,.20,.19]);
-  mesh.box(x,1.03,z-.25,.7,.13,.15,[.18,.21,.23]);
-  mesh.box(x,1.49,z-.25,.55,.12,.22,[.10,.12,.12]);
+  mesh.boxYaw(facing.right.x,0,facing.right.z,.24,.65,.27,angle,[.19,.20,.19]);
+  mesh.boxYaw(facing.front.x,1.03,facing.front.z,.7,.13,.15,angle,[.18,.21,.23]);
+  mesh.boxYaw(facing.front.x,1.49,facing.front.z,.55,.12,.22,angle,[.10,.12,.12]);
  }
  for(const {entity:item,lod} of plan.loot){
   if(item.fieldPouch){
@@ -658,4 +679,5 @@ class Renderer {
 }
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointRenderer=Renderer;
+global.VeilpointActorFacing=actorFacing;
 })(globalThis);
