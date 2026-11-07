@@ -186,7 +186,10 @@
    const role=typeof node.getAttribute==='function'?node.getAttribute('role'):node.role;
    if(typeof role==='string'&&/^(?:button|link|checkbox|radio|switch|tab|menuitem|menuitemcheckbox|menuitemradio|slider|spinbutton|combobox|textbox|option)$/.test(role.trim().toLowerCase()))return true;
    const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
-   if(editable!==null&&editable!=='false')return true;
+   // DOM getAttribute() returns null for missing attributes, but third-party
+   // UI wrappers and synthetic event targets may return undefined. Neither
+   // means contenteditable; otherwise ordinary gameplay loses key input.
+   if(editable!=null&&editable!=='false')return true;
    node=node.parentElement||node.parentNode||node.host||null;
   }
   return false;
