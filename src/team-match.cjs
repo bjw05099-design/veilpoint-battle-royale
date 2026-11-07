@@ -843,11 +843,11 @@ class TeamMatch {
       relayVariant:this.objectiveSite==='courier'?'courier':
         this.objectiveSite==='rotation-wide'?'rotation-wide':
         this.objectiveSite==='rotation'?'rotation':'fixed',
-      courier:this.objectiveSite==='courier'?{
+      ...(this.objectiveSite==='courier'?{courier:{
         stage:this.courier.carrierId===null?'pickup':'delivery',
         team:this.courier.team,
         pickup:{...COURIER_PICKUP},dropoff:{...COURIER_DROPOFF}
-      }:null,
+      }}:{}),
       // Across rematches only; reset when either local seat changes owner.
       series: {...this.series},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
