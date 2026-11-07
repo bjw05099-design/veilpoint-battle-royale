@@ -37,11 +37,12 @@ test('blocked cache cannot become an AI supply target through a solid wall',()=>
  assert.equal(game.loot[0].remaining,12);
 });
 test('supply behavior replays deterministically across the existing BR save format',()=>{
- const {game}=scenario(18);
- // The synthetic scenario uses out-of-range timers to freeze movement.
- // Restore the bounded live values required by the unchanged save contract.
- for(const b of game.bots){b.moveTime=0;b.actionTime=0;}
- game.loot[0].id=1; // Serialized loot IDs are finite integers, not UI labels.
+ // Start from the full authored map: removing vehicle solids or replacing the
+ // forty indexed pickups makes an impossible checkpoint, not a replay test.
+ const game=Sim.newMatch(733,1,'carbine');
+ game.status='playing';
+ game.bots[0].charges=18;
+ game.bots[0].loaded=Math.min(12,game.bots[0].charges);
  const other=Sim.restoreMatch(Sim.snapshotMatch(game));
  for(let i=0;i<100;i++){
   Sim.tick(game,1/60,{});Sim.tick(other,1/60,{});
