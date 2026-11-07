@@ -1404,7 +1404,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1468,7 +1468,7 @@
   }
   function snapshot(state) {
     const p=state.world.player;
-    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+    return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
