@@ -128,12 +128,15 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center'} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day'} = {}) {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
     if(objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
+    if(lighting!=='day'&&lighting!=='dusk')
+      throw new RangeError('invalid_lighting');
+    this.lighting=lighting;
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
@@ -782,7 +785,13 @@ class TeamMatch {
     // State polling never renews a lease. Settle expired sessions before
     // publishing a phase even when the 60Hz timer is delayed or disabled.
     this.expirePlayingLeases();
-    const weather = weatherAt(this.ticks);
+    // Host-authored evening lighting limits observed actor silhouettes
+    // independently of the public, fixed-step coastal mist clock.
+    // It never grants enemy locations or modifies health/ammunition.
+    const ambient = weatherAt(this.ticks);
+    const weather = this.lighting==='dusk'
+      ? {...ambient,visibilityRange:Math.min(ambient.visibilityRange,22)}
+      : ambient;
     const visible = [...this.players.values()].filter(p => {
       if (p === me) return true;
       const dx = p.x - me.x, dz = p.z - me.z, distance = Math.hypot(dx, dz);
@@ -800,7 +809,7 @@ class TeamMatch {
           !lineBlocked(me.x, me.z, x, z, COVER);
       });
     });
-    return {phase: this.phase, tick: this.ticks,
+    return {phase: this.phase, tick: this.ticks, lighting:this.lighting,
       round: {id:this.roundId,limitTicks: ROUND_LIMIT_TICKS,
         remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
       // Public consent only: no opponent health, inventory or hidden coordinates.
