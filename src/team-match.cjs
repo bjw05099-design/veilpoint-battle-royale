@@ -138,10 +138,12 @@ class TeamMatch {
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
-    if(objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    // Combat-only mode: the winner is decided by the authoritative round.
+    if(objectiveSite==='duel'&&targetScore!==1)throw new RangeError('duel_one_round_only');
+    if(objectiveSite!=='duel'&&objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     if(typeof suddenDeath!=='boolean')throw new RangeError('invalid_sudden_death');
-    if(suddenDeath&&objectiveSite==='courier')throw new RangeError('sudden_death_relay_only');
+    if(suddenDeath&&(objectiveSite==='courier'||objectiveSite==='duel'))throw new RangeError('sudden_death_relay_only');
     if(lighting!=='day'&&lighting!=='dusk')
       throw new RangeError('invalid_lighting');
     this.lighting=lighting;
@@ -150,7 +152,7 @@ class TeamMatch {
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
-    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
+    this.objective=objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'||objectiveSite==='duel'?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -163,7 +165,7 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||this.objectiveSite==='duel'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -302,6 +304,9 @@ class TeamMatch {
       throw new RangeError('not_playing');
     p.seq = data.seq;
     p.lastSeen = this.now();
+    // Duel cannot accumulate phantom relay progress from E presses.
+    if(this.objectiveSite==='duel'&&data.type==='capture')
+      return {ok:false,reason:'duel_no_capture'};
     if (data.type === 'leave') {
       this.players.delete(token);
       this.series={red:0,blue:0,draw:0};
@@ -522,7 +527,7 @@ class TeamMatch {
     this.progress = {red: 0, blue: 0};
     this.courier={carrierId:null,team:null};
     this.objectiveStage=0;
-    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
+    this.objective=this.objectiveSite==='courier'?COURIER_PICKUP:RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'||this.objectiveSite==='duel'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -759,6 +764,12 @@ class TeamMatch {
       else if (survivors.length === 1) this.finish(survivors[0].team, 'opponent_incapacitated');
     }
     if (this.phase !== 'playing') return;
+    if(this.objectiveSite==='duel'){
+      // The existing 60Hz movement, finite resources and simultaneous combat
+      // resolution have already run. No relay exists in this mode.
+      this.finishIfDeadline();
+      return;
+    }
     const nearby = [...this.players.values()].filter(p =>
       Math.hypot(p.x-this.objective.x,p.z-this.objective.z) <= CAPTURE_RADIUS);
     const teams = new Set(nearby.map(p => p.team));
@@ -863,7 +874,8 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
-      relayVariant:this.objectiveSite==='courier'?'courier':
+      relayVariant:this.objectiveSite==='duel'?'duel':
+        this.objectiveSite==='courier'?'courier':
         this.objectiveSite==='rotation-wide'?'rotation-wide':
         this.objectiveSite==='rotation'?'rotation':'fixed',
       ...(this.objectiveSite==='courier'?{courier:{
@@ -879,7 +891,7 @@ class TeamMatch {
       events: this.events.map(e=>({type:e.type,team:e.team,tick:e.tick})),
       // Three permanent, public ground fixtures. A successful transmission
       // changes which existing terminal is authorized, never teleports metal.
-      objective: {x: this.objective.x, z: this.objective.z,
+      objective: this.objectiveSite==='duel'?null:{x: this.objective.x, z: this.objective.z,
         radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
         stations: (this.objectiveSite==='courier'
           ? ['pickup','dropoff']
@@ -909,7 +921,8 @@ class TeamMatch {
         ready: me.ready, crouching: me.crouching, sprinting: me.sprinting,
         stamina: me.stamina, sprintExhausted: me.sprintExhausted,
         captureArmed: me.captureArmed,
-        relayInteraction: relayInteractionState(me,this.phase,this.progress[me.team],this.objective), seq: me.seq},
+        relayInteraction: this.objectiveSite==='duel'?'inactive':
+          relayInteractionState(me,this.phase,this.progress[me.team],this.objective), seq: me.seq},
       visible: visible.map(p => ({id: p.id, name: p.name, team: p.team, x: p.x, z: p.z,
         // Visible physical state only; never disclose private opponent health/stress.
         incapacitated: p.health === 0, crouching: p.crouching}))};

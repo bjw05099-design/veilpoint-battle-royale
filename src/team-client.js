@@ -371,7 +371,7 @@
     }
   };
   const setCapture = active => {
-    if (leaving) {capturing = false;return;}
+    if (leaving || state?.relayVariant==='duel') {capturing = false;return;}
     // A lobby/finished key or button press is not an authorized round intent.
     // Do not queue it for the next server-owned phase.
     if (state?.phase !== 'playing') {capturing = false;return;}
@@ -428,8 +428,11 @@
       }
     }
     const relayRadius=(validSite?objective.radius:2.6)*9.5;
-    ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;
-    ctx.beginPath();ctx.arc(site.x,site.y,relayRadius,0,Math.PI*2);ctx.stroke();
+    // A duel has no magic objective marker on its physical arena.
+    if(validSite){
+      ctx.strokeStyle = '#d8c88d';ctx.lineWidth = 3;
+      ctx.beginPath();ctx.arc(site.x,site.y,relayRadius,0,Math.PI*2);ctx.stroke();
+    }
     // Both team arcs show ONLY the public relay clock published by the
     // authoritative 60Hz game. Draw in the physical arena, not a new panel
     // that would overflow the 1024x600 PC viewport.
@@ -529,12 +532,14 @@
     }
     if(currentRoundId!==null)previousRoundId=currentRoundId;
     const courierMode=state.relayVariant==='courier';
+    const duelMode=state.relayVariant==='duel';
     // A noncombat server round must never advertise active weapon controls.
     el('fire').disabled=courierMode;
     el('reload').disabled=courierMode;
     el('assist').disabled=courierMode;
     el('loadout').disabled=courierMode || state.phase==='playing';
-    el('capture').textContent=controls.bindings.interact+
+    el('capture').disabled=duelMode;
+    el('capture').textContent=duelMode?'대결 모드 · 목표 없음':controls.bindings.interact+
       (courierMode?' 물품 인수·인계':' 점령');
     el('phase').textContent = state.phase.toUpperCase()+
       (state.round?.suddenDeathActive===true?' · 연장전':'');
@@ -559,7 +564,8 @@
     // team scores, not inferred opponents' positions or private resources.
     const targetScore = Number.isSafeInteger(state.targetScore) &&
       state.targetScore > 0 && state.targetScore <= 1000 ? state.targetScore : null;
-    el('scoreGoal').textContent = targetScore === null ? '서버 확인 중' : targetScore + '점';
+    el('scoreGoal').textContent = duelMode?'전투 결과로 판정':
+      targetScore === null ? '서버 확인 중' : targetScore + '점';
     for (const team of ['red','blue']) {
       const meter = el(team + 'ScoreMeter');
       meter.max = targetScore ?? 1;
@@ -588,7 +594,8 @@
       Number.isFinite(state.progress?.[ownTeam])&&
       Number.isFinite(state.progress?.[enemyTeam]);
     const asPercent=value=>Math.round(Math.min(1,Math.max(0,value/relayDuration))*100);
-    el('relayProgress').textContent=state.phase==='playing'&&validRelay
+    el('relayProgress').textContent=duelMode?'중계기 없음 · 경기 종료까지 현재 전투 상황을 유지':
+      state.phase==='playing'&&validRelay
       ?'우리 팀 '+asPercent(state.progress[ownTeam])+'% · 상대 팀 '+
        asPercent(state.progress[enemyTeam])+'% · 서버 진행'
       :state.phase==='lobby'?'대전 시작 전':'중계 진행 기록 없음';
@@ -694,7 +701,9 @@
           : `양쪽 플레이어가 준비 버튼을 눌러야 시작합니다. (${ready}/2)`);
     }
     else {
-      const hint = courierMode
+      const hint = duelMode
+        ?'대결 모드 · 중계기 점령 없음 · 이동·시야·체력·자원은 서버에서 검증합니다. 제한 시간 종료 시 양측 활동 가능하면 무승부입니다.'
+        : courierMode
         ? '비전투 물품 운반 · 중앙 접수대에서 정지 후 '+controls.bindings.interact+
           ' 키로 인수 · 실제 물품을 든 채 남쪽 인계대로 이동 · 다시 정지해 같은 키로 인계 · 점수는 서버가 판정합니다.'
         : '목표 원에서 정지 후 '+controls.bindings.interact+' 점령 (이동/재장전/발사/피격 시 중단) · 지도 조준(밖으로 이동/Q 해제) · '+
@@ -713,7 +722,8 @@
   const refreshControlLabels = () => {
     el('fire').textContent = controls.bindings.fire + ' 발사';
     el('reload').textContent = controls.bindings.reload + ' 재장전';
-    el('capture').textContent = controls.bindings.interact + (state?.relayVariant==='courier'?' 물품 인수·인계':' 점령');
+    el('capture').textContent = state?.relayVariant==='duel'?'대결 모드 · 목표 없음':
+      controls.bindings.interact + (state?.relayVariant==='courier'?' 물품 인수·인계':' 점령');
   };
   refreshControlLabels();
   el('join').addEventListener('click', async () => {
