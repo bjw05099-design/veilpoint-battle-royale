@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[],handcarts=[],witnesses=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[],handcarts=[],witnesses=[],vehicles=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -156,13 +156,23 @@ function planVisible(state,aspect=16/9){
     handcarts.push(body);boxes++;
   }
  }
+ // The single physical yard vehicle is drawn only when visible to the player.
+ // Once occupied, its own body is hidden from the cockpit camera; driving
+ // cannot double-render a nearby hollow shell over the driver's eyes.
+ if(!state.scene&&state.vehicle&&!state.vehicle.driver){
+  const body=state.obstacles.find(o=>o.routeId==='br-yard-shuttle');
+  if(body&&inView(p,body.x,body.z,2.5,MAX_DISTANCE,halfFov)&&
+     hasExposedSilhouette(p,body,1.15,state.obstacles.filter(o=>o!==body))){
+    vehicles.push(state.vehicle);boxes+=8;
+  }
+ }
  // The changing match-eligibility boundary belongs on the minimap/HUD only.
  // No impossible moving physical pylons or glowing world-space force field.
  for(const entity of state.effects){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,handcarts,witnesses,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,handcarts,witnesses,vehicles,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
