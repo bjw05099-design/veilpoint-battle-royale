@@ -486,6 +486,12 @@
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
+    const series=state.series;
+    const validSeries=series&&['red','blue','draw'].every(team=>
+      Number.isSafeInteger(series[team])&&series[team]>=0&&series[team]<=999);
+    el('series').textContent=validSeries
+      ?'RED '+series.red+'승 · BLUE '+series.blue+'승 · 무승부 '+series.draw
+      :'서버 확인 중';
     // Only the server can define the objective threshold. These are public
     // team scores, not inferred opponents' positions or private resources.
     const targetScore = Number.isSafeInteger(state.targetScore) &&

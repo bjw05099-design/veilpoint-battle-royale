@@ -128,6 +128,13 @@
   // The north service-yard road has a physically sliding, locally controlled
   // gate. There is no remote unlocking, infinite stock or supernatural sensor.
   const SERVICE_YARD=Object.freeze({x:30,z:-24,switchX:30,switchZ:-21.8,slide:7.2,seconds:2});
+  // Two identifiable, non-respawning supply shelves on the east-dock public
+  // walkway. These reuse the existing 40 finite caches, never mint extra stock.
+  // If an actor spawned on a shelf, leave that item at its original seeded
+  // fallback rather than overlap a living participant.
+  const DOCK_DEPOTS=Object.freeze([
+    Object.freeze({x:108,z:-121}),Object.freeze({x:144,z:-121})
+  ]);
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -192,7 +199,14 @@
     });
     const occupiedCaches = [];
     const loot = Array.from({ length: 40 }, (_,i) => {
-      const pos = safeSpot(15, 1.2, occupiedActors.concat(occupiedCaches));
+      // Consume the ordinary seeded proposal even when a dock shelf is used:
+      // the source RNG and later random events retain a deterministic path.
+      const fallback=safeSpot(15,1.2,occupiedActors.concat(occupiedCaches));
+      const shelf=DOCK_DEPOTS[i];
+      const dockClear=shelf&&!blocked(shelf.x,shelf.z,2.4,obstacles)&&
+        occupiedActors.every(a=>dist(a,shelf)>ACTOR_RADIUS*2+2.4)&&
+        occupiedCaches.every(c=>dist(c,shelf)>=1.2);
+      const pos=dockClear?{x:shelf.x,z:shelf.z}:fallback;
       occupiedCaches.push(pos);
       return {id:i, ...pos, kind:i%2===0?'ammo':'magazine',
         weaponId:Object.keys(FIREARMS)[i%Object.keys(FIREARMS).length],
@@ -1264,5 +1278,5 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });

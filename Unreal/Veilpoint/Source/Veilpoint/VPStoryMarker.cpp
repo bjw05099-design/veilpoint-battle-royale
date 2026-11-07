@@ -115,8 +115,9 @@ bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
 
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State || !State->TryAdvance(Action)) return false;
-    bUsed = true;
-    if (Model) Model->SetVisibility(false);
+    if (Action != EVPStoryAction::ActivateBeacon)
+        bUsed = true; // The signal switch is reusable; all other goals are one-shot.
+    if (Model) Model->SetVisibility(IsAvailable());
     SyncBeaconLight();
     ForceNetUpdate();
     return true;

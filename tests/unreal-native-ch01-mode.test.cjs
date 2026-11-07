@@ -100,7 +100,8 @@ test('UE5 CH01 only shows live replicated objectives and prioritizes physically 
  assert.match(marker,/void AVPStoryMarker::BeginPlay\(\)/);
  assert.match(marker,/void AVPStoryMarker::Tick\(float DeltaSeconds\)/);
  assert.match(marker,/Model->SetVisibility\(IsAvailable\(\)\)/);
- assert.match(marker,/Model->SetVisibility\(false\)/);
+ assert.match(marker,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
+ assert.match(marker,/Model->SetVisibility\(IsAvailable\(\)\)/);
  const entry=character.slice(character.indexOf('void AVPCharacter::ServerTryInteract_Implementation()'));
  const start=entry.indexOf('GetGameState<AVPStoryGameState>()');
  const end=entry.indexOf('AVPPickup* Nearest',start);

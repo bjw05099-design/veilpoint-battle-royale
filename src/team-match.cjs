@@ -134,6 +134,7 @@ class TeamMatch {
     this.winner = null;
     this.reason = null;
     this.events = [];
+    this.series = {red:0,blue:0,draw:0};
   }
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
@@ -159,6 +160,11 @@ class TeamMatch {
     }
     // A ready vote belongs to the current pair of opponents, not to a seat
     // that a different person may occupy after a lobby timeout.
+    if(seatExpired){
+      // A series belongs to one physical pair, not a lobby slot inherited by
+      // another person after timeout. The finished single-round result remains.
+      this.series={red:0,blue:0,draw:0};
+    }
     if (seatExpired && this.phase === 'lobby')
       for (const player of this.players.values()) player.ready = false;
     if (this.players.size === 0 && this.phase === 'ended') {
@@ -263,6 +269,7 @@ class TeamMatch {
     p.lastSeen = this.now();
     if (data.type === 'leave') {
       this.players.delete(token);
+      this.series={red:0,blue:0,draw:0};
       // A new opponent must not inherit the departed guest's ready pairing.
       if (this.phase === 'lobby')
         for (const player of this.players.values()) player.ready = false;
@@ -518,6 +525,13 @@ class TeamMatch {
   }
   finish(winner, reason) {
     if(this.phase==='ended')return;
+    // Only completed, server-adjudicated competitive rounds earn a series
+    // result. A leave, expired connection or simulation fault never awards it.
+    if(this.phase==='playing'&&
+       ['objective_score','time_limit','opponent_incapacitated','mutual_incapacitation'].includes(reason)){
+      const key=winner==='red'||winner==='blue'?winner:'draw';
+      this.series[key]=Math.min(999,this.series[key]+1);
+    }
     this.phase = 'ended';
     this.winner = winner;
     this.reason = reason;
@@ -752,6 +766,8 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
+      // Across rematches only; reset when either local seat changes owner.
+      series: {...this.series},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       // Immutable internal events are copied into a public snapshot. A local
       // browser cannot forge or alter server history by mutating its JSON.

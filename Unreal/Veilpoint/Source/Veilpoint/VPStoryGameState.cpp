@@ -45,7 +45,7 @@ bool AVPStoryGameState::IsAvailable(EVPStoryAction Action) const
 {
     if (Action == EVPStoryAction::ActivateBeacon)
         return StoryStage != EVPStoryStage::RestoreRelay &&
-            StoryStage != EVPStoryStage::Complete && !bBeaconActivated;
+            StoryStage != EVPStoryStage::Complete;
     switch (StoryStage)
     {
     case EVPStoryStage::RestoreRelay:
@@ -74,7 +74,9 @@ bool AVPStoryGameState::TryAdvance(EVPStoryAction Action)
         StoryStage = EVPStoryStage::InspectRecords;
         break;
     case EVPStoryAction::ActivateBeacon:
-        bBeaconActivated = true;
+        // The physical console can switch the lamp on and off after the
+        // relay has power. Both transitions are replicated and saved.
+        bBeaconActivated = !bBeaconActivated;
         break;
     case EVPStoryAction::ReadHarbor:
         bReadHarbor = true;
