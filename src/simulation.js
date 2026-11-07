@@ -154,7 +154,7 @@
   const DOCK_HANDCART=Object.freeze({x:132,z:-121,w:1.4,d:.9,h:1.0,speed:1.6});
   // A small, non-combat port service vehicle. This is an authored, low-speed
   // transport prototype, not an arcade boost or real driving instruction.
-  const YARD_SHUTTLE=Object.freeze({x:22,z:0,yaw:Math.PI/2,w:2.05,d:4.1,h:2.1,
+  const YARD_SHUTTLE=Object.freeze({x:22,z:-9,yaw:Math.PI/2,w:2.05,d:4.1,h:2.1,
     forwardSpeed:6,reverseSpeed:2.2,accelerate:2.5,coast:3,steering:.78,fuel:6});
   function shuttleAabb(yaw){
     const c=Math.abs(Math.cos(yaw)),t=Math.abs(Math.sin(yaw));
