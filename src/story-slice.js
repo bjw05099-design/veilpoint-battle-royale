@@ -56,8 +56,6 @@
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evidence', label:'현지 구조단 대피 인원 확인표'}),
-    transitBoard: Object.freeze({id:'transitBoard', x:-22, z:-55, kind:'evidence',
-      label:'현지 구조단 대피 통행 계획표'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
     guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
@@ -323,7 +321,7 @@
     return true;
   }
   function createState(weaponId='carbine') {
-    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,transitReviewed:false,
+    const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
@@ -362,10 +360,7 @@
             ?[{id:'guideControl',x:state.guide.x,z:state.guide.z,kind:'evac',
               label:state.guide.waiting?'안내원 동행 재개':'안내원 현장 대기 지시'}]:[]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
-        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay,
-         // Preserve existing marker indices while exposing the optional new
-         // planning document at the end of the PC navigation cycle.
-         ...(state.musterConfirmed&&!state.transitReviewed?[POINTS.transitBoard]:[])];
+        ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
   }
   function syncMarkers(state) {
@@ -970,13 +965,6 @@
       state.musterConfirmed=true;
       state.subtitle='유수프(현지 구조단): 남쪽 집결지의 현장 인원 확인표를 대조했어. 미확인 인원은 후속 구조단에 인계하겠어.';
       state.message='남쪽 집결지 인원 확인 완료 · 안전한 안뜰로 이동하세요';
-    }else if(marker.id==='transitBoard'&&state.phase==='exit'&&state.choice==='evacuation'&&
-       state.musterConfirmed&&!state.transitReviewed){
-       // The published walkway is checked at a real nearby planning board.
-       // No fabricated civilian counts or automatic route-clearance awards.
-       state.transitReviewed=true;
-       state.subtitle='유수프(현지 구조단): 남쪽 안뜰 이동 계획을 확인했어. 인원 수는 현장 확인표로 판단해.';
-       state.message='대피 통행 계획표 현장 확인 완료 · 남쪽 안뜰 통로 유지';
     }else if(marker.id==='guide'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.musterConfirmed&&!state.guide.active&&!state.guide.released){
       state.guide.active=true;
@@ -1137,11 +1125,7 @@
          item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
-          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available'),
-        // New optional report follows the original task order so historic
-        // guide/aid/exit indices and keyboard HUD expectations remain stable.
-        item('transit','대피 통행 계획표 확인',state.transitReviewed?'done':
-          state.musterConfirmed?'available':'locked',true)
+          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available')
       ]);
     }
     return Object.freeze([
@@ -1236,7 +1220,7 @@
       optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
-      emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,transitReviewed:state.transitReviewed,
+      emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
@@ -1509,7 +1493,9 @@
     state.logHandedOff=hasOwn(data,'logHandedOff')?data.logHandedOff:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
     state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
-     state.transitReviewed=hasOwn(data,'transitReviewed')?data.transitReviewed:false;
+     // Historic v2 files may carry a now-retired, non-essential planning-board
+     // flag. It is validated above but intentionally discarded on restore;
+     // genuine escort, supply and evidence progress remains untouched.
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
