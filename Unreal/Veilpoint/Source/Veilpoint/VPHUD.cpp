@@ -3,6 +3,7 @@
 #include "VPZone.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
+#include "VPStoryMarker.h"
 #include "VPGameUserSettings.h"
 #include "Misc/App.h"
 #include "EngineUtils.h"
@@ -78,6 +79,51 @@ void AVPHUD::DrawHUD()
         DrawText(TEXT("LOCAL STORY PROTOTYPE  |  E: INTERACT WITH MARKERS"),
                  FLinearColor(.78f,.87f,.92f,1.f),
                  X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
+        // Nearby optional mission wayfinding must come from a truly observed,
+        // currently available physical marker. Never turn an unseen route
+        // choice or occluded record into an omniscient HUD location.
+        UWorld* World = GetWorld();
+        const double Now = World ? World->GetTimeSeconds() : 0.0;
+        if (ObservedStoryWorld.Get() != World)
+        {
+            ObservedStoryWorld = World;
+            ObservedStoryMarkers.Reset();
+            NextObjectiveScanAt = 0.0;
+        }
+        if (World && (ObservedStoryMarkers.Num() == 0 || Now >= NextObjectiveScanAt))
+        {
+            ObservedStoryMarkers.Reset();
+            for (TActorIterator<AVPStoryMarker> It(World); It; ++It)
+                ObservedStoryMarkers.Add(*It);
+            NextObjectiveScanAt = Now + .5;
+        }
+        const FVector Eye = Pawn->GetPawnViewLocation();
+        const FVector Position = Pawn->GetActorLocation();
+        float NearestVisibleSq = FMath::Square(2500.f); // 25m local view.
+        const AVPStoryMarker* NearestVisible = nullptr;
+        for (const TWeakObjectPtr<AVPStoryMarker>& Item : ObservedStoryMarkers)
+        {
+            const AVPStoryMarker* Target = Item.Get();
+            if (!IsValid(Target) || !Target->IsAvailable()) continue;
+            const float DistanceSq = FVector::DistSquared(Position, Target->GetActorLocation());
+            if (DistanceSq >= NearestVisibleSq) continue;
+            FCollisionQueryParams Query(SCENE_QUERY_STAT(VPStoryHudVisibility), true, Pawn);
+            Query.AddIgnoredActor(Target);
+            if (World->LineTraceTestByChannel(Eye, Target->GetActorLocation(),
+                                              ECC_Visibility, Query)) continue;
+            NearestVisibleSq = DistanceSq;
+            NearestVisible = Target;
+        }
+        if (NearestVisible)
+        {
+            const float Metres = FMath::Sqrt(NearestVisibleSq) / 100.f;
+            const bool bReachable = NearestVisibleSq <= FMath::Square(275.f);
+            const FString PhysicalHint = bReachable
+                ? TEXT("CH01 PHYSICAL OBJECTIVE IN REACH | E TO INTERACT")
+                : FString::Printf(TEXT("CH01 VISIBLE OBJECTIVE %.1fm | APPROACH TO INTERACT"), Metres);
+            DrawText(PhysicalHint, FLinearColor(.83f,.93f,.78f,1.f),
+                     X, Y + 157.f * Scale, nullptr, .75f * Scale, false);
+        }
         return;
     }
 
