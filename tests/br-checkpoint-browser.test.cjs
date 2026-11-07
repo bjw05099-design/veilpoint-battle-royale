@@ -1431,8 +1431,10 @@ test('BR Windows GPU reset keeps visible graphics settings keyboard focus and wo
  app.node('graphicsPauseOpen').click();
  assert.equal(panel.classList.contains('hidden'),false);
  let playFocused=0,settingsFocused=0;
- app.node('play').focus=()=>{playFocused++;};
- app.node('graphicsClose').focus=()=>{settingsFocused++;};
+ // The DOM fixture must preserve the browser's activeElement invariant.
+ // Count actual focus transfers rather than treating .focus() as a no-op.
+ app.node('play').focus=()=>{playFocused++;app.global.document.activeElement=app.node('play');};
+ app.node('graphicsClose').focus=()=>{settingsFocused++;app.global.document.activeElement=app.node('graphicsClose');};
  app.node('scene').dispatch('webglcontextlost');
  assert.equal(app.node('play').disabled,true);
  app.frame(30000);
