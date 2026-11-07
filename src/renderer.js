@@ -279,7 +279,8 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
+   o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -399,6 +400,18 @@ class Renderer {
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='aden-arcade-wall'){
+   // Solid masonry matches the 60Hz AABB, with no invented pass-through.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.59,.52,.43]);
+   m.box(o.x,o.h-.21,o.z,o.w,.22,o.d,[.68,.60,.49]);
+   return;
+  }
+  if(o.type==='aden-arcade-water'){
+   // A visible low public spout, not a fictional teleporting supply source.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.39,.46,.47]);
+   m.box(o.x,o.h-.3,o.z,o.w*.75,.20,o.d*.65,[.60,.63,.60]);
+   return;
+  }
   if(o.type==='aden-civic-wall'){
    // ONE geometry source shared by the BR and CH01 fixed-step worlds.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.57,.49,.39]);
@@ -461,6 +474,13 @@ class Renderer {
   m.box(77,-.008,125,24,.016,17,[.36,.32,.28]);
   for(const z of [117,125,132])
    m.box(77,.015,z,17,.006,.14,[.49,.44,.37]);
+  // Same second block exists in BR and CH01 without another collision map.
+  // The first person may walk through the west entrance beneath its roof.
+  m.box(124,3.84,111,24,.17,18,[.41,.39,.35]);
+  m.box(124,-.008,111,23,.016,17,[.37,.34,.29]);
+  m.box(102,.002,109,20,.006,3,[.37,.35,.32]);
+  for(const z of [105,111,117])
+   m.box(124,.01,z,17,.006,.14,[.49,.45,.38]);
  }
  if(this.sceneMode==='br'){
   // Roof is separate elevated scenery over the actual three-sided shelter:
