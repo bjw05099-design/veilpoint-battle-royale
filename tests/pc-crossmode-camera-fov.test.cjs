@@ -57,7 +57,7 @@ test('WebGL view matrix changes immediately without altering deterministic 60Hz 
  assert.ok(Number.isFinite(narrow)&&Number.isFinite(wide)&&narrow>wide,
    'narrower real camera FOV means greater projection scale');
  assert.equal(JSON.stringify(game),before,'camera changes must not mutate player, opponents or saves');
- assert.throws(()=>renderer.setFieldOfView(105),RangeError);
+ assert.throws(()=>renderer.setFieldOfView(105),e=>e?.name==='RangeError');
  assert.equal(renderer.verticalFov,78);
 });
 test('Canvas fallback shares FOV preference and both game modes restore after GPU resets',()=>{
