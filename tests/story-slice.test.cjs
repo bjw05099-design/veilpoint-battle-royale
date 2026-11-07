@@ -63,7 +63,7 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'terminal');
   assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
   clearEncounter(state);
-  assert.equal(story.markers(state).length,5);
+  assert.equal(story.markers(state).length,6,'original records/decision and the new walk-in office notice');
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(state.found.length,2);
@@ -105,7 +105,8 @@ test('checkpoint serialization restores player, records and objective without mu
   assert.equal(loaded.phase,'decision');
   assert.deepEqual(loaded.found,['recordA']);
   assert.equal(loaded.world.player.x,story.POINTS.recordA.x);
-  assert.equal(loaded.world.loot.length,4);
+  assert.equal(loaded.world.loot.length,5);
+  assert.ok(loaded.world.loot.some(m=>m.markerId==='officeBoard'));
   loaded.found.push('recordB');
   assert.deepEqual(state.found,['recordA']);
   assert.equal(story.serialize(state),saved);
@@ -170,7 +171,8 @@ test('CH01 encounter: cannot fire early; finite rounds disable three grounded ho
   assert.equal(story.fire(state).reason,'cooldown');
   clearEncounter(state);
   assert.equal(story.fire(state).reason,'not_in_encounter');
-  assert.equal(story.markers(state).length,5);
+  assert.equal(story.markers(state).length,6);
+  assert.ok(story.markers(state).some(m=>m.id==='officeBoard'));
 });
 
 test('Kim Ji-yun provides one-use ally protection while Jo Hyeon-ji signals completion',()=>{

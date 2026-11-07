@@ -13,7 +13,8 @@ function cleared(){
  assert.equal(s.phase,'records');return s;
 }
 test('optional CH01 radio objective becomes reachable after records and changes gate clearance timing',()=>{
- const s=cleared();assert.equal(Story.markers(s).length,5);
+ const s=cleared();assert.equal(Story.markers(s).length,6);
+ assert.equal(Story.markers(s).some(m=>m.id==='officeBoard'),true,'new physical notice remains optional');
  go(s,'recordA');Story.interact(s);go(s,'recordB');Story.interact(s);
  assert.equal(Story.markers(s).some(m=>m.id==='relay'),true);
  s.world.player.x=8;s.world.player.z=-34;s.world.player.yaw=0;
