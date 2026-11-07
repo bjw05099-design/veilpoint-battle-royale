@@ -8,7 +8,8 @@ test('UE5 native mission marker creates a reusable in-world text component with 
  assert.match(h,/TObjectPtr<UTextRenderComponent> ObjectiveLabel/);
  assert.match(cpp,/#include "Components\/TextRenderComponent.h"/);
  assert.match(cpp,/CreateDefaultSubobject<UTextRenderComponent>\(TEXT\("MissionNameplate"\)\)/);
- assert.match(cpp,/ObjectiveLabel->SetWorldSize\(36.f\)/);
+ assert.match(cpp,/ObjectiveLabel->SetWorldSize\(18.f\)/);
+ assert.match(cpp,/ObjectiveLabel->SetRelativeLocation\(FVector\(0.f,0.f,48.f\)\)/);
  assert.match(cpp,/ObjectiveLabel->SetHorizontalAlignment\(EHTA_Center\)/);
  const labels=cpp.slice(cpp.indexOf('void AVPStoryMarker::SyncObjectiveText()'),cpp.indexOf('void AVPStoryMarker::ApplyStageShape()'));
  for(const action of ['RestoreRelay','ActivateBeacon','ReadHarbor','ReadShelter',
@@ -23,7 +24,11 @@ test('UE5 marker nameplates follow replicated availability without changing game
  assert.match(cpp,/void AVPStoryMarker::BeginPlay\([\s\S]*?SyncObjectiveText\(\)/);
  assert.match(cpp,/void AVPStoryMarker::Tick\([\s\S]*?SyncObjectiveText\(\)/);
  assert.match(cpp,/bool AVPStoryMarker::TryActivate\([\s\S]*?SyncObjectiveText\(\)/);
- assert.match(cpp,/const bool bShown=IsAvailable\(\)/);
+ assert.match(cpp,/const bool bShown=IsAvailable\(\)&&bNearby&&bClearView/);
+ assert.match(cpp,/FVector::DistSquared2D\(/);
+ assert.match(cpp,/FMath::Square\(500.f\)/);
+ assert.match(cpp,/LineTraceTestByChannel\(/);
+ assert.match(cpp,/ECC_Visibility/);
  assert.doesNotMatch(h,/UFUNCTION\(Server/);
  assert.match(cpp,/FMath::Square\(275\.f\)/,'existing local physical objective range is unchanged');
 });

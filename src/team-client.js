@@ -33,6 +33,7 @@
   // Fire, release, capture and other commands remain strict ordering barriers.
   let queuedInput = null;
   let previousPhase = null;
+  let previousRoundId = null;
   // A rapid second PC click must cancel the *last requested* lobby consent,
   // not resend "ready" because the 150ms authoritative snapshot is stale.
   // The sequence ID keeps optimistic UI state until the server acknowledges it.
@@ -115,7 +116,7 @@
     if (!expiredToken || token !== expiredToken) return;
     // A restarted local server may forget the token while this tab stays open.
     // Drop all held PC input and old snapshots before enabling a fresh join.
-    token = null; seq = 0; state = null; previousPhase = null;
+    token = null; seq = 0; state = null; previousPhase = null;previousRoundId=null;
     authorityStale = false;
     readyIntent = null; readyIntentSeq = 0; readyIntentGeneration++;
     lastDirection = ''; lastMoveRefreshTick = -Infinity;
@@ -464,7 +465,11 @@
       // overwrite the new round's controls or the ready button label.
       readyIntent = null;
     }
-    if (state.phase !== previousPhase) {
+    const currentRoundId=Number.isSafeInteger(state.round?.id)&&state.round.id>=0
+      ?state.round.id:null;
+    if (state.phase !== previousPhase ||
+        (currentRoundId!==null&&previousRoundId!==null&&currentRoundId!==previousRoundId)) {
+      // Both phase edges and playing-to-playing rematches clear stale keys.
       // A new round resets the server's direction; never retain a stale input cache.
       // A held key from the lobby/previous round is not fresh gameplay input.
       // Require a new physical keydown after the server changes phase.
@@ -486,11 +491,13 @@
       // important because the old client could auto-capture after the first poll.
       capturing = false;
       previousPhase = state.phase;
+      previousRoundId=currentRoundId;
       // A ready button can retain focus after the server starts the round.
       // Transfer PC keyboard ownership to the arena only on the phase edge,
       // never on each poll (which would steal focus from deliberate UI use).
       if(state.phase === 'playing') Desktop.focusGameplay(document,canvas);
     }
+    if(currentRoundId!==null)previousRoundId=currentRoundId;
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
@@ -710,7 +717,7 @@
       const result = await request('/command', {seq: ++seq, type: 'leave'}, departingToken);
       if (result?.ok !== true) throw new Error('leave_unacknowledged');
       if (token !== departingToken) return;
-      token = null;seq = 0;state = null;previousPhase = null;queuedInput = null;
+      token = null;seq = 0;state = null;previousPhase = null;previousRoundId=null;queuedInput = null;
       readyIntent = null;readyIntentSeq = 0;readyIntentGeneration++;
       lastMoveRefreshTick = -Infinity;lastCaptureRefreshTick = -Infinity;
       lastTriggerRefreshTick = -Infinity;
@@ -909,6 +916,14 @@
         }
         authorityStale = false;
       }
+      // Never let an in-flight response from the previous generation undo
+      // a newer server snapshot after a rapid local rematch.
+      const oldRound=state?.round?.id,nextRound=nextState?.round?.id;
+      if(Number.isSafeInteger(oldRound)&&Number.isSafeInteger(nextRound)&&
+         nextRound<oldRound)return;
+      if(nextRound===oldRound&&nextState.phase===state?.phase&&
+         Number.isSafeInteger(nextState.tick)&&Number.isSafeInteger(state?.tick)&&
+         nextState.tick<state.tick)return;
       // A fresh server sequence is authoritative even if a newly joined peer
       // revoked an earlier solo ready vote. Do not leave a stale optimistic
       // consent stuck on screen when the server legitimately reset it.

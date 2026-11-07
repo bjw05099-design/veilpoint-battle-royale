@@ -1,0 +1,36 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const {TeamMatch}=require('../src/team-match.cjs');
+const A='a'.repeat(48),B='b'.repeat(48);
+test('server publishes a monotonically increasing round ID through rematches',()=>{
+ const game=new TeamMatch({now:()=>0,objectiveSite:'rotation'});
+ game.join(A,'First');game.join(B,'Second');
+ assert.equal(game.snapshot(A).round.id,0);
+ game.start();
+ assert.equal(game.snapshot(A).round.id,1);
+ const first=game.snapshot(A);
+ for(let i=0;i<31;i++)game.step();
+ assert.equal(game.snapshot(B).round.id,1);
+ game.finish('red','objective_score');
+ assert.equal(game.snapshot(A).round.id,1,'completed result belongs to its played generation');
+ game.command(A,{seq:1,type:'ready'});game.command(B,{seq:1,type:'ready'});
+ assert.equal(game.snapshot(A).phase,'playing');
+ const next=game.snapshot(A);
+ assert.equal(next.round.id,2);
+ assert.equal(next.tick,0);
+ assert.equal(next.round.remainingTicks,next.round.limitTicks);
+ assert.equal(next.objective.z,0);
+ assert.equal(game.series.red,1,'rematch identity does not erase earned pair result');
+ first.round.id=9999;
+ assert.equal(game.snapshot(B).round.id,2,'client cannot overwrite server generation');
+});
+test('PC round generation is tied to phase transition and rejects older snapshots',()=>{
+ const src=fs.readFileSync(path.join(__dirname,'../src/team-client.js'),'utf8');
+ assert.match(src,/previousRoundId=null/);
+ assert.match(src,/currentRoundId!==previousRoundId/);
+ assert.match(src,/nextRound<oldRound\)return/);
+ assert.match(src,/nextState\.tick<state\.tick\)return/);
+ assert.match(src,/state\.phase !== previousPhase \|\|/);
+ assert.doesNotMatch(src.slice(src.indexOf('const oldRound='),src.indexOf('// A fresh server sequence')),/state\.visible/);
+});

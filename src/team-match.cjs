@@ -138,6 +138,9 @@ class TeamMatch {
     this.timeoutMs = timeoutMs;
     this.players = new Map();
     this.nextPlayerId = 1;
+    // Monotonic within this local server instance. A reused 60Hz tick zero
+    // after rematch must never be mistaken for an older in-flight snapshot.
+    this.roundId = 0;
     this.phase = 'lobby';
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
@@ -535,6 +538,7 @@ class TeamMatch {
   }
   start() {
     this.resetRoundState();
+    this.roundId += 1;
     this.phase = 'playing';
     this.recordPublicEvent('round_start');
   }
@@ -782,7 +786,8 @@ class TeamMatch {
       });
     });
     return {phase: this.phase, tick: this.ticks,
-      round: {limitTicks: ROUND_LIMIT_TICKS, remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
+      round: {id:this.roundId,limitTicks: ROUND_LIMIT_TICKS,
+        remainingTicks: Math.max(0, ROUND_LIMIT_TICKS - this.ticks)},
       // Public consent only: no opponent health, inventory or hidden coordinates.
       lobby: {participants: this.players.size,
         ready: [...this.players.values()].filter(p => p.ready).length},

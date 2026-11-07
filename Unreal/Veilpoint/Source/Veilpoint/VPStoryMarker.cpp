@@ -4,6 +4,8 @@
 #include "Components/PointLightComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
 
@@ -34,8 +36,10 @@ AVPStoryMarker::AVPStoryMarker()
     ObjectiveLabel=CreateDefaultSubobject<UTextRenderComponent>(TEXT("MissionNameplate"));
     ObjectiveLabel->SetupAttachment(RootComponent);
     ObjectiveLabel->SetAbsolute(false,false,true);
-    ObjectiveLabel->SetRelativeLocation(FVector(0.f,0.f,150.f));
-    ObjectiveLabel->SetWorldSize(36.f);
+    // An equipment stencil belongs on the station itself; the previous
+    // floating 1.5m mission heading was an implausible global objective cue.
+    ObjectiveLabel->SetRelativeLocation(FVector(0.f,0.f,48.f));
+    ObjectiveLabel->SetWorldSize(18.f);
     ObjectiveLabel->SetHorizontalAlignment(EHTA_Center);
     ObjectiveLabel->SetTextRenderColor(FColor(202,225,215));
     ObjectiveLabel->SetVisibility(false);
@@ -93,7 +97,22 @@ void AVPStoryMarker::SyncObjectiveText()
         LastObjectiveText=Label;
         ObjectiveLabel->SetText(FText::FromString(Label));
     }
-    const bool bShown=IsAvailable();
+    // The stencil is readable only by the *local* player at arm's-reach of
+    // the physical station, and never through blocking scenery. This is not
+    // a replicated wall-penetrating waypoint or an enemy sensor.
+    const APlayerController* LocalController=GetWorld()?GetWorld()->GetFirstPlayerController():nullptr;
+    const APawn* LocalPawn=LocalController?LocalController->GetPawn():nullptr;
+    const bool bNearby=LocalPawn&&FVector::DistSquared2D(
+        LocalPawn->GetActorLocation(),GetActorLocation())<=FMath::Square(500.f);
+    bool bClearView=false;
+    if(bNearby&&GetWorld())
+    {
+        FCollisionQueryParams Params(SCENE_QUERY_STAT(VPStorySignRead),true,LocalPawn);
+        Params.AddIgnoredActor(this);
+        bClearView=!GetWorld()->LineTraceTestByChannel(
+            LocalPawn->GetPawnViewLocation(),GetActorLocation(),ECC_Visibility,Params);
+    }
+    const bool bShown=IsAvailable()&&bNearby&&bClearView;
     if(ObjectiveLabel->IsVisible()!=bShown)
         ObjectiveLabel->SetVisibility(bShown);
 }

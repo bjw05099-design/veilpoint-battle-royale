@@ -35,8 +35,14 @@
     return line('조현지','대피 안내원의 현장 도착 또는 구조단 인계를 확인했습니다.');
    if(state.aidDelivered)
     return line('이수혁 대위','비상 물품 인계를 확인했다. 대피 인원 확인은 현지 구조단 기록을 따른다.');
+   if(state.guide?.active&&state.guide?.waiting)
+    return line('조현지','안내원에게 현장 대기를 지시했습니다. 직접 다시 접근해 동행을 재개해야 합니다.');
    if(state.guide?.active)
-    return line('조현지','안내원 동행이 진행 중입니다. 현장 도착 또는 인계 전 완료로 기록하지 않습니다.');
+    return line('조현지','안내원 동행 중입니다. 실제 도착 또는 구조단 인계 전에는 완료로 기록하지 않습니다.');
+   if(state.world?.carryingAid)
+    return line('이수혁 대위','구조용 물품을 직접 운반 중이다. 현지 구조단에 인계하기 전까지 완료로 보고하지 않는다.');
+   if(state.aidStaged)
+    return line('이수혁 대위','구조 물품은 현장 적재대에 있다. 구조단 인계는 아직 확인되지 않았다.');
    return line('이수혁 대위','남쪽 대피로를 확보한다. 민간인 확인은 현지 구조단과 협력한다.');
   }
   if(phase==='complete')return line('이수혁 대위','CH01 현장 임무 종료. 확정되지 않은 사건의 원인은 후속 조사로 남긴다.');
