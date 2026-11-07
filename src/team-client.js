@@ -486,6 +486,17 @@
     el('phase').textContent = state.phase.toUpperCase();
     el('team').textContent = state.self.team.toUpperCase();
     el('score').textContent = `${state.score.red} : ${state.score.blue}`;
+    // Only the server can define the objective threshold. These are public
+    // team scores, not inferred opponents' positions or private resources.
+    const targetScore = Number.isSafeInteger(state.targetScore) &&
+      state.targetScore > 0 && state.targetScore <= 1000 ? state.targetScore : null;
+    el('scoreGoal').textContent = targetScore === null ? '서버 확인 중' : targetScore + '점';
+    for (const team of ['red','blue']) {
+      const meter = el(team + 'ScoreMeter');
+      meter.max = targetScore ?? 1;
+      meter.value = targetScore !== null && Number.isSafeInteger(state.score?.[team])
+        ? Math.min(targetScore,Math.max(0,state.score[team])) : 0;
+    }
     // Both relay progress numbers are explicitly published by the server;
     // a client never invents capture time or discloses hidden actor positions.
     const relayDuration=state.objective?.requiredSeconds;

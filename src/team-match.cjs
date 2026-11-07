@@ -731,6 +731,9 @@ class TeamMatch {
       lobby: {participants: this.players.size,
         ready: [...this.players.values()].filter(p => p.ready).length},
       score: {...this.score},
+      // Public objective target from the same authoritative round rules.
+      // A client must not guess match length or infer a victory from a timer.
+      targetScore: WIN_SCORE,
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       objective: {x: 0, z: 0, radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS}, cover: COVER, weather,
       // Only the authenticated player's own canonical lobby identity is sent.
