@@ -456,10 +456,12 @@ class Renderer {
  // Roof and paved forecourt of the COMMON urban block in both modes.
  // The overhead surface is above the walking capsule; only the authored
  // perimeter and stall collide. Do not generate a solid filler cuboid.
- m.box(-26,4.02,53,26,.20,18,[.42,.39,.34]);
- m.box(-26,-.008,53,24,.016,17,[.36,.32,.28]);
- for(const z of [45,53,60])
-  m.box(-26,.015,z,17,.006,.14,[.49,.44,.37]);
+ if(this.worldTerrainRevision===1){
+  m.box(77,4.02,125,26,.20,18,[.42,.39,.34]);
+  m.box(77,-.008,125,24,.016,17,[.36,.32,.28]);
+  for(const z of [117,125,132])
+   m.box(77,.015,z,17,.006,.14,[.49,.44,.37]);
+ }
  if(this.sceneMode==='br'){
   // Roof is separate elevated scenery over the actual three-sided shelter:
   // it must never fill the entrance or add invisible ground collision.
