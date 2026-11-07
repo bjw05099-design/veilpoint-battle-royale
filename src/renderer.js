@@ -188,7 +188,11 @@ class SoftwareRenderer {
  for(const o of state.obstacles)objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
   type:o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
     o.type==='yard-fence'?'yard-fence':'building'});
- if(!harborNight)objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
+ if(!harborNight){
+  const pad=global.VeilpointSim.WET_LOADING_PAD;
+  objects.push({x:pad.x,z:pad.z,h:.035,w:pad.width,d:pad.depth,type:'wet-apron'});
+  objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
+ }
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
@@ -211,7 +215,7 @@ class SoftwareRenderer {
  }
  const p000=proj(x-ww,0,z-dd),p100=proj(x+ww,0,z-dd),p010=proj(x-ww,o.h,z-dd),p110=proj(x+ww,o.h,z-dd),p001=proj(x-ww,0,z+dd),p101=proj(x+ww,0,z+dd),p011=proj(x-ww,o.h,z+dd),p111=proj(x+ww,o.h,z+dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
-   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -222,7 +226,7 @@ class SoftwareRenderer {
    color='#'+channel((value>>16)&255)+channel((value>>8)&255)+channel(value&255);
   }
  }
- polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':'#9cb09a');
+ polygon([p000,p100,p110,p010],color);polygon([p101,p001,p011,p111],color);polygon([p001,p000,p010,p011],color);polygon([p100,p101,p111,p110],color);polygon([p010,p110,p111,p011],o.type==='building'?'#919b91':o.type==='wet-apron'?'#516a72':'#9cb09a');
  }
  // The Canvas fallback also shows the two physical facade fixtures. Only draw
  // their front faces from the harbor-road side; do not reveal a light through
@@ -277,6 +281,14 @@ class Renderer {
  for(const v of [-2.2,2.2])m.box(0,-.025,v,350,.025,2.5,[.20,.21,.20]);
  for(let z=-175;z<175;z+=15)m.box(0,.006,z,0.20,.02,5.2,[.67,.59,.40]);
  for(let x=-175;x<175;x+=15)m.box(x,-.01,0,5.2,.024,.18,[.54,.48,.33]);
+ // Visible waterlogged apron has the same footprint as the fixed-step
+ // player and rival traction rule. No hidden or unrendered movement modifier.
+ if(this.sceneMode==='br'){
+  const pad=global.VeilpointSim.WET_LOADING_PAD;
+  m.box(pad.x,.045,pad.z,pad.width,.038,pad.depth,[.16,.24,.27]);
+  for(const offset of [-4,0,4])
+   m.box(pad.x+offset,.068,pad.z+2,1.2,.006,7,[.20,.30,.33]);
+ }
  const sim=global.VeilpointSim.newMatch(1,0);
  sim.obstacles.forEach((o,i)=>{
   // A sliding gate must not remain as a solid closed panel in the static mesh:

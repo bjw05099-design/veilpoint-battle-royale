@@ -135,6 +135,16 @@
   const DOCK_DEPOTS=Object.freeze([
     Object.freeze({x:108,z:-121}),Object.freeze({x:144,z:-121})
   ]);
+  // Visible waterlogged loading apron near the center of the playable harbor.
+  // Standing rainwater slows traction without artificial damage or buffs.
+  // Geometry is also rendered in the WebGL/Canvas worlds and native map.
+  const WET_LOADING_PAD=Object.freeze({x:35,z:-40,width:14,depth:18,mobility:.86});
+  function wetApronFooting(actor){
+    const wet=!!actor&&Number.isFinite(actor.x)&&Number.isFinite(actor.z)&&
+      Math.abs(actor.x-WET_LOADING_PAD.x)<=WET_LOADING_PAD.width/2&&
+      Math.abs(actor.z-WET_LOADING_PAD.z)<=WET_LOADING_PAD.depth/2;
+    return {wet,mobility:wet?WET_LOADING_PAD.mobility:1};
+  }
   function makeObstacles() {
     const o = [];
     const clusters = [
@@ -480,7 +490,7 @@
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
     const wantsSprint=canSprint(p,input,iz);
     const loadMobility=supplyLoadMobility(p);
-    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility;
+    const speed=(input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     const beforeX=p.x,beforeZ=p.z;
     moveEntity(p,(ix*cos+iz*sin)*speed,(ix*sin-iz*cos)*speed,dt,
@@ -583,7 +593,7 @@
       const desired=normalizeAngle(aim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
-        investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b);
+        investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b)*wetApronFooting(b).mobility;
       const movementObstacles=obstacles.concat(actorObstacles(game,b));
       const startX=b.x,startZ=b.z;
       const vx=Math.sin(b.angle)*botSpeed,vz=-Math.cos(b.angle)*botSpeed;
@@ -1285,5 +1295,5 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
