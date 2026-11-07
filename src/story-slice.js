@@ -46,6 +46,10 @@
   ]);
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
+  // CH01 civilian harbor worker traverses one small publicly reachable
+  // sidewalk at walking speed. No military intelligence or courier objective.
+  const WORKER_PATH=Object.freeze({minX:20,maxX:28,z:-12,speed:1.05,radius:.55});
+  const newWorker=()=>({x:WORKER_PATH.minX,z:WORKER_PATH.z,direction:1});
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -95,7 +99,7 @@
     world.scene='nahrin';
     // BR's newly authored service-yard barrier exists only in the BR map.
     // CH01 has its own independent harbor checkpoint and authored route.
-    world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&!o.type.startsWith('dock-'));
+    world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-'));
     world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }
@@ -333,7 +337,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'마라(기술자): 이 대위님, 현지 대피 지원 요청으로 승인된 임무예요. 통로 개방은 유수프 구조단이 결정하고, 국정원 보고는 현장 확인 전 참고자료예요.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -380,6 +384,7 @@
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
+    state.world.worker=state.worker;
     state.world.witness=(['exit','complete'].includes(state.phase)&&
       (state.choice==='evacuation'||state.transportContact>0))
       ?{x:POINTS.transportDriver.x,z:POINTS.transportDriver.z}:null;
@@ -628,6 +633,12 @@
       const w=state.world.witness,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
+    // The civilian worker is also a collidable human, never an intangible
+    // figure that the player can walk through on a pedestrian path.
+    if(state.worker){
+      const w=state.worker,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     // The guide remains a solid person while waiting at muster and after
     // the physical handoff, not an intangible prop when following stops.
     if(state.choice==='evacuation'&&state.musterConfirmed){
@@ -644,6 +655,25 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // A different civilian uses actual 60Hz movement and the same walkable
+    // scene AABBs as the captain. If the lane is occupied, the worker waits,
+    // rather than clipping through a person or teleporting to the far end.
+    if(state.worker){
+      const w=state.worker;
+      if(w.x>=WORKER_PATH.maxX-1e-8)w.direction=-1;
+      else if(w.x<=WORKER_PATH.minX+1e-8)w.direction=1;
+      const toEnd=w.direction>0?WORKER_PATH.maxX-w.x:w.x-WORKER_PATH.minX;
+      const step=Math.max(0,Math.min(WORKER_PATH.speed*t,toEnd));
+      if(step>0){
+        const solids=state.world.obstacles.concat(
+          {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
+        const start=w.x;
+        Sim.moveEntity(w,w.direction*step/t,0,t,solids,WORKER_PATH.radius);
+        // Never drift off the authored path due to floating point movement.
+        w.x=clamp(w.x,WORKER_PATH.minX,WORKER_PATH.maxX);
+        if(Math.abs(w.x-start)<1e-8)w.x=start;
+      }
+    }
     // The optional local evacuation guide follows at walking speed, within
     // observation distance and through the same real harbor collision world.
     // Leaving the guide behind pauses the escort; no teleportation or map-wide
@@ -1343,6 +1373,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
+      worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
@@ -1365,8 +1396,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+17||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration').includes(k))||
+      Object.keys(data).length>expectedKeys.length+18||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1393,6 +1424,14 @@
              !['exit','complete'].includes(data.phase)||
              data.dispatchReviewed!==true||data.transportContact!==2))))||
        (hasOwn(data,'transitReviewed')&&typeof data.transitReviewed!=='boolean')||
+      // Existing saves omit the worker; they stay on the old NPC layout.
+      (hasOwn(data,'worker')&&data.worker!==null&&
+       (!data.worker||typeof data.worker!=='object'||Array.isArray(data.worker)||
+        Object.keys(data.worker).sort().join(',')!=='direction,x,z'||
+        !Number.isFinite(data.worker.x)||!Number.isFinite(data.worker.z)||
+        data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
+        Math.abs(data.worker.z-WORKER_PATH.z)>1e-8||
+        ![-1,1].includes(data.worker.direction)))||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
       (hasOwn(data,'aidDelivered')&&typeof data.aidDelivered!=='boolean')||
       (hasOwn(data,'aidStaged')&&typeof data.aidStaged!=='boolean')||
@@ -1581,6 +1620,7 @@
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
+    state.worker=hasOwn(data,'worker')?(data.worker===null?null:{...data.worker}):null;
     state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true,
        waiting:data.guide.waiting===true}:
       {active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z};

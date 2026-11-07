@@ -61,10 +61,10 @@ function createFixedStepClock(onStep) {
     return steps;
   };
 }
-function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now, bodyTimeoutMs = 5000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day', suddenDeath=false} = {}) {
+function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now, bodyTimeoutMs = 5000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day', suddenDeath=false, seriesTargetWins=0} = {}) {
   // This proof must never silently bind to a publicly reachable interface.
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
-  const match = new TeamMatch({now,targetScore,objectiveSite,lighting,suddenDeath});
+  const match = new TeamMatch({now,targetScore,objectiveSite,lighting,suddenDeath,seriesTargetWins});
   // A lost /join response must not occupy another lobby seat on retry.
   // Attempt IDs are unpredictable, tab-scoped and only retained while the
   // corresponding server-owned seat exists; legacy {name} joins still work.
@@ -229,12 +229,16 @@ if (require.main === module) {
   const objectiveSite=process.env.VEILPOINT_OBJECTIVE_SITE||'center';
   const lighting=process.env.VEILPOINT_LIGHTING||'day';
   const suddenDeath=process.env.VEILPOINT_SUDDEN_DEATH==='1';
-  createTeamServer({targetScore,objectiveSite,lighting,suddenDeath}).listen().then(addr => {
+  const seriesTargetWins=process.env.VEILPOINT_SERIES_TARGET_WINS===undefined
+    ?0:Number(process.env.VEILPOINT_SERIES_TARGET_WINS);
+  createTeamServer({targetScore,objectiveSite,lighting,suddenDeath,seriesTargetWins}).listen().then(addr => {
     process.stdout.write(`VEILPOINT local team prototype listening at http://${addr.address}:${addr.port}\n`);
     process.stdout.write('Open the displayed URL in two separate browser tabs to test the team round.\n');
     process.stdout.write('Server-owned win target: '+targetScore+' relay points.\n');
     process.stdout.write('Local course: '+objectiveSite+' (relay sites, rotation, rotation-wide, duel or courier).\n');
     process.stdout.write('Round lighting: '+lighting+' (day/dusk).\n');
+    process.stdout.write('Competitive series: '+(seriesTargetWins
+      ?'first to '+seriesTargetWins+' wins':'unlimited rematches')+'.\n');
   }).catch(err => {console.error(err);process.exitCode = 1;});
 }
 module.exports = {createTeamServer, createFixedStepClock};

@@ -142,10 +142,14 @@ function weatherAt(tick) {
 }
 
 class TeamMatch {
-  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day', suddenDeath=false} = {}) {
+  constructor({now = () => performance.now(), timeoutMs = 30000, targetScore = WIN_SCORE, objectiveSite='center', lighting='day', suddenDeath=false, seriesTargetWins=0} = {}) {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
+    // Optional best-of-three/five series; default 0 preserves infinite rematches.
+    // Only the local server owner can choose this, never a client command.
+    if(![0,2,3].includes(seriesTargetWins))throw new RangeError('invalid_series_target');
+    this.seriesTargetWins=seriesTargetWins;
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
     // Combat-only mode: the winner is decided by the authoritative round.
     if(isDuelSite(objectiveSite)&&targetScore!==1)throw new RangeError('duel_one_round_only');
@@ -181,6 +185,12 @@ class TeamMatch {
     this.reason = null;
     this.events = [];
     this.series = {red:0,blue:0,draw:0};
+  }
+  seriesChampion(){
+    if(!this.seriesTargetWins)return null;
+    if(this.series.red>=this.seriesTargetWins)return 'red';
+    if(this.series.blue>=this.seriesTargetWins)return 'blue';
+    return null;
   }
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
@@ -373,6 +383,7 @@ class TeamMatch {
       return {ok: true, ready: false};
     }
     if (data.type === 'ready') {
+      if (this.seriesChampion())return {ok:false,reason:'series_completed'};
       if (this.phase !== 'playing') {
         p.ready = true;
         if (this.players.size === MAX_PLAYERS && [...this.players.values()].every(x => x.ready)) this.start();
@@ -575,6 +586,7 @@ class TeamMatch {
     }
   }
   start() {
+    if(this.seriesChampion())throw new RangeError('series_completed');
     this.resetRoundState();
     this.roundId += 1;
     this.phase = 'playing';
@@ -896,6 +908,8 @@ class TeamMatch {
       }}:{}),
       // Across rematches only; reset when either local seat changes owner.
       series: {...this.series},
+      ...(this.seriesTargetWins?{seriesFormat:{targetWins:this.seriesTargetWins,
+        champion:this.seriesChampion()}}:{}),
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
       // Immutable internal events are copied into a public snapshot. A local
       // browser cannot forge or alter server history by mutating its JSON.

@@ -81,7 +81,7 @@ function planVisible(state,aspect=16/9){
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);
- const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[],handcarts=[],witnesses=[],vehicles=[];
+ const bots=[],loot=[],zone=[],effects=[],serviceGates=[],yardIndicators=[],trailMarkers=[],guides=[],handcarts=[],witnesses=[],workers=[],vehicles=[];
  let botTotal=0,lootTotal=0,boxes=0;
  for(const entity of state.bots){
   if(!entity.alive)continue;
@@ -104,6 +104,14 @@ function planVisible(state,aspect=16/9){
     inView(p,state.witness.x,state.witness.z,1,MAX_DISTANCE,halfFov)&&
     hasExposedSilhouette(p,state.witness,.55,state.obstacles)){
    witnesses.push({entity:state.witness});boxes+=2;
+ }
+ // A CH01 civilian traverses a genuine sidewalk using the same physical
+ // collision rule as the captain. It appears only when camera-visible and
+ // not obscured behind opaque harbor buildings.
+ if(state.scene==='nahrin'&&state.worker&&
+    inView(p,state.worker.x,state.worker.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.worker,.55,state.obstacles)){
+   workers.push({entity:state.worker});boxes+=2;
  }
  // Render the same finite field pouch that PC E can collect from a defeated
  // BR rival. Administrative boundary disqualification creates no physical loot.
@@ -172,7 +180,7 @@ function planVisible(state,aspect=16/9){
   if(inView(p,entity.x,entity.z,.65,actorDistance,halfFov)&&
      hasExposedSilhouette(p,entity,.16,state.obstacles)){effects.push(entity);boxes++;}
  }
- return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,handcarts,witnesses,vehicles,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
+ return {bots,loot,zone,effects,serviceGates,yardIndicators,trailMarkers,guides,handcarts,witnesses,workers,vehicles,stats:{botsVisible:bots.length,botsTotal:botTotal,guidesVisible:guides.length,lootVisible:loot.length,lootTotal,zoneVisible:zone.length,zoneTotal:0,effectsVisible:effects.length,estimatedDynamicVertices:boxes*36}};
 }
 return {VERTICAL_FOV,MAX_DISTANCE,PRECISION_VIEW_DISTANCE,MARKSMAN_VIEW_DISTANCE,actorViewDistance,ZONE_SEGMENTS,halfHorizontalFov,inView,lodForDistance,planVisible};
 });
