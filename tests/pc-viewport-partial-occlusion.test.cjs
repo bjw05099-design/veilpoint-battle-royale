@@ -32,6 +32,28 @@ function geometryFixture(coverCorner=false,playOutsidePanel=false){
    focus(){doc.activeElement=this;}
   };
  }
+ // The production tab click updates both the visible page and the
+ // roving-tabindex/ARIA state. Mirror that state transition in the virtual
+ // fixture; the release gate itself still measures all pages in Chromium.
+ for(const [tabId,screenId] of [
+  ['graphicsTabVisual','graphicsVisualPage'],
+  ['graphicsTabControls','graphicsControlsPage'],
+  ['graphicsTabBenchmark','graphicsBenchmarkPage']
+ ]){
+  const tab=nodes[tabId];
+  tab.attributes={};
+  tab.setAttribute=(key,value)=>{tab.attributes[key]=String(value);};
+  tab.getAttribute=key=>tab.attributes[key]??null;
+  tab.click=()=>{
+   for(const other of ['graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage'])
+    nodes[other].classList.toggle('hidden',other!==screenId);
+   for(const other of ['graphicsTabVisual','graphicsTabControls','graphicsTabBenchmark']){
+    const selected=other===tabId;
+    nodes[other].tabIndex=selected?0:-1;
+    nodes[other].setAttribute('aria-selected',String(selected));
+   }
+  };
+ }
  for(const id of ['overlay','graphicsPanel']){
   nodes[id].getBoundingClientRect=()=>({
    left:0,top:0,right:1024,bottom:600,width:1024,height:600});
