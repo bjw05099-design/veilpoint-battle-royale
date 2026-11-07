@@ -54,8 +54,12 @@ test('swept road collision checks intermediate positions before the endpoint',()
  const endZ=v.z-v.speed*.05;
  const barrierZ=(v.z+endZ)/2;
  let probes=0;
- V.tick(v,{throttle:1},.05,box=>{probes++;return box.z<=barrierZ;});
+ // The first collision probe can hit the barrier; count the full sweep
+ // separately on an identical state to verify intermediate sampling.
+ const clear=V.restore(V.snapshot(v));
+ V.tick(clear,{throttle:1},.05,()=>{probes++;return false;});
  assert.ok(probes>=2);
+ V.tick(v,{throttle:1},.05,box=>box.z<=barrierZ);
  assert.ok(v.z>barrierZ);
  assert.equal(v.speed,0);
  assert.ok(v.z<=before.z);
