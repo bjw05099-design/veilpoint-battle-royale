@@ -2371,10 +2371,13 @@ test('CH01 east verification progress respects evidence, real gate timing and op
   assert.equal(story.choose(state,'verification').ok,true);
   let tasks=story.missionTasks(state);
   assert.deepEqual(tasks.map(t=>t.id),['evidence','gate','log','handoff','exit']);
-  assert.deepEqual(tasks.map(t=>t.status),['done','waiting','available','locked','blocked']);
+  assert.deepEqual(tasks.map(t=>t.status),['done','waiting','locked','locked','blocked']);
   for(let i=0;i<story.GATE_CLEARANCE_SECONDS*60+20;i++)story.step(state,1/60,{});
   tasks=story.missionTasks(state);
   assert.equal(tasks[1].status,'done','gate progress cannot claim clearance before the world opens it');
+  assert.equal(tasks[2].status,'available','local record becomes reachable only after gate opens');
+  assert.equal(story.missionTasks(story.restore(story.serialize(state)))[2].status,'available',
+    'checkpoint restoration uses the actual gate state for record availability');
   assert.equal(tasks[4].status,'available');
   go(state,'exitVerify');
   assert.equal(story.interact(state).ok,true);

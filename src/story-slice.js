@@ -1131,7 +1131,7 @@
     return Object.freeze([
       item('evidence','기록 2건 확인',state.found.length===2?'done':'locked'),
       item('gate','동쪽 통제문 확인',gateOpen(state)?'done':'waiting'),
-      item('log','현장 중계 기록 검토',state.gateLogReviewed?'done':'available',true),
+      item('log','현장 중계 기록 검토',state.gateLogReviewed?'done':gateOpen(state)?'available':'locked',true),
       item('handoff','현장 기록 전달',state.logHandedOff?'done':
         state.gateLogReviewed?'available':'locked',true),
       item('exit','동쪽 통로 이동',completed?'done':gateOpen(state)?'available':'blocked')
