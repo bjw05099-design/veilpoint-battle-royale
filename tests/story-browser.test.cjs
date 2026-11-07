@@ -2173,6 +2173,7 @@ test('Windows CH01 evacuation HUD shows visible guide spacing but never a remote
  }));
  state.guide={active:true,arrived:false,released:false,waiting:false,x:-10.5,z:-55};
  state.world.player.x=-5.9;state.world.player.z=-55;
+  state.world.player.yaw=-Math.PI/2; // Face west toward the actual guide.
  const key='veilpoint.story.ch01',store=new Map([[key,Story.serialize(state)],
    ['veilpoint.brCheckpoint.v1','independent-BR']]);
  const app=boot(store,false,'granted',true,true);
@@ -2198,6 +2199,7 @@ test('CH01 PC walking pace hint appears only for a nearby visible escort who is 
  }));
  state.guide={active:true,arrived:false,released:false,waiting:false,x:-10.5,z:-55};
  state.world.player.x=-4.2;state.world.player.z=-55;
+  state.world.player.yaw=-Math.PI/2; // PC actor looks at the civilian.
  const key='veilpoint.story.ch01';
  const moving=boot(new Map([[key,Story.serialize(state)]]),false,'granted',true,true);
  moving.element('continue').click();
