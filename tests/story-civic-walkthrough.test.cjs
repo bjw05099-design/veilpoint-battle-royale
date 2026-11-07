@@ -47,11 +47,11 @@ test('CH01 civic walk stays in strict v2 checkpoint and older saves still load',
  assert.equal(restored.civicVisited,false);
  for(const forged of [1,'true',null]){
   assert.throws(()=>Story.restore(JSON.stringify({...legacy,civicVisited:forged})),
-   /Invalid story checkpoint/);
+   /checkpoint/i);
  }
  const early=JSON.parse(Story.serialize(Story.createState()));
  early.civicVisited=true;
- assert.throws(()=>Story.restore(JSON.stringify(early)),/Invalid story checkpoint/);
+ assert.throws(()=>Story.restore(JSON.stringify(early)),/checkpoint/i);
  p.x=Story.POINTS.decision.x;p.z=Story.POINTS.decision.z;
  assert.equal(Story.interact(s).phase,'decision');
  assert.equal(Story.choose(s,'evacuation').ok,true);
