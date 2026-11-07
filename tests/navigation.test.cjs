@@ -167,7 +167,7 @@ test('BR minimap exposes only locally seen finite physical supply caches without
  assert.equal(visible[0].distance,4);
  assert.ok(Object.isFrozen(visible)&&visible.every(Object.isFrozen));
  assert.equal(JSON.stringify(stock.map(o=>({...o,x:Number.isNaN(o.x)?'NaN':o.x}))),original);
- const block=[{x:0,z:-2,w:1,d:.5}];
+ const block=[{x:0,z:-3.8,w:1,d:.1}];
  assert.deepEqual(nav.visibleLocalCaches(player,stock,block,'carbine').map(x=>x.id),[2]);
  const turn={...player,yaw:Math.PI};
  assert.deepEqual(nav.visibleLocalCaches(turn,stock,[],'carbine').map(x=>x.id),[4]);
