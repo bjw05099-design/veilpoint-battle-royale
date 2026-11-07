@@ -626,10 +626,17 @@ canvas.addEventListener('webglcontextlost',event=>{
  // Disabling a currently focused Resume/New Match button otherwise sends
  // keyboard focus to the document behind the paused UI. Keep one usable
  // PC menu control focused while the GPU is unavailable.
- if(!$('graphicsPanel').classList.contains('hidden')){
-  if(typeof $('graphicsClose').focus==='function')$('graphicsClose').focus({preventScroll:true});
- }else if(!$('overlay').classList.contains('hidden')&&typeof $('brViewMore').focus==='function'){
-  $('brViewMore').focus({preventScroll:true});
+ // Preserve the user's current foreground menu focus. Only relocate
+ // focus when disabling a control or hiding the live canvas invalidates it.
+ const active=document.activeElement;
+ const stranded=!active||active===canvas||active===$('play')||
+  active===$('newMatch')||active.disabled===true;
+ if(stranded){
+  const node=$('graphicsPanel').classList.contains('hidden')
+   ?$('brViewMore'):$('graphicsClose');
+  if(!$('overlay').classList.contains('hidden')||
+     !$('graphicsPanel').classList.contains('hidden'))
+   if(typeof node.focus==='function')node.focus({preventScroll:true});
  }
 });
 canvas.addEventListener('webglcontextrestored',()=>{
