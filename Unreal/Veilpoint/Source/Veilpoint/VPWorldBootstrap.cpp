@@ -117,14 +117,14 @@ void AVPWorldBootstrap::BeginPlay()
     }
     if(HasAuthority())
     {
-        // These two real, fixed supply shelves match the browser harbor's
-        // east-dock locations; the remaining 34 supplies are still seeded.
-        // Keep the total at 36 rather than generating bonus resources.
+        // These two fixed supply shelves match the browser harbor's
+        // east-dock coordinates. The remaining 16 are seeded finite stores.
+        // Previous native health spheres are removed: no instant healing.
         static const FVector DockSupplySites[] = {
             FVector(10800.f,-12100.f,110.f),
             FVector(14400.f,-12100.f,110.f)
         };
-        for(int32 i=0;i<36;++i)
+        for(int32 i=0;i<18;++i)
         {
             const FVector Position=i<UE_ARRAY_COUNT(DockSupplySites)
                 ?DockSupplySites[i]
@@ -132,7 +132,7 @@ void AVPWorldBootstrap::BeginPlay()
                     Random.FRandRange(-15200.f,15200.f),110.f);
             AVPPickup* P=GetWorld()->SpawnActor<AVPPickup>(
                 AVPPickup::StaticClass(),Position,FRotator::ZeroRotator);
-            if(P)P->Resource=(i%2==0?TEXT("health"):TEXT("charges"));
+            if(P)P->Resource=TEXT("charges");
         }
     }
 }
