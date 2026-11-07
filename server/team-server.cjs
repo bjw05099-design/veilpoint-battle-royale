@@ -5,7 +5,7 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const {TeamMatch, STEP} = require('../src/team-match.cjs');
+const {TeamMatch, STEP, WIN_SCORE} = require('../src/team-match.cjs');
 const {readJson} = require('./json-body.cjs');
 const {performance} = require('node:perf_hooks');
 const STEP_MS = STEP * 1000;
@@ -61,10 +61,10 @@ function createFixedStepClock(onStep) {
     return steps;
   };
 }
-function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now, bodyTimeoutMs = 5000} = {}) {
+function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now, bodyTimeoutMs = 5000, targetScore = WIN_SCORE} = {}) {
   // This proof must never silently bind to a publicly reachable interface.
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) throw new RangeError('loopback_host_required');
-  const match = new TeamMatch({now});
+  const match = new TeamMatch({now,targetScore});
   // A lost /join response must not occupy another lobby seat on retry.
   // Attempt IDs are unpredictable, tab-scoped and only retained while the
   // corresponding server-owned seat exists; legacy {name} joins still work.
@@ -221,9 +221,14 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
   };
 }
 if (require.main === module) {
-  createTeamServer().listen().then(addr => {
+  // Optional local host setting; a browser participant never decides the
+  // victory condition. Unset preserves the existing three-point rule.
+  const selected = process.env.VEILPOINT_TARGET_SCORE;
+  const targetScore = selected===undefined ? WIN_SCORE : Number(selected);
+  createTeamServer({targetScore}).listen().then(addr => {
     process.stdout.write(`VEILPOINT local team prototype listening at http://${addr.address}:${addr.port}\n`);
     process.stdout.write('Open the displayed URL in two separate browser tabs to test the team round.\n');
+    process.stdout.write('Server-owned win target: '+targetScore+' relay points.\n');
   }).catch(err => {console.error(err);process.exitCode = 1;});
 }
 module.exports = {createTeamServer, createFixedStepClock};
