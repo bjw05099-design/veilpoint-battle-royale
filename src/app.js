@@ -193,10 +193,14 @@ function containGraphicsDialogFocus(event){
  const panel=$('graphicsPanel');
  if(panel.classList.contains('hidden'))return;
  if(event.type==='focusin'){
-  // Hidden settings-tab descendants still belong to the panel DOM. They
-  // cannot own focus after a page switch or while disabled.
-  const controls=visibleGraphicsDialogControls();
-  if(!controls.some(node=>node===event.target||
+  // Roving-tabindex PC tabs may intentionally use tabIndex=-1 while their
+  // visible button still accepts direct focus. Tab traversal excludes them,
+  // but focusin must not reject an active, visible programmatic target.
+  // Hidden/disabled descendants remain invalid even inside the modal DOM.
+  const targets=[...panel.querySelectorAll('button,select,input,textarea,a[href],[tabindex]')]
+   .filter(node=>!node.disabled&&node.getClientRects().length>0&&
+    getComputedStyle(node).visibility!=='hidden');
+  if(!targets.some(node=>node===event.target||
      (typeof node.contains==='function'&&node.contains(event.target))))
    $('graphicsClose').focus({preventScroll:true});
   return;
