@@ -105,14 +105,16 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
           'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'"});
         return res.end(body);
       }
-      if (req.method === 'GET' && url.pathname === '/health') {
-        // A failed authoritative tick is not a healthy server merely because
-        // the HTTP listener still responds. Never advertise a live match.
+      if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/health/diagnostics')) {
+        // Preserve /health's original exact JSON contract for existing probes.
+        // Diagnostics are a separate opt-in, loopback-only read-only route.
         if (simulationFault) return send(res, 503, {status: 'degraded', protocol: 1,
           phase: 'ended', error: 'simulation_unavailable'});
         match.expirePlayingLeases();
-        // Probe-only lobby cleanup keeps diagnostics honest without renewing
-        // leases or erasing a finished result that participants may still read.
+        if (url.pathname === '/health')
+          return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase});
+        // Diagnostics clean up expired lobby seats without renewing a lease,
+        // advancing simulation or erasing the readable end-of-round result.
         if (match.phase === 'lobby') match.pruneIdleWaitingPlayers();
         return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase,
           connectedPlayers: match.players.size,
