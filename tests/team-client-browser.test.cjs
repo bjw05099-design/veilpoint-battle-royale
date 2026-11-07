@@ -2318,3 +2318,42 @@ test('PC team client can join and play with blocked localStorage getter', async 
   assert.match(a.node('fire').textContent, /Space/,
     'PC controls stay readable without storage access');
 });
+
+
+test('PC team snapshot loss fails closed until server acknowledges an atomic input reset',async()=>{
+ const server=backend();
+ let failNextPoll=false;
+ const flaky={fetchLocal(route,options={}){
+  if(route==='/state'&&failNextPoll){
+   failNextPoll=false;
+   return Promise.reject(new Error('network_unavailable'));
+  }
+  return server.fetchLocal(route,options);
+ }};
+ const a=boot(flaky),b=boot(flaky);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ assert.equal(server.match.phase,'playing');
+ await a.poll();await b.poll();await settle();
+ const token=a.storage.get('veilpoint.team.tabSession');
+ const player=server.match.players.get(token);
+ a.doc('keydown',{code:'KeyW'});await settle();
+ assert.notEqual(player.direction.z,0,'control is server-owned before disconnect');
+ failNextPoll=true;
+ await a.poll();await settle();
+ assert.match(a.node('status').textContent,/입력 일시 정지/);
+ const beforeSeq=player.seq;
+ a.doc('keydown',{code:'KeyA'});a.heartbeat();await settle();
+ assert.equal(player.seq,beforeSeq,'disconnected tab must not renew or add old commands');
+ await a.poll();await settle();
+ assert.deepEqual({...player.direction},{x:0,z:0},'resume must reset the stale held server input');
+ assert.equal(player.triggerHeld,false);
+ assert.equal(player.captureHeld,false);
+ const resets=server.requests.filter(r=>r.route==='/command'&&r.token===token&&r.body?.type==='resetInput');
+ assert.equal(resets.length,1);
+ assert.match(a.node('status').textContent,/목표 원/);
+ a.doc('keydown',{code:'KeyS'});await settle();
+ assert.equal(player.direction.z,1,'fresh PC press works after acknowledged resync');
+ a.doc('keyup',{code:'KeyS'});await settle();
+ assert.equal(player.direction.z,0);
+});
