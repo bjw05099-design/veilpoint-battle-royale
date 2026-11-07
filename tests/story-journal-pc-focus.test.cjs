@@ -59,23 +59,24 @@ test('CH01 journal Close returns to an actually visible Tools control',()=>{
  assert.deepEqual(f.calls,['page:tools','focus:fieldJournalOpen']);
 });
 test('CH01 J/G shortcut interception does not steal keystrokes from JSON editor or controls',()=>{
- const begin=src.indexOf("    if((e.code==='KeyJ'||e.code==='KeyG')&&e.target&&");
+ const begin=src.indexOf("    if((e.code==='KeyJ'||e.code==='KeyG')&&");
  const end=src.indexOf('    // J opens the field journal',begin);
  assert.ok(begin>=0&&end>begin,'editor shortcut guard must precede journal shortcut');
- const testGuard=new Function('e',src.slice(begin,end)+'return "continue";');
+ const Desktop=require('../src/desktop-controls.js');
+ const testGuard=new Function('e','Desktop',src.slice(begin,end)+'return "continue";');
+ const run=e=>testGuard(e,Desktop);
  for(const code of ['KeyJ','KeyG']){
   for(const tagName of ['TEXTAREA','INPUT']){
-   assert.equal(testGuard({code,target:{tagName}}),undefined,
+   assert.equal(run({code,target:{tagName}}),undefined,
     code+' must not close the '+tagName+' editing surface');
   }
-  assert.equal(testGuard({code,target:{tagName:'DIV',isContentEditable:true}}),undefined);
-  assert.equal(testGuard({code,target:{tagName:'SELECT'}}),
-   code==='KeyJ'?undefined:'continue',
-   'G from graphics selector retains the established return-to-menu shortcut');
-  assert.equal(testGuard({code,target:{tagName:'BUTTON'}}),'continue',
+  assert.equal(run({code,target:{tagName:'DIV',isContentEditable:true}}),undefined);
+  assert.equal(run({code,target:{tagName:'SELECT'}}),undefined,
+   'both G and J must preserve native graphics selector typeahead');
+  assert.equal(run({code,target:{tagName:'BUTTON'}}),'continue',
    'ordinary PC menu buttons may still use documented shortcuts');
  }
- assert.equal(testGuard({code:'Escape',target:{tagName:'TEXTAREA'}}),'continue',
+ assert.equal(run({code:'Escape',target:{tagName:'TEXTAREA'}}),'continue',
   'Escape is handled separately by menu cancellation logic');
 });
 
