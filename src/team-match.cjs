@@ -130,6 +130,7 @@ class TeamMatch {
     if(!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     this.targetScore = targetScore;
+    this.initialObjectiveSite=objectiveSite;
     this.objectiveSite=objectiveSite;
     this.objective=RELAY_SITES[objectiveSite];
     this.now = now;
@@ -148,7 +149,7 @@ class TeamMatch {
   // Bounded server-originated public mission events. No player names, tokens,
   // coordinates or hidden line-of-sight state are ever recorded.
   recordPublicEvent(type,team=null) {
-    if(!['round_start','relay_complete','round_end'].includes(type)||
+    if(!['round_start','relay_complete','relay_shift','round_end'].includes(type)||
        (team!==null&&!['red','blue'].includes(team)))return;
     this.events.push(Object.freeze({type,team,tick:this.ticks}));
     if(this.events.length>8)this.events.shift();
@@ -490,6 +491,10 @@ class TeamMatch {
   // Preserve authenticated identity, loadout choice, accessibility preference,
   // command sequence and live session lease; never carry old injuries or inputs.
   resetRoundState() {
+    // Host-selected opening site is replayed for every new match, even after
+    // the public relay moves between pads during a previous round.
+    this.objectiveSite=this.initialObjectiveSite;
+    this.objective=RELAY_SITES[this.objectiveSite];
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
     this.ticks = 0;
@@ -531,6 +536,23 @@ class TeamMatch {
     this.resetRoundState();
     this.phase = 'playing';
     this.recordPublicEvent('round_start');
+  }
+  advanceRelaySite() {
+    // Deterministic movement between three physical pads occurs only after
+    // an earned server-side point. A held E key cannot capture a new site:
+    // all press latches must physically release before rearming.
+    const order=['center','north','south'];
+    const next=order[(order.indexOf(this.objectiveSite)+1)%order.length];
+    this.objectiveSite=next;
+    this.objective=RELAY_SITES[next];
+    this.progress.red=0;this.progress.blue=0;
+    for(const player of this.players.values()){
+      player.captureArmed=false;
+      player.capturing=false;
+      // Keep captureHeld as-is to require actual key release, not a replayed
+      // active:true lease renewal, before the next physical interaction.
+    }
+    this.recordPublicEvent('relay_shift');
   }
   finish(winner, reason) {
     if(this.phase==='ended')return;
@@ -735,6 +757,7 @@ class TeamMatch {
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
+      else this.advanceRelaySite();
     }
     // A valid objective completed on the final tick wins before the timer
     // adjudicates a lower score or tie. All other rounds end at the deadline.
