@@ -32,14 +32,26 @@ function customize(settings,field,value){
  if(!['fpsCap','resolutionScale','vegetationDensity','effects'].includes(field))throw new RangeError('Unknown setting');
  return {...validate({...validate(settings),[field]:value}),preset:'custom'};
 }
+function canonicalPreset(validated,claimed){
+ if(claimed==='custom')return 'custom';
+ if(!Object.prototype.hasOwnProperty.call(PRESETS,claimed))return null;
+ // A named preset is truthful only when all independently saved options
+ // still match it. Preserve adjusted quality values instead of relabeling them.
+ const base=validate(PRESETS[claimed]);
+ return Object.keys(base).every(key=>validated[key]===base[key])?claimed:'custom';
+}
 function deserialize(json){
  try{
-  const value=JSON.parse(json), validated=validate(value);
-  if(value.preset!=='custom'&&!Object.prototype.hasOwnProperty.call(PRESETS,value.preset))return fromPreset('hyperreal165');
-  return {...validated,preset:value.preset};
+  const value=JSON.parse(json),validated=validate(value);
+  const preset=canonicalPreset(validated,value.preset);
+  if(preset===null)return fromPreset('hyperreal165');
+  return {...validated,preset};
  }catch(_){return fromPreset('hyperreal165');}
 }
-function serialize(settings){return JSON.stringify({...validate(settings),preset:settings.preset||'custom'});}
+function serialize(settings){
+ const validated=validate(settings),preset=canonicalPreset(validated,settings.preset||'custom');
+ return JSON.stringify({...validated,preset:preset===null?'custom':preset});
+}
 const FRAME_BUDGET_MS=1000/165;
 function frameBudgetStatus(ms){if(!Number.isFinite(ms)||ms<=0)return 'unmeasured';return ms<=FRAME_BUDGET_MS?'within-budget':'over-budget';}
 return {PRESETS,FPS_OPTIONS,RESOLUTION_OPTIONS,VEGETATION_OPTIONS,EFFECT_OPTIONS,FRAME_BUDGET_MS,validate,fromPreset,customize,deserialize,serialize,frameBudgetStatus};
