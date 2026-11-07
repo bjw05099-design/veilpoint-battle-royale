@@ -155,6 +155,13 @@
     o.push({x:143,z:-137,w:9,d:5,h:2.6,type:'dock-container'});
     o.push({x:143,z:-103,w:9,d:5,h:2.6,type:'dock-container'});
     o.push({x:132,z:-154,w:5,d:5,h:12,type:'dock-crane'});
+    // The western waterfront adds a genuinely navigable, protected quay
+    // passage. Both walls have physical AABB bodies; the 18m-wide lane
+    // between them remains open for the 60Hz player and rival controllers.
+    // Locations are deliberately away from the initial fixed spawn.
+    o.push({x:-135,z:-126,w:22,d:2,h:2.3,type:'dock-breakwater'});
+    o.push({x:-135,z:-144,w:22,d:2,h:2.3,type:'dock-breakwater'});
+    o.push({x:-151,z:-135,w:2,d:3,h:3,type:'dock-bollard'});
     // Two fixed perimeter segments flank the movable service gate. The gate
     // itself stays in the world array so both player and AI use its live body.
     o.push({x:SERVICE_YARD.x-10.5,z:SERVICE_YARD.z,w:15,d:.6,h:2.2,type:'yard-fence'});
