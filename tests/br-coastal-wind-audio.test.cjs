@@ -21,25 +21,25 @@ function fakeAudio(events){
   createGain(){return {gain:param('gain'),connect(){}};}
  };
 }
-test('BR wind begins only on a gesture-unlocked context and fades with server-safe zone phase',()=>{
+test('BR wind begins only on a gesture-unlocked context and varies with world time',()=>{
  const events=[];let requested=0;const ctx=fakeAudio(events);
  const wind=Wind.createCoastalWindAudio(()=>{requested++;return ctx;});
- assert.equal(wind.sync({enabled:false,playable:true,phase:0}),0);
- assert.equal(wind.sync({enabled:true,playable:false,phase:4}),0);
- assert.equal(wind.sync({enabled:true,playable:true,phase:Infinity}),0);
+ assert.equal(wind.sync({enabled:false,playable:true,elapsed:0}),0);
+ assert.equal(wind.sync({enabled:true,playable:false,elapsed:4}),0);
+ assert.equal(wind.sync({enabled:true,playable:true,elapsed:Infinity}),0);
  assert.equal(requested,0,'muted, paused or invalid wind cannot request audio context');
- const calm=wind.sync({enabled:true,playable:true,phase:0});
+ const calm=wind.sync({enabled:true,playable:true,elapsed:0});
  assert.equal(calm,.005);
  assert.equal(requested,1);
- const late=wind.sync({enabled:true,playable:true,phase:5});
+ const late=wind.sync({enabled:true,playable:true,elapsed:75});
  assert.ok(late>calm&&late<=Wind.MAX_GAIN);
  assert.equal(requested,1,'one buffer/source is reused through 60Hz frames');
  assert.equal(events.filter(e=>e[0]==='source'&&e[1]==='start').length,1);
- assert.equal(wind.sync({enabled:true,playable:false,phase:5}),0);
+ assert.equal(wind.sync({enabled:true,playable:false,elapsed:75}),0);
  assert.equal(wind.active,false);
  assert.equal(wind.level,0);
  assert.equal(events.filter(e=>e[0]==='source'&&e[1]==='stop').length,1);
- assert.equal(wind.sync({enabled:true,playable:true,phase:1}),.0074);
+ assert.equal(wind.sync({enabled:true,playable:true,elapsed:0}),.005);
  assert.equal(requested,2,'resume requires a new explicit unlocked context');
  wind.stop();
 });
