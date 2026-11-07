@@ -147,10 +147,10 @@ test('corrupt, malicious or incompatible checkpoints are rejected',()=>{
   assert.throws(()=>story.restore('x'.repeat(8300)),TypeError);
 });
 
-test('CH01 accurately frames the captain as protagonist and Mara as ally without claiming combat is implemented', () => {
+test('CH01 correctly identifies a prebriefed captain and squadmate without claiming full campaign delivery', () => {
   const opening = story.createState();
-  assert.match(opening.subtitle, /이 대위님/);
-  assert.match(opening.subtitle, /마라\(기술자\)/);
+  assert.match(opening.subtitle, /김도겸 중사: 대위님/);
+  assert.match(opening.subtitle, /한국에서 출국 전 브리핑받은 임무/);
   const html = fs.readFileSync(path.resolve(__dirname, '../story.html'), 'utf8');
   assert.match(html, /이수혁 대위/);
   assert.match(html, /국정원/);
@@ -376,7 +376,7 @@ test('CH01 hostile pressure raises stress deterministically without phantom ammu
 
 test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=>{
   const s=story.createState();
-  assert.match(s.subtitle,/대피 지원 요청/);
+  assert.match(s.subtitle,/현지 통신 상태 확인과 구조단 지원/);
   const opening=story.situation(s);
   assert.match(opening.mandate,/제한적 민간 대피 지원 승인/);
   assert.match(opening.liaison,/김지윤.*조현지/);
@@ -529,7 +529,7 @@ test('CH01 legacy v2 shot time migrates conservatively and tampered timing is re
   unknown.combat.unknownTimestamp=0;
   assert.throws(()=>story.restore(JSON.stringify(unknown)),RangeError);
   assert.match(story.situation(s).command,/이수혁.*지휘관.*유수프.*국정원/);
-  assert.match(story.createState().subtitle,/유수프 구조단.*국정원 보고/);
+  assert.match(story.createState().subtitle,/한국에서 출국 전 브리핑받은 임무.*도착하고 나서 충돌/);
 });
 
 test('CH01 60Hz loop expires shot visuals, damage flash and messages without touching ammunition',()=>{
@@ -930,7 +930,8 @@ test('CH01 casualty report has a credible captain-to-liaison information chain',
     }
   }
   assert.equal(s.phase,'records');
-  assert.match(s.subtitle,/조현지.*이 대위님의 현장 보고 확인/);
+  assert.match(s.subtitle,/조현지\(국정원\).*도착 뒤 충돌이 항구까지 확산/);
+   assert.match(s.subtitle,/유수프 구조단은 남쪽 통로에서 주민을 인도/);
 });
 test('CH01 checkpoint rejects forged far-future hostile volley delay',()=>{
   const s=story.createState();go(s,'terminal');story.interact(s);
