@@ -113,8 +113,10 @@
     const target=direction(player,mark);
     if(!target)return ' · FIELD SIGN POSITION UNAVAILABLE';
     const blocked=directLineBlocked(player,mark,obstacles);
+    // Missing collision metadata is not evidence of an unobstructed pickup.
+    const known=Array.isArray(obstacles);
     return ' · FIELD SIGN '+Math.round(target.meters)+'m · '+target.label+
-      (blocked?' · PATH BLOCKED':target.meters<1.8?' · [J] RECOVER':' · APPROACH TO RECOVER');
+      (blocked?' · PATH BLOCKED':!known?' · PATH UNVERIFIED':target.meters<1.8?' · [J] RECOVER':' · APPROACH TO RECOVER');
   }
   // Authored local control panel only: a heading is not a pathfinding claim.
   function serviceGate(player,status,site,obstacles){
@@ -125,6 +127,10 @@
     const distance=Math.ceil(nav.meters);
     if(directLineBlocked(player,target,obstacles))
       return 'YARD SWITCH '+distance+'m '+nav.label+' · DIRECT PATH BLOCKED';
+    // Fail closed when a saved world lacks collision evidence: guidance can
+    // still identify the public switch, but must not promise local access.
+    if(!Array.isArray(obstacles))
+      return 'YARD SWITCH '+distance+'m '+nav.label+' · DIRECT PATH NOT VERIFIED';
     if(status.obstructed)return 'YARD GATE STOPPED · TRACK OBSTRUCTED';
     if(status.open)return 'YARD GATE OPEN · LOCAL PASSAGE AVAILABLE';
     if(status.engaged)return 'YARD GATE '+(status.closing?'CLOSING':'OPENING')+
