@@ -31,7 +31,11 @@ test('physical two-second 60Hz relay completes a short match; longer match stays
   operator.x=0;operator.z=0;operator.direction={x:0,z:0};
   operator.capturing=true;operator.captureHeld=true;operator.captureArmed=true;
   other.x=8;other.z=0;
+  let seq=2;
   for(let i=0;i<Math.ceil(CAPTURE_SECONDS/STEP)+1;i++){
+   // Only the server's renewed 60Hz intent can remain physically active.
+   if(i>0&&i%50===0)
+    game.command(A,{seq:seq++,type:'capture',active:true});
    game.step();if(game.phase==='ended')break;
   }
   assert.equal(game.score.red,1);
