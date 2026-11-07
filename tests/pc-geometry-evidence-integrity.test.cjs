@@ -23,7 +23,9 @@ function row(width,height,names){return {width,height,requested:{width,height},e
 function fixture(){
  const evidence={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
   checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
-   cases:Object.entries(targets).map(([name,ids])=>page(name,ids))})),
+   cases:Object.entries(targets).map(([name,ids])=>page(name,ids)),
+   benchmarkCopy:page('settings-benchmark-copy',
+    ['graphicsClose','graphicsTabBenchmark','benchmarkRawJson'])})),
   keyboardChecks:sizes.map(([width,height])=>({width,height,cases:
    ['BR-more-Escape','BR-main-Tab-wrap','BR-main-ShiftTab-wrap',
     'settings-Escape','settings-select-G','settings-Tab-wrap','settings-ShiftTab-wrap']

@@ -11,7 +11,10 @@ const target=id=>({id,visible:true,enabled:true,hit:true,focused:true,probesPass
 function fixture(){
  const result={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
   checks:sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
-   cases:names.map(name=>({name,issues:[],targets:targets[name].map(target)}))}))};
+   cases:names.map(name=>({name,issues:[],targets:targets[name].map(target)})),
+   benchmarkCopy:{name:'settings-benchmark-copy',issues:[],targets:[
+    target('graphicsClose'),target('graphicsTabBenchmark'),target('benchmarkRawJson')
+   ]}}))};
  for(const [key,screenNames] of Object.entries(story)){
   result[key]=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
    cases:screenNames.map(name=>({name,issues:[],targets:[target('test-control')]}))}));
@@ -119,4 +122,19 @@ test('real Tab and ShiftTab focus-loss evidence is never accepted',()=>{
  assert.throws(()=>validate(record),/CDP keyboard focus lost/);
  entry.focused=true;entry.passed=false;
  assert.throws(()=>validate(record),/CDP keyboard route failed/);
+});
+
+test('benchmark JSON copy evidence is required on all real Chromium viewports',()=>{
+ const missing=fixture();
+ delete missing.checks[0].benchmarkCopy;
+ assert.throws(()=>validate(missing),/Missing Chromium benchmark JSON copy evidence/);
+ const hidden=fixture();
+ hidden.checks[1].benchmarkCopy.targets[2].visible=false;
+ assert.throws(()=>validate(hidden),/Hidden benchmark JSON target/);
+ const covered=fixture();
+ covered.checks[2].benchmarkCopy.targets[2].hit=false;
+ assert.throws(()=>validate(covered),/Occluded benchmark JSON target/);
+ const clipped=fixture();
+ clipped.checks[3].benchmarkCopy.issues.push({id:'benchmarkRawJson',reason:'clipped'});
+ assert.throws(()=>validate(clipped),/Benchmark JSON clipped or scrolling/);
 });

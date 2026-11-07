@@ -51,6 +51,25 @@ function validate(evidence){
     assert.equal(target.probesPassed,5,'Partial hit coverage '+name+'/'+target.id);
    }
   }
+  // The same seventh settings page must also fit when the finished report's
+  // selectable JSON is revealed. Presence alone is not accessibility.
+  const copy=record.benchmarkCopy;
+  assert.ok(copy&&copy.name==='settings-benchmark-copy',
+   'Missing Chromium benchmark JSON copy evidence at '+size);
+  assert.ok(Array.isArray(copy.issues),'Missing benchmark JSON issues at '+size);
+  assert.deepEqual(copy.issues,[],'Benchmark JSON clipped or scrolling at '+size);
+  assert.ok(Array.isArray(copy.targets),'Missing benchmark JSON targets at '+size);
+  const copyTargets=new Map(copy.targets.map(t=>[t.id,t]));
+  assert.equal(copyTargets.size,copy.targets.length,'Duplicate benchmark JSON target at '+size);
+  for(const id of ['graphicsClose','graphicsTabBenchmark','benchmarkRawJson']){
+   const target=copyTargets.get(id);
+   assert.ok(target,'Missing benchmark JSON target '+id+' at '+size);
+   assert.equal(target.visible,true,'Hidden benchmark JSON target '+id+' at '+size);
+   assert.equal(target.enabled,true,'Disabled benchmark JSON target '+id+' at '+size);
+   assert.equal(target.hit,true,'Occluded benchmark JSON target '+id+' at '+size);
+   assert.equal(target.focused,true,'Unfocusable benchmark JSON target '+id+' at '+size);
+   assert.equal(target.probesPassed,5,'Partial benchmark JSON hit coverage '+id+' at '+size);
+  }
  }
  assert.deepEqual([...seen].sort(),[...SIZES].sort(),'Missing viewport evidence');
  for(const [key,names] of Object.entries(STORY)){

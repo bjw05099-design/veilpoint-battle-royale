@@ -9,7 +9,8 @@ function geometryFixture(coverCorner=false,playOutsidePanel=false){
   'graphicsPauseOpen','brViewBack','brImport','brExport','brImportFile',
   'brImportApply','brExportDownload','graphicsClose','graphicsTabVisual',
   'graphicsTabControls','graphicsTabBenchmark','graphicsPreset',
-  'desktopBindKey','benchmarkStart','brImportPanel','brExportPanel',
+  'desktopBindKey','benchmarkStart','benchmarkRawJson','benchmarkRawLabel',
+  'brImportPanel','brExportPanel',
   'graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage'];
  const nodes={};
  let geometry=null;
@@ -66,7 +67,8 @@ function geometryFixture(coverCorner=false,playOutsidePanel=false){
    'brExportDownload','brImportPanel','brExportPanel']);
   const graphicsIds=new Set(['graphicsClose','graphicsTabVisual',
    'graphicsTabControls','graphicsTabBenchmark','graphicsPreset',
-   'desktopBindKey','benchmarkStart','graphicsVisualPage',
+   'desktopBindKey','benchmarkStart','benchmarkRawJson','benchmarkRawLabel',
+   'graphicsVisualPage',
    'graphicsControlsPage','graphicsBenchmarkPage']);
   nodes[id].contains=other=>other===nodes[id]||
    (!((playOutsidePanel)&&other===nodes.play)&&
