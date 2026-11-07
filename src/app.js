@@ -1482,7 +1482,7 @@ function updateHud(){const s=simulation,p=s.player;
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.zone(p,s.zone)+
-  (s.trailMarker?' · FIELD SIGN '+Math.round(Math.hypot(s.trailMarker.x-p.x,s.trailMarker.z-p.z))+'m · [J] RECOVER NEARBY':' · [J] PLACE ROUTE SIGN');
+  Navigation.fieldSign(p,s.trailMarker,s.obstacles);
  const boundary=Game.boundaryStatus(s);
  const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
  // Never let the warning expire while the latest active round is not durable.
