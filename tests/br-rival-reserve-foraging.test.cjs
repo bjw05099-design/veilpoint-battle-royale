@@ -38,9 +38,10 @@ test('blocked cache cannot become an AI supply target through a solid wall',()=>
 });
 test('supply behavior replays deterministically across the existing BR save format',()=>{
  const {game}=scenario(18);
- // Scenario-only patrol timers are not persistent game fields; reset them
- // before checkpoint serialization rather than weakening save validation.
- for(const b of game.bots){delete b.moveTime;delete b.actionTime;}
+ // The synthetic scenario uses out-of-range timers to freeze movement.
+ // Restore the bounded live values required by the unchanged save contract.
+ for(const b of game.bots){b.moveTime=0;b.actionTime=0;}
+ game.loot[0].id=1; // Serialized loot IDs are finite integers, not UI labels.
  const other=Sim.restoreMatch(Sim.snapshotMatch(game));
  for(let i=0;i<100;i++){
   Sim.tick(game,1/60,{});Sim.tick(other,1/60,{});
