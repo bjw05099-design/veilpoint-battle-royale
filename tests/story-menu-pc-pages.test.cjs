@@ -109,3 +109,23 @@ test('CH01 pause-menu focus trap yields to an open field journal',()=>{
   preventDefault(){prevented++;}});
  assert.equal(prevented,0,'background menu cannot trap the journal Tab key');
 });
+
+test('CH01 menu rejects focus on disabled or invisible controls within its DOM',()=>{
+ const f=fixture();
+ const disabled=f.nodes.newGame;
+ disabled.disabled=true;
+ f.document.activeElement=disabled;
+ f.eventHandlers.focusin({type:'focusin',target:disabled});
+ assert.equal(f.document.activeElement,f.nodes.continue,
+  'a disabled CH01 action cannot own PC focus while the menu is visible');
+ disabled.disabled=false;
+ disabled.getClientRects=()=>[];
+ f.document.activeElement=disabled;
+ f.eventHandlers.focusin({type:'focusin',target:disabled});
+ assert.equal(f.document.activeElement,f.nodes.continue,
+  'a hidden CH01 submenu action must not trap the keyboard');
+ f.document.activeElement=f.nodes.storyMenuBack;
+ f.eventHandlers.focusin({type:'focusin',target:f.nodes.storyMenuBack});
+ assert.equal(f.document.activeElement,f.nodes.storyMenuBack,
+  'an eligible CH01 menu button must retain focus');
+});
