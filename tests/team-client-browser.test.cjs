@@ -2576,3 +2576,42 @@ test('team PC relay HUD displays only its authenticated self interaction status'
  assert.doesNotMatch(a.node('relayProgress').textContent,/상대 위치|상대 점령 중|경쟁자 감지/);
  assert.doesNotMatch(before,/상대 위치|상대 점령 중|경쟁자 감지/);
 });
+
+
+test('team local relay guidance shows only authenticated own distance to the public interaction radius',async()=>{
+ const server=backend(),a=boot(server),b=boot(server);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ const t=a.storage.get('veilpoint.team.tabSession');
+ const me=server.match.players.get(t);
+ assert.ok(me&&server.match.phase==='playing');
+ const radius=server.match.snapshot(t).objective.radius;
+ const expected=Math.ceil(Math.max(0,Math.hypot(me.x,me.z)-radius));
+ assert.match(a.node('relayProgress').textContent,new RegExp('접근까지 약 '+expected+'m'));
+ const other=[...server.match.players.values()].find(p=>p!==me);
+ other.x=0;other.z=0;
+ const previous=a.node('relayProgress').textContent;
+ await a.poll();await settle();
+ assert.equal(a.node('relayProgress').textContent,previous,
+  'private opponent presence cannot modify public relay approach guidance');
+ me.x=0;me.z=0;
+ await a.poll();await settle();
+ assert.match(a.node('relayProgress').textContent,/상호작용 키 누르기/);
+ assert.doesNotMatch(a.node('relayProgress').textContent,/접근까지 약/);
+});
+test('team relay HUD does not guess reach distance when public objective geometry is invalid',async()=>{
+ const server=backend(),hidden={fetchLocal:async(route,opts)=>{
+  const response=await server.fetchLocal(route,opts);
+  if(route!=='/state'||!response.ok)return response;
+  const state=await response.json();state.objective.radius=NaN;
+  return {...response,json:async()=>state};
+ }};
+ const a=boot(hidden),b=boot(hidden);
+ a.node('join').click();b.node('join').click();await settle();
+ a.node('ready').click();b.node('ready').click();await settle();
+ await a.poll();await settle();
+ assert.equal(server.match.phase,'playing');
+ assert.match(a.node('relayProgress').textContent,/중계기 가까이 이동/);
+ assert.doesNotMatch(a.node('relayProgress').textContent,/접근까지 약/);
+});
