@@ -18,7 +18,7 @@ test('CH01 water survey is a multi-location physical city mission, not a remote 
  assert.equal(s.civicVisited,true);
  assert.ok(Story.markers(s).some(m=>m.id==='waterSite'));
  assert.equal(Story.interact(s).reason,'too_far');
- p.x=105;p.z=109;
+ p.x=117;p.z=109;
  for(let frame=0;frame<600;frame++){
   const q=Story.POINTS.waterSite,range=Math.hypot(q.x-p.x,q.z-p.z);
   if(range<1.0)break;
