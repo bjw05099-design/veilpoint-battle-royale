@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {TeamMatch,STEP,WIN_SCORE}=require('../src/team-match.cjs');
 const {createTeamServer}=require('../server/team-server.cjs');
+const fs=require('node:fs'),path=require('node:path');
 const A='a'.repeat(48),B='b'.repeat(48);
 
 function playing(site,goal=WIN_SCORE){
@@ -40,6 +41,13 @@ test('real 60Hz relay capture respects each physical host-chosen location',()=>{
   assert.equal(g.phase,'ended');
   assert.equal(g.winner,'red');
  }
+});
+test('local 2D client renders the real public relay and capture clock at its world coordinate',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../src/team-client.js'),'utf8');
+ assert.match(html,/const site=validSite\?point\(objective\.x,objective\.z\):point\(0,0\)/);
+ assert.match(html,/ctx\.arc\(site\.x,site\.y,relayRadius,0,Math\.PI\*2\)/);
+ assert.match(html,/ctx\.arc\(site\.x,site\.y,radius,-Math\.PI\/2/);
+ assert.doesNotMatch(html,/ctx\.arc\(250,250,25/);
 });
 test('server denies invalid authored relay locations and exposes physical public coordinates',async()=>{
  for(const value of ['',null,0,'diagonal','NORTH',{},'../../']){
