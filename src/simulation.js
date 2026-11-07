@@ -321,6 +321,23 @@
     game.message='PHYSICAL ROUTE SIGN SET · ONE SIGN CARRIED';game.messageTime=2;
     return {ok:true,action:'placed',...spot};
   }
+  // The west-quay bulletin is legible only when the survivor actually
+  // approaches it with a clear direct path. It reads the PUBLIC competition
+  // deadline, never hidden opponent or future weather states.
+  function inspectDockNotice(game){
+    if(!game||game.scene||game.status!=='playing')return {ok:false,reason:'inactive'};
+    const p=game.player;
+    if(dist(p,DOCK_NOTICE)>PICKUP_REACH||
+       lineBlocked(p.x,p.z,DOCK_NOTICE.x,DOCK_NOTICE.z,game.obstacles))
+      return {ok:false,reason:'out_of_reach'};
+    const phase=game.zone?.phase,remaining=game.zone?.phaseRemaining;
+    if(!Number.isInteger(phase)||phase<0||!Number.isFinite(remaining)||remaining<0)
+      return {ok:false,reason:'unavailable'};
+    const seconds=Math.ceil(remaining);
+    game.message='WEST QUAY NOTICE · BOUNDARY PHASE '+(phase+1)+' · '+seconds+'s TO NEXT CHANGE';
+    game.messageTime=4;
+    return {ok:true,phase,seconds};
+  }
   function getAliveCount(game) { return (game.player.alive ? 1 : 0) + game.bots.filter(b=>b.alive).length; }
   // The shrinking area is a published match rule, not a supernatural source of
   // injury. Players have until the next phase deadline to return; disqualification
