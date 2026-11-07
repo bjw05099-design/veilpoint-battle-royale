@@ -17,7 +17,7 @@ function fixture(){
    ]}}))};
  for(const [key,screenNames] of Object.entries(story)){
   result[key]=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
-   cases:screenNames.map(name=>({name,issues:[],targets:[target('test-control')]}))}));
+   cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
@@ -137,4 +137,20 @@ test('benchmark JSON copy evidence is required on all real Chromium viewports',(
  const clipped=fixture();
  clipped.checks[3].benchmarkCopy.issues.push({id:'benchmarkRawJson',reason:'clipped'});
  assert.throws(()=>validate(clipped),/Benchmark JSON clipped or scrolling/);
+});
+
+test('CH01 evidence rejects duplicate target identities',()=>{
+ const value=fixture();
+ value.storyChecks[0].cases[0].targets.push(target('test-control'));
+ assert.throws(()=>validate(value),/Duplicate CH01 target/);
+});
+test('CH01 evidence rejects missing actual control counts',()=>{
+ const value=fixture();
+ value.storyMenuChecks[0].cases[0].controls=0;
+ assert.throws(()=>validate(value),/CH01 visible control count missing/);
+});
+test('CH01 evidence rejects duplicate screens rather than silently overwriting',()=>{
+ const value=fixture();
+ value.storyJournalChecks[0].cases[1].name=value.storyJournalChecks[0].cases[0].name;
+ assert.throws(()=>validate(value),/Duplicate storyJournalChecks screen/);
 });
