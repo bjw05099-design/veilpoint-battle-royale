@@ -26,8 +26,8 @@ test('CH01 removes the artificial transit document and keeps physically meaningf
  assert.equal(Story.interact(s).event,'guide');
  assert.equal(s.guide.active,true);
  assert.equal(Story.optionalTaskAudit(s).total,3);
- const debrief=Story.debrief(s);
- assert.equal(debrief.transitReviewed,undefined);
+ assert.equal(Object.hasOwn(JSON.parse(Story.serialize(s)),'transitReviewed'),false,
+  'no retired checklist data is emitted by new CH01 saves');
 });
 test('previous v2 saves with valid obsolete board flag migrate without losing escort, aid or movement',()=>{
  const s=evacuating();go(s,'muster');Story.interact(s);Story.interact(s);
