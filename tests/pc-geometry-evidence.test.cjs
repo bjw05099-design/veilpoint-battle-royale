@@ -18,6 +18,10 @@ function fixture(){
  }
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
+  {name:'BR-main-Tab-wrap',passed:true,focused:true},
+  {name:'BR-main-ShiftTab-wrap',passed:true,focused:true},
+  {name:'settings-Tab-wrap',passed:true,focused:true},
+  {name:'settings-ShiftTab-wrap',passed:true,focused:true},
   {name:'settings-Escape',passed:true,focused:true},
   {name:'settings-select-G',passed:true,focused:true}
  ]}));
@@ -85,16 +89,34 @@ test('omitted CH01 error and clipping arrays fail closed',()=>{
 test('missing CDP Escape viewport or transition fails the release gate',()=>{
  const value=fixture();
  value.keyboardChecks.pop();
- assert.throws(()=>validate(value),/Incomplete CDP Escape viewports/);
+ assert.throws(()=>validate(value),/Incomplete CDP keyboard viewports/);
  value.keyboardChecks=fixture().keyboardChecks;
  value.keyboardChecks[0].cases.pop();
- assert.throws(()=>validate(value),/Missing real CDP Escape route/);
+ assert.throws(()=>validate(value),/Missing real CDP keyboard route/);
 });
 test('failed Escape transition or lost keyboard focus fails the release gate',()=>{
  const value=fixture();
  value.keyboardChecks[0].cases[0].passed=false;
- assert.throws(()=>validate(value),/Escape route failed/);
+ assert.throws(()=>validate(value),/CDP keyboard route failed/);
  value.keyboardChecks[0].cases[0].passed=true;
  value.keyboardChecks[0].cases[0].focused=false;
- assert.throws(()=>validate(value),/Escape keyboard focus lost/);
+ assert.throws(()=>validate(value),/CDP keyboard focus lost/);
+});
+
+test('missing real Tab wrap evidence or duplicate keyboard routes fail closed',()=>{
+ const record=fixture();
+ record.keyboardChecks[0].cases=record.keyboardChecks[0].cases.filter(
+  entry=>entry.name!=='settings-ShiftTab-wrap');
+ assert.throws(()=>validate(record),/Missing real CDP keyboard route/);
+ const duplicate=fixture();
+ duplicate.keyboardChecks[0].cases.push({...duplicate.keyboardChecks[0].cases[0]});
+ assert.throws(()=>validate(duplicate),/Missing real CDP keyboard route/);
+});
+test('real Tab and ShiftTab focus-loss evidence is never accepted',()=>{
+ const record=fixture();
+ const entry=record.keyboardChecks[1].cases.find(x=>x.name==='BR-main-ShiftTab-wrap');
+ entry.focused=false;
+ assert.throws(()=>validate(record),/CDP keyboard focus lost/);
+ entry.focused=true;entry.passed=false;
+ assert.throws(()=>validate(record),/CDP keyboard route failed/);
 });
