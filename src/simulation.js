@@ -244,7 +244,7 @@
     if(v.fuel===0){v.speed=0;game.message='YARD VEHICLE OUT OF FUEL';game.messageTime=2;}
     return true;
   }
-  function makeObstacles() {
+  function makeObstacles(terrainRevision=1) {
     const o = [];
     const clusters = [
       [-85,-76], [70,-78], [-78,77], [83,76], [0,-105], [-111,4], [114,10], [6,105]
@@ -275,7 +275,7 @@
     // NOT satellite-measured historical structures or a military route.
     // Each large visible outcrop is the exact collidable BR AABB, and the
     // open spaces between them are ordinary on-foot traversable corridors.
-    for(const [x,z,w,d,h] of [
+    if(terrainRevision===1)for(const [x,z,w,d,h] of [
       [-158,43,7,9,5.3],[-155,62,8,7,6.5],
       [-151,82,7,10,4.7],[-133,74,9,7,3.9],
       [-116,97,7,9,5.1]
@@ -314,15 +314,17 @@
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
     { duration: 70, radius: 12 }, { duration: 999, radius: 1.5 }
   ];
-  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false, entrySite='central', lighting='day') {
+  function newMatch(seed = Date.now(), botCount = 18, weaponId = 'carbine', previewEncounter = false, entrySite='central', lighting='day', terrainRevision=1) {
     const firearm=Object.prototype.hasOwnProperty.call(FIREARMS,weaponId)?FIREARMS[weaponId]:null;
     if(!firearm)throw new RangeError('Unknown firearm class');
     if(typeof entrySite!=='string'||!Object.prototype.hasOwnProperty.call(ENTRY_SITES,entrySite))
       throw new RangeError('Unknown BR entry sector');
     if(typeof lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,lighting))
       throw new RangeError('Unknown BR lighting');
+    if(terrainRevision!==0&&terrainRevision!==1)
+      throw new RangeError('Invalid BR terrain revision');
     const random = rngFromSeed(seed);
-    const obstacles = makeObstacles();
+    const obstacles = makeObstacles(terrainRevision);
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
@@ -369,7 +371,7 @@
         remaining:i%2===0?12:24,picked:false};
     });
     return {
-      seed, random, entrySite, lighting, status:'ready', elapsed:0, kills:0, damageFlash:0,
+      seed, random, entrySite, lighting, terrainRevision, status:'ready', elapsed:0, kills:0, damageFlash:0,
       // The panel moves along its rail over actual 60 Hz simulation ticks.
       yardGate:{engaged:false,progress:0,closing:false},
       handcart:{x:DOCK_HANDCART.x,z:DOCK_HANDCART.z,engaged:false,dirX:0,dirZ:0},
@@ -1279,7 +1281,10 @@
       throw new RangeError('Invalid BR entry sector');
     if(typeof game.lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,game.lighting))
       throw new RangeError('Invalid BR lighting');
-    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,lighting:game.lighting,rngState:game.random.getState(),
+    if(game.terrainRevision!==0&&game.terrainRevision!==1)
+      throw new RangeError('Invalid BR terrain revision');
+    const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,lighting:game.lighting,
+      terrainRevision:game.terrainRevision,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
       yardGate:{engaged:game.yardGate.engaged,progress:game.yardGate.progress,closing:game.yardGate.closing===true},
       handcart:game.handcart===null?null:{...game.handcart},
@@ -1424,7 +1429,13 @@
     const lighting=saved.lighting===undefined?'day':saved.lighting;
     if(typeof lighting!=='string'||!Object.prototype.hasOwnProperty.call(BR_LIGHTING,lighting))
       throw new RangeError('Invalid saved BR lighting');
-    const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting);
+    // Pre-volcanic-world checkpoints have no geological revision and MUST
+    // retain the exact old collision map; never materialize a boulder inside
+    // a saved participant, vehicle or cache after refresh.
+    const terrainRevision=saved.terrainRevision===undefined?0:saved.terrainRevision;
+    if(terrainRevision!==0&&terrainRevision!==1)
+      throw new RangeError('Invalid saved BR terrain revision');
+    const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting,terrainRevision);
     if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
       throw new RangeError('Route sign inside solid cover');
     game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
