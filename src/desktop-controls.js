@@ -5,7 +5,7 @@
  const DEFAULT_BINDINGS=Object.freeze({
   forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',
   crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyE',assist:'KeyH',support:'KeyQ',
-  headlamp:'KeyL',guidance:'KeyB'
+  headlamp:'KeyL',guidance:'KeyB',cacheMove:'KeyU'
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
  const RESERVED=new Set(['Escape','Enter','KeyG','KeyM','Digit1','Digit2']);
@@ -21,13 +21,18 @@
   const invertY=typeof source.invertY==='boolean'?source.invertY:false;
   const bindings={...DEFAULT_BINDINGS};
   if(source.bindings&&typeof source.bindings==='object'&&!Array.isArray(source.bindings)){
-   // Old saved layouts predate CH01's remappable headlamp and objective guide.
+   // Older saved profiles predate the CH01 guide and BR cache-shift action.
    // Preserve every existing PC binding, even when it already uses L or B.
    const expanded={...source.bindings};
-   const used=new Set(ACTIONS.filter(a=>a!=='headlamp'&&a!=='guidance').map(a=>expanded[a]));
-   for(const extra of ['headlamp','guidance']){
-    if(expanded[extra]===undefined)
-     expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyP','KeyO','KeyJ','KeyK','KeyU']
+   const additions=['headlamp','guidance','cacheMove'];
+   const used=new Set(ACTIONS.filter(a=>!additions.includes(a)).map(a=>expanded[a]));
+   for(const extra of additions){
+    // Older profiles may reuse U for a real remapped action. Preserve their
+    // previous control and relocate this newly introduced optional binding
+    // to an actually free key instead of resetting the entire profile.
+    if(expanded[extra]===undefined||
+       (extra==='cacheMove'&&used.has(expanded[extra])))
+     expanded[extra]=[DEFAULT_BINDINGS[extra],'KeyK','KeyO','KeyI','KeyP','KeyJ','KeyU','KeyT','KeyY','KeyX','KeyZ','KeyV','KeyF','KeyN']
       .find(code=>!used.has(code));
     used.add(expanded[extra]);
    }
@@ -66,7 +71,15 @@
   const next=normalize(value);
   if(!Object.prototype.hasOwnProperty.call(DEFAULT_BINDINGS,action))return {ok:false,reason:'unknown-action',value:next};
   if(!validCode(code))return {ok:false,reason:'reserved-key',value:next};
-  if(ACTIONS.some(a=>a!==action&&next.bindings[a]===code))return {ok:false,reason:'key-in-use',value:next};
+  const occupied=ACTIONS.find(a=>a!==action&&next.bindings[a]===code);
+  if(occupied){
+   // The new BR-only cache key must never prevent a previously existing
+   // movement/fire/support remap. Swap to the displaced action's old,
+   // already-validated key; collisions with all other actions remain errors.
+   if(occupied==='cacheMove'&&action!=='cacheMove')
+    next.bindings.cacheMove=next.bindings[action];
+   else return {ok:false,reason:'key-in-use',value:next};
+  }
   next.bindings[action]=code;
   return {ok:true,value:next};
  }

@@ -1288,10 +1288,15 @@ addEventListener('keydown',e=>{
   e.preventDefault();const result=Game.depositReserve(simulation);
   if(result.ok){persistMatch();updateHud();}
  }
- // H physically shifts one nearby finite cache; no resource duplication.
- if(e.code==='KeyH'&&!action&&canAct()){
+ // This dedicated, remappable PC action cannot collide with the default
+ // H reload-assist key. Only physically reachable cached stock can move.
+ if(action==='cacheMove'&&canAct()){
   e.preventDefault();const moved=Game.repositionCache(simulation);
   if(moved.ok){persistMatch();updateHud();}
+  else if(moved.reason==='path_blocked'){
+   simulation.message='CACHE SHIFT BLOCKED · CLEAR NEARBY PASSAGE';
+   simulation.messageTime=2;updateHud();
+  }
  }
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
@@ -1519,11 +1524,12 @@ function updateHud(){const s=simulation,p=s.player;
  const yardGate=Game.serviceGateStatus(s);
  const gateGuide=Navigation?Navigation.serviceGate(p,yardGate,Game.SERVICE_YARD,s.obstacles):'';
  const nearby=Game.nearestReachablePickup(s);
+ const movable=Game.nearestRelocatableCache(s);
  const restock=s.status==='playing'&&p.charges>p.loaded&&s.loot.some(item=>
    item.weaponId===p.weaponId&&item.remaining<(item.kind==='ammo'?12:24)&&
    Math.hypot(item.x-p.x,item.z-p.z)<1.8&&
    !Game.lineBlocked(p.x,p.z,item.x,item.z,s.obstacles));
- $('pickupPrompt').style.display=yardGate.near||nearby||restock||gateGuide?'block':'none';
+ $('pickupPrompt').style.display=yardGate.near||nearby||restock||movable||gateGuide?'block':'none';
  if(yardGate.near)$('pickupPrompt').textContent=yardGate.obstructed
   ?'SERVICE YARD GATE STOPPED · TRACK OBSTRUCTED · CLEAR PASSAGE'
   :yardGate.closing
@@ -1537,7 +1543,10 @@ function updateHud(){const s=simulation,p=s.player;
    :interactPrompt+' COLLECT '+Game.FIREARMS[p.weaponId].label+' AMMO · '+(nearby.remaining??(nearby.kind==='ammo'?12:24))+' ROUNDS LEFT')+
    (restock?' · [V] RETURN SPARE ROUNDS':'');
  else if(restock)$('pickupPrompt').textContent='[V] RETURN SPARE ROUNDS TO FIELD CACHE';
+ else if(movable)$('pickupPrompt').textContent='LOCAL FIELD CACHE';
  else if(gateGuide)$('pickupPrompt').textContent=gateGuide;
+ if(movable&&!yardGate.near)
+  $('pickupPrompt').textContent+=' · ['+Desktop.keyLabel(bindings.cacheMove)+'] SHIFT CACHE';
  minimap();
 }
 function end(){if(motorSound)motorSound.stop();if(benchmark){benchmark.finish('match-ended');benchmarkUi();}let archivedResult=null;if(!memoryOnlyMatch){archivedResult=archiveLastResult();clearFieldBookmark();clearStoredMatch();}

@@ -893,18 +893,30 @@
     game.messageTime=2;
     return {ok:true,moved,remaining:chosen.remaining};
   }
+  // One shared physical reach/occlusion check drives both the E/HUD label
+  // and the cache-shift action. A HUD never claims a cache can be moved
+  // when the actual world collision considers it blocked.
+  function nearestRelocatableCache(game) {
+    if(!game||game.status!=='playing'||game.scene)return null;
+    const p=game.player,cover=game.obstacles.concat(actorObstacles(game,p,null,false));
+    let closest=null,best=Infinity;
+    for(const item of game.loot){
+      const distance=dist(item,p);
+      if(distance>=PICKUP_REACH||distance>best||
+         (distance===best&&closest&&item.id>=closest.id)||
+         lineBlocked(p.x,p.z,item.x,item.z,cover))continue;
+      closest=item;best=distance;
+    }
+    return closest;
+  }
   // Physically move one existing field cache to an adjacent clear position.
   // No stock is created: the same cache ID and finite inventory travel together.
   // This lets a survivor reposition supplies before the next boundary deadline.
   function repositionCache(game) {
     if(game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
     const p=game.player;
-    const available=game.loot.filter(item=>dist(item,p)<PICKUP_REACH&&
-      !lineBlocked(p.x,p.z,item.x,item.z,
-        game.obstacles.concat(actorObstacles(game,p,null,false))));
-    available.sort((a,b)=>dist(a,p)-dist(b,p)||a.id-b.id);
-    if(!available.length)return {ok:false,reason:'no_reachable_cache'};
-    const item=available[0];
+    const item=nearestRelocatableCache(game);
+    if(!item)return {ok:false,reason:'no_reachable_cache'};
     // A short hand-carried shift, not a remote teleport or a through-wall pickup.
     const nx=item.x+Math.sin(p.yaw)*1.1,nz=item.z-Math.cos(p.yaw)*1.1;
     // Check the entire hand-carried path, not just the destination. A moving
@@ -1252,5 +1264,5 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+  return {toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
