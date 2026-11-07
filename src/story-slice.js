@@ -738,9 +738,8 @@
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
       }
     }
-    // Keep physical 3D E markers aligned with the actual guide location and
-    // remove them as soon as the player loses direct observation. The mission
-    // state and checkpoint schema are unchanged.
+    // Keep physical 3D E markers aligned with the actual moving civilian
+    // or escort, removing them when their local observation range ends.
     refreshMovingActorMarkers(state);
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
     // shot/impact visuals and damage feedback here, or they persist indefinitely.
