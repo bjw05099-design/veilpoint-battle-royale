@@ -1521,7 +1521,8 @@
         blocked:'선행 목표 필요',locked:'준비 중'};
       tracker.textContent=tasks.map(task=>
         (task.status==='done'?'✓ ':'○ ')+task.label+
-        (task.optional?' (선택)':'')+' · '+status[task.status]).join('\n');
+        (task.optional?' (선택)':'')+' · '+
+        (task.id==='gate'&&task.status==='waiting'?'통제문 개방 대기':status[task.status])).join('\n');
     }else tracker.textContent='';
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
