@@ -7,9 +7,11 @@ const Story=require('../src/story-slice.js');
 test('CH01 opens with the captain on his original limited deployment, before unplanned civil-war entanglement',()=>{
  const state=Story.createState();
  assert.equal(state.phase,'terminal');
- assert.match(state.subtitle,/원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견/);
- assert.match(state.subtitle,/내전이 이렇게 격화될 줄은 몰랐/);
+ assert.match(state.subtitle,/한국에서 출국하기 전에 받은 파견 지시/);
+ assert.match(state.subtitle,/도착한 뒤 내전이 예상보다 빠르게 번졌고/);
  assert.match(state.subtitle,/유수프 구조단/);
+ assert.deepEqual(Story.markers(state).map(m=>m.id),['terminal'],
+   'initial CH01 objectives must never include an optional local-paper dispatch pickup');
  assert.equal(state.choice,null);
  const saved=Story.serialize(state);
  const restored=Story.restore(saved);
