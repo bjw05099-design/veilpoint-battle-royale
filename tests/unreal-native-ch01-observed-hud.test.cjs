@@ -53,3 +53,21 @@ test('native CH01 indication stays separate from BR-only supplies and round time
  assert.ok(story>=0&&indication>story&&supplies>indication&&zone>supplies);
  assert.match(hud.slice(indication,supplies),/return;/);
 });
+
+
+test('native CH01 explicitly excludes behind-camera and offscreen targets even with a clear ray',()=>{
+ const begin=hud.indexOf('const FVector Eye = Pawn->GetPawnViewLocation()');
+ const end=hud.indexOf('if (NearestVisible)',begin);
+ const code=hud.slice(begin,end);
+ assert.match(code,/FVector::DotProduct\(PlayerOwner->GetControlRotation\(\)\.Vector\(\), ToTarget\) <= 0\.f/);
+ assert.match(code,/PlayerOwner->ProjectWorldLocationToScreen\(/);
+ assert.match(code,/Target->GetActorLocation\(\),Screen,false/);
+ assert.match(code,/FMath::IsFinite\(Screen.X\)/);
+ assert.match(code,/FMath::IsFinite\(Screen.Y\)/);
+ assert.match(code,/Screen.X < 0\.f \|\| Screen.Y < 0\.f/);
+ assert.match(code,/Screen.X >= Canvas->ClipX \|\| Screen.Y >= Canvas->ClipY/);
+ assert.ok(code.indexOf('ProjectWorldLocationToScreen') < code.indexOf('LineTraceTestByChannel'),
+  'do not burn a ray cast on target excluded by camera projection');
+ assert.ok(code.indexOf('NearestVisible = Target') > code.indexOf('LineTraceTestByChannel'),
+  'only a projected, unobstructed active actor counts as locally visible');
+});

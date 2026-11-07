@@ -98,7 +98,7 @@
     else if(goal)nearest={marker:preferred,nav:goal};
     // Straight-line distance is not a pathfinding claim; physical obstacles still apply.
     return (selected&&selected.nav?'선택한 임무 표식':goal?'주요 임무 표식':'가장 가까운 임무 표식')+' · '+nearest.marker.label+' · '+nearest.nav.label+
-      ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m '+(directLineBlocked(player,nearest.marker,obstacles)?'(직선 경로 차단 · 장애물 우회 필요)':'(장애물 우회 필요 가능)');
+      ' · 직선거리 약 '+Math.round(nearest.nav.meters)+'m '+(directLineBlocked(player,nearest.marker,obstacles)?'(직선 경로 차단 · 장애물 우회 필요)':Array.isArray(obstacles)?'(직선 경로 확인 · 실제 이동 경로 확인 필요)':'(경로 장애물 정보 없음)');
   }
   // An authored physical sign is not remotely recoverable. The HUD only
   // offers J within the true 1.8 m pickup reach and an unobstructed path.
