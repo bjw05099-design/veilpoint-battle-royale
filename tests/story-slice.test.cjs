@@ -574,7 +574,7 @@ test('CH01 verified completion cannot be restored before local clearance has ela
 
 test('CH01 civilian route consequences persist across both choices and are shown in HUD',()=>{
   const evacuation=reachDecision();story.choose(evacuation,'evacuation');
-  assert.match(story.situation(evacuation).civilianConsequence,/남쪽 대피 인원 확인 우선/);
+  assert.match(story.situation(evacuation).civilianConsequence,/현장 담당자와 아직 만나지 않음/);
   assert.equal(story.situation(story.restore(story.serialize(evacuation))).civilianConsequence,
     story.situation(evacuation).civilianConsequence);
   const verified=reachDecision();go(verified,'recordA');story.interact(verified);
