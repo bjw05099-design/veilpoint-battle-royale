@@ -18,7 +18,8 @@ function fixture(){
  }
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
-  {name:'settings-Escape',passed:true,focused:true}
+  {name:'settings-Escape',passed:true,focused:true},
+  {name:'settings-select-G',passed:true,focused:true}
  ]}));
  return result;
 }
