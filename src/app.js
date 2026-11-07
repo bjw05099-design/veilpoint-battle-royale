@@ -55,6 +55,10 @@ function revealBenchmarkJson(downloadBlocked=false){
  if(benchmark.getStatus().state!=='finished'||benchmark.getStatus().frames<2)return false;
  if($('graphicsPanel').classList.contains('hidden'))
   setGraphicsPanelOpen(true,$('graphicsPauseOpen'));
+ // Opening settings defaults to the visual tab. A finished benchmark's
+ // emergency JSON copy must activate its own visible, bounded PC page
+ // before selecting text, even when invoked from the paused-game shortcut.
+ setGraphicsSettingsScreen('benchmark');
  benchmarkRawJson.value=JSON.stringify(benchmark.report(),null,2)+'\n';
  benchmarkRawJson.classList.remove('hidden');
  benchmarkRawLabel.classList.remove('hidden');
