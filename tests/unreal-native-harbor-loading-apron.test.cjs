@@ -25,6 +25,6 @@ test('native Windows actor derives wet footing from physical coordinates, includ
  assert.match(character,/bOnWetLoadingApron \? \.86f : 1\.f/);
  assert.match(character,/MaxWalkSpeedCrouched/);
  assert.ok(character.indexOf('const FVector Position = GetActorLocation()') <
-   character.indexOf('if (!HasAuthority()) return;',character.indexOf('void AVPCharacter::Tick')),
+   character.indexOf('if (!HasAuthority() || !IsAlive()) return;',character.indexOf('void AVPCharacter::Tick')),
    'locally predicted PC movement should use the same physical pad bounds');
 });
