@@ -149,7 +149,7 @@ class TeamMatch {
     if(objectiveSite==='courier'&&targetScore!==1)throw new RangeError('courier_one_delivery_only');
     // Combat-only mode: the winner is decided by the authoritative round.
     if(isDuelSite(objectiveSite)&&targetScore!==1)throw new RangeError('duel_one_round_only');
-    if(objectiveSite!=='duel'&&objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(!isDuelSite(objectiveSite)&&objectiveSite!=='courier'&&objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     if(typeof suddenDeath!=='boolean')throw new RangeError('invalid_sudden_death');
     if(suddenDeath&&(objectiveSite==='courier'||isDuelSite(objectiveSite)))throw new RangeError('sudden_death_relay_only');
