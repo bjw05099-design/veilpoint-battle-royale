@@ -10,7 +10,8 @@ const end=source.indexOf('  function begin(fromCheckpoint){',begin);
 assert.ok(begin>=0&&end>begin,'CH01 resume controller must remain available');
 const code=source.slice(begin,end);
 
-function scenario({phase='failed',primary='alive',backup=null,live=null}={}){
+function scenario({phase='failed',primary='alive',backup=null,live=null,
+ replaceBackupDuringRestore=false}={}){
  const stateOf=(stage,elapsed=12)=>({phase:stage,world:{elapsed,player:{weaponId:'standard'}}});
  const entries={alive:stateOf('engagement',12),backup:stateOf('exit',22)};
  const stored=new Map([['primary',primary],['backup',backup]]);
@@ -26,7 +27,12 @@ function scenario({phase='failed',primary='alive',backup=null,live=null}={}){
   diskGeneration:primary,guidanceId:'pending',shotSavePending:true,firstShotSaved:true,
   lastAutosaveAt:3,saveFailed:false,menu,choices,running:false,
   Story:{
-   restore(raw){if(!entries[raw])throw new Error('invalid checkpoint');return stateOf(entries[raw].phase,entries[raw].world.elapsed);},
+   restore(raw){
+    if(!entries[raw])throw new Error('invalid checkpoint');
+    if(raw==='backup'&&replaceBackupDuringRestore)
+     stored.set('backup','replacement');
+    return stateOf(entries[raw].phase,entries[raw].world.elapsed);
+   },
    createState(){return stateOf('engagement',0);}
   },
   $:id=>controls[id],desktopUi:{cancel(){}},
@@ -66,4 +72,16 @@ test('ordinary paused resume does not rewrite the same saved checkpoint',()=>{
  const {ctx,calls}=scenario({phase:'engagement'});
  assert.equal(ctx.running,true);
  assert.equal(calls.length,0);
+});
+
+test('CH01 retry rejects an out-of-date backup replaced during validation',()=>{
+ const {ctx,calls}=scenario({
+  primary:'invalid',backup:'backup',live:null,replaceBackupDuringRestore:true
+ });
+ assert.equal(ctx.state.phase,'engagement');
+ assert.equal(ctx.state.world.elapsed,0,
+  'do not revive a stale backup after another tab rotates its generation');
+ assert.equal(ctx.running,true);
+ assert.deepEqual(calls,[{reason:'CH01 재시도 시작',
+  phase:'engagement',running:false,elapsed:0}]);
 });
