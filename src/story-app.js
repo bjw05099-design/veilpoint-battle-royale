@@ -824,10 +824,17 @@
       url=global.URL.createObjectURL(blob);
       const link=document.createElement('a');
       link.href=url;link.download='VEILPOINT-CH01-checkpoint.json';
-      link.click();
+      // Offline Windows WebViews can require a connected anchor element.
+      // Always detach it afterward, including a browser-rejected click.
+      if(document.body&&typeof document.body.appendChild==='function'){
+        document.body.appendChild(link);
+        try{link.click();}finally{link.remove();}
+      }else link.click();
       $('checkpointTransferStatus').textContent='검증된 JSON 파일 저장 요청 완료 · 다운로드 목록에서 파일을 확인하세요.';
     }catch(_){
       $('checkpointTransferStatus').textContent='파일 저장을 시작할 수 없습니다. 위 JSON을 전체 선택하여 텍스트 파일로 별도 보관하세요.';
+      if(typeof field.focus==='function')field.focus({preventScroll:true});
+      if(typeof field.select==='function')field.select();
     }finally{
       if(url&&global.URL&&typeof global.URL.revokeObjectURL==='function'){
         const revoke=()=>{try{global.URL.revokeObjectURL(url);}catch(_){}};

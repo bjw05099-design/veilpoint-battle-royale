@@ -1050,10 +1050,19 @@ $('brExportDownload').addEventListener('click',()=>{
   url=global.URL.createObjectURL(new global.Blob([raw],
     {type:'application/json;charset=utf-8'}));
   const link=document.createElement('a');
-  link.href=url;link.download='VEILPOINT-BR-checkpoint.json';link.click();
+  link.href=url;link.download='VEILPOINT-BR-checkpoint.json';
+  // An attached link is more consistently honored by restricted offline PC
+  // browsers. Removal is guaranteed even when the download click throws.
+  if(document.body&&typeof document.body.appendChild==='function'){
+   document.body.appendChild(link);
+   try{link.click();}finally{link.remove();}
+  }else link.click();
   $('brExportStatus').textContent='JSON 파일 저장 요청 완료 · 다운로드 목록을 확인하세요.';
  }catch(_){
   $('brExportStatus').textContent='파일 저장이 불가능합니다. 위 JSON을 직접 복사해 별도 텍스트 파일로 보관하세요.';
+  const field=$('brExportText');
+  if(typeof field.focus==='function')field.focus({preventScroll:true});
+  if(typeof field.select==='function')field.select();
  }finally{
   if(url&&global.URL&&typeof global.URL.revokeObjectURL==='function'){
    const revoke=()=>{try{global.URL.revokeObjectURL(url);}catch(_){}};
