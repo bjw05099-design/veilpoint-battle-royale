@@ -20,7 +20,7 @@ test('native CH01 blockout uses a different replicated actor class, not an unrel
  const begin=world.slice(world.indexOf('void AVPWorldBootstrap::BeginPlay()'));
  const storyBranch=begin.slice(begin.indexOf('if(IsA(AVPStoryWorldBootstrap::StaticClass()))'),
    begin.indexOf('return; // Story preview never spawns the random BR loot pool'));
- assert.doesNotMatch(storyBranch,/GetGameState<AVPStoryGameState>\\(\\)/);
+ assert.doesNotMatch(storyBranch,/GetGameState<AVPStoryGameState>\(\)/);
  assert.match(world,/bReplicates=true/);
  assert.match(world,/SetReplicateMovement\(false\)/);
 });
