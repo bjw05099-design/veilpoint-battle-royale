@@ -31,7 +31,8 @@ function audit(){
    'BR-export':['brViewBack','brExportDownload'],
    'settings-visual':['graphicsClose','graphicsTabVisual','graphicsPreset'],
    'settings-controls':['graphicsClose','graphicsTabControls','desktopBindKey'],
-   'settings-benchmark':['graphicsClose','graphicsTabBenchmark','benchmarkStart']
+   'settings-benchmark':['graphicsClose','graphicsTabBenchmark','benchmarkStart'],
+   'settings-benchmark-copy':['graphicsClose','graphicsTabBenchmark','benchmarkRawJson']
   };
   function check(name,root){
    const outer=root.getBoundingClientRect();
@@ -144,8 +145,25 @@ function audit(){
     result.issues.push({id:id+'-horizontal-scroll',scroll:page.scrollWidth,client:page.clientWidth});
    data.cases.push(result);
   }
+  // A completed benchmark expands the local-only JSON field on the same
+  // bounded settings page. Audit the actual browser bounds and hit targets
+  // for this previously unmeasured UI state at every physical viewport.
+  const json=get('benchmarkRawJson'),jsonLabel=get('benchmarkRawLabel');
+  json.classList.remove('hidden');jsonLabel.classList.remove('hidden');
+  json.value='{"measurementStatus":"complete","renderedFrameCount":1200}';
+  const copy=check('settings-benchmark-copy',graphics);
+  const benchmarkPage=get('graphicsBenchmarkPage');
+  if(benchmarkPage.scrollHeight>benchmarkPage.clientHeight+2)
+   copy.issues.push({id:'graphicsBenchmarkPage-copy-scroll',
+    scroll:benchmarkPage.scrollHeight,client:benchmarkPage.clientHeight});
+  if(benchmarkPage.scrollWidth>benchmarkPage.clientWidth+2)
+   copy.issues.push({id:'graphicsBenchmarkPage-copy-horizontal-scroll',
+    scroll:benchmarkPage.scrollWidth,client:benchmarkPage.clientWidth});
+  data.benchmarkCopy=copy;
+  json.classList.add('hidden');jsonLabel.classList.add('hidden');
   data.errors.push(...data.cases.flatMap(c=>c.issues.map(issue=>
-   c.name+': '+JSON.stringify(issue))));
+   c.name+': '+JSON.stringify(issue))),
+   ...copy.issues.map(issue=>copy.name+': '+JSON.stringify(issue)));
  }catch(error){data.errors.push('Audit exception: '+String(error&&error.stack||error));}
  document.documentElement.setAttribute('data-vp-geometry',btoa(JSON.stringify(data)));
 }
