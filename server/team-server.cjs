@@ -111,7 +111,14 @@ function createTeamServer({host = '127.0.0.1', port = 8765, autoTick = true, now
         if (simulationFault) return send(res, 503, {status: 'degraded', protocol: 1,
           phase: 'ended', error: 'simulation_unavailable'});
         match.expirePlayingLeases();
-        return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase});
+        // Probe-only lobby cleanup keeps diagnostics honest without renewing
+        // leases or erasing a finished result that participants may still read.
+        if (match.phase === 'lobby') match.pruneIdleWaitingPlayers();
+        return send(res, 200, {status: 'ok', protocol: 1, phase: match.phase,
+          connectedPlayers: match.players.size,
+          lobbyReadyPlayers: match.phase === 'lobby'
+            ? [...match.players.values()].filter(player => player.ready).length : null,
+          simulationTick: match.ticks});
       }
       // No state snapshot or game command may use a partially mutated world.
       // Static assets remain readable so the client can display an error.
