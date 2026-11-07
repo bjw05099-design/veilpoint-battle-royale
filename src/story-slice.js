@@ -56,10 +56,6 @@
     {x:82.5,z:17,w:5,d:.5,h:4,type:'story-office-wall'},
     {x:91.5,z:17,w:5,d:.5,h:4,type:'story-office-wall'},
     {x:87,z:30,w:2,d:.7,h:1,type:'story-office-desk'},
-    // One optional, grounded physical copy of the ORIGINAL assignment.
-    // Its arrival-side location and independent interaction are playable,
-    // not a remotely accessible fictional magic mission checklist.
-    {x:-12,z:9.8,w:2.2,d:.8,h:1.2,type:'story-dispatch-case'},
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
@@ -107,8 +103,6 @@
     gateLog: Object.freeze({id:'gateLog', x:27, z:-66, kind:'evidence', label:'동쪽 현장 중계 기록함'}),
     reportDesk: Object.freeze({id:'reportDesk', x:18, z:-45, kind:'evidence', label:'현지 통제소 기록 접수대'}),
     officeBoard: Object.freeze({id:'officeBoard', x:87, z:26, kind:'evidence', label:'항구 주민 안내소 내부 게시판'}),
-    dispatchOrders: Object.freeze({id:'dispatchOrders',x:-12,z:11.4,kind:'evidence',
-      label:'이수혁 대위 · 내전 격화 전 최초 파견 지시서'}),
     waterSite: Object.freeze({id:'waterSite',x:140,z:87,kind:'evidence',
       label:'공동 급수대 실제 수압을 현장에서 확인'}),
     waterReportDesk: Object.freeze({id:'waterReportDesk',x:-23,z:-60,kind:'evidence',
@@ -370,7 +364,7 @@
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
-      subtitle:'마라(기술자): 이 대위님, 원래는 현지 상황 확인과 대피 지원 요청을 돕는 일로 파견되셨잖아요. 그런데 내전이 이렇게 격화될 줄은 몰랐죠. 주민 통로는 유수프 구조단이 결정하고, 국정원 보고는 현장 기록과 대조해야 합니다.',message:'CH01 / 마지막 방송 · 제한적 대피 지원'};
+      subtitle:'김도겸 중사: 대위님, 한국에서 출국 전 브리핑받은 임무는 현지 통신 상태 확인과 구조단 지원, 이후 예정된 복귀였습니다. 그런데 도착하고 나서 충돌이 항구까지 번졌습니다. 지금은 현지 구조단과 연결해 주민 통로부터 지켜야 합니다.',message:'CH01 / 마지막 방송 · 예상하지 못한 현지 내전 확산'};
     state.world.carryingAid=false;state.world.aidStaged=false;
     state.world.aidPickedUp=false;state.world.aidDelivered=false;
     syncRoute(state);syncMarkers(state);
@@ -404,14 +398,8 @@
        state.waterReportFiled)return [];
     return state.waterSurveyed?[POINTS.waterReportDesk]:[POINTS.waterSite];
   }
-  function dispatchOrderMarkers(state){
-    if(state.phase!=='terminal'||state.deploymentReviewed)return [];
-    const p=state.world.player,doc=POINTS.dispatchOrders;
-    // A personal paper copy can be discovered only at its real arrival spot.
-    return Math.hypot(p.x-doc.x,p.z-doc.z)<8?[doc]:[];
-  }
   function markers(state) {
-    if (state.phase==='terminal') return [POINTS.terminal,...dispatchOrderMarkers(state)];
+    if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
@@ -1008,13 +996,6 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
-    if(marker.id==='dispatchOrders'&&state.phase==='terminal'&&!state.deploymentReviewed){
-      state.deploymentReviewed=true;
-      state.subtitle='원래 파견 지시서: 현지 공공 통신 상황을 확인하고 현지 구조단 요청을 지원한 뒤 복귀할 예정이었습니다. 도착 후 내전이 급격히 확산됐고, 내전 참전은 최초 파견 목적이 아니었습니다.';
-      state.message='최초 파견 목적 확인 · 예상 밖 내전 격화 이전의 지시';
-      syncMarkers(state);
-      return {ok:true,event:'original_dispatch_orders',phase:'terminal'};
-    }
     if(marker.id==='waterSite'&&state.civicVisited&&!state.waterSurveyed&&
        ['records','decision','exit'].includes(state.phase)){
       state.waterSurveyed=true;
@@ -1055,7 +1036,7 @@
       state.phase='engagement';state.combat.started=true;
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeHostiles();
-      state.subtitle='조현지(국정원): 중계기 주변에 무장 대치자 세 명이 있습니다. 안전을 확보해 주세요.';
+      state.subtitle='조현지(국정원): 한국에서 합의한 제한적 파견 임무와 상황이 달라졌습니다. 도착 후 무력 충돌이 항구까지 확대됐고, 중계기 인근에서 세 명이 대치 중입니다. 먼저 현지 구조단과 이어지는 통신을 확보해야 합니다.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
@@ -1423,7 +1404,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
+      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
@@ -1442,7 +1423,6 @@
         (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
-        (state.deploymentReviewed?' 최초 파견 지시서를 직접 확인했습니다. 내전 참여는 처음부터 계획된 임무가 아니었습니다.':'')+
         (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')+
         (state.waterReportFiled?' 공동 급수대 상태를 직접 확인해 현지 구조단에 현장 기록을 인계했습니다. 복구 완료 여부는 미확인입니다.':
           state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
