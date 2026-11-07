@@ -15,6 +15,7 @@ small{color:#b9c6c8}strong{font-variant-numeric:tabular-nums}
 <h1>VEILPOINT / DISTRICT CONTROL</h1>
 <p>선택형 서버 소유 게임 모드: 기본 중계기 점령 또는 단일 물품 인수·운반(서버 설정 <code>VEILPOINT_OBJECTIVE_SITE=courier VEILPOINT_TARGET_SCORE=1</code>). 물품 경기는 비전투 방식이며, 실물 물품을 현장에서 E로 인수한 다음 다른 고정 위치에 직접 인계합니다.</p>
 <p>선택형 전투 경쟁 규칙: 호스트가 <code>VEILPOINT_SUDDEN_DEATH=1</code>을 설정하면 정규시간 종료 시 동점인 중계기 점령 경기만 60초 연장합니다. 연장전에서는 먼저 정식 점령을 완료하거나 상대가 경기 불능이 되어야 승리하며, 남은 체력·탄약과 실제 위치는 초기화하지 않습니다.</p>
+<p>전투형 독립 대결 모드: 로컬 서버 호스트가 <code>VEILPOINT_OBJECTIVE_SITE=duel VEILPOINT_TARGET_SCORE=1</code>로 실행하면 중계기 점령 없이 동일한 60Hz 전투 규칙으로 경기를 진행합니다. 양측 모두 제한 시간까지 활동 가능하면 무승부입니다. 기존 점령 경기와 물품 시제품은 별도로 보존됩니다.</p>
 <p>로컬 2인 서버 권한형 목표 점령 실험. 최종 1인칭 팀 대전이 아닌 <strong>네트워크 규칙 검증용 2D 테스트 화면</strong>입니다. 서버가 위치·시야·장애물·피해·유한 탄약·장비별 이동 속도·점수를 결정합니다. 일곱 장비 유형은 허구의 2D 규칙 시제품이며 실물 성능이나 탄도 재현이 아닙니다. 점령은 연속 유지해야 하며 방해받으면 진행도가 초기화됩니다. 서버가 예고하는 자연적 해안 안개는 양 팀의 시야에 동일하게 적용되며 피해나 숨겨진 위치 정보는 만들지 않습니다. 교전으로 상대가 전투 불능이 되면 해당 라운드가 종료됩니다.</p>
 <main><section><canvas id="arena" width="500" height="500" aria-label="팀 목표 구역 및 가시 범위 지도"></canvas>
 <p id="status" role="status" aria-live="polite">서버 연결 대기</p><p><small>PC 공통 키 설정 적용(기본 WASD/방향키 이동 · E 점령 유지 · SPACE 발사, 기존 F 별칭 · R 재장전). 지도 클릭/드래그로 조준하고 밖으로 이동하거나 Q로 해제. 서버가 이동·명중·탄약을 검증합니다. 원형 목표에서 적이 함께 있으면 점령 불가. 두 탭에서 서로 다른 이름으로 접속하세요.</small></p></section>
