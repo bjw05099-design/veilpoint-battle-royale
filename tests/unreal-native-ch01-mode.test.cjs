@@ -70,7 +70,10 @@ test('UE5 CH01 actions require true reach, unobstructed visibility and server-ow
  const entry=character.slice(character.indexOf('void AVPCharacter::ServerTryInteract_Implementation()'));
  assert.match(entry,/GetGameState<AVPStoryGameState>\(\)/);
  assert.match(entry,/TActorIterator<AVPStoryMarker>/);
- assert.match(entry,/It->IsAvailable\(\) && It->TryActivate\(this\)/);
+ assert.match(entry,/if \(!It->IsAvailable\(\)\) continue/);
+ assert.match(entry,/FVector::DistSquared\(/);
+ assert.match(entry,/GetPawnViewLocation\(\),It->GetActorLocation\(\),ECC_Visibility/);
+ assert.match(entry,/if \(Nearest\) Nearest->TryActivate\(this\)/);
  const storyBranch=entry.indexOf('GetGameState<AVPStoryGameState>()');
  const brPickups=entry.indexOf('AVPPickup* Nearest');
  assert.ok(storyBranch>=0&&brPickups>storyBranch);
@@ -89,4 +92,21 @@ test('UE5 story HUD hides the BR-only zone and supply UI until a real BR game mo
  const brSpawn=world.indexOf('SpawnActor<AVPPickup>');
  assert.ok(storyResources>=0&&brSpawn>storyResources,
   'native story shares scenery but never spawns BR-only pickups');
+});
+
+test('UE5 CH01 only shows live replicated objectives and prioritizes physically reachable markers',()=>{
+ assert.match(marker,/PrimaryActorTick\.TickInterval = \.25f/);
+ assert.match(marker,/void AVPStoryMarker::BeginPlay\(\)/);
+ assert.match(marker,/void AVPStoryMarker::Tick\(float DeltaSeconds\)/);
+ assert.match(marker,/Model->SetVisibility\(IsAvailable\(\)\)/);
+ assert.match(marker,/Model->SetVisibility\(false\)/);
+ const entry=character.slice(character.indexOf('void AVPCharacter::ServerTryInteract_Implementation()'));
+ const start=entry.indexOf('GetGameState<AVPStoryGameState>()');
+ const end=entry.indexOf('AVPPickup* Nearest',start);
+ const selection=entry.slice(start,end);
+ assert.match(selection,/float BestDistanceSq = FMath::Square\(275\.f\)/);
+ assert.match(selection,/if \(DistanceSq >= BestDistanceSq\) continue/);
+ assert.match(selection,/LineTraceTestByChannel\(/);
+ assert.match(selection,/if \(Nearest\) Nearest->TryActivate\(this\)/);
+ assert.doesNotMatch(selection,/FindActor.*Ignored/);
 });
