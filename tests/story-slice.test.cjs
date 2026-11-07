@@ -1761,7 +1761,8 @@ test('CH01 escort detour is deterministic after checkpoint reload and stops at s
   for(let i=0;i<60;i++)story.step(a,1/60,{});
   assert.equal(a.guide.x,before.x);
   assert.equal(a.guide.z,before.z);
-  assert.match(story.situation(a).guideStatus,/거리 이탈/);
+  assert.equal(a.guide.waiting,true,'remote separation physically stops the guide');
+  assert.match(story.situation(a).guideStatus,/현장 대기/);
 });
 
 test('CH01 escort arrival requires a physically open courtyard, not radius through solid cover',()=>{

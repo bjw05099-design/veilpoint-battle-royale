@@ -626,7 +626,16 @@
     // knowledge is used to manufacture an arrival.
     if(state.phase==='exit'&&state.choice==='evacuation'&&state.guide.active&&!state.guide.arrived&&!state.guide.waiting){
       const g=state.guide,dx=p.x-g.x,dz=p.z-g.z,range=Math.hypot(dx,dz);
-      if(range>1.7&&range<14){
+      // Once the captain leaves the locally navigable escort corridor, the
+      // civilian holds their actual position. The PC objective and checkpoint
+      // now reflect this physical pause rather than falsely claiming following.
+      // Resume requires returning within sight and pressing E beside the guide.
+      if(range>=14){
+        g.waiting=true;
+        state.subtitle='유수프(현지 구조단): 안내원이 뒤처져 현장에서 기다리고 있어. 직접 돌아가 동행을 재개해 줘.';
+        state.message='안내원 거리 이탈 · 현장 대기 · 접근 후 E로 재개';
+      }
+      if(!g.waiting&&range>1.7&&range<14){
         // A long physical wall can increase separation beyond 11m while
         // the guide walks around its end. Permit a bounded 14m local
         // detour only when the corridor is obstructed, and keep the
