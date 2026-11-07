@@ -1,6 +1,5 @@
 #include "VPWorldBootstrap.h"
 #include "VPPickup.h"
-#include "VPStoryGameState.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
@@ -51,6 +50,44 @@ void AVPWorldBootstrap::BeginPlay()
     // Resources below are separately spawned server-side replicated actors.
     // Native untextured fallback landscape. Replace with Nanite assets and authored maps.
     AddBlock(Ground,FVector(0,0,-70),FVector(350.f,350.f,1.3f));
+    // Branch on the replicated actor CLASS, never on the client arrival time
+    // of AVPStoryGameState; ISM instance transforms do not replicate.
+    if(IsA(AVPStoryWorldBootstrap::StaticClass()))
+    {
+        // The 7 authored mission markers lie on this unobstructed central
+        // route. Adjacent buildings convey a coastal relay/warehouse district
+        // without enclosing the physical 275cm E-interaction radii.
+        struct FCoastalBlock { FVector Center; FVector Scale; };
+        static const FCoastalBlock StoryBlocks[] = {
+            {FVector(400.f,-1100.f,185.f), FVector(2.8f,1.0f,3.8f)},
+            {FVector(1050.f,1100.f,185.f), FVector(2.8f,1.0f,3.8f)},
+            {FVector(1250.f,-1150.f,220.f), FVector(2.2f,.9f,4.5f)},
+            {FVector(2050.f,1150.f,220.f), FVector(2.2f,.9f,4.5f)},
+            {FVector(2350.f,-1100.f,145.f), FVector(1.4f,.85f,3.f)},
+            {FVector(3250.f,1150.f,145.f), FVector(1.4f,.85f,3.f)},
+            {FVector(3550.f,-1900.f,180.f), FVector(2.f,1.1f,3.7f)},
+            {FVector(3550.f,1900.f,180.f), FVector(2.f,1.1f,3.7f)},
+            // Route furniture: records and switches remain outside solid
+            // boxes, so the physical objective cylinders stay reachable.
+            {FVector(650.f,320.f,90.f), FVector(.9f,.65f,1.9f)},
+            {FVector(1700.f,-850.f,100.f), FVector(1.3f,.7f,2.f)},
+            {FVector(1700.f,850.f,100.f), FVector(1.3f,.7f,2.f)},
+            {FVector(2800.f,0.f,90.f), FVector(1.2f,.7f,1.9f)},
+            {FVector(4350.f,-1950.f,110.f), FVector(1.2f,.7f,2.3f)},
+            {FVector(4350.f,1950.f,110.f), FVector(1.2f,.7f,2.3f)}
+        };
+        for(const FCoastalBlock& Block : StoryBlocks)
+            AddBlock(Buildings,Block.Center,Block.Scale);
+        // Ordered, deterministic harbor-edge decoration; noncolliding and
+        // identical on server/client without replicating instance arrays.
+        for(int32 i=0;i<18;++i)
+        {
+            const float X=250.f+float(i)*270.f;
+            const float Y=(i%2==0?-2450.f:2450.f);
+            AddBlock(Vegetation,FVector(X,Y,145.f),FVector(.13f,.13f,2.9f));
+        }
+        return; // Story preview never spawns the random BR loot pool.
+    }
     static const FVector2D Centers[] = {
         {-8500,-7600},{7000,-7800},{-7800,7700},{8300,7600},
         {0,-10500},{-11100,400},{11400,1000},{600,10500}
@@ -75,8 +112,6 @@ void AVPWorldBootstrap::BeginPlay()
     }
     if(HasAuthority())
     {
-        // CH01 shares the native environment, not the BR resource pool.
-        if (GetWorld()->GetGameState<AVPStoryGameState>()) return;
         for(int32 i=0;i<36;++i)
         {
             const FVector Position(Random.FRandRange(-15200.f,15200.f),Random.FRandRange(-15200.f,15200.f),110.f);

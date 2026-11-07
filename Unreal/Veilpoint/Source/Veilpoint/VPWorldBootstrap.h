@@ -20,3 +20,14 @@ public:
 private:
     void AddBlock(UInstancedStaticMeshComponent* Component, FVector Location, FVector Scale);
 };
+
+/**
+ * Explicit class identity ensures clients build the CH01 preview layout even
+ * when the replicated GameState arrives after actor BeginPlay.
+ * It is a low-fidelity world blockout, not a complete authored coastal map.
+ */
+UCLASS()
+class VEILPOINT_API AVPStoryWorldBootstrap : public AVPWorldBootstrap
+{
+    GENERATED_BODY()
+};

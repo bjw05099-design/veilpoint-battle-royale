@@ -9,7 +9,8 @@ This is actual Unreal Engine C++ source, **not a built or playtested UE5 executa
 - Select `VPStoryGameMode` in the Unreal Editor's **World Settings → GameMode Override** for an authorized non-release test map. For the stock Engine Entry map, the existing fallback PlayerStart provides an initial pawn.
 - `VPStoryGameState` replicates the objective phase and which two records have been physically inspected. `VPStoryMarker` is a replicated, server-validated physical interaction, reachable with the existing PC E input.
 - First native story path: local relay → two distinct on-site records → choose south/east route → reach matching local exit. This is a **minimal objective state machine**; it is not the existing rich browser CH01 mission or a 12-hour authored campaign.
-- Story markers are visible native placeholder geometry at measured coordinates within the existing bootstrap preview environment. The story uses a CH01 HUD and excludes BR-zone/supply UI. It does not ship an authored harbor `.umap` or production assets.
+- Story markers are visible native placeholder geometry within a **separate class-identified coastal blockout** (`AVPStoryWorldBootstrap`), rather than relying on the client receiving `GameState` before world `BeginPlay`. The same static instance layout is built on server and clients from the replicated actor class. Its fourteen measured relay / archive / courtyard structures and eighteen noncolliding edge props avoid the seven physical mission stations. It excludes random BR loot and does not change the BR default world.
+- The story uses a CH01 HUD and excludes BR-zone/supply UI. This is still a prototype built from built-in cubes; it does **not** ship an authored harbor `.umap`, believable finished art, traffic, civilian performances or production assets.
 
 ## Release gates and known limitations
 
