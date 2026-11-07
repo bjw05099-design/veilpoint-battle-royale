@@ -107,6 +107,19 @@ void AVPHUD::DrawHUD()
             if (!IsValid(Target) || !Target->IsAvailable()) continue;
             const float DistanceSq = FVector::DistSquared(Position, Target->GetActorLocation());
             if (DistanceSq >= NearestVisibleSq) continue;
+            // An unobstructed object behind the player is not visually
+            // observed. Require a true camera projection inside this exact
+            // PC viewport before calling the objective "visible".
+            const FVector ToTarget=Target->GetActorLocation()-Eye;
+            if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), ToTarget) <= 0.f)
+                continue;
+            FVector2D Screen;
+            if (!PlayerOwner->ProjectWorldLocationToScreen(
+                    Target->GetActorLocation(),Screen,false) ||
+                !FMath::IsFinite(Screen.X) || !FMath::IsFinite(Screen.Y) ||
+                Screen.X < 0.f || Screen.Y < 0.f ||
+                Screen.X >= Canvas->ClipX || Screen.Y >= Canvas->ClipY)
+                continue;
             FCollisionQueryParams Query(SCENE_QUERY_STAT(VPStoryHudVisibility), true, Pawn);
             Query.AddIgnoredActor(Target);
             if (World->LineTraceTestByChannel(Eye, Target->GetActorLocation(),
