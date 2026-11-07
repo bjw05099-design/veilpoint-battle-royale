@@ -67,6 +67,6 @@ test('PC scene uses public dusk illumination and a host-authored lighting label'
  assert.match(client,/state\?\.lighting==='dusk' \? '#111c21'/);
  assert.match(client,/state\.lighting==='dusk'\?'해질녘/);
  assert.match(host,/VEILPOINT_LIGHTING/);
- assert.match(host,/createTeamServer\(\{targetScore,objectiveSite,lighting,suddenDeath\}\)/);
+ assert.match(host,/createTeamServer\(\{targetScore,objectiveSite,lighting,suddenDeath,seriesTargetWins\}\)/);
  assert.match(host,/VEILPOINT_SUDDEN_DEATH/);
 });
