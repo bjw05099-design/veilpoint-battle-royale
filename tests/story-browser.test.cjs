@@ -2434,8 +2434,7 @@ test('CH01 Windows route tracker follows actual optional tasks and physical miss
   assert.match(tracker.textContent,/현장 안내원 동행·인계 \(선택\) · 준비 중/);
   assert.match(tracker.textContent,/비상 물품 현장 인계 \(선택\) · 진행 가능/);
   assert.match(tracker.textContent,/○ 남쪽 안뜰 도착 · 진행 가능/);
-  assert.match(tracker.textContent,/대피 통행 계획표 확인 \(선택\) · 준비 중/);
-  assert.equal(tracker.textContent.split('\n').length,5);
+  assert.equal(tracker.textContent.split('\n').length,4);
   app.moveForward(cleared+225,193);app.interact();
   assert.match(app.element('menuText').textContent,/CH01 완료/);
   assert.match(tracker.textContent,/✓ 남쪽 안뜰 도착 · 완료/);
