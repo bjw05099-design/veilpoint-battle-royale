@@ -21,7 +21,7 @@ test('CH01 worker is a physically walking, finite local civilian, not an objecti
  assert.ok(state.world.elapsed>2);
  assert.notEqual(Story.serialize(state),source);
 });
-test('worker reverses at real endpoints and respects nearby player's solid body',()=>{
+test("worker reverses at real endpoints and respects nearby player's solid body",()=>{
  const state=Story.createState(),w=state.worker,p=state.world.player;
  for(let i=0;i<900;i++){
   Story.step(state,1/60,{});
