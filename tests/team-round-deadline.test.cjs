@@ -123,7 +123,7 @@ test('both HTTP clients receive the same server-owned timeout and countdown', as
       assert.equal(snapshot.phase, 'ended');
       assert.equal(snapshot.reason, 'time_limit');
       assert.equal(snapshot.winner, null);
-      assert.deepEqual(snapshot.round, {limitTicks: ROUND_LIMIT_TICKS, remainingTicks: 0});
+      assert.deepEqual(snapshot.round, {id: 1, limitTicks: ROUND_LIMIT_TICKS, remainingTicks: 0});
     }
   } finally {
     await server.close();
