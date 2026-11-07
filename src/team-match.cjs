@@ -17,9 +17,13 @@ const CAPTURE_RADIUS = 2.6;
 const RELAY_SITES=Object.freeze({
   center:Object.freeze({x:0,z:0}),
   north:Object.freeze({x:0,z:-3.2}),
-  south:Object.freeze({x:0,z:3.2})
+  south:Object.freeze({x:0,z:3.2}),
+  // Permanent lateral consoles make wide rotation a real traversal variant.
+  east:Object.freeze({x:3.8,z:0}),
+  west:Object.freeze({x:-3.8,z:0})
 });
 const ROTATING_RELAY_ORDER=Object.freeze(['center','north','south']);
+const WIDE_RELAY_ORDER=Object.freeze(['center','north','south','east','west']);
 const CAPTURE_SECONDS = 2;
 const WIN_SCORE = 3;
 // The local competitive round has a deterministic 5-minute simulation deadline.
@@ -128,12 +132,12 @@ class TeamMatch {
     // Host-selected, finite match format. The server owns this target for the
     // entire round; client JSON cannot shorten or prolong the match.
     if(![1,3,5].includes(targetScore))throw new RangeError('invalid_target_score');
-    if(objectiveSite!=='rotation'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
+    if(objectiveSite!=='rotation'&&objectiveSite!=='rotation-wide'&&!Object.prototype.hasOwnProperty.call(RELAY_SITES,objectiveSite))
       throw new RangeError('invalid_objective_site');
     this.targetScore = targetScore;
     this.objectiveSite=objectiveSite;
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[objectiveSite==='rotation'?'center':objectiveSite];
+    this.objective=RELAY_SITES[objectiveSite==='rotation'||objectiveSite==='rotation-wide'?'center':objectiveSite];
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.players = new Map();
@@ -145,7 +149,7 @@ class TeamMatch {
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[this.objectiveSite==='rotation'?'center':this.objectiveSite];
+    this.objective=RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -501,7 +505,7 @@ class TeamMatch {
     this.score = {red: 0, blue: 0};
     this.progress = {red: 0, blue: 0};
     this.objectiveStage=0;
-    this.objective=RELAY_SITES[this.objectiveSite==='rotation'?'center':this.objectiveSite];
+    this.objective=RELAY_SITES[this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'?'center':this.objectiveSite];
     this.ticks = 0;
     this.winner = null;
     this.reason = null;
@@ -753,13 +757,15 @@ class TeamMatch {
       // A held key/HTTP renewal cannot re-arm until a release arrives.
       for (const p of nearby) if (p.team === team) p.captureArmed = false;
       if (this.score[team] >= this.targetScore) this.finish(team, 'objective_score');
-      else if(this.objectiveSite==='rotation'){
+      else if(this.objectiveSite==='rotation'||this.objectiveSite==='rotation-wide'){
         // Transmission permission transfers to an EXISTING fixed terminal.
         // The fixtures stay physically installed throughout the round.
         // The operator must release E and move to the next pad;
         // existing input leases and captureArmed=false prevent banked score.
-        this.objectiveStage=(this.objectiveStage+1)%ROTATING_RELAY_ORDER.length;
-        this.objective=RELAY_SITES[ROTATING_RELAY_ORDER[this.objectiveStage]];
+        const sequence=this.objectiveSite==='rotation-wide'
+          ?WIDE_RELAY_ORDER:ROTATING_RELAY_ORDER;
+        this.objectiveStage=(this.objectiveStage+1)%sequence.length;
+        this.objective=RELAY_SITES[sequence[this.objectiveStage]];
         this.recordPublicEvent('relay_shift');
       }
     }
@@ -804,7 +810,8 @@ class TeamMatch {
       // Public objective target from the same authoritative round rules.
       // A client must not guess match length or infer a victory from a timer.
       targetScore: this.targetScore,
-      relayVariant:this.objectiveSite==='rotation'?'rotation':'fixed',
+      relayVariant:this.objectiveSite==='rotation-wide'?'rotation-wide':
+        this.objectiveSite==='rotation'?'rotation':'fixed',
       // Across rematches only; reset when either local seat changes owner.
       series: {...this.series},
       progress: {...this.progress}, winner: this.winner, reason: this.reason,
@@ -815,7 +822,11 @@ class TeamMatch {
       // changes which existing terminal is authorized, never teleports metal.
       objective: {x: this.objective.x, z: this.objective.z,
         radius: CAPTURE_RADIUS, requiredSeconds: CAPTURE_SECONDS,
-        stations: ROTATING_RELAY_ORDER.map(id=>({
+        stations: (this.objectiveSite==='rotation-wide'
+          ? WIDE_RELAY_ORDER
+          : this.objectiveSite==='east'||this.objectiveSite==='west'
+            ? [...ROTATING_RELAY_ORDER,this.objectiveSite]
+            : ROTATING_RELAY_ORDER).map(id=>({
           id,x:RELAY_SITES[id].x,z:RELAY_SITES[id].z,
           active:RELAY_SITES[id]===this.objective
         }))}, cover: COVER, weather,
