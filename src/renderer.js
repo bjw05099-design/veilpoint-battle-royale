@@ -289,6 +289,17 @@ class Renderer {
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='dock-breakwater'){
+   // Visible solid waterfront walls use precisely the BR AABB footprints.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.31,.37,.39]);
+   m.box(o.x,o.h-.25,o.z,o.w,.35,o.d,[.44,.48,.48]);
+   return;
+  }
+  if(o.type==='dock-bollard'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.35,.35,.31]);
+   m.box(o.x,o.h-.2,o.z,o.w+.25,.3,o.d+.25,[.55,.48,.32]);
+   return;
+  }
   if(o.type==='dock-warehouse'){
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.35,.36,.34]);
    m.box(o.x,o.h-.18,o.z,o.w+.4,.3,o.d+.4,[.23,.26,.27]);
