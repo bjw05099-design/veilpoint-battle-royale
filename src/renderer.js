@@ -327,7 +327,8 @@ class Renderer {
  sim.obstacles.forEach((o,i)=>{
   // A sliding gate must not remain as a solid closed panel in the static mesh:
   // it is drawn once from the live world by the dynamic geometry planner.
-  if(o.routeId==='br-service-gate'||o.routeId==='br-dock-handcart'||o.routeId==='br-yard-shuttle')return;
+  if(o.routeId==='br-service-gate'||o.routeId==='br-dock-handcart')return;
+  if(o.routeId==='br-yard-shuttle')return;
   if(o.type==='yard-fence'){
    if(this.sceneMode==='br')m.box(o.x,0,o.z,o.w,o.h,o.d,[.23,.30,.29]);
    return;
