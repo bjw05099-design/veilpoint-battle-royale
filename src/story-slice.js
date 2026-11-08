@@ -149,7 +149,7 @@
       subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요하고, 유수프 구조단이 주민 대피 지원을 요청했습니다.'})
   ]);
   function openingBeat(state){
-    if(!state||state.phase!=='terminal'||
+    if(!state||!['terminal','engagement'].includes(state.phase)||
       !Number.isFinite(state.world?.elapsed)||state.world.elapsed<0)return null;
     const beat=OPENING_BEATS.find(b=>state.world.elapsed<b.until);
     return beat?Object.freeze({location:beat.location,subtitle:beat.subtitle}):null;
