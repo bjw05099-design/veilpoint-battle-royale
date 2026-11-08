@@ -47,3 +47,16 @@ test('full historical background remains documented, without being forced into t
  assert.match(guide,/실재의 역사/);
  assert.match(guide,/허구의 사건/);
 });
+
+test('2015-era playable scenes contain no already-completed 2019/2022 events',()=>{
+ const active=fs.readFileSync(path.resolve(__dirname,'../src/story-slice.js'),'utf8');
+ assert.doesNotMatch(active,/2019년|2022년/,
+   'later historical agreements and ceasefires belong only to out-of-game reference');
+ assert.doesNotMatch(active,/2015년 이후|2015년부터/,
+   '2015 must be the current crisis, not distant past');
+ // The historical guide can retain a longer factual 1990-2022 timeline for
+ // future chapters and reference, but the current chapter must respect its date.
+ const guide=fs.readFileSync(path.resolve(__dirname,'../docs/VEILPOINT_STORY_HISTORICAL_DRAMA_KO.md'),'utf8');
+ assert.match(guide,/2019/);
+ assert.match(guide,/2022/);
+});
