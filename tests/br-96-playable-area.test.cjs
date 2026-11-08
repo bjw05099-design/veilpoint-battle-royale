@@ -23,7 +23,13 @@ test('round boundary is a deterministic 60Hz scheduled play region, not a physic
   const area=brPlayableArea(tick);
   assert.equal(area.stage,phase);
   assert.ok(Math.abs(area.radius-radius)<1e-7,'radius at '+tick);
-  assert.equal(area.cx,0);assert.equal(area.cz,0);
+  const center=tick<3600?{cx:0,cz:0}:
+    tick<6300?{cx:12*(tick-3600)/2700,cz:-6*(tick-3600)/2700}:
+    tick<7500?{cx:12,cz:-6}:
+    tick<10200?{cx:12-24*(tick-7500)/2700,cz:-6+15*(tick-7500)/2700}:
+    {cx:-12,cz:9};
+  assert.ok(Math.abs(area.cx-center.cx)<1e-9,'server center x at '+tick);
+  assert.ok(Math.abs(area.cz-center.cz)<1e-9,'server center z at '+tick);
   assert.ok(Object.isFrozen(area));
   assert.ok(area.ticksUntilChange===null||area.ticksUntilChange>0);
  }
@@ -59,7 +65,7 @@ test('server-owned boundary warns human players without invented deaths or rank 
   'time outside the marked area stops increasing as soon as player is inside');
  assert.equal(positionInArea(area,0,0).outside,false);
  assert.equal(positionInArea(area,135,0).outside,true);
- assert.equal(positionInArea(area,area.radius,0).outside,false);
+ assert.equal(positionInArea(area,area.cx+area.radius,area.cz).outside,false);
  for(const invalid of [null,{radius:0,cx:0,cz:0}])
   assert.throws(()=>positionInArea(invalid,0,0),/invalid_area_position/);
  assert.equal(Object.hasOwn(w,'setPlayableArea'),false,
