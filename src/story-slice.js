@@ -73,6 +73,11 @@
   // Sim.makeObstacles and reused by both BR and this story chapter.
   const CIVIC_COURTYARD=Object.freeze({x:77,z:125,arrivalRadius:4.1});
   const newWorker=()=>({x:WORKER_PATH.minX,z:WORKER_PATH.z,direction:1});
+  // A local resident, not an escort or an extra mission objective, decides to
+  // walk to the staffed south courtyard once the immediate danger has cleared.
+  // Position and arrival are saved; time cannot teleport this person to safety.
+  const CIVILIAN_WALK=Object.freeze({x:-2,startZ:-46,endZ:-58,speed:1.25});
+  const newCivilianWalker=()=>({x:CIVILIAN_WALK.x,z:CIVILIAN_WALK.startZ,arrived:false});
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
       alive:!disabled,angle:Math.PI,moveTime:999,actionTime:999,skill:0,
@@ -376,7 +381,7 @@
       passageWarningHeard:false,transportVan:null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'김도겸 중사(무전): 대위님, 한국에서 출국하기 전에 받은 파견 지시는 현지 연락망 확인과 구호 인력 지원이었습니다. 우리가 도착한 뒤 내전이 예상보다 빠르게 번졌고, 귀환 경로도 불확실해졌습니다. 유수프 구조단이 주민 대피 지원을 요청하고 있습니다.',message:'CH01 / 마지막 방송 · 예상 밖 내전 격화'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -456,6 +461,7 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
+    state.world.civilianWalker=state.civilianWalker;
     syncCivilianShuttle(state);
     state.world.witness=(['exit','complete'].includes(state.phase)&&
       (state.choice==='evacuation'||state.transportContact>0))
@@ -708,6 +714,10 @@
       const w=state.worker,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
+    if(state.civilianWalker){
+      const w=state.civilianWalker,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     // The guide remains a solid person while waiting at muster and after
     // the physical handoff, not an intangible prop when following stops.
     if(state.choice==='evacuation'&&state.musterConfirmed){
@@ -795,6 +805,29 @@
         // Never drift off the authored path due to floating point movement.
         w.x=clamp(w.x,WORKER_PATH.minX,WORKER_PATH.maxX);
         if(Math.abs(w.x-start)<1e-8)w.x=start;
+      }
+    }
+    // Independent local agency: the resident does not wait for the captain
+    // to accept a repeated escort quest. Only the physically cleared encounter
+    // begins their autonomous walk along the public pavement. Bodies in the
+    // way stop real movement; the 60Hz step never moves through scenery.
+    if(state.civilianWalker&&!state.civilianWalker.arrived&&state.combat.cleared&&
+       ['records','decision','exit'].includes(state.phase)){
+      const w=state.civilianWalker,start=w.z;
+      const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
+      if(state.choice==='evacuation'&&state.guide.active&&!state.guide.released)
+        bodies.push({x:state.guide.x,z:state.guide.z,w:1.1,d:1.1});
+      Sim.moveEntity(w,0,-CIVILIAN_WALK.speed,t,
+        state.world.obstacles.concat(bodies,actorBlockers(state)),.55);
+      w.z=Math.max(CIVILIAN_WALK.endZ,Math.min(start,w.z));
+      if(w.z<=CIVILIAN_WALK.endZ+1e-8){
+        w.z=CIVILIAN_WALK.endZ;w.arrived=true;
+        // Do not provide a magical remote notification across the map.
+        if(Math.hypot(p.x-w.x,p.z-w.z)<12&&
+           !Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles)){
+          state.subtitle='남쪽 주민: 구조단이 관리하는 안뜰까지 걸어서 도착했어요. 다른 주민들의 상황은 아직 몰라요.';
+          state.message='현지 주민 1명 보행 도착 · 다른 주민 대피 완료 여부는 미확인';
+        }
       }
     }
     // The optional local evacuation guide follows at walking speed, within
@@ -1484,7 +1517,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+      driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
@@ -1557,6 +1590,7 @@
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
+      civilianWalker:state.civilianWalker?{x:state.civilianWalker.x,z:state.civilianWalker.z,arrived:state.civilianWalker.arrived}:null,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
@@ -1579,8 +1613,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+26||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan').includes(k))||
+      Object.keys(data).length>expectedKeys.length+27||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1644,6 +1678,16 @@
         data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
         Math.abs(data.worker.z-WORKER_PATH.z)>1e-8||
         ![-1,1].includes(data.worker.direction)))||
+      (hasOwn(data,'civilianWalker')&&(
+        !data.civilianWalker||typeof data.civilianWalker!=='object'||Array.isArray(data.civilianWalker)||
+        Object.keys(data.civilianWalker).sort().join(',')!=='arrived,x,z'||
+        data.civilianWalker.x!==CIVILIAN_WALK.x||
+        !Number.isFinite(data.civilianWalker.z)||
+        data.civilianWalker.z<CIVILIAN_WALK.endZ||data.civilianWalker.z>CIVILIAN_WALK.startZ||
+        typeof data.civilianWalker.arrived!=='boolean'||
+        data.civilianWalker.arrived!==(data.civilianWalker.z===CIVILIAN_WALK.endZ)||
+        (['terminal','engagement','failed'].includes(data.phase)&&
+          data.civilianWalker.z!==CIVILIAN_WALK.startZ)))||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
       (hasOwn(data,'aidDelivered')&&typeof data.aidDelivered!=='boolean')||
       (hasOwn(data,'aidStaged')&&typeof data.aidStaged!=='boolean')||
@@ -1842,6 +1886,7 @@
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
     state.worker=hasOwn(data,'worker')?(data.worker===null?null:{...data.worker}):null;
     state.workerInterviewed=hasOwn(data,'workerInterviewed')?data.workerInterviewed:false;
+    state.civilianWalker=hasOwn(data,'civilianWalker')?{...data.civilianWalker}:newCivilianWalker();
     state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true,
        waiting:data.guide.waiting===true}:
       {active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z};
