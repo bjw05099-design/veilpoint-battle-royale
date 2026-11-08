@@ -80,6 +80,22 @@ void AVPHUD::DrawHUD()
         DrawText(TEXT("LOCAL STORY PROTOTYPE | E: INTERACT | J: FIELD NOTES"),
                  FLinearColor(.78f,.87f,.92f,1.f),
                  X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
+        // Three short temporal briefing/arrival beats for a FRESH story only.
+        // They occupy an unobtrusive, bounded lower-screen strip, without
+        // blocking keyboard movement, interaction, aim or saving. A restored
+        // checkpoint never restarts the captain's Korea pre-departure story.
+        const FString OpeningLocation = Story->GetOpeningLocation();
+        if (!OpeningLocation.IsEmpty())
+        {
+            const float IntroTop=Canvas->ClipY-90.f*Scale;
+            const float IntroWidth=FMath::Min(Canvas->ClipX-2.f*X,940.f*Scale);
+            DrawRect(FLinearColor(.035f,.09f,.11f,.93f),
+                     X,IntroTop,IntroWidth,77.f*Scale);
+            DrawText(OpeningLocation,FLinearColor(.90f,.85f,.67f,1.f),
+                     X+10.f*Scale,IntroTop+9.f*Scale,nullptr,.77f*Scale,false);
+            DrawText(Story->GetOpeningDialogue(),FLinearColor(.86f,.94f,.91f,1.f),
+                     X+10.f*Scale,IntroTop+39.f*Scale,nullptr,.74f*Scale,false);
+        }
         // A player-controlled, local-only notebook: no cursor/omniscient
         // world marker, no gameplay-state mutation and no client-authority RPC.
         // Only facts already replicated as physically inspected are readable.
