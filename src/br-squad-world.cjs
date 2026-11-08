@@ -17,6 +17,10 @@ const REGROUP_RADIUS_METERS=12;
 // 10-second presence window is only a reconnect diagnostic; a stale
 // connection never silently eliminates a human squad or awards a rank.
 const PRESENCE_STALE_TICKS=10*60;
+// An announced gameplay boundary has an explicit server-only, consecutive
+// 8-second grace. Crossing outside is not instantly fatal; re-entering resets
+// only the consecutive counter, not the historical exposure statistic.
+const BOUNDARY_GRACE_TICKS=8*60;
 const OFFSETS=Object.freeze([[-4,-3],[0,-3],[4,-3],[-4,3],[0,3],[4,3]]);
 class BrSquadWorld {
   constructor(lobby,seed=20261108){
@@ -61,7 +65,8 @@ class BrSquadWorld {
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
-          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,outsideAreaTicks:0,
+          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
+          outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,sprintDepleted:false,spectateSlot:null});
       }
     }
@@ -224,6 +229,7 @@ class BrSquadWorld {
       }
     }
     const area=brPlayableArea(this.tick);
+    const expired=[];
     for(const {actor,next,running} of proposals){
       // A blocked body did not run. Only actual server-measured travel consumes
       // stamina, even when a wall or another player interrupts a sprint.
@@ -236,7 +242,47 @@ class BrSquadWorld {
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
-      if(positionInArea(area,next.x,next.z).outside)actor.outsideAreaTicks++;
+      if(positionInArea(area,next.x,next.z).outside){
+        actor.outsideAreaTicks++;
+        actor.outsideStreakTicks++;
+        if(actor.outsideStreakTicks>=BOUNDARY_GRACE_TICKS)expired.push(actor);
+      }else actor.outsideStreakTicks=0;
+    }
+    // Evaluate all same-tick boundary expirations as ONE authoritative event.
+    // Sequential withdraw() calls could otherwise invent a champion midway
+    // through a simultaneous elimination, so batch ties must remain ties.
+    if(expired.length){
+      for(const actor of expired){
+        actor.eligible=false;
+        actor.direction={x:0,z:0};
+        if(this.squadSignals.get(actor.team)?.authorId===actor.id)
+          this.squadSignals.delete(actor.team);
+      }
+      const surviving=Array(SQUADS).fill(0);
+      for(const actor of this.actors.values())if(actor.eligible)surviving[actor.team]++;
+      const eliminated=[];
+      for(let team=0;team<SQUADS;team++){
+        if(!surviving[team]&&this.placements[team]===null){
+          eliminated.push(team);
+          this.squadSignals.delete(team);
+        }
+      }
+      if(eliminated.length){
+        const tiedRank=this.activeSquads-eliminated.length+1;
+        for(const team of eliminated)this.placements[team]=tiedRank;
+        this.activeSquads-=eliminated.length;
+        if(this.activeSquads<=1){
+          this.phase='finished';
+          // There is no fabricated sole champion if all remaining squads
+          // retire on the same tick: their placement is an honest shared tie.
+          if(this.activeSquads===1){
+            const champion=surviving.findIndex((count,team)=>count>0&&
+              this.placements[team]===null);
+            if(champion<0)throw new Error('missing_winning_squad');
+            this.placements[champion]=1;
+          }
+        }
+      }
     }
   }
   snapshot(token){
@@ -251,6 +297,8 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
+        boundaryGraceTicksRemaining:p.eligible&&positionInArea(playableArea,p.x,p.z).outside
+          ?Math.max(0,BOUNDARY_GRACE_TICKS-p.outsideStreakTicks):BOUNDARY_GRACE_TICKS,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
     }
     // A withdrawn viewer has no free-flying camera: they can inspect the
@@ -299,10 +347,13 @@ class BrSquadWorld {
         sprintHeld:me.sprintHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
         outsideAreaTicks:me.outsideAreaTicks,
+        boundaryGraceTicksRemaining:me.eligible&&positionInArea(playableArea,me.x,me.z).outside
+          ?Math.max(0,BOUNDARY_GRACE_TICKS-me.outsideStreakTicks):me.eligible?BOUNDARY_GRACE_TICKS:null,
         connection:me.eligible&&this.tick-me.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale',
         placement:this.placements[me.team]},squad:mates,visible:seen};
   }
 }
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
-  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS};
+  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
+  BOUNDARY_GRACE_TICKS};
