@@ -208,16 +208,6 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
        ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
    }
-   if(req.method==='POST'&&url.pathname==='/route-vote'){
-    if(!world)return send(res,409,{error:'round_not_started'});
-    const body=await readJson(req,96,bodyTimeoutMs);
-    if(!body||typeof body!=='object'||Array.isArray(body)||
-       Object.keys(body).length!==1||typeof body.choice!=='string')
-      return send(res,400,{error:'invalid_route_vote'});
-    const result=world.voteRoute(token,body.choice);
-    return send(res,result.ok?200:409,{...result,
-      ...(result.ok?{world:world.snapshot(token)}:{})});
-   }
    if(req.method==='POST'&&url.pathname==='/handcart'){
     // Authenticate even before launch; anonymous requests never reveal round state.
     lobby.snapshot(token);
