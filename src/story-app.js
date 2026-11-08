@@ -740,6 +740,17 @@
     if(!result.ok){$('choiceHint').textContent='경로를 변경할 수 없습니다. 현장 콘솔 접근과 진행 상태를 확인하세요.';return;}
     guidanceId=null;persist();resume();
   }
+  // One completion presentation is shared by E and genuine on-foot arrival.
+  // Never claim the preview was durably completed before the save read-back.
+  function presentCompletion(){
+    const report=recordCompletion();
+    closingSceneIndex=0;
+    menuOpen(report?closingSceneText(report,0)+
+      (saveFailed?' 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다.':''):
+      'CH01 완료 — '+state.subtitle);
+    $('storyMenuAbout').textContent=report?'다음 대화 (2/'+report.closingScene.lines.length+')':
+      'CH01 설명 전체 보기';
+  }
   function interact(){
     if(!canAct()||state.phase==='complete')return;
     const result=Story.interact(state);
@@ -753,15 +764,7 @@
     audio.play(state.phase==='complete'?'complete':'interact');
     persist();
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
-    if(state.phase==='complete'){
-      const report=recordCompletion();
-      closingSceneIndex=0;
-      menuOpen(report?closingSceneText(report,0)+
-        (saveFailed?' 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다.':''):
-        'CH01 완료 — '+state.subtitle);
-      $('storyMenuAbout').textContent=report?'다음 대화 (2/'+report.closingScene.lines.length+')':
-        'CH01 설명 전체 보기';
-    }
+    if(state.phase==='complete')presentCompletion();
     updateHud();
   }
   function fire(){
@@ -1666,6 +1669,7 @@
       !Story.situation(state).eastGateOpen;
     const healthBefore=state.world.player.health;
     const guideArrivedBefore=state.guide.arrived;
+    const completeBefore=state.phase==='complete';
     const shotsBefore=running&&state.phase==='engagement'
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
@@ -1674,6 +1678,15 @@
         audio.play('shot');persistShot();
       }
     });
+    // Physical courtyard/clearance arrival is a real fixed-step CH01 ending,
+    // not a UI-only marker state. Persist it before displaying the debrief.
+    if(running&&!completeBefore&&state.phase==='complete'){
+      guidanceId=null;
+      audio.play('complete');
+      persist('현장 실제 도착');
+      presentCompletion();
+      updateHud();
+    }
     // Flush a dirty held-fire checkpoint on its bounded clock even if the
     // most recent shot happened just before the 450ms deadline.
     if(running&&shotSavePending&&state.phase==='engagement'&&
