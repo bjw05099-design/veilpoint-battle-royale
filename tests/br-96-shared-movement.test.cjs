@@ -48,7 +48,10 @@ test('real 60Hz input advances one authenticated actor without rewriting other s
  assert.equal(after.tick,15);
  assert.ok(after.self.z>before.self.z,'accepted forward intent moves only the own server character');
  assert.ok(Math.hypot(after.self.x-before.self.x,after.self.z-before.self.z)<=15*STEP*4.5+1e-7);
- assert.deepEqual(world.snapshot(token(6)).self,another.self,'other squad is not moved by foreign input');
+ const other=world.snapshot(token(6)).self;
+ assert.deepEqual([other.x,other.z,other.seq,other.eligible],
+   [another.self.x,another.self.z,another.self.seq,another.self.eligible],
+   'other squad physical pose and input sequence are unchanged by foreign intent');
  assert.equal(world.move(token(0),{seq:1,dx:-1,dz:-1}).reason,'stale_input');
  assert.equal(world.move(token(0),{seq:0,dx:1,dz:0}).reason,'stale_input');
  assert.throws(()=>world.move(token(0),{seq:2,dx:500,dz:0}),/invalid_movement/);

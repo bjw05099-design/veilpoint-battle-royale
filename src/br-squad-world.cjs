@@ -11,7 +11,10 @@ const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // Server-authored movement budget: sprint is faster but finite, with a
 // recovery threshold that prevents instant exhaustion-toggle exploits.
 const SPRINT_SPEED=6.4, CROUCH_SPEED=2.7, SPRINT_DRAIN_PER_SECOND=16;
-const STAMINA_RECOVERY_PER_SECOND=9, STAMINA_REARM=25;
+const STAMINA_RECOVERY_PER_SECOND=9, REST_RECOVERY_PER_SECOND=12.5, STAMINA_REARM=25;
+// Recovery is about exertion, never a special zone. Resting anywhere in the
+// physical map recovers faster than walking. Holding movement into a wall
+// does not count as rest, and sprinting only drains on actual displacement.
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 const REGROUP_RADIUS_METERS=12;
 // Public, fictional walking destinations. Only actual eligible squad members
@@ -90,7 +93,7 @@ class BrSquadWorld {
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
-          routeChoice:null,spectateSlot:null});
+          routeChoice:null,resting:false,spectateSlot:null});
       }
     }
   }
@@ -314,7 +317,7 @@ class BrSquadWorld {
         Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
         next.x=actor.x;next.z=actor.z;
       }
-      return {actor,next,running};
+      return {actor,next,running,wantsMove:Math.hypot(direction.x,direction.z)>1e-8};
     });
     for(let i=0;i<proposals.length;i++)for(let j=i+1;j<proposals.length;j++){
       const a=proposals[i],b=proposals[j];
@@ -325,15 +328,17 @@ class BrSquadWorld {
     }
     const area=brPlayableArea(this.tick);
     const expired=[];
-    for(const {actor,next,running} of proposals){
+    for(const {actor,next,running,wantsMove} of proposals){
       // A blocked body did not run. Only actual server-measured travel consumes
       // stamina, even when a wall or another player interrupts a sprint.
       const traveled=Math.hypot(next.x-actor.x,next.z-actor.z);
+      actor.resting=!wantsMove&&traveled<1e-8;
       if(running&&traveled>1e-8){
         actor.stamina=Math.max(0,actor.stamina-SPRINT_DRAIN_PER_SECOND*STEP);
         if(actor.stamina<=0)actor.sprintDepleted=true;
       }else{
-        actor.stamina=Math.min(100,actor.stamina+STAMINA_RECOVERY_PER_SECOND*STEP);
+        actor.stamina=Math.min(100,actor.stamina+
+          (actor.resting?REST_RECOVERY_PER_SECOND:STAMINA_RECOVERY_PER_SECOND)*STEP);
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
@@ -492,6 +497,7 @@ class BrSquadWorld {
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         surface,routeChoice:me.routeChoice,
         stamina:Math.round(me.stamina*100)/100,
+        resting:me.eligible&&me.resting,
         sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
         outsideAreaTicks:me.outsideAreaTicks,
@@ -504,4 +510,4 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS};
+  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS,REST_RECOVERY_PER_SECOND};

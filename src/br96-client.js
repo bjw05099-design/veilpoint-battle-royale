@@ -145,7 +145,7 @@ function render(){
      ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
    (w?'\n서버 틱 '+w.tick+' · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
-    '\n지구력 '+Math.round(w.self.stamina)+'/100 · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
+    '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
