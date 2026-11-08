@@ -155,11 +155,11 @@
   // 10 seconds of genuine 60Hz playable CH01 time show the scenes once.
   const OPENING_BEATS=Object.freeze([
     Object.freeze({until:3.4,location:'출국 전 · 대한민국',
-      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획은 한국에서 확인했다. 민간 통신 협력과 구호 인력 지원. 그게 원래 임무다.'}),
+      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했다. 민간 통신 협력과 구호 인력 지원. 그게 원래 임무다.'}),
     Object.freeze({until:6.8,location:'도착 · 가상 해안 도시 나흐린',
-      subtitle:'김지윤(현지 합류): 유수프 구조단이 현장 판단을 맡습니다. 우린 연락망을 점검하고 계획대로 복귀할 예정입니다.'}),
+      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정은 그대로입니다. 현장 판단은 유수프 구조단이 맡습니다.'}),
     Object.freeze({until:10.2,location:'도착 후 · 예상 밖 상황 변화',
-      subtitle:'조현지(현장 무전): 도착 후 충돌이 갑자기 확대됐습니다. 복귀 경로부터 재확인해야 합니다. 주민 이동은 유수프 구조단이 결정합니다.'})
+      subtitle:'조현지(현장 무전): 도착 후 충돌이 예상보다 빠르게 확대됐습니다. 복귀 경로를 재확인하고, 주민 이동은 유수프 구조단과 협의하겠습니다.'})
   ]);
   function openingBeat(state){
     if(!state||!['terminal','engagement'].includes(state.phase)||
