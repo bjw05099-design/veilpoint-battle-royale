@@ -77,7 +77,8 @@
   const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
   // CH01 civilian harbor worker traverses one small publicly reachable
   // sidewalk at walking speed. No military intelligence or courier objective.
-  const WORKER_PATH=Object.freeze({minX:20,maxX:28,z:-12,speed:1.05,radius:.55});
+  const WORKER_PATH=Object.freeze({minX:20,maxX:28,z:-12,safeZ:-8,
+    speed:1.05,shelterSpeed:1.0,radius:.55});
   // A civilian-owned shuttle approaches on an original public harbor road.
   // Arrival is an observed physical fact, not proof of completed evacuation.
   const CIVILIAN_SHUTTLE=Object.freeze({x:10,startZ:-82,endZ:-64,w:2.4,d:3.8,h:2.35,speed:1.5});
@@ -963,6 +964,27 @@
         w.x=clamp(w.x,WORKER_PATH.minX,WORKER_PATH.maxX);
         if(Math.abs(w.x-start)<1e-8)w.x=start;
       }
+      // A voluntarily interviewed civilian decides to leave the exposed
+      // pavement for a nearby open street. They must first reach the
+      // sidewalk corner on foot. This is a real 60Hz actor movement,
+      // not a teleport, a new escort mission or a distant HUD marker.
+      if(state.workerInterviewed&&state.combat.cleared&&
+         w.x>=WORKER_PATH.maxX-1e-6&&w.z<WORKER_PATH.safeZ){
+        const before=w.z;
+        const solids=state.world.obstacles.concat(
+          {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
+        Sim.moveEntity(w,0,Math.min(WORKER_PATH.shelterSpeed,
+          (WORKER_PATH.safeZ-w.z)/t),t,solids,WORKER_PATH.radius);
+        w.z=clamp(w.z,before,WORKER_PATH.safeZ);
+        if(before<WORKER_PATH.safeZ&&w.z>=WORKER_PATH.safeZ-1e-6){
+          w.z=WORKER_PATH.safeZ;
+          if(Math.hypot(w.x-p.x,w.z-p.z)<9&&
+             !Sim.lineBlocked(w.x,w.z,p.x,p.z,state.world.obstacles)){
+            state.subtitle='항구 작업자: 사람들을 위해 통로를 비워 두겠습니다. 이 골목에서 상황을 지켜볼게요.';
+            state.message='현지 작업자 스스로 가까운 보행 공간으로 이동 완료';
+          }
+        }
+      }
     }
     // Independent local agency: the resident does not wait for the captain
     // to accept a repeated escort quest. Only the physically cleared encounter
@@ -1327,8 +1349,8 @@
       // This is testimony obtained directly from a moving person on the
       // pedestrian lane, never a remote position ping or verified timestamp.
       state.workerInterviewed=true;
-      state.subtitle='항구 작업자: 정비 구역의 조명이 잠깐 약해진 건 기억해요. 정확한 시간이나 통신 장애와의 관계는 모르겠습니다.';
-      state.message='현장 작업자 면담 완료 · 목격담은 기록과 별도 보존';
+      state.subtitle='항구 작업자: 정비 구역 조명이 잠깐 약해진 건 기억해요. 정확한 시간은 모르겠습니다. 이곳을 비우고 가까운 보행 골목으로 직접 이동하겠습니다.';
+      state.message='현지 작업자 면담 · 주민이 스스로 가까운 보행 공간 이동을 결정';
       syncMarkers(state);
       return {ok:true,event:'harbor_worker_interview',phase:state.phase};
     }
@@ -1932,7 +1954,13 @@
         Object.keys(data.worker).sort().join(',')!=='direction,x,z'||
         !Number.isFinite(data.worker.x)||!Number.isFinite(data.worker.z)||
         data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
-        Math.abs(data.worker.z-WORKER_PATH.z)>1e-8||
+        (data.workerInterviewed===true&&
+          ['records','decision','exit','complete'].includes(data.phase)
+          ?data.worker.z<WORKER_PATH.z-1e-8||
+            data.worker.z>WORKER_PATH.safeZ+1e-8||
+            (data.worker.z>WORKER_PATH.z+1e-8&&
+              data.worker.x<WORKER_PATH.maxX-1e-6)
+          :Math.abs(data.worker.z-WORKER_PATH.z)>1e-8)||
         ![-1,1].includes(data.worker.direction)))||
       (hasOwn(data,'civilianRerouted')&&typeof data.civilianRerouted!=='boolean')||
       (data.civilianRerouted===true&&!hasOwn(data,'civilianWalker'))||
