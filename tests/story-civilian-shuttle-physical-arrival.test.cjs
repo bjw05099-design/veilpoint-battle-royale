@@ -5,6 +5,7 @@ const Story=require('../src/story-slice.js');
 const Journal=require('../src/field-journal.js');
 const Comms=require('../src/story-comms.js');
 const go=(s,id)=>{s.world.player.x=Story.POINTS[id].x;s.world.player.z=Story.POINTS[id].z;};
+const SimBlocked=(p,body)=>require('../src/simulation.js').blocked(p.x,p.z,.9,[body]);
 function southRoute(){
  const s=Story.createState();go(s,'terminal');
  assert.equal(Story.interact(s).ok,true);
@@ -47,8 +48,10 @@ test('civilian vehicle brakes for a standing person and finishes only after actu
  const s=southRoute();go(s,'transportDriver');Story.interact(s);
  s.world.player.x=10;s.world.player.z=-77;
  for(let i=0;i<360;i++)Story.step(s,1/60,{});
- assert.ok(s.transportVan.z<=-80.4,
-   'a moving vehicle cannot overlap the nearby stationary player');
+ const halted=s.world.obstacles.find(o=>o.routeId==='story-civil-transport');
+ assert.equal(SimBlocked(s.world.player,halted),false,
+   'a moving vehicle cannot overlap a nearby stationary person');
+ assert.ok(s.transportVan.z< -79.4,'vehicle must stop in front of the person');
  assert.equal(s.transportContact,1);
  s.world.player.x=0;s.world.player.z=-54;
  for(let i=0;i<1100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
@@ -78,7 +81,7 @@ test('historic interview saves stay readable and malformed vehicle completion is
   assert.throws(()=>Story.restore(JSON.stringify(forged)),RangeError);
  }
  const renderer=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
- assert.match(renderer,/type:'story-civil-transport'/);
+ assert.match(renderer,/o\.type==='story-civil-transport'/);
  assert.match(renderer,/mesh\.box\(v\.x,0,v\.z,2\.4,1\.45,3\.8/);
  assert.match(renderer,/o\.type==='story-civil-transport'\?'#657d87'/);
 });
