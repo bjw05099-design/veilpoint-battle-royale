@@ -30,6 +30,11 @@ test('the route is primary gameplay; optional reports do not become a visible ch
   assert.match(app,/tracker\.classList\.toggle\('hidden',!primary\)/);
   assert.doesNotMatch(app,/tracker\.textContent=tasks\.map\(/);
   assert.doesNotMatch(app,/report\.optionalTasks\.done\+'\/'\+report\.optionalTasks\.total/);
+  assert.match(app,/function visibleMissionMarkers\(\)/);
+  assert.match(app,/marker\.kind!=='evidence'/);
+  assert.match(app,/Math\.hypot\(marker\.x-p\.x,marker\.z-p\.z\)<=9/);
+  assert.match(app,/const publicMarkers=visibleMissionMarkers\(\)/);
+  assert.match(app,/for\(const m of visibleMissionMarkers\(\)\)/);
 });
 test('saved CH01 v2 opening generation is unchanged by flashback text and HUD presentation',()=>{
   const state=Story.createState();
