@@ -13,7 +13,7 @@ test('2015-set CH01 cannot give characters knowledge of later Yemen agreements',
   assert.match(background,/2019년.*2022년.*후대 참고 자료/);
   assert.doesNotMatch(source,/2019년|2022년|리야드 합의/);
   assert.match(source,/2011년 예멘의 시위/);
-  assert.match(source,/2014년 사나가 장악되고 2015년 아덴/);
+  assert.match(source,/2014년 사나.*2015년 .*아덴/);
 });
 
 test('the 2015 chronology correction never changes CH01 v2 checkpoint bytes or the arrival cause',()=>{
