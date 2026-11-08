@@ -54,8 +54,9 @@ test('south route authorizes only local actors, not a foreign command or a force
  assert.equal(Story.nearest(s).id,'coordinatorRequest');
  assert.equal(Story.interact(s).ok,true);
  assert.equal(s.choice,'evacuation');
- assert.match(s.subtitle,/2019년 리야드 합의/);
- assert.match(s.subtitle,/합의가 곧 통행 허가는 아니야/);
+ assert.match(s.subtitle,/2015년 아덴/);
+ assert.doesNotMatch(s.subtitle,/2019|2022|리야드 합의/);
+ assert.match(s.subtitle,/실제로 도착한 사람만 확인했다고 말할 수 있어/);
  assert.deepEqual(s.found,[]);
  assert.equal(s.guide.active,false,'dialogue never teleports or drafts a civilian');
  assert.equal(s.transportVan,null);
@@ -63,13 +64,14 @@ test('south route authorizes only local actors, not a foreign command or a force
  const saved=Story.serialize(s);
  assert.equal(Story.serialize(Story.restore(saved)),saved);
 });
-test('east route refers to separately negotiated 2022 road access without changing real gate authorization',()=>{
+test('east route stays in 2015 and uses physical gate authorization, not future treaties',()=>{
  const s=actualAfterEscalation();
  s.phase='decision';
  assert.deepEqual(s.found,[]);
  assert.equal(Story.choose(s,'verification').ok,true);
- assert.match(s.subtitle,/2022년 휴전/);
- assert.match(s.subtitle,/도로 개방은 별도 협의/);
+ assert.match(s.subtitle,/길이 열렸다는 소문과 실제로 차량이 지나갈 수 있다는 사실이 다릅니다/);
+ assert.doesNotMatch(s.subtitle,/2019|2022/);
+ assert.match(s.subtitle,/실제 통제문 작업과 현지 승인 확인/);
  assert.equal(s.gateLogReviewed,false);
  assert.equal(Story.situation(s).eastGateOpen,false);
  assert.ok(s.gateReadyAt>s.world.elapsed);
@@ -90,7 +92,8 @@ test('civilian water concerns and transport testimony follow physical dialogue, 
  s.phase='decision';assert.equal(Story.choose(s,'evacuation').ok,true);
  go(s,Story.POINTS.transportDriver.x,Story.POINTS.transportDriver.z);
  assert.equal(Story.interact(s).event,'transportDriver');
- assert.match(s.subtitle,/2022년 휴전/);
+ assert.match(s.subtitle,/길이 열렸다는 소문과 실제로 차량이 지나갈 수 있다는 사실이 다릅니다/);
+ assert.doesNotMatch(s.subtitle,/2019|2022/);
  assert.match(s.subtitle,/실제 승객 수송은 별도로 확인해야/);
  assert.ok(s.transportVan&&!s.transportVan.arrived);
  const raw=Story.serialize(s),again=Story.restore(raw);
