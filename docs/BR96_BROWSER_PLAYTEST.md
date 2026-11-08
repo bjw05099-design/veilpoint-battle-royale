@@ -102,6 +102,19 @@ remains walkable; it is still only editor/source-authored blockout, not a
 tested UE5 packaged map, a real Aden landmark, or full-sized city content.
 Native Unreal build and traversal remain unverified on the owner's PC.
 
+### Opt-in coastal ambient sound
+
+The local BR96 PC movement client now has a separate **환경음 OFF/ON**
+control over the map. The browser creates an original two-tone synthesized
+port ambience **only after the player clicks the button** during an active
+round. Sound pitch and quiet volume adapt solely to the player's own
+server-authenticated dry, wet-apron and shallow-wave status; no microphone,
+recording, third-party audio, enemy detection or browser autoplay is involved.
+The sound stops when disabled, the session ends or the page unloads. Its
+actual button hit region and keyboard focus are checked at four PC viewport
+sizes. This remains a simple synthesized ambient prototype, **not** authentic
+spatial audio, a final sound design or UE5 native audio.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next

@@ -35,7 +35,7 @@ function fixture(){
  evidence.br96Checks=sizes.map(([width,height])=>({width,height,
   requested:{width,height},errors:[],
   cases:[{name:'BR96-local-squad',controls:13,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},
-   targets:[target('name'),target('join'),target('civicGate'),target('standingsToggle')]}]}));
+   targets:[target('name'),target('join'),target('civicGate'),target('soundToggle'),target('standingsToggle')]}]}));
  return evidence;
 }
 test('complete measured geometry fixture is accepted',()=>assert.equal(validate(fixture()),true));
