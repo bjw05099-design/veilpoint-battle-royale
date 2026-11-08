@@ -36,7 +36,7 @@ test('CH01 optional nearby E request pauses one real moving civilian vehicle for
  assert.equal(Sim.blocked(s.world.player.x,s.world.player.z,.85,s.world.obstacles),false);
  const marker=Story.nearest(s);
  assert.equal(marker?.id,'transportYield');
- assert.equal(marker.x,12.3);
+ assert.ok(Math.abs(marker.x-12.3)<1e-9,'the street-side marker stays beside the real van door');
  const action=Story.interact(s);
  assert.deepEqual([action.ok,action.event],[true,'transport_yield']);
  assert.equal(s.transportVan.pauseUntil,s.world.elapsed+5);
