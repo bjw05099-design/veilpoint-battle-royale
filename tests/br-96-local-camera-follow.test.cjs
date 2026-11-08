@@ -15,12 +15,17 @@ test('BR96 local map keeps physical 350m city and uses accurate 110m server-subj
  assert.equal(nearby.mode,'follow');
  assert.equal(nearby.centerX,82);assert.equal(nearby.centerZ,-71);
  assert.equal(nearby.x(82),350);assert.equal(nearby.z(-71),350);
- assert.equal(nearby.x(92)-nearby.x(82),10*nearby.scale);
+ assert.ok(Math.abs((nearby.x(92)-nearby.x(82))-10*nearby.scale)<1e-9,
+  'floating point pixel arithmetic must be checked with geometric tolerance');
  assert.ok(nearby.scale>city.scale*3);
- assert.deepEqual(nearby.unproject(nearby.x(92),nearby.z(-63)),{x:92,z:-63});
- assert.deepEqual(nearby.rect(82,-71,6,3),{
+ const roundtrip=nearby.unproject(nearby.x(92),nearby.z(-63));
+ assert.ok(Math.abs(roundtrip.x-92)<1e-9);
+ assert.ok(Math.abs(roundtrip.z+63)<1e-9);
+ const bounds=nearby.rect(82,-71,6,3);
+ for(const [field,target] of Object.entries({
   x:350-3*nearby.scale,y:350-1.5*nearby.scale,
-  width:6*nearby.scale,height:3*nearby.scale});
+  width:6*nearby.scale,height:3*nearby.scale
+ }))assert.ok(Math.abs(bounds[field]-target)<1e-9,'geometry '+field);
  // Changing only the view does not write to the authenticated player state.
  assert.deepEqual(player,{x:82,z:-71});
 });
