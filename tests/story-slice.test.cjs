@@ -63,7 +63,9 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'terminal');
   assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
   clearEncounter(state);
-  assert.equal(story.markers(state).length,4,'distant optional records no longer appear as mandatory map objectives');
+  assert.equal(story.markers(state).length,6,'historic physical records remain reachable');
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'||m.id==='recordB'),false,
+    'only nearby records appear in the PC navigation HUD');
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(state.found.length,2);
