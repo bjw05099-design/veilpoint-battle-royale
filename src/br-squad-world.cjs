@@ -259,7 +259,13 @@ class BrSquadWorld {
       const next={x:actor.x,z:actor.z};
       const running=actor.sprintHeld&&!actor.sprintDepleted&&actor.stamina>0&&
         Math.hypot(direction.x,direction.z)>1e-8;
-      const pace=running?SPRINT_SPEED:SPEED;
+      // Reuse the very same fictional loading-apron ground truth as the
+      // offline BR, rather than giving the online 96-person map a flat,
+      // frictionless movement bonus. All locomotion remains server-owned.
+      // The shallow wash follows the authoritative 60Hz tick, not client time.
+      const terrain=Sim.wetApronFooting(actor);
+      const wash=Sim.harborWaveWash(this.tick*STEP,actor);
+      const pace=(running?SPRINT_SPEED:SPEED)*terrain.mobility*wash.mobility;
       Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
         this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
@@ -351,6 +357,13 @@ class BrSquadWorld {
     const mates=[],seen=[];
     const weather=coastalWeatherAtTick(this.tick);
     const playableArea=brPlayableArea(this.tick);
+    // Self-only footing is computed from the actor's actual server position:
+    // it is diagnostic, never a client-provided 96-person movement modifier.
+    const terrain=Sim.wetApronFooting(me);
+    const wash=Sim.harborWaveWash(this.tick*STEP,me);
+    const surface=Object.freeze({wet:terrain.wet,
+      waveActive:terrain.wet&&wash.active,
+      mobility:Math.round(terrain.mobility*wash.mobility*10000)/10000});
     const active=Array(SQUADS).fill(0);
     const participants=[...this.actors.values()];
     for(const p of participants){
@@ -411,6 +424,7 @@ class BrSquadWorld {
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        surface,
         stamina:Math.round(me.stamina*100)/100,
         sprintHeld:me.sprintHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
