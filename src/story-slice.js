@@ -1153,7 +1153,7 @@
     syncRoute(state);
     state.combat.nextPulseAt=state.world.elapsed+3;
     state.world.bots=makeHostiles();
-    state.subtitle='조현지(국정원): 도착 후 내전이 예상 밖으로 확산됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 현지 구조단의 요청을 듣고 안전한 통로를 다시 확인해야 합니다.';
+    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 현지 구조단의 요청을 듣고 안전한 통로를 다시 확인해야 합니다.';
     state.message='갑작스러운 현지 충돌 확대 · 현장 대응과 주민 보호';
     syncMarkers(state);
     return true;
