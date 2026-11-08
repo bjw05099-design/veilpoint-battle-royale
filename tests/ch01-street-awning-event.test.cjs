@@ -19,7 +19,7 @@ test('story opening changes the actual street geometry only after the unexpected
  const state=begin();
  assert.equal(state.awningFallen,true);
  assert.ok(body(state));
- assert.equal(Sim.blocked(9,-35,.85,state.world.obstacles),true,
+ assert.equal(Sim.blocked(24,-35,.85,state.world.obstacles),true,
   'the damaged public street prop must really obstruct the middle lane');
  assert.equal(Sim.blocked(0,-35,.85,[body(state)]),false,
   'the short roadside walking detour must remain unobstructed');
@@ -28,7 +28,7 @@ test('story opening changes the actual street geometry only after the unexpected
 });
 test('fixed step pedestrian collision cannot move through the fallen structure',()=>{
  const s=begin();
- const p={x:9,z:-30};
+ const p={x:24,z:-30};
  for(let i=0;i<150;i++)Sim.moveEntity(p,0,-5,1/60,s.world.obstacles);
  assert.ok(p.z>-33,'approaching straight ahead stops on actual debris');
  const alternate={x:0,z:-30};
