@@ -20,7 +20,7 @@ function fixture(){
    cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
  result.br96Checks=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],cases:[{
-  name:'BR96-local-squad',controls:10,issues:[],targets:[target('name'),target('join')]
+  name:'BR96-local-squad',controls:10,issues:[],targets:[target('name'),target('join'),target('civicGate')]
  }]}));
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
@@ -36,6 +36,13 @@ function fixture(){
 test('missing BR96 browser measurement fails closed',()=>{
  const record=fixture();delete record.br96Checks;
  assert.throws(()=>validate(record),/Missing BR96 Chromium evidence/);
+});
+test('BR96 civic gate overlay fails on blocked button pointer or focus',()=>{
+ const result=fixture();result.br96Checks[0].cases[0].targets[2].hit=false;
+ assert.throws(()=>validate(result),/BR96 pointer blocked civicGate/);
+ result.br96Checks[0].cases[0].targets[2].hit=true;
+ result.br96Checks[0].cases[0].targets[2].focused=false;
+ assert.throws(()=>validate(result),/BR96 keyboard blocked civicGate/);
 });
 test('BR96 blocked join and clipped panel fail closed',()=>{
  const record=fixture();record.br96Checks[0].cases[0].targets[1].hit=false;
