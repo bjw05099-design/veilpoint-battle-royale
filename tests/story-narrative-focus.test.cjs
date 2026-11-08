@@ -7,10 +7,10 @@ const Story=require('../src/story-slice.js');
 
 test('Korea is explicitly a predeparture flashback, not a teleport to a new playable area',()=>{
   const state=Story.createState();
-  assert.match(Story.openingBeat(state).location,/회상 · 출국 전 대한민국/);
+  assert.equal(Story.openingBeat(state).location,'출국 전 · 대한민국');
   assert.match(Story.openingBeat(state).subtitle,/정식 파견 지시와 복귀 계획을 한국에서 확인/);
   state.world.elapsed=4;
-  assert.match(Story.openingBeat(state).location,/현재 · 가상 해안 도시/);
+  assert.match(Story.openingBeat(state).location,/도착 · 가상 해안 도시/);
   state.world.elapsed=8;
   assert.match(Story.openingBeat(state).subtitle,/도착한 뒤/);
   assert.match(Story.objective(state),/가까이 접근하면 현장 상황이 바뀝니다/);
@@ -31,6 +31,7 @@ test('the route is primary gameplay; optional reports do not become a visible ch
   assert.doesNotMatch(app,/tracker\.textContent=tasks\.map\(/);
   assert.doesNotMatch(app,/report\.optionalTasks\.done\+'\/'\+report\.optionalTasks\.total/);
   assert.match(app,/function visibleMissionMarkers\(\)/);
+  assert.match(app,/opening\.location\.startsWith\('출국 전'\)\?'회상 · ':'현재 · '/);
   assert.match(app,/marker\.kind!=='evidence'/);
   assert.match(app,/Math\.hypot\(marker\.x-p\.x,marker\.z-p\.z\)<=9/);
   assert.match(app,/const publicMarkers=visibleMissionMarkers\(\)/);
