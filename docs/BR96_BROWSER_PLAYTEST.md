@@ -78,6 +78,30 @@ returns focus to the normal map. While reviewing the board, the keyboard
 movement intent is neutral, not allowed to keep steering a player off-screen.
 This is the local round prototype, not production matchmaking.
 
+### Six-person squad entry choice (new playable lobby action)
+
+Before pressing **Ready**, each of the six actual squad members can tap
+**출발 투표** to cycle between three public, original neighborhood walk-in
+approaches: the block, waterfront promenade, and residential lane. Each vote
+belongs to one authenticated human seat; another squad cannot read its
+ballots. The server counts only expressed votes, resolves tied choices in a
+stable order, and freezes the result when all 96 real human seats are ready.
+The selected approach changes each squad's actual collision-tested initial
+position **inside its assigned district** at round start; it never changes
+team membership, awards equipment, reveals opponents or teleports players
+after start. A ready member must unready to revise the vote. The unchanged
+default is the old district center, preserving existing sessions that do not
+vote. This is not parachute physics or a complete Internet lobby.
+
+### Native shared ferry-hall blockout
+
+The independent UE5 project now reproduces the seven browser/shared-world
+ferry waiting-hall collision footprints **on both native BR and CH01 sides**
+before any mode-specific actors are created. Its public northern doorway
+remains walkable; it is still only editor/source-authored blockout, not a
+tested UE5 packaged map, a real Aden landmark, or full-sized city content.
+Native Unreal build and traversal remain unverified on the owner's PC.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next

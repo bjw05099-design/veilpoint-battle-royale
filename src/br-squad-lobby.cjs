@@ -3,6 +3,15 @@ const crypto=require('node:crypto');
 // VEILPOINT BR / server-owned 96-human squad staging rules.
 // This is a real shared lobby model, NOT yet 96-player live world replication.
 const SQUADS = 16, SQUAD_SIZE = 6, CAPACITY = SQUADS * SQUAD_SIZE;
+// Original fictional staging neighborhoods. Choices are small, distinct
+// WALK-IN offsets within each squad's existing private sector, not
+// player-supplied GPS coordinates or jumps during a running match.
+const ENTRY_CHOICES=Object.freeze({
+  block:Object.freeze({dx:0,dz:0,label:'중앙 접근로'}),
+  promenade:Object.freeze({dx:8,dz:0,label:'공공 해안 보행로'}),
+  lane:Object.freeze({dx:0,dz:8,label:'주민가 골목 입구'})
+});
+const ENTRY_ORDER=Object.freeze(Object.keys(ENTRY_CHOICES));
 const SECRET = /^[a-f0-9]{64}$/;
 const INVITE = /^[a-f0-9]{32}$/;
 const INVALID_NAME = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
@@ -20,6 +29,9 @@ class BrSquadLobby {
     // An invite is a private, unguessable capability issued to an existing
     // squad member. It never contains a member's authentication token.
     this.invites = new Map();
+    // Separate optional ballot table preserves the original stable human
+    // player record shape and all legacy roster/debug consumers.
+    this.entryVotes=new Map();
   }
   invite(token) {
     const member=this.players.get(token);
@@ -66,6 +78,30 @@ class BrSquadLobby {
     if(invite)return {ok:false,reason:'squad_full'};
     throw new Error('inconsistent_squad_roster');
   }
+  voteEntry(token,choice){
+    const member=this.players.get(token);
+    if(!member)throw new RangeError('unknown_session');
+    if(this.phase!=='assembling')return {ok:false,reason:'roster_locked'};
+    if(member.ready)return {ok:false,reason:'unready_to_vote'};
+    if(typeof choice!=='string'||!Object.hasOwn(ENTRY_CHOICES,choice))
+      throw new RangeError('invalid_entry_choice');
+    this.entryVotes.set(token,choice);
+    return {ok:true,choice,decision:this.squadEntry(member.team).choice};
+  }
+  squadEntry(team){
+    if(!Number.isInteger(team)||team<0||team>=SQUADS)
+      throw new RangeError('invalid_squad');
+    const tally=Object.fromEntries(ENTRY_ORDER.map(x=>[x,0]));
+    for(const token of this.seats[team]){
+      const member=token===null?null:this.players.get(token);
+      if(member&&this.entryVotes.has(token))tally[this.entryVotes.get(token)]++;
+    }
+    // Six human members vote. Abstention never counts as a fake vote;
+    // ties favor the original central walk-in sector, then stable labels.
+    const winner=ENTRY_ORDER.reduce((best,key)=>
+      tally[key]>tally[best]?key:best,'block');
+    return {choice:winner,tally};
+  }
   ready(token, value) {
     const p = this.players.get(token);
     if (!p) throw new RangeError('unknown_session');
@@ -85,6 +121,7 @@ class BrSquadLobby {
     if (this.phase !== 'assembling') return {ok:false,reason:'roster_locked'};
     this.seats[p.team][p.slot]=null;
     this.players.delete(token);
+    this.entryVotes.delete(token);
     // A departed leader cannot continue recruiting players to their old seat.
     for(const [code,inv] of this.invites)if(inv.owner===token)this.invites.delete(code);
     return {ok:true};
@@ -101,6 +138,10 @@ class BrSquadLobby {
       throw new Error('inconsistent_squad_identity');
     this.players.delete(oldToken);
     this.players.set(newToken,player);
+    if(this.entryVotes.has(oldToken)){
+      this.entryVotes.set(newToken,this.entryVotes.get(oldToken));
+      this.entryVotes.delete(oldToken);
+    }
     this.seats[player.team][player.slot]=newToken;
     return {ok:true,playerId:player.id,squad:player.team+1,slot:player.slot+1};
   }
@@ -113,6 +154,8 @@ class BrSquadLobby {
       phase:this.phase,capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       participants:this.players.size,readyCount:ready,squadSizes:counts,
       self:{id:me.id,name:me.name,squad:me.team+1,slot:me.slot+1,ready:me.ready},
+      entry:{...this.squadEntry(me.team),selfChoice:this.entryVotes.get(token)||null,
+        options:ENTRY_ORDER.map(id=>({id,label:ENTRY_CHOICES[id].label}))},
       // A player can see their own real squad, not private opposing identities
       // or any player's secret reconnect token.
       squad:this.seats[me.team].map(token=>token===null?null:(()=>{
@@ -122,4 +165,4 @@ class BrSquadLobby {
     };
   }
 }
-module.exports={BrSquadLobby,SQUADS,SQUAD_SIZE,CAPACITY};
+module.exports={BrSquadLobby,SQUADS,SQUAD_SIZE,CAPACITY,ENTRY_CHOICES,ENTRY_ORDER};
