@@ -126,6 +126,26 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedMarketBlock& Block : SharedMarket)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // Continue the ONE shared authored public city into the ferry waiting
+    // hall. Seven street-level footprints are identical to the BR and CH01
+    // browser's current revision-1 simulation. The southern public approach
+    // and 6m northern pedestrian opening remain physically traversable, not
+    // a single sealed cube or painted portal. Construct on all clients and
+    // both modes before branching on StoryWorldBootstrap. These are original
+    // civilian forms, NOT surveyed Aden buildings or protected sites.
+    struct FSharedFerryBody { float X,Z,W,D,H; };
+    static const FSharedFerryBody SharedFerryHall[] = {
+        {-56.f,135.f,.6f,20.f,3.3f},
+        {-34.f,135.f,.6f,20.f,3.3f},
+        {-52.f,145.f,8.f,.6f,3.3f},
+        {-38.f,145.f,8.f,.6f,3.3f},
+        {-51.f,137.f,1.f,4.f,.68f},
+        {-39.f,135.f,1.f,4.f,.68f},
+        {-52.f,131.f,.65f,1.1f,1.65f}
+    };
+    for (const FSharedFerryBody& Block : SharedFerryHall)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
