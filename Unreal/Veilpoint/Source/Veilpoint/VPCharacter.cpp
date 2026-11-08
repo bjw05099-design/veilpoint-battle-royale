@@ -3,6 +3,7 @@
 #include "VPStoryMarker.h"
 #include "VPStoryGameState.h"
 #include "Camera/CameraComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
@@ -24,6 +25,16 @@ AVPCharacter::AVPCharacter()
     BodyCamera->SetRelativeLocation(FVector(11.f, 12.f, 53.f));
     BodyCamera->bUsePawnControlRotation = true;
     BodyCamera->FieldOfView = 92.f;
+    FieldLight = CreateDefaultSubobject<USpotLightComponent>(TEXT("HelmetFieldLight"));
+    FieldLight->SetupAttachment(BodyCamera);
+    FieldLight->SetRelativeLocation(FVector(8.f, 6.f, -6.f));
+    FieldLight->SetIntensity(2100.f);
+    FieldLight->SetAttenuationRadius(1250.f);
+    FieldLight->SetInnerConeAngle(16.f);
+    FieldLight->SetOuterConeAngle(32.f);
+    FieldLight->SetLightColor(FLinearColor(.94f,.95f,.84f));
+    FieldLight->SetCastShadows(true);
+    FieldLight->SetVisibility(false);
     bUseControllerRotationYaw = true;
     GetCharacterMovement()->bOrientRotationToMovement = false;
 }
@@ -36,6 +47,8 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, Stamina);
     DOREPLIFETIME(AVPCharacter, bSprinting);
     DOREPLIFETIME(AVPCharacter, bSprintExhausted);
+    DOREPLIFETIME(AVPCharacter, bFieldLightOn);
+    DOREPLIFETIME(AVPCharacter, FieldLightSecondsRemaining);
 }
 void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -50,6 +63,7 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Crouch"), IE_Released, this, &AVPCharacter::EndCrouch);
     Input->BindAction(TEXT("Tag"), IE_Pressed, this, &AVPCharacter::TryTag);
     Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::TryInteract);
+    Input->BindAction(TEXT("FieldLight"), IE_Pressed, this, &AVPCharacter::ToggleFieldLight);
 }
 void AVPCharacter::MoveForward(float Value)
 {
@@ -81,6 +95,26 @@ void AVPCharacter::ServerSetSprintHeld_Implementation(bool bHeld)
     bSprintHeld = bHeld && IsAlive();
 }
 void AVPCharacter::OnRep_SprintState() { ApplySprintSpeed(); }
+void AVPCharacter::ToggleFieldLight()
+{
+    if (!IsLocallyControlled() || !IsAlive()) return;
+    if (HasAuthority()) ServerToggleFieldLight_Implementation();
+    else ServerToggleFieldLight();
+}
+void AVPCharacter::ServerToggleFieldLight_Implementation()
+{
+    if (!HasAuthority() || !IsAlive()) return;
+    // The RPC carries no location, intensity, opponent or fake charge.
+    if (!bFieldLightOn && FieldLightSecondsRemaining <= 0.f) return;
+    bFieldLightOn = !bFieldLightOn;
+    OnRep_FieldLightState();
+    ForceNetUpdate();
+}
+void AVPCharacter::OnRep_FieldLightState()
+{
+    if (FieldLight) FieldLight->SetVisibility(IsAlive() && bFieldLightOn &&
+        FieldLightSecondsRemaining > 0.f);
+}
 void AVPCharacter::OnRep_Eliminated()
 {
     if (!bEliminated) return;
@@ -88,6 +122,8 @@ void AVPCharacter::OnRep_Eliminated()
     // guarantees that client-owned and remote simulated pawns stop too.
     bSprintHeld = false;
     bSprinting = false;
+    bFieldLightOn = false;
+    OnRep_FieldLightState();
     ApplySprintSpeed();
     GetCharacterMovement()->StopMovementImmediately();
     GetCharacterMovement()->DisableMovement();
@@ -132,6 +168,17 @@ void AVPCharacter::Tick(float DeltaSeconds)
 }
 void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
 {
+    if (bFieldLightOn)
+    {
+        FieldLightSecondsRemaining = FMath::Max(0.f, FieldLightSecondsRemaining - FixedSeconds);
+        if (FieldLightSecondsRemaining <= 1.e-6f)
+        {
+            FieldLightSecondsRemaining = 0.f;
+            bFieldLightOn = false;
+            OnRep_FieldLightState();
+            ForceNetUpdate();
+        }
+    }
     const bool bPreviouslyExhausted = bSprintExhausted;
     const bool bMoving = GetVelocity().SizeSquared2D() > FMath::Square(30.f);
     if (bSprintExhausted && Stamina >= 25.f) bSprintExhausted = false;
