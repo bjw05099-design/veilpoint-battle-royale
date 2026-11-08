@@ -38,8 +38,13 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
  };
  const advanceWorld=()=>{
   if(!world)return;
+  const beforeTick=world.tick;
   world.step();
-  if(world.tick%15!==0)return; // max four snapshots per simulated second
+  // Ended rounds stop their 60Hz simulation clock. If the last live tick
+  // happens to be a 15-tick boundary, publishing without this check would
+  // repeatedly emit the *same* terminal frame 60 times per second to 96
+  // connections. Only a genuinely advanced tick may emit an SSE frame.
+  if(world.tick===beforeTick||world.tick%15!==0)return;
   for(const [token,res] of liveStreams){
    try {publishSnapshot(token,res);}
    catch(_){liveStreams.delete(token);res.destroy();}
