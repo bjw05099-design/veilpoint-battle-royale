@@ -518,12 +518,15 @@ async function run(){
  // The route decision is a paused, script-independent authored screen. Render
  // its real markup/CSS in Chromium without starting a simulated mission.
  const storyHtml=storyOriginal.replace(/<script src="src\/[^"]+\.js"><\/script>/g,'');
+ const br96Raw=fs.readFileSync(path.join(ROOT,'br96.html'),'utf8');
+ assert.ok(br96Raw.includes('id="watchSlot"'),'BR96 spectator panel missing');
+ const br96Html=br96Raw.replace('<script src="/br96-client.js" defer></script>','');
  const completedJournal=require(path.join(ROOT,'src/field-journal.js')).entries({
   found:['recordA','recordB'],choice:'evacuation',gateLogReviewed:true,
   logHandedOff:true,musterConfirmed:true,aidPickedUp:true,aidDelivered:true,
   guide:{active:true,arrived:true,released:true}
  });
- const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[],keyboardRecords=[];
+ const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[],keyboardRecords=[],br96Records=[];
  // Windows-hosted Chrome can become unresponsive before its DevTools endpoint
  // exists. An already-installed Microsoft Edge is a Chromium/CDP alternative,
  // not a substitute for measurement or a bypass of the release gate.
@@ -872,6 +875,33 @@ async function run(){
    process.stdout.write('Chromium CH01 journal '+width+'x'+height+': '+
     data.errors.length+' clipping issues\n');
   }
+  // Test the additional BR96 16x6 multiplayer lobby screen at real
+  // Chromium viewport sizes, not merely by checking CSS string presence.
+  await rpc('Page.setDocumentContent',{frameId:tree.frameTree.frame.id,html:br96Html});
+  let br96Ready=false;
+  for(let attempt=0;attempt<100;attempt++){
+   const response=await rpc('Runtime.evaluate',{
+    expression:'document.readyState+"|"+!!document.getElementById("watchSlot")',
+    returnByValue:true});
+   if(response.result?.value==='complete|true'){br96Ready=true;break;}
+   await sleep(80);
+  }
+  if(!br96Ready)throw new Error('BR96 page did not load in real Chromium');
+  for(const [width,height] of SIZES){
+   await rpc('Emulation.setDeviceMetricsOverride',
+    {width,height,deviceScaleFactor:1,mobile:false});
+   const evaluated=await rpc('Runtime.evaluate',{
+    expression:'('+auditBr96.toString()+')();document.documentElement.getAttribute("data-vp-br96-geometry")',
+    returnByValue:true});
+   if(evaluated.exceptionDetails)throw new Error('BR96 CDP layout exception');
+   const encoded=evaluated.result?.value;
+   if(typeof encoded!=='string')throw new Error('No BR96 geometry evidence');
+   const data=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
+   assert.equal(data.width,width);assert.equal(data.height,height);
+   assert.equal(data.cases.length,1);
+   br96Records.push({requested:{width,height},...data});
+   process.stdout.write('Chromium BR96 '+width+'x'+height+': '+data.errors.length+' clipping issues\\n');
+  }
  }catch(error){
   transportFailure={message:String(error&&error.stack||error),
    browserExitCode:child.exitCode,browserSignal:child.signalCode,
@@ -881,7 +911,7 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(activeChrome),
-  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
+  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,br96Checks:br96Records,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>
@@ -890,6 +920,8 @@ async function run(){
     'CH01 menu '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...journalRecords.flatMap(r=>r.errors.map(e=>
     'CH01 journal '+r.requested.width+'x'+r.requested.height+': '+e)),
+   ...br96Records.flatMap(r=>r.errors.map(e=>
+    'BR96 '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...(transportFailure?[transportFailure.message]:[])]};
  // Preserve failure evidence even when the independent completeness audit fails.
  let evidenceError=null;
@@ -907,4 +939,4 @@ async function run(){
  console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route, 6 CH01 menu and 2 CH01 journal screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit,auditStoryRoute,auditStoryMenu,auditStoryJournal,reserveLoopbackPort};
+module.exports={audit,auditBr96,auditStoryRoute,auditStoryMenu,auditStoryJournal,reserveLoopbackPort};
