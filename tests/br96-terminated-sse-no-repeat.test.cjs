@@ -9,7 +9,11 @@ test('finished 96-human match never emits a terminal event 60x/second from its f
  const controller=new AbortController();
  try{
   for(let i=0;i<96;i++)assert.equal(host.lobby.join(token(i),'Live '+i).ok,true);
-  for(let i=0;i<96;i++)assert.equal(host.lobby.ready(token(i),true).ok,true);
+  for(let i=0;i<95;i++)assert.equal(host.lobby.ready(token(i),true).ok,true);
+  const launch=await fetch(base+'/ready',{method:'POST',headers:{
+   'content-type':'application/json','x-player-token':token(95)
+  },body:'{"ready":true}'});
+  assert.equal(launch.status,200);
   assert.ok(host.world);
   const response=await fetch(base+'/events',{headers:{
    'x-player-token':token(90),'Accept':'text/event-stream'
