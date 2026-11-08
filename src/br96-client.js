@@ -231,7 +231,7 @@ function draw(w){
    ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
    subject,yaw:streetYaw,obstacles:publicGeometry,
-   civicGate:w.civicGate,squad:w.squad||[],visible:w.visible||[],
+   civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
   return;
  }
@@ -286,7 +286,7 @@ function draw(w){
  if(w.handcart){
    const cart=w.handcart;
    ctx.fillStyle=cart.heldBySelf?'#d5bb88':'#9db2a9';
-   ctx.fillRect(x(cart.x-.7),z(cart.z-.45),1.4*scale,.9*scale);
+   ctx.fillRect(x(cart.x-cart.w/2),z(cart.z-cart.d/2),cart.w*scale,cart.d*scale);
  }
  // Only public rule geometry and the authenticated, already-filtered
  // snapshot are drawn. The client does NOT know unobserved opponents.
