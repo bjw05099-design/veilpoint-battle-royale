@@ -78,6 +78,22 @@ returns focus to the normal map. While reviewing the board, the keyboard
 movement intent is neutral, not allowed to keep steering a player off-screen.
 This is the local round prototype, not production matchmaking.
 
+### Nearby map and spectator-follow camera
+
+The local PC 2D field-test now has **M / 주변 지도** to switch between
+a 350-metre full-city map and an 110-metre neighborhood view, including an
+honest 20-metre scale bar. While playing, the view follows the authenticated
+server's own player coordinates. Once withdrawn, an eligible, explicitly
+selected teammate may be followed in the spectator view; a rival's position
+can NEVER become the camera target. The buildings, public ferry gate and
+published zone use the exact same world-to-pixel transform, so visual
+location does not drift away from server collision. Zoom is a **local display
+setting only**, with no move command, teleport, free-flying spectator camera
+or new server permission. The 1024×600 through 2560×1440 no-scroll PC
+geometry gate checks that its control is still clickable and keyboard
+focusable. Use **M** or the on-screen button to toggle; V remains the 16-squad
+results overlay.
+
 ### Six-person squad entry choice (new playable lobby action)
 
 Before pressing **Ready**, each of the six actual squad members can tap
