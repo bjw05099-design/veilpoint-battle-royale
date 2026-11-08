@@ -73,7 +73,7 @@
   const persons=[...squad.filter(p=>p&&p.eligible&&p.id!==subject.id)
      .map(p=>({...p,kind:'squad'})),
     ...visible.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z))
-      .map(p=>({...p,kind:'observed'})];
+      .map(p=>({...p,kind:'observed'}))];
   const seen=persons.map(p=>{
    const dx=p.x-subject.x,dz=p.z-subject.z;
    const distance=Math.hypot(dx,dz);
