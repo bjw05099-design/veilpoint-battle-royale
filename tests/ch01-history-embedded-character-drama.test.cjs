@@ -30,7 +30,7 @@ test('historical memory belongs to a physically heard individual, not omniscient
  assert.equal(Story.interact(s).ok,true);
  const report=Story.debrief(s);
  assert.equal(report.southernFamilyPerspectiveHeard,true);
- assert.match(report.closingScene.lines.at(-1),/모든 남부 주민의 견해로 일반화하지 않습니다/);
+ assert.match(report.closingScene.lines.at(-1),/그 가족의 말을 도시 전체의 목소리로 적지 않겠습니다/);
  assert.equal(report.campaignUnlocked,false);
  const raw=Story.serialize(s);
  assert.equal(Story.serialize(Story.restore(raw)),raw);
