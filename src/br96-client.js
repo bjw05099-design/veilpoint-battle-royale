@@ -65,7 +65,7 @@ function render(){
  const w=currentWorld();
  if(w&&!publicGeometry&&!geometryBusy)loadPublicGeometry();
  if(!active()&&harborAudio?.enabled())harborAudio.disable();
- if(active()&&harborAudio?.enabled())harborAudio.update(w.self.surface);
+ if(active()&&harborAudio?.enabled())harborAudio.update(w.self.surface,w.coastalWeather);
  el('soundToggle').disabled=!active()||!harborAudio?.available();
  el('soundToggle').textContent=harborAudio?.enabled()?'환경음 ON':'환경음 OFF';
  el('soundToggle').setAttribute('aria-pressed',String(!!harborAudio?.enabled()));
@@ -347,8 +347,8 @@ function toggleHarborAudio(){
  if(!active()||!harborAudio)return;
  if(harborAudio.enabled()){harborAudio.disable();message('환경음 꺼짐 · 다시 누르면 켤 수 있습니다.');}
  else if(harborAudio.enable()){
-  harborAudio.update(currentWorld().self.surface);
-  message('환경음 켜짐 · 내 위치의 항구 지면 상태만 소리에 반영합니다.');
+  harborAudio.update(currentWorld().self.surface,currentWorld().coastalWeather);
+  message('환경음 켜짐 · 서버 날씨와 내 발밑 지면 상태만 조용한 항구 효과음에 반영합니다.');
  }else message('이 브라우저는 선택적 환경음 재생을 지원하지 않습니다.');
  render();
 }

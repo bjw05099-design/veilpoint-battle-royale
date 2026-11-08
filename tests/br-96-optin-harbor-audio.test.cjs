@@ -92,7 +92,7 @@ test('BR96 environment sound is a bundled same-origin asset and a user-click PC 
   assert.match(ui,/function toggleHarborAudio\(\)/);
   assert.match(ui,/el\('soundToggle'\)\.addEventListener\('click',toggleHarborAudio\)/);
   assert.match(ui,/harborAudio\?\.disable\(\)/);
-  assert.match(ui,/harborAudio\.update\(w\.self\.surface\)/);
+  assert.match(ui,/harborAudio\.update\(w\.self\.surface,w\.coastalWeather\)/);
   assert.doesNotThrow(()=>new Function(ui));
   assert.equal((await fetch(base+'/br96-environment-audio.js?token=secret')).status,400);
  }finally{await host.close();}
