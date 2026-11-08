@@ -885,7 +885,11 @@ class Renderer {
     const v=state.transportVan;
     mesh.box(v.x,0,v.z,2.4,1.45,3.8,[.35,.45,.49]);
     mesh.box(v.x,1.45,v.z,2.25,.82,3.35,[.36,.46,.51]);
-    mesh.box(v.x,1.46,v.z+1.71,1.60,.53,.045,[.18,.27,.31]);
+    // A roadside request changes the actual driven body's 60Hz motion.
+    // Reuse the existing rear panel as an observable brake-light cue without
+    // adding invisible geometry or pretending passengers were evacuated.
+    mesh.box(v.x,1.46,v.z+1.71,1.60,.53,.045,
+      v.yielding?[.72,.19,.13]:[.18,.27,.31]);
     mesh.box(v.x,2.28,v.z,2.2,.08,3.3,[.47,.50,.46]);
   }
  this.lastVisibilityStats=plan.stats;

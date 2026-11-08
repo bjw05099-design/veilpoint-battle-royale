@@ -43,13 +43,25 @@
   // When inside a room the far face should be visible, not an infinite wall.
   return tNear>0.03?tNear:tFar>0.03?tFar:Infinity;
  }
- function shade(type,depth){
+ // Public round weather is used only for color/visibility. No synthetic
+ // sensors, out-of-range humans or bonus target acquisition are introduced.
+ function weatherFogFraction(depth,visibleDistance,weatherCode='clear'){
+  if(!Number.isFinite(depth)||depth<0||!Number.isFinite(visibleDistance)||visibleDistance<=0)
+   throw new RangeError('invalid_weather_fog');
+  const onset=visibleDistance*(weatherCode==='sea-haze'?.18:.40);
+  const fraction=Math.max(0,Math.min(1,(depth-onset)/Math.max(1,visibleDistance-onset)));
+  return fraction*(weatherCode==='sea-haze'?.90:
+    weatherCode==='gusty'?.70:weatherCode==='clearing'?.50:.38);
+ }
+ function shade(type,depth,visibleDistance=95,weatherCode='clear'){
   const tint=String(type||'');
   const base=tint.includes('warehouse')||tint.includes('building')?[113,127,126]:
     tint.includes('wall')||tint.includes('shutter')?[118,130,128]:
     tint.includes('bench')||tint.includes('counter')?[158,139,108]:[113,119,111];
-  const factor=Math.max(.36,1-depth/135);
-  return 'rgb('+base.map(v=>Math.round(v*factor)).join(',')+')';
+  const factor=Math.max(.36,1-depth/135),fog=weatherFogFraction(depth,visibleDistance,weatherCode);
+  const horizon=weatherCode==='sea-haze'?[102,123,126]:
+    weatherCode==='gusty'?[107,127,134]:[112,139,146];
+  return 'rgb('+base.map((v,i)=>Math.round(v*factor*(1-fog)+horizon[i]*fog)).join(',')+')';
  }
  function frame({subject,yaw=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
@@ -108,9 +120,11 @@
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
   const model=frame({subject,yaw,obstacles,civicGate,handcart,squad,visible,visibilityMeters});
-  const haze=weather?.code==='sea-haze',horizon=height*.52;
-  ctx.fillStyle=haze?'#667b7e':'#708b92';ctx.fillRect(0,0,width,horizon);
-  ctx.fillStyle='#3d4340';ctx.fillRect(0,horizon,width,height-horizon);
+  const haze=weather?.code==='sea-haze',gusty=weather?.code==='gusty',
+    horizon=height*.52;
+  ctx.fillStyle=haze?'#667b7e':gusty?'#6b848b':'#708b92';
+  ctx.fillRect(0,0,width,horizon);
+  ctx.fillStyle=haze?'#424c4b':gusty?'#414846':'#3d4340';ctx.fillRect(0,horizon,width,height-horizon);
   ctx.fillStyle='#9aa19a';ctx.fillRect(0,horizon-1,width,2);
   const strip=width/model.columns,focal=height*.68;
   for(let i=0;i<model.columns;i++){
@@ -118,16 +132,19 @@
    if(!Number.isFinite(ray.distance))continue;
    const d=Math.max(.3,ray.distance);
    const wallHeight=Math.min(height*4,ray.height*focal/d),y=horizon-wallHeight*.72;
-   ctx.fillStyle=shade(ray.type,d);
+   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
   for(const person of model.seen){
    const size=Math.min(height*2,1.75*focal/person.depth);
    const px=(person.col+.5)*strip;
+   const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
+   ctx.globalAlpha=1-fog;
    ctx.fillStyle=person.kind==='squad'?'#a2cbdf':'#d4aa99';
    ctx.fillRect(px-size*.16,horizon-size*.78,size*.32,size*.78);
    ctx.fillRect(px-size*.10,horizon-size,size*.20,size*.20);
+   ctx.globalAlpha=1;
   }
   ctx.strokeStyle='#d6e9e2';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(width/2-8,height/2);ctx.lineTo(width/2+8,height/2);
@@ -138,5 +155,5 @@
   ctx.fillText('화면 클릭: 마우스 시야 회전 · WASD: 보는 방향 기준 이동 · Esc: 포인터 해제',14,47);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,relativeMovement,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
