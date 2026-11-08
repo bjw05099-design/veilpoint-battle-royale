@@ -6,7 +6,7 @@ const sizes=[[2560,1440],[1366,768],[1280,720],[1024,600]];
 const names=['BR-main','BR-more','BR-load','BR-export',
  'settings-visual','settings-controls','settings-benchmark'];
 const targets={"BR-main":["play","newMatch","brViewMore","graphicsPauseOpen"],"BR-more":["brViewBack","brImport","brExport"],"BR-load":["brViewBack","brImportFile","brImportApply"],"BR-export":["brViewBack","brExportDownload"],"settings-visual":["graphicsClose","graphicsTabVisual","graphicsPreset"],"settings-controls":["graphicsClose","graphicsTabControls","desktopBindKey"],"settings-benchmark":["graphicsClose","graphicsTabBenchmark","benchmarkStart"]};
-const story={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","CH01-menu-tools","CH01-menu-settings","CH01-menu-import","CH01-menu-export","CH01-menu-about"],"storyJournalChecks":["CH01-journal-first","CH01-journal-last"]};
+const story={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","CH01-menu-tools","CH01-menu-settings","CH01-menu-import","CH01-menu-export","CH01-menu-about"],"storyOpeningChecks":["CH01-opening"],"storyJournalChecks":["CH01-journal-first","CH01-journal-last"]};
 const target=id=>({id,visible:true,enabled:true,hit:true,focused:true,probesPassed:5});
 function fixture(){
  const result={schema:'veilpoint-pc-ui-geometry-v2',transportFailure:null,failures:[],
