@@ -11,7 +11,8 @@ function roofs(){
 test('three original public roofs use one source for WebGL and canvas BR/CH01 scene layers',()=>{
  const plan=roofs();
  assert.equal(plan.length,3);
- assert.deepEqual(plan.map(p=>[p.x,p.z]),[[28,147],[-107,128],[134,125]]);
+ assert.deepEqual(JSON.parse(JSON.stringify(plan.map(p=>[p.x,p.z]))),
+   [[28,147],[-107,128],[134,125]],'VM realm must not change authored roof coordinates');
  assert.ok(plan.every(p=>p.roofY>=3.2&&p.h>0&&p.h<.3));
  assert.ok(plan.every(p=>p.type==='shared-public-canopy'));
  assert.ok(Object.isFrozen(plan)&&plan.every(Object.isFrozen));
