@@ -84,7 +84,10 @@ test('BR96 environment sound is a bundled same-origin asset and a user-click PC 
   assert.match(audio.headers.get('content-type'),/text\/javascript/);
   const source=await audio.text();
   assert.doesNotThrow(()=>new Function(source));
-  assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|MediaStream|microphone|getUserMedia|third-party/i);
+  // Comments may explicitly say "no microphone"; inspect executable code
+  // rather than mistaking a safety statement for microphone access.
+  const executable=source.replace(/\\/\\*[\\s\\S]*?\\*\\//g,'').replace(/^\\s*\\/\\/.*$/gm,'');
+  assert.doesNotMatch(executable,/fetch\\(|XMLHttpRequest|MediaStream|getUserMedia|navigator\\.mediaDevices|new WebSocket/i);
   const ui=await fetch(base+'/br96-client.js').then(r=>r.text());
   assert.match(ui,/function toggleHarborAudio\(\)/);
   assert.match(ui,/el\('soundToggle'\)\.addEventListener\('click',toggleHarborAudio\)/);
