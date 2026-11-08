@@ -24,7 +24,7 @@ test('only locally observed and nonoccluded members of the real six-human squad 
    squad:[{id:2,slot:2,x:1,z:-5,eligible:true},
      {id:3,slot:3,x:0,z:-19,eligible:true},
      {id:4,slot:4,x:2,z:-4,eligible:false}],
-   visible:[{id:9,x:7,z:-8}],visibilityMeters:60
+   visible:[{id:9,x:5,z:-8}],visibilityMeters:60
  });
  const ally=model.seen.find(p=>p.id===2);
  assert.ok(ally);assert.equal(ally.kind,'squad');assert.equal(ally.slot,2);
