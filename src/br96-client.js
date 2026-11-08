@@ -7,6 +7,11 @@
 const el=id=>document.getElementById(id);
 const canvas=el('map'),ctx=canvas.getContext('2d');
 const SESSION='veilpoint.br96.tabSession';
+// No sound without an explicit, foreground player click; the soundtrack is
+// synthesized locally from the authenticated player's own environment only.
+const harborAudio=window.VeilpointBR96Audio?.create({
+ AudioContextClass:window.AudioContext||window.webkitAudioContext||null
+})||null;
 const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
@@ -16,6 +21,7 @@ let withdrawArmedUntil=0,watchOptionsSignature='';
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
+ harborAudio?.disable();
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';
@@ -57,6 +63,11 @@ function active(){const w=currentWorld();return !!token&&!!w&&w.phase==='moving'
 function render(){
  const w=currentWorld();
  if(w&&!publicGeometry&&!geometryBusy)loadPublicGeometry();
+ if(!active()&&harborAudio?.enabled())harborAudio.disable();
+ if(active()&&harborAudio?.enabled())harborAudio.update(w.self.surface);
+ el('soundToggle').disabled=!active()||!harborAudio?.available();
+ el('soundToggle').textContent=harborAudio?.enabled()?'환경음 ON':'환경음 OFF';
+ el('soundToggle').setAttribute('aria-pressed',String(!!harborAudio?.enabled()));
  el('join').disabled=!!token;
  el('invite').disabled=!token||state?.phase!=='assembling';
  el('leave').disabled=!token||state?.phase!=='assembling';
@@ -275,6 +286,15 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+function toggleHarborAudio(){
+ if(!active()||!harborAudio)return;
+ if(harborAudio.enabled()){harborAudio.disable();message('환경음 꺼짐 · 다시 누르면 켤 수 있습니다.');}
+ else if(harborAudio.enable()){
+  harborAudio.update(currentWorld().self.surface);
+  message('환경음 켜짐 · 내 위치의 항구 지면 상태만 소리에 반영합니다.');
+ }else message('이 브라우저는 선택적 환경음 재생을 지원하지 않습니다.');
+ render();
+}
 async function operateGate(){
  if(!active())return;
  const result=await command('/civic-gate',{},null);
@@ -326,6 +346,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;render();}
 window.addEventListener('blur',resetKeys);
+window.addEventListener('pagehide',()=>harborAudio?.dispose());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
 function direction(){
  if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
@@ -394,6 +415,7 @@ el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
 el('civicGate').addEventListener('click',operateGate);
+el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
 el('standingsClose').addEventListener('click',()=>toggleStandings(false));
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
