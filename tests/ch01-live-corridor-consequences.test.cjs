@@ -4,10 +4,12 @@ const Story=require('../src/story-slice.js');
 const go=(s,x,z)=>{s.world.player.x=x;s.world.player.z=z;};
 function route(choice){
  const s=Story.createState();
- // The deterministic test begins after the already-authored unforeseen local
- // escalation; no weapon playback or invented predeparture papers.
- s.phase='decision';s.combat.started=true;s.combat.cleared=true;
- s.world.bots=[];
+ // Real CH01 event state, then the test starts at the existing cleared
+ // encounter. Preserve all three authored actor records for v2 save validation.
+ go(s,Story.POINTS.terminal.x,Story.POINTS.terminal.z);
+ assert.equal(Story.interact(s).ok,true);
+ for(const actor of s.world.bots){actor.health=0;actor.alive=false;}
+ s.combat.cleared=true;s.phase='decision';
  assert.equal(Story.choose(s,choice).ok,true);
  return s;
 }
