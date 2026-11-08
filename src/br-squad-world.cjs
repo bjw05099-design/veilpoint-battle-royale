@@ -20,6 +20,9 @@ const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // messages and is limited to a bounded history and 60Hz authoritative cadence.
 const CHAT_LIMIT=6, CHAT_MAX_CHARS=96, CHAT_INTERVAL_TICKS=180;
 const REGROUP_RADIUS_METERS=12;
+// A real two-second, on-foot squad rendezvous. This is a gameplay milestone,
+// not extra rank points, a teleport or an invented completed evacuation.
+const ROUTE_RENDEZVOUS_TICKS=2*60;
 // Public, fictional walking destinations. Only actual eligible squad members
 // vote. A vote never moves actors, awards placement, or reveals another team.
 const ROUTE_DESTINATIONS=Object.freeze({
@@ -61,6 +64,7 @@ class BrSquadWorld {
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
     this.squadSignals=new Map();
+    this.routeRendezvous=Array.from({length:SQUADS},()=>({choice:null,holdTicks:0,confirmedAtTick:null}));
     this.squadChat=Array.from({length:SQUADS},()=>[]);this.chatSerial=0;
     const occupied=[];
     const teams=Array.from({length:SQUADS},(_,n)=>n);
@@ -210,9 +214,32 @@ class BrSquadWorld {
     for(const p of members)if(p.routeChoice!==null)tally[p.routeChoice]++;
     const accepted=members.length>=2?Object.keys(tally).find(id=>tally[id]>members.length/2):null;
     const destination=accepted?ROUTE_DESTINATIONS[accepted]:null;
+    const rally=this.routeRendezvous[team];
     return {eligibleMembers:members.length,tally,choice:accepted||null,
       target:destination?{...destination,id:accepted}:null,
-      arrived:destination?members.filter(p=>Math.hypot(p.x-destination.x,p.z-destination.z)<=10).length:0};
+      arrived:destination?members.filter(p=>Math.hypot(p.x-destination.x,p.z-destination.z)<=10).length:0,
+      holdTicks:rally.choice===accepted?rally.holdTicks:0,
+      holdRequiredTicks:ROUTE_RENDEZVOUS_TICKS,
+      confirmedAtTick:rally.choice===accepted?rally.confirmedAtTick:null};
+  }
+  advanceRouteRendezvous(){
+    // Evaluate only after the entire 60Hz body/collision/boundary update:
+    // neither a client command nor a pre-movement snapshot can grant arrival.
+    for(let team=0;team<SQUADS;team++){
+      const route=this.squadRouteSnapshot(team);
+      const rally=this.routeRendezvous[team];
+      if(!route.choice||route.eligibleMembers<2){
+        rally.choice=null;rally.holdTicks=0;rally.confirmedAtTick=null;continue;
+      }
+      if(rally.choice!==route.choice){
+        rally.choice=route.choice;rally.holdTicks=0;rally.confirmedAtTick=null;
+      }
+      if(rally.confirmedAtTick!==null)continue;
+      if(route.arrived===route.eligibleMembers){
+        rally.holdTicks=Math.min(ROUTE_RENDEZVOUS_TICKS,rally.holdTicks+1);
+        if(rally.holdTicks===ROUTE_RENDEZVOUS_TICKS)rally.confirmedAtTick=this.tick;
+      }else rally.holdTicks=0;
+    }
   }
   voteRoute(token,choice){
     const actor=this.actors.get(token);
@@ -490,6 +517,7 @@ class BrSquadWorld {
         }
       }
     }
+    this.advanceRouteRendezvous();
   }
   snapshot(token){
     const me=this.actors.get(token);
@@ -607,4 +635,5 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS,REST_RECOVERY_PER_SECOND};
+  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS,REST_RECOVERY_PER_SECOND,
+  ROUTE_RENDEZVOUS_TICKS};
