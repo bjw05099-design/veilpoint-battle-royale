@@ -385,7 +385,10 @@ test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=
   const s=story.createState();
   assert.match(s.subtitle,/유수프 구조단.*주민 대피 지원을 요청/);
   const opening=story.situation(s);
-  assert.match(opening.mandate,/제한적 민간 대피 지원 승인/);
+  // Original deployment was approved in Korea for civilian communications;
+  // evacuation support arose only after the unexpected local escalation.
+  assert.match(opening.mandate,/출국 전 브리핑받은 민간 통신망 점검/);
+  assert.match(opening.mandate,/현지 도착 후 예기치 못한 내전 확대/);
   assert.match(opening.liaison,/김지윤.*조현지/);
   assert.equal(opening.eastGateOpen,false);
   assert.match(opening.evidence,/결론 보류/);

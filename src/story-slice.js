@@ -92,6 +92,7 @@
     transportDriver: Object.freeze({id:'transportDriver',x:10,z:-54,kind:'evac',label:'운송 담당자 나딤 · 현장 대화'}),
     driverReportDesk: Object.freeze({id:'driverReportDesk',x:-24,z:-57,kind:'evidence',label:'접수 장부에 운송 담당자 진술 대조·접수'}),
     guide: Object.freeze({id:'guide', x:-9, z:-55, kind:'evac', label:'현지 대피 안내원과 동행 시작'}),
+    volunteer: Object.freeze({id:'volunteer', x:GUIDE_START.x, z:GUIDE_START.z, kind:'evac', label:'현지 안내원에게 직접 동행 요청'}),
     guideRelease: Object.freeze({id:'guideRelease', x:-9, z:-55, kind:'evac', label:'현지 구조단에 안내원 동행 인계'}),
     guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
@@ -407,6 +408,12 @@
          ...(state.transportContact<2?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
+         // The actual waiting volunteer can be approached directly. This is
+         // optional physical assistance, not another form or mission gate.
+         ...(!state.musterConfirmed&&!state.guide.active&&
+           Math.hypot(state.world.player.x-GUIDE_START.x,state.world.player.z-GUIDE_START.z)<6&&
+           !Sim.lineBlocked(state.world.player.x,state.world.player.z,
+             GUIDE_START.x,GUIDE_START.z,state.world.obstacles)?[POINTS.volunteer]:[]),
          ...(state.musterConfirmed&&!state.guide.active&&!state.guide.released?[POINTS.guide]:[]),
         ...(state.guide.active&&!state.guide.arrived?[POINTS.guideRelease,POINTS.guideTransfer]:[]),
          // Companion control is an observed, local objective — never a hidden
@@ -1133,6 +1140,15 @@
       state.message=state.transportContact===1
         ?'현장 운송 담당자 면담 · E로 출발 여부 재확인'
         :'운송 담당자 면담 완료 · 실제 차량 도착은 확인되지 않음';
+    }else if(marker.id==='volunteer'&&state.phase==='exit'&&
+      state.choice==='evacuation'&&!state.musterConfirmed&&!state.guide.active){
+      // One local face-to-face E action replaces two routine confirmation
+      // presses. The volunteer is already standing here; never teleport them.
+      state.musterConfirmed=true;
+      state.guide.active=true;
+      state.guide.waiting=false;
+      state.subtitle='유수프(현지 구조단): 안내원이 여기서 직접 합류했어. 구조단이 통로를 맡고 있으니 함께 안뜰로 가 줘.';
+      state.message='현지 안내원 동행 시작 · 남쪽 안뜰까지 실제 이동';
     }else if(marker.id==='muster'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.musterConfirmed){
       // Optional direct conversation with the coordinator physically present at
       // muster. No hidden headcount, remote paperwork or automatic reward.
@@ -1344,7 +1360,7 @@
   function situation(state) {
     const count=state.found.length;
     return Object.freeze({
-      mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
+      mandate:'한국 출국 전 브리핑받은 민간 통신망 점검·구호 인력 지원 파견 · 현지 도착 후 예기치 못한 내전 확대로 민간 대피 지원 확대',
       command:'이수혁 대위: 한국 측 파견 지휘관의 승인 범위에서 임무 수행 · 현지 통로 개방은 유수프 구조단 결정 · 국정원은 정보 자문',
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:state.logHandedOff?'현장 중계 로그 확인 · 04:07 최초 수신 / 04:12 재전송 · 현지 통제소 접수 완료':

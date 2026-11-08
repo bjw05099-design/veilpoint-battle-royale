@@ -9,6 +9,7 @@ const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
+const REGROUP_RADIUS_METERS=12;
 // 10-second presence window is only a reconnect diagnostic; a stale
 // connection never silently eliminates a human squad or awards a rank.
 const PRESENCE_STALE_TICKS=10*60;
@@ -199,10 +200,22 @@ class BrSquadWorld {
       }
     }
     const signal=this.squadSignals.get(me.team);
+    // An active regroup signal measures actual authenticated teammate bodies
+    // at its original server-confirmed position. No remote ready toggle, new
+    // mission UI, bonus score, opponent coordinates or arbitrary client pose.
+    const activeMates=mates.filter(p=>p.eligible);
+    const regroup=signal?.kind==='regroup'&&signal.expiresAtTick>this.tick
+      ?Object.freeze({eligibleMembers:activeMates.length,
+        arrived:activeMates.filter(p=>Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS).length,
+        radiusMeters:REGROUP_RADIUS_METERS,
+        ready:activeMates.length>=2&&activeMates.every(p=>
+          Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS)})
+      :null;
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       coastalWeather:weather,
       playableArea,
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
+      squadRegroup:regroup,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
@@ -216,4 +229,4 @@ class BrSquadWorld {
   }
 }
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,LEASE_TICKS,
-  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS};
+  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS};
