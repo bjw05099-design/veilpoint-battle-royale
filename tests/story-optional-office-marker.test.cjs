@@ -11,21 +11,23 @@ function ready(){
  return s;
 }
 
-test('CH01 legacy optional office notice does not become a distant paperwork waypoint',()=>{
- const s=ready();
- const ids=()=>Story.markers(s).map(m=>m.id);
- assert.equal(ids().includes('officeBoard'),false);
- s.world.player.x=87;s.world.player.z=20;
- assert.equal(ids().includes('officeBoard'),true);
- s.world.player.x=0;s.world.player.z=12;
- assert.equal(ids().includes('officeBoard'),false);
+test('CH01 legacy optional office notice is not a distant navigation objective',()=>{
+ const s=ready(),visible=()=>Story.navigationMarkers(s).map(m=>m.id);
+ assert.equal(visible().includes('officeBoard'),false);
+ // The physical interaction and saved-board identity still exist.
+ assert.equal(Story.markers(s).some(m=>m.id==='officeBoard'),true);
+ s.world.player.x=87;s.world.player.z=23;
+ assert.equal(visible().includes('officeBoard'),true);
+ s.world.player.x=0;s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(visible().includes('officeBoard'),false);
+ assert.equal(Story.markers(s).some(m=>m.id==='officeBoard'),true);
 });
-test('CH01 office notice proximity changes neither checkpoint schema nor BR world',()=>{
- const s=ready();
+test('CH01 office navigation visibility changes no checkpoint state',()=>{
+ const s=ready(),start={x:s.world.player.x,z:s.world.player.z};
  const before=Story.serialize(s);
- s.world.player.x=87;s.world.player.z=20;
- Story.markers(s);
- s.world.player.x=0;s.world.player.z=12;
+ s.world.player.x=87;s.world.player.z=23;
+ Story.navigationMarkers(s);
+ s.world.player.x=start.x;s.world.player.z=start.z;
  assert.equal(Story.serialize(s),before);
  assert.equal(Story.restore(before).officeBoardRead,false);
 });
