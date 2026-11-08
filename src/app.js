@@ -138,11 +138,12 @@ function setSoundEnabled(enabled){
 const AudioPrefs=global.VeilpointAudioPreferences;
 let audioMix=null;
 if(AudioPrefs){
- // Keep a player's earlier explicit mute if this is their first versioned mix.
- if(!AudioPrefs.read(cameraStorage()).__legacyMigration &&
-    !(()=>{try{return cameraStorage()?.getItem(AudioPrefs.KEY)}catch(_){return null}})()){
-   try{if(global.localStorage.getItem('veilpoint.br.audio')==='off')
-     AudioPrefs.persist(cameraStorage(),{...AudioPrefs.DEFAULT,enabled:false});}catch(_){}
+ // Preserve a deliberate old mute when migrating to the shared bus profile.
+ let existing=null;
+ try{existing=cameraStorage()?.getItem(AudioPrefs.KEY)}catch(_){}
+ if(existing===null){
+  try{if(global.localStorage.getItem('veilpoint.br.audio')==='off')
+   AudioPrefs.persist(cameraStorage(),{...AudioPrefs.DEFAULT,enabled:false});}catch(_){}
  }
 }
 const audioControls=AudioPrefs&&$('vpAudioEnabled')
