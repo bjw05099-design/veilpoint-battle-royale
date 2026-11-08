@@ -1358,10 +1358,19 @@
       if(e.repeat)return;
       // Shift+the remapped guidance key cycles backward, independent of the
       // currently published array index; neither shortcut moves the world.
+      // Initial cycling is limited to physically observed local prompts and
+      // the current route. After opting into a secondary non-paper marker,
+      // the old stable non-evidence cycle remains available deliberately.
+      const observed=visibleMissionMarkers();
+      const optedIn=guidanceId!==null&&
+        !['terminal','decision','exitEvac','exitVerify'].includes(guidanceId)&&
+        observed.some(marker=>marker.id===guidanceId);
+      const cycle=optedIn?Story.markers(state).filter(marker=>
+        marker.kind!=='evidence'||marker.id===guidanceId):observed;
       if(e.shiftKey)
-        guidanceId=Navigation.previousMarkerId(Story.markers(state),guidanceId);
+        guidanceId=Navigation.previousMarkerId(cycle,guidanceId);
       else
-        guidanceId=Navigation.nextMarkerId(Story.markers(state),guidanceId);
+        guidanceId=Navigation.nextMarkerId(cycle,guidanceId);
       updateHud();
     }
   });
@@ -1497,11 +1506,13 @@
   // evidence and the public exit/relay markers remain untouched. This removes
   // cross-harbor checklist chasing without inventing new access gates.
   function visibleMissionMarkers(){
-    const p=state.world.player;
+    // Side interactions are shown only in the player's immediate vicinity.
+    // Preserve an already *explicitly selected* marker as remembered guidance
+    // when the player walks away; this maintains historic N/B cycle identity,
+    // without publishing every other distant paper or staff position.
+    const local=new Set(Story.navigationMarkers(state).map(marker=>marker.id));
     return Story.markers(state).filter(marker=>
-      marker.kind!=='evidence'||
-      (Math.hypot(marker.x-p.x,marker.z-p.z)<=9&&
-       !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)));
+      local.has(marker.id)||marker.id===guidanceId);
   }
   function minimap(){
     const c=$('minimap'),ctx=c.getContext('2d');
@@ -1572,7 +1583,7 @@
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(opening?opening.subtitle:state.subtitle);
     if(Comms&&$('fieldRadio')){
-      const radio=Comms.briefing(state);
+      const radio=Story.localPublicAddress(state)||Comms.briefing(state);
       // Text-only original dialogue. Never interpolate user data into HTML.
       $('fieldRadio').textContent=radio.speaker+' / '+radio.message;
       $('fieldRadio').title=$('fieldRadio').textContent;

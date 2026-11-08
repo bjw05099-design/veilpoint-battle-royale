@@ -69,7 +69,9 @@ test('local browser serves camera code from loopback with explicit M/PC toggle a
   const client=await fetch(base+'/br96-client.js').then(r=>r.text());
   assert.doesNotThrow(()=>new Function(client));
   assert.match(client,/const followSubject=w\?\.spectatorView\|\|w\?\.self\|\|null/);
-  assert.match(client,/mapCamera\.create\(\{width,height,follow:mapFollow,subject:followSubject\}\)/);
+  assert.match(client,/mapCamera\.create\(\{width,height,follow:mapFollow,subject:followSubject,zoomLevel:mapZoomLevel\}\)/);
+  assert.match(client,/if\(!mapFollow\|\|!currentWorld\(\)\|\|!Number\.isInteger\(delta\)\)return/);
+  assert.match(client,/keys\.clear\(\);sprintIntent=false;lastSprint=null/);
   assert.match(client,/key==='KeyM'&&el\('standingsPanel'\)\.hidden/);
   assert.match(client,/el\('mapFollow'\)\.addEventListener\('click',toggleMapFollow\)/);
   assert.match(client,/ctx\.lineTo\(14\+20\*scale,rulerY\)/);

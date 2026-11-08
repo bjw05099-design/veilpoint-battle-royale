@@ -503,6 +503,38 @@
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
   }
+  // Physical interaction authority remains in markers()/nearest(). Only the
+  // informational PC navigation display is filtered: routine civilian aid,
+  // papers, notices and local actors never become cross-city quest arrows.
+  // The key route decisions and exits remain findable from older checkpoints.
+  const ROUTE_WIDE_MARKERS=Object.freeze(new Set([
+    'terminal','decision','exitEvac','exitVerify'
+  ]));
+  function navigationMarkers(state) {
+    const p=state.world.player;
+    return markers(state).filter(marker=>{
+      if(ROUTE_WIDE_MARKERS.has(marker.id))return true;
+      const maxDistance=marker.id==='relay'?7:9;
+      return Math.hypot(marker.x-p.x,marker.z-p.z)<=maxDistance&&
+        !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles);
+    });
+  }
+  // A local civilian announcement is only readable while the player is in
+  // physical earshot of the powered relay. It conveys no secret civilian
+  // positions, does not issue a new task and adds no checkpoint fields.
+  function localPublicAddress(state) {
+    if(!state.relayRestored||
+      !['records','decision','exit'].includes(state.phase))return null;
+    const p=state.world.player,r=POINTS.relay;
+    if(Math.hypot(p.x-r.x,p.z-r.z)>14||
+       Sim.lineBlocked(p.x,p.z,r.x,r.z,state.world.obstacles))return null;
+    const line=state.choice==='evacuation'
+      ?'유수프 구조단이 남쪽 현장 통로를 맡고 있습니다. 주민 접수와 실제 이동 여부는 담당자에게 직접 확인해 주십시오.'
+      :state.choice==='verification'
+        ?'동쪽 통로의 개방 여부는 현지 담당자의 안내를 따르십시오. 확인되지 않은 복귀 교통편은 안내할 수 없습니다.'
+        :'남쪽 주민 지원은 현지 구조단이 진행합니다. 이동 경로는 담당자와 직접 협의해 주십시오.';
+    return Object.freeze({speaker:'현지 구조단 안내 방송 · 텍스트 미리보기',message:line});
+  }
   function syncMarkers(state) {
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
@@ -2145,7 +2177,7 @@
     return {state,report};
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
     objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
