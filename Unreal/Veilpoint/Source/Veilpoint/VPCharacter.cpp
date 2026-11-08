@@ -27,6 +27,8 @@ AVPCharacter::AVPCharacter()
     BodyCamera->FieldOfView = 92.f;
     FieldLight = CreateDefaultSubobject<USpotLightComponent>(TEXT("HelmetFieldLight"));
     FieldLight->SetupAttachment(BodyCamera);
+    // Player-mounted lighting must be truly movable in a native 3D world.
+    FieldLight->SetMobility(EComponentMobility::Movable);
     FieldLight->SetRelativeLocation(FVector(8.f, 6.f, -6.f));
     FieldLight->SetIntensity(2100.f);
     FieldLight->SetAttenuationRadius(1250.f);
