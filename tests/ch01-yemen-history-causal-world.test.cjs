@@ -21,8 +21,8 @@ test('CH01 historical perspectives arise from a voluntary face-to-face local dec
  assert.deepEqual(s.found,[],'the route is never locked behind historical records');
  for(const year of ['2011','2014','2015','2019'])
   assert.ok(s.subtitle.includes(year),'the Yemen chronology is embodied in a local voice: '+year);
- assert.match(s.subtitle,/남쪽 통로는 우리 구조단이 책임진다/);
- assert.match(s.subtitle,/도착하지 않은 주민은 안전하다고 기록하지 마/);
+ assert.match(s.subtitle,/남쪽 통로는 우리가 관리한다/);
+ assert.match(s.subtitle,/우리 눈으로 확인하지 못한 주민을 모두 대피했다고 말할 수는 없어/);
  assert.doesNotMatch(s.subtitle,/여기서 새 파견 지시|2015년에 한국에서 받은 임무/);
 });
 test('mission consequences are read-only: civilian consultation is never assumed from a mere route selection',()=>{
