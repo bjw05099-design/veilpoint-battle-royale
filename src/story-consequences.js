@@ -26,7 +26,7 @@
        !Array.isArray(raw.events)||raw.events.length>6)throw new Error('Invalid story timeline');
     let result=newTimeline();
     for(const event of raw.events){
-      if(typeof event!=='string')throw new Error('Invalid event');
+      if(typeof event!=='string'||result.events.includes(event))throw new Error('Invalid event');
       result=advance(result,event);
     }
     if(raw.route!==null&&raw.route!=='courtyard'&&raw.route!=='harbor')throw new Error('Invalid route');
