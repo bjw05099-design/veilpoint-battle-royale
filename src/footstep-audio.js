@@ -10,10 +10,10 @@
  'use strict';
  function createFootstepAudio(getContext){
   if(typeof getContext!=='function')throw new TypeError('audio provider required');
-  let carried=0;
+  let carried=0,multiplier=1;
   function stop(){carried=0;}
   function sync({enabled=false,playable=false,distance=0,crouched=false,running=false,surface='dry'}={}){
-   if(!enabled||!playable){stop();return 0;}
+   if(!enabled||!playable||multiplier===0){stop();return 0;}
    if(!Number.isFinite(distance)||distance<=0||distance>2)return 0;
    // Approximately one audible step per true gait distance. Being blocked
    // by a solid body never creates steps even if movement input is held.
@@ -33,7 +33,7 @@
      const wet=surface==='wet';
      osc.frequency.setValueAtTime(wet?(crouched?81:running?124:105):
        crouched?58:running?89:74,at);
-     gain.gain.setValueAtTime((crouched?.008:running?.019:.013)*(wet?1.3:1),at);
+     gain.gain.setValueAtTime((crouched?.008:running?.019:.013)*(wet?1.3:1)*multiplier,at);
      gain.gain.exponentialRampToValueAtTime(.00001,at+.095);
      osc.connect(gain);gain.connect(ctx.destination);
      osc.start(at);osc.stop(at+.095);
@@ -42,7 +42,10 @@
    }
    return sounding;
   }
-  return Object.freeze({sync,stop,get pendingDistance(){return carried;}});
+  return Object.freeze({sync,stop,setVolume(value){
+   if(!Number.isFinite(value)||value<0||value>1)throw new RangeError('invalid_audio_volume');
+   multiplier=value;return multiplier;
+  },get pendingDistance(){return carried;}});
  }
  return Object.freeze({createFootstepAudio});
 });
