@@ -2494,8 +2494,8 @@ test('CH01 PC route navigation targets required courtyard while allowing optiona
   app.emit('keydown',{code:'KeyN'});
   assert.match(navigation.textContent,/선택한 임무 표식.*안전한 안뜰/);
   app.emit('keydown',{code:'KeyN'});
-  assert.match(navigation.textContent,/안전한 안뜰/,
-    'cycling cannot summon a distant paperwork location to replace the main route');
+  assert.match(navigation.textContent,/안전한 안뜰|민간 구조용 비상 물품 상자/,
+    'only the main route or a physically nearby optional supply may be selected');
   assert.doesNotMatch(navigation.textContent,/기록함|장부|급수대/,
     'optional document markers remain local discoveries rather than global chores');
   app.element('pauseButton').click();
