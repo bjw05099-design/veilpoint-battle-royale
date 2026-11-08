@@ -41,4 +41,14 @@ public:
 
     UFUNCTION(BlueprintPure, Category="VEILPOINT|CH01")
     FString GetObjectiveLabel() const;
+
+    // Local presentation only: same short, chronological pre-departure beats
+    // as browser CH01. Never a mission gate, replicated order, or save field.
+    FString GetOpeningLocation() const;
+    FString GetOpeningDialogue() const;
+private:
+    // Only a truly fresh native story shows the pre-departure flashback.
+    // A valid local SaveGame restore must not replay it at the wrong time.
+    bool bFreshLocalOpening = true;
+    int32 GetOpeningBeat() const;
 };

@@ -37,6 +37,9 @@ bool AVPStoryGameState::RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool 
     }
     // An optional signal cannot have been activated before its relay power.
     if (!bCoherent || (bBeacon && Stage == EVPStoryStage::RestoreRelay)) return false;
+    // A verified old checkpoint continues the existing mission in place.
+    // It never replays the Korea briefing as if the captain arrived again.
+    bFreshLocalOpening = false;
     StoryStage = Stage;
     bReadHarbor = bHarbor;
     bReadShelter = bShelter;
@@ -112,6 +115,46 @@ bool AVPStoryGameState::TryAdvance(EVPStoryAction Action)
     if (AVPStoryGameMode* Mode = GetWorld() ? GetWorld()->GetAuthGameMode<AVPStoryGameMode>() : nullptr)
         Mode->PersistStoryCheckpoint();
     return true;
+}
+
+int32 AVPStoryGameState::GetOpeningBeat() const
+{
+    if (!bFreshLocalOpening || StoryStage != EVPStoryStage::RestoreRelay || !GetWorld())
+        return -1;
+    // Fresh local offline preview, no added gameplay wait or remote clock.
+    // Mirrors browser CH01's exact 3.4, 6.8, 10.2 second narrative beats.
+    const double Elapsed = GetWorld()->GetTimeSeconds();
+    if (Elapsed < 0.0 || !FMath::IsFinite(Elapsed)) return -1;
+    if (Elapsed < 3.4) return 0;
+    if (Elapsed < 6.8) return 1;
+    if (Elapsed < 10.2) return 2;
+    return -1;
+}
+
+FString AVPStoryGameState::GetOpeningLocation() const
+{
+    switch (GetOpeningBeat())
+    {
+    case 0: return TEXT("BEFORE DEPARTURE / KOREA");
+    case 1: return TEXT("ARRIVAL / FICTIONAL COASTAL CITY");
+    case 2: return TEXT("AFTER ARRIVAL / UNEXPECTED ESCALATION");
+    default: return FString();
+    }
+}
+
+FString AVPStoryGameState::GetOpeningDialogue() const
+{
+    switch (GetOpeningBeat())
+    {
+    case 0:
+        return TEXT("LEE SU-HYEOK: Civilian communications mission and return plan briefed.");
+    case 1:
+        return TEXT("KIM JI-YUN: Local aid partners; this was not a civil-war deployment.");
+    case 2:
+        return TEXT("JO HYEON-JI: Conflict spread after arrival; evacuation is uncertain.");
+    default:
+        return FString();
+    }
 }
 
 FString AVPStoryGameState::GetObjectiveLabel() const
