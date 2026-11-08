@@ -135,7 +135,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     if(!world)return send(res,409,{error:'round_not_started'});
     world.snapshot(token); // Authenticated session and round identity.
     return send(res,200,{schema:'veilpoint-br96-public-geometry-v1',
-      obstacles:world.obstacles.map(o=>({
+      obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter').map(o=>({
         x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
       }))});
    }
@@ -175,6 +175,16 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{
        ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
+   }
+   if(req.method==='POST'&&url.pathname==='/civic-gate'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_public_gate_request'});
+    const result=world.operateCivicGate(token);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
    }
    if(req.method==='POST'&&url.pathname==='/spectate'){
     if(!world)return send(res,409,{error:'round_not_started'});
