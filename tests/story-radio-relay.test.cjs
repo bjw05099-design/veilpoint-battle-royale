@@ -67,8 +67,9 @@ test('CH01 physical relay restoration is an independent post-encounter choice be
  assert.deepEqual(restored.found,[]);
  assert.equal(Story.serialize(restored),Story.serialize(s));
  go(restored,'decision');assert.equal(Story.interact(restored).ok,true);
- assert.equal(Story.choose(restored,'verification').reason,'missing_evidence');
- assert.equal(Story.choose(restored,'evacuation').ok,true);
+ assert.equal(Story.choose(restored,'verification').ok,true);
+ assert.equal(restored.found.length,0,'records remain optional after relay restoration');
+ assert.equal(Story.choose(restored,'evacuation').ok,true,'reconsider locally before committing to a route');
  assert.equal(restored.relayRestored,true);
  assert.equal(Story.situation(restored).eastGateOpen,false);
 });
