@@ -1000,8 +1000,11 @@
       // pavement for a nearby open street. They must first reach the
       // sidewalk corner on foot. This is a real 60Hz actor movement,
       // not a teleport, a new escort mission or a distant HUD marker.
-      if(state.workerInterviewed&&state.combat.cleared&&
+      if(state.combat.cleared&&['records','decision','exit'].includes(state.phase)&&
          w.x>=WORKER_PATH.maxX-1e-6&&w.z<WORKER_PATH.safeZ){
+        // This person makes their own decision to leave an exposed public
+        // walkway after the witnessed escalation subsides. The captain's
+        // optional E interview does not unlock or command a civilian body.
         const before=w.z;
         const solids=state.world.obstacles.concat(
           {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
@@ -1012,8 +1015,10 @@
           w.z=WORKER_PATH.safeZ;
           if(Math.hypot(w.x-p.x,w.z-p.z)<9&&
              !Sim.lineBlocked(w.x,w.z,p.x,p.z,state.world.obstacles)){
-            state.subtitle='항구 작업자: 사람들을 위해 통로를 비워 두겠습니다. 이 골목에서 상황을 지켜볼게요.';
-            state.message='현지 작업자 스스로 가까운 보행 공간으로 이동 완료';
+            state.subtitle=state.workerInterviewed
+              ?'항구 작업자: 말씀드린 대로 공용 보행 골목으로 옮겼어요. 다른 주민의 대피는 확인하지 못했습니다.'
+              :'항구 작업자: 길을 비워 두려고 가까운 골목으로 스스로 이동했습니다. 다른 주민들의 상황은 아직 모릅니다.';
+            state.message='현지 작업자의 자발적 보행 이동 완료 · 다른 주민은 미확인';
           }
         }
       }
@@ -1386,8 +1391,10 @@
       // This is testimony obtained directly from a moving person on the
       // pedestrian lane, never a remote position ping or verified timestamp.
       state.workerInterviewed=true;
-      state.subtitle='항구 작업자: 정비 구역 조명이 잠깐 약해진 건 기억해요. 정확한 시간은 모르겠습니다. 이곳을 비우고 가까운 보행 골목으로 직접 이동하겠습니다.';
-      state.message='현지 작업자 면담 · 주민이 스스로 가까운 보행 공간 이동을 결정';
+      state.subtitle=state.worker.z>=WORKER_PATH.safeZ-1e-6
+        ?'항구 작업자: 이쪽 골목으로 이미 이동했습니다. 정비 구역 조명이 잠깐 약해진 건 기억하지만 정확한 시각은 모릅니다.'
+        :'항구 작업자: 정비 구역 조명이 잠깐 약해진 건 기억해요. 정확한 시간은 모릅니다. 가까운 보행 골목으로 스스로 이동하겠습니다.';
+      state.message='현지 작업자 직접 면담 · 이동은 주민 본인이 결정';
       syncMarkers(state);
       return {ok:true,event:'harbor_worker_interview',phase:state.phase};
     }
@@ -1795,6 +1802,10 @@
     // The market walkway is a visible, physical consequence of a player's
     // optional in-world action, never a new document task or invisible gate.
     // A partial movement is not reported as a completed clearance.
+    const workerSafe=state.worker?.z>=WORKER_PATH.safeZ-1e-6;
+    const workerReport=workerSafe
+      ?' 항구 작업자는 별도의 지시 없이 가까운 공용 보행 골목으로 걸어서 이동했습니다. 다른 주민의 안전은 미확인입니다.'
+      :null;
     const street=state.awningFallen
       ?(state.awningShift===1
         ?'시장의 쓰러진 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 맡습니다.'
@@ -1809,7 +1820,7 @@
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
         '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.'+
-        (street?' '+street:'')]),
+        (street?' '+street:'')+(workerReport||'')]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
@@ -1825,6 +1836,7 @@
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
       marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
+      harborWorkerReachedShelter:!!state.worker&&state.worker.z>=WORKER_PATH.safeZ-1e-6,
       emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:state.combat.supportUsed,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
@@ -2011,8 +2023,9 @@
         Object.keys(data.worker).sort().join(',')!=='direction,x,z'||
         !Number.isFinite(data.worker.x)||!Number.isFinite(data.worker.z)||
         data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
-        (data.workerInterviewed===true&&
-          ['records','decision','exit','complete'].includes(data.phase)
+        // Before this revision only interviewed workers could step toward
+        // shelter; retain both those v2 saves and the new autonomous walk.
+        (['records','decision','exit','complete'].includes(data.phase)
           ?data.worker.z<WORKER_PATH.z-1e-8||
             data.worker.z>WORKER_PATH.safeZ+1e-8||
             (data.worker.z>WORKER_PATH.z+1e-8&&

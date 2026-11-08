@@ -14,6 +14,16 @@
   if(!Number.isFinite(yaw))throw new RangeError('invalid_view_direction');
   return Math.atan2(Math.sin(yaw),Math.cos(yaw));
  }
+ // Camera orientation is LOCAL; only a normalized walking direction goes
+ // through the server's authenticated 60Hz move API. This is not a remote
+ // position, free camera or way to reveal an unobserved opponent.
+ function relativeMovement(dx,dz,yaw){
+  if(![dx,dz,yaw].every(Number.isFinite)||Math.hypot(dx,dz)>1+1e-8)
+   throw new RangeError('invalid_camera_movement');
+  const a=wrap(yaw),cos=Math.cos(a),sin=Math.sin(a);
+  const x=dx*cos-dz*sin,z=dx*sin+dz*cos;
+  return Object.freeze({dx:Math.abs(x)<1e-12?0:x,dz:Math.abs(z)<1e-12?0:z});
+ }
  function rayBox(eye,dir,box){
   if(!box||![box.x,box.z,box.w,box.d].every(Number.isFinite)||
      box.w<=0||box.d<=0)return Infinity;
@@ -125,8 +135,8 @@
   ctx.fillStyle='#f1f5ed';ctx.font='14px system-ui';
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
-  ctx.fillText('J / L : 시야 회전 · P : 도시 지도 · 전투 기능 미구현',14,47);
+  ctx.fillText('화면 클릭: 마우스 시야 회전 · WASD: 보는 방향 기준 이동 · Esc: 포인터 해제',14,47);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,relativeMovement,rayBox,frame,draw});
 });
