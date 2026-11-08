@@ -94,8 +94,8 @@ test('NIS characters have consistent fictional identities and a combat-first pac
   assert.deepEqual(nis.map(person => person.genderKo), ['남성', '여성']);
   assert.equal(new Set(c.SUPPORT_CAST.map(person => person.id)).size, c.SUPPORT_CAST.length);
   assert.equal(new Set(c.MISSIONS.map(m => m.combatTheme)).size, 12);
-  assert.ok(c.COMBAT_FOCUS.targetShareMin >= 0.6);
-  assert.ok(c.COMBAT_FOCUS.targetShareMax <= 0.65);
+  assert.equal(c.COMBAT_FOCUS.targetShareMin, 0.50);
+  assert.equal(c.COMBAT_FOCUS.targetShareMax, 0.50);
   assert.equal(c.COMBAT_FOCUS.fullyImplemented, false);
   assert.equal(c.COMBAT_FOCUS.measuredCombatShare, null);
   assert.equal(c.TARGET_MINUTES, 720);
@@ -118,4 +118,33 @@ test('active campaign documentation never reintroduces retired cast or obsolete 
   assert.match(canon,/김지윤/);
   assert.match(canon,/조현지/);
   assert.match(canon,/이수혁/);
+});
+
+test('owner-approved 50/20/22/8 twelve-hour plan is precise and never impersonates completed gameplay',()=>{
+  assert.deepEqual({...c.EXPERIENCE_SHARE_PERCENT},{
+    combat:50,urgentMovementAndRescue:20,characterAndStory:22,exploration:8
+  });
+  const budget=c.plannedExperienceSeconds();
+  assert.deepEqual({...budget},{
+    combat:21600,urgentMovementAndRescue:8640,characterAndStory:9504,exploration:3456
+  });
+  assert.equal(Object.values(budget).reduce((a,b)=>a+b,0),720*60);
+  assert.equal(Object.isFrozen(budget),true);
+  assert.equal(c.COMBAT_FOCUS.measuredCombatShare,null,'authored targets are not observed gameplay');
+  assert.equal(c.campaignStatus(c.freshProgress()).fullyCompleted,false);
+  assert.deepEqual(c.deserialize(c.serialize(c.freshProgress())),c.freshProgress(),
+    'pacing planning must not alter v1 save format');
+});
+test('future observed pacing QA reports real input only and rejects invented or broken durations',()=>{
+  const observed=c.reviewObservedPacing({combat:50,urgentMovementAndRescue:20,
+    characterAndStory:22,exploration:8});
+  assert.equal(observed.measuredSeconds,100);
+  assert.deepEqual({...observed.observedPercent},{...c.EXPERIENCE_SHARE_PERCENT});
+  assert.deepEqual(c.reviewObservedPacing({combat:0,urgentMovementAndRescue:0,
+    characterAndStory:0,exploration:0}),{measuredSeconds:0,observedPercent:null});
+  assert.throws(()=>c.reviewObservedPacing({combat:360}),TypeError);
+  assert.throws(()=>c.reviewObservedPacing({combat:-1,urgentMovementAndRescue:1,
+    characterAndStory:1,exploration:1}),TypeError);
+  assert.throws(()=>c.reviewObservedPacing({combat:Infinity,urgentMovementAndRescue:1,
+    characterAndStory:1,exploration:1}),TypeError);
 });
