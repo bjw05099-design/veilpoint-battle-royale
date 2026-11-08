@@ -1,8 +1,10 @@
 'use strict';
+const crypto=require('node:crypto');
 // VEILPOINT BR / server-owned 96-human squad staging rules.
 // This is a real shared lobby model, NOT yet 96-player live world replication.
 const SQUADS = 16, SQUAD_SIZE = 6, CAPACITY = SQUADS * SQUAD_SIZE;
 const SECRET = /^[a-f0-9]{64}$/;
+const INVITE = /^[a-f0-9]{32}$/;
 const INVALID_NAME = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
 const nameValid = value => typeof value === 'string' &&
   value.normalize('NFC').trim().length > 0 &&
@@ -15,10 +17,29 @@ class BrSquadLobby {
     this.seats = Array.from({length:SQUADS}, () => Array(SQUAD_SIZE).fill(null));
     this.players = new Map();
     this.sequence = 0;
+    // An invite is a private, unguessable capability issued to an existing
+    // squad member. It never contains a member's authentication token.
+    this.invites = new Map();
   }
-  join(token, name) {
+  invite(token) {
+    const member=this.players.get(token);
+    if(!member)throw new RangeError('unknown_session');
+    if(this.phase!=='assembling')return {ok:false,reason:'roster_locked'};
+    if(this.seats[member.team].every(Boolean))return {ok:false,reason:'squad_full'};
+    for(const [code,inv] of this.invites){
+      if(inv.owner===token)return {ok:true,code,squad:member.team+1};
+    }
+    // A capability can be forwarded by the inviter, not fetched by peers.
+    let code;
+    do{code=crypto.randomBytes(16).toString('hex');}while(this.invites.has(code));
+    this.invites.set(code,{owner:token,team:member.team});
+    return {ok:true,code,squad:member.team+1};
+  }
+  join(token, name, inviteCode=null) {
     if (typeof token !== 'string' || !SECRET.test(token)) throw new RangeError('invalid_session');
     if (!nameValid(name)) throw new RangeError('invalid_display_name');
+    if(inviteCode!==null&&(typeof inviteCode!=='string'||!INVITE.test(inviteCode)))
+      throw new RangeError('invalid_invite_code');
     const canonical = name.normalize('NFC').trim();
     const existing = this.players.get(token);
     if (existing) {
@@ -27,15 +48,22 @@ class BrSquadLobby {
     }
     if (this.phase !== 'assembling') return {ok:false,reason:'roster_locked'};
     if (this.players.size >= CAPACITY) return {ok:false,reason:'lobby_full'};
-    // Earliest available seat gives a deterministic 6-player squad.
-    // Never accept a client-authored team index or slot number.
-    for (let team=0;team<SQUADS;team++) for(let slot=0;slot<SQUAD_SIZE;slot++) {
+    const invite=inviteCode===null?null:this.invites.get(inviteCode);
+    if(inviteCode!==null&&(!invite||!this.players.has(invite.owner)||
+      this.players.get(invite.owner).team!==invite.team))
+      return {ok:false,reason:'invite_unavailable'};
+    // Uninvited players use the first vacant seat. Invited players are
+    // allocated ONLY within their real inviter's own six-person squad.
+    // The caller never supplies or controls an arbitrary team/seat index.
+    const eligibleTeams=invite?[invite.team]:Array.from({length:SQUADS},(_,i)=>i);
+    for (const team of eligibleTeams) for(let slot=0;slot<SQUAD_SIZE;slot++) {
       if (this.seats[team][slot] !== null) continue;
       const player = {id:++this.sequence,name:canonical,team,slot,ready:false};
       this.seats[team][slot] = token;
       this.players.set(token,player);
       return {ok:true,joined:true,team,slot};
     }
+    if(invite)return {ok:false,reason:'squad_full'};
     throw new Error('inconsistent_squad_roster');
   }
   ready(token, value) {
@@ -47,6 +75,7 @@ class BrSquadLobby {
     // Full launch is a SERVER decision; never trust a client start command.
     if (this.players.size===CAPACITY && [...this.players.values()].every(q=>q.ready)) {
       this.phase='roster_locked';
+      this.invites.clear();
     }
     return {ok:true,locked:this.phase==='roster_locked'};
   }
@@ -56,6 +85,8 @@ class BrSquadLobby {
     if (this.phase !== 'assembling') return {ok:false,reason:'roster_locked'};
     this.seats[p.team][p.slot]=null;
     this.players.delete(token);
+    // A departed leader cannot continue recruiting players to their old seat.
+    for(const [code,inv] of this.invites)if(inv.owner===token)this.invites.delete(code);
     return {ok:true};
   }
   snapshot(token) {

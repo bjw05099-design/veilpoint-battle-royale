@@ -37,13 +37,21 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    if(req.method==='POST'&&url.pathname==='/join'){
     const body=await readJson(req,1024,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||
-       Object.keys(body).length!==1||!Object.hasOwn(body,'name'))
+       !Object.hasOwn(body,'name')||
+       !['name','inviteCode,name'].includes(Object.keys(body).sort().join(',')))
        return send(res,400,{error:'invalid_join'});
     const token=crypto.randomBytes(32).toString('hex');
-    const result=lobby.join(token,body.name);
+    const result=lobby.join(token,body.name,body.inviteCode===undefined?null:body.inviteCode);
     return send(res,result.ok?201:409,result.ok?{token,...result,state:stateFor(token)}:result);
    }
    const token=req.headers['x-player-token'];
+   if(req.method==='POST'&&url.pathname==='/squad-invite'){
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_invite_request'});
+    const result=lobby.invite(token);
+    return send(res,result.ok?200:409,result);
+   }
    if(req.method==='GET'&&url.pathname==='/state')
     return send(res,200,stateFor(token));
    if(req.method==='GET'&&url.pathname==='/world'){
@@ -122,7 +130,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    const reason=error instanceof RangeError?error.message:'server_error';
    const status=reason==='unknown_session'?401:
     ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_signal_kind','invalid_json',
-     'invalid_join','invalid_pace','invalid_spectator_slot','body_too_large','request_timeout'].includes(reason)?400:500;
+     'invalid_join','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','body_too_large','request_timeout'].includes(reason)?400:500;
    return send(res,status,{error:reason});
   }
  });
