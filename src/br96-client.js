@@ -11,13 +11,13 @@ const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
-let publicGeometry=null,geometryBusy=false;
+let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='';
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
- publicGeometry=null;geometryBusy=false;
+ publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';
  try{sessionStorage.removeItem(SESSION);}catch(_){}
  render();
@@ -99,6 +99,8 @@ function render(){
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100 · 경계 '+w.playableArea.stage+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
+    (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
+      ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
@@ -122,6 +124,18 @@ function draw(w){
   ctx.beginPath();ctx.moveTo(x(-175),z(m));ctx.lineTo(x(175),z(m));ctx.stroke();
  }
  if(!w)return;
+ // The fictional loading apron is the SAME named ground footprint that
+ // changes the 60Hz movement budget. The player can see why their walking
+ // pace changes instead of encountering an invisible slowdown.
+ if(publicEnvironment?.wetLoadingPad){
+  const pad=publicEnvironment.wetLoadingPad;
+  ctx.fillStyle='#285961';
+  ctx.fillRect(x(pad.x-pad.width/2),z(pad.z-pad.depth/2),
+    pad.width*scale,pad.depth*scale);
+  ctx.strokeStyle='#79a9a9';ctx.lineWidth=1.5;
+  ctx.strokeRect(x(pad.x-pad.width/2),z(pad.z-pad.depth/2),
+    pad.width*scale,pad.depth*scale);
+ }
  // Draw the same PUBLIC fictional building footprints used by server-owned
  // 60Hz collision: wide sidewalks remain visible, walls are not magic.
  // Static urban objects are downloaded once per valid match, never mixed into
@@ -288,8 +302,12 @@ async function loadPublicGeometry(){
      record.obstacles.length>4000)throw Error('invalid_public_world');
   const valid=record.obstacles.every(o=>o&&typeof o.type==='string'&&
     [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0);
-  if(!valid)throw Error('invalid_public_geometry');
+  const pad=record.environment?.wetLoadingPad;
+  if(!valid||!pad||![pad.x,pad.z,pad.width,pad.depth].every(Number.isFinite)||
+     pad.width<=0||pad.depth<=0||pad.width>350||pad.depth>350)
+    throw Error('invalid_public_geometry');
   publicGeometry=record.obstacles;
+  publicEnvironment={wetLoadingPad:pad};
   render();
  }catch(error){
   // The server may transition from lobby to world after the previous poll.

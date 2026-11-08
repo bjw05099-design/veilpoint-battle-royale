@@ -50,6 +50,6 @@ test('BR96 page loads static public obstacles only once per match, before drawin
  assert.match(code,/if\(w&&!publicGeometry&&!geometryBusy\)loadPublicGeometry\(\)/);
  assert.match(code,/ctx\.fillRect\(x\(solid\.x-solid\.w\/2\)/);
  assert.match(code,/for\(const rival of w\.visible\|\|\[\]\)/);
- assert.match(code,/publicGeometry=null;geometryBusy=false/);
+ assert.match(code,/publicGeometry=null;publicEnvironment=null;geometryBusy=false/);
  assert.doesNotThrow(()=>new Function(code));
 });

@@ -27,7 +27,11 @@ bool AVPStoryGameState::RestoreProgress(EVPStoryStage Stage, bool bHarbor, bool 
     case EVPStoryStage::SouthExit:
     case EVPStoryStage::EastExit:
     case EVPStoryStage::Complete:
-        bCoherent = bHarbor && bShelter; break;
+        // The native game previously rejected perfectly valid route saves
+        // without two unrelated paper records. CH01 now permits real local
+        // corridor decisions directly after the unexpected escalation.
+        // Preserve BOTH legacy records as optional recorded evidence.
+        bCoherent = true; break;
     default:
         return false;
     }
@@ -51,7 +55,12 @@ bool AVPStoryGameState::IsAvailable(EVPStoryAction Action) const
     case EVPStoryStage::RestoreRelay:
         return Action == EVPStoryAction::RestoreRelay;
     case EVPStoryStage::InspectRecords:
-        return (Action == EVPStoryAction::ReadHarbor && !bReadHarbor) ||
+        // Standalone native CH01 shares the browser's actual route contract:
+        // no forced pair of ledger pickups just to progress a human crisis.
+        // Old physical record stations remain optional and save-compatible.
+        return Action == EVPStoryAction::ChooseSouth ||
+               Action == EVPStoryAction::ChooseEast ||
+               (Action == EVPStoryAction::ReadHarbor && !bReadHarbor) ||
                (Action == EVPStoryAction::ReadShelter && !bReadShelter);
     case EVPStoryStage::ChooseRoute:
         return Action == EVPStoryAction::ChooseSouth || Action == EVPStoryAction::ChooseEast;
@@ -110,12 +119,12 @@ FString AVPStoryGameState::GetObjectiveLabel() const
     switch (StoryStage)
     {
     case EVPStoryStage::RestoreRelay:
-        return TEXT("CH01 / Restore the local radio relay - press E nearby");
+        return TEXT("CH01 / Korea briefing complete; unexpected harbor escalation - reach local radio");
     case EVPStoryStage::InspectRecords:
-        return FString::Printf(TEXT("CH01 / Inspect harbor and shelter logs (%d/2)"),
+        return FString::Printf(TEXT("CH01 / Choose south rescue or east passage (optional records %d/2)"),
             int32(bReadHarbor) + int32(bReadShelter));
     case EVPStoryStage::ChooseRoute:
-        return TEXT("CH01 / Choose a route at the marked local desk");
+        return TEXT("CH01 / Reach an actual local route; optional evidence retained");
     case EVPStoryStage::SouthExit:
         return TEXT("CH01 / Reach the south courtyard");
     case EVPStoryStage::EastExit:

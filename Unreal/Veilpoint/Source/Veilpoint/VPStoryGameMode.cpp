@@ -97,7 +97,11 @@ bool IsCoherentSaved(const UVPStoryCheckpoint* Saved)
     case EVPStoryStage::ChooseRoute:
     case EVPStoryStage::SouthExit:
     case EVPStoryStage::EastExit:
-    case EVPStoryStage::Complete: return Harbor && Shelter;
+    case EVPStoryStage::Complete:
+        // The same native checkpoint schema now accepts direct routes with
+        // zero, one or two optional records; previously saved evidence is
+        // never erased or forged. Validate again inside RestoreProgress.
+        return true;
     default: return false;
     }
 }

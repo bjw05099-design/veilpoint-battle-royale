@@ -52,6 +52,18 @@ squad, but no rival positions or credentials are leaked by the static city
 map. This is a gameplay and collision feature, not a reproduction of any
 real Aden security checkpoint.
 
+### Shared harbor ground and movement
+
+The BR96 local 2D server now uses the **same fictional waterlogged loading
+apron as the offline BR**. The public ground footprint is downloaded once and
+drawn on the map; entering it changes a participant's actual **server-owned
+60Hz travel distance** rather than simply showing a slowdown label. Shallow
+wave wash follows a fixed server-tick cycle, without artificial injury,
+teleporting, client-supplied terrain or secret rival tracking. The HUD only
+shows the authenticated player's own current ground status. This is a
+small-waterfront terrain interaction, **not** a completed large Aden map or an
+online-performance benchmark.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next
