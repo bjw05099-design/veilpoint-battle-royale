@@ -230,7 +230,8 @@ class SoftwareRenderer {
   // should obscure the actual road during first-person travel.
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-   type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+   type:o.type==='aden-shade-post'||o.type==='aden-shade-seat'?o.type:
+     o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-building'?'story-building':
      o.type==='story-warehouse'?'story-warehouse':
@@ -252,6 +253,8 @@ class SoftwareRenderer {
   objects.push({x:pad.x,z:pad.z,h:.035,w:pad.width,d:pad.depth,type:'wet-apron'});
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  }
+ if(state.terrainRevision===1)objects.push({x:43,z:75,h:.22,w:18,d:18,
+  roofY:3.28,type:'aden-shade-roof'});
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,angle:b.angle,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
@@ -274,6 +277,12 @@ class SoftwareRenderer {
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
  }
+ if(o.type==='aden-shade-roof'){
+  const top=o.roofY+o.h;
+  polygon([proj(x-ww,top,z-dd),proj(x+ww,top,z-dd),
+    proj(x+ww,top,z+dd),proj(x-ww,top,z+dd)],'#a08b72');
+  continue;
+ }
  if(o.type==='dock-inspection-roof'){
   const top=o.roofY+o.h;
   polygon([proj(x-ww,top,z-dd),proj(x+ww,top,z-dd),
@@ -292,6 +301,7 @@ class SoftwareRenderer {
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
+   o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
    o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
@@ -412,6 +422,16 @@ class Renderer {
   // East dock architecture is driven by the same simulation obstacle array:
   // the facade and crane are visible, but all additional detail stays inside
   // each existing solid footprint (no invisible movement barriers).
+  if(o.type==='aden-shade-post'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.54,.47,.38]);
+   m.box(o.x,o.h-.22,o.z,o.w,.22,o.d,[.68,.58,.47]);
+   return;
+  }
+  if(o.type==='aden-shade-seat'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.48,.42,.36]);
+   m.box(o.x,o.h-.12,o.z,o.w,.12,o.d,[.62,.55,.47]);
+   return;
+  }
   if(o.type==='aden-pedestrian-bench'){
    // Grounded low seats occupy only the actual 60Hz AABBs.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.49,.41,.34]);
@@ -489,6 +509,14 @@ class Renderer {
   const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
+ // The shared public shade court has a roof above the player, not a phantom
+ // solid that blocks entering. The benches and posts alone are colliders.
+ if(this.worldTerrainRevision===1){
+  m.box(43,3.28,75,18,.22,18,[.49,.42,.35]);
+  m.box(43,3.48,75,18.2,.065,18.2,[.61,.53,.44]);
+  m.box(43,-.006,75,15.5,.012,15.5,[.40,.36,.30]);
+  for(const z of [69,75,81])m.box(43,.009,z,11,.005,.12,[.53,.47,.39]);
+ }
  // Roof and paved forecourt of the COMMON urban block in both modes.
  // The overhead surface is above the walking capsule; only the authored
  // perimeter and stall collide. Do not generate a solid filler cuboid.
