@@ -1,6 +1,7 @@
 #include "VPStoryGameMode.h"
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
+#include "VPStoryPedestrian.h"
 #include "VPWorldBootstrap.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -70,6 +71,24 @@ void AVPStoryGameMode::BeginPlay()
             Marker->Action = Placement.Action;
             AuthoredActions.AddUnique(Placement.Action);
         }
+    }
+    // One visible, colliding pedestrian already stands in the south public
+    // walking district. After the captain and local aid team select the south
+    // corridor the actor walks at fixed speed. An editor-authored civilian
+    // takes precedence: never duplicate people over a custom level.
+    bool bAuthoredPedestrian=false;
+    for (TActorIterator<AVPStoryPedestrian> It(GetWorld()); It; ++It)
+    {
+        if (IsValid(*It)) { bAuthoredPedestrian=true; break; }
+    }
+    if (!bAuthoredPedestrian)
+    {
+        FActorSpawnParameters CivilianParams;
+        CivilianParams.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+        GetWorld()->SpawnActor<AVPStoryPedestrian>(
+            AVPStoryPedestrian::StaticClass(),
+            FVector(3400.f,-800.f,95.f),FRotator::ZeroRotator,CivilianParams);
     }
     // Native progression currently persists only in standalone story preview.
     // Multiplayer PIE must not share one machine-wide local save slot.
