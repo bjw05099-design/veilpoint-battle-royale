@@ -488,8 +488,7 @@
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
-      ...(['recordA','recordB'].filter(id=>!state.found.includes(id) &&
-        Math.hypot(state.world.player.x-POINTS[id].x,state.world.player.z-POINTS[id].z)<=7).map(id=>POINTS[id])),
+      ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
       ...coordinatorRequestMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
