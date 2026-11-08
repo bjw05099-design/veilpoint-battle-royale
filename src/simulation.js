@@ -12,6 +12,7 @@
   const SPRINT_RECOVERY_STAMINA = 25; // Hysteresis prevents exhausted one-frame sprint bursts.
   // Grounded arm's-reach interaction, not a three-metre remote loot vacuum.
   const PICKUP_REACH = 1.8;
+  const BR_HEADLAMP_TICKS=120*60; // Two-minute finite dusk-only charge.
   const ACTOR_RADIUS = 0.85; // Shared BR actor footprint for standing-body collision.
   // Original fictional class profiles; gameplay approximations, not real firearm instructions.
   // Ranges are fictional world-metre gameplay limits, not real firearm specifications.
@@ -470,6 +471,7 @@
         speed:0,fuel:YARD_SHUTTLE.fuel,driver:false},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
+      brHeadlamp:{on:false,ticks:BR_HEADLAMP_TICKS},
       obstacles, bots, loot, player:{x:deployment.x,z:deployment.z,
         yaw:entrySite==='central'?0:Math.atan2(-deployment.x,deployment.z),
         pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -606,6 +608,17 @@
     body.x=future.x;body.z=future.z;
     cart.x=future.x;cart.z=future.z;
     return {engaged:true,moved:true};
+  }
+  // Optional dusk lamp: finite battery, fixed-step time, no opponent radar.
+  function toggleBrHeadlamp(game){
+    if(!game||game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
+    if(game.lighting!=='dusk')return {ok:false,reason:'daylight'};
+    const lamp=game.brHeadlamp;
+    if(!lamp||lamp.ticks<=0)return {ok:false,reason:'battery_empty'};
+    lamp.on=!lamp.on;
+    game.message=lamp.on?'DUSK HEADLAMP ON · FINITE BATTERY':'DUSK HEADLAMP OFF · BATTERY SAVED';
+    game.messageTime=2;
+    return {ok:true,on:lamp.on,ticks:lamp.ticks};
   }
   // PC J places or recovers one tangible field marker for self-navigation.
   // The marker is not a radar or teleport destination and cannot be recalled
@@ -803,6 +816,13 @@
     if(!Number.isFinite(dt)||dt<=0)return game;
     dt=clamp(dt,0,0.05);
     game.elapsed+=dt;
+    if(game.brHeadlamp?.on){
+      game.brHeadlamp.ticks=Math.max(0,game.brHeadlamp.ticks-Math.round(dt*60));
+      if(game.brHeadlamp.ticks===0){
+        game.brHeadlamp.on=false;
+        game.message='DUSK HEADLAMP BATTERY EXHAUSTED';game.messageTime=2;
+      }
+    }
     advanceReload(game,dt);
     advanceServiceGate(game,dt);
     const cartMotion=advanceHandcart(game,dt,input);
@@ -1377,6 +1397,10 @@
       throw new RangeError('Invalid BR lighting');
     if(game.terrainRevision!==0&&game.terrainRevision!==1)
       throw new RangeError('Invalid BR terrain revision');
+    if(!game.brHeadlamp||typeof game.brHeadlamp.on!=='boolean'||
+       !integer(game.brHeadlamp.ticks,0,BR_HEADLAMP_TICKS)||
+       (game.brHeadlamp.on&&(game.lighting!=='dusk'||game.brHeadlamp.ticks===0)))
+      throw new RangeError('Invalid BR headlamp state');
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,lighting:game.lighting,
       terrainRevision:game.terrainRevision,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
