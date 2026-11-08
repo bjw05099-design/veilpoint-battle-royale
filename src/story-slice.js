@@ -83,6 +83,7 @@
   // Arrival is an observed physical fact, not proof of completed evacuation.
   const CIVILIAN_SHUTTLE=Object.freeze({x:10,startZ:-82,endZ:-64,w:2.4,d:3.8,h:2.35,
     speed:1.5,driverWalkSpeed:1.6,boardZ:-79.4});
+  const VAN_CROSSING_YIELD_SECONDS=5;
   // The driver first walks from the staffed approach to the actual parked
   // vehicle. The old checkpoint without driverZ means already boarded.
   function transportWitness(state) {
@@ -190,7 +191,8 @@
     else obstacles.push({x:CIVILIAN_SHUTTLE.x,z:v.z,w:CIVILIAN_SHUTTLE.w,
       d:CIVILIAN_SHUTTLE.d,h:CIVILIAN_SHUTTLE.h,
       type:'story-civil-transport',routeId:'story-civil-transport'});
-    state.world.transportVan={x:CIVILIAN_SHUTTLE.x,z:v.z,arrived:v.arrived};
+    state.world.transportVan={x:CIVILIAN_SHUTTLE.x,z:v.z,arrived:v.arrived,
+      yielding:!v.arrived&&Number.isFinite(v.pauseUntil)&&v.pauseUntil>state.world.elapsed};
   }
   function gateOpen(state) {
     return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
@@ -482,6 +484,21 @@
     return Math.hypot(p.x-m.x,p.z-m.z)<7&&
       !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
   }
+  // A face-to-face, purely optional street-side request to a visible local
+  // driver. No paperwork, remote vehicle dispatch or invented passenger rescue.
+  // The vehicle remains a physical collider and its route never teleports.
+  function transportYieldMarkers(state){
+    const v=state.transportVan,p=state.world.player;
+    if(!v||v.arrived||state.phase!=='exit'||state.choice!=='evacuation'||
+      (hasOwn(v,'driverZ')&&v.driverZ>CIVILIAN_SHUTTLE.boardZ+1e-8))return [];
+    const marker={id:'transportYield',x:CIVILIAN_SHUTTLE.x+CIVILIAN_SHUTTLE.w/2+1.1,
+      z:v.z,kind:'evac',label:v.pauseUntil>state.world.elapsed
+        ?'나딤 운송 차량에 현장에서 출발 신호':'나딤 운송 차량에 현장에서 잠시 정차 요청'};
+    if(Math.hypot(p.x-marker.x,p.z-marker.z)>6||
+      Sim.lineBlocked(p.x,p.z,marker.x,marker.z,
+        state.world.obstacles.filter(o=>o.routeId!=='story-civil-transport')))return [];
+    return [marker];
+  }
   function officeMarkers(state) {
     // Keep physical interaction objects in the original world collection.
     // Hiding the authoritative marker breaks old saved interactions and
@@ -510,7 +527,7 @@
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -669,7 +686,7 @@
       if(guideInReach&&(priority>bestPriority||(priority===bestPriority&&d<best))&&
         d<(marker.id==='beacon'?SWITCH_REACH:
           marker.id==='guideControl'||marker.id==='guideRelease'||marker.id==='guideTransfer'?SUPPLY_REACH:
-          marker.id==='transportDriver'?2.3:
+          marker.id==='transportDriver'||marker.id==='transportYield'?2.3:
           marker.kind==='ammo'?SUPPLY_REACH:INTERACT_RADIUS)&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)){
         best=d;bestPriority=priority;candidate=marker;
@@ -936,7 +953,7 @@
         const clear=!state.world.obstacles.filter(o=>o!==body).some(o=>
           Math.abs(o.x-sweep.x)*2<o.w+sweep.w&&Math.abs(o.z-sweep.z)*2<o.d+sweep.d)&&
           peers.every(a=>!Sim.blocked(a.x,a.z,.9,[sweep]));
-        if(clear)v.z=next;
+        if(clear&&!(v.pauseUntil>state.world.elapsed))v.z=next;
         if(v.z>=CIVILIAN_SHUTTLE.endZ-1e-7){
           v.z=CIVILIAN_SHUTTLE.endZ;v.arrived=true;state.transportContact=2;
           state.subtitle='나딤(현지 운송 담당자): 차량이 남쪽 공공 도로 승차 지점에 도착했습니다. 주민 이동은 구조단과 함께 확인하겠습니다.';
@@ -1360,6 +1377,23 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='transportYield'&&state.transportVan&&!state.transportVan.arrived&&
+       state.phase==='exit'&&state.choice==='evacuation'){
+      const v=state.transportVan;
+      if(hasOwn(v,'driverZ')&&v.driverZ>CIVILIAN_SHUTTLE.boardZ+1e-8)
+        return {ok:false,reason:'driver_not_boarded'};
+      const currentlyYielding=v.pauseUntil>state.world.elapsed;
+      v.pauseUntil=currentlyYielding?state.world.elapsed:
+        state.world.elapsed+VAN_CROSSING_YIELD_SECONDS;
+      syncCivilianShuttle(state);syncMarkers(state);
+      state.subtitle=currentlyYielding
+        ?'나딤(현지 운송 담당자): 통행로가 비었군요. 요청대로 천천히 다시 이동하겠습니다.'
+        :'나딤(현지 운송 담당자): 사람들 먼저 지나가도록 잠깐 멈추겠습니다. 안전하면 다시 출발하겠습니다.';
+      state.message=currentlyYielding
+        ?'현지 운송 차량 양보 종료 · 실제 보행 통로 확인'
+        :'현지 운송 차량 잠시 정차 · 도로 양보 5초 이내 · 원래 임무와 별개';
+      return {ok:true,event:currentlyYielding?'transport_resume':'transport_yield',phase:state.phase};
+    }
     if(marker.id==='awningHandle'&&state.awningFallen&&state.combat.cleared&&
        state.awningShift<1&&['records','decision','exit'].includes(state.phase)){
       state.awningWorking=true;
@@ -1806,6 +1840,9 @@
     const workerReport=workerSafe
       ?' 항구 작업자는 별도의 지시 없이 가까운 공용 보행 골목으로 걸어서 이동했습니다. 다른 주민의 안전은 미확인입니다.'
       :null;
+    const yieldedVan=state.transportVan&&hasOwn(state.transportVan,'pauseUntil')
+      ?' 나딤 운송 담당자가 요청받은 위치에서 차량을 잠시 멈춰 현장 통행을 양보했습니다. 승객 수송 및 철수 완료는 확인되지 않았습니다.'
+      :'';
     const street=state.awningFallen
       ?(state.awningShift===1
         ?'시장의 쓰러진 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 맡습니다.'
@@ -1820,7 +1857,7 @@
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
         '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.'+
-        (street?' '+street:'')+(workerReport||'')]),
+        (street?' '+street:'')+(workerReport||'')+yieldedVan]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
@@ -1837,6 +1874,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
       harborWorkerReachedShelter:!!state.worker&&state.worker.z>=WORKER_PATH.safeZ-1e-6,
+      civilianVehicleYieldRequested:!!state.transportVan&&hasOwn(state.transportVan,'pauseUntil'),
       emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:state.combat.supportUsed,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
@@ -1911,7 +1949,8 @@
       passageWarningHeard:state.passageWarningHeard,
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
-        ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{})}:null,
+        ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
+        ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1973,7 +2012,13 @@
            !['exit','complete'].includes(data.phase)))))||
        (hasOwn(data,'transportVan')&&data.transportVan!==null&&(
          !data.transportVan||typeof data.transportVan!=='object'||Array.isArray(data.transportVan)||
-         !['arrived,z','arrived,driverZ,z'].includes(Object.keys(data.transportVan).sort().join(','))||
+         !['arrived,z','arrived,driverZ,z','arrived,pauseUntil,z','arrived,driverZ,pauseUntil,z'].includes(Object.keys(data.transportVan).sort().join(','))||
+         (hasOwn(data.transportVan,'pauseUntil')&&(
+           !Number.isFinite(data.transportVan.pauseUntil)||
+           data.transportVan.pauseUntil<0||
+           data.transportVan.pauseUntil>data.elapsed+VAN_CROSSING_YIELD_SECONDS+1e-7||
+           (hasOwn(data.transportVan,'driverZ')&&
+             data.transportVan.driverZ>CIVILIAN_SHUTTLE.boardZ+1e-8)))||
          (hasOwn(data.transportVan,'driverZ')&&
            (!Number.isFinite(data.transportVan.driverZ)||
             data.transportVan.driverZ<CIVILIAN_SHUTTLE.boardZ||
