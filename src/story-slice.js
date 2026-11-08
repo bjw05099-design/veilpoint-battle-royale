@@ -992,7 +992,7 @@
         const radio=state.relayRestored
           ?' 비상 통신은 복구됐지만 통로의 개방 권한은 여전히 현지 구조단에 있습니다.'
           :' 현장 통신은 아직 안정적으로 복구되지 않았으며 확인되지 않은 개방을 약속할 수 없습니다.';
-        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없습니다. 2019년의 정치 합의도 이 골목의 출입권을 대신 주지 못했습니다. 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.'+radio;
+        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없습니다. 어떤 정치적 발표도 이 골목의 출입권을 대신 주지 못합니다. 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.'+radio;
         state.message='동쪽 현장 통로 도착 · 귀환 계획 재검토 필요'+
           (state.relayRestored?' · 통신 복구와 통로 개방 별개':' · 현장 통신 미확인');
       }
@@ -1386,7 +1386,7 @@
     syncRoute(state);
     state.combat.nextPulseAt=state.world.elapsed+3;
     state.world.bots=makeHostiles();
-    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 이 도시의 주민에게는 2015년 이후 불안정했던 일상이 또 흔들리는 겁니다. 현지 구조단의 결정을 먼저 들어야 합니다.';
+    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 주민들에게는 조금 전까지 이어지던 평범한 일상도 갑자기 끊긴 겁니다. 현지 구조단의 결정을 먼저 들어야 합니다.';
     state.message='갑작스러운 현지 충돌 확대 · 현장 대응과 주민 보호';
     syncMarkers(state);
     return true;
@@ -1482,7 +1482,7 @@
       state.relayRestored=!state.relayRestored;
       if(!state.relayRestored)state.beaconEnabled=false;
       state.subtitle=state.relayRestored
-        ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어. 2015년부터 주민들은 전기가 돌아왔다는 말과 생활이 돌아왔다는 말을 구분했지. 복구한 건 이 회선 하나야. 물과 병원, 다른 통로까지 모두 살아난 건 아니야.'
+        ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어. 주민들은 전기가 돌아왔다는 말과 생활이 돌아왔다는 말을 구분해 왔지. 복구한 건 이 회선 하나야. 물과 병원, 다른 통로까지 모두 살아난 건 아니야.'
         :'마라(기술자): 현장 전원을 분리했어. 경고등은 꺼지고 아직 요청하지 않은 통제문 준비에는 시간이 더 필요해.';
       state.message=state.relayRestored
         ?'현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초'
@@ -1509,7 +1509,7 @@
       if(!selected.ok){state.phase=previousPhase;syncMarkers(state);return selected;}
       // A genuine face-to-face conversation depends on what people have
       // physically seen, and on local jurisdiction. Political memory is one
-      // resident's perspective, not a claim that a real 2019 agreement
+      // resident's perspective, not a claim that a political declaration
       // authorized an invented street-level route.
       const observedResident=state.civilianWalker?.arrived===true
         ?' 유수프: 남쪽까지 걸어온 주민 한 명은 봤어. 나머지 사람들은 아직 확인 중이야.'
@@ -1526,7 +1526,7 @@
       // historical Yemen context, not events performed by a real-life actor.
       // This fictional civilian's local agency still changes only witnessed
       // responses, never foreign orders or the saved completion requirements.
-      state.subtitle='유수프(현지 구조단): 2011년 예멘의 시위 때는 우리도 새 질서를 기대했지. 2014년 사나가 장악되고 2015년 아덴까지 전투가 번지자 가족마다 서로 다른 길을 택했어. 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 약속할 수 있는 범위만 말해 줘.'+
+      state.subtitle='유수프(현지 구조단): 2011년 예멘의 시위 때는 우리도 새 질서를 기대했지. 2014년 사나가 장악됐다는 소식이 들렸고, 2015년 들어 아덴까지 위기가 번졌어. 가족마다 서로 다른 길을 택했지. 수도의 정치가 이 골목의 통행 허가를 대신할 순 없어. 남쪽 통로는 우리가 관리한다. 약속할 수 있는 범위만 말해 줘.'+
         observedResident+link+memory+
         ' 이수혁: 한국에서 받은 임무는 바뀌지 않았습니다. 이동 판단은 여러분과 함께 확인하겠습니다.';
       state.message='유수프와 직접 협의 · 현지 구조단 결정 존중 · '+
@@ -1583,7 +1583,7 @@
       if(state.transportContact===0){
         state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false,driverZ:POINTS.transportDriver.z};
         state.transportContact=1;
-        state.subtitle='나딤(현지 운송 담당자): 2022년 휴전 때도 도로를 다시 열자는 말과 실제로 차가 다니는 일은 달랐습니다. 주차된 차량까지 직접 걸어가 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
+        state.subtitle='나딤(현지 운송 담당자): 도로를 다시 열자는 말과 실제로 차량이 다닐 수 있는 상황은 다릅니다. 주차된 차량까지 직접 걸어가 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
         state.message='현지 운송 담당자가 주차된 차량으로 이동 중 · 아직 출발 전';
         syncCivilianShuttle(state);
       }else{
@@ -1731,7 +1731,7 @@
     state.gateReadyAt=choice==='verification'?state.world.elapsed+state.gateClearanceDuration:0;
     state.gateObstructed=false;
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 동쪽 통로의 현장 개방을 요청했습니다. 2022년 휴전에서도 도로 개방은 별도 협의가 필요했어요. 기록이나 무전 한 줄로 문이 열렸다고 할 순 없습니다. 실제 통제문 작업과 현지 승인 확인이 필요해요.'
+      ?'마라(기술자): 동쪽 통로의 현장 개방을 요청했습니다. 이런 혼란 속에서도 도로 개방은 별도 협의가 필요해요. 기록이나 무전 한 줄로 문이 열렸다고 할 순 없습니다. 실제 통제문 작업과 현지 승인 확인이 필요해요.'
       :'유수프(현지 구조단): 남쪽 대피 통로는 내가 현장에서 안내하겠어. 동쪽 개방 요청은 중단했어. 이동한 주민과 아직 못 만난 주민을 섞어 "모두 안전하다"고 보고하지는 말아 줘.';
     state.message=choice==='verification'?'현지 통제소 요청 · 동쪽 통로 개방 대기':'남쪽 대피 통로 선택 · 동쪽 통제소 차단';
     syncRoute(state);syncMarkers(state);

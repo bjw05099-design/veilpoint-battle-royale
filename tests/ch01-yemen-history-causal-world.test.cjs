@@ -19,9 +19,10 @@ test('CH01 historical perspectives arise from a voluntary face-to-face local dec
  assert.equal(s.phase,'exit');
  assert.equal(s.choice,'evacuation');
  assert.deepEqual(s.found,[],'the route is never locked behind historical records');
- for(const year of ['2011','2014','2015','2019'])
+ for(const year of ['2011','2014','2015'])
   assert.ok(s.subtitle.includes(year),'the Yemen chronology is embodied in a local voice: '+year);
  assert.match(s.subtitle,/남쪽 통로는 우리가 관리한다/);
+ assert.doesNotMatch(s.subtitle,/2019|2022/,'future agreements cannot be memories in 2015');
  assert.match(s.subtitle,/우리 눈으로 확인하지 못한 주민을 모두 대피했다고 말할 수는 없어/);
  assert.doesNotMatch(s.subtitle,/여기서 새 파견 지시|2015년에 한국에서 받은 임무/);
 });
@@ -77,6 +78,6 @@ test('fictional harbor story integrates a separate causal script in the actual o
  assert.ok(first>0&&second>first,'browser must load the real event model before the story slice');
  assert.match(story,/Consequences\.fromMission\(state\)/);
  assert.match(story,/2011년 예멘의 시위/);
- assert.match(story,/2014년 사나가 장악되고 2015년 아덴/);
+ assert.match(story,/2014년 사나가 장악됐다는 소식이 들렸고, 2015년 들어 아덴/);
  assert.doesNotMatch(story,/historicalFactCollected|newHistoricalDispatchQuest/);
 });
