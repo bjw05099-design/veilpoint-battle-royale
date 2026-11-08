@@ -145,6 +145,11 @@ function render(){
  select.disabled=!retired||eligibleMates.length===0;
  el('spectate').disabled=select.disabled;
  el('withdraw').disabled=!active();
+ el('squadChatInput').disabled=!active();
+ el('sendSquadChat').disabled=!active();
+ el('squadChatLine').textContent=(w?.squadChat?.length
+  ?w.squadChat.slice(-2).map(entry=>entry.slot+'번: '+entry.text).join(' · ')
+  :'분대 전용 메시지 · 경기 시작 후 사용 가능');
  el('withdraw').textContent=Date.now()<withdrawArmedUntil?'다시 누르면 경기 포기':'경기 포기';
  el('sprint').textContent=sprintIntent?'달리기 ON':'달리기 OFF';
  el('sprint').setAttribute('aria-pressed',String(sprintIntent));
@@ -391,6 +396,16 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+async function sendSquadChat(){
+ if(!active())return;
+ const input=el('squadChatInput'),text=input.value.trim();
+ if(!text)return;
+ // Input focus is excluded from the game's movement handler, so typing
+ // never moves an actor or triggers a field action.
+ const result=await command('/squad-chat',{text},null);
+ if(result?.ok){input.value='';message('우리 분대에만 메시지가 전달됐습니다.');}
+}
+
 async function voteLiveRoute(){
  if(!active())return;
  // Server determines the real majority and only publishes this squad's vote.
@@ -603,6 +618,10 @@ el('leave').addEventListener('click',leave);
 el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
+el('sendSquadChat').addEventListener('click',sendSquadChat);
+el('squadChatInput').addEventListener('keydown',event=>{
+ if(event.key==='Enter'&&!event.isComposing){event.preventDefault();sendSquadChat();}
+});
 el('civicGate').addEventListener('click',operateGate);
 el('handcart').addEventListener('click',operateHandcart);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
