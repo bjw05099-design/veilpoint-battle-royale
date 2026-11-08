@@ -87,7 +87,9 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     res.flushHeaders();
     liveStreams.set(token,res);
     const release=()=>{if(liveStreams.get(token)===res)liveStreams.delete(token);};
-    req.on('close',release);res.on('close',release);
+    // IncomingMessage 'close' may fire as soon as GET headers are consumed;
+    // the writable response 'close' is the actual streaming disconnect.
+    res.on('close',release);
     res.write('retry: 1000\n\n');
     publishSnapshot(token,res);
     return;
