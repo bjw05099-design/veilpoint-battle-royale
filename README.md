@@ -19,6 +19,22 @@ For a Windows machine with Node 22 and the .NET 10 SDK, run `./scripts/package-w
 
 This host uses a stable local virtual origin, so EXE checkpoints persist in a per-user local WebView2 profile and are separate from saves created in `file://` browser pages. Remote network resources/navigation are blocked by the host. Package creation is not a real Windows gameplay smoke test, a Microsoft code signature, or proof of 165 FPS. A native standalone UE5 `.exe` remains the separate 2027-04-27 goal. See [Windows EXE validation](docs/WINDOWS_EXE_DEMO.md).
 
+## Separate 16×6 local squad browser field test
+
+Use `npm run br96:server` and open **http://127.0.0.1:8130/** for the new
+96-seat, server-owned squad **2D movement** test interface. This is not the
+offline BR game or a public multiplayer release. It has real join/ready,
+finite sprint, private local squad signals and server-filtered visible actors,
+but **no 96-player combat, Internet hosting or live-load performance proof**.
+The match starts only when all 96 distinct local sessions have joined and
+are ready. See [BR96 local browser field test](docs/BR96_BROWSER_PLAYTEST.md).
+
+The browser story CH01 now also recognizes a genuinely traversed exit with
+the same existing cargo, companion and clearance constraints; manual E remains
+compatible. Both native UE5 world bootstraps include the same shared original
+seafront market geometry as the browser game, but C++ compilation and UE5
+playtesting are still outstanding.
+
 ## Quick start
 
 Double-click `index.html` in a modern browser that allows local scripts, or run from the project root:
