@@ -199,7 +199,7 @@ function auditBr96(){
     page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'clipped',
      bounds:[rect.left,rect.top,rect.right,rect.bottom]});
   }
-  for(const id of ['name','join','civicGate']){
+  for(const id of ['name','join','civicGate','standingsToggle']){
    const node=get(id),rect=node?.getBoundingClientRect();
    // The public-gate control starts disabled until a real game begins.
    // Temporarily enable it ONLY in this disconnected static Chromium page
@@ -222,6 +222,46 @@ function auditBr96(){
    page.targets.push(target);
    if(id==='civicGate'&&node)node.disabled=originalDisabled;
   }
+  // Also audit the full, ACTUAL authored 4x4 standings view. It is hidden
+  // before interaction and occupies a bounded overlay rather than scrolling
+  // the map or the whole PC viewport.
+  const panel=get('standingsPanel'),grid=get('standingsGrid'),close=get('standingsClose');
+  if(!panel||!grid||!close)throw new Error('Missing real 16-squad score overlay');
+  panel.hidden=false;
+  const panelRect=panel.getBoundingClientRect();
+  const mapBounds=map.getBoundingClientRect();
+  const bounds=rect=>rect.left>=panelRect.left-1.5&&rect.top>=panelRect.top-1.5&&
+    rect.right<=panelRect.right+1.5&&rect.bottom<=panelRect.bottom+1.5;
+  const tiles=[...grid.querySelectorAll('.standings-tile')];
+  if(tiles.length!==16)page.issues.push({id:'standingsGrid',reason:'not exactly 16 squads',
+    count:tiles.length});
+  if(!bounds(panelRect)||panelRect.left<mapBounds.left-1.5||
+     panelRect.top<mapBounds.top-1.5||panelRect.right>mapBounds.right+1.5||
+     panelRect.bottom>mapBounds.bottom+1.5||panelRect.bottom>innerHeight+1.5)
+    page.issues.push({id:'standingsPanel',reason:'overlay outside map/viewport'});
+  if(panel.scrollHeight>panel.clientHeight+2||panel.scrollWidth>panel.clientWidth+2||
+     grid.scrollHeight>grid.clientHeight+2||grid.scrollWidth>grid.clientWidth+2)
+    page.issues.push({id:'standingsPanel',reason:'overlay scrolling or clipped'});
+  for(const tile of tiles){
+   if(!visible(tile)||!bounds(tile.getBoundingClientRect()))
+    page.issues.push({id:tile.dataset.squad,reason:'squad cell hidden or clipped'});
+  }
+  const closeRect=close.getBoundingClientRect();
+  const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+  const closeCount=probes.filter(([px,py])=>{
+   const top=document.elementFromPoint(
+     closeRect.left+closeRect.width*px,closeRect.top+closeRect.height*py);
+   return top===close||close.contains(top);
+  }).length;
+  close.focus({preventScroll:true});
+  const closeFocused=document.activeElement===close;
+  if(closeCount!==5||!closeFocused||!bounds(closeRect))
+   page.issues.push({id:'standingsClose',reason:'overlay close inaccessible',
+     probesPassed:closeCount,focused:closeFocused});
+  page.standingsOverlay={tiles:tiles.length,closeProbes:closeCount,
+    closeFocused,scrolling:panel.scrollHeight>panel.clientHeight+2||
+      grid.scrollHeight>grid.clientHeight+2};
+  panel.hidden=true;
   data.cases.push(page);
   data.errors=page.issues.map(item=>'BR96: '+JSON.stringify(item));
  }catch(error){data.errors.push('BR96 auditor: '+String(error?.stack||error));}
