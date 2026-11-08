@@ -50,7 +50,7 @@ test('all 96 ready bodies actually spawn in their own voted neighborhood and nev
  assert.equal(a.entryPlans[1],'block');
  assert.equal(a.snapshot(token(0)).squadEntry,'promenade');
  assert.equal(a.snapshot(token(6)).squadEntry,'block');
- assert.equal(a.snapshot(token(0)).self.squad,undefined,'never replace server identity with arbitrary client team data');
+ assert.equal(a.snapshot(token(0)).self.squad,1,'server still retains the original squad identity');
  const p=a.actors.get(token(0)),old=b.actors.get(token(0));
  assert.ok(Math.hypot(p.x-old.x,p.z-old.z)>5,'the voted district changes real initial location');
  for(let team=0;team<16;team++){
