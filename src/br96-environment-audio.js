@@ -52,7 +52,7 @@
    if(!Number.isFinite(time)||time<0)return false;
    low.frequency.setTargetAtTime(active?92:wet?78:66,time,.22);
    high.frequency.setTargetAtTime(active?147:wet?126:111,time,.3);
-   master.gain.setTargetAtTime(active?.015:wet?.012:.009,time,.3);
+   master.gain.setTargetAtTime(active?0.015:wet?0.012:0.009,time,.3);
    return true;
   }
   return Object.freeze({enable,update,disable:clear,dispose:clear,
