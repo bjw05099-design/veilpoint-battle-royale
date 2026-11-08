@@ -348,9 +348,9 @@ async function voteEntry(){
 }
 async function replayConsent(){
  if(!token||currentWorld()?.phase!=='finished')return;
- const ready=!state.replay?.own;
+ const ready=!state.replay?.own,previousRound=state.roundNumber;
  const response=await command('/replay-consent',{ready},null);
- if(response?.ok)message(response.roundNumber>state.roundNumber?
+ if(response?.ok)message(response.roundNumber>previousRound?
    '모든 참가자가 동의해 새 라운드가 시작됐습니다.':
    ready?'새 경기 참가에 동의했습니다. 모든 96명이 동의해야 시작합니다.':
     '재경기 동의를 취소했습니다.');
