@@ -57,7 +57,8 @@
       !['terminal','engagement','records','decision','exit','complete','failed'].includes(state.phase))
       throw new TypeError('Invalid CH01 mission state');
     let result=advance(newTimeline(),EVENTS.ARRIVED);
-    if(!state.combat.started)return Object.freeze(result);
+    if(!state.combat.started)
+      return Object.freeze({...result,events:Object.freeze(result.events.slice())});
     result=advance(result,EVENTS.ESCALATION);
     result=advance(result,EVENTS.CONTACT_LOST);
     const hasLocalConsultation=state.musterConfirmed===true||
