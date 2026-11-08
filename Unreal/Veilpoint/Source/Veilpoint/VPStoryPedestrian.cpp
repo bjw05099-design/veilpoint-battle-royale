@@ -6,7 +6,9 @@
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
 
-const FVector AVPStoryPedestrian::SouthApproachDestination(4300.f,-1150.f,95.f);
+// Authored native ground top: -70 + (1.3 * 100 / 2) = -5 cm.
+// With the 85 cm half-height capsule, its center is 80 cm, feet on ground.
+const FVector AVPStoryPedestrian::SouthApproachDestination(4300.f,-1150.f,80.f);
 
 AVPStoryPedestrian::AVPStoryPedestrian()
 {
