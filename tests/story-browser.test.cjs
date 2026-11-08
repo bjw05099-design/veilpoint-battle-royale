@@ -162,6 +162,30 @@ test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and sa
   assert.equal(report.civilianOutcome,'south-evacuation-prioritized');
   assert.match(app.element('menuText').textContent,/남쪽 대피/);
 });
+test('completed CH01 reads four consequence-specific lines via existing PC menu without scrolling or state changes',()=>{
+ const app=boot();
+ app.element('continue').click();app.moveForward(0,300);app.interact();
+ const frame=app.clearEncounter(300);
+ app.moveForward(frame,225);app.interact();app.element('choiceEvac').click();
+ app.moveForward(frame+225,193);app.interact();
+ assert.equal(app.element('menu').classList.contains('hidden'),false);
+ assert.match(app.element('menuText').textContent,/남쪽 대피.*대화 1\/4.*유수프/);
+ assert.equal(app.element('storyMenuAbout').textContent,'다음 대화 (2/4)');
+ const checkpoint=app.store.get('veilpoint.story.ch01');
+ const preview=app.store.get('veilpoint.story.ch01PreviewCompleted');
+ for(const [n,name] of [[2,'조현지'],[3,'김지윤'],[4,'이수혁']]){
+  app.element('storyMenuAbout').click();
+  assert.match(app.element('menuText').textContent,new RegExp('대화 '+n+'/4.*'+name));
+  assert.equal(app.store.get('veilpoint.story.ch01'),checkpoint,
+    'post-scene dialogue must not rewrite or advance a completed 60Hz world');
+  assert.equal(app.store.get('veilpoint.story.ch01PreviewCompleted'),preview);
+ }
+ assert.equal(app.element('storyMenuAbout').textContent,'CH01 설명 전체 보기');
+ app.element('storyMenuAbout').click();
+ assert.equal(app.element('menu').classList.contains('menu-view-about'),true);
+ assert.equal(app.store.has('veilpoint.campaignProgress'),false);
+});
+
 test('story checkpoint survives new browser context and does not modify BR settings',()=>{
   const shared=new Map();
   const app=boot(shared);
