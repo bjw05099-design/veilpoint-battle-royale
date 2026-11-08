@@ -69,7 +69,7 @@ test('east route stays in 2015 and uses physical gate authorization, not future 
  s.phase='decision';
  assert.deepEqual(s.found,[]);
  assert.equal(Story.choose(s,'verification').ok,true);
- assert.match(s.subtitle,/길이 열렸다는 소문과 실제로 차량이 지나갈 수 있다는 사실이 다릅니다/);
+ assert.match(s.subtitle,/이 도시에서는 길이 열린다는 말과 실제로 열리는 일이 다릅니다/);
  assert.doesNotMatch(s.subtitle,/2019|2022/);
  assert.match(s.subtitle,/실제 통제문 작업과 현지 승인 확인/);
  assert.equal(s.gateLogReviewed,false);
