@@ -4,13 +4,16 @@ const fs=require('node:fs'),path=require('node:path');
 const Story=require('../src/story-slice.js');
 function afterEncounter(){
  const s=Story.createState();
- s.phase='records';s.combat.started=true;s.combat.cleared=true;
+ s.world.player.x=Story.POINTS.terminal.x;
+ s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).phase,'engagement');
  for(const bot of s.world.bots){bot.alive=false;bot.health=0;}
+ s.combat.cleared=true;s.phase='records';
  return s;
 }
 test('CH01 real physical approach offers meaningful local choice without prior paper investigation',()=>{
  const s=afterEncounter();
- s.world.player.x=0;s.world.player.z=-33.5;s.world.player.yaw=0;
+ s.world.player.x=-7;s.world.player.z=-35;s.world.player.yaw=0;
  assert.equal(s.phase,'records');
  assert.deepEqual(s.found,[]);
  for(let i=0;i<90&&s.phase==='records';i++)Story.step(s,1/60,{forward:true});
@@ -39,7 +42,7 @@ test('CH01 position restore, waiting, frozen time and arbitrary remote E cannot 
  for(let i=0;i<100;i++)Story.step(other,1/60,{forward:true});
  assert.equal(other.phase,'records','remote running is not arrival');
  const paused=afterEncounter();
- paused.world.player.x=0;paused.world.player.z=-33.5;
+ paused.world.player.x=-7;paused.world.player.z=-35;
  Story.step(paused,0,{forward:true});
  assert.equal(paused.phase,'records');
 });
