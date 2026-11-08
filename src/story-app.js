@@ -434,7 +434,9 @@
   document.addEventListener('focusin',containStoryMenuFocus,true);
   $('storyMenuMore').addEventListener('click',()=>setStoryMenuView('tools',true));
   $('storyMenuAbout').addEventListener('click',()=>{
-    if(state.phase==='complete'){
+    // The About page also runs in isolated PC-menu harnesses that do not
+    // instantiate a story world. Retain the ordinary About action there.
+    if(typeof state!=='undefined'&&state?.phase==='complete'){
       const report=Story.debrief(state);
       if(report&&closingSceneIndex+1<report.closingScene.lines.length){
         closingSceneIndex++;
