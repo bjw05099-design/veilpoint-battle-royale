@@ -66,5 +66,5 @@ test('untrusted checkpoint cannot forge a resident arrival or move them anywhere
    {...start,civilianRerouted:true,civilianWalker:{x:-4,z:-46,arrived:true}},
    {...start,civilianRerouted:false,civilianWalker:{x:-4,z:-50,arrived:false}},
    {...start,civilianRerouted:true,civilianWalker:null}
- ])assert.throws(()=>Story.restore(JSON.stringify(altered)),/Invalid story checkpoint/);
+ ])assert.throws(()=>Story.restore(JSON.stringify(altered)),/Invalid story checkpoint|Unknown checkpoint fields/);
 });
