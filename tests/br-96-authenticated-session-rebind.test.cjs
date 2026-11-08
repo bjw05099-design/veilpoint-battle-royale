@@ -25,7 +25,8 @@ test('reconnecting after 96-person match start never moves, revives or replaces 
  assert.equal(lobby.snapshot(fresh).self.squad,before.self.squad);
  assert.equal(lobby.snapshot(fresh).self.slot,before.self.slot);
  assert.deepEqual(world.snapshot(fresh).self,before.self);
- assert.deepEqual(world.snapshot(fresh).squad,undefined);
+ assert.deepEqual(world.snapshot(fresh).squad,before.squad,
+  'authenticated reconnect must not reorder the six visible teammate entries');
  assert.equal(world.move(fresh,{seq:8,dx:1,dz:0}).reason,'stale_input');
  assert.equal(world.move(fresh,{seq:9,dx:1,dz:0}).ok,true);
  assert.throws(()=>world.snapshot(old),/unknown_session/);
