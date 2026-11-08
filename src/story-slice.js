@@ -1360,7 +1360,7 @@
   function situation(state) {
     const count=state.found.length;
     return Object.freeze({
-      mandate:'가상 사히르 임시행정부 요청에 따른 한국 측 제한적 민간 대피 지원 승인',
+      mandate:'한국 출국 전 브리핑받은 민간 통신망 점검·구호 인력 지원 파견 · 현지 도착 후 예기치 못한 내전 확대로 민간 대피 지원 확대',
       command:'이수혁 대위: 한국 측 파견 지휘관의 승인 범위에서 임무 수행 · 현지 통로 개방은 유수프 구조단 결정 · 국정원은 정보 자문',
       liaison:'김지윤: 현지 구조단 전달 기록 검토 · 조현지: 현장 경로 상황 통보',
       evidence:state.logHandedOff?'현장 중계 로그 확인 · 04:07 최초 수신 / 04:12 재전송 · 현지 통제소 접수 완료':
