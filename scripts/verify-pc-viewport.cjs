@@ -169,6 +169,58 @@ function audit(){
 }
 
 
+function auditBr96(){
+ const data={width:innerWidth,height:innerHeight,cases:[],errors:[]};
+ try{
+  const get=id=>document.getElementById(id);
+  const root=get('sidebar'),map=get('mapPanel');
+  if(!root||!map)throw new Error('Missing BR96 PC panels');
+  const visible=node=>node.getClientRects().length>0&&
+   getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden';
+  const page={name:'BR96-local-squad',controls:0,issues:[],targets:[]};
+  const doc=document.documentElement;
+  if(doc.scrollHeight>innerHeight+2||doc.scrollWidth>innerWidth+2)
+   page.issues.push({id:'document-scroll',scroll:[doc.scrollWidth,doc.scrollHeight]});
+  for(const pane of [root,map])
+   if(pane.scrollHeight>pane.clientHeight+2||pane.scrollWidth>pane.clientWidth+2)
+    page.issues.push({id:pane.id,reason:'panel-clipping',
+     content:[pane.scrollWidth,pane.scrollHeight],client:[pane.clientWidth,pane.clientHeight]});
+  const rootRect=root.getBoundingClientRect();
+  for(const node of [root,map,...root.querySelectorAll('button,input,select,label,h2,pre,p')]){
+   if(!visible(node))continue;
+   const rect=node.getBoundingClientRect();
+   if(node.matches('button,input,select'))page.controls++;
+   const inside=node===root||node===map?null:rootRect;
+   if(rect.left< -1.5||rect.top< -1.5||rect.right>innerWidth+1.5||
+      rect.bottom>innerHeight+1.5||
+      (inside&&(rect.left<inside.left-1.5||rect.top<inside.top-1.5||
+       rect.right>inside.right+1.5||rect.bottom>inside.bottom+1.5)))
+    page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'clipped',
+     bounds:[rect.left,rect.top,rect.right,rect.bottom]});
+  }
+  for(const id of ['name','join']){
+   const node=get(id),rect=node?.getBoundingClientRect();
+   const target={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
+   if(target.visible&&target.enabled){
+    const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+    target.probesPassed=probes.filter(([px,py])=>{
+     const top=document.elementFromPoint(rect.left+rect.width*px,rect.top+rect.height*py);
+     return top===node||node.contains(top);
+    }).length;
+    target.hit=target.probesPassed===5;
+    node.focus({preventScroll:true});
+    target.focused=document.activeElement===node;
+   }
+   if(!target.visible||!target.enabled||!target.hit||!target.focused)
+    page.issues.push({id,reason:'action not focusable or clickable',probesPassed:target.probesPassed});
+   page.targets.push(target);
+  }
+  data.cases.push(page);
+  data.errors=page.issues.map(item=>'BR96: '+JSON.stringify(item));
+ }catch(error){data.errors.push('BR96 auditor: '+String(error?.stack||error));}
+ document.documentElement.setAttribute('data-vp-br96-geometry',btoa(JSON.stringify(data)));
+}
+
 function auditStoryRoute(){
  const data={width:innerWidth,height:innerHeight,cases:[],errors:[]};
  try{
