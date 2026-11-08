@@ -8,7 +8,7 @@ function nativeGeometry(name){
  assert.ok(from>=0,name+' exists in native world blockout');
  const lines=native.slice(from,native.indexOf('};',from)).split('\n');
  const body=lines.filter(s=>s.trim().startsWith('{')).map(row=>{
-  const nums=[...row.matchAll(/-?\d+(?:\.\d*)?f/g)].map(m=>Number(m[0].slice(0,-1)));
+  const nums=[...row.matchAll(/-?(?:\d+(?:\.\d*)?|\.\d+)f/g)].map(m=>Number(m[0].slice(0,-1)));
   assert.equal(nums.length,5,'exact native x,z,w,d,h data');
   return nums;
  });
