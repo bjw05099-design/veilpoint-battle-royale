@@ -108,6 +108,24 @@ void AVPWorldBootstrap::BeginPlay()
     // Resources below are separately spawned server-side replicated actors.
     // Native untextured fallback landscape. Replace with Nanite assets and authored maps.
     AddBlock(Ground,FVector(0,0,-70),FVector(350.f,350.f,1.3f));
+    // The browser BR and CH01 now share a *real, traversable* seafront
+    // market. Carry its exact six fictional street-level solids to the
+    // native Windows blockout (browser x,z => UE X,Y, metres => cm).
+    // Build on ALL peers before the story/BR class split. A painting or an
+    // inaccessible solid house would not provide the same playable passage.
+    // These are original civic buildings, not surveyed modern conflict sites.
+    struct FSharedMarketBlock { float X,Z,W,D,H; };
+    static const FSharedMarketBlock SharedMarket[] = {
+        {16.f,147.f,.6f,18.f,3.5f},
+        {40.f,147.f,.6f,18.f,3.5f},
+        {20.f,156.f,8.f,.6f,3.5f},
+        {36.f,156.f,8.f,.6f,3.5f},
+        {20.f,146.f,1.8f,3.f,1.1f},
+        {36.f,146.f,1.8f,3.f,1.1f}
+    };
+    for (const FSharedMarketBlock& Block : SharedMarket)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
