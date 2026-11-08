@@ -206,7 +206,9 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       ...(result.ok?{world:world.snapshot(token)}:{})});
    }
    if(req.method==='POST'&&url.pathname==='/handcart'){
-    if(!world)return send(res,409,{error:'round_not_started'});
+    // Authenticate even before launch; anonymous requests never reveal round state.
+    lobby.snapshot(token);
+    if(!worldreturn send(res,409,{error:'round_not_started'});
     const body=await readJson(req,64,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
       return send(res,400,{error:'invalid_handcart_request'});
