@@ -46,6 +46,10 @@ class BrSquadWorld {
       d:CIVIC_GATE.d,h:CIVIC_GATE.height,type:'br96-civic-shutter'};
     this.obstacles.push(door);
     this.civicGate={door,targetX:CIVIC_GATE.closedX};
+    // The offline BR handcart's *same* world collider is shared by all 96
+    // server bodies. Only one nearby participant may push it at a time.
+    this.handcart={body:this.obstacles.find(o=>o.routeId==='br-dock-handcart'),operator:null};
+    if(!this.handcart.body)throw new Error('missing_shared_dock_handcart');
     this.actors=new Map();this.tick=0;
     // No client may author a squad result. Only real server-owned eligibility
     // transitions change this scorecard; ties cannot be invented by the HUD.
@@ -218,6 +222,63 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,gate:this.gateSnapshot()};
   }
+  // One real human interacts at arm's reach. No client-positioned cart, speed
+  // boost, magic carrying or remote mutation of another team's world state.
+  operateHandcart(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    const cart=this.handcart,body=cart.body;
+    if(cart.operator===actor){cart.operator=null;return {ok:true,action:'release'};}
+    if(cart.operator)return {ok:false,reason:'in_use'};
+    const dx=body.x-actor.x,dz=body.z-actor.z,dist=Math.hypot(dx,dz);
+    if(dist<1.45||dist>2.6||Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
+       this.obstacles.filter(o=>o!==body)))return {ok:false,reason:'out_of_reach'};
+    // The actor's actual approach determines the push axis, never a user
+    // supplied destination. The handle stays solid throughout the action.
+    const alongX=Math.abs(dx)>=Math.abs(dz);
+    const dirX=alongX?Math.sign(dx):0,dirZ=alongX?0:Math.sign(dz);
+    cart.operator=actor;cart.dirX=dirX;cart.dirZ=dirZ;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,action:'grip',cart:this.handcartSnapshot(token)};
+  }
+  handcartSnapshot(token){
+    const body=this.handcart.body;
+    return {x:body.x,z:body.z,heldBySelf:this.handcart.operator===this.actors.get(token),
+      moving:false};
+  }
+  // The handcart and its human pusher move in lockstep at a bounded walking
+  // speed on the next fixed tick. Both the swept cart and actor destination
+  // must be clear. A blocked corridor leaves both stationary.
+  advanceHandcart(){
+    const cart=this.handcart,body=cart.body,actor=cart.operator;
+    if(!actor)return null;
+    if(!actor.eligible||this.phase!=='moving'){
+      cart.operator=null;return null;
+    }
+    const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
+    const forward=actor.direction.x*cart.dirX+actor.direction.z*cart.dirZ;
+    if(!fresh||forward<.85)return null;
+    const distance=Sim.DOCK_HANDCART.speed*STEP;
+    const offsetX=cart.dirX*distance,offsetZ=cart.dirZ*distance;
+    const dest={...body,x:body.x+offsetX,z:body.z+offsetZ};
+    if(Math.abs(dest.x)+dest.w/2>=175||Math.abs(dest.z)+dest.d/2>=175)
+      return null;
+    const solids=this.obstacles.filter(o=>o!==body);
+    const swept={...body,x:(body.x+dest.x)/2,z:(body.z+dest.z)/2,
+      w:body.w+Math.abs(offsetX),d:body.d+Math.abs(offsetZ)};
+    if(solids.some(o=>Math.abs(dest.x-o.x)*2<dest.w+o.w&&
+       Math.abs(dest.z-o.z)*2<dest.d+o.d))return null;
+    for(const other of this.actors.values())if(other!==actor&&other.eligible&&
+       Sim.blocked(other.x,other.z,RADIUS,[swept]))return null;
+    const future={x:actor.x+offsetX,z:actor.z+offsetZ};
+    if(Sim.blocked(future.x,future.z,RADIUS,solids)||
+       [...this.actors.values()].some(other=>other!==actor&&other.eligible&&
+         Math.hypot(other.x-future.x,other.z-future.z)<2*RADIUS))return null;
+    body.x=dest.x;body.z=dest.z;
+    actor.x=future.x;actor.z=future.z;
+    return actor;
+  }
   gateSnapshot(){
     const gate=this.civicGate,delta=gate.targetX-gate.door.x;
     return {x:gate.door.x,z:gate.door.z,w:gate.door.w,d:gate.door.d,
@@ -251,6 +312,7 @@ class BrSquadWorld {
     if(!actor)throw new RangeError('unknown_session');
     if(!actor.eligible)return {ok:false,reason:'already_withdrawn'};
     if(this.phase!=='moving')return {ok:false,reason:'round_complete'};
+    if(this.handcart.operator===actor)this.handcart.operator=null;
     actor.eligible=false;
     actor.direction={x:0,z:0};
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
@@ -273,6 +335,7 @@ class BrSquadWorld {
   step(){
     if(this.phase!=='moving')return;
     this.tick++;
+    const cartPusher=this.advanceHandcart();
     const gate=this.civicGate;
     if(Math.abs(gate.targetX-gate.door.x)>1e-7){
       const previous=gate.door.x;
@@ -309,7 +372,7 @@ class BrSquadWorld {
       const wash=Sim.harborWaveWash(this.tick*STEP,actor);
       const pace=(running?SPRINT_SPEED:actor.crouchHeld?CROUCH_SPEED:SPEED)*
         terrain.mobility*wash.mobility;
-      Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
+      if(actor!==cartPusher)Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
         this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
@@ -482,6 +545,7 @@ class BrSquadWorld {
       playableArea,
       squadEntry:this.entryPlans[me.team],
       civicGate:this.gateSnapshot(),
+      handcart:this.handcartSnapshot(token),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
       squadRoute:this.squadRouteSnapshot(me.team),
