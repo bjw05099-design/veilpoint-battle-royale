@@ -3,12 +3,15 @@
  * Pure mission rules are separated from DOM, renderer and campaign progression.
  */
 (function (root, factory) {
-  const api = factory(root.VeilpointSim || (typeof module === 'object' && module.exports ? require('./simulation.js') : null));
+  const api = factory(
+    root.VeilpointSim || (typeof module === 'object' && module.exports ? require('./simulation.js') : null),
+    root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
+  // Older embedded CH01 clients omit optional history; never block the game.
   const VERSION = 2;
   const SAVE_LIMIT = 8192;
   // A finite ten-minute prototype headlamp battery, advanced by fixed 60Hz steps.
@@ -1519,7 +1522,11 @@
       const memory=state.workerInterviewed
         ?' 이수혁: 항구 작업자는 1990년과 1994년을 한 가족 안에서도 다르게 기억하더군요. 제가 들은 한 사람의 말로 이 도시 전체를 판단하지 않겠습니다.'
         :'';
-      state.subtitle='유수프(현지 구조단): 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 약속할 수 있는 범위만 말해 줘.'+
+      // The 2011 protests, 2014 Sana'a takeover and 2015 Aden violence are
+      // historical Yemen context, not events performed by a real-life actor.
+      // This fictional civilian's local agency still changes only witnessed
+      // responses, never foreign orders or the saved completion requirements.
+      state.subtitle='유수프(현지 구조단): 2011년 예멘의 시위 때는 우리도 새 질서를 기대했지. 2014년 사나가 장악되고 2015년 아덴까지 전투가 번지자 가족마다 서로 다른 길을 택했어. 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 약속할 수 있는 범위만 말해 줘.'+
         observedResident+link+memory+
         ' 이수혁: 한국에서 받은 임무는 바뀌지 않았습니다. 이동 판단은 여러분과 함께 확인하겠습니다.';
       state.message='유수프와 직접 협의 · 현지 구조단 결정 존중 · '+
@@ -1908,6 +1915,7 @@
     return Object.freeze({
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       closingScene:closingScene(state),
+      causalTimeline:Consequences?Consequences.fromMission(state):null,
       optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),

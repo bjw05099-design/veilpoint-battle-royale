@@ -579,6 +579,24 @@ async function spectate(){
  const result=await command('/spectate',{slot},null);
  if(result?.ok)message(slot+'번 분대원의 실제 시야를 관전합니다.');
 }
+// A single keyboard gesture cycles ONLY still-active members of our own
+// authenticated six-human squad. The normal /spectate endpoint verifies the
+// selected slot. There is no enemy camera, observer teleport or new server
+// command with client-authored world coordinates.
+async function cycleSpectator(){
+ const w=currentWorld();
+ if(!w||w.phase!=='moving'||w.self.eligible)return;
+ const eligible=w.squad.filter(p=>p.eligible&&p.id!==w.self.id)
+   .map(p=>p.slot).sort((a,b)=>a-b);
+ if(!eligible.length){message('관전할 활동 중인 분대원이 없습니다.');return;}
+ const current=w.spectatorView?.slot||0;
+ const next=eligible.find(slot=>slot>current)||eligible[0];
+ const result=await command('/spectate',{slot:next},null);
+ if(result?.ok){
+  el('watchSlot').value=String(next);
+  message(next+'번 분대원의 실제 시야를 관전합니다.');
+ }
+}
 function canUseKeyboard(event){
  return !event.ctrlKey&&!event.metaKey&&!event.altKey&&
    !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
@@ -604,6 +622,9 @@ document.addEventListener('keydown',event=>{
   if(key==='Escape'){event.preventDefault();toggleStandings(false);}
   // Scoreboard focus takes priority over walking/sprinting/field controls.
   return;
+ }
+ if(!event.repeat&&key==='KeyN'&&currentWorld()&&!currentWorld().self.eligible){
+  event.preventDefault();cycleSpectator();return;
  }
  if(!event.repeat&&mapFollow&&currentWorld()&&
     ['Equal','NumpadAdd','Minus','NumpadSubtract'].includes(key)){
