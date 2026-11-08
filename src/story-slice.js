@@ -508,13 +508,13 @@
   // papers, notices and local actors never become cross-city quest arrows.
   // The key route decisions and exits remain findable from older checkpoints.
   const ROUTE_WIDE_MARKERS=Object.freeze(new Set([
-    'terminal','decision','exitEvac','exitVerify','relay','supply'
+    'terminal','decision','exitEvac','exitVerify'
   ]));
   function navigationMarkers(state) {
     const p=state.world.player;
     return markers(state).filter(marker=>{
       if(ROUTE_WIDE_MARKERS.has(marker.id))return true;
-      const maxDistance=marker.kind==='evidence'?9:12;
+      const maxDistance=marker.id==='relay'?7:9;
       return Math.hypot(marker.x-p.x,marker.z-p.z)<=maxDistance&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles);
     });
