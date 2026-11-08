@@ -89,6 +89,8 @@ class BrSquadWorld {
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
+          // Monotonic server clock only; no client-reported survival time.
+          eliminatedAtTick:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
@@ -318,6 +320,7 @@ class BrSquadWorld {
     if(this.phase!=='moving')return {ok:false,reason:'round_complete'};
     if(this.handcart.operator===actor)this.handcart.operator=null;
     actor.eligible=false;
+    actor.eliminatedAtTick=this.tick;
     actor.direction={x:0,z:0};
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
@@ -432,6 +435,7 @@ class BrSquadWorld {
     if(expired.length){
       for(const actor of expired){
         actor.eligible=false;
+        actor.eliminatedAtTick=this.tick;
         actor.direction={x:0,z:0};
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
@@ -467,6 +471,8 @@ class BrSquadWorld {
     const me=this.actors.get(token);
     if(!me)throw new RangeError('unknown_session');
     const mates=[],seen=[];
+    const survivingTicks=actor=>actor.eliminatedAtTick===null?
+      this.tick:actor.eliminatedAtTick;
     const weather=coastalWeatherAtTick(this.tick);
     const playableArea=brPlayableArea(this.tick);
     // Self-only footing is computed from the actor's actual server position:
@@ -481,6 +487,7 @@ class BrSquadWorld {
     for(const p of participants){
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
+        survivalTicks:survivingTicks(p),
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
         boundaryGraceTicksRemaining:!p.eligible?null:
           positionInArea(playableArea,p.x,p.z).outside
@@ -554,6 +561,7 @@ class BrSquadWorld {
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        survivalTicks:survivingTicks(me),
         surface,
         stamina:Math.round(me.stamina*100)/100,
         resting:me.eligible&&me.resting,
