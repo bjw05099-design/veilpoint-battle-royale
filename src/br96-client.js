@@ -133,7 +133,12 @@ function render(){
      ?' · 확정 '+w.standings[self.squad-1].placement+'위':'')+
     (w.spectatorView?'\n관전 대상: '+w.spectatorView.slot+'번 분대원':
       retired?'\n본인 경기 포기 · 아군 관전 선택 가능':'')+
-    (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:''):'\n96명 전원 준비 시 이동 시작')
+    (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:'')+
+    (w.matchOutcome?'\n최종 결과: '+
+     (w.matchOutcome.kind==='shared_tie'?'모든 분대 동시 종료 · 공동 순위':
+       w.matchOutcome.kind==='squad_win'?'우리 분대 우승':
+       '우리 분대 '+w.matchOutcome.ownSquadPlacement+'위')+
+     (w.matchOutcome.winningSquad===null?'':' · 우승 분대 '+w.matchOutcome.winningSquad):''):'\n96명 전원 준비 시 이동 시작')
   :'접속 전';
  draw(w);
  renderStandings(w);
