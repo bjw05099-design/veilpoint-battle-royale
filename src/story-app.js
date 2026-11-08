@@ -1492,6 +1492,17 @@
   $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();if(!canAct())return;input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])
     $('touchSprint').addEventListener(event,()=>{input.sprint=false;});
+  // Optional papers and notices become map-visible only when actually
+  // encountered on foot. Their original mission state, E interactions, saved
+  // evidence and the public exit/relay markers remain untouched. This removes
+  // cross-harbor checklist chasing without inventing new access gates.
+  function visibleMissionMarkers(){
+    const p=state.world.player;
+    return Story.markers(state).filter(marker=>
+      marker.kind!=='evidence'||
+      (Math.hypot(marker.x-p.x,marker.z-p.z)<=9&&
+       !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)));
+  }
   function minimap(){
     const c=$('minimap'),ctx=c.getContext('2d');
     if(!ctx)return;
@@ -1502,7 +1513,7 @@
     for(const o of state.world.obstacles){
       ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
     }
-    for(const m of Story.markers(state)){
+    for(const m of visibleMissionMarkers()){
       ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
       ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
     }
@@ -1530,7 +1541,7 @@
     const controlText=text=>Desktop.storyHintText(text,bindings);
     $('objective').textContent=controlText(Story.objective(state));
     const situation=Story.situation(state);
-    const publicMarkers=Story.markers(state);
+    const publicMarkers=visibleMissionMarkers();
     // Once the optional escort is accepted, the exit is physically locked
     // until the guide arrives or is handed to local staff. Show the actually
     // observed guide whenever possible; otherwise show a recovery instruction
