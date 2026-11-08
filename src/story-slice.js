@@ -65,7 +65,7 @@
   // It creates one short physical walking detour, never a collectable or another
   // investigation task. Older checkpoints without the event keep their old
   // traversable street geometry, so loading cannot spawn a wall on top of them.
-  const FALLEN_AWNING=Object.freeze({x:0,z:-35,w:5.6,d:2.4,h:.72,
+  const FALLEN_AWNING=Object.freeze({x:9,z:-35,w:4.0,d:2.4,h:.72,
     type:'story-fallen-awning',routeId:'story-fallen-awning'});
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
@@ -1132,7 +1132,7 @@
       syncRoute(state);
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeHostiles();
-      state.subtitle='조현지(국정원): 현지 상황이 갑자기 악화되면서 시장 차양이 통로로 쓰러졌습니다. 바로 앞 길은 짧게 돌아서 지나갈 수 있습니다. 원래 귀환 계획도 다시 확인해야 합니다.';
+      state.subtitle='조현지(국정원): 현지 상황이 갑자기 악화되면서 시장 차양이 동측 골목으로 쓰러졌습니다. 해당 보행 구간은 옆으로 돌아 지나갈 수 있습니다. 원래 귀환 계획도 다시 확인해야 합니다.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
