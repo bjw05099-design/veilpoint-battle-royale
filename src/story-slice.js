@@ -470,9 +470,13 @@
       !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
   }
   function officeMarkers(state) {
-    // A hand-reachable paper notice inside the actual open-door office.
-    // An unvisited office never reveals its contents on the global HUD.
-    return state.officeBoardRead?[]:[POINTS.officeBoard];
+    // The office notice is legacy optional context, not a map-wide errand.
+    // Keep the interaction and old save flags, but reveal its marker only
+    // when the player has physically reached the public office doorway.
+    if(state.officeBoardRead)return [];
+    const p=state.world.player;
+    return Math.hypot(p.x-POINTS.officeBoard.x,p.z-POINTS.officeBoard.z)<=7
+      ?[POINTS.officeBoard]:[];
   }
   function localAwningMarker(state) {
     if(!state.awningFallen||state.awningShift>=1||!state.combat.cleared||
