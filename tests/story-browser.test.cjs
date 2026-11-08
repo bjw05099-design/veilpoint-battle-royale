@@ -2494,9 +2494,10 @@ test('CH01 PC route navigation targets required courtyard while allowing optiona
   app.emit('keydown',{code:'KeyN'});
   assert.match(navigation.textContent,/선택한 임무 표식.*안전한 안뜰/);
   app.emit('keydown',{code:'KeyN'});
-  assert.match(navigation.textContent,/선택한 임무 표식/,
-    'physical PC guidance cycle can choose optional mission markers');
-  assert.doesNotMatch(navigation.textContent,/주요 임무 표식/);
+  assert.match(navigation.textContent,/안전한 안뜰/,
+    'cycling cannot summon a distant paperwork location to replace the main route');
+  assert.doesNotMatch(navigation.textContent,/기록함|장부|급수대/,
+    'optional document markers remain local discoveries rather than global chores');
   app.element('pauseButton').click();
   const saved=app.store.get('veilpoint.story.ch01');
   const refreshed=boot(app.store,false,'granted',true,true);
