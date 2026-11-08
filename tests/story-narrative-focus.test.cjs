@@ -32,8 +32,11 @@ test('the route is primary gameplay; optional reports do not become a visible ch
   assert.doesNotMatch(app,/report\.optionalTasks\.done\+'\/'\+report\.optionalTasks\.total/);
   assert.match(app,/function visibleMissionMarkers\(\)/);
   assert.match(app,/opening\.location\.startsWith\('출국 전'\)\?'회상 · ':'현재 · '/);
-  assert.match(app,/marker\.kind!=='evidence'/);
-  assert.match(app,/Math\.hypot\(marker\.x-p\.x,marker\.z-p\.z\)<=9/);
+  assert.match(app,/Story\.navigationMarkers\(state\)/);
+  assert.match(app,/marker\.id===guidanceId/);
+  const publicIds=Story.navigationMarkers(state).map(marker=>marker.id);
+  assert.ok(publicIds.includes('exitEvac'),'primary physical exit remains visible');
+  assert.ok(!publicIds.includes('dispatchLedger'),'remote optional intake paperwork is hidden');
   assert.match(app,/const publicMarkers=visibleMissionMarkers\(\)/);
   assert.match(app,/for\(const m of visibleMissionMarkers\(\)\)/);
 });
