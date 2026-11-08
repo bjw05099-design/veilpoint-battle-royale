@@ -66,6 +66,9 @@
   // CH01 civilian harbor worker traverses one small publicly reachable
   // sidewalk at walking speed. No military intelligence or courier objective.
   const WORKER_PATH=Object.freeze({minX:20,maxX:28,z:-12,speed:1.05,radius:.55});
+  // A civilian-owned shuttle approaches on an original public harbor road.
+  // Arrival is an observed physical fact, not proof of completed evacuation.
+  const CIVILIAN_SHUTTLE=Object.freeze({x:10,startZ:-82,endZ:-64,w:2.4,d:3.8,h:2.35,speed:1.5});
   // The same civic courtyard collision/road geometry is authored once in
   // Sim.makeObstacles and reused by both BR and this story chapter.
   const CIVIC_COURTYARD=Object.freeze({x:77,z:125,arrivalRadius:4.1});
@@ -125,6 +128,16 @@
     world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-'));
     world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
+  }
+  function syncCivilianShuttle(state){
+    const v=state.transportVan,obstacles=state.world.obstacles;
+    const i=obstacles.findIndex(o=>o.routeId==='story-civil-transport');
+    if(!v){if(i>=0)obstacles.splice(i,1);state.world.transportVan=null;return;}
+    if(i>=0)obstacles[i].z=v.z;
+    else obstacles.push({x:CIVILIAN_SHUTTLE.x,z:v.z,w:CIVILIAN_SHUTTLE.w,
+      d:CIVILIAN_SHUTTLE.d,h:CIVILIAN_SHUTTLE.h,
+      type:'story-civil-transport',routeId:'story-civil-transport'});
+    state.world.transportVan={x:CIVILIAN_SHUTTLE.x,z:v.z,arrived:v.arrived};
   }
   function gateOpen(state) {
     return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
@@ -360,7 +373,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
-      passageWarningHeard:false,
+      passageWarningHeard:false,transportVan:null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -415,9 +428,9 @@
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed?[POINTS.dispatchLedger]:[]),
-         ...(state.transportContact<2?[POINTS.transportDriver]:[]),
-         ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled?[POINTS.driverReportDesk]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+         ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
+         ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
          // The actual waiting volunteer can be approached directly. This is
          // optional physical assistance, not another form or mission gate.
@@ -443,6 +456,7 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
+    syncCivilianShuttle(state);
     state.world.witness=(['exit','complete'].includes(state.phase)&&
       (state.choice==='evacuation'||state.transportContact>0))
       ?{x:POINTS.transportDriver.x,z:POINTS.transportDriver.z}:null;
@@ -710,6 +724,27 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // A player or local pedestrian in the lane stops the van rather than
+    // letting its collision body pass through them or teleport to the stop.
+    if(state.transportVan&&!state.transportVan.arrived){
+      const v=state.transportVan,body=state.world.obstacles.find(o=>o.routeId==='story-civil-transport');
+      if(body){
+        const next=Math.min(CIVILIAN_SHUTTLE.endZ,v.z+CIVILIAN_SHUTTLE.speed*t);
+        const sweep={x:CIVILIAN_SHUTTLE.x,z:(next+v.z)/2,
+          w:CIVILIAN_SHUTTLE.w,d:CIVILIAN_SHUTTLE.d+next-v.z};
+        const peers=[p,state.worker,state.choice==='evacuation'&&state.musterConfirmed?state.guide:null].filter(Boolean);
+        const clear=!state.world.obstacles.filter(o=>o!==body).some(o=>
+          Math.abs(o.x-sweep.x)*2<o.w+sweep.w&&Math.abs(o.z-sweep.z)*2<o.d+sweep.d)&&
+          peers.every(a=>!Sim.blocked(a.x,a.z,.9,[sweep]));
+        if(clear)v.z=next;
+        if(v.z>=CIVILIAN_SHUTTLE.endZ-1e-7){
+          v.z=CIVILIAN_SHUTTLE.endZ;v.arrived=true;state.transportContact=2;
+          state.subtitle='나딤(현지 운송 담당자): 차량이 남쪽 공공 도로 승차 지점에 도착했습니다. 주민 이동은 구조단과 함께 확인하겠습니다.';
+          state.message='현지 운송 차량 실제 도착 · 수송 및 철수 완료를 의미하지 않음';
+        }
+        syncCivilianShuttle(state);
+      }
+    }
     // A brief contextual announcement is triggered by the captain's actual
     // approach to an evacuation corridor. No fictional field paperwork or
     // extra E interaction is created, and this does not block either exit.
