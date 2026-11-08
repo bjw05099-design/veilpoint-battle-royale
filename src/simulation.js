@@ -444,6 +444,19 @@
       [-37,80,2.4,1,.7,'aden-promenade-seat'],
       [-19,80,2.4,1,.7,'aden-promenade-seat']
     ])o.push({x,z,w,d,h,type});
+    // Civilian covered market gallery connects two original public
+    // neighborhoods through an open, unobstructed 10 m pedestrian axis.
+    // Columns and merchant counters are separate physical objects. This is
+    // original fictional urban architecture, not a surveyed conflict site.
+    // One source serves BR and CH01; revision-0 saves stay unchanged.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-78,105,.65,.65,3.2,'aden-gallery-post'],
+      [-58,105,.65,.65,3.2,'aden-gallery-post'],
+      [-78,119,.65,.65,3.2,'aden-gallery-post'],
+      [-58,119,.65,.65,3.2,'aden-gallery-post'],
+      [-76,113,2.6,1.6,1.1,'aden-gallery-counter'],
+      [-60,113,2.6,1.6,1.1,'aden-gallery-counter']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,

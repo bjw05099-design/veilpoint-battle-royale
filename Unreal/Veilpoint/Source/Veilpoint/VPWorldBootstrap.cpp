@@ -197,6 +197,20 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedPublicBlock& Block : SharedCoastalPromenade)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // Matching six new shared non-sensitive public-gallery bodies from the
+    // browser simulation. No solid roof or closed fake facade: the same
+    // 10m central pedestrian passage is accessible in native CH01 and BR.
+    static const FSharedPublicBlock SharedCivilianGallery[] = {
+        {-78.f,105.f,.65f,.65f,3.2f},
+        {-58.f,105.f,.65f,.65f,3.2f},
+        {-78.f,119.f,.65f,.65f,3.2f},
+        {-58.f,119.f,.65f,.65f,3.2f},
+        {-76.f,113.f,2.6f,1.6f,1.1f},
+        {-60.f,113.f,2.6f,1.6f,1.1f}
+    };
+    for (const FSharedPublicBlock& Block : SharedCivilianGallery)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
