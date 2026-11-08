@@ -15,6 +15,7 @@ const targets={
 const story={
  storyChecks:['CH01-route'],
  storyMenuChecks:['CH01-menu-main','CH01-menu-tools','CH01-menu-settings','CH01-menu-import','CH01-menu-export','CH01-menu-about'],
+ storyOpeningChecks:['CH01-opening'],
  storyJournalChecks:['CH01-journal-first','CH01-journal-last']
 };
 function target(id){return {id,visible:true,enabled:true,hit:true,focused:true,probesPassed:5};}
