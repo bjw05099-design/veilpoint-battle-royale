@@ -44,6 +44,7 @@ test('old terrain revision and both mode saves remain valid without new checkpoi
  const old=Sim.newMatch(33,0,'carbine',false,'central','day',0);
  assert.equal(old.obstacles.filter(hall).length,0);
  const current=Sim.newMatch(20261108,1,'carbine',false,'central','day',1);
+ current.status='playing'; // A newly constructed offline lobby starts as ready.
  current.player.x=-45;current.player.z=130;
  const raw=Sim.snapshotMatch(current),copy=Sim.restoreMatch(raw);
  assert.equal(Sim.snapshotMatch(copy),raw);
