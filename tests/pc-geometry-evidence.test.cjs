@@ -19,6 +19,9 @@ function fixture(){
   result[key]=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],
    cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
+ result.br96Checks=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],cases:[{
+  name:'BR96-local-squad',controls:10,issues:[],targets:[target('name'),target('join')]
+ }]}));
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
   {name:'BR-main-Tab-wrap',passed:true,focused:true},
@@ -30,6 +33,17 @@ function fixture(){
  ]}));
  return result;
 }
+test('missing BR96 browser measurement fails closed',()=>{
+ const record=fixture();delete record.br96Checks;
+ assert.throws(()=>validate(record),/Missing BR96 Chromium evidence/);
+});
+test('BR96 blocked join and clipped panel fail closed',()=>{
+ const record=fixture();record.br96Checks[0].cases[0].targets[1].hit=false;
+ assert.throws(()=>validate(record),/BR96 pointer blocked/);
+ record.br96Checks[0].cases[0].targets[1].hit=true;
+ record.br96Checks[0].cases[0].issues.push({reason:'scroll'});
+ assert.throws(()=>validate(record),/BR96 control clipped/);
+});
 test('complete CDP evidence is accepted',()=>assert.equal(validate(fixture()),true));
 test('missing viewport fails closed',()=>{
  const value=fixture();value.checks.pop();

@@ -29,6 +29,16 @@ six-person squad, physically observed rivals, and legitimately discovered
 public landmarks. No opponent identity, remote position or authentication
 token is added outside the already filtered server snapshot.
 
+If a player explicitly **withdraws from an active round**, the PC UI requires
+two clicks within eight seconds before sending the server-authoritative
+withdrawal. This is irreversible for the ongoing match. The withdrawn player
+can then select **one still-active member of their own six-person squad** in
+the spectator dropdown. The observed rival list is calculated from that
+teammate's real, obstacle-tested sightlines; the UI never invents a free-flying
+camera or reveals arbitrary opponent locations. A retiring teammate cannot
+remain a valid camera target. The public server-created squad standings show
+eligible members and confirmed placement, not invented live rankings.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next

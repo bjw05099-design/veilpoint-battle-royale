@@ -118,6 +118,38 @@ function validate(evidence){
  }
 
 
+ // New 16x6 PC browser page is part of the required Chromium gate.
+ // Disabled pre-match controls must be visible and in-bounds, while live join
+ // must accept both keyboard focus and all five real browser pointer probes.
+ const squadPages=evidence.br96Checks;
+ assert.ok(Array.isArray(squadPages),'Missing BR96 Chromium evidence');
+ assert.equal(squadPages.length,SIZES.length,'Incomplete BR96 viewport coverage');
+ const brSizes=new Set();
+ for(const record of squadPages){
+  const size=record.width+'x'+record.height;
+  assert.ok(SIZES.includes(size)&&!brSizes.has(size),'Invalid BR96 viewport '+size);
+  brSizes.add(size);
+  assert.deepEqual(record.requested,{width:record.width,height:record.height});
+  assert.deepEqual(record.errors,[],'BR96 viewport errors at '+size);
+  assert.equal(record.cases.length,1,'Missing BR96 squad page');
+  const page=record.cases[0];
+  assert.equal(page.name,'BR96-local-squad');
+  assert.deepEqual(page.issues,[],'BR96 control clipped at '+size);
+  assert.ok(page.controls>=10,'BR96 page has missing interactive controls at '+size);
+  const targets=new Map(page.targets.map(t=>[t.id,t]));
+  assert.equal(targets.size,2,'BR96 focus targets must be unique');
+  for(const id of ['name','join']){
+   const t=targets.get(id);
+   assert.ok(t,'Missing BR96 target '+id);
+   assert.equal(t.visible,true,'BR96 hidden '+id+' at '+size);
+   assert.equal(t.enabled,true,'BR96 disabled '+id+' at '+size);
+   assert.equal(t.hit,true,'BR96 pointer blocked '+id+' at '+size);
+   assert.equal(t.focused,true,'BR96 keyboard blocked '+id+' at '+size);
+   assert.equal(t.probesPassed,5,'BR96 partial click '+id+' at '+size);
+  }
+ }
+ assert.deepEqual([...brSizes].sort(),[...SIZES].sort(),'Missing BR96 viewport size');
+
  const keyboard=evidence.keyboardChecks;
  assert.ok(Array.isArray(keyboard),'Real CDP keyboard evidence missing');
  assert.equal(keyboard.length,SIZES.length,'Incomplete CDP keyboard viewports');

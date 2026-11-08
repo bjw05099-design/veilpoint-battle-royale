@@ -32,6 +32,10 @@ function fixture(){
     .map(name=>({name,passed:true,focused:true}))}))};
  for(const [key,names] of Object.entries(story))
   evidence[key]=sizes.map(([width,height])=>row(width,height,names));
+ evidence.br96Checks=sizes.map(([width,height])=>({width,height,
+  requested:{width,height},errors:[],
+  cases:[{name:'BR96-local-squad',controls:12,issues:[],
+   targets:[target('name'),target('join')]}]}));
  return evidence;
 }
 test('complete measured geometry fixture is accepted',()=>assert.equal(validate(fixture()),true));
