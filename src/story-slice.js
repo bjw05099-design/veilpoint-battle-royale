@@ -155,11 +155,11 @@
   // 10 seconds of genuine 60Hz playable CH01 time show the scenes once.
   const OPENING_BEATS=Object.freeze([
     Object.freeze({until:3.4,location:'출국 전 · 대한민국',
-      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했습니다. 원래 임무는 현지 민간 통신망 협력과 구호 인력 지원입니다.'}),
+      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했습니다. 원래 임무는 현지 민간 통신망 협력과 구호 인력 지원입니다. 작전의 범위를 바꿀 권한은 현장에서 내 마음대로 생기지 않습니다.'}),
     Object.freeze({until:6.8,location:'도착 · 가상 해안 도시 나흐린',
-      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정에 따라 연락망을 점검하고 복귀하겠습니다. 이 지역의 민간 협력자는 현지 구조단입니다.'}),
+      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정에 따라 연락망을 점검하고 복귀하겠습니다. 2011년의 정치 전환 시도와 2014년 이후의 충돌까지, 현지인이 겪은 역사는 한 문장의 상황 보고로 정리할 수 없습니다. 민간 협력자는 유수프 구조단입니다.'}),
     Object.freeze({until:10.2,location:'도착 후 · 예상 밖 상황 변화',
-      subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요하고, 유수프 구조단이 주민 대피 지원을 요청했습니다.'})
+      subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요합니다. 유수프 구조단은 대피 지원을 요청했지만, 누구를 언제 이동시킬지는 현지에서 결정합니다.'})
   ]);
   function openingBeat(state){
     if(!state||!['terminal','engagement'].includes(state.phase)||
@@ -989,7 +989,7 @@
         const radio=state.relayRestored
           ?' 비상 통신은 복구됐지만 통로의 개방 권한은 여전히 현지 구조단에 있습니다.'
           :' 현장 통신은 아직 안정적으로 복구되지 않았으며 확인되지 않은 개방을 약속할 수 없습니다.';
-        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없으며, 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.'+radio;
+        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없습니다. 2019년의 정치 합의도 이 골목의 출입권을 대신 주지 못했습니다. 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.'+radio;
         state.message='동쪽 현장 통로 도착 · 귀환 계획 재검토 필요'+
           (state.relayRestored?' · 통신 복구와 통로 개방 별개':' · 현장 통신 미확인');
       }
@@ -1383,7 +1383,7 @@
     syncRoute(state);
     state.combat.nextPulseAt=state.world.elapsed+3;
     state.world.bots=makeHostiles();
-    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 현지 구조단의 요청을 듣고 안전한 통로를 다시 확인해야 합니다.';
+    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 이 도시의 주민에게는 2015년 이후 불안정했던 일상이 또 흔들리는 겁니다. 현지 구조단의 결정을 먼저 들어야 합니다.';
     state.message='갑작스러운 현지 충돌 확대 · 현장 대응과 주민 보호';
     syncMarkers(state);
     return true;
@@ -1432,7 +1432,7 @@
     if(marker.id==='residentRoute'&&state.civilianWalker&&!state.civilianWalker.arrived&&
        !state.civilianRerouted&&state.civilianWalker.z>-54&&state.combat.cleared){
       state.civilianRerouted=true;
-      state.subtitle='현지 주민: 남쪽 구조단이 있는 길로 제가 직접 가겠습니다. 다른 주민들의 이동은 제가 확인할 수 없어요.';
+      state.subtitle='현지 주민: 남쪽 구조단이 있는 길로 제가 직접 가겠습니다. 정전이 오면 급수 펌프부터 멎어요. 남은 물이 걱정돼 집에 돌아가고 싶지만, 지금은 제가 길을 고르겠습니다. 다른 주민들의 이동은 제가 확인할 수 없어요.';
       state.message='현지 주민이 구조단 쪽 접근로를 스스로 선택 · 실제 보행 중';
       syncMarkers(state);
       return {ok:true,event:'resident_route_conversation',phase:state.phase};
@@ -1442,8 +1442,8 @@
       // pedestrian lane, never a remote position ping or verified timestamp.
       state.workerInterviewed=true;
       state.subtitle=state.worker.z>=WORKER_PATH.safeZ-1e-6
-        ?'항구 작업자: 이쪽 골목으로 이미 이동했습니다. 정비 구역 조명이 잠깐 약해진 건 기억하지만 정확한 시각은 모릅니다.'
-        :'항구 작업자: 정비 구역 조명이 잠깐 약해진 건 기억해요. 정확한 시간은 모릅니다. 가까운 보행 골목으로 스스로 이동하겠습니다.';
+        ?'항구 작업자: 이쪽 골목으로 이미 이동했습니다. 아버지는 1990년 통일을 기회라 기억하고, 삼촌은 1994년 전쟁 뒤 잃어버린 일자리를 말해요. 같은 가족도 기억이 다르죠. 정비 구역 조명이 잠깐 약해진 건 기억하지만 정확한 시각은 모릅니다.'
+        :'항구 작업자: 아버지는 1990년 통일을 기회라 했지만 삼촌은 1994년 전쟁 뒤 일자리를 잃었다고 했어요. 정비 구역 조명이 잠깐 약해진 건 기억해요. 정확한 시간은 모릅니다. 가까운 보행 골목으로 스스로 이동하겠습니다.';
       state.message='현지 작업자 직접 면담 · 이동은 주민 본인이 결정';
       syncMarkers(state);
       return {ok:true,event:'harbor_worker_interview',phase:state.phase};
@@ -1479,7 +1479,7 @@
       state.relayRestored=!state.relayRestored;
       if(!state.relayRestored)state.beaconEnabled=false;
       state.subtitle=state.relayRestored
-        ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어.'
+        ?'마라(기술자): 현장 비상 전원을 연결했어. 통신과 수동 경고등이 복구됐어. 2015년부터 주민들은 전기가 돌아왔다는 말과 생활이 돌아왔다는 말을 구분했지. 복구한 건 이 회선 하나야. 물과 병원, 다른 통로까지 모두 살아난 건 아니야.'
         :'마라(기술자): 현장 전원을 분리했어. 경고등은 꺼지고 아직 요청하지 않은 통제문 준비에는 시간이 더 필요해.';
       state.message=state.relayRestored
         ?'현지 무전 복구 · 항구 벽등 점등 · 통제문 대기 8초 → 4초'
@@ -1504,7 +1504,7 @@
       state.phase='decision';
       const selected=choose(state,'evacuation');
       if(!selected.ok){state.phase=previousPhase;syncMarkers(state);return selected;}
-      state.subtitle='유수프(현지 구조단): 남쪽 통로는 우리가 관리하고 있어. 주민을 안내하는 데 도움이 필요해. 함께 움직일 수 있겠어?';
+      state.subtitle='유수프(현지 구조단): 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 주민에게 약속할 수 있는 범위만 말해 줘. 함께 걸어 줄 수 있겠나?';
       state.message='현지 구조 책임자와 직접 협의 · 남쪽 주민 대피 지원 선택';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
@@ -1556,7 +1556,7 @@
       if(state.transportContact===0){
         state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false,driverZ:POINTS.transportDriver.z};
         state.transportContact=1;
-        state.subtitle='나딤(현지 운송 담당자): 주차된 차량까지 직접 걸어가서 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
+        state.subtitle='나딤(현지 운송 담당자): 2022년 휴전 때도 도로를 다시 열자는 말과 실제로 차가 다니는 일은 달랐습니다. 주차된 차량까지 직접 걸어가 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
         state.message='현지 운송 담당자가 주차된 차량으로 이동 중 · 아직 출발 전';
         syncCivilianShuttle(state);
       }else{
@@ -1704,8 +1704,8 @@
     state.gateReadyAt=choice==='verification'?state.world.elapsed+state.gateClearanceDuration:0;
     state.gateObstructed=false;
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 동쪽 통로의 현장 개방을 요청했습니다. 기록과 관계없이 실제 통제문 작업과 현지 승인 확인이 필요해요.'
-      :'유수프(현지 구조단): 남쪽 대피 통로를 현장에서 안내하겠어. 동쪽 개방 요청은 중단했어.';
+      ?'마라(기술자): 동쪽 통로의 현장 개방을 요청했습니다. 2022년 휴전에서도 도로 개방은 별도 협의가 필요했어요. 기록이나 무전 한 줄로 문이 열렸다고 할 순 없습니다. 실제 통제문 작업과 현지 승인 확인이 필요해요.'
+      :'유수프(현지 구조단): 남쪽 대피 통로는 내가 현장에서 안내하겠어. 동쪽 개방 요청은 중단했어. 이동한 주민과 아직 못 만난 주민을 섞어 "모두 안전하다"고 보고하지는 말아 줘.';
     state.message=choice==='verification'?'현지 통제소 요청 · 동쪽 통로 개방 대기':'남쪽 대피 통로 선택 · 동쪽 통제소 차단';
     syncRoute(state);syncMarkers(state);
     return {ok:true,event:'choice',choice};
@@ -1856,6 +1856,9 @@
     const workerReport=workerSafe
       ?' 항구 작업자는 별도의 지시 없이 가까운 공용 보행 골목으로 걸어서 이동했습니다. 다른 주민의 안전은 미확인입니다.'
       :null;
+    const rememberedSouth=state.workerInterviewed
+      ?' 항구 작업자의 가족은 1990년 통일과 1994년 전쟁을 서로 다르게 기억했습니다. 이 한 사람의 증언을 모든 남부 주민의 견해로 일반화하지 않습니다.'
+      :'';
     const yieldedVan=state.transportVan&&hasOwn(state.transportVan,'pauseUntil')
       ?' 나딤 운송 담당자가 요청받은 위치에서 차량을 잠시 멈춰 현장 통행을 양보했습니다. 승객 수송 및 철수 완료는 확인되지 않았습니다.'
       :'';
@@ -1872,8 +1875,8 @@
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
-        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.'+
-        (street?' '+street:'')+(workerReport||'')+yieldedVan]),
+        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 한국에서 받은 지시는 여전히 유효하지만 이곳에서 벌어진 일을 지울 수는 없습니다. 지휘계통에 확인된 사실만 보고하겠습니다. 주민이 스스로 결정한 이동과 우리가 돕지 못한 일까지 구분하겠습니다. 철수 가능 여부는 새로 판단해야 합니다.'+
+        (street?' '+street:'')+(workerReport||'')+yieldedVan+rememberedSouth]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
@@ -1891,6 +1894,11 @@
       marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
       harborWorkerReachedShelter:!!state.worker&&state.worker.z>=WORKER_PATH.safeZ-1e-6,
       civilianVehicleYieldRequested:!!state.transportVan&&hasOwn(state.transportVan,'pauseUntil'),
+      // Read-only dramatic consequences: character memory never alters v2 saves,
+      // unobserved civilian counts, the player's original orders or mission gates.
+      southernFamilyPerspectiveHeard:state.workerInterviewed,
+      civilianAgencyObserved:state.civilianRerouted&&state.civilianWalker?.arrived===true,
+      verifiedInformationOnly:state.combat.supportUsed||state.gateLogReviewed||state.logHandedOff,
       emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:state.combat.supportUsed,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
