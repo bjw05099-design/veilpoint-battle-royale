@@ -1497,9 +1497,13 @@
   // evidence and the public exit/relay markers remain untouched. This removes
   // cross-harbor checklist chasing without inventing new access gates.
   function visibleMissionMarkers(){
-    // Only field-observed secondary interactions appear on the 2D navigation.
-    // The physical E interaction and checkpoint format are unchanged.
-    return Story.navigationMarkers(state);
+    // Side interactions are shown only in the player's immediate vicinity.
+    // Preserve an already *explicitly selected* marker as remembered guidance
+    // when the player walks away; this maintains historic N/B cycle identity,
+    // without publishing every other distant paper or staff position.
+    const local=new Set(Story.navigationMarkers(state).map(marker=>marker.id));
+    return Story.markers(state).filter(marker=>
+      local.has(marker.id)||marker.id===guidanceId);
   }
   function minimap(){
     const c=$('minimap'),ctx=c.getContext('2d');
