@@ -6,6 +6,18 @@
 'use strict';
 const V3=(x,y,z)=>[x,y,z];
 const Visibility=global.VeilpointVisibility;
+// Three fictional, human-scale civic ceilings enrich the SAME walkable
+// neighborhoods in BR and CH01. Roofs are ABOVE the walking capsule: they
+// never create collision blocks, require new saves or reproduce a real site.
+// One authored array drives both WebGL and the Canvas fallback.
+const SHARED_PUBLIC_CANOPIES=Object.freeze([
+ Object.freeze({x:28,z:147,w:22,d:17,roofY:3.58,h:.16,
+   type:'shared-public-canopy',color:Object.freeze([.64,.52,.38]),canvas:'#b39b79'}),
+ Object.freeze({x:-107,z:128,w:26,d:23,roofY:3.60,h:.15,
+   type:'shared-public-canopy',color:Object.freeze([.47,.45,.41]),canvas:'#928a78'}),
+ Object.freeze({x:134,z:125,w:29,d:20,roofY:3.30,h:.15,
+   type:'shared-public-canopy',color:Object.freeze([.49,.53,.49]),canvas:'#99aa9e'})
+]);
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
 // Visible actor orientation is sourced only from an actually rendered 60Hz
 // opponent, never from an invisible opponent/radar or inferred client target.
@@ -274,6 +286,7 @@ class SoftwareRenderer {
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  }
  if(state.terrainRevision===1){
+  for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
   objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
   objects.push({x:-45,z:135,h:.18,w:22,d:20,roofY:3.35,type:'aden-ferry-roof'});
  }
@@ -298,6 +311,12 @@ class SoftwareRenderer {
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
+ }
+ if(o.type==='shared-public-canopy'){
+  const top=o.roofY+o.h;
+  polygon([proj(x-ww,top,z-dd),proj(x+ww,top,z-dd),
+    proj(x+ww,top,z+dd),proj(x-ww,top,z+dd)],o.canvas);
+  continue;
  }
  if(o.type==='aden-ferry-roof'){
   const top=o.roofY+o.h;
@@ -591,6 +610,15 @@ class Renderer {
   const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
+ // Distinct market, western-court and transit roofs bring visible depth to
+ // three PUBLIC ground-level areas. Canopy trim remains inside their authored
+ // elevated footprint, so every existing BR/CH01 pedestrian entrance stays open.
+ if(this.worldTerrainRevision===1)for(const roof of SHARED_PUBLIC_CANOPIES){
+  m.box(roof.x,roof.roofY,roof.z,roof.w,roof.h,roof.d,roof.color);
+  for(const side of [-1,1])
+   m.box(roof.x+side*(roof.w/2-.14),roof.roofY-.11,roof.z,
+     .24,.11,roof.d,roof.color.map(v=>v*.78));
+ }
  // Shared waterfront passenger hall: walk-in south entry and north doorway
  // have no roof-level collision; the two low benches are ordinary solid props.
  if(this.worldTerrainRevision===1){
@@ -1061,6 +1089,7 @@ class Renderer {
  this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
+global.VeilpointSharedPublicCanopies=SHARED_PUBLIC_CANOPIES;
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointBeaconLight=beaconLightLevel;
 global.VeilpointRenderer=Renderer;
