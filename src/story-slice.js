@@ -1488,8 +1488,8 @@
       if(state.transportContact===0){
         state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false,driverZ:POINTS.transportDriver.z};
         state.transportContact=1;
-        state.subtitle='나딤(현지 운송 담당자): 차량을 직접 몰고 남쪽 승차 지점까지 가겠습니다. 도착과 실제 수송은 별개입니다.';
-        state.message='현지 운송 차량 출발 · 공공 도로를 따라 이동 중';
+        state.subtitle='나딤(현지 운송 담당자): 주차된 차량까지 직접 걸어가서 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
+        state.message='현지 운송 담당자가 주차된 차량으로 이동 중 · 아직 출발 전';
         syncCivilianShuttle(state);
       }else{
         // Older saved first interviews still permit their historic result,
@@ -1875,7 +1875,8 @@
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
-      transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived}:null,
+      transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
+        ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{})}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
