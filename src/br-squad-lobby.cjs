@@ -153,9 +153,8 @@ class BrSquadLobby {
     return {
       phase:this.phase,capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       participants:this.players.size,readyCount:ready,squadSizes:counts,
-      self:{id:me.id,name:me.name,squad:me.team+1,slot:me.slot+1,ready:me.ready,
-        entryChoice:this.entryVotes.get(token)||null},
-      entry:{...this.squadEntry(me.team),
+      self:{id:me.id,name:me.name,squad:me.team+1,slot:me.slot+1,ready:me.ready},
+      entry:{...this.squadEntry(me.team),selfChoice:this.entryVotes.get(token)||null,
         options:ENTRY_ORDER.map(id=>({id,label:ENTRY_CHOICES[id].label}))},
       // A player can see their own real squad, not private opposing identities
       // or any player's secret reconnect token.
