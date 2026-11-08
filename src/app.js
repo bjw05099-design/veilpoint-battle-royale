@@ -1353,6 +1353,10 @@ addEventListener('keydown',e=>{
  }
  if(action==='reload'){e.preventDefault();reloadWeapon();}
  if(action==='assist'){e.preventDefault();toggleReloadAssist();}
+  if(action==='headlamp'&&canAct()){
+   e.preventDefault();const result=Game.toggleBrHeadlamp(simulation);
+   if(result.ok){persistMatch();updateHud();}
+  }
  if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
  // Do not steal P from a user-remapped movement or interaction action.
  if(e.code==='KeyJ'&&!action&&canAct()){
@@ -1592,7 +1596,9 @@ function updateHud(){const s=simulation,p=s.player;
  for(const k of ['health','stamina']){$(k+'Num').textContent=Math.round(p[k]);$(k+'Bar').style.width=p[k]+'%';}
  $('weaponName').textContent=Game.FIREARMS[p.weaponId].label;
  $('charges').innerHTML=p.loaded+'<span> / '+(p.charges-p.loaded)+'</span>';
- $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · '+reloadLabel+' TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF')+(Game.wetApronFooting(p).wet?' · WET LOADING APRON · FOOTING 86%':'');
+ $('ammoStatus').textContent=(p.reloadRemaining>0?(p.reloadHesitation?'HESITATION · '+reloadLabel+' TO CORRECT':'RELOADING'):'READY')+' · STRESS '+Math.round(p.stress||0)+' · MOBILITY '+Math.round(Game.injuryMobility(p)*Game.supplyLoadMobility(p)*100)+'% · FIELD LOAD '+Math.round(Game.supplyLoadMobility(p)*100)+'% · ASSIST '+(p.reloadAssist?'ON':'OFF')+(Game.wetApronFooting(p).wet?' · WET LOADING APRON · FOOTING 86%':'')+
+   (s.lighting==='dusk'?' · LAMP '+(s.brHeadlamp?.on?'ON ':'OFF ')+
+    Math.ceil((s.brHeadlamp?.ticks||0)/60)+'s ['+Desktop.keyLabel(bindings.headlamp)+']':'');
   $('assistButton').textContent=p.reloadAssist?'ASSIST ON':'ASSIST OFF';$('elims').textContent=String(s.kills).padStart(2,'0')+' ELIMINATIONS';
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
