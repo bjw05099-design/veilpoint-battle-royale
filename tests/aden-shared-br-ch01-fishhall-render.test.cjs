@@ -33,7 +33,9 @@ test('new shared 3D stone and wood is rendered from real physical bodies in both
  for(const [mode,world] of [['br',Sim.newMatch(17,0)],['nahrin',Story.createState().world]]){
   // Distant geography is legitimately culled; stand at the public entrance.
   world.player.x=-154;world.player.z=105;world.player.yaw=Math.PI;
-  fake.uploads.length=0;
+  // Static BR geometry uploads at Renderer construction, before draw().
+  // Reset only on CH01's scene transition, which rebuilds the static mesh.
+  if(mode==='nahrin')fake.uploads.length=0;
   const checkpoint=JSON.stringify(world);
   renderer.draw(world);
   assert.equal(renderer.sceneMode,mode);
