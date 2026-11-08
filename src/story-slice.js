@@ -134,11 +134,11 @@
   // mission gate, change of authority, or new save-file field. The first
   // 10 seconds of genuine 60Hz playable CH01 time show the scenes once.
   const OPENING_BEATS=Object.freeze([
-    Object.freeze({until:3.4,location:'출국 전 · 대한민국',
+    Object.freeze({until:3.4,location:'회상 · 출국 전 대한민국',
       subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했습니다. 원래 임무는 현지 민간 통신망 협력과 구호 인력 지원입니다.'}),
-    Object.freeze({until:6.8,location:'도착 · 가상 해안 도시 나흐린',
+    Object.freeze({until:6.8,location:'현재 · 가상 해안 도시 나흐린',
       subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정에 따라 연락망을 점검하고 복귀하겠습니다. 이 지역의 민간 협력자는 현지 구조단입니다.'}),
-    Object.freeze({until:10.2,location:'도착 후 · 예상 밖 상황 변화',
+    Object.freeze({until:10.2,location:'현재 · 도착 후 예상 밖 상황 변화',
       subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요하고, 유수프 구조단이 주민 대피 지원을 요청했습니다.'})
   ]);
   function openingBeat(state){
@@ -1702,7 +1702,7 @@
   }
   function objective(state) {
     switch(state.phase){
-      case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
+      case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. E로 직접 점검할 수도 있습니다.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
         (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용되어 소진되었습니다.':
         state.world.player.charges>=state.world.player.maxCharges
