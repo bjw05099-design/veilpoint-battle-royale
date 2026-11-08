@@ -1568,6 +1568,14 @@ function minimap(){const c=$('minimap'),ctx=c.getContext('2d'),w=c.width,h=c.hei
    ctx.beginPath();ctx.arc(tx(cache.x),tz(cache.z),2.6,0,Math.PI*2);ctx.fill();
   }
  }
+ // Visiting a public site with actual line-of-sight reveals its name.
+ // Unvisited sites and all other players remain unmarked.
+ for(const site of Game.visitedLandmarks(simulation)){
+  const x=tx(site.x),y=tz(site.z);
+  ctx.fillStyle='#80dbd0';ctx.fillRect(x-3,y-3,6,6);
+  ctx.font='9px sans-serif';ctx.textAlign='left';
+  ctx.fillText(site.label.slice(0,18),Math.min(w-105,x+6),Math.max(12,y-5));
+ }
  // Show only the survivor's own manually placed physical navigation sign.
  if(simulation.trailMarker){
   ctx.fillStyle='#e7b852';ctx.beginPath();
@@ -1603,7 +1611,8 @@ function updateHud(){const s=simulation,p=s.player;
  $('damage').style.opacity=Math.min(.85,s.damageFlash);
  $('compass').textContent=['N','NE','E','SE','S','SW','W','NW'][((Math.round((p.yaw%(2*Math.PI)+Math.PI*2)/(Math.PI/4)))%8)]+' '+String(((p.yaw*180/Math.PI)%360+360)%360|0).padStart(3,'0')+'°';
  if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.zone(p,s.zone)+
-  Navigation.fieldSign(p,s.trailMarker,s.obstacles);
+  Navigation.fieldSign(p,s.trailMarker,s.obstacles)+
+  ' · VISITED '+Game.visitedLandmarks(s).length+'/'+Game.LANDMARKS.length;
  const boundary=Game.boundaryStatus(s);
  const eventMessage=s.messageTime>0?s.message:p.sprintExhausted?'EXHAUSTED · WALK UNTIL STAMINA 25':'';
  // Never let the warning expire while the latest active round is not durable.
