@@ -47,5 +47,30 @@
     return Object.values(EVENTS).filter(e=>!timeline.events.includes(e)&&
       (PREREQUISITES[e]||[]).every(p=>timeline.events.includes(p)));
   }
-  return Object.freeze({EVENTS,newTimeline,restoreTimeline,advance,nextAvailable});
+  // This bridge is a READ-ONLY interpretation of the already-authored CH01
+  // world. It is not a checkpoint, quest gate, new completion rule, or
+  // historical claim about any actual named civilian. A route may be
+  // physically traversed without a witnessed direct local consultation;
+  // do not retroactively invent a guide or a verified handoff.
+  function fromMission(state){
+    if(!state||typeof state!=='object'||!state.world||!state.combat||
+      !['terminal','engagement','records','decision','exit','complete','failed'].includes(state.phase))
+      throw new TypeError('Invalid CH01 mission state');
+    let result=advance(newTimeline(),EVENTS.ARRIVED);
+    if(!state.combat.started)return Object.freeze(result);
+    result=advance(result,EVENTS.ESCALATION);
+    result=advance(result,EVENTS.CONTACT_LOST);
+    const hasLocalConsultation=state.musterConfirmed===true||
+      (state.choice==='verification'&&state.gateLogReviewed===true);
+    if(hasLocalConsultation){
+      result=advance(result,EVENTS.LOCAL_GUIDE);
+      if(['evacuation','verification'].includes(state.choice))
+        result=advance(result,EVENTS.SAFE_ROUTE,
+          state.choice==='evacuation'?'courtyard':'harbor');
+      if(state.phase==='complete'&&result.events.includes(EVENTS.SAFE_ROUTE))
+        result=advance(result,EVENTS.EXIT);
+    }
+    return Object.freeze({...result,events:Object.freeze(result.events.slice())});
+  }
+  return Object.freeze({EVENTS,newTimeline,restoreTimeline,advance,nextAvailable,fromMission});
 });
