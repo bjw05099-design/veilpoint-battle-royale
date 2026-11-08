@@ -372,6 +372,20 @@
       [37,75,.8,4,.7,'aden-shade-seat'],
       [49,75,.8,4,.7,'aden-shade-seat']
     ])o.push({x,z,w,d,h,type});
+    // Shared civilian ferry waiting hall in the original fictional waterfront.
+    // South opening and a six-metre northern doorway remain walkable by both
+    // BR and CH01 players. Every low bench/column is a 60Hz collision body;
+    // the high canopy is rendered separately and never an invisible wall.
+    // This is NOT a reproduction of a real harbor or sensitive building.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-56,135,.6,20,3.3,'aden-ferry-hall-wall'],
+      [-34,135,.6,20,3.3,'aden-ferry-hall-wall'],
+      [-52,145,8,.6,3.3,'aden-ferry-hall-wall'],
+      [-38,145,8,.6,3.3,'aden-ferry-hall-wall'],
+      [-51,137,1.0,4,.68,'aden-ferry-hall-bench'],
+      [-39,135,1.0,4,.68,'aden-ferry-hall-bench'],
+      [-52,131,.65,1.1,1.65,'aden-ferry-hall-notice']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -405,7 +419,8 @@
     // pickups simply because an additional, distant civic block was authored.
     // Draw from the original unmodified candidate sequence, then resolve only
     // rare local overlap with the new block deterministically below.
-    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-'));
+    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
+      !o.type.startsWith('aden-ferry-hall-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)

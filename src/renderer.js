@@ -237,6 +237,7 @@ class SoftwareRenderer {
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+     o.type.startsWith('aden-ferry-hall-')?o.type:
      o.type==='aden-shade-post'||o.type==='aden-shade-seat'?o.type:
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-civil-transport'?'story-civil-transport':
@@ -260,8 +261,10 @@ class SoftwareRenderer {
   objects.push({x:pad.x,z:pad.z,h:.035,w:pad.width,d:pad.depth,type:'wet-apron'});
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  }
- if(state.terrainRevision===1)objects.push({x:43,z:75,h:.22,w:18,d:18,
-  roofY:3.28,type:'aden-shade-roof'});
+ if(state.terrainRevision===1){
+  objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
+  objects.push({x:-45,z:135,h:.18,w:22,d:20,roofY:3.35,type:'aden-ferry-roof'});
+ }
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,angle:b.angle,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
@@ -283,6 +286,12 @@ class SoftwareRenderer {
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
+ }
+ if(o.type==='aden-ferry-roof'){
+  const top=o.roofY+o.h;
+  polygon([proj(x-ww,top,z-dd),proj(x+ww,top,z-dd),
+    proj(x+ww,top,z+dd),proj(x-ww,top,z+dd)],'#9a896d');
+  continue;
  }
  if(o.type==='aden-shade-roof'){
   const top=o.roofY+o.h;
@@ -306,6 +315,7 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
+   o.type==='aden-ferry-hall-wall'?'#a89a83':o.type==='aden-ferry-hall-bench'?'#857668':o.type==='aden-ferry-hall-notice'?'#756754':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
@@ -451,6 +461,21 @@ class Renderer {
    m.box(o.x,o.h-.18,o.z,o.w,.20,o.d,[.57,.54,.48]);
    return;
   }
+  if(o.type==='aden-ferry-hall-wall'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.60,.53,.44]);
+   m.box(o.x,o.h-.20,o.z,o.w,.20,o.d,[.72,.63,.51]);
+   return;
+  }
+  if(o.type==='aden-ferry-hall-bench'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.46,.37,.30]);
+   m.box(o.x,o.h-.13,o.z,o.w+.12,.13,o.d+.1,[.64,.52,.42]);
+   return;
+  }
+  if(o.type==='aden-ferry-hall-notice'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.44,.36,.28]);
+   m.box(o.x,o.h*.45,o.z+.02,o.w+.08,.62,.06,[.75,.72,.58]);
+   return;
+  }
   if(o.type==='aden-arcade-wall'){
    // Solid masonry matches the 60Hz AABB, with no invented pass-through.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.59,.52,.43]);
@@ -517,6 +542,15 @@ class Renderer {
   const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
+ // Shared waterfront passenger hall: walk-in south entry and north doorway
+ // have no roof-level collision; the two low benches are ordinary solid props.
+ if(this.worldTerrainRevision===1){
+  m.box(-45,3.35,135,22,.18,20,[.52,.46,.38]);
+  m.box(-45,3.54,135,22.3,.075,20.3,[.62,.56,.46]);
+  m.box(-45,-.009,135,20.7,.015,19.4,[.37,.34,.30]);
+  for(const z of [127,133,139,143])
+   m.box(-45,.011,z,14,.006,.12,[.52,.46,.36]);
+ }
  // The shared public shade court has a roof above the player, not a phantom
  // solid that blocks entering. The benches and posts alone are colliders.
  if(this.worldTerrainRevision===1){
