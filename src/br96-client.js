@@ -178,7 +178,9 @@ function render(){
     (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
     (w.squadRoute?'\n분대 이동 합의: '+(w.squadRoute.target?.label||'투표 진행 중')+
       ' · 투표 '+Object.values(w.squadRoute.tally).reduce((sum,n)=>sum+n,0)+'/'+w.squadRoute.eligibleMembers+
-      (w.squadRoute.target?' · 현장 도착 '+w.squadRoute.arrived+'명':''):'')+
+      (w.squadRoute.target?' · 현장 도착 '+w.squadRoute.arrived+'명'+
+        (w.squadRoute.confirmedAtTick!==null?' · 집결 확인':
+         ' · 집결 '+Math.floor(w.squadRoute.holdTicks/60)+'/2초'):''):'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
