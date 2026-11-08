@@ -8,6 +8,7 @@ const fpsLimiter=global.VeilpointFPS.createFrameLimiter(60);
 const graphics=global.VeilpointGraphics;
 const perf=global.VeilpointPerformance;
 const Desktop=global.VeilpointDesktopControls;
+const Challenge=global.VeilpointBRChallenge;
 const telemetry=perf.createTelemetry();
 const gpuEvidenceGate=perf.createGpuEvidenceGate();
 const benchmark=global.VeilpointBenchmark?global.VeilpointBenchmark.createBenchmark():null;
@@ -974,6 +975,51 @@ $('play').addEventListener('click',()=>{
  syncMotorSound(true);
 });
 $('newMatch').addEventListener('click',start);
+// Public, reproducible offline match configurations can be shared as a short
+// string. This never imports an untrusted saved match or starts a network room.
+let challengeArmed=null;
+const challengeCode=$('brChallengeCode'),challengeStatus=$('brChallengeStatus');
+const clearChallengeArm=()=>{
+ challengeArmed=null;
+ $('brChallengeApply').textContent='코드로 경기 시작';
+};
+challengeCode.addEventListener('input',()=>{
+ clearChallengeArm();
+ challengeStatus.textContent='코드 확인 전 기존 경기와 저장 상태는 변경되지 않습니다.';
+});
+$('brChallengeGenerate').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden'))return;
+ clearChallengeArm();
+ try{
+  const active=running&&simulation.status==='playing';
+  const settings=active
+   ?{seed:simulation.seed,roster:simulation.bots.length,weapon:simulation.player.weaponId,
+     site:simulation.entrySite,lighting:simulation.lighting}
+   :{seed:nextFreshMatchSeed(),roster:selectedRoster(),weapon:loadoutSelect.value,
+     site:selectedEntry(),lighting:selectedLighting()};
+  challengeCode.value=Challenge.encode(settings);
+  challengeCode.focus({preventScroll:true});
+  challengeCode.select();
+  challengeStatus.textContent='같은 조건의 새 오프라인 경기를 시작하는 코드입니다. Ctrl+C로 복사 가능합니다.';
+ }catch(_){challengeStatus.textContent='이 경기 구성은 공유 코드를 지원하지 않습니다.';}
+});
+$('brChallengeApply').addEventListener('click',()=>{
+ if($('overlay').classList.contains('hidden')||graphicsContextLost||!renderer)return;
+ let settings;
+ try{settings=Challenge.decode(challengeCode.value);}
+ catch(_){clearChallengeArm();challengeStatus.textContent='올바른 VP1 도전 코드를 확인해 주세요. 기존 저장 상태는 유지됩니다.';return;}
+ const code=challengeCode.value;
+ const live=running&&simulation.status==='playing';
+ if(live&&challengeArmed!==code){
+  challengeArmed=code;
+  $('brChallengeApply').textContent='새 경기 시작 재확인';
+  challengeStatus.textContent='현재 진행 중인 경기는 종료됩니다. 같은 코드로 한 번 더 눌러 확정하세요.';
+  return;
+ }
+ clearChallengeArm();
+ start(settings.seed,settings.weapon,settings.roster,false,settings.site,settings.lighting);
+ // Existing start() owns checkpoint generation and offline fallback rules.
+});
 resetPortableMatchExport();
 $('brViewMore').addEventListener('click',()=>{
  if($('overlay').classList.contains('hidden'))return;
