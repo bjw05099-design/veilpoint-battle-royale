@@ -296,7 +296,7 @@ loadoutSelect.addEventListener('change',()=>{
  try{global.localStorage.setItem('veilpoint.weaponClass',loadoutSelect.value);}catch(_){}
 });
 const canvas=$('scene');let stillRequested=false;let renderer=null,simulation=Game.newMatch(20261027,18),running=false,suspended=false,graphicsContextLost=false,last=performance.now(),lastHud=0,shake=0;
-const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false};global.VeilpointInput=input;
+const input={forward:false,back:false,left:false,right:false,sprint:false,crouch:false,fireHeld:false,observe:false};global.VeilpointInput=input;
 const trigger=Desktop.createTriggerLatch();
 function clearInput(){trigger.clear();for(const k in input)input[k]=false;}
 // file:// and privacy-restricted desktop browsers may throw on the storage getter.
@@ -1376,6 +1376,11 @@ addEventListener('keydown',e=>{
  // must be driven by the fixed 60Hz simulation, not keyboard auto-repeat.
  if(e.repeat){if(action)e.preventDefault();return;}
  if(action&&Object.prototype.hasOwnProperty.call(input,action)){e.preventDefault();if(canAct())input[action]=true;}
+ // O is an optional held optical observation key, but never steals a user
+ // remap or text-field focus. No global actor markers or 60Hz state changes.
+ if(e.code==='KeyO'&&!action&&canAct()){
+  e.preventDefault();input.observe=true;updateHud();
+ }
  if(e.code==='KeyG'){
   e.preventDefault();
   setGraphicsPanelOpen($('graphicsPanel').classList.contains('hidden'),$('graphicsPauseOpen'));
@@ -1432,6 +1437,7 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{
  const action=Desktop.actionFor(e.code,desktopUi.get());
  if(action&&Object.prototype.hasOwnProperty.call(input,action))input[action]=false;
+ if(e.code==='KeyO')input.observe=false;
  if(action==='fire')input.fireHeld=trigger.release('keyboard');
 });
 // Background throttling must never simulate hostile fire against an unfocused player.
@@ -1675,6 +1681,8 @@ function updateHud(){const s=simulation,p=s.player;
  // Keep reload and other event feedback readable alongside the boundary warning.
  $('message').textContent=graphicsContextLost?'GRAPHICS CONTEXT LOST · WAIT FOR RECOVERY':suspended&&running?'창 비활성 · 시뮬레이션 일시중지':
    [saveMessage,bookmarkMessage,boundaryMessage,eventMessage].filter(Boolean).join(' · ');
+ if(input.observe&&canAct()&&!$('message').textContent)
+  $('message').textContent='FIELD OBSERVATION · HOLD O FOR 2X DETAIL';
  const yardGate=Game.serviceGateStatus(s);
  const handcart=Game.handcartStatus(s);
  const vehicle=Game.shuttleStatus(s);
@@ -1764,7 +1772,12 @@ function frame(now){requestAnimationFrame(frame);
  if(!suspended&&fpsLimiter.shouldRender(now)){
   if(lastRenderTime!==null)telemetry.record('raf',now-lastRenderTime);
   lastRenderTime=now;
-  const cpuStart=performance.now();renderer.draw(simulation);
+  const cpuStart=performance.now();
+  // View-only, held optical magnification restores the user's real camera
+  // preference on key release. No actor data or checkpoint fields are altered.
+  if(typeof renderer.setObservationZoom==='function')
+   renderer.setObservationZoom(!!input.observe&&canAct(),cameraFov);
+  renderer.draw(simulation);
   const cpuMs=performance.now()-cpuStart;
   telemetry.record('cpu',cpuMs);
   if(stillRequested){
