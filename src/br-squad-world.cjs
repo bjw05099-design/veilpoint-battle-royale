@@ -256,6 +256,17 @@ class BrSquadWorld {
     if(!actor.eligible||this.phase!=='moving'){
       cart.operator=null;return null;
     }
+    // A player who physically walks away cannot keep driving a cart by
+    // sending forward input from elsewhere in the city. Release the handle.
+    const gapX=body.x-actor.x,gapZ=body.z-actor.z;
+    const separation=Math.hypot(gapX,gapZ);
+    const ahead=gapX*cart.dirX+gapZ*cart.dirZ;
+    if(separation>2.8||separation<1.3||ahead<1.3||
+       Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
+         this.obstacles.filter(o=>o!==body))){
+      cart.operator=null;
+      return null;
+    }
     const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
     const forward=actor.direction.x*cart.dirX+actor.direction.z*cart.dirZ;
     if(!fresh||forward<.85)return null;
