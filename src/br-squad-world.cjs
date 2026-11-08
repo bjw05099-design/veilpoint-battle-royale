@@ -244,7 +244,8 @@ class BrSquadWorld {
   }
   handcartSnapshot(token){
     const body=this.handcart.body;
-    return {x:body.x,z:body.z,heldBySelf:this.handcart.operator===this.actors.get(token),
+    return {x:body.x,z:body.z,w:body.w,d:body.d,h:body.h,
+      heldBySelf:this.handcart.operator===this.actors.get(token),
       moving:false};
   }
   // The handcart and its human pusher move in lockstep at a bounded walking
