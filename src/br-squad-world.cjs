@@ -19,17 +19,6 @@ const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // Human-only squad text. It never contains authentication tokens or opponent
 // messages and is limited to a bounded history and 60Hz authoritative cadence.
 const CHAT_LIMIT=6, CHAT_MAX_CHARS=96, CHAT_INTERVAL_TICKS=180;
-const REGROUP_RADIUS_METERS=12;
-// A real two-second, on-foot squad rendezvous. This is a gameplay milestone,
-// not extra rank points, a teleport or an invented completed evacuation.
-const ROUTE_RENDEZVOUS_TICKS=2*60;
-// Public, fictional walking destinations. Only actual eligible squad members
-// vote. A vote never moves actors, awards placement, or reveals another team.
-const ROUTE_DESTINATIONS=Object.freeze({
- ferry:Object.freeze({label:'여객 대기실',x:-45,z:121}),
- shade:Object.freeze({label:'차양 쉼터',x:43,z:75}),
- civic:Object.freeze({label:'주민 골목',x:64,z:118})
-});
 // 10-second presence window is only a reconnect diagnostic; a stale
 // connection never silently eliminates a human squad or awards a rank.
 const PRESENCE_STALE_TICKS=10*60;
@@ -64,7 +53,6 @@ class BrSquadWorld {
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
     this.squadSignals=new Map();
-    this.routeRendezvous=Array.from({length:SQUADS},()=>({choice:null,holdTicks:0,confirmedAtTick:null}));
     this.squadChat=Array.from({length:SQUADS},()=>[]);this.chatSerial=0;
     const occupied=[];
     const teams=Array.from({length:SQUADS},(_,n)=>n);
@@ -105,7 +93,7 @@ class BrSquadWorld {
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
-          routeChoice:null,resting:false,spectateSlot:null});
+          resting:false,spectateSlot:null});
       }
     }
   }
@@ -171,9 +159,10 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,tick:this.tick};
   }
-  // Team-only, time-limited in-world field signals are authored at the
-  // caller's actual server pose. They never identify an unseen opponent or
-  // reveal distant team positions to other squads.
+  // Voluntary quick marks are placed only at the sender's authenticated
+  // server position and shared with their six-person squad. The legacy
+  // "regroup" signal kind now means "shall we meet here?" only: it imposes
+  // NO vote, distance requirement, timer, progress or match reward.
   chat(token,raw){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -205,50 +194,6 @@ class BrSquadWorld {
       expiresAtTick:this.tick+SIGNAL_TTL_TICKS};
     this.squadSignals.set(actor.team,notice);
     return {ok:true,signal:{...notice}};
-  }
-  // A squad's route is agreed by strictly more than half of its currently
-  // eligible real human members. No bot vote and no fabricated team decision.
-  squadRouteSnapshot(team){
-    const members=[...this.actors.values()].filter(p=>p.team===team&&p.eligible);
-    const tally=Object.fromEntries(Object.keys(ROUTE_DESTINATIONS).map(id=>[id,0]));
-    for(const p of members)if(p.routeChoice!==null)tally[p.routeChoice]++;
-    const accepted=members.length>=2?Object.keys(tally).find(id=>tally[id]>members.length/2):null;
-    const destination=accepted?ROUTE_DESTINATIONS[accepted]:null;
-    const rally=this.routeRendezvous[team];
-    return {eligibleMembers:members.length,tally,choice:accepted||null,
-      target:destination?{...destination,id:accepted}:null,
-      arrived:destination?members.filter(p=>Math.hypot(p.x-destination.x,p.z-destination.z)<=10).length:0,
-      holdTicks:rally.choice===accepted?rally.holdTicks:0,
-      holdRequiredTicks:ROUTE_RENDEZVOUS_TICKS,
-      confirmedAtTick:rally.choice===accepted?rally.confirmedAtTick:null};
-  }
-  advanceRouteRendezvous(){
-    // Evaluate only after the entire 60Hz body/collision/boundary update:
-    // neither a client command nor a pre-movement snapshot can grant arrival.
-    for(let team=0;team<SQUADS;team++){
-      const route=this.squadRouteSnapshot(team);
-      const rally=this.routeRendezvous[team];
-      if(!route.choice||route.eligibleMembers<2){
-        rally.choice=null;rally.holdTicks=0;rally.confirmedAtTick=null;continue;
-      }
-      if(rally.choice!==route.choice){
-        rally.choice=route.choice;rally.holdTicks=0;rally.confirmedAtTick=null;
-      }
-      if(rally.confirmedAtTick!==null)continue;
-      if(route.arrived===route.eligibleMembers){
-        rally.holdTicks=Math.min(ROUTE_RENDEZVOUS_TICKS,rally.holdTicks+1);
-        if(rally.holdTicks===ROUTE_RENDEZVOUS_TICKS)rally.confirmedAtTick=this.tick;
-      }else rally.holdTicks=0;
-    }
-  }
-  voteRoute(token,choice){
-    const actor=this.actors.get(token);
-    if(!actor)throw new RangeError('unknown_session');
-    if(!Object.hasOwn(ROUTE_DESTINATIONS,choice))throw new RangeError('invalid_route_choice');
-    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
-    actor.routeChoice=choice;
-    actor.lastPresenceTick=this.tick;
-    return {ok:true,choice,route:this.squadRouteSnapshot(actor.team)};
   }
   // A nearby human can physically operate this public passenger hall shutter
   // from either side; clients never supply gate pose, velocity or coordinates.
@@ -517,7 +462,6 @@ class BrSquadWorld {
         }
       }
     }
-    this.advanceRouteRendezvous();
   }
   snapshot(token){
     const me=this.actors.get(token);
@@ -572,21 +516,13 @@ class BrSquadWorld {
       }
     }
     const signal=this.squadSignals.get(me.team);
-    // An active regroup signal measures actual authenticated teammate bodies
-    // at its original server-confirmed position. No remote ready toggle, new
-    // mission UI, bonus score, opponent coordinates or arbitrary client pose.
-    const activeMates=mates.filter(p=>p.eligible);
+    // A voluntary position pin is a suggestion, never a required destination,
+    // vote, scored rendezvous, or attendance check. Its server-issued coordinates
+    // remain visible only to the sender's squad until expiry.
     const squadVisited=participants.filter(p=>p.team===me.team)
       .reduce((mask,p)=>mask|p.landmarkMask,0);
     const squadLandmarks=Sim.LANDMARKS.filter((_,i)=>(squadVisited&(1<<i))!==0)
       .map(place=>({label:place.label,x:place.x,z:place.z}));
-    const regroup=signal?.kind==='regroup'&&signal.expiresAtTick>this.tick
-      ?Object.freeze({eligibleMembers:activeMates.length,
-        arrived:activeMates.filter(p=>Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS).length,
-        radiusMeters:REGROUP_RADIUS_METERS,
-        ready:activeMates.length>=2&&activeMates.every(p=>
-          Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS)})
-      :null;
     // Round completion is a server decision, never a client estimate from
     // disappearing dots. A simultaneous elimination of every squad is a
     // shared tie even when all placements are numerically 1.
@@ -608,8 +544,6 @@ class BrSquadWorld {
       handcart:this.handcartSnapshot(token),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadChat:this.squadChat[me.team].map(message=>({...message})),
-      squadRegroup:regroup,
-      squadRoute:this.squadRouteSnapshot(me.team),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
         x:watched.x,z:watched.z,automaticFallback:!!fallback}:null,
@@ -620,7 +554,7 @@ class BrSquadWorld {
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
-        surface,routeChoice:me.routeChoice,
+        surface,
         stamina:Math.round(me.stamina*100)/100,
         resting:me.eligible&&me.resting,
         sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
@@ -634,6 +568,5 @@ class BrSquadWorld {
 }
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
-  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS,REST_RECOVERY_PER_SECOND,
-  ROUTE_RENDEZVOUS_TICKS};
+  SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS,
+  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND};
