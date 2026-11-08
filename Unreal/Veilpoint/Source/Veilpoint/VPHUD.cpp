@@ -65,6 +65,14 @@ void AVPHUD::DrawHUD()
                            : TEXT("MOVEMENT: WALK");
     DrawText(MovementLabel, FLinearColor(.83f,.90f,.84f,1.f),
              X, Y + 42.f * Scale, nullptr, .8f * Scale, false);
+    // Derived from the pawn's replicated native 60Hz charge. No local fake
+    // battery countdown and no brightness UI that exposes unseen humans.
+    const FString LightLabel = FString::Printf(
+        TEXT("F LAMP %s | %.0fs"),
+        Pawn->bFieldLightOn ? TEXT("ON") : TEXT("OFF"),
+        FMath::Max(0.f, Pawn->FieldLightSecondsRemaining));
+    DrawText(LightLabel, FLinearColor(.88f,.90f,.68f,1.f),
+             X, Y + 56.f * Scale, nullptr, .72f * Scale, false);
 
     const FString HealthLabel = FString::Printf(TEXT("HEALTH  %3.0f / 100"), Pawn->Health);
     DrawText(HealthLabel, FLinearColor::White,
