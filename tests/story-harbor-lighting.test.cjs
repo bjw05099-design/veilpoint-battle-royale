@@ -36,7 +36,7 @@ function harness(){
   clientWidth:640,clientHeight:360,getContext:type=>type==='webgl2'?gl:null
  });
  const latest=name=>uniforms.filter(pair=>pair[0]===name).at(-1)?.[1];
- return {renderer,latest,shaders,uploads};
+ return {renderer,latest,shaders,uploads,beaconLevel:context.VeilpointBeaconLight};
 }
 const go=(state,id)=>{
  const p=Story.POINTS[id];
@@ -217,6 +217,10 @@ test('CH01 WebGL warning lamp changes material and local light only after manual
  assert.equal(h.latest('uBeaconOn'),0,'powered facade lighting is separate from manual warning');
  const before=Array.from(h.uploads.at(-1));
  go(state,'beacon');assert.equal(Story.interact(state).ok,true);
+ // A flashing lamp can legitimately be dark right after E is pressed.
+ // Advance real 60Hz story time into the next illuminated interval.
+ for(let i=0;i<120&&h.beaconLevel(state.world)===0;i++)Story.step(state,1/60,{});
+ assert.equal(h.beaconLevel(state.world),1);
  const unchanged=JSON.stringify(state.world);
  h.renderer.draw(state.world);
  assert.equal(JSON.stringify(state.world),unchanged,'rendering must not mutate the 60Hz state');
@@ -252,6 +256,8 @@ test('Canvas fallback shows the manual warning lamp only on the street-facing si
  restoreRadio(state);
  go(state,'beacon');assert.equal(Story.interact(state).ok,true);
  state.world.player.x=-42;state.world.player.z=0;state.world.player.yaw=0;
+ for(let i=0;i<120&&context.VeilpointBeaconLight(state.world)===0;i++)Story.step(state,1/60,{});
+ assert.equal(context.VeilpointBeaconLight(state.world),1);
  rects.length=0;renderer.draw(state.world);
  assert.equal(rects.some(rect=>rect.color==='#f5b55b'),true);
  state.world.player.z=-40;state.world.player.yaw=Math.PI;
@@ -264,7 +270,8 @@ test('CH01 powered harbor warning can be turned off and back on without losing 6
  restoreRadio(state);go(state,'beacon');
  assert.equal(Story.interact(state).event,'beacon');
  h.renderer.draw(state.world);
- assert.equal(h.latest('uBeaconOn'),1);
+ assert.equal(h.latest('uBeaconOn'),h.beaconLevel(state.world),
+   'manual ON permits physical lamp cycling; it is not a permanent full-bright state');
  const on=Story.serialize(state);
  assert.equal(Story.restore(on).beaconEnabled,true);
  assert.equal(Story.interact(state).event,'beacon');

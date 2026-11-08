@@ -16,6 +16,14 @@ function actorFacing(actor) {
  return {yaw,left:place(-.18,0),right:place(.18,0),front:place(0,-.28)};
 }
 const safeNorm=(a)=>{const d=Math.hypot(...a)||1;return a.map(v=>v/d);};
+// A physical warning lamp blinks gently at ~0.63 Hz while powered.
+// Timing comes from saved 60Hz CH01 world elapsed time, so pause, restore,
+// WebGL and Canvas agree. This is a fixture only, not an enemy locator.
+function beaconLightLevel(state){
+ if(!state||state.scene!=='nahrin'||state.relayRestored!==true||
+    state.beaconEnabled!==true||!Number.isFinite(state.elapsed))return 0;
+ return state.elapsed%1.6<.9?1:0;
+}
 function m4Perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),a=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*a,-1,0,0,2*far*near*a,0]);}
 function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safeNorm([up[1]*z[2]-up[2]*z[1],up[2]*z[0]-up[0]*z[2],up[0]*z[1]-up[1]*z[0]]),y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-(x[0]*e[0]+x[1]*e[1]+x[2]*e[2]),-(y[0]*e[0]+y[1]*e[1]+y[2]*e[2]),-(z[0]*e[0]+z[1]*e[1]+z[2]*e[2]),1]);}
 function shader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
@@ -213,6 +221,7 @@ class SoftwareRenderer {
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
  const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
+ const beaconLit=beaconLightLevel(state)>0.5;
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);const harborNight=state.scene==='nahrin';const dusk=!harborNight&&state.lighting==='dusk';
  sky.addColorStop(0,harborNight?'#192a35':dusk?'#46505e':'#536b70');
  sky.addColorStop(.65,harborNight?'#3b4b52':dusk?'#776b70':'#89948a');
@@ -380,7 +389,7 @@ class SoftwareRenderer {
   const q=proj(-42,4.1,-27.72);
   if(q&&q[2]<=90&&q[0]>=0&&q[0]<=w&&q[1]>=0&&q[1]<=h){
    const radius=Math.max(1.5,Math.min(10,45/q[2]));
-   ctx.fillStyle=state.beaconEnabled?'#f5b55b':'#343c3b';
+   ctx.fillStyle=beaconLit?'#f5b55b':'#343c3b';
    ctx.fillRect(q[0]-radius,q[1]-radius,radius*2,radius*2);
   }
   const switchFace=proj(-42,1.1,-27.65);
@@ -817,12 +826,12 @@ class Renderer {
   // The harbor warning light stays off until the captain physically operates
   // its switch after restoring power; it is not an automatic rescue effect.
   mesh.box(-42,4.1,-27.72,.7,.35,.13,
-    state.beaconEnabled?[1.4,.78,.26]:[.18,.19,.18]);
+    beaconLightLevel(state)>0?[1.4,.78,.26]:[.18,.19,.18]);
   mesh.box(-42,1.13,-27.66,.16,.09,.04,
-    state.beaconEnabled?[.92,.58,.25]:[.20,.23,.22]);
+    beaconLightLevel(state)>0?[.92,.58,.25]:[.20,.23,.22]);
   // The same manual switch has a visible lever position in both states.
   mesh.box(-42,state.beaconEnabled?1.19:1.06,-27.59,.08,.16,.09,
-    state.beaconEnabled?[.80,.70,.42]:[.39,.42,.41]);
+    beaconLightLevel(state)>0?[.80,.70,.42]:[.39,.42,.41]);
   // A dark fixture remains visibly unpowered until the relay interaction;
   // this changes in the same render frame as the saved mission state.
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
@@ -1018,7 +1027,7 @@ class Renderer {
  // Dusk uses reduced daylight without enabling CH01-only powered lamps.
  g.uniform1f(l.night,night?1:dusk?.44:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
- g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
+ g.uniform1f(l.beaconOn,night?beaconLightLevel(state):0);
  g.uniform1f(l.flashOn,(night&&state.flashlightOn&&state.flashlightTicks>0)||
     (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)?1:0);
  g.uniform3f(l.flashEye,eye[0],eye[1],eye[2]);
@@ -1041,6 +1050,7 @@ class Renderer {
  }
 }
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
+global.VeilpointBeaconLight=beaconLightLevel;
 global.VeilpointRenderer=Renderer;
 global.VeilpointActorFacing=actorFacing;
 })(globalThis);

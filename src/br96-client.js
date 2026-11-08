@@ -146,6 +146,7 @@ function render(){
    (w?'\n서버 틱 '+w.tick+' · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
+    (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
@@ -258,6 +259,15 @@ function draw(w){
  // snapshot are drawn. The client does NOT know unobserved opponents.
  ctx.strokeStyle='#99cfd5';ctx.lineWidth=3;
  ctx.beginPath();ctx.arc(x(w.playableArea.cx),z(w.playableArea.cz),w.playableArea.radius*scale,0,Math.PI*2);ctx.stroke();
+ // Dashed public destination is announced by the same server schedule.
+ // It is not an opponent tracker, GPS marker, or client-generated objective.
+ if(w.playableArea.changing&&w.playableArea.target){
+  const t=w.playableArea.target;
+  ctx.save();ctx.setLineDash([7,5]);ctx.lineWidth=1.5;
+  ctx.strokeStyle='#e9c58b';
+  ctx.beginPath();ctx.arc(x(t.cx),z(t.cz),t.radius*scale,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+ }
  function dot(p,color,r){
   if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return;
   ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(p.x),z(p.z),r,0,Math.PI*2);ctx.fill();
