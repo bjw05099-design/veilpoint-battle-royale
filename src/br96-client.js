@@ -18,14 +18,14 @@ let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
-let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false;
+let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  harborAudio?.disable();
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
- withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;
+ withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
  try{sessionStorage.removeItem(SESSION);}catch(_){}
@@ -71,6 +71,7 @@ function render(){
  el('soundToggle').setAttribute('aria-pressed',String(!!harborAudio?.enabled()));
  el('mapFollow').disabled=!w;
  el('mapFollow').setAttribute('aria-pressed',String(mapFollow&&!!w));
+ el('mapFollow').title=mapFollow?'M: 전체 지도 · +/−: 내 위치 지도 확대/축소':'M: 내 위치 따라가기';
  el('mapFollow').textContent=mapFollow&&w?
    (w.spectatorView?'M · 아군 추적':'M · 내 위치 확대'):'M · 주변 지도';
  el('join').disabled=!!token;
@@ -184,7 +185,7 @@ function draw(w){
  // Follow ONLY the authenticated self, or the server-authorized same-squad
  // spectatorView. Never center on enemy markers or client-supplied positions.
  const followSubject=w?.spectatorView||w?.self||null;
- const view=mapCamera.create({width,height,follow:mapFollow,subject:followSubject});
+ const view=mapCamera.create({width,height,follow:mapFollow,subject:followSubject,zoomLevel:mapZoomLevel});
  const scale=view.scale,x=view.x,z=view.z;
  ctx.strokeStyle='#304c53';ctx.lineWidth=1;
  for(let m=-150;m<=150;m+=50){
@@ -314,6 +315,16 @@ function toggleMapFollow(){
  keys.clear();sprintIntent=false;lastSprint=null;
  render();
 }
+function changeMapZoom(delta){
+ // View-only manipulation. Never send camera changes to the server.
+ if(!mapFollow||!currentWorld()||!Number.isInteger(delta))return;
+ const next=Math.max(-1,Math.min(1,mapZoomLevel+delta));
+ if(next===mapZoomLevel)return;
+ mapZoomLevel=next;
+ keys.clear();sprintIntent=false;lastSprint=null;
+ render();
+ message('현장 지도 확대 단계 '+(mapZoomLevel+2)+'/3 · M 전체 지도 · +/− 확대 조절');
+}
 function toggleHarborAudio(){
  if(!active()||!harborAudio)return;
  if(harborAudio.enabled()){harborAudio.disable();message('환경음 꺼짐 · 다시 누르면 켤 수 있습니다.');}
@@ -367,6 +378,10 @@ document.addEventListener('keydown',event=>{
   if(key==='Escape'){event.preventDefault();toggleStandings(false);}
   // Scoreboard focus takes priority over walking/sprinting/field controls.
   return;
+ }
+ if(!event.repeat&&mapFollow&&currentWorld()&&
+    ['Equal','NumpadAdd','Minus','NumpadSubtract'].includes(key)){
+   event.preventDefault();changeMapZoom(key==='Equal'||key==='NumpadAdd'?1:-1);return;
  }
  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight'].includes(key)){
   keys.add(key);event.preventDefault();
