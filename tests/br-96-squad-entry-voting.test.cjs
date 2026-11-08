@@ -34,7 +34,7 @@ test('six humans vote on one physical walk-in sector, abstentions and ties never
  assert.equal(lobby.voteEntry(token(0),'lane').ok,true);
  assert.deepEqual(lobby.squadEntry(0).tally,{block:1,promenade:1,lane:2});
  assert.equal(lobby.leave(token(0)).ok,true);
- assert.deepEqual(lobby.squadEntry(0).tally,{block:1,promenade:0,lane:2},
+ assert.deepEqual(lobby.squadEntry(0).tally,{block:1,promenade:1,lane:1},
   'departed player vote cannot survive a vacant real seat');
  assert.throws(()=>lobby.voteEntry(token(6),'distant-rooftop'),/invalid_entry_choice/);
  assert.throws(()=>lobby.voteEntry('f'.repeat(64),'block'),/unknown_session/);
