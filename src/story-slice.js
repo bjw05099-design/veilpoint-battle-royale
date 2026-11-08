@@ -92,6 +92,10 @@
   const INTERACT_RADIUS = 4;
   const SUPPLY_REACH = 1.8; // Physical cache reach; larger radius remains for terminals/route triggers.
   const SWITCH_REACH = 1.1; // Reach the facade switch, not a remote 4m HUD activation.
+  // Alternative staffed-side on-foot approach: deliberately off the historic
+  // main x=0 records-counter corridor so older E-based playthroughs never
+  // unexpectedly receive a dialog while walking their original path.
+  const ROUTE_FORK=Object.freeze({x:-7,z:-43,radius:2.5});
   const POINTS = Object.freeze({
     terminal: Object.freeze({id:'terminal', x:0, z:-18, kind:'objective', label:'시민 중계기'}),
     supply: Object.freeze({id:'supply', x:5, z:-20, kind:'ammo', label:'현지 구조단 유한 보급 상자'}),
@@ -800,9 +804,9 @@
     // Legacy E interaction and all v2 checkpoint fields remain compatible.
     // Merely restoring a checkpoint already inside the area never triggers it.
     if(state.phase==='records'&&movedDistance>1e-7){
-      const from=Math.hypot(beforeX-POINTS.decision.x,beforeZ-POINTS.decision.z);
-      const reached=Math.hypot(p.x-POINTS.decision.x,p.z-POINTS.decision.z);
-      if(from>5&&reached<=5&&
+      const from=Math.hypot(beforeX-ROUTE_FORK.x,beforeZ-ROUTE_FORK.z);
+      const reached=Math.hypot(p.x-ROUTE_FORK.x,p.z-ROUTE_FORK.z);
+      if(from>ROUTE_FORK.radius&&reached<=ROUTE_FORK.radius&&
          !Sim.lineBlocked(beforeX,beforeZ,p.x,p.z,state.world.obstacles)){
         state.phase='decision';
         state.subtitle='김도겸 중사(무전): 현지 상황이 바뀌었습니다. 유수프 구조단의 남쪽 주민 대피 통로와 현지 승인 후 열리는 동쪽 통로 중 선택해야 합니다. 기록 조사는 필수가 아닙니다.';
