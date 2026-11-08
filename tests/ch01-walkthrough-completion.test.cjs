@@ -27,7 +27,8 @@ test('CH01 actual on-foot south arrival closes the short preview without an invi
  assert.equal(s.phase,'complete');
  assert.equal(s.world.status,'won');
  assert.match(s.subtitle,/유수프/);
- assert.ok(Math.hypot(s.world.player.x,s.world.player.z+61)<2.21);
+ assert.ok(s.world.player.z<=-65.5,
+  'the player must travel beyond the staffed southern exit, not merely approach a mission icon');
  const elapsed=s.world.elapsed;
  Story.step(s,1/60,{forward:true});
  assert.equal(s.world.elapsed,elapsed,'terminal state cannot keep changing on 60Hz ticks');
@@ -53,8 +54,12 @@ test('CH01 east passage completes only after existing physically controlled clea
  for(let n=0;n<60*9;n++)Story.step(s,1/60,{});
  assert.equal(s.phase,'exit');
  assert.equal(Story.situation(s).eastGateOpen,true,'real 60Hz gate clearance must finish');
+ // Visiting the cabinet at x=27,z=-66 must remain optional, rather
+ // than accidentally finishing the mission as the actor walks there.
+ go(s,27,-61);s.world.player.yaw=Math.PI/2;
  for(let n=0;n<120&&s.phase==='exit';n++)Story.step(s,1/60,{forward:true});
  assert.equal(s.phase,'complete');
+ assert.ok(s.world.player.x>=33.5,'the east route is a distinct physical exit');
  assert.equal(s.choice,'verification');
 });
 test('browser completion presentation is wired to both interaction and real fixed-step arrival',()=>{
