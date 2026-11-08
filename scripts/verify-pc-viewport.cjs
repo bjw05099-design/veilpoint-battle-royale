@@ -199,13 +199,13 @@ function auditBr96(){
     page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'clipped',
      bounds:[rect.left,rect.top,rect.right,rect.bottom]});
   }
-  for(const id of ['name','join','civicGate','soundToggle','standingsToggle']){
+  for(const id of ['name','join','civicGate','soundToggle','standingsToggle','mapFollow']){
    const node=get(id),rect=node?.getBoundingClientRect();
    // The public-gate control starts disabled until a real game begins.
    // Temporarily enable it ONLY in this disconnected static Chromium page
    // to prove actual pointer reach and keyboard accessibility.
    const originalDisabled=node?.disabled;
-   if(id==='civicGate'&&node)node.disabled=false;
+   if((id==='civicGate'||id==='mapFollow')&&node)node.disabled=false;
    const target={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
    if(target.visible&&target.enabled){
     const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
@@ -220,7 +220,7 @@ function auditBr96(){
    if(!target.visible||!target.enabled||!target.hit||!target.focused)
     page.issues.push({id,reason:'action not focusable or clickable',probesPassed:target.probesPassed});
    page.targets.push(target);
-   if(id==='civicGate'&&node)node.disabled=originalDisabled;
+   if((id==='civicGate'||id==='mapFollow')&&node)node.disabled=originalDisabled;
   }
   // Also audit the full, ACTUAL authored 4x4 standings view. It is hidden
   // before interaction and occupies a bounded overlay rather than scrolling
