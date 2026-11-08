@@ -199,7 +199,7 @@ function auditBr96(){
     page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'clipped',
      bounds:[rect.left,rect.top,rect.right,rect.bottom]});
   }
-  for(const id of ['name','join','civicGate','standingsToggle']){
+  for(const id of ['name','join','civicGate','soundToggle','standingsToggle']){
    const node=get(id),rect=node?.getBoundingClientRect();
    // The public-gate control starts disabled until a real game begins.
    // Temporarily enable it ONLY in this disconnected static Chromium page
