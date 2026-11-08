@@ -51,8 +51,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.deepEqual(npc,{x:10,z:-54});
  s.world.player.x=10;s.world.player.z=-58;s.world.player.yaw=Math.PI;
  const view=Visibility.planVisible(s.world,16/9);
- assert.equal(view.witnesses.length,1);
- assert.equal(view.witnesses[0].entity,npc);
+ assert.ok(view.witnesses.some(item=>item.entity===npc),
+  'the original human driver remains visible beside another independently moving resident');
  for(let i=0;i<60;i++)Story.step(s,1/60,{forward:true});
  assert.ok(s.world.player.z < -55,
   'the player must not walk straight through a visible human body');
@@ -65,7 +65,9 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.match(render,/mesh\.box\(w\.x,\.05,w\.z/);
  const before=Story.createState();
  assert.equal(before.world.witness,null);
- assert.equal(Visibility.planVisible(before.world,16/9).witnesses.length,0);
+ assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
+  item.entity===before.civilianWalker),
+  'before evacuation there is no driver; the independently present resident is not erased');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{
  const s=evacuation(),raw=JSON.parse(Story.serialize(s));
@@ -119,8 +121,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.deepEqual(npc,{x:10,z:-54});
  s.world.player.x=10;s.world.player.z=-58;s.world.player.yaw=Math.PI;
  const view=Visibility.planVisible(s.world,16/9);
- assert.equal(view.witnesses.length,1);
- assert.equal(view.witnesses[0].entity,npc);
+ assert.ok(view.witnesses.some(item=>item.entity===npc),
+  'the original human driver remains visible beside another independently moving resident');
  for(let i=0;i<60;i++)Story.step(s,1/60,{forward:true});
  assert.ok(s.world.player.z < -55,
   'the player must not walk straight through a visible human body');
@@ -133,7 +135,9 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.match(render,/mesh\.box\(w\.x,\.05,w\.z/);
  const before=Story.createState();
  assert.equal(before.world.witness,null);
- assert.equal(Visibility.planVisible(before.world,16/9).witnesses.length,0);
+ assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
+  item.entity===before.civilianWalker),
+  'before evacuation there is no driver; the independently present resident is not erased');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{
  const s=evacuation(),raw=JSON.parse(Story.serialize(s));

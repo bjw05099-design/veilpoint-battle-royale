@@ -105,6 +105,14 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.witness,.55,state.obstacles)){
    witnesses.push({entity:state.witness});boxes+=2;
  }
+ // A second independent local civilian actually walks from the cleared public
+ // street toward the staffed south courtyard. Occlusion and camera FOV use the
+ // same bounded rules as all existing actors; never create an offscreen radar.
+ if(state.scene==='nahrin'&&state.civilianWalker&&
+    inView(p,state.civilianWalker.x,state.civilianWalker.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.civilianWalker,.55,state.obstacles)){
+   witnesses.push({entity:state.civilianWalker});boxes+=2;
+ }
  // A CH01 civilian traverses a genuine sidewalk using the same physical
  // collision rule as the captain. It appears only when camera-visible and
  // not obscured behind opaque harbor buildings.
