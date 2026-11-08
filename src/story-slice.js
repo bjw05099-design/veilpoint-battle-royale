@@ -1504,8 +1504,28 @@
       state.phase='decision';
       const selected=choose(state,'evacuation');
       if(!selected.ok){state.phase=previousPhase;syncMarkers(state);return selected;}
-      state.subtitle='유수프(현지 구조단): 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 주민에게 약속할 수 있는 범위만 말해 줘. 함께 걸어 줄 수 있겠나?';
-      state.message='현지 구조 책임자와 직접 협의 · 남쪽 주민 대피 지원 선택';
+      // A genuine face-to-face conversation depends on what people have
+      // physically seen, and on local jurisdiction. Political memory is one
+      // resident's perspective, not a claim that a real 2019 agreement
+      // authorized an invented street-level route.
+      const observedResident=state.civilianWalker?.arrived===true
+        ?' 유수프: 남쪽까지 걸어온 주민 한 명은 봤어. 나머지 사람들은 아직 확인 중이야.'
+        :state.civilianRerouted
+          ?' 유수프: 주민이 스스로 접근로를 골랐다는 건 들었어. 도착 전에는 안전하다고 적지 마.'
+          :' 유수프: 아직 우리 눈으로 확인하지 못한 주민을 모두 대피했다고 말할 수는 없어.';
+      const link=state.relayRestored
+        ?' 마라가 복구한 비상 회선은 도움이 돼. 하지만 무전 하나가 다른 골목을 열어 주지는 않아.'
+        :' 통신이 닿지 않는 동안은 현장에 있는 사람끼리 사실을 확인할 수밖에 없어.';
+      const memory=state.workerInterviewed
+        ?' 이수혁: 항구 작업자는 1990년과 1994년을 한 가족 안에서도 다르게 기억하더군요. 제가 들은 한 사람의 말로 이 도시 전체를 판단하지 않겠습니다.'
+        :'';
+      state.subtitle='유수프(현지 구조단): 2019년 리야드 합의 소식을 듣고도 우리는 이 골목을 직접 확인해야 했지. 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리가 관리한다. 약속할 수 있는 범위만 말해 줘.'+
+        observedResident+link+memory+
+        ' 이수혁: 한국에서 받은 임무는 바뀌지 않았습니다. 이동 판단은 여러분과 함께 확인하겠습니다.';
+      state.message='유수프와 직접 협의 · 현지 구조단 결정 존중 · '+
+        (state.civilianWalker?.arrived?'주민 한 명의 현장 도착 확인':
+          state.civilianRerouted?'주민의 이동 선택만 확인':'주민 이동 결과 미확인')+
+        ' · 남쪽 경로 지원';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='김도겸 중사(무전): 한국에서 지시받은 임무와 상황이 달라졌습니다. 귀환은 아직 불확실합니다. 유수프 구조단이 남쪽 통로를 관리하고 있고, 동쪽도 현장 확인이 가능합니다. 어느 경로든 실제 이동과 현지 승인이 필요합니다.';
