@@ -4,6 +4,7 @@
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
+#include "VPStoryPedestrian.h"
 #include "VPGameUserSettings.h"
 #include "Misc/App.h"
 #include "EngineUtils.h"
@@ -65,6 +66,14 @@ void AVPHUD::DrawHUD()
                            : TEXT("MOVEMENT: WALK");
     DrawText(MovementLabel, FLinearColor(.83f,.90f,.84f,1.f),
              X, Y + 42.f * Scale, nullptr, .8f * Scale, false);
+    // Derived from the pawn's replicated native 60Hz charge. No local fake
+    // battery countdown and no brightness UI that exposes unseen humans.
+    const FString LightLabel = FString::Printf(
+        TEXT("F LAMP %s | %.0fs"),
+        Pawn->bFieldLightOn ? TEXT("ON") : TEXT("OFF"),
+        FMath::Max(0.f, Pawn->FieldLightSecondsRemaining));
+    DrawText(LightLabel, FLinearColor(.88f,.90f,.68f,1.f),
+             X, Y + 56.f * Scale, nullptr, .72f * Scale, false);
 
     const FString HealthLabel = FString::Printf(TEXT("HEALTH  %3.0f / 100"), Pawn->Health);
     DrawText(HealthLabel, FLinearColor::White,
@@ -191,6 +200,40 @@ void AVPHUD::DrawHUD()
                 : FString::Printf(TEXT("CH01 VISIBLE OBJECTIVE %.1fm | APPROACH TO INTERACT"), Metres);
             DrawText(PhysicalHint, FLinearColor(.83f,.93f,.78f,1.f),
                      X, Y + 157.f * Scale, nullptr, .75f * Scale, false);
+        }
+
+        // Human presence is not a map-wide quest announcement. Display one
+        // already-replicated civilian's actual on-foot status only when that
+        // person is inside the PC camera frustum and genuinely unobstructed.
+        // The derived caption neither moves them nor grants a story objective.
+        if (Story->StoryStage==EVPStoryStage::SouthExit ||
+            Story->StoryStage==EVPStoryStage::Complete)
+        {
+            for (TActorIterator<AVPStoryPedestrian> It(World); It; ++It)
+            {
+                const AVPStoryPedestrian* Person=*It;
+                if (!IsValid(Person)) continue;
+                const FVector ToPerson=Person->GetActorLocation()-Eye;
+                if (ToPerson.SizeSquared()>FMath::Square(1400.f) ||
+                    FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(),ToPerson)<=0.f)
+                    continue;
+                FVector2D OnScreen;
+                if (!PlayerOwner->ProjectWorldLocationToScreen(
+                        Person->GetActorLocation(),OnScreen,false) ||
+                    !FMath::IsFinite(OnScreen.X) || !FMath::IsFinite(OnScreen.Y) ||
+                    OnScreen.X<0.f || OnScreen.Y<0.f ||
+                    OnScreen.X>=Canvas->ClipX || OnScreen.Y>=Canvas->ClipY) continue;
+                FCollisionQueryParams Query(SCENE_QUERY_STAT(VPCivilianObserved),true,Pawn);
+                Query.AddIgnoredActor(Person);
+                if (World->LineTraceTestByChannel(Eye,
+                    Person->GetActorLocation(),ECC_Visibility,Query)) continue;
+                DrawText(Person->bReachedSouthCourtyard
+                    ? TEXT("LOCAL WITNESS: WALKED TO THE SOUTH PUBLIC COURT")
+                    : TEXT("LOCAL WITNESS: WALKING THROUGH THE SOUTH LANE"),
+                    FLinearColor(.86f,.89f,.78f,1.f),
+                    X,Y+179.f*Scale,nullptr,.75f*Scale,false);
+                break;
+            }
         }
         return;
     }

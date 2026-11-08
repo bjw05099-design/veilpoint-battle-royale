@@ -4,6 +4,7 @@
 #include "VPCharacter.generated.h"
 
 class UCameraComponent;
+class USpotLightComponent;
 
 UCLASS()
 class VEILPOINT_API AVPCharacter : public ACharacter
@@ -19,6 +20,14 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="View")
     TObjectPtr<UCameraComponent> BodyCamera;
+    // Real native camera-attached LED beam; never an outline of unseen actors.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="View")
+    TObjectPtr<USpotLightComponent> FieldLight;
+    UPROPERTY(ReplicatedUsing=OnRep_FieldLightState, BlueprintReadOnly, Category="View")
+    bool bFieldLightOn = false;
+    // Fixed finite energy, consumed on authoritative 60Hz simulation steps.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="View")
+    float FieldLightSecondsRemaining = 600.f;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     float Health = 100.f;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
@@ -60,6 +69,11 @@ protected:
     void EndCrouch();
     void TryTag();
     void TryInteract();
+    void ToggleFieldLight();
+    UFUNCTION(Server, Reliable)
+    void ServerToggleFieldLight();
+    UFUNCTION()
+    void OnRep_FieldLightState();
     UFUNCTION(Server, Reliable)
     void ServerSetSprintHeld(bool bHeld);
     UFUNCTION()
