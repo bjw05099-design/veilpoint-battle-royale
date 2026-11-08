@@ -1190,13 +1190,20 @@
       state.message='운송 진술·접수 장부 대조 후 현장 기록 접수 완료 · 차량 도착 미확인';
     }else if(marker.id==='transportDriver'&&state.phase==='exit'&&
       state.choice==='evacuation'&&state.transportContact<2){
-      state.transportContact++;
-      state.subtitle=state.transportContact===1
-        ?'나딤(현지 운송 담당자): 구조 차량은 배정받았지만 아직 현장에 도착하지 않았습니다. 도로 상태를 직접 보고 출발 여부를 결정해야 해요.'
-        :'조현지(국정원): 나딤 담당자의 현장 발언을 기록했습니다. 차량 배정과 실제 도착은 다른 사실입니다. 도착 확인 전에는 인원 수송 완료로 보고하지 않겠습니다.';
-      state.message=state.transportContact===1
-        ?'현장 운송 담당자 면담 · E로 출발 여부 재확인'
-        :'운송 담당자 면담 완료 · 실제 차량 도착은 확인되지 않음';
+      if(state.transportVan)return {ok:false,reason:'vehicle_en_route'};
+      if(state.transportContact===0){
+        state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false};
+        state.transportContact=1;
+        state.subtitle='나딤(현지 운송 담당자): 차량을 직접 몰고 남쪽 승차 지점까지 가겠습니다. 도착과 실제 수송은 별개입니다.';
+        state.message='현지 운송 차량 출발 · 공공 도로를 따라 이동 중';
+        syncCivilianShuttle(state);
+      }else{
+        // Older saved first interviews still permit their historic result,
+        // without claiming an unobserved vehicle arrival.
+        state.transportContact=2;
+        state.subtitle='조현지: 이전 현장 진술은 남아 있습니다. 차량 도착은 아직 미확인입니다.';
+        state.message='기존 면담 진행 보존 · 차량 도착 미확인';
+      }
     }else if(marker.id==='volunteer'&&state.phase==='exit'&&
       state.choice==='evacuation'&&!state.musterConfirmed&&!state.guide.active){
       // One local face-to-face E action replaces two routine confirmation
@@ -1542,6 +1549,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
+      transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1567,8 +1575,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+25||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard').includes(k))||
+      Object.keys(data).length>expectedKeys.length+26||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan').includes(k))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1585,6 +1593,14 @@
         (typeof data.dispatchReviewed!=='boolean'||
          (data.dispatchReviewed&&(data.choice!=='evacuation'||
            !['exit','complete'].includes(data.phase)))))||
+       (hasOwn(data,'transportVan')&&data.transportVan!==null&&(
+         !data.transportVan||typeof data.transportVan!=='object'||Array.isArray(data.transportVan)||
+         Object.keys(data.transportVan).sort().join(',')!=='arrived,z'||
+         typeof data.transportVan.arrived!=='boolean'||!Number.isFinite(data.transportVan.z)||
+         data.transportVan.z<CIVILIAN_SHUTTLE.startZ||data.transportVan.z>CIVILIAN_SHUTTLE.endZ||
+         data.transportVan.arrived!==(data.transportVan.z===CIVILIAN_SHUTTLE.endZ)||
+         data.transportContact!==(data.transportVan.arrived?2:1)||
+         !['exit','complete'].includes(data.phase)))||
        (hasOwn(data,'transportContact')&&(
           !Number.isInteger(data.transportContact)||
           data.transportContact<0||data.transportContact>2||
@@ -1805,6 +1821,7 @@
     state.dispatchReviewed=hasOwn(data,'dispatchReviewed')?data.dispatchReviewed:false;
     // Old current and completed story saves predate the optional conversation.
     state.transportContact=hasOwn(data,'transportContact')?data.transportContact:0;
+     state.transportVan=hasOwn(data,'transportVan')&&data.transportVan!==null?{...data.transportVan}:null;
     state.driverReportFiled=hasOwn(data,'driverReportFiled')?data.driverReportFiled:false;
     state.officeBoardRead=hasOwn(data,'officeBoardRead')?data.officeBoardRead:false;
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
