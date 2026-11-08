@@ -60,7 +60,7 @@ function render(){
  el('leave').disabled=!token||state?.phase!=='assembling';
  el('ready').disabled=!token||state?.phase!=='assembling';
  el('ready').textContent=state?.self?.ready?'준비 취소':'준비';
- for(const id of ['regroup','location','sprint'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate'])el(id).disabled=!active();
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -99,6 +99,7 @@ function render(){
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100 · 경계 '+w.playableArea.stage+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
+    (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -136,6 +137,13 @@ function draw(w){
    ctx.fillRect(x(solid.x-solid.w/2),z(solid.z-solid.d/2),
      solid.w*scale,solid.d*scale);
   }
+ }
+ // The public sliding panel is NOT in the once-downloaded map. Its actual
+ // position is simulated by the server each 60Hz tick for all 96 players.
+ if(w.civicGate){
+   const g=w.civicGate;
+   ctx.fillStyle=g.state==='closed'?'#dcb573':'#9dcdbb';
+   ctx.fillRect(x(g.x-g.w/2),z(g.z-g.d/2),g.w*scale,Math.max(2,g.d*scale));
  }
  // Only public rule geometry and the authenticated, already-filtered
  // snapshot are drawn. The client does NOT know unobserved opponents.
@@ -200,6 +208,11 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+async function operateGate(){
+ if(!active())return;
+ const result=await command('/civic-gate',{},null);
+ if(result?.ok)message('공공 여객 출입문 동작 시작 · 문은 실제로 서서히 움직입니다.');
+}
 // Two explicit clicks are required: the first is a warning, the second
 // authenticates a permanent withdrawal. There is no self-revival endpoint.
 async function withdraw(){
@@ -235,6 +248,7 @@ document.addEventListener('keydown',event=>{
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
+ else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;render();}
@@ -300,6 +314,7 @@ el('leave').addEventListener('click',leave);
 el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
+el('civicGate').addEventListener('click',operateGate);
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
 el('withdraw').addEventListener('click',withdraw);
 el('spectate').addEventListener('click',spectate);
