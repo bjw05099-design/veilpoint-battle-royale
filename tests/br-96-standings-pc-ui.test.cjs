@@ -1,0 +1,53 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
+const {BrSquadWorld}=require('../src/br-squad-world.cjs');
+const token=i=>i.toString(16).padStart(64,'0');
+function world(){
+ const lobby=new BrSquadLobby();
+ for(let i=0;i<96;i++)lobby.join(token(i),'Participant '+i);
+ for(let i=0;i<96;i++)lobby.ready(token(i),true);
+ return new BrSquadWorld(lobby);
+}
+test('16x6 scorecard is server-derived and never invents an active squad placement',()=>{
+ const w=world(),initial=w.snapshot(token(0));
+ assert.equal(initial.standings.length,16);
+ assert.deepEqual(initial.standings.map(x=>x.eligibleMembers),Array(16).fill(6));
+ assert.ok(initial.standings.every(x=>x.placement===null));
+ for(let i=6;i<12;i++)w.withdraw(token(i));
+ let after=w.snapshot(token(0));
+ assert.equal(after.standings[1].eligibleMembers,0);
+ assert.equal(after.standings[1].placement,16);
+ assert.equal(after.standings[0].placement,null);
+ for(let i=12;i<18;i++)w.withdraw(token(i));
+ after=w.snapshot(token(0));
+ assert.equal(after.standings[2].placement,15);
+ assert.equal(after.standings.filter(x=>x.placement===null).length,14);
+ assert.equal(after.remainingSquads,14);
+ assert.equal(after.standings.every(x=>x.eligibleMembers>=0&&x.eligibleMembers<=6),true);
+ const publicFrame=JSON.stringify(after);
+ assert.equal(publicFrame.includes(token(6)),false,'no retired session secret is part of public results');
+ assert.equal(publicFrame.includes('Participant 6'),false,'do not show opposing personal roster names');
+});
+test('PC result panel uses fixed 4-by-4 tiles and no injected HTML names',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../br96.html'),'utf8');
+ const client=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'),'utf8');
+ assert.match(html,/id="standingsToggle" aria-expanded="false"/);
+ assert.match(html,/id="standingsPanel" role="region"/);
+ assert.match(html,/id="standingsGrid"/);
+ assert.match(html,/id="standingsClose"/);
+ assert.equal((html.match(/class="standings-tile"/g)||[]).length,16);
+ assert.match(html,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+ assert.match(html,/grid-template-rows:repeat\(4,minmax\(0,1fr\)\)/);
+ assert.match(html,/#standingsPanel\[hidden\]\{display:none\}/);
+ assert.match(client,/function renderStandings\(w\)/);
+ assert.match(client,/function toggleStandings\(open\)/);
+ assert.match(client,/entry\.placement===null\?'진행 중':'확정 '/);
+ assert.match(client,/key==='KeyV'/);
+ assert.match(client,/key==='Escape'/);
+ assert.match(client,/if\(document.hidden\|\|!document.hasFocus\(\)\|\|!el\('standingsPanel'\)\.hidden\)/);
+ assert.match(client,/label\.textContent=valid/);
+ assert.doesNotMatch(client,/\.innerHTML\s*=/);
+ assert.doesNotThrow(()=>new Function(client));
+});
