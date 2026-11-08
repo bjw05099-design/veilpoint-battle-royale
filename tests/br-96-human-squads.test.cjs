@@ -39,7 +39,7 @@ test('vacant slots can be reused without reshuffling other squads',()=>{
  assert.equal(lobby.leave(token(1)).ok,true);
  assert.equal(lobby.join(token(44),'Replacement').slot,1);
  assert.equal(lobby.snapshot(token(0)).self.ready,true);
- assert.deepEqual(lobby.snapshot(token(12)).self,{id:13,name:'Player 12',squad:3,slot:1,ready:false});
+ assert.deepEqual(lobby.snapshot(token(12)).self,{id:13,name:'Player 12',squad:3,slot:1,ready:false,entryChoice:null},'unselected players preserve the explicit pre-round choice state');
  assert.equal(lobby.players.size,14);
 });
 test('clients cannot choose opponents, teams, secret tokens, or force a launch',()=>{
