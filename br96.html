@@ -40,6 +40,8 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 #status{color:#e0edca;min-height:2.5em;margin:0}
 #roster,#details{white-space:pre-wrap;overflow:hidden;font:12px/1.43 ui-monospace,Consolas,monospace;margin:0}
 #roster{flex:1;min-height:0}
+#squadChatInput{flex:1 1 125px;width:0}
+#squadChatLine{min-height:1.4em;margin:0;color:#c2e4d1;font:11px/1.4 ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #details{flex:0 0 auto}
 .note{margin:0;font-size:.76rem;color:#b2c3c2}
 @media(max-width:800px){main{grid-template-columns:minmax(0,1fr) 260px;gap:6px;padding:6px}section{padding:7px}header{padding:7px 10px}#sidebar{gap:5px}}
@@ -54,6 +56,18 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 #vpAudioControls input[type=range]{width:100%;min-width:0;accent-color:#acd9bc;padding:0}
 #vpAudioControls output{text-align:right}
 #vpAudioControls .vp-audio-hint,#vpAudioSaveStatus{margin:0;color:#bdcfc8;font-size:clamp(10px,1.3vh,12px)}
+/* Compact, not hidden: every control and note must fit 1024x600 PC Chrome. */
+@media(max-height:640px){
+ #sidebar{padding:7px;gap:3px}
+ #sidebar .group{gap:3px}
+ #sidebar input,#sidebar button,#sidebar select{padding:3px 5px;font-size:12px}
+ #sidebar h2{font-size:13px;margin:0 0 3px}
+ #sidebar #status{font-size:12px;line-height:1.2;min-height:2.2em}
+ #sidebar #details{font-size:11px;line-height:1.18}
+ #sidebar #roster{font-size:10px;line-height:1.2}
+ #sidebar #squadChatLine{font-size:10px;line-height:1.2;min-height:1.2em}
+ #sidebar .note{font-size:10px;line-height:1.15}
+}
 </style>
 </head>
 <body>
@@ -97,6 +111,8 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <pre id="details" aria-label="분대 및 현재 게임 상태">접속 전</pre>
 <div class="group"><button id="regroup" disabled>Q 집결 신호</button><button id="location" disabled>E 현재 위치</button><button id="sprint" disabled aria-pressed="false">달리기 OFF</button></div>
 <div class="group" aria-label="경기 참가 상태와 분대 관전"><button id="withdraw" disabled>경기 포기</button><label for="watchSlot">아군 관전</label><select id="watchSlot" disabled aria-label="관전할 본인 분대 위치"><option value="">참가 중</option></select><button id="spectate" disabled>관전 전환</button></div>
+<div class="group" aria-label="6인 분대 전용 글자 통신"><input id="squadChatInput" maxlength="96" autocomplete="off" placeholder="우리 분대 메시지 (Enter)" aria-label="우리 분대 메시지" disabled><button id="sendSquadChat" disabled>보내기</button></div>
+<p id="squadChatLine" aria-label="우리 분대 최근 메시지" aria-live="polite">분대 전용 메시지 · 경기 시작 후 사용 가능</p>
 <pre id="roster" aria-label="분대 준비 명단">대기실이 시작되면 분대 정보를 표시합니다.</pre>
 <p class="note">현재 2D 플레이테스트이며 실전 전투, 공용 인터넷 호스팅, 96인 네트워크 부하 검증은 별도 개발 항목입니다. 개인 인증 토큰은 이 탭의 세션 저장소에만 유지됩니다. 지도는 서버가 허용한 주변 인원만 표시합니다.</p>
 </section>

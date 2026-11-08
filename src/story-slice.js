@@ -1300,7 +1300,9 @@
         // Keep the shared world live until the authored mission actually ends.
         state.world.status='playing';
         state.phase='records';state.combat.cleared=true;
-        state.subtitle='조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 중계 기록을 확인할 수 있어요.';
+        state.subtitle=state.combat.supportUsed
+          ?'조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 김지윤의 연락도 접수했습니다. 사전 파견 목적은 그대로이며, 지금은 현지 구조단이 주민 이동을 결정합니다.'
+          :'조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 구조단이 주민 이동을 맡고 있습니다. 추가 기록은 선택적으로 확인할 수 있습니다.';
         state.message='안전 확보 · 기록 확인은 선택 사항';
         syncMarkers(state);
       }
@@ -1318,8 +1320,11 @@
     if(state.combat.supportUsed)return {ok:false,reason:'already_used'};
     state.combat.supportUsed=true;
     if(hasOwn(state.world.player,'shield'))delete state.world.player.shield;
-    state.subtitle='김지윤(국정원): 현지 구조단이 공유한 대피소 수신 시각은 04:07입니다. 제 정보는 현장 확인 전이니 기록과 대조해 주세요.';
-    state.message='출처 명시된 무선 보고 · 현장 검증 필요';
+    // This is a one-time field liaison call, not an instruction to search
+    // another ledger or an invented new deployment order. The captain already
+    // received his original mission and return briefing in Korea.
+    state.subtitle='김지윤(국정원): 한국에서 전달된 최초 파견 임무는 현지 연락망 확인과 구호 인력 지원입니다. 현지 구조단이 공유한 04:07 수신 시각은 현장 확인 전 정보입니다. 지금 주민 이동은 유수프 구조단과 직접 협의하세요.';
+    state.message='김지윤 현장 연락 접수 · 원래 파견 목적 유지 · 주민 이동은 현지 협의';
     return {ok:true,event:'support',report:true};
   }
   function toggleFlashlight(state) {
@@ -1795,9 +1800,10 @@
         ?'시장의 쓰러진 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 맡습니다.'
         :'시장 통행로에는 쓰러진 차양이 아직 남아 있습니다.')
       :null;
-    const radio=state.relayRestored
+    const radio=(state.relayRestored
       ?'김지윤: 현장 비상 통신은 복구됐습니다. 그래도 본래 복귀 계획의 재승인과 이동 안전은 별개의 문제입니다.'
-      :'김지윤: 통신 복구 여부는 미확인입니다. 한국에서 승인받은 복귀 일정대로 움직일 수 있는지도 재확인이 필요합니다.';
+      :'김지윤: 통신 복구 여부는 미확인입니다. 한국에서 승인받은 복귀 일정대로 움직일 수 있는지도 재확인이 필요합니다.')+
+      (state.combat.supportUsed?' 교전 중 교신은 원래 파견 지시를 변경하지 않았습니다. 확인된 사실만 계속 보고하겠습니다.':'');
     return Object.freeze({
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
@@ -1819,7 +1825,7 @@
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
       marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
-      emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+      emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:state.combat.supportUsed,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
