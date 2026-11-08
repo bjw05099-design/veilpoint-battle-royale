@@ -4,7 +4,7 @@ const Street=require('../src/br96-street-view.js');
 const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
 const {BrSquadWorld}=require('../src/br-squad-world.cjs');
 const token=i=>i.toString(16).padStart(64,'0');
-test('first-person WASD is relative to the player's voluntary camera yaw, not world-fixed keys',()=>{
+test('first-person WASD is relative to voluntary camera yaw, not world-fixed keys',()=>{
  assert.deepEqual(Street.relativeMovement(0,-1,0),{dx:0,dz:-1});
  const east=Street.relativeMovement(0,-1,Math.PI/2);
  assert.ok(Math.abs(east.dx-1)<1e-9);assert.equal(east.dz,0);
