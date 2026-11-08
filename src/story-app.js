@@ -283,10 +283,23 @@
   }
   const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
     enabled:storage.get('veilpoint.story.audio')!=='off'});
+  const AudioPrefs=global.VeilpointAudioPreferences;
+  // Preserve an explicit old mute preference on the first upgrade.
+  if(AudioPrefs&&!storage.get(AudioPrefs.KEY)&&storage.get('veilpoint.story.audio')==='off')
+    AudioPrefs.persist(desktopStorage,{...AudioPrefs.DEFAULT,enabled:false});
+  const audioControls=AudioPrefs?.attach(document,desktopStorage,prefs=>{
+    audio.setEnabled(prefs.enabled);
+    audio.setVolume(AudioPrefs.gain(prefs,'effects'));
+    $('soundEnabled').checked=prefs.enabled;
+    storage.set('veilpoint.story.audio',prefs.enabled?'on':'off');
+  })||null;
   $('soundEnabled').checked=audio.enabled();
   $('soundEnabled').addEventListener('change',()=>{
-    audio.setEnabled($('soundEnabled').checked);
-    storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
+    if(audioControls)audioControls.set({...audioControls.get(),enabled:$('soundEnabled').checked});
+    else{
+      audio.setEnabled($('soundEnabled').checked);
+      storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
+    }
   });
   const Camera=global.VeilpointCameraView||Object.freeze({
    read:()=>55,validate:value=>{
@@ -392,12 +405,12 @@
       ' · 현장 후속 대화 '+(index+1)+'/'+scene.lines.length+' — '+
       scene.lines[index]+(index===scene.lines.length-1?' '+scene.nextChapter:'');
   }
-  const storyMenuViews=['tools','settings','im'+'port','about'];
+  const storyMenuViews=['tools','settings','audio','im'+'port','about'];
   function setStoryMenuView(view='main',focus=false){
     for(const name of storyMenuViews)
       menu.classList.toggle('menu-view-'+name,view===name);
     if(focus&&!menu.classList.contains('hidden')){
-      const first={main:'continue',tools:'storyMenuBack',settings:'quality',
+      const first={main:'continue',tools:'storyMenuBack',settings:'quality',audio:'vpAudioEnabled',
         import:'checkpointTransferText',about:'storyMenuBack'}[view];
       if(first&&typeof $(first).focus==='function')
         $(first).focus({preventScroll:true});
@@ -433,6 +446,7 @@
   document.addEventListener('keydown',containStoryMenuFocus,true);
   document.addEventListener('focusin',containStoryMenuFocus,true);
   $('storyMenuMore').addEventListener('click',()=>setStoryMenuView('tools',true));
+  $('storyAudioOpen').addEventListener('click',()=>setStoryMenuView('audio',true));
   $('storyMenuAbout').addEventListener('click',()=>{
     // The About page also runs in isolated PC-menu harnesses that do not
     // instantiate a story world. Retain the ordinary About action there.
