@@ -25,7 +25,7 @@ test('a single local civilian request starts moving visible, solid, finite-speed
  const result=Story.interact(s);
  assert.equal(result.ok,true);
  assert.equal(s.transportContact,1);
- assert.deepEqual(s.transportVan,{z:-82,arrived:false});
+ assert.deepEqual(s.transportVan,{z:-82,arrived:false,driverZ:-54});
  assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
  assert.equal(Story.markers(s).some(m=>m.id==='dispatchLedger'),false);
  assert.equal(s.world.obstacles.filter(o=>o.routeId==='story-civil-transport').length,1);
@@ -35,7 +35,8 @@ test('a single local civilian request starts moving visible, solid, finite-speed
  Story.step(s,0);
  assert.equal(s.transportVan.z,-82);
  for(let i=0;i<60;i++)Story.step(s,1/60,{});
- assert.ok(s.transportVan.z>-82&&s.transportVan.z<-80);
+ assert.equal(s.transportVan.z,-82,'the van waits for the driver to walk to the parked vehicle');
+ assert.ok(s.transportVan.driverZ<-54.5,'the physical driver advances on foot at 60Hz');
  assert.equal(s.transportContact,1,'approaching vehicle is not an arrived vehicle');
  const body=s.world.obstacles.find(o=>o.routeId==='story-civil-transport');
  assert.equal(body.z,s.transportVan.z,'visible body and collider follow same 60Hz pose');
@@ -54,7 +55,7 @@ test('civilian vehicle brakes for a standing person and finishes only after actu
  assert.ok(s.transportVan.z< -79.4,'vehicle must stop in front of the person');
  assert.equal(s.transportContact,1);
  s.world.player.x=0;s.world.player.z=-54;
- for(let i=0;i<1100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
+ for(let i=0;i<2100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
  assert.equal(s.transportVan.arrived,true);
  assert.equal(s.transportVan.z,-64);
  assert.equal(s.transportContact,2);

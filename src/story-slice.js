@@ -81,7 +81,19 @@
     speed:1.05,shelterSpeed:1.0,radius:.55});
   // A civilian-owned shuttle approaches on an original public harbor road.
   // Arrival is an observed physical fact, not proof of completed evacuation.
-  const CIVILIAN_SHUTTLE=Object.freeze({x:10,startZ:-82,endZ:-64,w:2.4,d:3.8,h:2.35,speed:1.5});
+  const CIVILIAN_SHUTTLE=Object.freeze({x:10,startZ:-82,endZ:-64,w:2.4,d:3.8,h:2.35,
+    speed:1.5,driverWalkSpeed:1.6,boardZ:-79.4});
+  // The driver first walks from the staffed approach to the actual parked
+  // vehicle. The old checkpoint without driverZ means already boarded.
+  function transportWitness(state) {
+    if(!['exit','complete'].includes(state.phase)||
+       (state.choice!=='evacuation'&&state.transportContact===0))return null;
+    const v=state.transportVan;
+    if(!v||!hasOwn(v,'driverZ'))
+      return {x:POINTS.transportDriver.x,z:POINTS.transportDriver.z};
+    return v.driverZ>CIVILIAN_SHUTTLE.boardZ+1e-8
+      ?{x:CIVILIAN_SHUTTLE.x,z:v.driverZ}:null;
+  }
   // The same civic courtyard collision/road geometry is authored once in
   // Sim.makeObstacles and reused by both BR and this story chapter.
   const CIVIC_COURTYARD=Object.freeze({x:77,z:125,arrivalRadius:4.1});
@@ -563,9 +575,7 @@
     state.world.worker=state.worker;
     state.world.civilianWalker=state.civilianWalker;
     syncCivilianShuttle(state);
-    state.world.witness=(['exit','complete'].includes(state.phase)&&
-      (state.choice==='evacuation'||state.transportContact>0))
-      ?{x:POINTS.transportDriver.x,z:POINTS.transportDriver.z}:null;
+    state.world.witness=transportWitness(state);
     state.world.relayRestored=state.relayRestored;
     state.world.beaconEnabled=state.beaconEnabled;
     state.world.flashlightOn=state.flashlightOn;
@@ -896,7 +906,29 @@
     // letting its collision body pass through them or teleport to the stop.
     if(state.transportVan&&!state.transportVan.arrived){
       const v=state.transportVan,body=state.world.obstacles.find(o=>o.routeId==='story-civil-transport');
-      if(body){
+      if(body&&hasOwn(v,'driverZ')&&v.driverZ>CIVILIAN_SHUTTLE.boardZ+1e-8){
+        // Authored public road: the civilian must physically walk to their
+        // parked van before it drives. The visible standing person and the
+        // 60Hz pedestrian collider share the exact same actual coordinate.
+        const next=Math.max(CIVILIAN_SHUTTLE.boardZ,
+          v.driverZ-CIVILIAN_SHUTTLE.driverWalkSpeed*t);
+        const swept={x:CIVILIAN_SHUTTLE.x,z:(next+v.driverZ)/2,
+          w:1.10,d:Math.abs(next-v.driverZ)+1.10};
+        const bystanders=[p,state.worker,state.civilianWalker,
+          state.choice==='evacuation'&&state.musterConfirmed?state.guide:null].filter(Boolean);
+        // Face-to-face interaction starts with the player next to this
+        // human. They can walk AWAY from that original overlap; only newly
+        // entered pedestrian footprints block future swept travel.
+        const start={x:CIVILIAN_SHUTTLE.x,z:v.driverZ,w:1.10,d:1.10};
+        if(!bystanders.some(actor=>
+             !Sim.blocked(actor.x,actor.z,.65,[start])&&
+             Sim.blocked(actor.x,actor.z,.65,[swept]))&&
+           !state.world.obstacles.filter(o=>o!==body).some(o=>
+             Math.abs(o.x-swept.x)*2<o.w+swept.w&&
+             Math.abs(o.z-swept.z)*2<o.d+swept.d))v.driverZ=next;
+        state.world.witness=transportWitness(state);
+      }
+      if(body&&(!hasOwn(v,'driverZ')||v.driverZ<=CIVILIAN_SHUTTLE.boardZ+1e-8)){
         const next=Math.min(CIVILIAN_SHUTTLE.endZ,v.z+CIVILIAN_SHUTTLE.speed*t);
         const sweep={x:CIVILIAN_SHUTTLE.x,z:(next+v.z)/2,
           w:CIVILIAN_SHUTTLE.w,d:CIVILIAN_SHUTTLE.d+next-v.z};
@@ -1460,10 +1492,10 @@
       state.choice==='evacuation'&&state.transportContact<2){
       if(state.transportVan)return {ok:false,reason:'vehicle_en_route'};
       if(state.transportContact===0){
-        state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false};
+        state.transportVan={z:CIVILIAN_SHUTTLE.startZ,arrived:false,driverZ:POINTS.transportDriver.z};
         state.transportContact=1;
-        state.subtitle='나딤(현지 운송 담당자): 차량을 직접 몰고 남쪽 승차 지점까지 가겠습니다. 도착과 실제 수송은 별개입니다.';
-        state.message='현지 운송 차량 출발 · 공공 도로를 따라 이동 중';
+        state.subtitle='나딤(현지 운송 담당자): 주차된 차량까지 직접 걸어가서 탑승한 다음 남쪽 승차 지점으로 운전하겠습니다. 실제 승객 수송은 별도로 확인해야 합니다.';
+        state.message='현지 운송 담당자가 주차된 차량으로 이동 중 · 아직 출발 전';
         syncCivilianShuttle(state);
       }else{
         // Older saved first interviews still permit their historic result,
@@ -1849,7 +1881,8 @@
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
-      transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived}:null,
+      transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
+        ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{})}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
@@ -1911,7 +1944,14 @@
            !['exit','complete'].includes(data.phase)))))||
        (hasOwn(data,'transportVan')&&data.transportVan!==null&&(
          !data.transportVan||typeof data.transportVan!=='object'||Array.isArray(data.transportVan)||
-         Object.keys(data.transportVan).sort().join(',')!=='arrived,z'||
+         !['arrived,z','arrived,driverZ,z'].includes(Object.keys(data.transportVan).sort().join(','))||
+         (hasOwn(data.transportVan,'driverZ')&&
+           (!Number.isFinite(data.transportVan.driverZ)||
+            data.transportVan.driverZ<CIVILIAN_SHUTTLE.boardZ||
+            data.transportVan.driverZ>POINTS.transportDriver.z||
+            (data.transportVan.driverZ>CIVILIAN_SHUTTLE.boardZ&&
+             (data.transportVan.z!==CIVILIAN_SHUTTLE.startZ||
+              data.transportVan.arrived))))||
          typeof data.transportVan.arrived!=='boolean'||!Number.isFinite(data.transportVan.z)||
          data.transportVan.z<CIVILIAN_SHUTTLE.startZ||data.transportVan.z>CIVILIAN_SHUTTLE.endZ||
          data.transportVan.arrived!==(data.transportVan.z===CIVILIAN_SHUTTLE.endZ)||

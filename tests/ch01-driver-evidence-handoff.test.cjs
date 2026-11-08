@@ -26,7 +26,7 @@ test('driver request produces physical civilian vehicle while old ledger remains
  assert.equal(Story.markers(s).some(x=>x.id==='driverReportDesk'),false,
    'real transport should not demand redundant receipt comparison');
  s.world.player.x=0;s.world.player.z=-54;
- for(let i=0;i<1100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
+ for(let i=0;i<2100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
  assert.equal(s.transportContact,2);
  assert.equal(s.transportVan.arrived,true);
  assert.equal(Story.markers(s).some(x=>x.id==='driverReportDesk'),false);
