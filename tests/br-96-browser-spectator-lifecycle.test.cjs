@@ -47,8 +47,10 @@ test('retired player can truly select only their surviving teammates via the run
   assert.equal(noForeignSlot.status,400);
   assert.equal((await post(base,'/withdraw',{},token(1))).status,200);
   const dropped=await fetch(base+'/world',{headers:{'x-player-token':token(0)}}).then(r=>r.json());
-  assert.equal(dropped.spectatorView,null);
-  assert.equal(dropped.visible.length,0,'no unobserved rivals are leaked while the camera is unbound');
+  assert.equal(dropped.spectatorView.slot,3);
+  assert.equal(dropped.spectatorView.automaticFallback,true);
+  const actual=await fetch(base+'/world',{headers:{'x-player-token':token(2)}}).then(r=>r.json());
+  assert.deepEqual(dropped.visible,actual.visible,'replacement observer sees only their own real sightlines');
   const fallback=await post(base,'/spectate',{slot:3},token(0));
   assert.equal(fallback.status,200);
   assert.equal(fallback.data.world.spectatorView.slot,3);
