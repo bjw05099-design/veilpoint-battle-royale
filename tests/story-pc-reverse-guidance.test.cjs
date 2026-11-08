@@ -20,6 +20,7 @@ function fixture(published=markers){
  const updates=[],ctx={published,Navigation:Nav};
  const make=new Function('ctx',`const Navigation=ctx.Navigation;
    const Story={markers:()=>ctx.published};const state={};
+   function visibleMissionMarkers(){return ctx.published;}
    let guidanceId=null,action='guidance';
    function updateHud(){ctx.updates.push(guidanceId);}
    return e=>{${handler};return guidanceId;};`);
