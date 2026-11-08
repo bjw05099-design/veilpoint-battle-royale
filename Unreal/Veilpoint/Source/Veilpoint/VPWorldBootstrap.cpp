@@ -126,6 +126,22 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedMarketBlock& Block : SharedMarket)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // Shared fictional western public fish hall, previously playable in the
+    // browser BR/CH01 city but missing from UE5's native fallback world.
+    // Five real ground-level collision footprints; an OPEN southern entry
+    // between the side walls permits traversing into its public interior.
+    // Original civic architecture; not a model of a real protected facility.
+    struct FSharedFishHallBody { float X,Z,W,D,H; };
+    static const FSharedFishHallBody SharedFishHall[] = {
+        {-164.f,121.f,.6f,18.f,3.4f},
+        {-144.f,121.f,.6f,18.f,3.4f},
+        {-154.f,130.f,20.f,.6f,3.4f},
+        {-161.f,123.f,2.2f,3.4f,1.1f},
+        {-147.f,123.f,2.2f,3.4f,1.1f}
+    };
+    for (const FSharedFishHallBody& Block : SharedFishHall)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Continue the ONE shared authored public city into the ferry waiting
     // hall. Seven street-level footprints are identical to the BR and CH01
     // browser's current revision-1 simulation. The southern public approach
