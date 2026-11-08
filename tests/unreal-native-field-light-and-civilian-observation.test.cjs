@@ -18,6 +18,7 @@ test('native F key controls an actual attached light cone, not a full-screen fak
  assert.match(header,/TObjectPtr<USpotLightComponent> FieldLight/);
  assert.match(character,/CreateDefaultSubobject<USpotLightComponent>\(TEXT\("HelmetFieldLight"\)\)/);
  assert.match(character,/FieldLight->SetupAttachment\(BodyCamera\)/);
+ assert.match(character,/FieldLight->SetMobility\(EComponentMobility::Movable\)/);
  for(const operation of ['SetIntensity','SetAttenuationRadius','SetInnerConeAngle','SetOuterConeAngle','SetVisibility'])
   assert.ok(character.includes('FieldLight->'+operation+'('),operation);
  assert.match(character,/BindAction\(TEXT\("FieldLight"\), IE_Pressed, this, &AVPCharacter::ToggleFieldLight\)/);
