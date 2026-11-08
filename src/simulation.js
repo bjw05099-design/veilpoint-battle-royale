@@ -400,6 +400,33 @@
     west:Object.freeze({x:-98,z:-110,label:'West harbor approach'}),
     ferry:Object.freeze({x:-45,z:121,label:'Public ferry waiting hall · south entrance'})
   });
+  // Optional public-neighborhood discoveries are earned by approaching their
+  // walkable street-level marker with an unobstructed view. Nothing reveals
+  // unseen opponents, private facilities, or a distant objective.
+  const LANDMARKS=Object.freeze([
+    Object.freeze({x:-45,z:121,label:'PUBLIC FERRY HALL'}),
+    Object.freeze({x:43,z:75,label:'CIVIC SHADE COURT'}),
+    Object.freeze({x:64,z:118,label:'PUBLIC CIVIC LANE'}),
+    Object.freeze({x:140,z:-121,label:'HARBOR SERVICE ROAD'})
+  ]);
+  function discoverLandmarks(game){
+    if(!game||game.scene||game.status!=='playing')return 0;
+    const p=game.player;
+    if(!p||!p.alive)return 0;
+    const before=game.landmarkMask;
+    for(let i=0;i<LANDMARKS.length;i++){
+      const bit=1<<i,spot=LANDMARKS[i];
+      if((before&bit)!==0)continue;
+      if(Math.hypot(p.x-spot.x,p.z-spot.z)<=8&&
+          !lineBlocked(p.x,p.z,spot.x,spot.z,game.obstacles))
+        game.landmarkMask|=bit;
+    }
+    return game.landmarkMask^before;
+  }
+  function visitedLandmarks(game){
+    const mask=Number.isInteger(game?.landmarkMask)?game.landmarkMask:0;
+    return LANDMARKS.filter((_,i)=>(mask&(1<<i))!==0);
+  }
   const ZONE_PHASES = [
     { duration: 90, radius: 135 }, { duration: 95, radius: 96 },
     { duration: 90, radius: 62 }, { duration: 85, radius: 33 },
@@ -500,6 +527,7 @@
         speed:0,fuel:YARD_SHUTTLE.fuel,driver:false},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
+      landmarkMask:0,
       brHeadlamp:{on:false,ticks:BR_HEADLAMP_TICKS},
       obstacles, bots, loot, player:{x:deployment.x,z:deployment.z,
         yaw:entrySite==='central'?0:entrySite==='ferry'?Math.PI:Math.atan2(-deployment.x,deployment.z),
@@ -875,6 +903,9 @@
     // Colliding with solid cover is not actual sprint travel. Exertion follows
     // resolved displacement, not a held key, while unobstructed movement is unchanged.
     const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
+    // Only the player can discover public landmarks through physically
+    // traversed space; never infer discoveries from hidden bots or minimap.
+    discoverLandmarks(game);
     const sprinting=wantsSprint&&movedDistance>1e-7;
     // Extra finite inventory increases effort only when actual sprint travel occurs.
     const sprintCost=20+8*(1-loadMobility)/0.12;
@@ -1426,6 +1457,8 @@
       throw new RangeError('Invalid BR lighting');
     if(game.terrainRevision!==0&&game.terrainRevision!==1)
       throw new RangeError('Invalid BR terrain revision');
+    if(!integer(game.landmarkMask,0,(1<<LANDMARKS.length)-1))
+      throw new RangeError('Invalid discovered landmark flags');
     if(!game.brHeadlamp||typeof game.brHeadlamp.on!=='boolean'||
        !integer(game.brHeadlamp.ticks,0,BR_HEADLAMP_TICKS)||
        (game.brHeadlamp.on&&(game.lighting!=='dusk'||game.brHeadlamp.ticks===0)))
@@ -1437,6 +1470,7 @@
       handcart:game.handcart===null?null:{...game.handcart},
       vehicle:game.vehicle===null?null:{...game.vehicle},
       trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
+      landmarkMask:game.landmarkMask,
        brHeadlamp:{on:game.brHeadlamp.on,ticks:game.brHeadlamp.ticks},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
@@ -1584,6 +1618,10 @@
     if(terrainRevision!==0&&terrainRevision!==1)
       throw new RangeError('Invalid saved BR terrain revision');
     const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting,terrainRevision);
+    const savedLandmarks=saved.landmarkMask===undefined?0:saved.landmarkMask;
+    if(!integer(savedLandmarks,0,(1<<LANDMARKS.length)-1))
+      throw new RangeError('Invalid saved landmark flags');
+    game.landmarkMask=savedLandmarks;
      const lamp=saved.brHeadlamp===undefined?{on:false,ticks:BR_HEADLAMP_TICKS}:saved.brHeadlamp;
      if(!lamp||typeof lamp!=='object'||Array.isArray(lamp)||
         Object.keys(lamp).sort().join(',')!=='on,ticks'||
@@ -1796,6 +1834,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
