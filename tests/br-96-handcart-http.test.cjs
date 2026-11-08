@@ -12,8 +12,8 @@ test('BR96 T interaction is authenticated, local, server-stepped, and never lets
  const host=createBrSquadServer({port:0,autoTick:false});
  const addr=await host.listen(),base='http://127.0.0.1:'+addr.port;
  try{
-  assert.equal((await post(base,'/handcart',{},null)).status,409,
-    'before a round exists the public endpoint fails closed');
+  assert.equal((await post(base,'/handcart',{},null)).status,401,
+    'anonymous requests are rejected even before a round exists');
   const tokens=[];
   for(let i=0;i<96;i++){
    const seat=await post(base,'/join',{name:'Harbor '+i});
