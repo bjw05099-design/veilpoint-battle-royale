@@ -7,6 +7,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
 const {BrSquadWorld}=require('../src/br-squad-world.cjs');
+const Sim=require('../src/simulation.js');
 const {createFixedStepClock}=require('./team-server.cjs');
 const {readJson}=require('./json-body.cjs');
 const BR96_HTML=fs.readFileSync(path.resolve(__dirname,'../br96.html'));
@@ -134,7 +135,11 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    if(req.method==='GET'&&url.pathname==='/world-geometry'){
     if(!world)return send(res,409,{error:'round_not_started'});
     world.snapshot(token); // Authenticated session and round identity.
+    const {x,z,width,depth}=Sim.WET_LOADING_PAD;
     return send(res,200,{schema:'veilpoint-br96-public-geometry-v1',
+      // Public non-sensitive environmental region, shared by both modes.
+      // Gameplay traction is calculated by the server on true actor poses.
+      environment:{wetLoadingPad:{x,z,width,depth}},
       obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter').map(o=>({
         x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
       }))});
