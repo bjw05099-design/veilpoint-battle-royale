@@ -60,6 +60,10 @@ function render(){
  el('leave').disabled=!token||state?.phase!=='assembling';
  el('ready').disabled=!token||state?.phase!=='assembling';
  el('ready').textContent=state?.self?.ready?'준비 취소':'준비';
+ const entryOptions=state?.entry?.options||[];
+ const selectedEntry=entryOptions.find(o=>o.id===state?.self?.entryChoice);
+ el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
+ el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
  for(const id of ['regroup','location','sprint','civicGate'])el(id).disabled=!active();
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
@@ -95,6 +99,9 @@ function render(){
   ?'전체 '+state.participants+'/'+state.capacity+'명 · 준비 '+state.readyCount+'/'+state.capacity+
    '\n본인 #'+self.id+' · '+self.squad+'분대 '+self.slot+'번'+
    '\n단계: '+state.phase+
+   (state.entry?'\n분대 출발 예정: '+
+     (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
+     ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
    (w?'\n서버 틱 '+w.tick+' · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100 · 경계 '+w.playableArea.stage+
@@ -207,6 +214,15 @@ async function command(path,body,statusText){
   else message('서버 응답: '+error.message);
   return null;
  }
+}
+async function voteEntry(){
+ if(!token||state?.phase!=='assembling'||state?.self?.ready)return;
+ const options=state?.entry?.options||[];
+ if(!options.length)return;
+ const current=options.findIndex(o=>o.id===state.self.entryChoice);
+ const choice=options[(current+1)%options.length].id;
+ const result=await command('/entry-vote',{choice},null);
+ if(result?.ok)message('우리 분대 출발 위치 투표를 기록했습니다. 준비 전에 다시 누르면 변경할 수 있습니다.');
 }
 async function ready(){
  if(state?.phase!=='assembling')return;
@@ -328,6 +344,7 @@ async function poll(){
 }
 el('join').addEventListener('click',join);
 el('ready').addEventListener('click',ready);
+el('entryVote').addEventListener('click',voteEntry);
 el('leave').addEventListener('click',leave);
 el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
