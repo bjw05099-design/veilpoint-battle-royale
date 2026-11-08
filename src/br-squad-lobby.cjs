@@ -29,6 +29,9 @@ class BrSquadLobby {
     // An invite is a private, unguessable capability issued to an existing
     // squad member. It never contains a member's authentication token.
     this.invites = new Map();
+    // Separate optional ballot table preserves the original stable human
+    // player record shape and all legacy roster/debug consumers.
+    this.entryVotes=new Map();
   }
   invite(token) {
     const member=this.players.get(token);
@@ -67,7 +70,7 @@ class BrSquadLobby {
     const eligibleTeams=invite?[invite.team]:Array.from({length:SQUADS},(_,i)=>i);
     for (const team of eligibleTeams) for(let slot=0;slot<SQUAD_SIZE;slot++) {
       if (this.seats[team][slot] !== null) continue;
-      const player = {id:++this.sequence,name:canonical,team,slot,ready:false,entryChoice:null};
+      const player = {id:++this.sequence,name:canonical,team,slot,ready:false};
       this.seats[team][slot] = token;
       this.players.set(token,player);
       return {ok:true,joined:true,team,slot};
@@ -82,7 +85,7 @@ class BrSquadLobby {
     if(member.ready)return {ok:false,reason:'unready_to_vote'};
     if(typeof choice!=='string'||!Object.hasOwn(ENTRY_CHOICES,choice))
       throw new RangeError('invalid_entry_choice');
-    member.entryChoice=choice;
+    this.entryVotes.set(token,choice);
     return {ok:true,choice,decision:this.squadEntry(member.team).choice};
   }
   squadEntry(team){
@@ -91,7 +94,7 @@ class BrSquadLobby {
     const tally=Object.fromEntries(ENTRY_ORDER.map(x=>[x,0]));
     for(const token of this.seats[team]){
       const member=token===null?null:this.players.get(token);
-      if(member?.entryChoice)tally[member.entryChoice]++;
+      if(member&&this.entryVotes.has(token))tally[this.entryVotes.get(token)]++;
     }
     // Six human members vote. Abstention never counts as a fake vote;
     // ties favor the original central walk-in sector, then stable labels.
@@ -118,6 +121,7 @@ class BrSquadLobby {
     if (this.phase !== 'assembling') return {ok:false,reason:'roster_locked'};
     this.seats[p.team][p.slot]=null;
     this.players.delete(token);
+    this.entryVotes.delete(token);
     // A departed leader cannot continue recruiting players to their old seat.
     for(const [code,inv] of this.invites)if(inv.owner===token)this.invites.delete(code);
     return {ok:true};
@@ -134,6 +138,10 @@ class BrSquadLobby {
       throw new Error('inconsistent_squad_identity');
     this.players.delete(oldToken);
     this.players.set(newToken,player);
+    if(this.entryVotes.has(oldToken)){
+      this.entryVotes.set(newToken,this.entryVotes.get(oldToken));
+      this.entryVotes.delete(oldToken);
+    }
     this.seats[player.team][player.slot]=newToken;
     return {ok:true,playerId:player.id,squad:player.team+1,slot:player.slot+1};
   }
@@ -146,7 +154,7 @@ class BrSquadLobby {
       phase:this.phase,capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       participants:this.players.size,readyCount:ready,squadSizes:counts,
       self:{id:me.id,name:me.name,squad:me.team+1,slot:me.slot+1,ready:me.ready,
-        entryChoice:me.entryChoice},
+        entryChoice:this.entryVotes.get(token)||null},
       entry:{...this.squadEntry(me.team),
         options:ENTRY_ORDER.map(id=>({id,label:ENTRY_CHOICES[id].label}))},
       // A player can see their own real squad, not private opposing identities
