@@ -227,7 +227,7 @@ function render(){
    (w?'\n보기: '+(streetView?'1인칭 거리 시야 · J/L로 회전':'2D 서버 진단 지도'):'')+
    (state.entry?'\n분대 출발 예정: '+
      (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
-     ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
+     ' · 서버가 실제 출발 위치를 지정합니다.':'')+
    (w?'\n서버 틱 '+w.tick+' · 생존 '+Math.floor((w.self.survivalTicks||0)/60)+'초 · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
