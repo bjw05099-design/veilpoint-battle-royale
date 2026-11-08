@@ -88,7 +88,7 @@ void AVPStoryGameMode::BeginPlay()
             ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
         GetWorld()->SpawnActor<AVPStoryPedestrian>(
             AVPStoryPedestrian::StaticClass(),
-            FVector(3400.f,-800.f,95.f),FRotator::ZeroRotator,CivilianParams);
+            FVector(3400.f,-800.f,80.f),FRotator::ZeroRotator,CivilianParams);
     }
     // Native progression currently persists only in standalone story preview.
     // Multiplayer PIE must not share one machine-wide local save slot.
