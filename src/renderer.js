@@ -238,6 +238,7 @@ class SoftwareRenderer {
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type.startsWith('aden-ferry-hall-')?o.type:
+     o.type.startsWith('aden-seafront-market-')?o.type:
      o.type==='aden-shade-post'||o.type==='aden-shade-seat'?o.type:
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-civil-transport'?'story-civil-transport':
@@ -316,6 +317,7 @@ class SoftwareRenderer {
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
+   o.type==='aden-seafront-market-wall'?'#a28c77':o.type==='aden-seafront-market-counter'?'#8c6848':
    o.type==='aden-ferry-hall-wall'?'#a89a83':o.type==='aden-ferry-hall-bench'?'#857668':o.type==='aden-ferry-hall-notice'?'#756754':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
@@ -475,6 +477,18 @@ class Renderer {
   if(o.type==='aden-ferry-hall-notice'){
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.44,.36,.28]);
    m.box(o.x,o.h*.45,o.z+.02,o.w+.08,.62,.06,[.75,.72,.58]);
+   return;
+  }
+  if(o.type==='aden-seafront-market-wall'){
+   // Visible shopfront masonry is the exact collision footprint.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.64,.54,.43]);
+   m.box(o.x,o.h-.22,o.z,o.w,.22,o.d,[.73,.63,.51]);
+   return;
+  }
+  if(o.type==='aden-seafront-market-counter'){
+   // Waist-high public market counters: real cover, no invisible roof/body.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.55,.41,.28]);
+   m.box(o.x,o.h-.17,o.z,o.w,.17,o.d,[.69,.52,.36]);
    return;
   }
   if(o.type==='aden-arcade-wall'){
