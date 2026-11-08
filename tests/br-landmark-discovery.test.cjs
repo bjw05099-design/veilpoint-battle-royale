@@ -33,7 +33,7 @@ test('real visits persist across save/restore without exposing the other locatio
  const old=JSON.parse(saved);delete old.landmarkMask;
  const legacy=Sim.restoreMatch(JSON.stringify(old));
  assert.equal(legacy.landmarkMask,0,'older checkpoints lack discovery history');
- const arbitrary=JSON.parse(saved);arbitrary.landmarkMask=16;
+ const arbitrary=JSON.parse(saved);arbitrary.landmarkMask=1<<Sim.LANDMARKS.length;
  assert.throws(()=>Sim.restoreMatch(JSON.stringify(arbitrary)),RangeError);
  arbitrary.landmarkMask=-1;
  assert.throws(()=>Sim.restoreMatch(JSON.stringify(arbitrary)),RangeError);
