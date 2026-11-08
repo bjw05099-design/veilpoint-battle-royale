@@ -14,6 +14,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:12px;min-height:
 section{border:1px solid #476168;background:#122127;border-radius:8px;min-height:0;padding:12px}
 #mapPanel{display:flex;flex-direction:column;gap:8px;position:relative}
 #civicGate{position:absolute;right:18px;top:18px;z-index:2;background:#2f6265;font-size:.82rem}
+#soundToggle{position:absolute;right:18px;top:58px;z-index:2;background:#355a62;font-size:.82rem}
 #standingsToggle{position:absolute;left:18px;top:18px;z-index:2;background:#37535c;font-size:.82rem}
 #standingsPanel{position:absolute;inset:56px 16px 33px;z-index:3;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#102228;border:2px solid #7da2a0;border-radius:8px;padding:8px}
 #standingsPanel[hidden]{display:none}
@@ -47,6 +48,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <section id="mapPanel" aria-label="서버 소유 96인 월드의 자기·아군·실제로 보이는 상대 지도">
 <canvas id="map" width="700" height="700"></canvas>
 <button id="civicGate" disabled title="현지 공용 여객 대기실 출입문 근처에서만 사용 가능">F · 여객 문</button>
+<button id="soundToggle" aria-pressed="false" title="사용자 클릭 후에만 재생되는 선택적 항구 배경음">환경음 OFF</button>
 <button id="standingsToggle" aria-expanded="false" aria-controls="standingsPanel" title="서버 확정 16개 분대의 경기 상황">V · 분대 결과</button>
 <div id="standingsPanel" role="region" aria-label="16개 분대 경기 상황" hidden>
  <div class="standings-head"><strong>실제 서버 분대 결과 · 미확정 순위는 표시하지 않음</strong><button id="standingsClose" aria-label="분대 결과 닫기">닫기</button></div>
@@ -84,5 +86,6 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <p class="note">현재 2D 플레이테스트이며 실전 전투, 공용 인터넷 호스팅, 96인 네트워크 부하 검증은 별도 개발 항목입니다. 개인 인증 토큰은 이 탭의 세션 저장소에만 유지됩니다. 지도는 서버가 허용한 주변 인원만 표시합니다.</p>
 </section>
 </main>
+<script src="/br96-environment-audio.js" defer></script>
 <script src="/br96-client.js" defer></script>
 </body></html>
