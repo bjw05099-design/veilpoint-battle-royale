@@ -95,7 +95,7 @@ test('CH01 dusk lighting responds to an actual radio relay interaction and survi
 test('powered CH01 luminaires produce physical dynamic fixture vertices, not hovering markers',()=>{
  const h=harness();
  const state=Story.createState();
- const beforeSolids=state.world.obstacles.filter(o=>o.type?.startsWith('story-'))
+ const beforeSolids=state.world.obstacles.filter(o=>o.type?.startsWith('story-')&&o.type!=='story-fallen-awning')
   .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type}));
  h.renderer.draw(state.world);
  const off=h.uploads.at(-1);
@@ -110,9 +110,11 @@ test('powered CH01 luminaires produce physical dynamic fixture vertices, not hov
  h.renderer.draw(state.world);
  const on=h.uploads.at(-1);
  assert.ok(maxColor(on)>offPeak,'relay-powered fixtures must visibly change their material');
- assert.deepEqual(state.world.obstacles.filter(o=>o.type?.startsWith('story-'))
+ assert.deepEqual(state.world.obstacles.filter(o=>o.type?.startsWith('story-')&&o.type!=='story-fallen-awning')
   .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type})),beforeSolids,
   'powering local luminaires must never create or move a solid obstacle');
+ assert.equal(state.world.obstacles.filter(o=>o.type==='story-fallen-awning').length,1,
+  'the separate CH01 escalation event adds exactly one physical awning');
  for(const p of Object.values(Story.POINTS))
   assert.equal(Sim.blocked(p.x,p.z,.85,state.world.obstacles),false,p.id);
 });

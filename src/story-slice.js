@@ -61,6 +61,12 @@
     // Solid intake counter, reached from the open southern walkway.
     {x:-24,z:-55,w:1.6,d:.8,h:1.05,type:'story-desk'}
   ]);
+  // A loose civilian market awning comes down during the unplanned escalation.
+  // It creates one short physical walking detour, never a collectable or another
+  // investigation task. Older checkpoints without the event keep their old
+  // traversable street geometry, so loading cannot spawn a wall on top of them.
+  const FALLEN_AWNING=Object.freeze({x:24,z:-35,w:4.0,d:2.4,h:.72,
+    type:'story-fallen-awning',routeId:'story-fallen-awning'});
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
   // CH01 civilian harbor worker traverses one small publicly reachable
@@ -162,6 +168,11 @@
     const x=gateGeometry(state).x;
     if(gate)gate.x=x;
     else state.world.obstacles.push({...EAST_CHECKPOINT,x});
+    const debrisIndex=state.world.obstacles.findIndex(o=>o.routeId==='story-fallen-awning');
+    if(state.awningFallen&&debrisIndex<0)
+      state.world.obstacles.push({...FALLEN_AWNING});
+    else if(!state.awningFallen&&debrisIndex>=0)
+      state.world.obstacles.splice(debrisIndex,1);
     return state;
   }
   function recoverGateOverlap(state) {
@@ -378,7 +389,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
-      passageWarningHeard:false,transportVan:null,
+      passageWarningHeard:false,transportVan:null,awningFallen:false,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -1117,9 +1128,11 @@
     }
     if(marker.id==='terminal'&&state.phase==='terminal'){
       state.phase='engagement';state.combat.started=true;
+      state.awningFallen=true;
+      syncRoute(state);
       state.combat.nextPulseAt=state.world.elapsed+3;
       state.world.bots=makeHostiles();
-      state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대돼 중계기 주변이 위험해졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 주민과 연락하려면 먼저 주변 안전부터 확보해야 합니다.';
+      state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대돼 동측 상가 골목의 차양이 쓰러졌습니다. 그 구간은 짧게 돌아 지나가야 합니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다.';
       state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
     }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
@@ -1613,6 +1626,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
+      awningFallen:state.awningFallen,
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
@@ -1640,8 +1654,12 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+27||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker').includes(k))||
+      Object.keys(data).length>expectedKeys.length+28||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','awningFallen').includes(k))||
+      (hasOwn(data,'awningFallen')&&
+        (typeof data.awningFallen!=='boolean'||
+         (data.awningFallen&&data.phase==='terminal')||
+         (data.awningFallen&&data.player&&Sim.blocked(data.player.x,data.player.z,.85,[FALLEN_AWNING]))))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -1900,6 +1918,7 @@
     state.officeBoardRead=hasOwn(data,'officeBoardRead')?data.officeBoardRead:false;
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
     state.passageWarningHeard=hasOwn(data,'passageWarningHeard')?data.passageWarningHeard:false;
+    state.awningFallen=hasOwn(data,'awningFallen')?data.awningFallen:false;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
     // Compatibility only: older v2 saves may retain a record of a retired
