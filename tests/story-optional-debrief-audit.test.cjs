@@ -52,6 +52,7 @@ test('CH01 optional audit is absent before route commitment and not a future 12-
  assert.equal(Story.optionalTaskAudit(state).total,0);
  assert.equal(Story.debrief(state),null);
  const app=fs.readFileSync(path.join(__dirname,'../src/story-app.js'),'utf8');
- assert.match(app,/report\.optionalTasks\.done\+'\/'\+report\.optionalTasks\.total\+' 완료/);
+ assert.doesNotMatch(app,/report\.optionalTasks\.done\+'\/'\+report\.optionalTasks\.total\+' 완료/,
+  'optional paperwork counts stay in read-only mission audit, not the cinematic completion UI');
  assert.doesNotMatch(app,/campaignUnlocked\s*=\s*true/);
 });

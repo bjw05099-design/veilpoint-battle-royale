@@ -1702,7 +1702,7 @@
   }
   function objective(state) {
     switch(state.phase){
-      case 'terminal':return '중계기(황금색 표식)로 이동해 E를 누르세요.';
+      case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. E로 직접 점검할 수도 있습니다.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
         (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용되어 소진되었습니다.':
         state.world.player.charges>=state.world.player.maxCharges

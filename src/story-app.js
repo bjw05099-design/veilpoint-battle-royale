@@ -1152,10 +1152,8 @@
       state=reviewed.state;
       const report=reviewed.report;
       $('debriefReview').textContent='CH01 완료 · 경로: '+
-        (report.route==='verification'?'동쪽 기록 검증':'남쪽 대피')+
-        ' · 조사 기록 '+report.records.length+'/2 · 선택 과제 '+
-        report.optionalTasks.done+'/'+report.optionalTasks.total+' 완료 · '+
-        report.closingScene.lines[0]+' '+report.summary;
+        (report.route==='verification'?'동쪽 통로 확인':'남쪽 대피 지원')+
+        ' · '+report.closingScene.lines[0]+' '+report.summary;
       $('debriefReview').classList.remove('hidden');
       $('menuText').textContent='저장된 CH01 종료 당시의 세계 상태와 분기 결과를 확인 중입니다. 결과를 확인한 뒤 새 미션을 시작할 수 있습니다.';
       $('continue').textContent='CH01 다시 시작';
@@ -1494,6 +1492,17 @@
   $('touchSprint').addEventListener('pointerdown',e=>{e.preventDefault();if(!canAct())return;input.sprint=true;$('touchSprint').setPointerCapture(e.pointerId);});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])
     $('touchSprint').addEventListener(event,()=>{input.sprint=false;});
+  // Optional papers and notices become map-visible only when actually
+  // encountered on foot. Their original mission state, E interactions, saved
+  // evidence and the public exit/relay markers remain untouched. This removes
+  // cross-harbor checklist chasing without inventing new access gates.
+  function visibleMissionMarkers(){
+    const p=state.world.player;
+    return Story.markers(state).filter(marker=>
+      marker.kind!=='evidence'||
+      (Math.hypot(marker.x-p.x,marker.z-p.z)<=9&&
+       !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)));
+  }
   function minimap(){
     const c=$('minimap'),ctx=c.getContext('2d');
     if(!ctx)return;
@@ -1504,7 +1513,7 @@
     for(const o of state.world.obstacles){
       ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
     }
-    for(const m of Story.markers(state)){
+    for(const m of visibleMissionMarkers()){
       ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
       ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
     }
@@ -1532,7 +1541,7 @@
     const controlText=text=>Desktop.storyHintText(text,bindings);
     $('objective').textContent=controlText(Story.objective(state));
     const situation=Story.situation(state);
-    const publicMarkers=Story.markers(state);
+    const publicMarkers=visibleMissionMarkers();
     // Once the optional escort is accepted, the exit is physically locked
     // until the guide arrives or is handed to local staff. Show the actually
     // observed guide whenever possible; otherwise show a recovery instruction
@@ -1558,7 +1567,7 @@
     // movement. It has no pause, checklist, investigation or unlock gate.
     // Historic saves in later phases never replay the opening.
     const opening=Story.openingBeat(state);
-    $('status').textContent=(opening?opening.location+' · ':'')+
+    $('status').textContent=(opening?(opening.location.startsWith('출국 전')?'회상 · ':'현재 · ')+opening.location+' · ':'')+
       controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(opening?opening.subtitle:state.subtitle);
@@ -1583,19 +1592,18 @@
     $('routeStatus').textContent=situation.route+(state.phase==='exit'&&state.choice==='verification'&&!situation.eastGateOpen?(situation.eastGateObstructed?' · 통제문 안전 정지 · 이동 경로를 비워 주세요':' · 통제문 대기 약 '+Math.ceil(situation.eastGateRemainingSeconds)+'초'):'')+(situation.routeReviewAvailable?' · 결정 콘솔에서 경로 재선택 가능':'')+' · '+situation.civilianConsequence+(state.choice==='evacuation'?' · '+situation.guideStatus+guideSpacing+paceHelp:'')+' · '+situation.radio+' · '+situation.warning+
       (state.choice==='evacuation'?' · '+situation.aidSupply:'');
     $('routeStatus').textContent=controlText($('routeStatus').textContent);
-    // Compact route progress is an observation of existing 60Hz/interactive
-    // state, never a second completion system. Optional tasks remain optional.
+    // CH01 is a lived event, not a document checklist. Keep optional
+    // actions and historical mission-task audits intact for old checkpoints,
+    // but show only the active route's actual physical progress on the HUD.
     const tasks=Story.missionTasks(state);
+    const primary=tasks.find(task=>!task.optional);
     const tracker=$('taskTracker');
-    tracker.classList.toggle('hidden',tasks.length===0);
-    if(tasks.length){
-      const status={done:'완료',available:'진행 가능',following:'동행 중',
-        waiting:'현장 대기',staged:'임시 적재',carrying:'운반 중',
-        blocked:'선행 목표 필요',locked:'준비 중'};
-      tracker.textContent=tasks.map(task=>
-        (task.status==='done'?'✓ ':'○ ')+task.label+
-        (task.optional?' (선택)':'')+' · '+
-        (task.id==='gate'&&task.status==='waiting'?'통제문 개방 대기':status[task.status])).join('\n');
+    tracker.classList.toggle('hidden',!primary);
+    if(primary){
+      const progress={done:'현장 도착',available:'직접 이동 가능',
+        waiting:'현지 담당자가 개방 중',blocked:'현장 이동 확인 필요'};
+      tracker.textContent=(state.choice==='evacuation'?'남쪽 대피':'동쪽 통로')+
+        ' · '+primary.label+' · '+(progress[primary.status]||'진행 중');
     }else tracker.textContent='';
     const combatActive=state.phase==='engagement';
     const p=state.world.player;

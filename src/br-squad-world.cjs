@@ -414,7 +414,20 @@ class BrSquadWorld {
         ready:activeMates.length>=2&&activeMates.every(p=>
           Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS)})
       :null;
+    // Round completion is a server decision, never a client estimate from
+    // disappearing dots. A simultaneous elimination of every squad is a
+    // shared tie even when all placements are numerically 1.
+    const champion=this.phase==='finished'&&this.activeSquads===1
+      ?this.placements.findIndex(rank=>rank===1)+1:null;
+    const matchOutcome=this.phase==='finished'?Object.freeze({
+      kind:champion===null?'shared_tie':
+        me.team+1===champion?'squad_win':'squad_placed',
+      winningSquad:champion,
+      ownSquadPlacement:this.placements[me.team],
+      finishedTick:this.tick
+    }):null;
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
+      matchOutcome,
       coastalWeather:weather,
       playableArea,
       squadEntry:this.entryPlans[me.team],

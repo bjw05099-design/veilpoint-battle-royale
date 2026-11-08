@@ -2441,7 +2441,7 @@ test('CH01 save readback detects another PC tab replacing the generation after a
 });
 
 
-test('CH01 Windows route tracker follows actual optional tasks and physical mission completion',()=>{
+test('CH01 Windows route status shows the physical exit without a paperwork checklist',()=>{
   const app=boot(new Map([['veilpoint.brCheckpoint.v1','unchanged']]),false,'granted',true,true);
   assert.equal(app.element('taskTracker').classList.contains('hidden'),true);
   app.element('continue').click();
@@ -2452,20 +2452,19 @@ test('CH01 Windows route tracker follows actual optional tasks and physical miss
   app.element('choiceEvac').click();
   const tracker=app.element('taskTracker');
   assert.equal(tracker.classList.contains('hidden'),false);
-  assert.match(tracker.textContent,/집결지 인원 확인 \(선택\) · 진행 가능/);
-  assert.match(tracker.textContent,/현장 안내원 동행·인계 \(선택\) · 준비 중/);
-  assert.match(tracker.textContent,/비상 물품 현장 인계 \(선택\) · 진행 가능/);
-  assert.match(tracker.textContent,/○ 남쪽 안뜰 도착 · 진행 가능/);
-  assert.equal(tracker.textContent.split('\n').length,4);
+  assert.match(tracker.textContent,/남쪽 대피 · 남쪽 안뜰 도착 · 직접 이동 가능/);
+  assert.equal(tracker.textContent.split('\n').length,1,
+    'historical optional reports remain available in state but are not shown as chores');
+  assert.doesNotMatch(tracker.textContent,/장부|기록|비상 물품/);
   app.moveForward(cleared+225,193);app.interact();
   assert.match(app.element('menuText').textContent,/CH01 완료/);
-  assert.match(tracker.textContent,/✓ 남쪽 안뜰 도착 · 완료/);
-  assert.match(tracker.textContent,/비상 물품 현장 인계 \(선택\) · 진행 가능/,
-    'the ending cannot award uncollected optional supplies');
+  assert.match(tracker.textContent,/남쪽 안뜰 도착 · 현장 도착/);
+  assert.doesNotMatch(tracker.textContent,/비상 물품 인계 완료/,
+    'an optional transfer cannot be granted by the ending');
   assert.equal(app.store.get('veilpoint.brCheckpoint.v1'),'unchanged');
 });
 
-test('CH01 completed mission review reconstructs task progress without changing saved world',()=>{
+test('CH01 completed mission review shows a verified exit without recreating optional checklists',()=>{
   const fixture=completedBrowserReplayFixture(),key='veilpoint.story.ch01';
   const store=new Map([[key,fixture.complete],[key+'PreviewCompleted',fixture.debrief]]);
   const app=boot(store,false,'granted',true,true);
@@ -2474,8 +2473,8 @@ test('CH01 completed mission review reconstructs task progress without changing 
   app.element('reviewCompleted').click();
   const tracker=app.element('taskTracker');
   assert.equal(tracker.classList.contains('hidden'),false);
-  assert.match(tracker.textContent,/남쪽 안뜰 도착 · 완료/);
-  assert.match(tracker.textContent,/집결지 인원 확인 \(선택\) · 진행 가능/);
+  assert.match(tracker.textContent,/남쪽 안뜰 도착 · 현장 도착/);
+  assert.doesNotMatch(tracker.textContent,/집결지 인원 확인|선택 과제/);
   assert.equal(store.get(key),before,'read-only review does not change mission generations');
   assert.equal(app.element('menu').classList.contains('hidden'),false);
 });
@@ -2495,9 +2494,10 @@ test('CH01 PC route navigation targets required courtyard while allowing optiona
   app.emit('keydown',{code:'KeyN'});
   assert.match(navigation.textContent,/선택한 임무 표식.*안전한 안뜰/);
   app.emit('keydown',{code:'KeyN'});
-  assert.match(navigation.textContent,/선택한 임무 표식/,
-    'physical PC guidance cycle can choose optional mission markers');
-  assert.doesNotMatch(navigation.textContent,/주요 임무 표식/);
+  assert.match(navigation.textContent,/안전한 안뜰/,
+    'cycling cannot summon a distant paperwork location to replace the main route');
+  assert.doesNotMatch(navigation.textContent,/기록함|장부|급수대/,
+    'optional document markers remain local discoveries rather than global chores');
   app.element('pauseButton').click();
   const saved=app.store.get('veilpoint.story.ch01');
   const refreshed=boot(app.store,false,'granted',true,true);
