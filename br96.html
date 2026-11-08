@@ -12,7 +12,8 @@ h1{font-size:1.12rem;margin:0;letter-spacing:.055em}h2{font-size:1rem;margin:0 0
 header small{color:#bdcdcd}
 main{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:12px;min-height:0;flex:1;padding:12px}
 section{border:1px solid #476168;background:#122127;border-radius:8px;min-height:0;padding:12px}
-#mapPanel{display:flex;flex-direction:column;gap:8px}
+#mapPanel{display:flex;flex-direction:column;gap:8px;position:relative}
+#civicGate{position:absolute;right:18px;top:18px;z-index:2;background:#2f6265;font-size:.82rem}
 canvas{display:block;width:100%;height:100%;min-height:0;flex:1;background:#17282e;border:1px solid #3a5b62}
 #legend{font-size:.79rem;color:#c9d6d5;flex:0 0 auto}
 #sidebar{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
@@ -36,7 +37,8 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <main>
 <section id="mapPanel" aria-label="서버 소유 96인 월드의 자기·아군·실제로 보이는 상대 지도">
 <canvas id="map" width="700" height="700"></canvas>
-<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호</div>
+<button id="civicGate" disabled title="현지 공용 여객 대기실 출입문 근처에서만 사용 가능">F · 여객 문</button>
+<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호 / F 여객 문</div>
 </section>
 <section id="sidebar">
 <h2>접속 및 분대 편성</h2>
