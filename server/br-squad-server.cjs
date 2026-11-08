@@ -65,6 +65,23 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?201:409,result.ok?{token,...result,state:stateFor(token)}:result);
    }
    const token=req.headers['x-player-token'];
+   if(req.method==='POST'&&url.pathname==='/resume-session'){
+    if(!world||world.phase!=='moving')return send(res,409,{error:'round_not_active'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_resume_request'});
+    // The old live token authenticates the caller; the new secret is always
+    // generated here, NEVER accepted as a client-provided body field.
+    lobby.snapshot(token);world.snapshot(token);
+    let replacement;
+    do{replacement=crypto.randomBytes(32).toString('hex');}
+    while(lobby.players.has(replacement)||world.actors.has(replacement));
+    lobby.rebindSession(token,replacement);
+    world.rebindSession(token,replacement);
+    const stream=liveStreams.get(token);
+    if(stream){liveStreams.delete(token);stream.end();}
+    return send(res,200,{token:replacement,state:stateFor(replacement)});
+   }
    if(req.method==='POST'&&url.pathname==='/squad-invite'){
     const body=await readJson(req,64,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
@@ -170,7 +187,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    const reason=error instanceof RangeError?error.message:'server_error';
    const status=reason==='unknown_session'?401:
     ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_signal_kind','invalid_json',
-     'invalid_join','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','body_too_large','request_timeout'].includes(reason)?400:500;
+     'invalid_join','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','invalid_resume_request','body_too_large','request_timeout'].includes(reason)?400:500;
    return send(res,status,{error:reason});
   }
  });
