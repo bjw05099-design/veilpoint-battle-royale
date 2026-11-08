@@ -189,7 +189,7 @@ if(uNight>.5&&uBeaconOn>.5){
 }
 // Player-carried finite-battery headlamp: camera-facing cone on visible surfaces.
 // Prototype forward shading does not yet cast occlusion shadows.
-if(uNight>.5&&uFlashOn>.5){
+if(uFlashOn>.5){
  vec3 beamVec=vWorld-uFlashEye;
  float beamDistance=length(beamVec);
  if(beamDistance>.05&&beamDistance<18.){
@@ -306,7 +306,8 @@ class SoftwareRenderer {
    o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
- if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
+ if((harborNight&&state.flashlightOn&&state.flashlightTicks>0)||
+    (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)){
   const dx=x-p.x,dz=z-p.z,range=Math.hypot(dx,dz);
   if(range>0&&range<18&&(dx*Math.sin(yaw)-dz*Math.cos(yaw))/range>.90){
    const lift=.35*(1-range/18),value=parseInt(color.slice(1),16);
@@ -922,7 +923,8 @@ class Renderer {
  g.uniform1f(l.night,night?1:dusk?.44:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
  g.uniform1f(l.beaconOn,night&&state.beaconEnabled?1:0);
- g.uniform1f(l.flashOn,night&&state.flashlightOn&&state.flashlightTicks>0?1:0);
+ g.uniform1f(l.flashOn,(night&&state.flashlightOn&&state.flashlightTicks>0)||
+    (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)?1:0);
  g.uniform3f(l.flashEye,eye[0],eye[1],eye[2]);
  g.uniform3f(l.flashDir,dir[0],dir[1],dir[2]);
  g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);

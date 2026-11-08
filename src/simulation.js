@@ -12,6 +12,7 @@
   const SPRINT_RECOVERY_STAMINA = 25; // Hysteresis prevents exhausted one-frame sprint bursts.
   // Grounded arm's-reach interaction, not a three-metre remote loot vacuum.
   const PICKUP_REACH = 1.8;
+  const BR_HEADLAMP_TICKS=120*60; // Two-minute finite dusk-only charge.
   const ACTOR_RADIUS = 0.85; // Shared BR actor footprint for standing-body collision.
   // Original fictional class profiles; gameplay approximations, not real firearm instructions.
   // Ranges are fictional world-metre gameplay limits, not real firearm specifications.
@@ -470,6 +471,7 @@
         speed:0,fuel:YARD_SHUTTLE.fuel,driver:false},
       // One physical route sign is carried or planted, never duplicated.
       trailMarker:null,
+      brHeadlamp:{on:false,ticks:BR_HEADLAMP_TICKS},
       obstacles, bots, loot, player:{x:deployment.x,z:deployment.z,
         yaw:entrySite==='central'?0:Math.atan2(-deployment.x,deployment.z),
         pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
@@ -606,6 +608,17 @@
     body.x=future.x;body.z=future.z;
     cart.x=future.x;cart.z=future.z;
     return {engaged:true,moved:true};
+  }
+  // Optional dusk lamp: finite battery, fixed-step time, no opponent radar.
+  function toggleBrHeadlamp(game){
+    if(!game||game.status!=='playing'||game.scene)return {ok:false,reason:'inactive'};
+    if(game.lighting!=='dusk')return {ok:false,reason:'daylight'};
+    const lamp=game.brHeadlamp;
+    if(!lamp||lamp.ticks<=0)return {ok:false,reason:'battery_empty'};
+    lamp.on=!lamp.on;
+    game.message=lamp.on?'DUSK HEADLAMP ON · FINITE BATTERY':'DUSK HEADLAMP OFF · BATTERY SAVED';
+    game.messageTime=2;
+    return {ok:true,on:lamp.on,ticks:lamp.ticks};
   }
   // PC J places or recovers one tangible field marker for self-navigation.
   // The marker is not a radar or teleport destination and cannot be recalled
@@ -803,6 +816,13 @@
     if(!Number.isFinite(dt)||dt<=0)return game;
     dt=clamp(dt,0,0.05);
     game.elapsed+=dt;
+    if(game.brHeadlamp?.on){
+      game.brHeadlamp.ticks=Math.max(0,game.brHeadlamp.ticks-Math.round(dt*60));
+      if(game.brHeadlamp.ticks===0){
+        game.brHeadlamp.on=false;
+        game.message='DUSK HEADLAMP BATTERY EXHAUSTED';game.messageTime=2;
+      }
+    }
     advanceReload(game,dt);
     advanceServiceGate(game,dt);
     const cartMotion=advanceHandcart(game,dt,input);
@@ -1377,6 +1397,10 @@
       throw new RangeError('Invalid BR lighting');
     if(game.terrainRevision!==0&&game.terrainRevision!==1)
       throw new RangeError('Invalid BR terrain revision');
+    if(!game.brHeadlamp||typeof game.brHeadlamp.on!=='boolean'||
+       !integer(game.brHeadlamp.ticks,0,BR_HEADLAMP_TICKS)||
+       (game.brHeadlamp.on&&(game.lighting!=='dusk'||game.brHeadlamp.ticks===0)))
+      throw new RangeError('Invalid BR headlamp state');
     const checkpoint={version:CHECKPOINT_VERSION,seed:game.seed,entrySite:game.entrySite,lighting:game.lighting,
       terrainRevision:game.terrainRevision,rngState:game.random.getState(),
       status:game.status,elapsed:game.elapsed,kills:game.kills,damageFlash:game.damageFlash,
@@ -1384,6 +1408,7 @@
       handcart:game.handcart===null?null:{...game.handcart},
       vehicle:game.vehicle===null?null:{...game.vehicle},
       trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
+       brHeadlamp:{on:game.brHeadlamp.on,ticks:game.brHeadlamp.ticks},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
         reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
@@ -1530,6 +1555,12 @@
     if(terrainRevision!==0&&terrainRevision!==1)
       throw new RangeError('Invalid saved BR terrain revision');
     const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting,terrainRevision);
+     const lamp=saved.brHeadlamp===undefined?{on:false,ticks:BR_HEADLAMP_TICKS}:saved.brHeadlamp;
+     if(!lamp||typeof lamp!=='object'||Array.isArray(lamp)||
+        Object.keys(lamp).sort().join(',')!=='on,ticks'||
+        typeof lamp.on!=='boolean'||!integer(lamp.ticks,0,BR_HEADLAMP_TICKS)||
+        (lamp.on&&(lighting!=='dusk'||lamp.ticks===0)))
+       throw new RangeError('Invalid restored BR headlamp');
     if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
       throw new RangeError('Route sign inside solid cover');
     game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
@@ -1661,7 +1692,8 @@
     Object.assign(game,{status:'playing',elapsed:saved.elapsed,kills:saved.kills,
       damageFlash:extras.damageFlash,player:p,bots,loot,zone,effects,
       message:saved.message,messageTime:extras.messageTime,
-      lastTagAt:extras.lastTagAt,recentDamage:extras.recentDamage});
+      lastTagAt:extras.lastTagAt,recentDamage:extras.recentDamage,
+       brHeadlamp:{on:lamp.on,ticks:lamp.ticks}});
     game.random.setState(saved.rngState);
     return game;
   }
@@ -1735,6 +1767,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
