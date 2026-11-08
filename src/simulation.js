@@ -160,8 +160,8 @@
     const phase=time%45;
     const active=phase>=12&&phase<18;
     const onApron=actor?wetApronFooting(actor).wet:true;
-    return Object.freeze({active,mobility:active&&onApron?.78:1,
-      remaining:active?18-phase:phase<12?12-phase:57-phase});
+    return {active,mobility:active&&onApron?0.78:1,
+      remaining:active?18-phase:phase<12?12-phase:57-phase};
   }
   // Permanently installed inspection shelter with a walk-in southern entrance.
   // Only its three physical walls collide; the roof is an elevated visual
