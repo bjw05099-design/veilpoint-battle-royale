@@ -36,7 +36,13 @@ function apply(next){
  // Polls or returned commands can be delivered out of order. Never roll
  // an authenticated 60Hz snapshot backward to an older world tick.
  if(next.world&&next.world.tick<lastWorldTick)return;
- if(next.world)lastWorldTick=next.world.tick;
+ if(next.world){
+   lastWorldTick=next.world.tick;
+   // Recover the current server sequence after a legitimate tab reload:
+   // a freshly loaded page must not be trapped sending stale seq=1 forever.
+   if(Number.isSafeInteger(next.world.self?.seq))
+     seq=Math.max(seq,next.world.self.seq);
+ }
  state=next;consecutiveErrors=0;
  render();
 }
