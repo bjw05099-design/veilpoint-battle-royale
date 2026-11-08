@@ -36,12 +36,20 @@ const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
+// Each streamed snapshot is already filtered by the server for this player.
+// EventSource cannot authenticate by custom headers; never put tokens in URLs.
+let liveAbort=null,lastLiveAt=0,liveRetryAt=0,pollCount=0;
+function stopPrivateStream(){
+ if(liveAbort)liveAbort.abort();
+ liveAbort=null;lastLiveAt=0;
+}
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
 let streetView=false,streetYaw=0; // local camera only, never part of movement POST
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
+ stopPrivateStream();
  harborAudio?.disable();
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
@@ -73,6 +81,7 @@ function apply(next){
  if(state&&Number.isInteger(state.roundNumber)&&Number.isInteger(next.roundNumber)){
   if(next.roundNumber<state.roundNumber)return;
   if(next.roundNumber>state.roundNumber){
+   stopPrivateStream();liveRetryAt=0;
    seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
    streetView=false;streetYaw=0;
@@ -89,6 +98,58 @@ function apply(next){
  }
  state=next;consecutiveErrors=0;
  render();
+}
+function parsePrivateWorld(packet){
+ let event='',data='';
+ for(const line of packet.split('\n')){
+  if(line.startsWith('event: '))event=line.slice(7);
+  else if(line.startsWith('data: '))data+=line.slice(6);
+ }
+ if(event!=='world'||!data||data.length>65536)return null;
+ try{
+  const world=JSON.parse(data);
+  return world?.mode==='br-96-traversal-prototype'&&
+    Number.isSafeInteger(world.tick)&&world.tick>=0&&world.self?world:null;
+ }catch(_){return null;}
+}
+async function connectPrivateWorldStream(){
+ if(!token||!currentWorld()||liveAbort||document.hidden||Date.now()<liveRetryAt)return;
+ const ownToken=token,ownRound=state?.roundNumber,controller=new AbortController();
+ liveAbort=controller;
+ try{
+  // The 256-bit secret is a HEADER, never a query string, SSE event or DOM node.
+  const response=await fetch('/events',{method:'GET',headers:{
+    'x-player-token':ownToken,'Accept':'text/event-stream'},cache:'no-store',
+    signal:controller.signal});
+  if(!response.ok||!response.body?.getReader)throw new Error('private_stream_unavailable');
+  const reader=response.body.getReader(),decoder=new TextDecoder();
+  let pending='';
+  while(!controller.signal.aborted){
+   const {done,value}=await reader.read();
+   if(done)break;
+   pending=(pending+decoder.decode(value,{stream:true})).replace(/\r\n/g,'\n');
+   if(pending.length>98304)throw new Error('private_stream_overflow');
+   let boundary;
+   while((boundary=pending.indexOf('\n\n'))!==-1){
+    const packet=pending.slice(0,boundary);
+    pending=pending.slice(boundary+2);
+    const world=parsePrivateWorld(packet);
+    if(!world)continue; // retry and malformed events cannot mutate a match
+    if(token!==ownToken||state?.roundNumber!==ownRound){
+     controller.abort();break;
+    }
+    lastLiveAt=Date.now();
+    apply({...state,world});
+   }
+  }
+ }catch(error){
+  if(!controller.signal.aborted)message('실시간 수신이 끊겼습니다. 주기적 상태 확인으로 전환합니다.');
+ }finally{
+  if(liveAbort===controller){
+   liveAbort=null;lastLiveAt=0;
+   liveRetryAt=Date.now()+4000; // bounded retry after stream disconnect
+  }
+ }
 }
 function currentWorld(){return state&&state.world&&state.world.mode==='br-96-traversal-prototype'?state.world:null;}
 function active(){const w=currentWorld();return !!token&&!!w&&w.phase==='moving'&&w.self?.eligible;}
@@ -562,8 +623,11 @@ function resetKeys(){
  render();
 }
 window.addEventListener('blur',resetKeys);
-window.addEventListener('pagehide',()=>harborAudio?.dispose());
-document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
+window.addEventListener('pagehide',()=>{stopPrivateStream();harborAudio?.dispose();});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){resetKeys();stopPrivateStream();}
+ else if(token)poll();
+});
 function direction(){
  if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
   return {dx:0,dz:0};
@@ -622,7 +686,7 @@ async function loadPublicGeometry(){
 async function poll(){
  if(!token||pollBusy)return;
  pollBusy=true;
- try{apply(await request('/state'));}
+ try{apply(await request('/state'));if(currentWorld())connectPrivateWorldStream();}
  catch(error){
   consecutiveErrors++;
   if(error.message==='unknown_session'){cleanSession();message('세션이 유효하지 않습니다. 다시 참가하세요.');}
@@ -654,6 +718,13 @@ el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();}
 el('withdraw').addEventListener('click',withdraw);
 el('spectate').addEventListener('click',spectate);
 render();if(token)poll();
-setInterval(poll,400);
+setInterval(()=>{
+ if(!token)return;
+ pollCount++;
+ const healthy=!!liveAbort&&lastLiveAt>0&&Date.now()-lastLiveAt<2000;
+ // Poll lobby/round data occasionally while private 4Hz SSE is healthy.
+ // If the stream stalls or disconnects, keep the existing 400ms fallback.
+ if(!healthy||pollCount%8===0)poll();
+},400);
 setInterval(movement,180);
 })();
