@@ -38,6 +38,7 @@ let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStat
 let consecutiveErrors=0;
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
+let streetView=false,streetYaw=0; // local camera only, never part of movement POST
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
@@ -45,6 +46,7 @@ function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
+ streetView=false;streetYaw=0;
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
  try{sessionStorage.removeItem(SESSION);}catch(_){}
@@ -72,6 +74,7 @@ function apply(next){
   if(next.roundNumber>state.roundNumber){
    seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
+   streetView=false;streetYaw=0;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
   }
  }
@@ -96,7 +99,10 @@ function render(){
  el('soundToggle').disabled=!harborAudio?.available();
  el('soundToggle').textContent=soundWanted?'소리 ON':'소리 OFF';
  el('soundToggle').setAttribute('aria-pressed',String(soundWanted));
- el('mapFollow').disabled=!w;
+ el('mapFollow').disabled=!w||streetView;
+ el('streetToggle').disabled=!w||!window.VeilpointBR96StreetView;
+ el('streetToggle').setAttribute('aria-pressed',String(streetView));
+ el('streetToggle').textContent=streetView?'P · 도시 지도':'P · 1인칭 시야';
  el('mapFollow').setAttribute('aria-pressed',String(mapFollow&&!!w));
  el('mapFollow').title=mapFollow?'M: 전체 지도 · +/−: 내 위치 지도 확대/축소':'M: 내 위치 따라가기';
  el('mapFollow').textContent=mapFollow&&w?
@@ -151,6 +157,7 @@ function render(){
   ?'전체 '+state.participants+'/'+state.capacity+'명 · 준비 '+state.readyCount+'/'+state.capacity+
    '\n본인 #'+self.id+' · '+self.squad+'분대 '+self.slot+'번'+
    '\n단계: '+state.phase+(state.roundNumber?' · '+state.roundNumber+'회차':'')+
+   (w?'\n보기: '+(streetView?'1인칭 거리 시야 · J/L로 회전':'2D 서버 진단 지도'):'')+
    (state.entry?'\n분대 출발 예정: '+
      (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
      ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
@@ -218,6 +225,15 @@ function toggleStandings(open){
 }
 function draw(w){
  const width=canvas.width,height=canvas.height;
+ if(streetView&&w&&publicGeometry&&window.VeilpointBR96StreetView){
+  const subject=w.spectatorView
+   ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
+  window.VeilpointBR96StreetView.draw(ctx,{width,height,
+   subject,yaw:streetYaw,obstacles:publicGeometry,
+   civicGate:w.civicGate,squad:w.squad||[],visible:w.visible||[],
+   visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
+  return;
+ }
  ctx.clearRect(0,0,width,height);
  ctx.fillStyle='#12262c';ctx.fillRect(0,0,width,height);
  // Follow ONLY the authenticated self, or the server-authorized same-squad
@@ -379,6 +395,22 @@ async function voteLiveRoute(){
  if(result?.ok)message('우리 분대 이동 후보: '+(result.route?.target?.label||choice)+
    ' · 최종 합의는 실제 참가자 과반으로 결정됩니다.');
 }
+function toggleStreetView(){
+ if(!currentWorld()||!window.VeilpointBR96StreetView)return;
+ streetView=!streetView;
+ mapFollow=false;mapZoomLevel=0;
+ keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+ message(streetView?'1인칭 거리 시야 · J/L 회전 · WASD 기존 세계축 이동 · P 지도':
+  '2D 서버 진단 지도로 돌아왔습니다.');
+ render();
+}
+function turnStreetView(delta){
+ if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
+ streetYaw=window.VeilpointBR96StreetView.wrap(streetYaw+delta);
+ // Heading is pure local rendering; do not send a fake look direction.
+ keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+ render();
+}
 function toggleMapFollow(){
  if(!currentWorld())return;
  mapFollow=!mapFollow;
@@ -457,6 +489,12 @@ document.addEventListener('keydown',event=>{
  if(!canUseKeyboard(event))return;
  const key=event.code;
  if(!event.repeat&&key==='KeyV'){event.preventDefault();toggleStandings();return;}
+ if(!event.repeat&&key==='KeyP'&&el('standingsPanel').hidden){
+  event.preventDefault();toggleStreetView();return;
+ }
+ if(streetView&&currentWorld()&&['KeyJ','KeyL'].includes(key)){
+  event.preventDefault();turnStreetView(key==='KeyJ'?-Math.PI/24:Math.PI/24);return;
+ }
  if(!event.repeat&&key==='KeyM'&&el('standingsPanel').hidden){
    event.preventDefault();toggleMapFollow();return;
  }
@@ -557,6 +595,7 @@ el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
 el('mapFollow').addEventListener('click',toggleMapFollow);
+el('streetToggle').addEventListener('click',toggleStreetView);
 el('standingsClose').addEventListener('click',()=>toggleStandings(false));
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
 el('withdraw').addEventListener('click',withdraw);
