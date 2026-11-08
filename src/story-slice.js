@@ -705,6 +705,16 @@
     return Math.hypot(g.x-p.x,g.z-p.z)<7&&
       !Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles);
   }
+  // Reaching a physically open, staffed corridor should conclude the short
+  // preview by actual travel, not a magic E press on an invisible finish box.
+  // The historical E interaction remains supported for saved game sessions.
+  function finishAtExit(state){
+    state.phase='complete';state.world.status='won';
+    state.subtitle=state.choice==='verification'
+      ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
+      :'유수프: 남쪽 안뜰의 대피 인원을 확인했어. 동쪽 통제소는 아직 닫혀 있어.';
+    state.message='CH01 완료 · 첫 번째 신호가 복구되었습니다.';
+  }
   function step(state, dt, input={}) {
     if(state.phase==='complete'||state.phase==='failed')return state;
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
@@ -1068,6 +1078,23 @@
         state.message='임무 중단 · 메뉴에서 다시 시작';
       }
     }
+    // Walking through the genuine exit is enough. The old E path is retained
+    // below, and a fabricated player coordinate jump never earns completion:
+    // crossing must have occurred during this resolved fixed-step movement.
+    if(state.phase==='exit'&&state.world.status==='playing'){
+      const isSouth=state.choice==='evacuation';
+      const exit=isSouth?POINTS.exitEvac:POINTS.exitVerify;
+      const from=Math.hypot(beforeX-exit.x,beforeZ-exit.z);
+      const arrived=Math.hypot(p.x-exit.x,p.z-exit.z);
+      const companionsReady=!isSouth||( !state.world.carryingAid&&
+        !(state.guide.active&&!state.guide.arrived&&!state.guide.released));
+      const permitted=isSouth||gateOpen(state);
+      if(from>2.2&&arrived<=2.2&&movedDistance>1e-7&&companionsReady&&permitted&&
+         !Sim.lineBlocked(beforeX,beforeZ,exit.x,exit.z,state.world.obstacles)){
+        finishAtExit(state);
+        syncMarkers(state);
+      }
+    }
     return state;
   }
   // Fictional, non-graphic hitscan encounter; finite ammunition and sight-gated hostile response.
@@ -1419,11 +1446,7 @@
         }
         return {ok:false,reason:'awaiting_clearance'};
       }
-      state.phase='complete';state.world.status='won';
-      state.subtitle=state.choice==='verification'
-        ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
-        :'유수프: 남쪽 안뜰의 대피 인원을 확인했어. 동쪽 통제소는 아직 닫혀 있어.';
-      state.message='CH01 완료 · 첫 번째 신호가 복구되었습니다.';
+      finishAtExit(state);
     }else return {ok:false,reason:'unavailable'};
     syncMarkers(state);
     return {ok:true,event:marker.id,phase:state.phase};
