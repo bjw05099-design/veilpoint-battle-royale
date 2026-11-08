@@ -65,8 +65,16 @@ async function request(path,payload=null,authenticated=true){
 }
 function apply(next){
  if(!next||typeof next!=='object'||!next.self)return;
- // Polls or returned commands can be delivered out of order. Never roll
- // an authenticated 60Hz snapshot backward to an older world tick.
+ // An explicitly consented new round resets the server tick to zero.
+ // Compare (roundNumber,tick), never reject a valid replay as a stale poll.
+ if(state&&Number.isInteger(state.roundNumber)&&Number.isInteger(next.roundNumber)){
+  if(next.roundNumber<state.roundNumber)return;
+  if(next.roundNumber>state.roundNumber){
+   seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
+   keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
+   message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
+  }
+ }
  if(next.world&&next.world.tick<lastWorldTick)return;
  if(next.world){
    lastWorldTick=next.world.tick;
@@ -98,6 +106,9 @@ function render(){
  el('leave').disabled=!token||state?.phase!=='assembling';
  el('ready').disabled=!token||state?.phase!=='assembling';
  el('ready').textContent=state?.self?.ready?'준비 취소':'준비';
+ el('replayConsent').disabled=!token||w?.phase!=='finished';
+ el('replayConsent').textContent=(state?.replay?.own?'재경기 동의 취소':'새 경기 동의')+
+   (state?.replay?' '+state.replay.requested+'/'+state.replay.required:'');
  const entryOptions=state?.entry?.options||[];
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
@@ -139,7 +150,7 @@ function render(){
  el('details').textContent=state
   ?'전체 '+state.participants+'/'+state.capacity+'명 · 준비 '+state.readyCount+'/'+state.capacity+
    '\n본인 #'+self.id+' · '+self.squad+'분대 '+self.slot+'번'+
-   '\n단계: '+state.phase+
+   '\n단계: '+state.phase+(state.roundNumber?' · '+state.roundNumber+'회차':'')+
    (state.entry?'\n분대 출발 예정: '+
      (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
      ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
@@ -335,6 +346,15 @@ async function voteEntry(){
  const result=await command('/entry-vote',{choice},null);
  if(result?.ok)message('우리 분대 출발 위치 투표를 기록했습니다. 준비 전에 다시 누르면 변경할 수 있습니다.');
 }
+async function replayConsent(){
+ if(!token||currentWorld()?.phase!=='finished')return;
+ const ready=!state.replay?.own;
+ const response=await command('/replay-consent',{ready},null);
+ if(response?.ok)message(response.roundNumber>state.roundNumber?
+   '모든 참가자가 동의해 새 라운드가 시작됐습니다.':
+   ready?'새 경기 참가에 동의했습니다. 모든 96명이 동의해야 시작합니다.':
+    '재경기 동의를 취소했습니다.');
+}
 async function ready(){
  if(state?.phase!=='assembling')return;
  await command('/ready',{ready:!state.self.ready},'준비 상태를 서버에 전달했습니다.');
@@ -525,6 +545,7 @@ async function poll(){
 }
 el('join').addEventListener('click',join);
 el('ready').addEventListener('click',ready);
+el('replayConsent').addEventListener('click',replayConsent);
 el('entryVote').addEventListener('click',voteEntry);
 el('leave').addEventListener('click',leave);
 el('invite').addEventListener('click',invite);
