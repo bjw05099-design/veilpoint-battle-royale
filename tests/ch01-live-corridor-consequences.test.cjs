@@ -49,7 +49,9 @@ test('east corridor distinguishes actual radio repair from mere gate authorizati
  for(const restored of [false,true]){
   const s=route('verification');
   s.relayRestored=restored;
-  go(s,27,-53);
+  // Observe the actual corridor from its open pedestrian margin, not from
+  // inside the powered shutter's swept safety interlock.
+  go(s,23,-61);
   Story.step(s,1/60,{});
   assert.equal(s.passageWarningHeard,true);
   assert.match(s.subtitle,/동쪽 통로에 도착했습니다/);
