@@ -13,6 +13,25 @@ const mapCamera=window.VeilpointBR96MapCamera;
 const harborAudio=window.VeilpointBR96Audio?.create({
  AudioContextClass:window.AudioContext||window.webkitAudioContext||null
 })||null;
+const AudioPrefs=window.VeilpointAudioPreferences||null;
+const localAudioStorage=(()=>{try{return window.localStorage;}catch(_){return null}})();
+const audioControls=AudioPrefs?.attach(document,localAudioStorage,prefs=>{
+ harborAudio?.setVolume(AudioPrefs.gain(prefs,'ambience'));
+ if(!prefs.enabled)harborAudio?.disable();
+})||null;
+// Default-ON never means bypassing browser autoplay protection. The first
+// ordinary *player* pointer/keyboard gesture unlocks an opt-in local graph.
+function unlockDefaultAudio(){
+ if(!harborAudio?.available()||harborAudio.enabled()||
+   (audioControls&&!audioControls.get().enabled))return;
+ if(harborAudio.enable()&&active())
+  harborAudio.update(currentWorld().self.surface,currentWorld().coastalWeather);
+}
+document.addEventListener('pointerdown',unlockDefaultAudio,true);
+document.addEventListener('keydown',event=>{
+ if(!event.repeat&&!event.altKey&&!event.ctrlKey&&!event.metaKey)unlockDefaultAudio();
+},true);
+
 const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStatus='';
@@ -64,11 +83,11 @@ function active(){const w=currentWorld();return !!token&&!!w&&w.phase==='moving'
 function render(){
  const w=currentWorld();
  if(w&&!publicGeometry&&!geometryBusy)loadPublicGeometry();
- if(!active()&&harborAudio?.enabled())harborAudio.disable();
  if(active()&&harborAudio?.enabled())harborAudio.update(w.self.surface,w.coastalWeather);
- el('soundToggle').disabled=!active()||!harborAudio?.available();
- el('soundToggle').textContent=harborAudio?.enabled()?'환경음 ON':'환경음 OFF';
- el('soundToggle').setAttribute('aria-pressed',String(!!harborAudio?.enabled()));
+ const soundWanted=audioControls?audioControls.get().enabled:!!harborAudio?.enabled();
+ el('soundToggle').disabled=!harborAudio?.available();
+ el('soundToggle').textContent=soundWanted?'소리 ON':'소리 OFF';
+ el('soundToggle').setAttribute('aria-pressed',String(soundWanted));
  el('mapFollow').disabled=!w;
  el('mapFollow').setAttribute('aria-pressed',String(mapFollow&&!!w));
  el('mapFollow').title=mapFollow?'M: 전체 지도 · +/−: 내 위치 지도 확대/축소':'M: 내 위치 따라가기';
@@ -344,12 +363,23 @@ function changeMapZoom(delta){
  message('현장 지도 확대 단계 '+(mapZoomLevel+2)+'/3 · M 전체 지도 · +/− 확대 조절');
 }
 function toggleHarborAudio(){
- if(!active()||!harborAudio)return;
- if(harborAudio.enabled()){harborAudio.disable();message('환경음 꺼짐 · 다시 누르면 켤 수 있습니다.');}
- else if(harborAudio.enable()){
-  harborAudio.update(currentWorld().self.surface,currentWorld().coastalWeather);
-  message('환경음 켜짐 · 서버 날씨와 내 발밑 지면 상태만 조용한 항구 효과음에 반영합니다.');
- }else message('이 브라우저는 선택적 환경음 재생을 지원하지 않습니다.');
+ if(!harborAudio)return;
+ if(audioControls){
+  const next=!audioControls.get().enabled;
+  audioControls.set({...audioControls.get(),enabled:next});
+  if(next)unlockDefaultAudio();
+  message(next?'게임 소리 켜짐 · 환경음은 현재 음량 설정으로 재생합니다.':'게임 소리 꺼짐 · 자막과 상태 정보는 유지됩니다.');
+ }else if(harborAudio.enabled())harborAudio.disable();
+ else harborAudio.enable();
+ render();
+}
+function setAudioPanel(open){
+ const panel=el('vpAudioPanel');
+ panel.hidden=!open;
+ el('soundSettings').setAttribute('aria-expanded',String(open));
+ keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+ if(open)el('vpAudioEnabled').focus({preventScroll:true});
+ else el('soundSettings').focus({preventScroll:true});
  render();
 }
 async function operateGate(){
@@ -386,6 +416,10 @@ function canUseKeyboard(event){
    !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
 }
 document.addEventListener('keydown',event=>{
+ if(!el('vpAudioPanel').hidden){
+  if(event.code==='Escape'){event.preventDefault();setAudioPanel(false);}
+  return;
+ }
  if(!canUseKeyboard(event))return;
  const key=event.code;
  if(!event.repeat&&key==='KeyV'){event.preventDefault();toggleStandings();return;}
@@ -414,7 +448,7 @@ window.addEventListener('blur',resetKeys);
 window.addEventListener('pagehide',()=>harborAudio?.dispose());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
 function direction(){
- if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
+ if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden||!el('vpAudioPanel').hidden)
   return {dx:0,dz:0};
  const dx=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
  const dz=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));
@@ -483,6 +517,8 @@ el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
 el('civicGate').addEventListener('click',operateGate);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
+el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
+el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
 el('mapFollow').addEventListener('click',toggleMapFollow);
 el('standingsClose').addEventListener('click',()=>toggleStandings(false));
