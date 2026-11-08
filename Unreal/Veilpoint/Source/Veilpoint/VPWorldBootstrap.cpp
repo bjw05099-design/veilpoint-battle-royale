@@ -146,6 +146,40 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedFerryBody& Block : SharedFerryHall)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // The public market court and eastern transit forecourt were added to
+    // BOTH browser modes after the original native seafront/ferry blockout.
+    // Keep all eighteen collision solids identical in the UE Windows scene.
+    // These are authored fictional public spaces, not real conflict-site data.
+    // Do not add a sealed roof or block either north/south pedestrian entry.
+    struct FSharedPublicBlock { float X,Z,W,D,H; };
+    static const FSharedPublicBlock SharedMarketCourt[] = {
+        {-123.f,128.f,.6f,28.f,3.5f},
+        {-91.f,128.f,.6f,28.f,3.5f},
+        {-118.f,142.f,10.f,.6f,3.5f},
+        {-96.f,142.f,10.f,.6f,3.5f},
+        {-118.f,114.f,10.f,.6f,3.5f},
+        {-96.f,114.f,10.f,.6f,3.5f},
+        {-119.f,127.f,2.1f,4.f,1.2f},
+        {-95.f,130.f,2.1f,4.f,1.2f},
+        {-117.f,135.f,3.5f,.7f,.75f},
+        {-97.f,120.f,3.5f,.7f,.75f}
+    };
+    static const FSharedPublicBlock SharedTransitCourt[] = {
+        {118.f,125.f,.75f,26.f,3.1f},
+        {150.f,125.f,.75f,26.f,3.1f},
+        {122.f,138.f,7.f,.75f,3.1f},
+        {146.f,138.f,7.f,.75f,3.1f},
+        {122.f,112.f,7.f,.75f,3.1f},
+        {146.f,112.f,7.f,.75f,3.1f},
+        {122.f,125.f,2.2f,4.f,1.f},
+        {146.f,125.f,2.2f,4.f,1.f}
+    };
+    for (const FSharedPublicBlock& Block : SharedMarketCourt)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
+    for (const FSharedPublicBlock& Block : SharedTransitCourt)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
