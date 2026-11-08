@@ -2515,10 +2515,13 @@ test('CH01 optional records appear only near their physical location and do not 
   const state=story.createState();
   go(state,'terminal');assert.equal(story.interact(state).ok,true);
   clearEncounter(state);
-  assert.equal(story.markers(state).some(m=>m.id==='recordA'||m.id==='recordB'),false);
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'||m.id==='recordB'),false,
+    'distant optional records are hidden from the navigation HUD');
+  assert.equal(story.markers(state).some(m=>m.id==='recordA'),true,
+    'the original record remains a physical in-world interaction');
   go(state,'recordA');
-  assert.equal(story.markers(state).some(m=>m.id==='recordA'),true);
-  assert.equal(story.markers(state).some(m=>m.id==='recordB'),false);
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'),true);
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordB'),false);
   assert.equal(story.interact(state).ok,true);
   go(state,'decision');
   assert.equal(story.interact(state).ok,true);
