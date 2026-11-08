@@ -20,7 +20,7 @@ function fixture(){
    cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
  result.br96Checks=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],cases:[{
-  name:'BR96-local-squad',controls:11,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},targets:[target('name'),target('join'),target('civicGate'),target('soundToggle'),target('standingsToggle')]
+  name:'BR96-local-squad',controls:11,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},targets:[target('name'),target('join'),target('civicGate'),target('soundToggle'),target('standingsToggle'),target('mapFollow')]
  }]}));
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
@@ -47,6 +47,15 @@ test('BR96 score overlay must have 16 visible rows and clickable, focused close 
  invalid.br96Checks[0].cases[0].standingsOverlay.closeProbes=5;
  invalid.br96Checks[0].cases[0].standingsOverlay.scrolling=true;
  assert.throws(()=>validate(invalid),/score overlay scrolls/);
+});
+test('BR96 nearby-map button must be physically clickable and focusable',()=>{
+ const blocked=fixture();
+ const t=blocked.br96Checks[0].cases[0].targets.find(x=>x.id==='mapFollow');
+ assert.ok(t);
+ t.hit=false;
+ assert.throws(()=>validate(blocked),/BR96 pointer blocked mapFollow/);
+ t.hit=true;t.focused=false;
+ assert.throws(()=>validate(blocked),/BR96 keyboard blocked mapFollow/);
 });
 test('BR96 civic gate overlay fails on blocked button pointer or focus',()=>{
  const result=fixture();result.br96Checks[0].cases[0].targets[2].hit=false;

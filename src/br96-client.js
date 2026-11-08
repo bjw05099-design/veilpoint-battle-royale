@@ -9,6 +9,7 @@ const canvas=el('map'),ctx=canvas.getContext('2d');
 const SESSION='veilpoint.br96.tabSession';
 // No sound without an explicit, foreground player click; the soundtrack is
 // synthesized locally from the authenticated player's own environment only.
+const mapCamera=window.VeilpointBR96MapCamera;
 const harborAudio=window.VeilpointBR96Audio?.create({
  AudioContextClass:window.AudioContext||window.webkitAudioContext||null
 })||null;
@@ -17,14 +18,14 @@ let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
-let withdrawArmedUntil=0,watchOptionsSignature='';
+let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false;
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  harborAudio?.disable();
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
- withdrawArmedUntil=0;watchOptionsSignature='';
+ withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
  try{sessionStorage.removeItem(SESSION);}catch(_){}
@@ -68,6 +69,10 @@ function render(){
  el('soundToggle').disabled=!active()||!harborAudio?.available();
  el('soundToggle').textContent=harborAudio?.enabled()?'환경음 ON':'환경음 OFF';
  el('soundToggle').setAttribute('aria-pressed',String(!!harborAudio?.enabled()));
+ el('mapFollow').disabled=!w;
+ el('mapFollow').setAttribute('aria-pressed',String(mapFollow&&!!w));
+ el('mapFollow').textContent=mapFollow&&w?
+   (w.spectatorView?'M · 아군 추적':'M · 내 위치 확대'):'M · 주변 지도';
  el('join').disabled=!!token;
  el('invite').disabled=!token||state?.phase!=='assembling';
  el('leave').disabled=!token||state?.phase!=='assembling';
@@ -171,8 +176,11 @@ function draw(w){
  const width=canvas.width,height=canvas.height;
  ctx.clearRect(0,0,width,height);
  ctx.fillStyle='#12262c';ctx.fillRect(0,0,width,height);
- const scale=Math.min(width,height)/350;
- const x=v=>width/2+v*scale,z=v=>height/2+v*scale;
+ // Follow ONLY the authenticated self, or the server-authorized same-squad
+ // spectatorView. Never center on enemy markers or client-supplied positions.
+ const followSubject=w?.spectatorView||w?.self||null;
+ const view=mapCamera.create({width,height,follow:mapFollow,subject:followSubject});
+ const scale=view.scale,x=view.x,z=view.z;
  ctx.strokeStyle='#304c53';ctx.lineWidth=1;
  for(let m=-150;m<=150;m+=50){
   ctx.beginPath();ctx.moveTo(x(m),z(-175));ctx.lineTo(x(m),z(175));ctx.stroke();
@@ -234,6 +242,14 @@ function draw(w){
  dot(w.self,w.self.eligible?'#b7eca9':'#6f7e83',w.self.eligible?8:4);
  ctx.fillStyle='#d7e9e8';ctx.font='15px system-ui';
  ctx.fillText('AUTHORITY / SERVER TICK '+w.tick,14,26);
+ ctx.font='13px system-ui';
+ ctx.fillText(view.mode==='follow'?'NEARBY 110m · LOCAL VERIFIED VIEW':
+   'FULL CITY 350m · SERVER PUBLIC GEOMETRY',14,47);
+ // Real 20-metre ruler in both camera modes, not a fake fixed-pixel bar.
+ ctx.strokeStyle='#bdd7d4';ctx.lineWidth=3;
+ const rulerY=height-19;
+ ctx.beginPath();ctx.moveTo(14,rulerY);ctx.lineTo(14+20*scale,rulerY);ctx.stroke();
+ ctx.fillStyle='#bdd7d4';ctx.fillText('20m',14,rulerY-7);
 }
 async function join(){
  if(token)return;
@@ -286,6 +302,13 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+function toggleMapFollow(){
+ if(!currentWorld())return;
+ mapFollow=!mapFollow;
+ // Camera manipulation must never leave a held movement or sprint input.
+ keys.clear();sprintIntent=false;lastSprint=null;
+ render();
+}
 function toggleHarborAudio(){
  if(!active()||!harborAudio)return;
  if(harborAudio.enabled()){harborAudio.disable();message('환경음 꺼짐 · 다시 누르면 켤 수 있습니다.');}
@@ -332,6 +355,9 @@ document.addEventListener('keydown',event=>{
  if(!canUseKeyboard(event))return;
  const key=event.code;
  if(!event.repeat&&key==='KeyV'){event.preventDefault();toggleStandings();return;}
+ if(!event.repeat&&key==='KeyM'&&el('standingsPanel').hidden){
+   event.preventDefault();toggleMapFollow();return;
+ }
  if(!el('standingsPanel').hidden){
   if(key==='Escape'){event.preventDefault();toggleStandings(false);}
   // Scoreboard focus takes priority over walking/sprinting/field controls.
@@ -417,6 +443,7 @@ el('location').addEventListener('click',()=>signal('location'));
 el('civicGate').addEventListener('click',operateGate);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
+el('mapFollow').addEventListener('click',toggleMapFollow);
 el('standingsClose').addEventListener('click',()=>toggleStandings(false));
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
 el('withdraw').addEventListener('click',withdraw);
