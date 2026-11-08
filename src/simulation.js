@@ -150,6 +150,19 @@
       Math.abs(actor.z-WET_LOADING_PAD.z)<=WET_LOADING_PAD.depth/2;
     return {wet,mobility:wet?WET_LOADING_PAD.mobility:1};
   }
+  // Brief waves reach the low existing loading apron in a repeating weather
+  // cycle. This is visible shallow wash, never HP damage, forced sliding or
+  // client-controlled water level. The same game.elapsed 60Hz clock that is
+  // already checkpointed determines the phase after resume, so no save schema
+  // change or random teleports occur. No flooded real-world site is modeled.
+  function harborWaveWash(elapsed,actor=null){
+    const time=Number.isFinite(elapsed)&&elapsed>=0?elapsed:0;
+    const phase=time%45;
+    const active=phase>=12&&phase<18;
+    const onApron=actor?wetApronFooting(actor).wet:true;
+    return {active,mobility:active&&onApron?0.78:1,
+      remaining:active?18-phase:phase<12?12-phase:57-phase};
+  }
   // Permanently installed inspection shelter with a walk-in southern entrance.
   // Only its three physical walls collide; the roof is an elevated visual
   // surface. Interior and entrance remain traversable at the real actor radius.
@@ -837,7 +850,7 @@
     const wantsSprint=!driving&&!cartMotion.engaged&&canSprint(p,input,iz);
     const loadMobility=supplyLoadMobility(p);
     const speed=driving?0:cartMotion.engaged?(cartMotion.moved?DOCK_HANDCART.speed:0):
-      (input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility;
+      (input.crouch?3.1:wantsSprint?9.5:6.1)*(FIREARMS[p.weaponId]||FIREARMS.carbine).mobility*injuryMobility(p)*loadMobility*wetApronFooting(p).mobility*harborWaveWash(game.elapsed,p).mobility;
     const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
     if(!driving)
       moveEntity(p,(cartMotion.engaged?game.handcart.dirX:ix*cos+iz*sin)*speed,
@@ -950,7 +963,7 @@
       const desired=normalizeAngle(navigatedAim-b.angle);
       b.angle=normalizeAngle(b.angle+clamp(desired,-1.8*dt,1.8*dt));
       const botSpeed=(outsideBot?5.3:target&&targetDistance>18?3.2:
-        investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b)*wetApronFooting(b).mobility;
+        investigating&&lastSeenDistance>3?2.0:supplyTarget&&supplyDistance>PICKUP_REACH*.65?2.4:1.0)*injuryMobility(b)*wetApronFooting(b).mobility*harborWaveWash(game.elapsed,b).mobility;
       const startX=b.x,startZ=b.z;
       const vx=Math.sin(b.angle)*botSpeed,vz=-Math.cos(b.angle)*botSpeed;
       moveEntity(b,vx,vz,dt,movementObstacles);
@@ -1768,5 +1781,5 @@
     return Object.freeze({...data});
   }
   return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
-    DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
+    DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
