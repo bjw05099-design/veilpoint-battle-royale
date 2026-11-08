@@ -55,8 +55,11 @@ test('Windows CH01 objective, subtitle, status and shortcut HUD use one live PC 
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
  assert.match(app,/const controlText=text=>Desktop\.storyHintText\(text,bindings\)/);
  assert.match(app,/\$\('objective'\)\.textContent=controlText\(Story\.objective\(state\)\)/);
- assert.match(app,/\$\('status'\)\.textContent=controlText\(state\.message\)/);
- assert.match(app,/\$\('subtitle'\)\.textContent=controlText\(state\.subtitle\)/);
+ assert.match(app,/controlText\(state\.message\)\+' · 경과 '/,
+  'opening location must preserve the live remapped message and elapsed time');
+ assert.match(app,/\$\('subtitle'\)\.textContent=controlText\(opening\?opening\.subtitle:state\.subtitle\)/,
+  'both predeparture dialogue and the resumed field subtitle use remapped PC labels');
+ assert.match(app,/const opening=Story\.openingBeat\(state\)/);
  assert.match(app,/Desktop\.keyLabel\(bindings\.headlamp\)/);
  assert.match(app,/Desktop\.keyLabel\(bindings\.guidance\)/);
  assert.match(app,/const action=Desktop\.actionFor\(e\.code,desktopUi\.get\(\)\)/);
