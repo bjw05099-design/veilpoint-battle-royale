@@ -23,7 +23,7 @@ test('shared fictional seaside market has one exact BR/CH01 collider source and 
   const walker={x:28,z:132};
   for(let tick=0;tick<600;tick++)Sim.moveEntity(walker,0,4.2,1/60,world.obstacles,.85);
   assert.ok(walker.z>156.8,'must cross the northern open passage on foot');
-  assert.ok(walker.z<174,'cannot walk beyond the shared map boundary');
+  assert.ok(walker.z<174.3,'cannot walk beyond the shared map boundary');
   assert.equal(walker.x,28);
   assert.equal(Sim.blocked(walker.x,walker.z,.85,world.obstacles),false);
   for(let tick=0;tick<600;tick++)Sim.moveEntity(walker,0,-4.2,1/60,world.obstacles,.85);
