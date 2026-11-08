@@ -1408,6 +1408,7 @@
       handcart:game.handcart===null?null:{...game.handcart},
       vehicle:game.vehicle===null?null:{...game.vehicle},
       trailMarker:game.trailMarker===null?null:game.trailMarker&&{x:game.trailMarker.x,z:game.trailMarker.z},
+       brHeadlamp:{on:game.brHeadlamp.on,ticks:game.brHeadlamp.ticks},
       player:{...checkedFields(game.player,PLAYER_FIELDS),weaponId:game.player.weaponId,
         alive:game.player.alive,reloadAssist:game.player.reloadAssist,
         reloadHesitation:game.player.reloadHesitation,sprintExhausted:game.player.sprintExhausted},
@@ -1554,6 +1555,12 @@
     if(terrainRevision!==0&&terrainRevision!==1)
       throw new RangeError('Invalid saved BR terrain revision');
     const game=newMatch(saved.seed,saved.bots.length,weaponId,false,entrySite,lighting,terrainRevision);
+     const lamp=saved.brHeadlamp===undefined?{on:false,ticks:BR_HEADLAMP_TICKS}:saved.brHeadlamp;
+     if(!lamp||typeof lamp!=='object'||Array.isArray(lamp)||
+        Object.keys(lamp).sort().join(',')!=='on,ticks'||
+        typeof lamp.on!=='boolean'||!integer(lamp.ticks,0,BR_HEADLAMP_TICKS)||
+        (lamp.on&&(lighting!=='dusk'||lamp.ticks===0)))
+       throw new RangeError('Invalid restored BR headlamp');
     if(rawMarker!==null&&blocked(rawMarker.x,rawMarker.z,.22,game.obstacles))
       throw new RangeError('Route sign inside solid cover');
     game.trailMarker=rawMarker===null?null:{x:rawMarker.x,z:rawMarker.z};
@@ -1685,7 +1692,8 @@
     Object.assign(game,{status:'playing',elapsed:saved.elapsed,kills:saved.kills,
       damageFlash:extras.damageFlash,player:p,bots,loot,zone,effects,
       message:saved.message,messageTime:extras.messageTime,
-      lastTagAt:extras.lastTagAt,recentDamage:extras.recentDamage});
+      lastTagAt:extras.lastTagAt,recentDamage:extras.recentDamage,
+       brHeadlamp:{on:lamp.on,ticks:lamp.ticks}});
     game.random.setState(saved.rngState);
     return game;
   }
@@ -1759,6 +1767,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
