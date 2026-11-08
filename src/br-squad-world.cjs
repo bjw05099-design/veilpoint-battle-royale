@@ -62,7 +62,7 @@ class BrSquadWorld {
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,outsideAreaTicks:0,
-          stamina:100,sprintHeld:false,sprintDepleted:false});
+          stamina:100,sprintHeld:false,sprintDepleted:false,spectateSlot:null});
       }
     }
   }
@@ -128,6 +128,24 @@ class BrSquadWorld {
       expiresAtTick:this.tick+SIGNAL_TTL_TICKS};
     this.squadSignals.set(actor.team,notice);
     return {ok:true,signal:{...notice}};
+  }
+  // A withdrawn participant may view one still-eligible member of their OWN
+  // six-person squad. Target selection is by fixed roster slot, not a player
+  // token or arbitrary world coordinate. This never revives an actor.
+  spectate(token,command){
+    const me=this.actors.get(token);
+    if(!me)throw new RangeError('unknown_session');
+    if(!command||typeof command!=='object'||Array.isArray(command)||
+       Object.keys(command).length!==1||!Number.isInteger(command.slot)||
+       command.slot<1||command.slot>SQUAD_SIZE)
+      throw new RangeError('invalid_spectator_slot');
+    if(this.phase!=='moving'||me.eligible)
+      return {ok:false,reason:'spectating_unavailable'};
+    const teammate=[...this.actors.values()].find(p=>
+      p.team===me.team&&p.slot===command.slot-1&&p.eligible);
+    if(!teammate)return {ok:false,reason:'teammate_unavailable'};
+    me.spectateSlot=command.slot;
+    return {ok:true,slot:command.slot,playerId:teammate.id};
   }
   // A participant may withdraw only their OWN authenticated body.
   // Later elimination sources must live behind the game server, not a client
@@ -221,13 +239,20 @@ class BrSquadWorld {
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
     }
-    if(me.eligible){
+    // A withdrawn viewer has no free-flying camera: they can inspect the
+    // genuine live viewpoint of one eligible squad mate. Every rival shown
+    // must satisfy that participant's same live range and obstacle checks.
+    const watched=!me.eligible&&this.phase==='moving'&&me.spectateSlot!==null
+      ?participants.find(p=>p.team===me.team&&p.slot===me.spectateSlot-1&&p.eligible)
+      :null;
+    const observer=me.eligible?me:watched;
+    if(observer){
       // The broadphase cuts needless long-distance sightline tests while
       // preserving roster insertion order, true distance and wall occlusion.
       const nearby=new BrSpatialIndex(participants.filter(p=>p.eligible));
-      for(const p of nearby.nearby(me.x,me.z,weather.visibilityMeters)){
-        if(p.team===me.team||Math.hypot(p.x-me.x,p.z-me.z)>weather.visibilityMeters||
-          Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles))continue;
+      for(const p of nearby.nearby(observer.x,observer.z,weather.visibilityMeters)){
+        if(p.team===me.team||Math.hypot(p.x-observer.x,p.z-observer.z)>weather.visibilityMeters||
+          Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z});
       }
     }
@@ -248,6 +273,8 @@ class BrSquadWorld {
       playableArea,
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
+      spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
+        x:watched.x,z:watched.z}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
