@@ -1596,7 +1596,10 @@
     $('status').textContent=(opening?(opening.location.startsWith('출국 전')?'회상 · ':'현재 · ')+opening.location+' · ':'')+
       controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
-    $('subtitle').textContent=controlText(opening?opening.subtitle:state.subtitle);
+    // Immediate reload feedback takes precedence over optional opening narration.
+    // The briefing keeps its fixed timeline and never blocks gameplay.
+    const urgentReload=state.world.player.reloadHesitation && /안정되면/.test(state.subtitle);
+    $('subtitle').textContent=controlText(urgentReload?state.subtitle:(opening?opening.subtitle:state.subtitle));
     if(Comms&&$('fieldRadio')){
       const radio=Story.localPublicAddress(state)||Comms.briefing(state);
       // Text-only original dialogue. Never interpolate user data into HTML.

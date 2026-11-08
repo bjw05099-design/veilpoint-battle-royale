@@ -57,8 +57,10 @@ test('Windows CH01 objective, subtitle, status and shortcut HUD use one live PC 
  assert.match(app,/\$\('objective'\)\.textContent=controlText\(Story\.objective\(state\)\)/);
  assert.match(app,/controlText\(state\.message\)\+' · 경과 '/,
   'opening location must preserve the live remapped message and elapsed time');
- assert.match(app,/\$\('subtitle'\)\.textContent=controlText\(opening\?opening\.subtitle:state\.subtitle\)/,
-  'both predeparture dialogue and the resumed field subtitle use remapped PC labels');
+ assert.match(app,/\$\('subtitle'\)\.textContent=controlText\(urgentReload\?state\.subtitle:\(opening\?opening\.subtitle:state\.subtitle\)\)/,
+  'the opening and urgent gameplay subtitles both use remapped PC labels');
+ assert.match(app,/const urgentReload=state\.world\.player\.reloadHesitation && \/안정되면\/\.test\(state\.subtitle\)/,
+  'an immediate on-screen status overrides opening recollection when needed');
  assert.match(app,/const opening=Story\.openingBeat\(state\)/);
  assert.match(app,/Desktop\.keyLabel\(bindings\.headlamp\)/);
  assert.match(app,/Desktop\.keyLabel\(bindings\.guidance\)/);
