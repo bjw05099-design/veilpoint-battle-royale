@@ -46,6 +46,7 @@ test('BR96 public civic geometry is authenticated, stable and matches the 60Hz B
    .then(r=>r.json());
   assert.equal(Object.hasOwn(world,'obstacles'),false,'high-rate private frames stay compact');
   assert.deepEqual(world.handcart,{x:Sim.DOCK_HANDCART.x,z:Sim.DOCK_HANDCART.z,
+    w:Sim.DOCK_HANDCART.w,d:Sim.DOCK_HANDCART.d,h:Sim.DOCK_HANDCART.h,
     heldBySelf:false,moving:false},'real cart pose travels with the 60Hz world snapshot');
   assert.equal(Object.hasOwn(world,'publicGeometry'),false);
  }finally{await host.close();}
