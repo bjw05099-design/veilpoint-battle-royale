@@ -144,7 +144,7 @@ test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and sa
   app.moveForward(frame,225);
   app.interact();
   assert.equal(app.element('choices').classList.contains('hidden'),false);
-  assert.equal(app.element('choiceVerified').disabled,true);
+  assert.equal(app.element('choiceVerified').disabled,false);
   app.element('choiceEvac').click();
   assert.match(app.element('objective').textContent,/안뜰/);
   app.moveForward(frame+225,193);
@@ -1476,25 +1476,21 @@ function enterPCStoryDecision(app){
     'the story decision must be reached through the actual 60Hz PC controller');
 }
 
-test('CH01 PC focused decision buttons accept Digit1 and reject locked Digit2 without a softlock',()=>{
+test('CH01 PC focused decision selects an east field route without two papers while ignoring OS repeat',()=>{
   const app=boot(new Map(),false,'granted',true,true);
   enterPCStoryDecision(app);
   const choice=app.element('choiceEvac');
   assert.equal(app.context.document.activeElement,choice,
     'the decision screen must move keyboard focus from the hidden world to a visible action');
-  app.emit('keydown',{code:'Digit2',target:choice});
-  assert.equal(app.element('choices').classList.contains('hidden'),false,
-    'the unearned alternate route cannot be selected with a shortcut');
-  assert.match(app.element('choiceHint').textContent,/경로를 변경할 수 없습니다/);
-  app.emit('keydown',{code:'Digit1',repeat:true,target:choice});
+  app.emit('keydown',{code:'Digit2',repeat:true,target:choice});
   assert.equal(app.element('choices').classList.contains('hidden'),false,
     'OS repeat cannot silently select a narrative branch');
-  app.emit('keydown',{code:'Digit1',target:choice});
+  app.emit('keydown',{code:'Digit2',target:choice});
   assert.equal(app.element('choices').classList.contains('hidden'),true);
-  assert.match(app.element('objective').textContent,/안뜰/);
-  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).choice,'evacuation');
+  assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).choice,'verification',
+    'the east on-site route is usable without collecting paper');
   assert.equal(app.context.document.activeElement,app.element('scene'),
-    'physical gameplay resumes with keyboard focus on the scene');
+    'keyboard focus returns to the real 60Hz first-person world');
 });
 
 test('CH01 PC Escape cancels a focused route dialog without changing story branch',()=>{
