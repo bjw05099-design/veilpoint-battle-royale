@@ -793,6 +793,23 @@
     if(state.phase==='terminal'&&state.world.elapsed>=OPENING_BEATS[OPENING_BEATS.length-1].until&&
        Math.hypot(p.x-POINTS.terminal.x,p.z-POINTS.terminal.z)<=6)
       startUnexpectedEscalation(state);
+    // CH01's first substantive route choice is earned by the captain
+    // physically reaching the staffed harbor corridor after the unexpected
+    // escalation, not by searching ledgers or pressing E on a paper console.
+    // This is an OPTIONAL automatic entry to the EXISTING decision dialog.
+    // Legacy E interaction and all v2 checkpoint fields remain compatible.
+    // Merely restoring a checkpoint already inside the area never triggers it.
+    if(state.phase==='records'&&movedDistance>1e-7){
+      const from=Math.hypot(beforeX-POINTS.decision.x,beforeZ-POINTS.decision.z);
+      const reached=Math.hypot(p.x-POINTS.decision.x,p.z-POINTS.decision.z);
+      if(from>5&&reached<=5&&
+         !Sim.lineBlocked(beforeX,beforeZ,p.x,p.z,state.world.obstacles)){
+        state.phase='decision';
+        state.subtitle='김도겸 중사(무전): 현지 상황이 바뀌었습니다. 유수프 구조단의 남쪽 주민 대피 통로와 현지 승인 후 열리는 동쪽 통로 중 선택해야 합니다. 기록 조사는 필수가 아닙니다.';
+        state.message='현장 접근 후 경로 선택 · 민간 구조단과 협력';
+        syncMarkers(state);
+      }
+    }
     // A player or local pedestrian in the lane stops the van rather than
     // letting its collision body pass through them or teleport to the stop.
     if(state.transportVan&&!state.transportVan.arrived){
