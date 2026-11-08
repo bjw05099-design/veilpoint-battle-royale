@@ -3,7 +3,7 @@
 // simulated 60Hz body in the same physical map; combat, public hosting and the
 // full Aden-sized streaming world remain separate, unimplemented milestones.
 const Sim=require('./simulation.js');
-const {SQUADS,SQUAD_SIZE,CAPACITY}=require('./br-squad-lobby.cjs');
+const {SQUADS,SQUAD_SIZE,CAPACITY,ENTRY_CHOICES}=require('./br-squad-lobby.cjs');
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
@@ -46,8 +46,14 @@ class BrSquadWorld {
     this.squadSignals=new Map();
     const occupied=[];
     const teams=Array.from({length:SQUADS},(_,n)=>n);
+    this.entryPlans=teams.map(team=>lobby.squadEntry(team).choice);
     for(const team of teams) {
-      const cx=-111+Math.floor(team%4)*74,cz=-111+Math.floor(team/4)*74;
+      // Each squad starts at a nearby pedestrian entrance selected by its
+      // actual six human votes BEFORE the server locks all 96 seats. Never
+      // accept client-authored spawn coordinates or mid-round teleporting.
+      const selection=ENTRY_CHOICES[this.entryPlans[team]];
+      const cx=-111+Math.floor(team%4)*74+selection.dx;
+      const cz=-111+Math.floor(team/4)*74+selection.dz;
       for(let slot=0;slot<SQUAD_SIZE;slot++) {
         const token=lobby.seats[team][slot];
         if(!token)throw new Error('incomplete_squad');
@@ -411,6 +417,7 @@ class BrSquadWorld {
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       coastalWeather:weather,
       playableArea,
+      squadEntry:this.entryPlans[me.team],
       civicGate:this.gateSnapshot(),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
