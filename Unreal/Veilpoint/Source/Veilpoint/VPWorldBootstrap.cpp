@@ -180,6 +180,23 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedPublicBlock& Block : SharedTransitCourt)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // The original, walkable public coast promenade is now authored once for
+    // both BR and CH01 in browser simulation. Replicate its six visible,
+    // colliding ground-level public bodies into the native world blockout:
+    // the 12-metre center is a genuine walk-through corridor, not a sealed
+    // house or an interaction-only marker. Construct for every client before
+    // the game-mode split. No surveyed Aden sensitive-site geometry is used.
+    static const FSharedPublicBlock SharedCoastalPromenade[] = {
+        {-40.f,72.f,.7f,.7f,3.f},
+        {-16.f,72.f,.7f,.7f,3.f},
+        {-40.f,89.f,.7f,.7f,3.f},
+        {-16.f,89.f,.7f,.7f,3.f},
+        {-37.f,80.f,2.4f,1.f,.7f},
+        {-19.f,80.f,2.4f,1.f,.7f}
+    };
+    for (const FSharedPublicBlock& Block : SharedCoastalPromenade)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
