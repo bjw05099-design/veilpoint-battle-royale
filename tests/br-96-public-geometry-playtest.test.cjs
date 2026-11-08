@@ -28,9 +28,14 @@ test('BR96 public civic geometry is authenticated, stable and matches the 60Hz B
   assert.equal(reply.status,200);
   const data=await reply.json();
   assert.equal(data.schema,'veilpoint-br96-public-geometry-v1');
+  // Dynamic handcart motion belongs to authenticated 60Hz snapshots, not
+  // the cached once-per-round immutable public-building geometry.
   const expected=Sim.newMatch(20261108,0,'carbine').obstacles
+   .filter(o=>o.routeId!=='br-dock-handcart')
    .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,type:o.type}));
   assert.deepEqual(data.obstacles,expected);
+  assert.equal(data.obstacles.some(o=>o.type==='dock-handcart'),false,
+    'a moving physical cart cannot be frozen at its initial cached position');
   const raw=JSON.stringify(data);
   for(const member of players)assert.equal(raw.includes(member),false,'never serialize any private token');
   assert.equal(raw.includes('eligibleMembers'),false,'not a covert opponent roster');
@@ -40,6 +45,9 @@ test('BR96 public civic geometry is authenticated, stable and matches the 60Hz B
   const world=await fetch(base+'/world',{headers:{'x-player-token':players[0]}})
    .then(r=>r.json());
   assert.equal(Object.hasOwn(world,'obstacles'),false,'high-rate private frames stay compact');
+  assert.deepEqual(world.handcart,{x:Sim.DOCK_HANDCART.x,z:Sim.DOCK_HANDCART.z,
+    w:Sim.DOCK_HANDCART.w,d:Sim.DOCK_HANDCART.d,h:Sim.DOCK_HANDCART.h,
+    heldBySelf:false,moving:false},'real cart pose travels with the 60Hz world snapshot');
   assert.equal(Object.hasOwn(world,'publicGeometry'),false);
  }finally{await host.close();}
 });

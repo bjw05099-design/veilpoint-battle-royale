@@ -119,7 +119,7 @@ function render(){
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
- for(const id of ['regroup','location','sprint','civicGate'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate','handcart'])el(id).disabled=!active();
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -169,6 +169,7 @@ function render(){
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
+    (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
     (w.squadRoute?'\n분대 이동 합의: '+(w.squadRoute.target?.label||'투표 진행 중')+
       ' · 투표 '+Object.values(w.squadRoute.tally).reduce((sum,n)=>sum+n,0)+'/'+w.squadRoute.eligibleMembers+
       (w.squadRoute.target?' · 현장 도착 '+w.squadRoute.arrived+'명':''):'')+
@@ -230,7 +231,7 @@ function draw(w){
    ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
    subject,yaw:streetYaw,obstacles:publicGeometry,
-   civicGate:w.civicGate,squad:w.squad||[],visible:w.visible||[],
+   civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
   return;
  }
@@ -281,6 +282,11 @@ function draw(w){
    const g=w.civicGate;
    ctx.fillStyle=g.state==='closed'?'#dcb573':'#9dcdbb';
    ctx.fillRect(x(g.x-g.w/2),z(g.z-g.d/2),g.w*scale,Math.max(2,g.d*scale));
+ }
+ if(w.handcart){
+   const cart=w.handcart;
+   ctx.fillStyle=cart.heldBySelf?'#d5bb88':'#9db2a9';
+   ctx.fillRect(x(cart.x-cart.w/2),z(cart.z-cart.d/2),cart.w*scale,cart.d*scale);
  }
  // Only public rule geometry and the authenticated, already-filtered
  // snapshot are drawn. The client does NOT know unobserved opponents.
@@ -448,6 +454,13 @@ function setAudioPanel(open){
  else el('soundSettings').focus({preventScroll:true});
  render();
 }
+async function operateHandcart(){
+ if(!active())return;
+ const result=await command('/handcart',{},null);
+ if(result?.ok)message(result.action==='grip'
+   ?'항구 손수레를 잡았습니다. 손수레 방향으로 걸으면 실제로 함께 이동합니다. T로 놓기.'
+   :'항구 손수레를 내려놓았습니다.');
+}
 async function operateGate(){
  if(!active())return;
  const result=await command('/civic-gate',{},null);
@@ -512,6 +525,7 @@ document.addEventListener('keydown',event=>{
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
+ else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
  else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();voteLiveRoute();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
@@ -590,6 +604,7 @@ el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
 el('civicGate').addEventListener('click',operateGate);
+el('handcart').addEventListener('click',operateHandcart);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));

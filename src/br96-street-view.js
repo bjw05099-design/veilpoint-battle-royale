@@ -41,7 +41,7 @@
   const factor=Math.max(.36,1-depth/135);
   return 'rgb('+base.map(v=>Math.round(v*factor)).join(',')+')';
  }
- function frame({subject,yaw=0,obstacles=[],civicGate=null,
+ function frame({subject,yaw=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
   if(!subject||![subject.x,subject.z].every(Number.isFinite))
    throw new RangeError('server_subject_required');
@@ -53,6 +53,10 @@
     o.w>0&&o.d>0&&Math.hypot(o.x-subject.x,o.z-subject.z)<MAX_DISTANCE+120);
   if(civicGate&&[civicGate.x,civicGate.z,civicGate.w,civicGate.d].every(Number.isFinite)&&
      civicGate.w>0&&civicGate.d>0)solids.push({...civicGate,type:'civic-gate'});
+  // Moving harbor cart is carried by the authenticated server snapshot,
+  // never by the once-per-round immutable public geometry cache.
+  if(handcart&&[handcart.x,handcart.z,handcart.w,handcart.d].every(Number.isFinite)&&
+     handcart.w>0&&handcart.d>0)solids.push({...handcart,type:'dock-handcart'});
   // Fixed equal-angle ray columns: depth and sprite masking are read-only.
   const rays=Array.from({length:COLUMNS},(_,index)=>{
    const alpha=((index+.5)/COLUMNS-.5)*FOV;
@@ -88,12 +92,12 @@
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
     angle,columns:COLUMNS,maxDistance});
  }
- function draw(ctx,{width,height,subject,yaw,obstacles,civicGate,squad,visible,
+ function draw(ctx,{width,height,subject,yaw,obstacles,civicGate,handcart,squad,visible,
    visibilityMeters,weather}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
-  const model=frame({subject,yaw,obstacles,civicGate,squad,visible,visibilityMeters});
+  const model=frame({subject,yaw,obstacles,civicGate,handcart,squad,visible,visibilityMeters});
   const haze=weather?.code==='sea-haze',horizon=height*.52;
   ctx.fillStyle=haze?'#667b7e':'#708b92';ctx.fillRect(0,0,width,horizon);
   ctx.fillStyle='#3d4340';ctx.fillRect(0,horizon,width,height-horizon);
