@@ -87,8 +87,7 @@ class BrSquadLobby {
     if(!member)throw new RangeError('unknown_session');
     if(this.phase!=='assembling')return {ok:false,reason:'roster_locked'};
     if(typeof raw!=='string'||raw!==raw.trim()||!raw||
-       Array.from(raw).length>96||INVALID_NAME.test(raw)||
-       /[\\u0000-\\u001f\\u007f-\\u009f]/u.test(raw))
+       Array.from(raw).length>96||INVALID_NAME.test(raw))
       return {ok:false,reason:'invalid_chat'};
     if(!Number.isSafeInteger(nowMs)||nowMs<0)
       throw new RangeError('invalid_server_clock');
