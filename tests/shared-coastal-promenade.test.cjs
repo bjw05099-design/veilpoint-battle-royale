@@ -35,9 +35,11 @@ test('new original shore promenade has identical physical supports and a clear w
 });
 test('legacy offline terrain remains as recorded; both current mode saves keep the same source',()=>{
  const old=Sim.newMatch(77,0,'carbine',false,'central','day',0);
+ old.status='playing';
  assert.deepEqual(geometry(old),[]);
  assert.deepEqual(geometry(Sim.restoreMatch(Sim.snapshotMatch(old))),[]);
  const current=Sim.newMatch(77,0);
+ current.status='playing';
  assert.deepEqual(geometry(Sim.restoreMatch(Sim.snapshotMatch(current))),expected);
  const state=Story.createState(),saved=Story.serialize(state);
  assert.deepEqual(geometry(Story.restore(saved).world),expected);
