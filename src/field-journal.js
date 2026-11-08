@@ -53,9 +53,13 @@
     if(state&&state.dispatchReviewed)note('dispatch','남쪽 구조단 접수 장부',
       '현장에서 직접 읽은 접수 장부: 비상 물품 요청은 접수됐지만 인수 서명란은 비어 있다. 실제 현장 인계 여부는 별도로 확인해야 한다.');
     if(state&&state.transportContact>0)note('transport','현지 운송 담당자 대면 면담',
-      state.transportContact===2
-        ?'남쪽 접근로에서 나딤과 직접 대화하고 담당자의 진술을 재확인했다. 차량이 배정됐다는 진술만 있으며 실제 현장 도착과 수송 실적은 아직 확인되지 않았다.'
-        :'남쪽 접근로에서 나딤의 차량 배정 진술을 직접 들었다. 출발·현장 도착 여부는 재확인 전이다.');
+      state.transportVan?.arrived
+        ?'남쪽 공공 도로의 실제 이동 차량이 승차 지점에 도착했다. 탑승·인원 수송과 철수 완료 여부는 별도로 확인해야 한다.'
+        :state.transportVan
+          ?'나딤이 현장에서 요청을 수락했고 차량이 실제 도로를 따라 접근 중이다. 도착과 수송은 미확인이다.'
+          :state.transportContact===2
+            ?'기존 저장 기록에 따르면 면담을 마쳤다. 차량 도착 여부는 확인되지 않았다.'
+            :'나딤의 기존 면담이 기록되어 있다. 출발·도착은 여전히 미확인이다.');
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
       '남쪽 집결지에 실제로 있는 유수프 구조단 담당자와 대피 지원을 직접 협의했다. 미확인 인원은 확인된 수로 간주하지 않는다.');
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
@@ -80,7 +84,7 @@
         ?['남쪽 안뜰 대피 경로 완료',
           state.musterConfirmed?'구조단 담당자 현장 협의 완료':'구조단 담당자 현장 협의 미실시',
           state.dispatchReviewed?'접수 장부 현장 열람 완료':'접수 장부 현장 미열람',
-          state.transportContact===2?'운송 담당자 현장 면담 완료':state.transportContact===1?'운송 담당자 진술 재확인 전':'운송 담당자 면담 미진행',
+          state.transportVan?.arrived?'운송 차량 승차 지점 실제 도착 · 탑승 미확인':state.transportVan?'운송 차량 이동 중 · 승차 지점 미도착':state.transportContact===2?'운송 담당자 현장 면담 완료':state.transportContact===1?'운송 담당자 진술 재확인 전':'운송 담당자 면담 미진행',
           state.aidDelivered?'비상 물품 인계 완료':'비상 물품 인계 미완료',
           state.guide?.arrived?'안내원 안뜰 도착':
             state.guide?.released?'안내원 구조단 인계 완료':'안내원 동행 선택 미완료']

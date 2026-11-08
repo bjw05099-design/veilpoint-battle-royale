@@ -233,6 +233,7 @@ class SoftwareRenderer {
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type==='aden-shade-post'||o.type==='aden-shade-seat'?o.type:
      o.type==='dock-handcart'?'dock-handcart':
+     o.type==='story-civil-transport'?'story-civil-transport':
      o.type==='story-building'?'story-building':
      o.type==='story-warehouse'?'story-warehouse':
      o.type==='story-office-wall'?'story-office-wall':
@@ -302,7 +303,7 @@ class SoftwareRenderer {
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
-   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if(harborNight&&state.flashlightOn&&state.flashlightTicks>0){
@@ -744,6 +745,16 @@ class Renderer {
     state.relayRestored?[1.45,1.12,.65]:[.16,.17,.17]);
  }
  const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
+  // The moving civilian vehicle is never baked into the static mesh. Live
+  // geometry derives directly from the world collision body's saved pose.
+  if(state.scene==='nahrin'&&state.transportVan&&
+     Math.hypot(state.player.x-state.transportVan.x,state.player.z-state.transportVan.z)<115){
+    const v=state.transportVan;
+    mesh.box(v.x,0,v.z,2.4,1.45,3.8,[.35,.45,.49]);
+    mesh.box(v.x,1.45,v.z,2.25,.82,3.35,[.36,.46,.51]);
+    mesh.box(v.x,1.46,v.z+1.71,1.60,.53,.045,[.18,.27,.31]);
+    mesh.box(v.x,2.28,v.z,2.2,.08,3.3,[.47,.50,.46]);
+  }
  this.lastVisibilityStats=plan.stats;
  // BR gate collision and the visible 3D panel share the same live X position.
  // Culling already budgets this exact one-box dynamic mesh contribution.
@@ -891,7 +902,7 @@ class Renderer {
  if(scene!==this.sceneMode||terrainRevision!==this.worldTerrainRevision){
   this.sceneMode=scene;
   this.worldTerrainRevision=terrainRevision;
-  this.sceneObstacles=scene==='nahrin'?state.obstacles.filter(o=>o.type&&o.type.startsWith('story-')).map(o=>({...o})):[];
+  this.sceneObstacles=scene==='nahrin'?state.obstacles.filter(o=>o.type&&o.type.startsWith('story-')&&o.routeId!=='story-civil-transport').map(o=>({...o})):[];
   if(this.static.buffer)this.gl.deleteBuffer(this.static.buffer);
   this.static=new Mesh();this.generate();
  }
