@@ -1383,7 +1383,7 @@
     syncRoute(state);
     state.combat.nextPulseAt=state.world.elapsed+3;
     state.world.bots=makeHostiles();
-    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기 어려워졌습니다. 이 도시의 주민에게는 2015년 이후 불안정했던 일상이 또 흔들리는 겁니다. 현지 구조단의 결정을 먼저 들어야 합니다.';
+    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 이 도시의 주민에게는 2015년 이후 불안정했던 일상이 또 흔들리는 겁니다. 현지 구조단의 결정을 먼저 들어야 합니다.';
     state.message='갑작스러운 현지 충돌 확대 · 현장 대응과 주민 보호';
     syncMarkers(state);
     return true;
@@ -1875,7 +1875,7 @@
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
-        '이수혁 대위: 한국에서 받은 파견 임무와 이곳에서 벌어진 일이 달라졌습니다. 지휘계통에 확인된 사실만 보고하겠습니다. 주민이 스스로 결정한 이동과 우리가 돕지 못한 일까지 구분하겠습니다. 철수 가능 여부는 새로 판단해야 합니다.'+
+        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 한국에서 받은 지시는 여전히 유효하지만 이곳에서 벌어진 일을 지울 수는 없습니다. 지휘계통에 확인된 사실만 보고하겠습니다. 주민이 스스로 결정한 이동과 우리가 돕지 못한 일까지 구분하겠습니다. 철수 가능 여부는 새로 판단해야 합니다.'+
         (street?' '+street:'')+(workerReport||'')+yieldedVan+rememberedSouth]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
