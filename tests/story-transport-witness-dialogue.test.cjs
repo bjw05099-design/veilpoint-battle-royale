@@ -19,33 +19,30 @@ function evacuation(){
  assert.equal(Story.choose(state,'evacuation').ok,true);
  return state;
 }
-test('new local transport NPC supports two deliberate conversation stages and real story feedback',()=>{
+test('one local civilian driver request starts an observable vehicle rather than duplicate interviews',()=>{
  const s=evacuation();
  assert.equal(s.transportContact,0);
  assert.equal(Story.markers(s).some(p=>p.id==='transportDriver'),true);
- assert.equal(Story.interact(s).ok,false,'no long-distance conversation');
+ assert.equal(Story.interact(s).ok,false,'no long-distance dispatch');
  go(s,'transportDriver');
  assert.equal(Story.nearest(s).id,'transportDriver');
- let reply=Story.interact(s);
- assert.equal(reply.ok,true);
+ assert.equal(Story.interact(s).ok,true);
  assert.equal(s.transportContact,1);
- assert.match(s.subtitle,/나딤/);
- assert.match(s.subtitle,/도착하지 않았/);
- assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),true);
- assert.equal(Journal.entries(s).some(m=>m.id==='transport'),true);
- assert.match(Journal.entries(s).find(m=>m.id==='transport').detail,/재확인 전/);
- const first=Story.serialize(s);
- assert.equal(Story.serialize(Story.restore(first)),first);
- reply=Story.interact(s);
- assert.equal(reply.ok,true);
- assert.equal(s.transportContact,2);
- assert.match(s.subtitle,/조현지/);
+ assert.ok(s.transportVan&&!s.transportVan.arrived);
  assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
- assert.equal(Story.nearest(s)?.id==='transportDriver',false);
+ assert.equal(Journal.entries(s).some(m=>m.id==='transport'),true);
+ assert.match(Journal.entries(s).find(m=>m.id==='transport').detail,/접근 중/);
+ const inTransit=Story.serialize(s);
+ assert.equal(Story.serialize(Story.restore(inTransit)),inTransit);
+ s.world.player.x=0;s.world.player.z=-54;
+ for(let i=0;i<1100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
+ assert.equal(s.transportContact,2);
+ assert.equal(s.transportVan.arrived,true);
+ assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
  assert.ok(s.world.witness&&s.world.witness.x===10&&s.world.witness.z===-54);
  assert.equal(Story.missionTasks(s).some(t=>t.id==='driver'),false,
-   'an optional observed conversation is not a compulsory mission checklist');
- assert.match(Journal.entries(s).find(t=>t.id==='transport').detail,/현장 도착/);
+   'vehicle progress does not become a compulsory document checklist');
+ assert.match(Journal.entries(s).find(t=>t.id==='transport').detail,/승차 지점에 도착/);
  const done=Story.serialize(s);
  assert.equal(Story.serialize(Story.restore(done)),done);
 });
