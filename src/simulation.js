@@ -417,6 +417,20 @@
       [-117,135,3.5,.7,.75,'aden-market-court-bench'],
       [-97,120,3.5,.7,.75,'aden-market-court-bench']
     ])o.push({x,z,w,d,h,type});
+    // Eastern civilian transit forecourt. Open 14m-wide entrances at both
+    // ends, two side benches and continuous ground-level pedestrian axis.
+    // No real-world landmark replica. Story and BR use these SAME solids.
+    // This extends revision-1 only; older stored terrain remains untouched.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [118,125,.75,26,3.1,'aden-transit-court-wall'],
+      [150,125,.75,26,3.1,'aden-transit-court-wall'],
+      [122,138,7,.75,3.1,'aden-transit-court-wall'],
+      [146,138,7,.75,3.1,'aden-transit-court-wall'],
+      [122,112,7,.75,3.1,'aden-transit-court-wall'],
+      [146,112,7,.75,3.1,'aden-transit-court-wall'],
+      [122,125,2.2,4,1.0,'aden-transit-court-bench'],
+      [146,125,2.2,4,1.0,'aden-transit-court-bench']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -480,7 +494,7 @@
     // rare local overlap with the new block deterministically below.
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
       !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
-      !o.type.startsWith('aden-market-court-'));
+      !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
