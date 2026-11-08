@@ -1,8 +1,8 @@
 'use strict';
-// A server-owned, clearly announced playable-area schedule for the local
-// 96-human prototype. This is a *match boundary*, never a magical physical
-// wall or a real coastal closure. No fabricated danger, elimination or
-// victory can be inferred from simply crossing this line.
+// Server-owned playable-area schedule for the local 96-human prototype.
+// It is a match rule, NOT a solid wall or real-world coastal closure.
+// Retirement requires a separate 60Hz consecutive grace policy in BrSquadWorld;
+// this pure geometry helper never damages, ranks or removes anyone.
 const TICKS_PER_SECOND=60;
 const STAGES=Object.freeze([
  Object.freeze({start:0,end:60*TICKS_PER_SECOND,from:170,to:170,label:'open'}),
@@ -26,8 +26,8 @@ function positionInArea(area,x,z){
     !Number.isFinite(x)||!Number.isFinite(z))
   throw new RangeError('invalid_area_position');
  const margin=area.radius-Math.hypot(x-area.cx,z-area.cz);
- // No automatic punishment: a separate future server-owned game policy
- // must be independently implemented and fully tested before elimination.
+ // A geometrical warning only; consequences are decided solely by the
+ // server's actual consecutive outside tick count, never by this helper.
  return Object.freeze({outside:margin<0,
   metersToEdge:Math.round(Math.abs(margin)*100)/100,
   nearEdge:margin>=0&&margin<=12});
