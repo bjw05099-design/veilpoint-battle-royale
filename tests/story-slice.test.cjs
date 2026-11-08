@@ -437,7 +437,12 @@ test('CH01 route consequence appears in browser HUD without changing checkpoint 
   const html=fs.readFileSync(path.resolve(__dirname,'../story.html'),'utf8');
   const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
   assert.match(html,/id="routeStatus"/);
-  assert.match(html,/임시행정부.*제한적/);
+  const intro=html.match(/<p id="menuText">([\s\S]*?)<\/p>/)?.[1];
+  assert.ok(intro, 'CH01 introduction remains visible');
+  assert.match(intro,/한국에서 출국하기 전.*제한적 파견 임무와 복귀 계획/);
+  assert.match(intro,/도착한 뒤 예상하지 못한 내전 확대/);
+  assert.ok(intro.indexOf('한국에서 출국하기 전') < intro.indexOf('예상하지 못한 내전 확대'));
+  assert.doesNotMatch(intro,/최초 파견 지시서/);
   assert.ok(app.includes('Story.situation(state)'));
   assert.ok(app.includes('situation.route'));
   const state=reachDecision();
