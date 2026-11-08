@@ -494,6 +494,18 @@ class Renderer {
    m.box(o.x,o.h-.18,o.z,o.w,.20,o.d,[.57,.54,.48]);
    return;
   }
+  if(o.type==='aden-gallery-post'){
+   // Open gallery supports are real 60Hz solids; no invisible arch wall.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.61,.54,.44]);
+   m.box(o.x,o.h-.18,o.z,o.w,.18,o.d,[.75,.65,.52]);
+   return;
+  }
+  if(o.type==='aden-gallery-counter'){
+   // Two merchant counters are shallow, separate, physically walk-around.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.43,.36,.28]);
+   m.box(o.x,o.h-.15,o.z,o.w,.15,o.d,[.67,.55,.39]);
+   return;
+  }
   if(o.type==='aden-promenade-post'){
    // Real fixed-step columns are drawn at their exact collision footprints.
    // A roof can be represented separately without becoming a ground barrier.
