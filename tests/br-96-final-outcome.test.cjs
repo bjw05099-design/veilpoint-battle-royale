@@ -26,7 +26,7 @@ test('server announces the sole surviving six-person squad without inventing per
     kind:'squad_win',winningSquad:16,ownSquadPlacement:1,finishedTick:world.tick
   });
   assert.deepEqual(retired.matchOutcome,{
-    kind:'squad_placed',winningSquad:16,ownSquadPlacement:2,finishedTick:world.tick
+    kind:'squad_placed',winningSquad:16,ownSquadPlacement:16,finishedTick:world.tick
   });
   const terminal=world.snapshot(token(90)).matchOutcome;
   world.step();
