@@ -50,7 +50,9 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, bSprinting);
     DOREPLIFETIME(AVPCharacter, bSprintExhausted);
     DOREPLIFETIME(AVPCharacter, bFieldLightOn);
-    DOREPLIFETIME(AVPCharacter, FieldLightSecondsRemaining);
+    // Other clients need the lamp's visible on/off state, not the owner's
+    // finite battery telemetry. Keep 96-player replication bounded.
+    DOREPLIFETIME_CONDITION(AVPCharacter, FieldLightSecondsRemaining, COND_OwnerOnly);
 }
 void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 {
