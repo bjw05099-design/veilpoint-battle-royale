@@ -11,11 +11,13 @@ const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
+let publicGeometry=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='';
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
+ publicGeometry=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';
  try{sessionStorage.removeItem(SESSION);}catch(_){}
  render();
@@ -52,6 +54,7 @@ function currentWorld(){return state&&state.world&&state.world.mode==='br-96-tra
 function active(){const w=currentWorld();return !!token&&!!w&&w.phase==='moving'&&w.self?.eligible;}
 function render(){
  const w=currentWorld();
+ if(w&&!publicGeometry&&!geometryBusy)loadPublicGeometry();
  el('join').disabled=!!token;
  el('invite').disabled=!token||state?.phase!=='assembling';
  el('leave').disabled=!token||state?.phase!=='assembling';
@@ -118,6 +121,22 @@ function draw(w){
   ctx.beginPath();ctx.moveTo(x(-175),z(m));ctx.lineTo(x(175),z(m));ctx.stroke();
  }
  if(!w)return;
+ // Draw the same PUBLIC fictional building footprints used by server-owned
+ // 60Hz collision: wide sidewalks remain visible, walls are not magic.
+ // Static urban objects are downloaded once per valid match, never mixed into
+ // private rival snapshots or invented from the 2D canvas renderer.
+ if(publicGeometry){
+  for(const solid of publicGeometry){
+   if(!Number.isFinite(solid.x)||!Number.isFinite(solid.z)||
+      !Number.isFinite(solid.w)||!Number.isFinite(solid.d)||
+      solid.w<=0||solid.d<=0)continue;
+   ctx.fillStyle=solid.type==='building'||solid.type==='dock-warehouse'?'#526970':
+     solid.type?.includes('wall')?'#4d6265':
+     solid.type?.includes('counter')||solid.type?.includes('bench')?'#a28c67':'#405358';
+   ctx.fillRect(x(solid.x-solid.w/2),z(solid.z-solid.d/2),
+     solid.w*scale,solid.d*scale);
+  }
+ }
  // Only public rule geometry and the authenticated, already-filtered
  // snapshot are drawn. The client does NOT know unobserved opponents.
  ctx.strokeStyle='#99cfd5';ctx.lineWidth=3;
@@ -243,6 +262,27 @@ async function movement(){
   consecutiveErrors++;
   if(consecutiveErrors>=2)message('이동 서버 연결 확인 필요 · 입력을 재시도합니다.');
  }finally{moveBusy=false;}
+}
+async function loadPublicGeometry(){
+ if(!token||geometryBusy||publicGeometry)return;
+ geometryBusy=true;
+ const currentToken=token;
+ try{
+  const record=await request('/world-geometry');
+  if(token!==currentToken)return;
+  if(record.schema!=='veilpoint-br96-public-geometry-v1'||!Array.isArray(record.obstacles)||
+     record.obstacles.length>4000)throw Error('invalid_public_world');
+  const valid=record.obstacles.every(o=>o&&typeof o.type==='string'&&
+    [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0);
+  if(!valid)throw Error('invalid_public_geometry');
+  publicGeometry=record.obstacles;
+  render();
+ }catch(error){
+  // The server may transition from lobby to world after the previous poll.
+  // A subsequent authenticated poll can retry; never display fake colliders.
+  if(token===currentToken&&error.message!=='round_not_started')
+   message('공공 도시 지형을 불러오지 못했습니다. 서버 재연결 후 다시 확인하세요.');
+ }finally{geometryBusy=false;}
 }
 async function poll(){
  if(!token||pollBusy)return;

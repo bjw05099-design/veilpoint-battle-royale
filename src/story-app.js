@@ -1670,14 +1670,24 @@
     const healthBefore=state.world.player.health;
     const guideArrivedBefore=state.guide.arrived;
     const completeBefore=state.phase==='complete';
+    const recordsBefore=state.phase==='records';
     const shotsBefore=running&&state.phase==='engagement'
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
+      if(state.phase==='decision')return; // Freeze pending route choice during a catch-up frame.
       Story.step(state,step,input);
       if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true,input.crouch).ok){
         audio.play('shot');persistShot();
       }
     });
+    // Actual arrival near the local route fork now opens the original
+    // keyboard-accessible choice overlay automatically. The old E marker
+    // remains functional for previously saved checkpoints in the area.
+    if(running&&recordsBefore&&state.phase==='decision'){
+      guidanceId=null;
+      persist('현장 경로 분기 도착');
+      showChoices();
+    }
     // Physical courtyard/clearance arrival is a real fixed-step CH01 ending,
     // not a UI-only marker state. Persist it before displaying the debrief.
     if(running&&!completeBefore&&state.phase==='complete'){
