@@ -475,6 +475,18 @@ class Renderer {
    m.box(o.x,o.h-.18,o.z,o.w,.20,o.d,[.57,.54,.48]);
    return;
   }
+  if(o.type==='aden-promenade-post'){
+   // Real fixed-step columns are drawn at their exact collision footprints.
+   // A roof can be represented separately without becoming a ground barrier.
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.53,.48,.40]);
+   m.box(o.x,o.h-.18,o.z,o.w,.18,o.d,[.68,.61,.51]);
+   return;
+  }
+  if(o.type==='aden-promenade-seat'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.46,.41,.34]);
+   m.box(o.x,o.h-.12,o.z,o.w,.12,o.d,[.63,.57,.47]);
+   return;
+  }
   if(o.type==='aden-transit-court-wall'){
    // Exactly one visible wall for each shared collision body.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.62,.54,.46]);
