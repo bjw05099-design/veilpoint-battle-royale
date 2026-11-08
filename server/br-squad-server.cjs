@@ -3,10 +3,15 @@
 // deployment are separate future milestones; do not expose this to WAN.
 const http=require('node:http');
 const crypto=require('node:crypto');
+const fs=require('node:fs');
+const path=require('node:path');
 const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
 const {BrSquadWorld}=require('../src/br-squad-world.cjs');
 const {createFixedStepClock}=require('./team-server.cjs');
 const {readJson}=require('./json-body.cjs');
+const BR96_HTML=fs.readFileSync(path.resolve(__dirname,'../br96.html'));
+const BR96_CLIENT=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'));
+
 function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTick=true}={}) {
  if(!['127.0.0.1','localhost','::1'].includes(host))throw new RangeError('loopback_host_required');
  const lobby=new BrSquadLobby();
@@ -54,6 +59,18 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       return send(res,403,{error:'cross_origin'});
    const url=new URL(req.url,'http://localhost');
    if(url.search||url.hash)return send(res,400,{error:'unexpected_query'});
+   // Serve only the two locally owned, hard-coded browser assets. The HTTP
+   // world API stays bound to loopback; no path traversal or token in URL.
+   if(req.method==='GET'&&(url.pathname==='/'||url.pathname==='/br96-client.js')){
+     const script=url.pathname==='/br96-client.js';
+     res.writeHead(200,{
+       'Content-Type':script?'text/javascript; charset=utf-8':'text/html; charset=utf-8',
+       'Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
+       'X-Frame-Options':'DENY','Referrer-Policy':'no-referrer'
+     });
+     return res.end(script?BR96_CLIENT:BR96_HTML);
+   }
    if(req.method==='POST'&&url.pathname==='/join'){
     const body=await readJson(req,1024,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||
@@ -210,3 +227,18 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
   })};
 }
 module.exports={createBrSquadServer};
+if(require.main===module){
+ const raw=process.env.VEILPOINT_BR96_PORT||'8130';
+ const port=Number(raw);
+ if(!Number.isInteger(port)||port<1024||port>65535){
+   process.stderr.write('Invalid VEILPOINT_BR96_PORT (1024–65535)\\n');
+   process.exitCode=1;
+ }else{
+   createBrSquadServer({host:'127.0.0.1',port}).listen().then(address=>{
+     process.stdout.write('VEILPOINT BR96 local test: http://127.0.0.1:'+address.port+'/\\n');
+   }).catch(error=>{
+     process.stderr.write('BR96 failed to listen: '+error.message+'\\n');
+     process.exitCode=1;
+   });
+ }
+}
