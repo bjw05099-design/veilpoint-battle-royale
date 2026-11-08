@@ -42,9 +42,11 @@ test('actual 60Hz actor movement crosses the shared hall entrance and collides w
 
 test('terrain revision zero and old saved data do not acquire the new wall after restore',()=>{
  const historical=Sim.newMatch(9803,0,'carbine',false,'central','day',0);
+ historical.status='playing';
  assert.equal(hall(historical).length,0);
  assert.equal(hall(Sim.restoreMatch(Sim.snapshotMatch(historical))).length,0);
  const current=Sim.newMatch(9803,0);
+ current.status='playing';
  assert.deepEqual(hall(Sim.restoreMatch(Sim.snapshotMatch(current))),expected);
  const chapter=Story.createState();
  const restored=Story.restore(Story.serialize(chapter));
