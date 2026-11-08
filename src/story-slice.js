@@ -1505,6 +1505,32 @@
   }
   // A completed *preview* produces a factual, bounded handoff for future authored
   // scenes. No unseen motive, chapter unlock, or resolved clock discrepancy is invented.
+  // The end of CH01 is a scene with local decision-makers, not another form
+  // to collect. All lines derive from witnessed actions in the completed
+  // physical world. Unknown civilian movements and blocked return routes
+  // remain explicitly unresolved; no campaign chapter is silently unlocked.
+  function closingScene(state) {
+    if(state.phase!=='complete')return null;
+    const east=state.choice==='verification';
+    const local=east
+      ?'마라(현지 기술자): 동쪽 문이 실제로 열렸어요. 통로 운영은 현지 구조단이 맡습니다.'
+      :(state.aidDelivered
+        ?'유수프(현지 구조단): 물품은 우리가 현장에서 인수했어. 주민 접수는 계속할게.'
+        :'유수프(현지 구조단): 남쪽 안뜰은 우리가 관리하고 있어. 아직 확인하지 못한 주민도 있어.');
+    const civilian=state.civilianWalker?.arrived===true
+      ?'조현지: 걸어서 도착한 주민 한 명은 확인됐습니다. 다른 주민의 대피 완료까지 단정할 수는 없습니다.'
+      :'조현지: 현지 주민의 이동은 아직 확인되지 않았습니다. 구조단과 확인된 범위를 구분해 보고하겠습니다.';
+    const radio=state.relayRestored
+      ?'김지윤: 현장 비상 통신은 복구됐습니다. 그래도 본래 복귀 계획의 재승인과 이동 안전은 별개의 문제입니다.'
+      :'김지윤: 통신 복구 여부는 미확인입니다. 한국에서 승인받은 복귀 일정대로 움직일 수 있는지도 재확인이 필요합니다.';
+    return Object.freeze({
+      location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
+      route:east?'east-physically-opened':'south-civilian-priority',
+      lines:Object.freeze([local,civilian,radio,
+        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.']),
+      nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
+    });
+  }
   function debrief(state) {
     if(state.phase!=='complete')return null;
     const verified=state.choice==='verification';
@@ -1512,6 +1538,7 @@
     const conflict=records.length===2;
     return Object.freeze({
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
+      closingScene:closingScene(state),
       optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
@@ -1975,6 +2002,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,missionTasks,optionalTaskAudit,debrief,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
