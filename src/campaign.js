@@ -19,8 +19,14 @@
     Object.freeze({id:'mara-dahan',nameKo:'마라 다한',roleKo:'나흐린 시민 통신기술자',affiliationKo:'나흐린 시민 공동체'}),
     Object.freeze({id:'yusuf-rahal',nameKo:'유수프 라할',roleKo:'현지 구조 책임자',affiliationKo:'시민 구조단'})
   ]);
-  // Ratios are authored pacing targets; never presented as measured playtime.
-  const COMBAT_FOCUS = Object.freeze({targetShareMin:0.60,targetShareMax:0.65,
+  // Author-approved 12h pacing targets. They are NOT measured or already playable.
+  // Character scenes support a war-led FPS rather than forcing constant choices.
+  // The four categories are exclusive for future playtest timing; a subtitle
+  // playing over active movement does not double-count elapsed seconds.
+  const EXPERIENCE_SHARE_PERCENT = Object.freeze({
+    combat:50,urgentMovementAndRescue:20,characterAndStory:22,exploration:8
+  });
+  const COMBAT_FOCUS = Object.freeze({targetShareMin:0.50,targetShareMax:0.50,
     fullyImplemented:false,measuredCombatShare:null});
   const MISSION_COMBAT_THEMES = Object.freeze([
     'urban-first-engagement', 'mobile-escort', 'desert-settlement',
@@ -69,6 +75,31 @@
     decisionKey: m[5], options: Object.freeze(m[6].slice())
   })));
   const TARGET_MINUTES = MISSIONS.reduce((sum, m) => sum + m.targetMinutes, 0);
+
+  // Planning-only budget derived from the actual 12-mission metadata.
+  // Seconds preserve the exact 22% and 8% fractional-minute allocations.
+  // No checkpoint or game-time state is changed by this projection.
+  function plannedExperienceSeconds(){
+    return Object.freeze(Object.fromEntries(Object.entries(EXPERIENCE_SHARE_PERCENT)
+      .map(([category,percent])=>[category,TARGET_MINUTES*60*percent/100])));
+  }
+  // QA can later compare *observed*, mutually exclusive playtest durations
+  // without pretending the twelve authored chapters are implemented.
+  function reviewObservedPacing(seconds){
+    if(!seconds||typeof seconds!=='object'||Array.isArray(seconds)||
+      Object.keys(seconds).length!==Object.keys(EXPERIENCE_SHARE_PERCENT).length)
+      throw new TypeError('Four measured activity durations required');
+    const categories=Object.keys(EXPERIENCE_SHARE_PERCENT);
+    if(!categories.every(key=>Object.prototype.hasOwnProperty.call(seconds,key)&&
+       Number.isFinite(seconds[key])&&seconds[key]>=0))
+      throw new TypeError('Invalid measured activity durations');
+    const total=categories.reduce((sum,key)=>sum+seconds[key],0);
+    if(total===0)return Object.freeze({measuredSeconds:0,observedPercent:null});
+    const observedPercent=Object.fromEntries(categories.map(key=>
+      [key,seconds[key]/total*100]));
+    return Object.freeze({measuredSeconds:total,
+      observedPercent:Object.freeze(observedPercent)});
+  }
 
   function freshProgress() {
     return { version: VERSION, completed: [], choices: {} };
@@ -152,7 +183,9 @@
     };
   }
   return Object.freeze({
-    VERSION, MISSIONS, TARGET_MINUTES, LEAD, SUPPORT_CAST, COMBAT_FOCUS, CH01_CAUSAL_BEATS, ch01Causality,
+    VERSION, MISSIONS, TARGET_MINUTES, LEAD, SUPPORT_CAST, COMBAT_FOCUS,
+    EXPERIENCE_SHARE_PERCENT, plannedExperienceSeconds, reviewObservedPacing,
+    CH01_CAUSAL_BEATS, ch01Causality,
     freshProgress, validate,
     nextMission, completeMission, plannedRemainingMinutes,
     serialize, deserialize, campaignStatus
