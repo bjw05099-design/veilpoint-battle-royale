@@ -520,6 +520,56 @@ function auditStoryJournal(rows){
  document.documentElement.setAttribute('data-vp-journal-geometry',btoa(JSON.stringify(data)));
 }
 
+// Real full-screen CH01 departure briefing: test the authored modal itself,
+// not its presence in HTML or a synthetic CSS screenshot.
+function auditStoryOpening(line){
+ const data={width:innerWidth,height:innerHeight,cases:[],errors:[]};
+ try{
+  const get=id=>document.getElementById(id),root=get('chapterOpening');
+  const menu=get('menu'),choices=get('choices');
+  if(!root||!menu||!choices)throw new Error('Missing authored CH01 opening modal');
+  menu.classList.add('hidden');choices.classList.add('hidden');
+  root.hidden=false;root.classList.remove('hidden');
+  const card=root.querySelector('.card'),button=root.querySelector('[data-opening-next]');
+  const phrase=root.querySelector('[data-opening-line]');
+  if(!card||!button||!phrase)throw new Error('Missing CH01 briefing content');
+  phrase.textContent=line;
+  const visible=node=>node&&node.getClientRects().length>0&&
+   getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden';
+  const page={name:'CH01-opening',controls:1,issues:[],targets:[]};
+  const box=card.getBoundingClientRect(),doc=document.documentElement;
+  if(doc.scrollHeight>innerHeight+2||doc.scrollWidth>innerWidth+2)
+   page.issues.push({id:'document-scroll',reason:'opening document overflow'});
+  for(const node of [root,card,...card.querySelectorAll('h1,p,button,div')]){
+   if(!visible(node))continue;
+   const rect=node.getBoundingClientRect();
+   if(rect.left< -1.5||rect.top< -1.5||
+      rect.right>innerWidth+1.5||rect.bottom>innerHeight+1.5||
+      (node!==root&&(rect.left<box.left-1.5||rect.top<box.top-1.5||
+       rect.right>box.right+1.5||rect.bottom>box.bottom+1.5)))
+    page.issues.push({id:node.tagName.toLowerCase(),reason:'opening content clipped'});
+   if(node.scrollHeight>node.clientHeight+2||node.scrollWidth>node.clientWidth+2)
+    page.issues.push({id:node.tagName.toLowerCase(),reason:'opening content scroll'});
+  }
+  const rect=button.getBoundingClientRect(),probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
+  const count=probes.filter(([x,y])=>{
+   const hit=document.elementFromPoint(rect.left+rect.width*x,rect.top+rect.height*y);
+   return hit===button||button.contains(hit);
+  }).length;
+  button.focus({preventScroll:true});
+  const target={id:'chapterOpeningNext',visible:!!visible(button),enabled:!button.disabled,
+   hit:count===5,probesPassed:count,focused:document.activeElement===button};
+  page.targets.push(target);
+  if(!target.visible||!target.enabled||!target.hit||!target.focused)
+   page.issues.push({id:'chapterOpeningNext',reason:'opening action inaccessible',probesPassed:count});
+  if(!phrase.textContent||phrase.textContent!==line)
+   page.issues.push({id:'opening-line',reason:'canonical opening caption absent'});
+  data.cases.push(page);
+  data.errors=page.issues.map(issue=>page.name+': '+JSON.stringify(issue));
+ }catch(error){data.errors.push('CH01 opening audit exception: '+String(error?.stack||error));}
+ document.documentElement.setAttribute('data-vp-opening-geometry',btoa(JSON.stringify(data)));
+}
+
 function browser(){
  if(process.env.CHROME_BIN&&fs.existsSync(process.env.CHROME_BIN))
   return process.env.CHROME_BIN;
@@ -573,7 +623,7 @@ async function run(){
   logHandedOff:true,musterConfirmed:true,aidPickedUp:true,aidDelivered:true,
   guide:{active:true,arrived:true,released:true}
  });
- const chrome=browser(),records=[],storyRecords=[],menuRecords=[],journalRecords=[],keyboardRecords=[],br96Records=[];
+ const chrome=browser(),records=[],storyRecords=[],menuRecords=[],openingRecords=[],journalRecords=[],keyboardRecords=[],br96Records=[];
  // Windows-hosted Chrome can become unresponsive before its DevTools endpoint
  // exists. An already-installed Microsoft Edge is a Chromium/CDP alternative,
  // not a substitute for measurement or a bypass of the release gate.
@@ -905,6 +955,26 @@ async function run(){
    process.stdout.write('Chromium CH01 menu '+width+'x'+height+': '+
     data.errors.length+' clipping issues\n');
   }
+  // The newly added 4-scene briefing is a real PC dialog, so it requires
+  // the same four physical browser viewport/hit/focus gates as the main menu.
+  const openingLine=require(path.join(ROOT,'src/ch01-opening.js')).SCENES[0].line;
+  for(const [width,height] of SIZES){
+   await rpc('Emulation.setDeviceMetricsOverride',
+    {width,height,deviceScaleFactor:1,mobile:false});
+   const expression='('+auditStoryOpening.toString()+')('+
+    JSON.stringify(openingLine)+');document.documentElement.getAttribute("data-vp-opening-geometry")';
+   const evaluated=await rpc('Runtime.evaluate',{expression,returnByValue:true});
+   if(evaluated.exceptionDetails)throw new Error('CH01 opening geometry evaluator failed');
+   const encoded=evaluated.result?.value;
+   if(typeof encoded!=='string')throw new Error('No CH01 opening viewport evidence');
+   const data=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
+   assert.equal(data.width,width);assert.equal(data.height,height);
+   assert.equal(data.cases.length,1,'CH01 opening modal must be measured');
+   assert.ok(data.cases[0].controls>=1,'CH01 briefing action missing');
+   openingRecords.push({requested:{width,height},...data});
+   process.stdout.write('Chromium CH01 opening '+width+'x'+height+': '+
+    data.errors.length+' clipping issues\\n');
+  }
   for(const [width,height] of SIZES){
    await rpc('Emulation.setDeviceMetricsOverride',
     {width,height,deviceScaleFactor:1,mobile:false});
@@ -958,13 +1028,15 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(activeChrome),
-  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyJournalChecks:journalRecords,br96Checks:br96Records,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
+  checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyOpeningChecks:openingRecords,storyJournalChecks:journalRecords,br96Checks:br96Records,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>
     'CH01 '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...menuRecords.flatMap(r=>r.errors.map(e=>
     'CH01 menu '+r.requested.width+'x'+r.requested.height+': '+e)),
+   ...openingRecords.flatMap(r=>r.errors.map(e=>
+    'CH01 opening '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...journalRecords.flatMap(r=>r.errors.map(e=>
     'CH01 journal '+r.requested.width+'x'+r.requested.height+': '+e)),
    ...br96Records.flatMap(r=>r.errors.map(e=>
@@ -986,4 +1058,4 @@ async function run(){
  console.log('Real browser viewport gate passed: 7 BR/settings + CH01 route, 6 CH01 menu and 2 CH01 journal screens x '+SIZES.length+' viewports');
 }
 if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={audit,auditBr96,auditStoryRoute,auditStoryMenu,auditStoryJournal,reserveLoopbackPort};
+module.exports={audit,auditBr96,auditStoryRoute,auditStoryMenu,auditStoryOpening,auditStoryJournal,reserveLoopbackPort};

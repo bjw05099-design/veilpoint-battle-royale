@@ -6,7 +6,7 @@ const REQUIRED=['BR-main','BR-more','BR-load','BR-export',
  'settings-visual','settings-controls','settings-benchmark'];
 const SIZES=['2560x1440','1366x768','1280x720','1024x600'];
 const TARGETS={"BR-main":["play","newMatch","brViewMore","graphicsPauseOpen"],"BR-more":["brViewBack","brImport","brExport"],"BR-load":["brViewBack","brImportFile","brImportApply"],"BR-export":["brViewBack","brExportDownload"],"settings-visual":["graphicsClose","graphicsTabVisual","graphicsPreset"],"settings-controls":["graphicsClose","graphicsTabControls","desktopBindKey"],"settings-benchmark":["graphicsClose","graphicsTabBenchmark","benchmarkStart"]};
-const STORY={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","CH01-menu-tools","CH01-menu-settings","CH01-menu-import","CH01-menu-export","CH01-menu-about"],"storyJournalChecks":["CH01-journal-first","CH01-journal-last"]};
+const STORY={"storyChecks":["CH01-route"],"storyMenuChecks":["CH01-menu-main","CH01-menu-tools","CH01-menu-settings","CH01-menu-import","CH01-menu-export","CH01-menu-about"],"storyOpeningChecks":["CH01-opening"],"storyJournalChecks":["CH01-journal-first","CH01-journal-last"]};
 function validate(evidence){
  assert.ok(evidence&&typeof evidence==='object','Geometry evidence missing');
  // Accept the verifier's top-level layout while rejecting incomplete reports.
