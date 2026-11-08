@@ -41,7 +41,8 @@ test('UE5 CH01 rejects impossible restore states and does not mint unearned obje
  assert.match(fn,/if \(!HasAuthority\(\)\) return false/);
  assert.match(fn,/case EVPStoryStage::RestoreRelay:[\s\S]*?bCoherent = !bHarbor && !bShelter/);
  assert.match(fn,/case EVPStoryStage::InspectRecords:[\s\S]*?bCoherent = !\(bHarbor && bShelter\)/);
- assert.match(fn,/case EVPStoryStage::ChooseRoute:[\s\S]*?case EVPStoryStage::Complete:[\s\S]*?bCoherent = bHarbor && bShelter/);
+ assert.match(fn,/case EVPStoryStage::ChooseRoute:[\s\S]*?case EVPStoryStage::Complete:[\s\S]*?bCoherent = true; break/);
+ assert.doesNotMatch(fn,/bCoherent = bHarbor && bShelter/,'later routes do not require optional papers');
  assert.match(fn,/default:\s*return false/);
  assert.match(fn,/if \(!bCoherent \|\| \(bBeacon && Stage == EVPStoryStage::RestoreRelay\)\) return false/);
  assert.ok(fn.indexOf('if (!bCoherent || (bBeacon && Stage == EVPStoryStage::RestoreRelay)) return false')<fn.indexOf('StoryStage = Stage'),
@@ -67,7 +68,8 @@ test('native CH01 checkpoint restores only coherent evidence, falling back to th
  assert.match(clean,/Saved->SchemaVersion != 1/);
  assert.match(clean,/case EVPStoryStage::RestoreRelay: return !Harbor && !Shelter/);
  assert.match(clean,/case EVPStoryStage::InspectRecords: return !\(Harbor && Shelter\)/);
- assert.match(clean,/case EVPStoryStage::Complete: return Harbor && Shelter/);
+ assert.match(clean,/case EVPStoryStage::Complete:[\s\S]*?return true/);
+ assert.doesNotMatch(clean,/return Harbor && Shelter/,'direct rescue route must be reloadable');
  assert.match(clean,/return IsCoherentSaved\(Saved\) \? Saved : nullptr/);
  assert.match(recovery,/UVPStoryCheckpoint\* Primary = ReadVerifiedCheckpoint\(CH01Slot\)/);
  assert.match(recovery,/UVPStoryCheckpoint\* Backup = ReadVerifiedCheckpoint\(CH01BackupSlot\)/);
