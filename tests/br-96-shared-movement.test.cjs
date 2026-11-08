@@ -60,8 +60,12 @@ test('real 60Hz input advances one authenticated actor without rewriting other s
  for(let i=0;i<LEASE_TICKS+100;i++)world.step();
  const settled=world.snapshot(token(0));
  for(let i=0;i<25;i++)world.step();
- assert.deepEqual(world.snapshot(token(0)).self,settled.self,
-  'expired command lease cannot move a disconnected player forever');
+ const afterIdle=world.snapshot(token(0)).self;
+ assert.deepEqual([afterIdle.x,afterIdle.z,afterIdle.seq,afterIdle.eligible],
+   [settled.self.x,settled.self.z,settled.self.seq,settled.self.eligible],
+   'expired command lease cannot move a disconnected player forever');
+ assert.equal(afterIdle.survivalTicks,settled.self.survivalTicks+25,
+   'a living human keeps accumulating actual fixed-tick survival time even while stationary');
 });
 test('shared-actor traversal cannot walk through a grounded city wall',()=>{
  const w=started();
