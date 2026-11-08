@@ -1,5 +1,5 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node/strict');
+const {test}=require('node:test'),assert=require('node:assert/strict');
 const Street=require('../src/br96-street-view.js');
 const {coastalWeatherAtTick}=require('../src/br-coastal-weather.cjs');
 test('BR96 street camera blends public weather gradually with depth instead of a flat-color pop',()=>{
