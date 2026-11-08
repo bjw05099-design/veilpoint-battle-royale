@@ -87,6 +87,7 @@
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evac', label:'유수프 구조단 집결지 현장 담당자'}),
+    coordinatorRequest: Object.freeze({id:'coordinatorRequest',x:-9,z:-55,kind:'evac',label:'유수프 구조 책임자와 직접 대피 지원 협의'}),
     dispatchLedger: Object.freeze({id:'dispatchLedger',x:-24,z:-57,kind:'evidence',label:'남쪽 구조단 접수 장부'}),
     // An observed person, not a remotely read dossier or a confirmed bus.
     transportDriver: Object.freeze({id:'transportDriver',x:10,z:-54,kind:'evac',label:'운송 담당자 나딤 · 현장 대화'}),
@@ -386,6 +387,15 @@
     return [{id:'harborWorker',x:w.x,z:w.z,kind:'evidence',
       label:'항구 작업자에게 현장에서 목격 사실 확인'}];
   }
+  // A face-to-face civilian-led evacuation request is offered only when the
+  // coordinator is actually in reach and visible. No paperwork, remote route
+  // menu, map-wide actor tracking or checkpoint schema change is introduced.
+  function coordinatorRequestMarkers(state) {
+    if(!['records','decision'].includes(state.phase))return [];
+    const p=state.world.player,m=POINTS.coordinatorRequest;
+    return Math.hypot(p.x-m.x,p.z-m.z)<7&&
+      !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
+  }
   function officeMarkers(state) {
     // A hand-reachable paper notice inside the actual open-door office.
     // An unvisited office never reveals its contents on the global HUD.
@@ -397,6 +407,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
+      ...coordinatorRequestMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
@@ -1087,6 +1098,17 @@
       state.message=state.beaconEnabled
         ?'항구 경고등 수동 점등 · 현지 구조단에 현장 상태 공유'
         :'항구 경고등 수동 소등 · 현장 스위치로 재점등 가능';
+    }else if(marker.id==='coordinatorRequest'&&
+      ['records','decision'].includes(state.phase)){
+      // The local civilian coordinator decides the open south passage. The
+      // captain can agree in person after the disruption without first
+      // manipulating a records console or collecting unrelated documents.
+      const previousPhase=state.phase;
+      state.phase='decision';
+      const selected=choose(state,'evacuation');
+      if(!selected.ok){state.phase=previousPhase;syncMarkers(state);return selected;}
+      state.subtitle='유수프(현지 구조단): 남쪽 통로는 우리가 관리하고 있어. 주민을 안내하는 데 도움이 필요해. 함께 움직일 수 있겠어?';
+      state.message='현지 구조 책임자와 직접 협의 · 남쪽 주민 대피 지원 선택';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
       state.subtitle='김도겸 중사(무전): 한국에서 지시받은 원래 임무와 상황이 달라졌습니다. 귀환은 아직 불확실합니다. 유수프 구조단이 남쪽 주민 대피 통로를 확보했습니다. 다른 경로를 확인할 수도 있지만, 우선 주민 지원부터 결정해야 합니다.';
