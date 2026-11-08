@@ -28,5 +28,5 @@ test('predeparture correction does not add a save field or break legacy v2 check
   assert.deepEqual(restored.found, state.found);
   assert.equal(restored.world.player.x, state.world.player.x);
   assert.equal(restored.world.player.z, state.world.player.z);
-  assert.equal(Story.openingBeat(restored)?.location, 'korea');
+  assert.match(Story.openingBeat(restored)?.location || '', /대한민국/);
 });
