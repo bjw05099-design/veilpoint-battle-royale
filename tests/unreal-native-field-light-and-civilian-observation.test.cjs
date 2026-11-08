@@ -29,7 +29,7 @@ test('native finite 10-minute light uses existing authority-owned 60 Hz movement
  assert.match(header,/UPROPERTY\(ReplicatedUsing=OnRep_FieldLightState/);
  assert.match(header,/UFUNCTION\(Server, Reliable\)\s*void ServerToggleFieldLight\(\)/);
  assert.match(character,/DOREPLIFETIME\(AVPCharacter, bFieldLightOn\)/);
- assert.match(character,/DOREPLIFETIME\(AVPCharacter, FieldLightSecondsRemaining\)/);
+ assert.match(character,/DOREPLIFETIME_CONDITION\(AVPCharacter, FieldLightSecondsRemaining, COND_OwnerOnly\)/);
  assert.match(character,/void AVPCharacter::ServerToggleFieldLight_Implementation\(\)/);
  assert.match(character,/if \(!HasAuthority\(\) \|\| !IsAlive\(\)\) return/);
  assert.match(character,/FieldLightSecondsRemaining <= 0\.f\) return/);
