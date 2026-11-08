@@ -20,6 +20,7 @@
   let view=snapshot(raw);
   function render(){
    host.hidden=!view.visible;
+   host.classList.toggle('hidden',!view.visible);
    if(!view.visible)return;
    host.querySelector('[data-opening-place]').textContent=view.place;
    host.querySelector('[data-opening-speaker]').textContent=view.speaker;
@@ -29,7 +30,34 @@
   const advance=()=>{view=next(view.state);render();};
   button.addEventListener('click',advance);
   render();
-  return {advance,tick(){view=tick(view.state);render();return view;},snapshot(){return view;},destroy(){button.removeEventListener('click',advance);host.hidden=true;}};
+  return {advance,tick(){view=tick(view.state);render();return view;},snapshot(){return view;},destroy(){button.removeEventListener('click',advance);host.hidden=true;host.classList.add('hidden');}};
  }
- return Object.freeze({snapshot,next,tick,mount});
+ function attachMenu(doc){
+  const button=doc.getElementById('chapterOpeningShow'),menu=doc.getElementById('menu');
+  if(!button||!menu)return null;
+  let controller=null;
+  function show(){
+   if(controller)controller.destroy();
+   controller=mount(doc);
+   if(!controller)return;
+   menu.classList.add('hidden');
+   const nextButton=doc.querySelector('#chapterOpening [data-opening-next]');
+   nextButton.focus();
+  }
+  function advance(){
+   if(!controller)return;
+   // The mount handler advances first; this listener restores the original menu on completion.
+   if(!controller.snapshot().visible){
+    controller.destroy();controller=null;menu.classList.remove('hidden');button.focus();
+   }
+  }
+  button.addEventListener('click',show);
+  doc.querySelector('#chapterOpening [data-opening-next]').addEventListener('click',advance);
+  return {show};
+ }
+ if(typeof document!=='undefined'){
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>attachMenu(document),{once:true});
+  else attachMenu(document);
+ }
+ return Object.freeze({snapshot,next,tick,mount,attachMenu});
 });
