@@ -57,12 +57,20 @@ No real names, real unit insignia, genuine current operational procedures or exa
 
 **Target authored first-play length:** 12 chapters, **720 minutes (~12 h)**. These are planning allocations; actual playtime must be verified with testers.
 
-**Target experiential allocation (not an implementation claim):**
-- **60–65%** active **fictional firefight / vehicle engagement / squad-oriented combat gameplay** — substantial variation in rhythm, objectives, spaces, enemy AI and environmental changes. Make combat the dominant playable verb.
-- **20–25%** high-energy noncombat action: movement, urgent traversals, vehicle transitions, pursuit/escape, evolving environment and short interactive rescues.
-- **10–15%** character and story: short cinematics, consequential choices and Signal Echo investigations integrated into objectives, rather than extended mandatory data-entry puzzles.
+**Latest owner-approved experiential allocation (2026-11-09; planning, NOT implemented playtime):**
 
-The percentage ranges are design targets, not exact chapter quotas; preserve short quiet moments to create tension and contrast instead of relying on endless explosions or violent spectacle. Keep violence non-graphic. Mission-critical dialogue remains readable with subtitles.
+| Exclusive primary activity | Target share | Budget at 12 hours |
+|---|---:|---:|
+| Fictional action/combat encounters | **50%** | 360 min |
+| Urgent physical movement, evacuation and rescue | **20%** | 144 min |
+| Character relationships, causal story scenes and dialogue-led drama | **22%** | 158 min 24 sec |
+| Short optional exploration and contextual interactions | **8%** | 57 min 36 sec |
+
+The 22% character/story budget is a creative emphasis, **not 22% forced dialogue menus or player-choice screens**. Character moments should frequently unfold while the captain remains in control; do not double-count simultaneous dialogue and movement when measuring actual time. The original Korean briefing and return arrangements precede the fictional Aden-inspired arrival. Escalation follows arrival, never serving as the original deployment purpose. Choices may change later consequences without becoming the core playable verb.
+
+**Historical framing:** Prefer a **fictional 2015-era** Sahir/Nahrin crisis inspired by Aden's intense March–July 2015 conflict, with earlier Yemeni historical context embedded in credible character memories. The player does not reproduce a real Korean deployment or exact battles, uniforms, troop sites or operational maps. This is a creative reference, not a literal reenactment. **Continuity gate:** 2019/2022 events must not be described as *already happened* inside scenes set in 2015; any legacy CH01 references require a chronology pass before claiming 2015 setting is playable.
+
+These are campaign-wide authored targets, not enforced per-chapter quotas. Actual shares require mutually exclusive first-play time samples from completed chapters; a short offline CH01 prototype cannot prove this budget. Use atmospheric contrast, preserve non-graphic treatment and readable subtitles.
 
 ### Combat-facing gameplay goals (game design only, not real-world combat guidance)
 1. Strong fictional FPS feedback: responsive movement/camera, readable hit feedback, believable fictional weapons, distinct encounter objectives and consistent enemy reactions.
