@@ -470,13 +470,10 @@
       !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
   }
   function officeMarkers(state) {
-    // The office notice is legacy optional context, not a map-wide errand.
-    // Keep the interaction and old save flags, but reveal its marker only
-    // when the player has physically reached the public office doorway.
-    if(state.officeBoardRead)return [];
-    const p=state.world.player;
-    return Math.hypot(p.x-POINTS.officeBoard.x,p.z-POINTS.officeBoard.z)<=7
-      ?[POINTS.officeBoard]:[];
+    // Keep physical interaction objects in the original world collection.
+    // Hiding the authoritative marker breaks old saved interactions and
+    // E-key fixtures; visibility is a separate PC navigation concern.
+    return state.officeBoardRead?[]:[POINTS.officeBoard];
   }
   function localAwningMarker(state) {
     if(!state.awningFallen||state.awningShift>=1||!state.combat.cleared||
@@ -535,7 +532,10 @@
     const p=state.world.player;
     return markers(state).filter(marker=>{
       if(ROUTE_WIDE_MARKERS.has(marker.id))return true;
-      const maxDistance=marker.id==='relay'?7:9;
+      // A legacy optional paper notice never becomes a distant HUD errand.
+      // Its E-key world marker is retained for old checkpoint compatibility.
+      const maxDistance=marker.id==='officeBoard'?7:
+        marker.id==='relay'?7:9;
       return Math.hypot(marker.x-p.x,marker.z-p.z)<=maxDistance&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles);
     });
