@@ -89,6 +89,21 @@ class BrSquadLobby {
     for(const [code,inv] of this.invites)if(inv.owner===token)this.invites.delete(code);
     return {ok:true};
   }
+  // The new 256-bit secret is server-generated after the original player
+  // authenticates. Rotating a credential cannot create seats or change squads.
+  rebindSession(oldToken,newToken){
+    const player=this.players.get(oldToken);
+    if(!player)throw new RangeError('unknown_session');
+    if(this.phase!=='roster_locked')return {ok:false,reason:'round_not_started'};
+    if(typeof newToken!=='string'||!SECRET.test(newToken)||this.players.has(newToken))
+      throw new RangeError('invalid_session');
+    if(this.seats[player.team][player.slot]!==oldToken)
+      throw new Error('inconsistent_squad_identity');
+    this.players.delete(oldToken);
+    this.players.set(newToken,player);
+    this.seats[player.team][player.slot]=newToken;
+    return {ok:true,playerId:player.id,squad:player.team+1,slot:player.slot+1};
+  }
   snapshot(token) {
     const me=this.players.get(token);
     if (!me) throw new RangeError('unknown_session');
