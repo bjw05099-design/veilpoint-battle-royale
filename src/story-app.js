@@ -382,6 +382,15 @@
       $('menuText').textContent='그래픽 복구 실패 · 새로고침이 필요합니다: '+String(err.message);
     }
   });
+  // A fixed-size PC ending dialog uses an existing button to move through
+  // the four verified, route-specific character lines. This is not a second
+  // quest, a timed auto-scroll, or a new screen that overflows 1024x600.
+  let closingSceneIndex=0;
+  function closingSceneText(report,index){
+    const scene=report.closingScene;
+    return 'CH01 완료 · 현장 후속 대화 '+(index+1)+'/'+scene.lines.length+' — '+
+      scene.lines[index]+(index===scene.lines.length-1?' '+scene.nextChapter:'');
+  }
   const storyMenuViews=['tools','settings','im'+'port','about'];
   function setStoryMenuView(view='main',focus=false){
     for(const name of storyMenuViews)
@@ -423,7 +432,20 @@
   document.addEventListener('keydown',containStoryMenuFocus,true);
   document.addEventListener('focusin',containStoryMenuFocus,true);
   $('storyMenuMore').addEventListener('click',()=>setStoryMenuView('tools',true));
-  $('storyMenuAbout').addEventListener('click',()=>setStoryMenuView('about',true));
+  $('storyMenuAbout').addEventListener('click',()=>{
+    if(state.phase==='complete'){
+      const report=Story.debrief(state);
+      if(report&&closingSceneIndex+1<report.closingScene.lines.length){
+        closingSceneIndex++;
+        $('menuText').textContent=closingSceneText(report,closingSceneIndex)+
+          (saveFailed?' · 완료 기록은 저장되지 않았습니다.':'');
+        $('storyMenuAbout').textContent=closingSceneIndex===report.closingScene.lines.length-1
+          ?'CH01 설명 전체 보기':'다음 대화 ('+(closingSceneIndex+2)+'/'+report.closingScene.lines.length+')';
+        return;
+      }
+    }
+    setStoryMenuView('about',true);
+  });
   $('storyMenuBack').addEventListener('click',()=>{
     if(menu.classList.contains('hidden'))return;
     if(menu.classList.contains('menu-view-im'+'port')){
@@ -443,6 +465,10 @@
     desktopUi.cancel();clearInput();touchLookId=null;previous=null;clock.reset();limiter.reset();
     if(saveFailed)text=(text||'일시정지')+' · 저장 실패: 새로고침하면 현재 진행 상황이 사라질 수 있습니다.';
     if(text)$('menuText').textContent=text;
+    if(state.phase!=='complete'){
+      closingSceneIndex=0;
+      $('storyMenuAbout').textContent='CH01 설명 전체 보기';
+    }
     setStoryMenuView('main');
     menu.classList.remove('hidden');choices.classList.add('hidden');
     $('fieldJournal').classList.add('hidden');
@@ -726,10 +752,12 @@
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete'){
       const report=recordCompletion();
-      menuOpen('CH01 완료 — '+state.subtitle+' '+
-        (report?report.closingScene.lines[0]+' '+report.summary+' ':'')+
-        (saveFailed?'현재 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다. ':'')+
-        '현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
+      closingSceneIndex=0;
+      menuOpen(report?closingSceneText(report,0)+
+        (saveFailed?' 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다.':''):
+        'CH01 완료 — '+state.subtitle);
+      $('storyMenuAbout').textContent=report?'다음 대화 (2/'+report.closingScene.lines.length+')':
+        'CH01 설명 전체 보기';
     }
     updateHud();
   }
