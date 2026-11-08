@@ -236,7 +236,8 @@ class SoftwareRenderer {
   // should obscure the actual road during first-person travel.
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
-   type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+   type:o.type.startsWith('aden-ferry-hall-')?o.type:
+     type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type==='aden-shade-post'||o.type==='aden-shade-seat'?o.type:
      o.type==='dock-handcart'?'dock-handcart':
      o.type==='story-civil-transport'?'story-civil-transport':
