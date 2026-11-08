@@ -19,9 +19,9 @@ function talk(s){
  assert.deepEqual(s.found,[],'no historical paperwork collection is mandatory');
  assert.equal(s.guide.active,false,'speaking to the local actor does not teleport a helper');
  assert.equal(s.transportVan,null,'speaking does not magically dispatch transport');
- assert.match(s.subtitle,/2015년 아덴/);
- assert.doesNotMatch(s.subtitle,/2019|2022|리야드 합의/);
- assert.match(s.subtitle,/실제로 도착한 사람만 확인했다고 말할 수 있어/);
+ assert.match(s.subtitle,/2014년 사나가 장악됐다는 소식이 들렸고, 2015년 들어 아덴/);
+ assert.doesNotMatch(s.subtitle,/2019|2022/,'future history cannot already be known in a 2015 scene');
+ assert.match(s.subtitle,/수도의 정치가 이 골목의 통행 허가를 대신할 순 없어/);
  assert.match(s.subtitle,/이동 판단은 여러분과 함께 확인하겠습니다/);
  return s;
 }
