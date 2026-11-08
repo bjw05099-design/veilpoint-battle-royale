@@ -388,7 +388,8 @@
   let closingSceneIndex=0;
   function closingSceneText(report,index){
     const scene=report.closingScene;
-    return 'CH01 완료 · 현장 후속 대화 '+(index+1)+'/'+scene.lines.length+' — '+
+    return 'CH01 완료 · '+(report.route==='evacuation'?'남쪽 대피':'동쪽 통로')+
+      ' · 현장 후속 대화 '+(index+1)+'/'+scene.lines.length+' — '+
       scene.lines[index]+(index===scene.lines.length-1?' '+scene.nextChapter:'');
   }
   const storyMenuViews=['tools','settings','im'+'port','about'];
