@@ -1792,8 +1792,8 @@
     // A partial movement is not reported as a completed clearance.
     const street=state.awningFallen
       ?(state.awningShift===1
-        ?'마라(현지 기술자): 쓰러졌던 시장 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 계속 맡습니다.'
-        :'마라(현지 기술자): 시장 통행로에는 아직 쓰러진 차양이 남아 있습니다. 정리는 현지 담당자가 이어가겠습니다.')
+        ?'시장의 쓰러진 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 맡습니다.'
+        :'시장 통행로에는 쓰러진 차양이 아직 남아 있습니다.')
       :null;
     const radio=state.relayRestored
       ?'김지윤: 현장 비상 통신은 복구됐습니다. 그래도 본래 복귀 계획의 재승인과 이동 안전은 별개의 문제입니다.'
@@ -1801,8 +1801,9 @@
     return Object.freeze({
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
-      lines:Object.freeze([local,civilian,...(street?[street]:[]),radio,
-        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.']),
+      lines:Object.freeze([local,civilian,radio,
+        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.'+
+        (street?' '+street:'')]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
