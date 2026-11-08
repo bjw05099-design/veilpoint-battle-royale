@@ -10,6 +10,9 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
  const FOV=78*Math.PI/180,MAX_DISTANCE=95,COLUMNS=210;
+ // Eye elevation is derived solely from the server's own/spectated stance.
+ // It cannot move the actual collision capsule or reveal unseen actors.
+ const EYE_STANDING=1.65,EYE_CROUCH=0.96;
  function wrap(yaw){
   if(!Number.isFinite(yaw))throw new RangeError('invalid_view_direction');
   return Math.atan2(Math.sin(yaw),Math.cos(yaw));
@@ -123,7 +126,8 @@
     slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
-    angle,heading:viewHeading(angle),columns:COLUMNS,maxDistance});
+    angle,heading:viewHeading(angle),columns:COLUMNS,maxDistance,
+    eyeHeight:subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
  function draw(ctx,{width,height,subject,yaw,obstacles,civicGate,handcart,squad,visible,
    visibilityMeters,weather}={}){
@@ -142,7 +146,10 @@
    const ray=model.rays[i];
    if(!Number.isFinite(ray.distance))continue;
    const d=Math.max(.3,ray.distance);
-   const wallHeight=Math.min(height*4,ray.height*focal/d),y=horizon-wallHeight*.72;
+   // Project the visible wall relative to a standing/crouching eye plane.
+   // A low wall becomes taller on screen when the authenticated body crouches.
+   const wallHeight=Math.min(height*4,ray.height*focal/d);
+   const baseY=horizon+model.eyeHeight*focal/d,y=baseY-wallHeight;
    ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
@@ -153,13 +160,14 @@
    const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
    ctx.globalAlpha=1-fog;
    ctx.fillStyle=person.kind==='squad'?'#a2cbdf':'#d4aa99';
-   ctx.fillRect(px-size*.16,horizon-size*.78,size*.32,size*.78);
-   ctx.fillRect(px-size*.10,horizon-size,size*.20,size*.20);
+   const feetY=horizon+model.eyeHeight*focal/person.depth;
+   ctx.fillRect(px-size*.16,feetY-size*.78,size*.32,size*.78);
+   ctx.fillRect(px-size*.10,feetY-size,size*.20,size*.20);
    ctx.globalAlpha=1;
    if(person.kind==='squad'&&person.slot!==null){
     ctx.fillStyle='#dff4eb';ctx.font='11px system-ui';
     ctx.fillText('아군 '+person.slot+' · '+Math.round(person.depth)+'m',
-      Math.max(3,px-size*.6),Math.max(14,horizon-size-5));
+      Math.max(3,px-size*.6),Math.max(14,feetY-size-5));
    }
   }
   ctx.strokeStyle='#d6e9e2';ctx.lineWidth=1;
@@ -169,9 +177,10 @@
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
   ctx.fillText('화면 클릭: 마우스 시야 회전 · WASD: 보는 방향 기준 이동 · Esc: 포인터 해제',14,47);
+  ctx.fillText('자세: '+(subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
   ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
