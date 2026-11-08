@@ -47,14 +47,16 @@ test('96 actual humans can select private squad staging approaches over authenti
    'opposing squad cannot read player secret from their snapshot');
  }finally{await host.close();}
 });
-test('PC browser cycles through real vote options and shows server-majority progress only for own squad',()=>{
+test('legacy authenticated entry API remains guarded while the new PC lobby shows server-assigned starts without a ballot',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../br96.html'),'utf8');
  const js=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'),'utf8');
- assert.match(html,/id="entryVote"/);
+ assert.match(html,/id="entryVote"[^>]*hidden[^>]*aria-hidden="true"/);
+ assert.match(html,/id="entryInfo"[^>]*>[^<]*서버가 분대별로 지정/);
  assert.match(js,/async function voteEntry\(\)/);
  assert.match(js,/command\('\/entry-vote',\{choice\},null\)/);
  assert.match(js,/!token\|\|state\?\.phase!=='assembling'\|\|!!state\?\.self\?\.ready/);
- assert.match(js,/state\.entry\.tally/);
+ assert.doesNotMatch(js,/득표/);
+ assert.match(js,/서버가 실제 출발 위치를 지정합니다/);
  assert.match(js,/el\('entryVote'\)\.addEventListener\('click',voteEntry\)/);
  assert.doesNotMatch(js,/innerHTML\s*=/);
  assert.doesNotThrow(()=>new Function(js));
