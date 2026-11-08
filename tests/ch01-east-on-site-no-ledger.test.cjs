@@ -35,7 +35,7 @@ test('east passage selection is a physical local gate request, not a mandatory t
  go(resumed,Story.POINTS.exitVerify);
  assert.equal(Story.interact(resumed).phase,'complete');
  const report=Story.debrief(resumed);
- assert.equal(report.clockDiscrepancy,'unresolved');
+ assert.equal(report.clockDiscrepancy,'not-cross-checked');
  assert.equal(report.gateLogReviewed,false);
  assert.equal(report.logHandedOff,false);
 });
