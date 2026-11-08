@@ -4,7 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const Sim=require('../src/simulation.js');
 const Desktop=require('../src/desktop-controls.js');
 function match(lighting='dusk'){
- const s=Sim.newMatch(231,0,'carbine',false,'central',lighting);
+ const s=Sim.newMatch(231,1,'carbine',false,'central',lighting);
  s.status='playing';return s;
 }
 test('a real dusk-only headlamp is manually operated and drains at fixed 60Hz, not render FPS',()=>{
