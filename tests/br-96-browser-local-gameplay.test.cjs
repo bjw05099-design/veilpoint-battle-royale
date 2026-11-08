@@ -1,6 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
+const http=require('node:http');
 const {createBrSquadServer}=require('../server/br-squad-server.cjs');
 
 test('BR96 browser is actually served from the private loopback match server with no external runtime',async()=>{
@@ -31,7 +32,15 @@ test('BR96 browser is actually served from the private loopback match server wit
   assert.doesNotMatch(body,/\.innerHTML\s*=/,'all user names and statuses use textContent');
   assert.equal((await fetch(base+'/not-a-resource')).status,404);
   assert.equal((await fetch(base+'/br96-client.js?secret=token')).status,400);
-  assert.equal((await fetch(base+'/',{headers:{Host:'not-local.example:9999'}})).status,403);
+  // Fetch implementations may ignore unsafe Host overrides, so exercise
+  // the real wire Host header with Node HTTP rather than a browser shim.
+  const spoofedHost=await new Promise((resolve,reject)=>{
+   const req=http.get(base+'/',{headers:{Host:'not-local.example:9999'}},res=>{
+     res.resume();res.once('end',()=>resolve(res.statusCode));
+   });
+   req.on('error',reject);
+  });
+  assert.equal(spoofedHost,403);
   assert.equal((await fetch(base+'/',{headers:{Origin:'https://outside.example'}})).status,403);
  }finally{await host.close();}
 });
