@@ -82,7 +82,7 @@
   // A local resident, not an escort or an extra mission objective, decides to
   // walk to the staffed south courtyard once the immediate danger has cleared.
   // Position and arrival are saved; time cannot teleport this person to safety.
-  const CIVILIAN_WALK=Object.freeze({x:-2,startZ:-46,endZ:-58,speed:1.25});
+  const CIVILIAN_WALK=Object.freeze({x:-2,startZ:-46,endZ:-58,speed:1.25,aidLaneX:-4});
   const newCivilianWalker=()=>({x:CIVILIAN_WALK.x,z:CIVILIAN_WALK.startZ,arrived:false});
   function makeHostiles(disabled=false) {
     return HOSTILE_POSITIONS.map((p,id)=>({id,x:p.x,z:p.z,health:disabled?0:90,
@@ -408,7 +408,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
-      passageWarningHeard:false,transportVan:null,awningFallen:false,
+      passageWarningHeard:false,transportVan:null,awningFallen:false,civilianRerouted:false,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -435,6 +435,18 @@
     return [{id:'harborWorker',x:w.x,z:w.z,kind:'evidence',
       label:'항구 작업자에게 현장에서 목격 사실 확인'}];
   }
+  // A resident chooses their own short approach after an actual face-to-face
+  // exchange. This is optional, temporary and LOCAL: no remote quest pointer,
+  // escort order or second paperwork pickup is created.
+  function residentRouteMarkers(state){
+    const w=state.civilianWalker,p=state.world.player;
+    if(!w||w.arrived||w.z<=-54||state.civilianRerouted||!state.combat.cleared||
+       !['records','decision','exit'].includes(state.phase))return [];
+    if(Math.hypot(w.x-p.x,w.z-p.z)>=3.5||
+       Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles))return [];
+    return [{id:'residentRoute',x:w.x,z:w.z,kind:'evac',
+      label:'현지 주민과 구조단 접근로 직접 대화'}];
+  }
   // A face-to-face civilian-led evacuation request is offered only when the
   // coordinator is actually in reach and visible. No paperwork, remote route
   // menu, map-wide actor tracking or checkpoint schema change is introduced.
@@ -457,13 +469,13 @@
       POINTS.decision,
       ...coordinatorRequestMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),...workerInterviewMarkers(state),...officeMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -520,7 +532,7 @@
       syncMarkers(state);
       return;
     }
-    for(const id of ['guideControl','harborWorker']){
+    for(const id of ['guideControl','harborWorker','residentRoute']){
       const i=visible.findIndex(marker=>marker.id===id);
       if(i<0)continue;
       rendered[i].x=visible[i].x;
@@ -844,14 +856,19 @@
     if(state.civilianWalker&&!state.civilianWalker.arrived&&state.combat.cleared&&
        ['records','decision','exit'].includes(state.phase)){
       const w=state.civilianWalker,start=w.z;
+      const destinationX=state.civilianRerouted?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x;
+      const dx=destinationX-w.x,dz=CIVILIAN_WALK.endZ-w.z;
+      const distance=Math.hypot(dx,dz)||1;
       const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
       if(state.choice==='evacuation'&&state.guide.active&&!state.guide.released)
         bodies.push({x:state.guide.x,z:state.guide.z,w:1.1,d:1.1});
-      Sim.moveEntity(w,0,-CIVILIAN_WALK.speed,t,
+      Sim.moveEntity(w,dx/distance*CIVILIAN_WALK.speed,
+        dz/distance*CIVILIAN_WALK.speed,t,
         state.world.obstacles.concat(bodies,actorBlockers(state)),.55);
-      w.z=Math.max(CIVILIAN_WALK.endZ,Math.min(start,w.z));
-      if(w.z<=CIVILIAN_WALK.endZ+1e-8){
-        w.z=CIVILIAN_WALK.endZ;w.arrived=true;
+      w.x=clamp(w.x,CIVILIAN_WALK.aidLaneX,CIVILIAN_WALK.x);
+      w.z=clamp(w.z,CIVILIAN_WALK.endZ,start);
+      if(Math.hypot(w.x-destinationX,w.z-CIVILIAN_WALK.endZ)<.04){
+        w.x=destinationX;w.z=CIVILIAN_WALK.endZ;w.arrived=true;
         // Do not provide a magical remote notification across the map.
         if(Math.hypot(p.x-w.x,p.z-w.z)<12&&
            !Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles)){
@@ -1135,6 +1152,14 @@
       state.message='실내 주민 안내 공지 직접 확인 · 미확인 정보는 확정하지 않음';
       syncMarkers(state);
       return {ok:true,event:'office_board',phase:state.phase};
+    }
+    if(marker.id==='residentRoute'&&state.civilianWalker&&!state.civilianWalker.arrived&&
+       !state.civilianRerouted&&state.civilianWalker.z>-54&&state.combat.cleared){
+      state.civilianRerouted=true;
+      state.subtitle='현지 주민: 남쪽 구조단이 있는 길로 제가 직접 가겠습니다. 다른 주민들의 이동은 제가 확인할 수 없어요.';
+      state.message='현지 주민이 구조단 쪽 접근로를 스스로 선택 · 실제 보행 중';
+      syncMarkers(state);
+      return {ok:true,event:'resident_route_conversation',phase:state.phase};
     }
     if(marker.id==='harborWorker'&&!state.workerInterviewed&&state.worker){
       // This is testimony obtained directly from a moving person on the
@@ -1550,8 +1575,12 @@
         ?'유수프(현지 구조단): 물품은 우리가 현장에서 인수했어. 주민 접수는 계속할게.'
         :'유수프(현지 구조단): 남쪽 안뜰은 우리가 관리하고 있어. 아직 확인하지 못한 주민도 있어.');
     const civilian=state.civilianWalker?.arrived===true
-      ?'조현지: 걸어서 도착한 주민 한 명은 확인됐습니다. 다른 주민의 대피 완료까지 단정할 수는 없습니다.'
-      :'조현지: 현지 주민의 이동은 아직 확인되지 않았습니다. 구조단과 확인된 범위를 구분해 보고하겠습니다.';
+      ?(state.civilianRerouted
+        ?'조현지: 현장에서 직접 이야기한 주민이 스스로 구조단 접근로를 선택해 걸어서 도착했습니다. 다른 주민은 미확인입니다.'
+        :'조현지: 걸어서 도착한 주민 한 명은 확인됐습니다. 다른 주민의 대피 완료까지 단정할 수는 없습니다.')
+      :(state.civilianRerouted
+        ?'조현지: 주민이 본인 판단으로 구조단 접근로를 선택했지만, 실제 도착은 아직 확인되지 않았습니다.'
+        :'조현지: 현지 주민의 이동은 아직 확인되지 않았습니다. 구조단과 확인된 범위를 구분해 보고하겠습니다.');
     const radio=state.relayRestored
       ?'김지윤: 현장 비상 통신은 복구됐습니다. 그래도 본래 복귀 계획의 재승인과 이동 안전은 별개의 문제입니다.'
       :'김지윤: 통신 복구 여부는 미확인입니다. 한국에서 승인받은 복귀 일정대로 움직일 수 있는지도 재확인이 필요합니다.';
@@ -1576,7 +1605,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+      driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
@@ -1651,6 +1680,7 @@
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
       civilianWalker:state.civilianWalker?{x:state.civilianWalker.x,z:state.civilianWalker.z,arrived:state.civilianWalker.arrived}:null,
+      civilianRerouted:state.civilianRerouted,
       guide:{active:state.guide.active,arrived:state.guide.arrived,released:state.guide.released===true,
          waiting:state.guide.waiting===true,x:state.guide.x,z:state.guide.z},gateReadyAt:state.gateReadyAt,gateClearanceDuration:state.gateClearanceDuration,
       player:{x:p.x,z:p.z,yaw:p.yaw,pitch:p.pitch,stamina:p.stamina,
@@ -1673,8 +1703,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+28||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','awningFallen').includes(k))||
+      Object.keys(data).length>expectedKeys.length+29||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -1742,14 +1772,22 @@
         data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
         Math.abs(data.worker.z-WORKER_PATH.z)>1e-8||
         ![-1,1].includes(data.worker.direction)))||
+      (hasOwn(data,'civilianRerouted')&&typeof data.civilianRerouted!=='boolean')||
+      (data.civilianRerouted===true&&!hasOwn(data,'civilianWalker'))||
       (hasOwn(data,'civilianWalker')&&(
         !data.civilianWalker||typeof data.civilianWalker!=='object'||Array.isArray(data.civilianWalker)||
         Object.keys(data.civilianWalker).sort().join(',')!=='arrived,x,z'||
-        data.civilianWalker.x!==CIVILIAN_WALK.x||
+        (!data.civilianRerouted&&data.civilianWalker.x!==CIVILIAN_WALK.x)||
+        (data.civilianRerouted===true&&
+          (!Number.isFinite(data.civilianWalker.x)||
+           data.civilianWalker.x<CIVILIAN_WALK.aidLaneX||
+           data.civilianWalker.x>CIVILIAN_WALK.x))||
         !Number.isFinite(data.civilianWalker.z)||
         data.civilianWalker.z<CIVILIAN_WALK.endZ||data.civilianWalker.z>CIVILIAN_WALK.startZ||
         typeof data.civilianWalker.arrived!=='boolean'||
-        data.civilianWalker.arrived!==(data.civilianWalker.z===CIVILIAN_WALK.endZ)||
+        data.civilianWalker.arrived!==(data.civilianWalker.z===CIVILIAN_WALK.endZ&&
+          data.civilianWalker.x===(data.civilianRerouted===true
+            ?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x))||
         (['terminal','engagement','failed'].includes(data.phase)&&
           data.civilianWalker.z!==CIVILIAN_WALK.startZ)))||
       (hasOwn(data,'aidPickedUp')&&typeof data.aidPickedUp!=='boolean')||
@@ -1952,6 +1990,7 @@
     state.worker=hasOwn(data,'worker')?(data.worker===null?null:{...data.worker}):null;
     state.workerInterviewed=hasOwn(data,'workerInterviewed')?data.workerInterviewed:false;
     state.civilianWalker=hasOwn(data,'civilianWalker')?{...data.civilianWalker}:newCivilianWalker();
+    state.civilianRerouted=hasOwn(data,'civilianRerouted')?data.civilianRerouted:false;
     state.guide=hasOwn(data,'guide')?{...data.guide,released:data.guide.released===true,
        waiting:data.guide.waiting===true}:
       {active:false,arrived:false,released:false,x:GUIDE_START.x,z:GUIDE_START.z};
