@@ -13,7 +13,7 @@ function startConflict(){
  state.phase='records';
  return state;
 }
-test('ordinary pre-escalation worker walks; after escalation moves aside once and stops',()=>{
+test('ordinary pre-escalation worker walks; after escalation autonomously clears the public lane and stops',()=>{
  const baseline=Story.createState(),normal=baseline.worker;
  for(let n=0;n<120;n++)Story.step(baseline,1/60,{});
  assert.ok(normal.x>21&&normal.x<24,'before the incident ordinary work is uninterrupted');
@@ -23,11 +23,12 @@ test('ordinary pre-escalation worker walks; after escalation moves aside once an
  assert.ok(w.x>initial+6,'worker reacts to a real event by leaving a repetitive work path');
  assert.ok(Math.abs(w.x-28)<.001,'worker stays at physically reachable end of existing pedestrian lane');
  assert.equal(w.direction,1);
- assert.equal(w.z,-12);
+ assert.ok(w.z>-12&&w.z< -8,'after reaching a corner the civilian starts a real sideways shelter walk');
  assert.equal(Sim.blocked(w.x,w.z,.55,state.world.obstacles),false);
  const stopped=w.x;
  for(let n=0;n<480;n++)Story.step(state,1/60,{});
  assert.equal(w.x,stopped,'civilian cannot resume a casual back-and-forth immediately after fighting');
+ assert.equal(w.z,-8,'the autonomous safe-lane walk ends at the actual street, not a teleport');
  assert.deepEqual(Story.markers(state).map(m=>m.id),markers,
   'reactive civilian animation does not create extra investigation or paperwork objectives');
  const checkpoint=Story.serialize(state),again=Story.restore(checkpoint);
