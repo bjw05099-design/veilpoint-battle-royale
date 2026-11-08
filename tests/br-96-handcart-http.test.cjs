@@ -12,13 +12,16 @@ test('BR96 T interaction is authenticated, local, server-stepped, and never lets
  const host=createBrSquadServer({port:0,autoTick:false});
  const addr=await host.listen(),base='http://127.0.0.1:'+addr.port;
  try{
-  assert.equal((await post(base,'/handcart',{},null)).status,401);
+  assert.equal((await post(base,'/handcart',{},null)).status,409,
+    'before a round exists the public endpoint fails closed');
   const tokens=[];
   for(let i=0;i<96;i++){
    const seat=await post(base,'/join',{name:'Harbor '+i});
    assert.equal(seat.status,201);tokens.push(seat.data.token);
   }
   for(const token of tokens)assert.equal((await post(base,'/ready',{ready:true},token)).status,200);
+  assert.equal((await post(base,'/handcart',{},null)).status,401,
+    'anonymous visitors cannot operate the live handcart');
   assert.equal((await post(base,'/handcart',{x:132,z:-121},tokens[0])).status,400,
     'browser may not supply coordinates or a push amount');
   assert.equal((await post(base,'/handcart',{},tokens[0])).status,409,
