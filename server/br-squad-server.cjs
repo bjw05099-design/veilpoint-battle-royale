@@ -128,6 +128,17 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     publishSnapshot(token,res);
     return;
    }
+   // Public fictional solid geometry is a separate one-time download, not
+   // repeated in each of the 96 authenticated 4Hz private snapshots. It
+   // cannot contain session IDs, opponent coordinates or civilian missions.
+   if(req.method==='GET'&&url.pathname==='/world-geometry'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    world.snapshot(token); // Authenticated session and round identity.
+    return send(res,200,{schema:'veilpoint-br96-public-geometry-v1',
+      obstacles:world.obstacles.map(o=>({
+        x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
+      }))});
+   }
    if(req.method==='GET'&&url.pathname==='/world'){
     if(!world)return send(res,409,{error:'round_not_started'});
     return send(res,200,world.snapshot(token));
