@@ -20,6 +20,10 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
  if(!['127.0.0.1','localhost','::1'].includes(host))throw new RangeError('loopback_host_required');
  const lobby=new BrSquadLobby();
  let world=null;
+ let roundNumber=1;
+ const replayConsent=new Set();
+ const replayVotesFor=token=>({requested:replayConsent.size,required:96,
+   own:replayConsent.has(token)});
  // One privately authenticated live stream per player. No broadcast of
  // global world state, other squads' presence, or raw session capabilities.
  // The existing 60Hz server remains authoritative; streaming only publishes
@@ -44,7 +48,8 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
  let timer=null;
  const stateFor=token=>{
   const state=lobby.snapshot(token);
-  return world?{...state,world:world.snapshot(token)}:state;
+  return world?{...state,roundNumber,replay:world.phase==='finished'?replayVotesFor(token):null,
+    world:world.snapshot(token)}:state;
  };
  const send=(res,code,body)=>{
   res.writeHead(code,{'Content-Type':'application/json; charset=utf-8',
@@ -225,6 +230,28 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{
       ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
+   }
+   if(req.method==='POST'&&url.pathname==='/replay-consent'){
+    // Every one of the original 96 real participants must explicitly consent.
+    // Never automatically force the remaining members into a new round.
+    if(!world||world.phase!=='finished')return send(res,409,{error:'round_not_finished'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==1||typeof body.ready!=='boolean')
+      return send(res,400,{error:'invalid_replay_consent'});
+    world.snapshot(token); // Old withdrawn/spectating members still own seats.
+    if(body.ready)replayConsent.add(token);else replayConsent.delete(token);
+    if(replayConsent.size===96){
+      // The old finished scorecard stays unchanged until a real, unanimous
+      // new-round decision. Fresh 60Hz world, same real six-person rosters,
+      // no clients choosing opponents, placements or physical coordinates.
+      const fresh=new BrSquadWorld(lobby,20261108+roundNumber);
+      world=fresh;roundNumber++;
+      replayConsent.clear();
+    }
+    return send(res,200,{ok:true,roundNumber,
+      replay:world.phase==='finished'?replayVotesFor(token):null,
+      state:stateFor(token)});
    }
    if(req.method==='POST'&&url.pathname==='/entry-vote'){
     const body=await readJson(req,80,bodyTimeoutMs);
