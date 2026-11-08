@@ -1,9 +1,16 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const Story=require('../src/story-slice.js');
+function cleared(){
+ const s=Story.createState(),p=s.world.player;
+ p.x=Story.POINTS.terminal.x;p.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).phase,'engagement');
+ for(const b of s.world.bots){b.alive=false;b.health=0;}
+ s.combat.cleared=true;s.phase='records';
+ return s;
+}
 test('after the unexpected conflict, a harbor worker decides to clear the walkway without an E interview',()=>{
- const s=Story.createState();
- s.phase='records';s.combat.cleared=true;s.world.bots=[];
+ const s=cleared();
  assert.equal(s.workerInterviewed,false);
  const before={...s.worker};
  for(let t=0;t<850;t++)Story.step(s,1/60,{});
@@ -20,16 +27,14 @@ test('after the unexpected conflict, a harbor worker decides to clear the walkwa
  assert.ok(report.closingScene.lines.at(-1).includes('항구 작업자는 별도의 지시 없이'));
 });
 test('older CH01 checkpoints with an uninterviewed worker standing at original lane still load',()=>{
- const s=Story.createState();
- s.phase='records';s.combat.cleared=true;
+ const s=cleared();
  const saved=Story.serialize(s),reloaded=Story.restore(saved);
  assert.equal(reloaded.workerInterviewed,false);
  assert.deepEqual(reloaded.worker,s.worker);
  assert.equal(Story.serialize(reloaded),saved);
 });
 test('a witness who already reached the sheltered street does not promise to walk there again',()=>{
- const s=Story.createState();
- s.phase='records';s.combat.cleared=true;s.world.bots=[];
+ const s=cleared();
  for(let i=0;i<850;i++)Story.step(s,1/60,{});
  s.world.player.x=s.worker.x-2;s.world.player.z=s.worker.z;
  const interaction=Story.interact(s);
