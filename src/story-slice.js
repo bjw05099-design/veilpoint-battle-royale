@@ -916,7 +916,13 @@
           w:1.10,d:Math.abs(next-v.driverZ)+1.10};
         const bystanders=[p,state.worker,state.civilianWalker,
           state.choice==='evacuation'&&state.musterConfirmed?state.guide:null].filter(Boolean);
-        if(!bystanders.some(actor=>Sim.blocked(actor.x,actor.z,.65,[swept]))&&
+        // Face-to-face interaction starts with the player next to this
+        // human. They can walk AWAY from that original overlap; only newly
+        // entered pedestrian footprints block future swept travel.
+        const start={x:CIVILIAN_SHUTTLE.x,z:v.driverZ,w:1.10,d:1.10};
+        if(!bystanders.some(actor=>
+             !Sim.blocked(actor.x,actor.z,.65,[start])&&
+             Sim.blocked(actor.x,actor.z,.65,[swept]))&&
            !state.world.obstacles.filter(o=>o!==body).some(o=>
              Math.abs(o.x-swept.x)*2<o.w+swept.w&&
              Math.abs(o.z-swept.z)*2<o.d+swept.d))v.driverZ=next;
