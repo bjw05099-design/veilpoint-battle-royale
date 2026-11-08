@@ -431,6 +431,19 @@
       [122,125,2.2,4,1.0,'aden-transit-court-bench'],
       [146,125,2.2,4,1.0,'aden-transit-court-bench']
     ])o.push({x,z,w,d,h,type});
+    // Original fictional shoreline neighborhood between the ferry lobby and
+    // inland shaded court. Four separate public canopy posts and low benches
+    // leave a 12 m walkable central north-south passage. All bodies are
+    // authored once here and shared by BR and CH01, not duplicated in either.
+    // Visual canopy roofing has no invisible player-height collision.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-40,72,.7,.7,3,'aden-promenade-post'],
+      [-16,72,.7,.7,3,'aden-promenade-post'],
+      [-40,89,.7,.7,3,'aden-promenade-post'],
+      [-16,89,.7,.7,3,'aden-promenade-post'],
+      [-37,80,2.4,1,.7,'aden-promenade-seat'],
+      [-19,80,2.4,1,.7,'aden-promenade-seat']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -452,7 +465,8 @@
     Object.freeze({x:-45,z:121,label:'PUBLIC FERRY HALL'}),
     Object.freeze({x:43,z:75,label:'CIVIC SHADE COURT'}),
     Object.freeze({x:64,z:118,label:'PUBLIC CIVIC LANE'}),
-    Object.freeze({x:140,z:-121,label:'HARBOR SERVICE ROAD'})
+    Object.freeze({x:140,z:-121,label:'HARBOR SERVICE ROAD'}),
+    Object.freeze({x:-28,z:80,label:'PUBLIC COAST PROMENADE'})
   ]);
   function discoverLandmarks(game){
     if(!game||game.scene||game.status!=='playing')return 0;
