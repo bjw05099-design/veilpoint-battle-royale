@@ -845,7 +845,8 @@
     if(state.awningWorking&&state.awningShift<1 &&
        Math.hypot(p.x-AWNING_HANDLE.x,p.z-AWNING_HANDLE.z)<4.5) {
       const current=FALLEN_AWNING.x+state.awningShift*AWNING_SLIDE;
-      const fraction=Math.min(1,state.awningShift+t/AWNING_SLIDE_SECONDS);
+      const traveled=state.awningShift+t/AWNING_SLIDE_SECONDS;
+      const fraction=traveled>=1-1e-9?1:traveled;
       const proposed=FALLEN_AWNING.x+fraction*AWNING_SLIDE;
       const swept={...FALLEN_AWNING,x:(current+proposed)/2,
         w:FALLEN_AWNING.w+Math.abs(proposed-current)};
