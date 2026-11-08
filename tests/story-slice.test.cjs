@@ -2491,3 +2491,19 @@ test('CH01 legacy overlap recovery remains deterministic over 60Hz gameplay',()=
   }
   assert.equal(a.world.player.charges,state.world.player.charges);
 });
+
+test('CH01 departure context remains visible after immediate relay activation without altering checkpoints',()=>{
+  const state=story.createState();
+  const first=story.openingBeat(state);
+  assert.match(first.subtitle,/한국에서 확인/);
+  go(state,'terminal');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(state.phase,'engagement');
+  assert.deepEqual(story.openingBeat(state),first);
+  const saved=story.serialize(state);
+  state.world.elapsed=7;
+  assert.match(story.openingBeat(state).subtitle,/예상보다 빠르게/);
+  state.world.elapsed=11;
+  assert.equal(story.openingBeat(state),null);
+  assert.equal(story.serialize(story.restore(saved)),saved);
+});
