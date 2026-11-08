@@ -47,6 +47,7 @@ function cleanSession(){
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
  streetView=false;streetYaw=0;
+ if(document.pointerLockElement===canvas)document.exitPointerLock?.();
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
  try{sessionStorage.removeItem(SESSION);}catch(_){}
@@ -222,6 +223,7 @@ function toggleStandings(open){
  panel.hidden=!next;
  el('standingsToggle').setAttribute('aria-expanded',String(next));
  if(next){
+  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
   // A player checking the score must not keep moving while the keyboard
   // focus belongs to the visible overlay; the next 180ms input is neutral.
   keys.clear();sprintIntent=false;lastSprint=null;
@@ -421,10 +423,27 @@ function toggleStreetView(){
  streetView=!streetView;
  mapFollow=false;mapZoomLevel=0;
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
- message(streetView?'1인칭 거리 시야 · J/L 회전 · WASD 기존 세계축 이동 · P 지도':
+ if(!streetView&&document.pointerLockElement===canvas)document.exitPointerLock?.();
+ message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD는 바라보는 방향으로 걷기 · Esc 해제 · P 지도':
   '2D 서버 진단 지도로 돌아왔습니다.');
  render();
 }
+// Desktop mouse look is an opt-in foreground gesture on the actual canvas.
+ // No mouse coordinates are sent to the server; only a bounded normalized
+ // walking direction reaches the authoritative 60Hz gameplay controller.
+canvas.addEventListener('click',()=>{
+ if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
+  canvas.requestPointerLock?.();
+});
+document.addEventListener('mousemove',event=>{
+ if(document.pointerLockElement!==canvas||!streetView||
+    !currentWorld()||!el('standingsPanel').hidden||
+    !el('vpAudioPanel').hidden)return;
+ if(!Number.isFinite(event.movementX))return;
+ streetYaw=window.VeilpointBR96StreetView.wrap(
+  streetYaw+Math.max(-160,Math.min(160,event.movementX))*.0025);
+ render();
+});
 function turnStreetView(delta){
  if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
  streetYaw=window.VeilpointBR96StreetView.wrap(streetYaw+delta);
@@ -544,7 +563,11 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();voteLiveRoute();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
-function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;render();}
+function resetKeys(){
+ keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+ if(document.pointerLockElement===canvas)document.exitPointerLock?.();
+ render();
+}
 window.addEventListener('blur',resetKeys);
 window.addEventListener('pagehide',()=>harborAudio?.dispose());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
@@ -555,7 +578,10 @@ function direction(){
  const dx=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
  const dz=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));
  const len=Math.hypot(dx,dz)||1;
- return {dx:dx/len,dz:dz/len};
+ const intent={dx:dx/len,dz:dz/len};
+ return streetView&&window.VeilpointBR96StreetView
+  ?window.VeilpointBR96StreetView.relativeMovement(intent.dx,intent.dz,streetYaw)
+  :intent;
 }
 async function movement(){
  if(!active()||moveBusy)return;
