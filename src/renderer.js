@@ -935,6 +935,19 @@ class Renderer {
   if(this.fallback)this.fallback.verticalFov=degrees;
   return degrees;
  }
+ // Temporary, explicit first-person environment observation view. It alters
+ // only display projection, not collision, hidden-actor discovery, world time,
+ // opponent AI or durable graphics preferences. Restores configured FOV on
+ // release, pause or next unzoomed draw (works in WebGL and Canvas fallback).
+ setObservationZoom(held,configuredFov){
+  const options=global.VeilpointCameraView?.OPTIONS||[48,55,63,70,78];
+  if(!options.includes(configuredFov)||typeof held!=='boolean')
+   throw new RangeError('Invalid observation camera parameters');
+  const angle=held?Math.max(28,Math.round(configuredFov*0.58)):configuredFov;
+  this.verticalFov=angle;
+  if(this.fallback)this.fallback.verticalFov=angle;
+  return angle;
+ }
  setAdaptiveResolution(scale){
   if(!Number.isFinite(scale)||scale<.5||scale>1.25)throw new RangeError('Invalid adaptive resolution');
   if(this.fallback){this.fallback.adaptiveScale=scale;return;}
