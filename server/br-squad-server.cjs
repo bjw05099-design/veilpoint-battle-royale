@@ -13,6 +13,7 @@ const {readJson}=require('./json-body.cjs');
 const BR96_HTML=fs.readFileSync(path.resolve(__dirname,'../br96.html'));
 const BR96_CLIENT=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'));
 const BR96_AUDIO=fs.readFileSync(path.resolve(__dirname,'../src/br96-environment-audio.js'));
+const AUDIO_PREFS=fs.readFileSync(path.resolve(__dirname,'../src/audio-preferences.js'));
 const BR96_CAMERA=fs.readFileSync(path.resolve(__dirname,'../src/br96-map-camera.js'));
 
 function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTick=true}={}) {
@@ -65,7 +66,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    // Serve only the two locally owned, hard-coded browser assets. The HTTP
    // world API stays bound to loopback; no path traversal or token in URL.
    if(req.method==='GET'&&(url.pathname==='/'||
-      url.pathname==='/br96-client.js'||url.pathname==='/br96-environment-audio.js'||url.pathname==='/br96-map-camera.js')){
+      url.pathname==='/br96-client.js'||url.pathname==='/br96-environment-audio.js'||url.pathname==='/br96-map-camera.js'||url.pathname==='/audio-preferences.js')){
      const script=url.pathname!=='/';
      res.writeHead(200,{
        'Content-Type':script?'text/javascript; charset=utf-8':'text/html; charset=utf-8',
@@ -75,7 +76,8 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
      });
      return res.end(!script?BR96_HTML:
        url.pathname==='/br96-client.js'?BR96_CLIENT:
-       url.pathname==='/br96-map-camera.js'?BR96_CAMERA:BR96_AUDIO);
+       url.pathname==='/br96-map-camera.js'?BR96_CAMERA:
+       url.pathname==='/audio-preferences.js'?AUDIO_PREFS:BR96_AUDIO);
    }
    if(req.method==='POST'&&url.pathname==='/join'){
     const body=await readJson(req,1024,bodyTimeoutMs);
