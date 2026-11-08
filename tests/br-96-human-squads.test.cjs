@@ -39,7 +39,10 @@ test('vacant slots can be reused without reshuffling other squads',()=>{
  assert.equal(lobby.leave(token(1)).ok,true);
  assert.equal(lobby.join(token(44),'Replacement').slot,1);
  assert.equal(lobby.snapshot(token(0)).self.ready,true);
- assert.deepEqual(lobby.snapshot(token(12)).self,{id:13,name:'Player 12',squad:3,slot:1,ready:false,entryChoice:null},'unselected players preserve the explicit pre-round choice state');
+ assert.deepEqual(lobby.snapshot(token(12)).self,{id:13,name:'Player 12',squad:3,slot:1,ready:false},
+  'pre-round entry votes must not change existing human identity serialization');
+ assert.equal(lobby.snapshot(token(12)).entry.selfChoice,null,
+  'unselected ballot is explicit in its own versioned entry namespace');
  assert.equal(lobby.players.size,14);
 });
 test('clients cannot choose opponents, teams, secret tokens, or force a launch',()=>{
