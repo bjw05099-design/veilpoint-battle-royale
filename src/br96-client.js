@@ -176,11 +176,7 @@ function render(){
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
-    (w.squadRoute?'\n분대 이동 합의: '+(w.squadRoute.target?.label||'투표 진행 중')+
-      ' · 투표 '+Object.values(w.squadRoute.tally).reduce((sum,n)=>sum+n,0)+'/'+w.squadRoute.eligibleMembers+
-      (w.squadRoute.target?' · 현장 도착 '+w.squadRoute.arrived+'명'+
-        (w.squadRoute.confirmedAtTick!==null?' · 집결 확인':
-         ' · 집결 '+Math.floor(w.squadRoute.holdTicks/60)+'/2초'):''):'')+
+    (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -188,7 +184,6 @@ function render(){
     (w.spectatorView?'\n관전 대상: '+w.spectatorView.slot+'번 분대원'+
       (w.spectatorView.automaticFallback?' · 기존 대상 퇴장으로 자동 전환':''):
       retired?'\n본인 경기 포기 · 아군 관전 선택 가능':'')+
-    (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:'')+
     (w.matchOutcome?'\n최종 결과: '+
      (w.matchOutcome.kind==='shared_tie'?'모든 분대 동시 종료 · 공동 순위':
        w.matchOutcome.kind==='squad_win'?'우리 분대 우승':
@@ -315,14 +310,15 @@ function draw(w){
   ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(p.x),z(p.z),r,0,Math.PI*2);ctx.fill();
  }
  for(const site of w.squadLandmarks||[])dot(site,'#9eabb2',4);
- if(w.squadRoute?.target){
-  dot(w.squadRoute.target,'#c9aef6',9);
-  ctx.fillStyle='#e6d7fb';ctx.font='12px system-ui';
-  ctx.fillText('SQUAD ROUTE',x(w.squadRoute.target.x)+11,z(w.squadRoute.target.z)-10);
- }
  for(const rival of w.visible||[])dot(rival,'#ef897e',6);
  for(const mate of w.squad||[])if(mate.id!==w.self.id)dot(mate,'#8cb6e6',6);
- if(w.squadSignal)dot(w.squadSignal,'#e7d189',8);
+ if(w.squadSignal){
+  const pin=w.squadSignal;
+  dot(pin,pin.kind==='regroup'?'#e7d189':'#a5d5f3',8);
+  ctx.fillStyle='#f3e8c9';ctx.font='12px system-ui';
+  ctx.fillText(pin.kind==='regroup'?'MEET HERE?':'POSITION',
+    x(pin.x)+11,z(pin.z)-10);
+ }
  if(w.spectatorView){
   dot(w.spectatorView,'#e9d093',9);
   ctx.strokeStyle='#f4e0a3';ctx.lineWidth=2;
@@ -399,7 +395,13 @@ async function invite(){
  const answer=await command('/squad-invite',{},null);
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
-async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+async function signal(kind){
+ if(!active())return;
+ const result=await command('/signal',{kind},null);
+ if(result?.ok)message(kind==='regroup'
+  ?'현재 위치에 집결 제안 퀵마크를 찍었습니다. 아군이 따라올지는 자유입니다.'
+  :'현재 위치를 분대에 표시했습니다.');
+}
 async function sendSquadChat(){
  if(!active())return;
  const input=el('squadChatInput'),text=input.value.trim();
@@ -410,16 +412,6 @@ async function sendSquadChat(){
  if(result?.ok){input.value='';message('우리 분대에만 메시지가 전달됐습니다.');}
 }
 
-async function voteLiveRoute(){
- if(!active())return;
- // Server determines the real majority and only publishes this squad's vote.
- const choices=['ferry','shade','civic'];
- const current=choices.indexOf(currentWorld().self.routeChoice);
- const choice=choices[(current+1)%choices.length];
- const result=await command('/route-vote',{choice},null);
- if(result?.ok)message('우리 분대 이동 후보: '+(result.route?.target?.label||choice)+
-   ' · 최종 합의는 실제 참가자 과반으로 결정됩니다.');
-}
 function toggleStreetView(){
  if(!currentWorld()||!window.VeilpointBR96StreetView)return;
  streetView=!streetView;
@@ -562,7 +554,6 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
  else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
- else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();voteLiveRoute();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
