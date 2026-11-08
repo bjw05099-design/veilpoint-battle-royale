@@ -207,11 +207,14 @@ function render(){
  select.disabled=!retired||eligibleMates.length===0;
  el('spectate').disabled=select.disabled;
  el('withdraw').disabled=!active();
- el('squadChatInput').disabled=!active();
- el('sendSquadChat').disabled=!active();
- el('squadChatLine').textContent=(w?.squadChat?.length
-  ?w.squadChat.slice(-2).map(entry=>entry.slot+'번: '+entry.text).join(' · ')
-  :'분대 전용 메시지 · 경기 시작 후 사용 가능');
+ const canChat=!!token&&(state?.phase==='assembling'||active());
+ el('squadChatInput').disabled=!canChat;
+ el('sendSquadChat').disabled=!canChat;
+ const messages=state?.phase==='assembling'?state?.lobbyChat:w?.squadChat;
+ el('squadChatLine').textContent=(messages?.length
+  ?messages.slice(-2).map(entry=>entry.slot+'번: '+entry.text).join(' · ')
+  :state?.phase==='assembling'?'분대 전용 사전 대화 · 준비 전 사용 가능':
+   '분대 전용 메시지 · 경기 시작 후 사용 가능');
  el('withdraw').textContent=Date.now()<withdrawArmedUntil?'다시 누르면 경기 포기':'경기 포기';
  el('sprint').textContent=sprintIntent?'달리기 ON':'달리기 OFF';
  el('sprint').setAttribute('aria-pressed',String(sprintIntent));
@@ -464,7 +467,7 @@ async function signal(kind){
   :'현재 위치를 분대에 표시했습니다.');
 }
 async function sendSquadChat(){
- if(!active())return;
+ if(!token||!(state?.phase==='assembling'||active()))return;
  const input=el('squadChatInput'),text=input.value.trim();
  if(!text)return;
  // Input focus is excluded from the game's movement handler, so typing

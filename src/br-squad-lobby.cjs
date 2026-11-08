@@ -32,6 +32,10 @@ class BrSquadLobby {
     // Separate optional ballot table preserves the original stable human
     // player record shape and all legacy roster/debug consumers.
     this.entryVotes=new Map();
+    // Authenticated six-person staging chat, separate from live 60Hz radio.
+    // Server time owns the cooldown; opponents never receive messages.
+    this.lobbyChat=Array.from({length:SQUADS},()=>[]);
+    this.lobbyChatLast=new Map();this.lobbyChatSerial=0;
   }
   invite(token) {
     const member=this.players.get(token);
@@ -78,6 +82,23 @@ class BrSquadLobby {
     if(invite)return {ok:false,reason:'squad_full'};
     throw new Error('inconsistent_squad_roster');
   }
+  chat(token,raw,nowMs=Date.now()){
+    const member=this.players.get(token);
+    if(!member)throw new RangeError('unknown_session');
+    if(this.phase!=='assembling')return {ok:false,reason:'roster_locked'};
+    if(typeof raw!=='string'||raw!==raw.trim()||!raw||
+       Array.from(raw).length>96||INVALID_NAME.test(raw))
+      return {ok:false,reason:'invalid_chat'};
+    if(!Number.isSafeInteger(nowMs)||nowMs<0)
+      throw new RangeError('invalid_server_clock');
+    const last=this.lobbyChatLast.get(token);
+    if(last!==undefined&&nowMs-last<3000)return {ok:false,reason:'chat_cooldown'};
+    this.lobbyChatLast.set(token,nowMs);
+    const event={id:++this.lobbyChatSerial,slot:member.slot+1,text:raw,authorId:member.id};
+    const history=this.lobbyChat[member.team];history.push(event);
+    if(history.length>6)history.shift();
+    return {ok:true,message:{id:event.id,slot:event.slot,text:event.text}};
+  }
   voteEntry(token,choice){
     const member=this.players.get(token);
     if(!member)throw new RangeError('unknown_session');
@@ -122,6 +143,10 @@ class BrSquadLobby {
     this.seats[p.team][p.slot]=null;
     this.players.delete(token);
     this.entryVotes.delete(token);
+    this.lobbyChatLast.delete(token);
+    // Former squad members cannot leave private text visible to newly
+    // assigned occupants of their released seat.
+    this.lobbyChat[p.team]=this.lobbyChat[p.team].filter(message=>message.authorId!==p.id);
     // A departed leader cannot continue recruiting players to their old seat.
     for(const [code,inv] of this.invites)if(inv.owner===token)this.invites.delete(code);
     return {ok:true};
@@ -154,6 +179,8 @@ class BrSquadLobby {
       phase:this.phase,capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       participants:this.players.size,readyCount:ready,squadSizes:counts,
       self:{id:me.id,name:me.name,squad:me.team+1,slot:me.slot+1,ready:me.ready},
+      lobbyChat:this.phase==='assembling'
+        ?this.lobbyChat[me.team].map(({id,slot,text})=>({id,slot,text})):[],
       entry:{...this.squadEntry(me.team),selfChoice:this.entryVotes.get(token)||null,
         options:ENTRY_ORDER.map(id=>({id,label:ENTRY_CHOICES[id].label}))},
       // A player can see their own real squad, not private opposing identities
