@@ -11,7 +11,27 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
  if(!['127.0.0.1','localhost','::1'].includes(host))throw new RangeError('loopback_host_required');
  const lobby=new BrSquadLobby();
  let world=null;
- const advance=createFixedStepClock(()=>{if(world)world.step();});
+ // One privately authenticated live stream per player. No broadcast of
+ // global world state, other squads' presence, or raw session capabilities.
+ // The existing 60Hz server remains authoritative; streaming only publishes
+ // the SAME filtered world.snapshot(token) response as GET /world.
+ const liveStreams=new Map();
+ const publishSnapshot=(token,res)=>{
+  const frame='event: world\ndata: '+JSON.stringify(world.snapshot(token))+'\n\n';
+  if(!res.write(frame)){ // never accumulate unlimited buffered frames
+   liveStreams.delete(token);res.end();
+  }
+ };
+ const advanceWorld=()=>{
+  if(!world)return;
+  world.step();
+  if(world.tick%15!==0)return; // max four snapshots per simulated second
+  for(const [token,res] of liveStreams){
+   try {publishSnapshot(token,res);}
+   catch(_){liveStreams.delete(token);res.destroy();}
+  }
+ };
+ const advance=createFixedStepClock(advanceWorld);
  let timer=null;
  const stateFor=token=>{
   const state=lobby.snapshot(token);
@@ -54,6 +74,26 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    }
    if(req.method==='GET'&&url.pathname==='/state')
     return send(res,200,stateFor(token));
+   if(req.method==='GET'&&url.pathname==='/events'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    // A stale or made-up token never opens a live response body.
+    world.snapshot(token);
+    if(liveStreams.has(token))return send(res,409,{error:'stream_already_open'});
+    if(liveStreams.size>=96)return send(res,503,{error:'stream_capacity'});
+    res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8',
+     'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
+     'Cross-Origin-Resource-Policy':'same-origin','X-Frame-Options':'DENY',
+     'Connection':'keep-alive'});
+    res.flushHeaders();
+    liveStreams.set(token,res);
+    const release=()=>{if(liveStreams.get(token)===res)liveStreams.delete(token);};
+    // IncomingMessage 'close' may fire as soon as GET headers are consumed;
+    // the writable response 'close' is the actual streaming disconnect.
+    res.on('close',release);
+    res.write('retry: 1000\n\n');
+    publishSnapshot(token,res);
+    return;
+   }
    if(req.method==='GET'&&url.pathname==='/world'){
     if(!world)return send(res,409,{error:'round_not_started'});
     return send(res,200,world.snapshot(token));
@@ -134,7 +174,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    return send(res,status,{error:reason});
   }
  });
- return {lobby,get world(){return world;},step:()=>{if(world)world.step();},
+ return {lobby,get world(){return world;},get liveStreamCount(){return liveStreams.size;},step:advanceWorld,
   listen:()=>new Promise((resolve,reject)=>{
    const fail=err=>{server.off('error',fail);reject(err);};
    server.once('error',fail);
@@ -147,6 +187,8 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    });
   }),close:()=>new Promise((resolve,reject)=>{
    if(timer){clearInterval(timer);timer=null;}
+   for(const stream of liveStreams.values())stream.end();
+   liveStreams.clear();
    server.close(err=>err?reject(err):resolve());
   })};
 }
