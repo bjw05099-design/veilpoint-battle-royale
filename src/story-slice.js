@@ -1084,13 +1084,21 @@
     if(state.phase==='exit'&&state.world.status==='playing'){
       const isSouth=state.choice==='evacuation';
       const exit=isSouth?POINTS.exitEvac:POINTS.exitVerify;
-      const from=Math.hypot(beforeX-exit.x,beforeZ-exit.z);
-      const arrived=Math.hypot(p.x-exit.x,p.z-exit.z);
-      const companionsReady=!isSouth||( !state.world.carryingAid&&
+      // The green/blue E marker is INSIDE the busy local courtyard; reaching
+      // its 2m sphere cannot terminate the chapter before the player chooses
+      // to speak to Yusuf, hand over supplies or inspect the nearby cabinet.
+      // Cross a separate physical threshold BEYOND that site to leave:
+      // south passage continues down the walkway; east passage turns east.
+      // Neither line lies on the authored optional task walkways.
+      const southEdge=exit.z-4.5,eastEdge=exit.x+6.5;
+      const crossed=isSouth
+        ?beforeZ>southEdge&&p.z<=southEdge&&Math.abs(p.x-exit.x)<2.2
+        :beforeX<eastEdge&&p.x>=eastEdge&&Math.abs(p.z-exit.z)<2.2;
+      const companionsReady=!isSouth||(!state.world.carryingAid&&
         !(state.guide.active&&!state.guide.arrived&&!state.guide.released));
       const permitted=isSouth||gateOpen(state);
-      if(from>2.2&&arrived<=2.2&&movedDistance>1e-7&&companionsReady&&permitted&&
-         !Sim.lineBlocked(beforeX,beforeZ,exit.x,exit.z,state.world.obstacles)){
+      if(crossed&&movedDistance>1e-7&&companionsReady&&permitted&&
+         !Sim.lineBlocked(beforeX,beforeZ,p.x,p.z,state.world.obstacles)){
         finishAtExit(state);
         syncMarkers(state);
       }
