@@ -397,7 +397,8 @@
     central:Object.freeze({x:0,z:0,label:'Central approach'}),
     service:Object.freeze({x:46,z:-5,label:'North service road'}),
     east:Object.freeze({x:90,z:-90,label:'East harbor approach'}),
-    west:Object.freeze({x:-98,z:-110,label:'West harbor approach'})
+    west:Object.freeze({x:-98,z:-110,label:'West harbor approach'}),
+    ferry:Object.freeze({x:-45,z:121,label:'Public ferry waiting hall · south entrance'})
   });
   const ZONE_PHASES = [
     { duration: 90, radius: 135 }, { duration: 95, radius: 96 },
@@ -501,7 +502,7 @@
       trailMarker:null,
       brHeadlamp:{on:false,ticks:BR_HEADLAMP_TICKS},
       obstacles, bots, loot, player:{x:deployment.x,z:deployment.z,
-        yaw:entrySite==='central'?0:Math.atan2(-deployment.x,deployment.z),
+        yaw:entrySite==='central'?0:entrySite==='ferry'?Math.PI:Math.atan2(-deployment.x,deployment.z),
         pitch:0,health:100,weaponId:firearm.id,charges:firearm.initialRounds,maxCharges:firearm.maxRounds,loaded:firearm.magazine,reloadRemaining:0,stamina:100,stress:0,reloadAssist:false,reloadHesitation:false,sprintExhausted:false,alive:true},
       zone:{ x:0,z:0, radius:170, phase:0, phaseRemaining:ZONE_PHASES[0].duration },
       effects:[], message:'', messageTime:0, lastTagAt:-2, recentDamage:0
