@@ -56,6 +56,18 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 #vpAudioControls input[type=range]{width:100%;min-width:0;accent-color:#acd9bc;padding:0}
 #vpAudioControls output{text-align:right}
 #vpAudioControls .vp-audio-hint,#vpAudioSaveStatus{margin:0;color:#bdcfc8;font-size:clamp(10px,1.3vh,12px)}
+/* Compact, not hidden: every control and note must fit 1024x600 PC Chrome. */
+@media(max-height:640px){
+ #sidebar{padding:7px;gap:3px}
+ #sidebar .group{gap:3px}
+ #sidebar input,#sidebar button,#sidebar select{padding:3px 5px;font-size:12px}
+ #sidebar h2{font-size:13px;margin:0 0 3px}
+ #sidebar #status{font-size:12px;line-height:1.2;min-height:2.2em}
+ #sidebar #details{font-size:11px;line-height:1.18}
+ #sidebar #roster{font-size:10px;line-height:1.2}
+ #sidebar #squadChatLine{font-size:10px;line-height:1.2;min-height:1.2em}
+ #sidebar .note{font-size:10px;line-height:1.15}
+}
 </style>
 </head>
 <body>
