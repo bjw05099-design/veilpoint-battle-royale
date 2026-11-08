@@ -1358,10 +1358,19 @@
       if(e.repeat)return;
       // Shift+the remapped guidance key cycles backward, independent of the
       // currently published array index; neither shortcut moves the world.
+      // Initial cycling is limited to physically observed local prompts and
+      // the current route. After opting into a secondary non-paper marker,
+      // the old stable non-evidence cycle remains available deliberately.
+      const observed=visibleMissionMarkers();
+      const optedIn=guidanceId!==null&&
+        !['terminal','decision','exitEvac','exitVerify'].includes(guidanceId)&&
+        observed.some(marker=>marker.id===guidanceId);
+      const cycle=optedIn?Story.markers(state).filter(marker=>
+        marker.kind!=='evidence'||marker.id===guidanceId):observed;
       if(e.shiftKey)
-        guidanceId=Navigation.previousMarkerId(Story.markers(state),guidanceId);
+        guidanceId=Navigation.previousMarkerId(cycle,guidanceId);
       else
-        guidanceId=Navigation.nextMarkerId(Story.markers(state),guidanceId);
+        guidanceId=Navigation.nextMarkerId(cycle,guidanceId);
       updateHud();
     }
   });
