@@ -16,6 +16,9 @@ const STAMINA_RECOVERY_PER_SECOND=9, REST_RECOVERY_PER_SECOND=12.5, STAMINA_REAR
 // physical map recovers faster than walking. Holding movement into a wall
 // does not count as rest, and sprinting only drains on actual displacement.
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
+// Human-only squad text. It never contains authentication tokens or opponent
+// messages and is limited to a bounded history and 60Hz authoritative cadence.
+const CHAT_LIMIT=6, CHAT_MAX_CHARS=96, CHAT_INTERVAL_TICKS=180;
 const REGROUP_RADIUS_METERS=12;
 // Public, fictional walking destinations. Only actual eligible squad members
 // vote. A vote never moves actors, awards placement, or reveals another team.
@@ -58,6 +61,7 @@ class BrSquadWorld {
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
     this.squadSignals=new Map();
+    this.squadChat=Array.from({length:SQUADS},()=>[]);this.chatSerial=0;
     const occupied=[];
     const teams=Array.from({length:SQUADS},(_,n)=>n);
     this.entryPlans=teams.map(team=>lobby.squadEntry(team).choice);
@@ -166,6 +170,22 @@ class BrSquadWorld {
   // Team-only, time-limited in-world field signals are authored at the
   // caller's actual server pose. They never identify an unseen opponent or
   // reveal distant team positions to other squads.
+  chat(token,raw){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    if(typeof raw!=='string'||raw!==raw.trim()||!raw||
+       Array.from(raw).length>CHAT_MAX_CHARS||/[\u0000-\u001f\u007f-\u009f]/.test(raw))
+      return {ok:false,reason:'invalid_chat'};
+    if(this.tick-(actor.lastChatTick??-CHAT_INTERVAL_TICKS)<CHAT_INTERVAL_TICKS)
+      return {ok:false,reason:'chat_cooldown'};
+    actor.lastChatTick=this.tick;actor.lastPresenceTick=this.tick;
+    const event={id:++this.chatSerial,slot:actor.slot+1,text:raw,tick:this.tick};
+    const messages=this.squadChat[actor.team];
+    messages.push(event);
+    if(messages.length>CHAT_LIMIT)messages.shift();
+    return {ok:true,message:event};
+  }
   signal(token,kind){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -559,6 +579,7 @@ class BrSquadWorld {
       civicGate:this.gateSnapshot(),
       handcart:this.handcartSnapshot(token),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
+      squadChat:this.squadChat[me.team].map(message=>({...message})),
       squadRegroup:regroup,
       squadRoute:this.squadRouteSnapshot(me.team),
       squadLandmarks,
