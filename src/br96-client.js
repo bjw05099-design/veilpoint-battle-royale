@@ -15,7 +15,7 @@ const harborAudio=window.VeilpointBR96Audio?.create({
 })||null;
 const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
-let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
+let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
@@ -23,7 +23,7 @@ try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.tes
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  harborAudio?.disable();
- token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
+ token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
  el('standingsPanel').hidden=true;
@@ -123,7 +123,7 @@ function render(){
      ' · 득표 '+state.entry.options.map(o=>o.label+' '+(state.entry.tally[o.id]||0)).join(' / '):'')+
    (w?'\n서버 틱 '+w.tick+' · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
-    '\n지구력 '+Math.round(w.self.stamina)+'/100 · 경계 '+w.playableArea.stage+
+    '\n지구력 '+Math.round(w.self.stamina)+'/100 · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
@@ -383,14 +383,14 @@ document.addEventListener('keydown',event=>{
     ['Equal','NumpadAdd','Minus','NumpadSubtract'].includes(key)){
    event.preventDefault();changeMapZoom(key==='Equal'||key==='NumpadAdd'?1:-1);return;
  }
- if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight'].includes(key)){
+ if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight','KeyC'].includes(key)){
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
-function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;render();}
+function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;render();}
 window.addEventListener('blur',resetKeys);
 window.addEventListener('pagehide',()=>harborAudio?.dispose());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
@@ -409,9 +409,11 @@ async function movement(){
   const dir=direction();
   await request('/move',{...dir,seq:++seq});
   const newSprint=sprintIntent||keys.has('ShiftLeft')||keys.has('ShiftRight');
-  if(newSprint!==lastSprint){
-   lastSprint=newSprint;
-   await request('/pace',{sprint:newSprint});
+  const newCrouch=keys.has('KeyC');
+  if(newSprint!==lastSprint||newCrouch!==lastCrouch){
+   // A stance is a server-owned movement intent, not client-set velocity.
+   await request('/pace',{sprint:newSprint,crouch:newCrouch});
+   lastSprint=newSprint;lastCrouch=newCrouch;
   }
  }catch(error){
   consecutiveErrors++;
