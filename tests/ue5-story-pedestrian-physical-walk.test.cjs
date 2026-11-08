@@ -38,7 +38,12 @@ test('UE5 CH01 pedestrian is spawned only by native story authority, once per au
    'a resumed south-route save sees the existing human rather than a spawned mid-path ghost');
 });
 test('UE5 grounded civilian travel never becomes a fake mission result or save entitlement',()=>{
- assert.match(cpp,/SouthApproachDestination\(4300\.f,-1150\.f,95\.f\)/);
+ assert.match(cpp,/SouthApproachDestination\(4300\.f,-1150\.f,80\.f\)/);
+ assert.match(mode,/FVector\(3400\.f,-800\.f,80\.f\)/);
+ assert.match(cpp,/InitCapsuleSize\(43\.f,85\.f\)/);
+ const world=fs.readFileSync(path.join(root,'VPWorldBootstrap.cpp'),'utf8');
+ assert.match(world,/AddBlock\(Ground,FVector\(0,0,-70\),FVector\(350\.f,350\.f,1\.3f\)\)/);
+ assert.equal(-70+1.3*100/2,80-85,'the pedestrian capsule feet rest on the authored world ground');
  assert.match(cpp,/constexpr float WalkSpeed=125\.f/);
  assert.doesNotMatch(h+cpp,/TryAdvance\(|PersistStoryCheckpoint\(|SetLifeSpan\(|SetActorHiddenInGame\(/);
  assert.doesNotMatch(mode,/bReachedSouthCourtyard\s*\?\s*EVPStoryStage/);
