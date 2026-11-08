@@ -11,7 +11,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
-  if (!Consequences) throw new Error('VeilpointStoryConsequences is required for CH01 causal history');
+  // Older embedded CH01 clients and VM fixtures omit the optional causal
+  // commentary module; never let missing narrative projection break play or
+  // corrupt an otherwise valid v2 checkpoint.
   const VERSION = 2;
   const SAVE_LIMIT = 8192;
   // A finite ten-minute prototype headlamp battery, advanced by fixed 60Hz steps.
@@ -1514,7 +1516,7 @@
       const arrival=state.civilianWalker?.arrived
         ?' 방금 걸어서 온 주민 한 명은 내가 직접 확인했어.'
         :' 아직 이곳에 도착하지 않은 주민은 안전하다고 기록하지 마.';
-      state.subtitle='유수프(현지 구조단): 2011년 예멘의 시위 때는 우리도 새 질서를 기대했지. 2014년 사나가 장악되고 2015년 아덴까지 전투가 번지자, 이웃들이 서로 다른 길을 선택해야 했어. 2019년 리야드 합의가 있어도 통행 허가는 종이만으로 생기지 않아. 남쪽 통로는 우리 구조단이 책임진다.'+arrival;
+      state.subtitle='유수프(현지 구조단): 2011년 예멘의 시위 때는 우리도 새 질서를 기대했지. 2014년 사나가 장악되고 2015년 아덴까지 전투가 번지자, 이웃들이 서로 다른 길을 선택해야 했어. 2019년 리야드 합의가 있어도 합의가 곧 통행 허가는 아니야. 남쪽 통로는 우리 구조단이 책임진다.'+arrival;
       state.message='현지 구조 책임자와 직접 협의 · 남쪽 주민 대피 지원 선택';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
@@ -1899,7 +1901,7 @@
       version:2,mission:'CH01',previewOnly:true,campaignUnlocked:false,
       closingScene:closingScene(state),
       // A read-only causal account; not a checkpoint or a new completion gate.
-      causalTimeline:Consequences.fromMission(state),
+      causalTimeline:Consequences?Consequences.fromMission(state):null,
       optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
