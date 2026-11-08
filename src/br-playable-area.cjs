@@ -11,12 +11,27 @@ const STAGES=Object.freeze([
  Object.freeze({start:125*TICKS_PER_SECOND,end:170*TICKS_PER_SECOND,from:125,to:85,label:'second-contraction'}),
  Object.freeze({start:170*TICKS_PER_SECOND,end:Infinity,from:85,to:85,label:'final'})
 ]);
+// During contraction the new safe region walks gradually toward a public
+// announced civic district. Both displacement magnitudes are smaller than
+// the corresponding radius reductions, so the target stays wholly inside
+// the current public area. No client can author the center or predict rivals.
+const CENTER_STAGES=Object.freeze([
+ Object.freeze({fromX:0,fromZ:0,toX:0,toZ:0}),
+ Object.freeze({fromX:0,fromZ:0,toX:12,toZ:-6}),
+ Object.freeze({fromX:12,fromZ:-6,toX:12,toZ:-6}),
+ Object.freeze({fromX:12,fromZ:-6,toX:-12,toZ:9}),
+ Object.freeze({fromX:-12,fromZ:9,toX:-12,toZ:9})
+]);
 function brPlayableArea(tick){
  if(!Number.isSafeInteger(tick)||tick<0)throw new RangeError('invalid_area_tick');
- const stage=STAGES.find(s=>tick<s.end);
+ const index=STAGES.findIndex(s=>tick<s.end);
+ const stage=STAGES[index],center=CENTER_STAGES[index];
  const progress=stage.to===stage.from?0:(tick-stage.start)/(stage.end-stage.start);
  const radius=stage.from+(stage.to-stage.from)*progress;
- return Object.freeze({cx:0,cz:0,radius,stage:stage.label,
+ const cx=center.fromX+(center.toX-center.fromX)*progress;
+ const cz=center.fromZ+(center.toZ-center.fromZ)*progress;
+ const target=Object.freeze({cx:center.toX,cz:center.toZ,radius:stage.to});
+ return Object.freeze({cx,cz,radius,stage:stage.label,target,
   changing:stage.from!==stage.to,
   ticksUntilChange:Number.isFinite(stage.end)?stage.end-tick:null});
 }
@@ -32,4 +47,4 @@ function positionInArea(area,x,z){
   metersToEdge:Math.round(Math.abs(margin)*100)/100,
   nearEdge:margin>=0&&margin<=12});
 }
-module.exports={brPlayableArea,positionInArea,TICKS_PER_SECOND,STAGES};
+module.exports={brPlayableArea,positionInArea,TICKS_PER_SECOND,STAGES,CENTER_STAGES};
