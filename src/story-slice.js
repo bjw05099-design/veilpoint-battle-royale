@@ -971,11 +971,27 @@
     if(!state.passageWarningHeard&&reachedCorridor){
       state.passageWarningHeard=true;
       if(state.choice==='evacuation'){
-        state.subtitle='유수프(현지 구조단): 이 통로는 주민을 집결지로 안내하는 길입니다. 대위님이 출국 전에 들은 복귀 일정과는 별개의 상황입니다. 다음 이동편은 현지에서 다시 확인해야 합니다.';
-        state.message='남쪽 대피 통로 도착 · 민간인 이동 지원 · 기존 복귀 일정 불확실';
+        // Local actors react to witnessed progress, not a checklist of papers.
+        // An observed parked vehicle is not proof of civilian transportation.
+        const vehicle=state.transportVan?.arrived
+          ?' 나딤의 차량은 승차 지점에 도착했지만 주민 탑승은 확인되지 않았습니다.'
+          :state.transportVan
+            ?' 나딤의 차량은 아직 이동 중이므로 도착을 확정할 수 없습니다.':'';
+        const walker=state.civilianWalker?.arrived
+          ?' 주민 한 명은 걸어서 도착했습니다. 다른 주민은 아직 미확인입니다.'
+          :state.civilianRerouted
+            ?' 현지 주민이 접근로를 선택했지만 실제 도착은 아직 확인되지 않았습니다.':'';
+        state.subtitle='유수프(현지 구조단): 이 통로는 주민을 집결지로 안내하는 길입니다. 대위님이 출국 전에 들은 복귀 일정과는 별개의 상황입니다. 다음 이동편은 현지에서 다시 확인해야 합니다.'+vehicle+walker;
+        state.message='남쪽 대피 통로 도착 · 민간인 이동 지원 · 기존 복귀 일정 불확실'+
+          (state.transportVan?.arrived?' · 차량 현장 도착 확인':state.transportVan?' · 차량 이동 중':'')+
+          (state.civilianWalker?.arrived?' · 주민 보행 도착 확인':'');
       }else{
-        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없으며, 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.';
-        state.message='동쪽 현장 통로 도착 · 귀환 계획 재검토 필요';
+        const radio=state.relayRestored
+          ?' 비상 통신은 복구됐지만 통로의 개방 권한은 여전히 현지 구조단에 있습니다.'
+          :' 현장 통신은 아직 안정적으로 복구되지 않았으며 확인되지 않은 개방을 약속할 수 없습니다.';
+        state.subtitle='조현지(국정원): 동쪽 통로에 도착했습니다. 내전 확대로 출국 전 귀환 계획을 그대로 실행할 수 없으며, 동쪽 개방 여부는 현지 구조단과 통제소의 확인이 필요합니다.'+radio;
+        state.message='동쪽 현장 통로 도착 · 귀환 계획 재검토 필요'+
+          (state.relayRestored?' · 통신 복구와 통로 개방 별개':' · 현장 통신 미확인');
       }
     }
     // An optional geographically distant story beat is earned by walking
