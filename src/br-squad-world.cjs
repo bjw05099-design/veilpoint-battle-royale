@@ -8,6 +8,10 @@ const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
+// Server-authored movement budget: sprint is faster but finite, with a
+// recovery threshold that prevents instant exhaustion-toggle exploits.
+const SPRINT_SPEED=6.4, SPRINT_DRAIN_PER_SECOND=16;
+const STAMINA_RECOVERY_PER_SECOND=9, STAMINA_REARM=25;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 const REGROUP_RADIUS_METERS=12;
 // 10-second presence window is only a reconnect diagnostic; a stale
@@ -57,7 +61,8 @@ class BrSquadWorld {
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
-          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,outsideAreaTicks:0});
+          lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,outsideAreaTicks:0,
+          stamina:100,sprintHeld:false,sprintDepleted:false});
       }
     }
   }
@@ -79,6 +84,20 @@ class BrSquadWorld {
     actor.seq=command.seq;actor.lastMoveTick=this.tick;
     actor.lastPresenceTick=this.tick;
     return {ok:true,seq:actor.seq};
+  }
+  // An authenticated input changes only the caller's movement pace. This is
+  // not a client-provided velocity, stamina value or world position.
+  pace(token,command){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
+    if(!command||typeof command!=='object'||Array.isArray(command)||
+       Object.keys(command).length!==1||typeof command.sprint!=='boolean')
+      throw new RangeError('invalid_pace');
+    actor.sprintHeld=command.sprint;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,sprintHeld:actor.sprintHeld,stamina:Math.round(actor.stamina*100)/100};
   }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
@@ -152,7 +171,10 @@ class BrSquadWorld {
       const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
       const direction=fresh?actor.direction:{x:0,z:0};
       const next={x:actor.x,z:actor.z};
-      Sim.moveEntity(next,direction.x*SPEED,direction.z*SPEED,STEP,
+      const running=actor.sprintHeld&&!actor.sprintDepleted&&actor.stamina>0&&
+        Math.hypot(direction.x,direction.z)>1e-8;
+      const pace=running?SPRINT_SPEED:SPEED;
+      Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
         this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
@@ -160,7 +182,7 @@ class BrSquadWorld {
         Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
         next.x=actor.x;next.z=actor.z;
       }
-      return {actor,next};
+      return {actor,next,running};
     });
     for(let i=0;i<proposals.length;i++)for(let j=i+1;j<proposals.length;j++){
       const a=proposals[i],b=proposals[j];
@@ -170,7 +192,17 @@ class BrSquadWorld {
       }
     }
     const area=brPlayableArea(this.tick);
-    for(const {actor,next} of proposals){
+    for(const {actor,next,running} of proposals){
+      // A blocked body did not run. Only actual server-measured travel consumes
+      // stamina, even when a wall or another player interrupts a sprint.
+      const traveled=Math.hypot(next.x-actor.x,next.z-actor.z);
+      if(running&&traveled>1e-8){
+        actor.stamina=Math.max(0,actor.stamina-SPRINT_DRAIN_PER_SECOND*STEP);
+        if(actor.stamina<=0)actor.sprintDepleted=true;
+      }else{
+        actor.stamina=Math.min(100,actor.stamina+STAMINA_RECOVERY_PER_SECOND*STEP);
+        if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
+      }
       actor.x=next.x;actor.z=next.z;
       if(positionInArea(area,next.x,next.z).outside)actor.outsideAreaTicks++;
     }
@@ -222,11 +254,14 @@ class BrSquadWorld {
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        stamina:Math.round(me.stamina*100)/100,
+        sprintHeld:me.sprintHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
         outsideAreaTicks:me.outsideAreaTicks,
         connection:me.eligible&&this.tick-me.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale',
         placement:this.placements[me.team]},squad:mates,visible:seen};
   }
 }
-module.exports={BrSquadWorld,STEP,RADIUS,SPEED,LEASE_TICKS,
+module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,
+  SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS};
