@@ -14,6 +14,13 @@ const SPRINT_SPEED=6.4, CROUCH_SPEED=2.7, SPRINT_DRAIN_PER_SECOND=16;
 const STAMINA_RECOVERY_PER_SECOND=9, STAMINA_REARM=25;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 const REGROUP_RADIUS_METERS=12;
+// Public, fictional walking destinations. Only actual eligible squad members
+// vote. A vote never moves actors, awards placement, or reveals another team.
+const ROUTE_DESTINATIONS=Object.freeze({
+ ferry:Object.freeze({label:'여객 대기실',x:-45,z:121}),
+ shade:Object.freeze({label:'차양 쉼터',x:43,z:75}),
+ civic:Object.freeze({label:'주민 골목',x:64,z:118})
+});
 // 10-second presence window is only a reconnect diagnostic; a stale
 // connection never silently eliminates a human squad or awards a rank.
 const PRESENCE_STALE_TICKS=10*60;
@@ -82,7 +89,8 @@ class BrSquadWorld {
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
-          stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,spectateSlot:null});
+          stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
+          routeChoice:null,spectateSlot:null});
       }
     }
   }
@@ -166,6 +174,27 @@ class BrSquadWorld {
       expiresAtTick:this.tick+SIGNAL_TTL_TICKS};
     this.squadSignals.set(actor.team,notice);
     return {ok:true,signal:{...notice}};
+  }
+  // A squad's route is agreed by strictly more than half of its currently
+  // eligible real human members. No bot vote and no fabricated team decision.
+  squadRouteSnapshot(team){
+    const members=[...this.actors.values()].filter(p=>p.team===team&&p.eligible);
+    const tally=Object.fromEntries(Object.keys(ROUTE_DESTINATIONS).map(id=>[id,0]));
+    for(const p of members)if(p.routeChoice!==null)tally[p.routeChoice]++;
+    const accepted=members.length>=2?Object.keys(tally).find(id=>tally[id]>members.length/2):null;
+    const destination=accepted?ROUTE_DESTINATIONS[accepted]:null;
+    return {eligibleMembers:members.length,tally,choice:accepted||null,
+      target:destination?{...destination,id:accepted}:null,
+      arrived:destination?members.filter(p=>Math.hypot(p.x-destination.x,p.z-destination.z)<=10).length:0};
+  }
+  voteRoute(token,choice){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(!Object.hasOwn(ROUTE_DESTINATIONS,choice))throw new RangeError('invalid_route_choice');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    actor.routeChoice=choice;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,choice,route:this.squadRouteSnapshot(actor.team)};
   }
   // A nearby human can physically operate this public passenger hall shutter
   // from either side; clients never supply gate pose, velocity or coordinates.
@@ -439,6 +468,7 @@ class BrSquadWorld {
       civicGate:this.gateSnapshot(),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
+      squadRoute:this.squadRouteSnapshot(me.team),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
         x:watched.x,z:watched.z}:null,
@@ -449,7 +479,7 @@ class BrSquadWorld {
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
-        surface,
+        surface,routeChoice:me.routeChoice,
         stamina:Math.round(me.stamina*100)/100,
         sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
@@ -463,4 +493,4 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS};
+  BOUNDARY_GRACE_TICKS,ROUTE_DESTINATIONS};

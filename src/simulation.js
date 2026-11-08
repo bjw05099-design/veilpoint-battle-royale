@@ -400,6 +400,23 @@
       [20,146,1.8,3,1.1,'aden-seafront-market-counter'],
       [36,146,1.8,3,1.1,'aden-seafront-market-counter']
     ])o.push({x,z,w,d,h,type});
+    // Original public market court on the fictional western shore. This
+    // authored 12m-wide open pedestrian axis has physically separate side
+    // counters and north/south entrances; no closed-volume fake interiors.
+    // It is one shared collision source for CH01 and BR, never a surveyed
+    // replica of Aden facilities. Revision-0 historical terrain stays intact.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-123,128,.6,28,3.5,'aden-market-court-wall'],
+      [-91,128,.6,28,3.5,'aden-market-court-wall'],
+      [-118,142,10,.6,3.5,'aden-market-court-wall'],
+      [-96,142,10,.6,3.5,'aden-market-court-wall'],
+      [-118,114,10,.6,3.5,'aden-market-court-wall'],
+      [-96,114,10,.6,3.5,'aden-market-court-wall'],
+      [-119,127,2.1,4,1.2,'aden-market-court-counter'],
+      [-95,130,2.1,4,1.2,'aden-market-court-counter'],
+      [-117,135,3.5,.7,.75,'aden-market-court-bench'],
+      [-97,120,3.5,.7,.75,'aden-market-court-bench']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -462,7 +479,8 @@
     // Draw from the original unmodified candidate sequence, then resolve only
     // rare local overlap with the new block deterministically below.
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
-      !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-'));
+      !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
+      !o.type.startsWith('aden-market-court-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)

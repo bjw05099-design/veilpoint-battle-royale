@@ -128,6 +128,9 @@ function render(){
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
+    (w.squadRoute?'\n분대 이동 합의: '+(w.squadRoute.target?.label||'투표 진행 중')+
+      ' · 투표 '+Object.values(w.squadRoute.tally).reduce((sum,n)=>sum+n,0)+'/'+w.squadRoute.eligibleMembers+
+      (w.squadRoute.target?' · 현장 도착 '+w.squadRoute.arrived+'명':''):'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -237,6 +240,11 @@ function draw(w){
   ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(p.x),z(p.z),r,0,Math.PI*2);ctx.fill();
  }
  for(const site of w.squadLandmarks||[])dot(site,'#9eabb2',4);
+ if(w.squadRoute?.target){
+  dot(w.squadRoute.target,'#c9aef6',9);
+  ctx.fillStyle='#e6d7fb';ctx.font='12px system-ui';
+  ctx.fillText('SQUAD ROUTE',x(w.squadRoute.target.x)+11,z(w.squadRoute.target.z)-10);
+ }
  for(const rival of w.visible||[])dot(rival,'#ef897e',6);
  for(const mate of w.squad||[])if(mate.id!==w.self.id)dot(mate,'#8cb6e6',6);
  if(w.squadSignal)dot(w.squadSignal,'#e7d189',8);
@@ -308,6 +316,16 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+async function voteLiveRoute(){
+ if(!active())return;
+ // Server determines the real majority and only publishes this squad's vote.
+ const choices=['ferry','shade','civic'];
+ const current=choices.indexOf(currentWorld().self.routeChoice);
+ const choice=choices[(current+1)%choices.length];
+ const result=await command('/route-vote',{choice},null);
+ if(result?.ok)message('우리 분대 이동 후보: '+(result.route?.target?.label||choice)+
+   ' · 최종 합의는 실제 참가자 과반으로 결정됩니다.');
+}
 function toggleMapFollow(){
  if(!currentWorld())return;
  mapFollow=!mapFollow;
@@ -388,6 +406,7 @@ document.addEventListener('keydown',event=>{
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
+ else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();voteLiveRoute();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;render();}
