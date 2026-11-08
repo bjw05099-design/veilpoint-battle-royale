@@ -210,8 +210,11 @@ function setGraphicsSettingsScreen(screen='visual'){
  if(!Object.prototype.hasOwnProperty.call(names,screen))return;
  for(const [name,[panelId,tabId]] of Object.entries(names)){
   const selected=name===screen;
-  $(panelId).classList.toggle('hidden',!selected);
+  const panel=$(panelId);
+  if(!panel)continue; // Isolated legacy PC harnesses may omit the new sound page.
+  panel.classList.toggle('hidden',!selected);
   const tab=$(tabId);
+  if(!tab)continue;
   if(typeof tab.setAttribute==='function')
    tab.setAttribute('aria-selected',String(selected));
   tab.tabIndex=selected?0:-1;
@@ -224,6 +227,7 @@ const graphicsTabScreens=[['graphicsTabVisual','visual'],
  ['graphicsTabBenchmark','benchmark']];
 for(const [id,screen] of graphicsTabScreens){
  const tab=$(id);
+ if(!tab)continue;
  tab.addEventListener('click',()=>setGraphicsSettingsScreen(screen));
  tab.addEventListener('keydown',event=>{
   const keys=['ArrowRight','ArrowLeft','Home','End'];
