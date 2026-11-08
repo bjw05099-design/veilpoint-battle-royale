@@ -66,6 +66,7 @@ class BrSquadWorld {
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
+          landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,sprintDepleted:false,spectateSlot:null});
       }
@@ -242,6 +243,17 @@ class BrSquadWorld {
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
+      // A real squad earns each public neighborhood only by its own
+      // member physically approaching the landmark in the 60Hz world.
+      // Static public labels can be shared; opponents and unvisited places
+      // are never discovered by the client's claimed GPS or a distant ping.
+      for(let i=0;i<Sim.LANDMARKS.length;i++){
+        const bit=1<<i,place=Sim.LANDMARKS[i];
+        if((actor.landmarkMask&bit)!==0)continue;
+        if(Math.hypot(actor.x-place.x,actor.z-place.z)<=8&&
+           !Sim.lineBlocked(actor.x,actor.z,place.x,place.z,this.obstacles))
+          actor.landmarkMask|=bit;
+      }
       if(positionInArea(area,next.x,next.z).outside){
         actor.outsideAreaTicks++;
         actor.outsideStreakTicks++;
@@ -324,6 +336,10 @@ class BrSquadWorld {
     // at its original server-confirmed position. No remote ready toggle, new
     // mission UI, bonus score, opponent coordinates or arbitrary client pose.
     const activeMates=mates.filter(p=>p.eligible);
+    const squadVisited=participants.filter(p=>p.team===me.team)
+      .reduce((mask,p)=>mask|p.landmarkMask,0);
+    const squadLandmarks=Sim.LANDMARKS.filter((_,i)=>(squadVisited&(1<<i))!==0)
+      .map(place=>({label:place.label,x:place.x,z:place.z}));
     const regroup=signal?.kind==='regroup'&&signal.expiresAtTick>this.tick
       ?Object.freeze({eligibleMembers:activeMates.length,
         arrived:activeMates.filter(p=>Math.hypot(p.x-signal.x,p.z-signal.z)<=REGROUP_RADIUS_METERS).length,
@@ -336,6 +352,7 @@ class BrSquadWorld {
       playableArea,
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
+      squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
         x:watched.x,z:watched.z}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
@@ -343,6 +360,7 @@ class BrSquadWorld {
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
+        landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         stamina:Math.round(me.stamina*100)/100,
         sprintHeld:me.sprintHeld,sprintDepleted:me.sprintDepleted,

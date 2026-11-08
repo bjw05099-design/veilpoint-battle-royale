@@ -776,6 +776,13 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // An unexpected escalation occurs in the actually visited harbor after
+    // the short Korea/arrival recap. No recovered deployment paper, arbitrary
+    // checkpoint checklist or press-E console is necessary. Retain the older
+    // direct E interaction and save fields for legacy checkpoint compatibility.
+    if(state.phase==='terminal'&&state.world.elapsed>=OPENING_BEATS[OPENING_BEATS.length-1].until&&
+       Math.hypot(p.x-POINTS.terminal.x,p.z-POINTS.terminal.z)<=6)
+      startUnexpectedEscalation(state);
     // A player or local pedestrian in the lane stops the van rather than
     // letting its collision body pass through them or teleport to the stop.
     if(state.transportVan&&!state.transportVan.arrived){
@@ -1137,6 +1144,20 @@
     state.message=state.flashlightOn?'휴대 헤드램프 점등 · 설정된 키로 소등 가능':'휴대 헤드램프 소등 · 설정된 키로 점등 가능';
     return {ok:true,on:state.flashlightOn};
   }
+  // Both real-time witnessed arrival and the original E interaction enter
+  // exactly the same one-shot event. Never treat it as the deployment's purpose.
+  function startUnexpectedEscalation(state){
+    if(state.phase!=='terminal')return false;
+    state.phase='engagement';state.combat.started=true;
+    state.awningFallen=true;
+    syncRoute(state);
+    state.combat.nextPulseAt=state.world.elapsed+3;
+    state.world.bots=makeHostiles();
+    state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대됐습니다. 동측 상가 골목의 차양도 쓰러졌습니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다. 현지 구조단의 요청을 듣고 안전한 통로를 다시 확인해야 합니다.';
+    state.message='갑작스러운 현지 충돌 확대 · 현장 대응과 주민 보호';
+    syncMarkers(state);
+    return true;
+  }
   function interact(state) {
     if(state.phase==='complete')return {ok:false,reason:'completed'};
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
@@ -1171,13 +1192,7 @@
       return {ok:true,event:'harbor_worker_interview',phase:state.phase};
     }
     if(marker.id==='terminal'&&state.phase==='terminal'){
-      state.phase='engagement';state.combat.started=true;
-      state.awningFallen=true;
-      syncRoute(state);
-      state.combat.nextPulseAt=state.world.elapsed+3;
-      state.world.bots=makeHostiles();
-      state.subtitle='조현지(국정원): 현지 내전이 예상 밖으로 확대돼 동측 상가 골목의 차양이 쓰러졌습니다. 그 구간은 짧게 돌아 지나가야 합니다. 출국 전 계획대로 복귀하기도 어려운 상황입니다.';
-      state.message='무장 대치자 3명 · 클릭/SPACE 발사 · Q 상황 보고';
+      startUnexpectedEscalation(state);
     }else if(marker.id==='supply'&&['engagement','records','decision','exit'].includes(state.phase)){
       // A physical cache is not consumed wholesale when only one round fits.
       // Remaining rounds stay at the same reachable location until collected.
