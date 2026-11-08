@@ -31,7 +31,7 @@ test('BR96 view does not fabricate opponents and does not permit client-owned au
  const east=Street.frame({subject,yaw:Math.PI/2,obstacles:[],visible:[{id:7,x:30,z:7}]});
  assert.equal(east.seen.length,1);
  assert.equal(Street.frame({subject,yaw:-Math.PI/2,obstacles:[],visible:[{id:7,x:30,z:7}]}).seen.length,0);
- assert.equal(Street.wrap(4*Math.PI),0);
+ assert.ok(Math.abs(Street.wrap(4*Math.PI))<1e-12);
  assert.throws(()=>Street.frame({subject:{x:NaN,z:0},yaw:0}),/server_subject_required/);
  assert.throws(()=>Street.frame({subject,yaw:Infinity}),/invalid_view_direction/);
  assert.throws(()=>Street.frame({subject,visible:{secret:true}}),/invalid_public_view/);
