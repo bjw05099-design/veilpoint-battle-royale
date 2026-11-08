@@ -1146,7 +1146,7 @@
       state.message='현지 구조 책임자와 직접 협의 · 남쪽 주민 대피 지원 선택';
     }else if(marker.id==='decision'&&state.phase==='records'){
       state.phase='decision';
-      state.subtitle='김도겸 중사(무전): 한국에서 지시받은 원래 임무와 상황이 달라졌습니다. 귀환은 아직 불확실합니다. 유수프 구조단이 남쪽 주민 대피 통로를 확보했습니다. 다른 경로를 확인할 수도 있지만, 우선 주민 지원부터 결정해야 합니다.';
+      state.subtitle='김도겸 중사(무전): 한국에서 지시받은 임무와 상황이 달라졌습니다. 귀환은 아직 불확실합니다. 유수프 구조단이 남쪽 통로를 관리하고 있고, 동쪽도 현장 확인이 가능합니다. 어느 경로든 실제 이동과 현지 승인이 필요합니다.';
       state.message='경로 선택 · 대피 우선은 언제나 선택할 수 있습니다.';
     }else if(marker.id==='decision'&&state.phase==='exit'){
       // A physical desk opens explicit choice UI: simply pressing E must never
@@ -1327,7 +1327,10 @@
     const reconsider=state.phase==='exit';
     if(!reconsider&&state.phase!=='decision')return {ok:false,reason:'not_choosing'};
     if(choice!=='evacuation'&&choice!=='verification')return {ok:false,reason:'invalid_choice'};
-    if(choice==='verification'&&state.found.length!==2)return {ok:false,reason:'missing_evidence'};
+    // East passage is a field route request to local controllers, not a reward
+    // for reading two unrelated historical records. The physically moving gate
+    // and its local safety interlock remain authoritative; source records are
+    // optional evidence, not a prerequisite to travelling there.
     if(reconsider){
       // A menu cannot grant remote clearance or undo carried aid and confirmed
       // records. Use the same physically reachable marker as the PC E key.
@@ -1343,7 +1346,7 @@
     state.gateReadyAt=choice==='verification'?state.world.elapsed+state.gateClearanceDuration:0;
     state.gateObstructed=false;
     state.subtitle=choice==='verification'
-      ?'마라(기술자): 현지 통제소에 동쪽 통로 개방을 요청했습니다. 실제 작업 시간이 필요해요.'
+      ?'마라(기술자): 동쪽 통로의 현장 개방을 요청했습니다. 기록과 관계없이 실제 통제문 작업과 현지 승인 확인이 필요해요.'
       :'유수프(현지 구조단): 남쪽 대피 통로를 현장에서 안내하겠어. 동쪽 개방 요청은 중단했어.';
     state.message=choice==='verification'?'현지 통제소 요청 · 동쪽 통로 개방 대기':'남쪽 대피 통로 선택 · 동쪽 통제소 차단';
     syncRoute(state);syncMarkers(state);
@@ -1383,7 +1386,7 @@
       ]);
     }
     return Object.freeze([
-      item('evidence','기록 2건 확인',state.found.length===2?'done':'locked'),
+      item('evidence','통신 기록 2건 추가 확인',state.found.length===2?'done':'available',true),
       item('gate','동쪽 통제문 확인',gateOpen(state)?'done':'waiting'),
       item('log','현장 중계 기록 검토',state.gateLogReviewed?'done':gateOpen(state)?'available':'locked',true),
       item('handoff','현장 기록 전달',state.logHandedOff?'done':
@@ -1522,8 +1525,8 @@
         (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
         (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return state.found.length===2
-        ?'필요한 현장 기록 확인 완료. 현지 구조단의 남쪽 대피 지원 또는 동쪽 통로 중 선택하세요.'
-        :'현지 구조단의 남쪽 대피 지원은 바로 선택할 수 있습니다. 동쪽 통로는 두 기록을 확인했을 때만 선택 가능합니다.';
+        ?'현장 기록을 추가 확인했습니다. 남쪽 대피 지원과 동쪽 통로 현장 확인 중 선택하세요.'
+        :'두 경로 모두 선택할 수 있습니다. 동쪽 통로는 현지 통제소의 실제 개방을 기다려야 하며 기록 검토는 선택 사항입니다.';
       case 'exit':return state.choice==='verification'
         ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
@@ -1778,7 +1781,6 @@
         (data.found.length!==0||data.choice!==null))||
       ((data.phase==='records'||data.phase==='decision')&&data.choice!==null)||
       ((data.phase==='exit'||data.phase==='complete')&&!['evacuation','verification'].includes(data.choice))||
-      (data.choice==='verification'&&data.found.length!==2)||
       // A saved verified completion must follow actual clearance, not precede it.
       (data.phase==='complete'&&data.choice==='verification'&&hasOwn(data,'gateReadyAt')&&
         data.elapsed+1e-6<data.gateReadyAt))

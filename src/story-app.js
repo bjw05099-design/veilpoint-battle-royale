@@ -692,14 +692,14 @@
   function showChoices(){
     running=false;lockAttempt++;clearInput();clock.reset();
     choices.classList.remove('hidden');menu.classList.add('hidden');
-    const canVerify=state.found.length===2;
-    $('choiceVerified').disabled=!canVerify;
+    // East passage requires local physical clearance, not two mandatory
+    // document pickups. Reconsideration is still guarded by Story.choose.
+    $('choiceVerified').disabled=false;
     const revisiting=state.phase==='exit';
     $('choiceBack').textContent=revisiting?'취소 · 기존 경로 유지':'돌아가서 조사';
     $('choiceHint').textContent=revisiting
       ?'현재 '+(state.choice==='verification'?'동쪽 확인 경로':'남쪽 대피 경로')+' · '+(state.choice==='verification'&&!Story.situation(state).eastGateOpen?'통제문 개방까지 약 '+Math.ceil(Story.situation(state).eastGateRemainingSeconds)+'초 · ':'')+'현장 콘솔에서 변경할 수 있습니다. 취소하면 현재 경로와 진행 상태를 유지합니다.'
-      :canVerify?'기록 2/2: 항구 04:12 · 대피소 04:07. 두 경로 모두 선택할 수 있습니다.'
-      :'기록 '+state.found.length+'/2: 대피 우선은 즉시 선택 가능하며, 추가 확인 경로는 기록 2개가 필요합니다.';
+      :'남쪽 구조단 대피 지원과 동쪽 통로 현장 확인 모두 선택할 수 있습니다. 실제 통제문 개방에는 시간이 필요하며 기록 검토는 선택 사항입니다.';
     if(document.pointerLockElement===canvas)document.exitPointerLock();
     // Keyboard focus belongs to the visible decision dialog, not the hidden
     // movement canvas. Number shortcuts still work while a choice has focus.

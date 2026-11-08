@@ -77,9 +77,11 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   assert.equal(state.world.status,'won');
   assert.equal(story.interact(state).reason,'completed');
 });
-test('optional evidence cannot soft-lock the evacuation route',()=>{
+test('optional evidence cannot soft-lock either evacuation or east passage',()=>{
+  const east=reachDecision();
+  assert.equal(story.choose(east,'verification').ok,true);
+  assert.deepEqual(east.found,[]);
   const state=reachDecision();
-  assert.equal(story.choose(state,'verification').reason,'missing_evidence');
   assert.equal(story.choose(state,'evacuation').ok,true);
   assert.equal(story.markers(state)[0].id,'exitEvac');
   go(state,'exitEvac');
@@ -403,7 +405,7 @@ test('CH01 bounded mandate, NIS roles and sourced evidence remain uncertain',()=
   assert.match(s.message,/원인|오차|미확정/);
 });
 
-test('CH01 physical east checkpoint is evidence-gated and reconstructs from old save schema',()=>{
+test('CH01 physical east checkpoint is cleared on site and reconstructs old saves',()=>{
   const initial=story.createState();
   assert.equal(Sim.blocked(27,-53,.85,initial.world.obstacles),true);
   const evacuation=reachDecision();
@@ -413,9 +415,7 @@ test('CH01 physical east checkpoint is evidence-gated and reconstructs from old 
   const eSaved=story.restore(story.serialize(evacuation));
   assert.equal(Sim.blocked(27,-53,.85,eSaved.world.obstacles),true);
   const verified=reachDecision();
-  go(verified,'recordA');story.interact(verified);
-  assert.equal(story.choose(verified,'verification').reason,'missing_evidence');
-  go(verified,'recordB');story.interact(verified);
+  assert.deepEqual(verified.found,[]);
   assert.equal(story.choose(verified,'verification').ok,true);
   assert.equal(story.situation(verified).eastGateOpen,false);
   assert.equal(Sim.blocked(27,-53,.85,verified.world.obstacles),true);

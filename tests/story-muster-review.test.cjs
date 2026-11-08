@@ -49,7 +49,8 @@ test('forged muster confirmation is rejected before route selection or on east r
   assert.throws(()=>Story.restore(JSON.stringify(early)),RangeError);
   const east=cleared();
   east.phase='decision';east.choice=null;
-  assert.equal(Story.choose(east,'verification').ok,false,'verification needs records');
+  assert.equal(Story.choose(east,'verification').ok,true,'field east route no longer requires records');
+  assert.equal(east.musterConfirmed,false);
   const bad=JSON.parse(Story.serialize(cleared()));
   bad.choice='verification';bad.musterConfirmed=true;
   assert.throws(()=>Story.restore(JSON.stringify(bad)),RangeError);

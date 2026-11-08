@@ -17,7 +17,7 @@ test('CH01 core escape path is playable without any additional paper investigati
  assert.equal(state.deploymentReviewed,false);
  go(state,Story.POINTS.decision);
  assert.equal(Story.interact(state).phase,'decision');
- assert.match(Story.objective(state),/남쪽 대피 지원은 바로 선택할 수 있습니다/);
+ assert.match(Story.objective(state),/두 경로 모두 선택할 수 있습니다/);
  assert.equal(Story.choose(state,'evacuation').ok,true,
   'civilian protection route must be independent of all optional record comparisons');
  assert.deepEqual(state.found,[]);
