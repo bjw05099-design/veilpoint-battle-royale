@@ -55,6 +55,6 @@ test('discovery uses local player sight, not positions of rivals or remote map c
 test('real PC minimap shows only earned public locations, not every landmark upfront',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
  assert.match(app,/for\(const site of Game\.visitedLandmarks\(simulation\)\)/);
- assert.match(app,/VISITED '+Game\.visitedLandmarks\(s\)\.length/);
+ assert.ok(app.includes("' · VISITED '+Game.visitedLandmarks(s).length"));
  assert.doesNotMatch(app,/for\(const site of Game\.LANDMARKS\)/);
 });
