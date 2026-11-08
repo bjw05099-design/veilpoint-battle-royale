@@ -6,7 +6,7 @@ test('three short playable opening beats preserve Korea briefing -> arrival -> u
  const state=Story.createState(),segments=[
   {at:0,location:/대한민국/,spoken:/한국에서 확인했다/},
   {at:3.5,location:/가상 해안 도시 나흐린/,spoken:/유수프 구조단/},
-  {at:7,location:/도착 후/,spoken:/충돌이 갑자기 확대/}
+  {at:7,location:/도착 후/,spoken:/충돌이 예상보다 빠르게 확대/}
  ];
  for(const segment of segments){
   state.world.elapsed=segment.at;
