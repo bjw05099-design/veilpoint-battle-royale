@@ -37,8 +37,10 @@ test('south civilian route gives an unsolicited contextual on-foot update with n
  assert.equal(s.passageWarningHeard,true,'walk near the staffed south lane first');
  assert.match(s.subtitle,/유수프.*주민을 집결지로 안내/);
  assert.match(s.subtitle,/출국 전에 들은 복귀 일정/);
- assert.deepEqual(Story.markers(s).map(m=>m.id),beforeMarkers,
-  'arrival itself never creates an investigation/ledger objective');
+ assert.deepEqual(Story.markers(s).map(m=>m.id).filter(id=>id!=='residentRoute'),beforeMarkers,
+  'arrival cannot create paperwork, records or new mandatory tasks; only a local voluntary resident exchange may appear');
+ assert.ok(Story.markers(s).filter(m=>m.id==='residentRoute').every(m=>m.kind==='evac'),
+  'a person-to-person conversation must never become a dossier objective');
  const report=s.message;
  for(let t=0;t<30;t++)Story.step(s,1/60,{});
  assert.equal(s.message,report,'event must not spam a new radio message each frame');
