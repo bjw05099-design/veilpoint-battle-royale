@@ -1497,11 +1497,9 @@
   // evidence and the public exit/relay markers remain untouched. This removes
   // cross-harbor checklist chasing without inventing new access gates.
   function visibleMissionMarkers(){
-    const p=state.world.player;
-    return Story.markers(state).filter(marker=>
-      marker.kind!=='evidence'||
-      (Math.hypot(marker.x-p.x,marker.z-p.z)<=9&&
-       !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles)));
+    // Only field-observed secondary interactions appear on the 2D navigation.
+    // The physical E interaction and checkpoint format are unchanged.
+    return Story.navigationMarkers(state);
   }
   function minimap(){
     const c=$('minimap'),ctx=c.getContext('2d');
@@ -1572,7 +1570,7 @@
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(opening?opening.subtitle:state.subtitle);
     if(Comms&&$('fieldRadio')){
-      const radio=Comms.briefing(state);
+      const radio=Story.localPublicAddress(state)||Comms.briefing(state);
       // Text-only original dialogue. Never interpolate user data into HTML.
       $('fieldRadio').textContent=radio.speaker+' / '+radio.message;
       $('fieldRadio').title=$('fieldRadio').textContent;
