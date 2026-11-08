@@ -11,10 +11,12 @@ const keys=new Set();
 let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
+let withdrawArmedUntil=0,watchOptionsSignature='';
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
+ withdrawArmedUntil=0;watchOptionsSignature='';
  try{sessionStorage.removeItem(SESSION);}catch(_){}
  render();
 }
@@ -56,6 +58,29 @@ function render(){
  el('ready').disabled=!token||state?.phase!=='assembling';
  el('ready').textContent=state?.self?.ready?'준비 취소':'준비';
  for(const id of ['regroup','location','sprint'])el(id).disabled=!active();
+ // A withdrawn player may watch only the server's own eligible squad mates.
+ // Build select entries with textContent, never insert untrusted names as HTML.
+ const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
+ const eligibleMates=retired?w.squad.filter(p=>p.id!==w.self.id&&p.eligible):[];
+ const signature=eligibleMates.map(p=>p.slot+':'+p.id).join('|');
+ const select=el('watchSlot');
+ if(signature!==watchOptionsSignature){
+  const previous=select.value;
+  const first=document.createElement('option');first.value='';first.textContent='선택';
+  const entries=eligibleMates.map(p=>{
+   const option=document.createElement('option');
+   option.value=String(p.slot);option.textContent=p.slot+'번 분대원';
+   return option;
+  });
+  select.replaceChildren(first,...entries);
+  if(entries.some(option=>option.value===previous))select.value=previous;
+  else if(entries.length)select.value=entries[0].value;
+  watchOptionsSignature=signature;
+ }
+ select.disabled=!retired||eligibleMates.length===0;
+ el('spectate').disabled=select.disabled;
+ el('withdraw').disabled=!active();
+ el('withdraw').textContent=Date.now()<withdrawArmedUntil?'다시 누르면 경기 포기':'경기 포기';
  el('sprint').textContent=sprintIntent?'달리기 ON':'달리기 OFF';
  el('sprint').setAttribute('aria-pressed',String(sprintIntent));
  const members=Array.isArray(state?.squad)?state.squad:[];
@@ -71,6 +96,12 @@ function render(){
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100 · 경계 '+w.playableArea.stage+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
+    '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
+    (w.standings?.[self.squad-1]?.placement!==null&&
+     w.standings?.[self.squad-1]?.placement!==undefined
+     ?' · 확정 '+w.standings[self.squad-1].placement+'위':'')+
+    (w.spectatorView?'\n관전 대상: '+w.spectatorView.slot+'번 분대원':
+      retired?'\n본인 경기 포기 · 아군 관전 선택 가능':'')+
     (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:''):'\n96명 전원 준비 시 이동 시작')
   :'접속 전';
  draw(w);
@@ -99,7 +130,12 @@ function draw(w){
  for(const rival of w.visible||[])dot(rival,'#ef897e',6);
  for(const mate of w.squad||[])if(mate.id!==w.self.id)dot(mate,'#8cb6e6',6);
  if(w.squadSignal)dot(w.squadSignal,'#e7d189',8);
- dot(w.self,'#b7eca9',8);
+ if(w.spectatorView){
+  dot(w.spectatorView,'#e9d093',9);
+  ctx.strokeStyle='#f4e0a3';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(x(w.spectatorView.x),z(w.spectatorView.z),13,0,Math.PI*2);ctx.stroke();
+ }
+ dot(w.self,w.self.eligible?'#b7eca9':'#6f7e83',w.self.eligible?8:4);
  ctx.fillStyle='#d7e9e8';ctx.font='15px system-ui';
  ctx.fillText('AUTHORITY / SERVER TICK '+w.tick,14,26);
 }
@@ -145,6 +181,30 @@ async function invite(){
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
 async function signal(kind){if(active())await command('/signal',{kind},'실제 현재 위치 기반 분대 신호를 요청했습니다.');}
+// Two explicit clicks are required: the first is a warning, the second
+// authenticates a permanent withdrawal. There is no self-revival endpoint.
+async function withdraw(){
+ if(!active())return;
+ if(Date.now()>=withdrawArmedUntil){
+  withdrawArmedUntil=Date.now()+8000;
+  message('경기 포기를 확정하려면 8초 내에 버튼을 한 번 더 누르세요.');
+  render();return;
+ }
+ withdrawArmedUntil=0;
+ const result=await command('/withdraw',{},null);
+ if(result?.ok){
+  keys.clear();sprintIntent=false;lastSprint=null;
+  message('경기에서 나왔습니다. 활동 가능한 같은 분대원만 관전할 수 있습니다.');
+  render();
+ }
+}
+async function spectate(){
+ const w=currentWorld(),slot=Number(el('watchSlot').value);
+ if(!w||w.phase!=='moving'||w.self.eligible||
+    !w.squad.some(p=>p.slot===slot&&p.id!==w.self.id&&p.eligible))return;
+ const result=await command('/spectate',{slot},null);
+ if(result?.ok)message(slot+'번 분대원의 실제 시야를 관전합니다.');
+}
 function canUseKeyboard(event){
  return !event.ctrlKey&&!event.metaKey&&!event.altKey&&
    !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
@@ -201,6 +261,8 @@ el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
+el('withdraw').addEventListener('click',withdraw);
+el('spectate').addEventListener('click',spectate);
 render();if(token)poll();
 setInterval(poll,400);
 setInterval(movement,180);
