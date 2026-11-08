@@ -100,7 +100,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <div class="standings-tile" data-squad="16"><strong>분대 16</strong><span>미확정</span></div>
  </div>
 </div>
-<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / C 낮은 자세 이동 / Q 집결 신호 / E 위치 신호 / R 분대 이동 투표 / F 여객 문 / T 손수레 / V 결과표 / M 지도 확대 / P 1인칭 보기 / 화면 클릭 마우스 회전 / WASD 시야 방향 이동 / Esc 해제 / J·L 회전</div>
+<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / C 낮은 자세 이동 / Q 내 위치 집결 제안 / E 현재 위치 표시 / F 여객 문 / T 손수레 / V 결과표 / M 지도 확대 / P 1인칭 보기 / 화면 클릭 마우스 회전 / WASD 시야 방향 이동 / Esc 해제 / J·L 회전</div>
 </section>
 <section id="sidebar">
 <h2>접속 및 분대 편성</h2>
@@ -109,7 +109,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <div class="group"><button id="ready" disabled>준비</button><button id="leave" disabled>대기실 퇴장</button><button id="entryVote" disabled>출발 구역 투표</button><button id="replayConsent" disabled aria-label="96명 모두 동의한 경우에만 새 경기 시작">새 경기 동의</button></div>
 <p id="status" role="status" aria-live="polite">대기 중 · 같은 PC에서 여러 브라우저 탭으로 입장할 수 있습니다.</p>
 <pre id="details" aria-label="분대 및 현재 게임 상태">접속 전</pre>
-<div class="group"><button id="regroup" disabled>Q 집결 신호</button><button id="location" disabled>E 현재 위치</button><button id="sprint" disabled aria-pressed="false">달리기 OFF</button></div>
+<div class="group"><button id="regroup" disabled>Q 집결 제안 퀵마크</button><button id="location" disabled>E 현재 위치 표시</button><button id="sprint" disabled aria-pressed="false">달리기 OFF</button></div>
 <div class="group" aria-label="경기 참가 상태와 분대 관전"><button id="withdraw" disabled>경기 포기</button><label for="watchSlot">아군 관전</label><select id="watchSlot" disabled aria-label="관전할 본인 분대 위치"><option value="">참가 중</option></select><button id="spectate" disabled>관전 전환</button></div>
 <div class="group" aria-label="6인 분대 전용 글자 통신"><input id="squadChatInput" maxlength="96" autocomplete="off" placeholder="우리 분대 메시지 (Enter)" aria-label="우리 분대 메시지" disabled><button id="sendSquadChat" disabled>보내기</button></div>
 <p id="squadChatLine" aria-label="우리 분대 최근 메시지" aria-live="polite">분대 전용 메시지 · 경기 시작 후 사용 가능</p>
