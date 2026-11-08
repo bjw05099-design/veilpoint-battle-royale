@@ -77,7 +77,7 @@ test('BR96 environment sound is a bundled same-origin asset and a user-click PC 
   assert.doesNotMatch(policy,/https?:\/\//);
   const html=await page.text();
   assert.match(html,/id="soundToggle"/);
-  assert.match(html,/aria-pressed="false"/);
+  assert.match(html,/id="soundToggle" aria-pressed="true"/,'requested sound is ON in settings by default; playback still requires a gesture');
   assert.match(html,/src="\/br96-environment-audio\.js" defer/);
   const audio=await fetch(base+'/br96-environment-audio.js');
   assert.equal(audio.status,200);
@@ -93,6 +93,7 @@ test('BR96 environment sound is a bundled same-origin asset and a user-click PC 
   assert.match(ui,/el\('soundToggle'\)\.addEventListener\('click',toggleHarborAudio\)/);
   assert.match(ui,/harborAudio\?\.disable\(\)/);
   assert.match(ui,/harborAudio\.update\(w\.self\.surface,w\.coastalWeather\)/);
+  assert.match(ui,/document\.addEventListener\('pointerdown',unlockDefaultAudio,true\)/);
   assert.doesNotThrow(()=>new Function(ui));
   assert.equal((await fetch(base+'/br96-environment-audio.js?token=secret')).status,400);
  }finally{await host.close();}
