@@ -43,16 +43,29 @@
     return true;
    }catch(_){clear();return false;}
   }
-  function update(surface){
+  function update(surface,weather=null){
    if(!enabled||!context||!master)return false;
-   // Self-only authoritative surface flags: never infer absent players or
-   // access the camera, microphone, session token or other squads.
+   // The only inputs are the caller's authenticated *own* ground and the
+   // public server-authored coastal weather. No rival data, sensors or GPS.
    const wet=surface?.wet===true,active=wet&&surface?.waveActive===true;
+   // Unknown/malformed weather is ignored. The prototype's old single-arg
+   // mixing contract remains byte-for-byte unchanged for existing callers.
+   const conditions=weather&&typeof weather==='object'&&!Array.isArray(weather)&&
+     ['clear','sea-haze','gusty','clearing'].includes(weather.code)&&
+     ['light','moderate'].includes(weather.wind)?weather:null;
+   const gust=conditions?.code==='gusty'&&conditions.wind==='moderate';
+   const haze=conditions?.code==='sea-haze';
    const time=context.currentTime;
    if(!Number.isFinite(time)||time<0)return false;
-   low.frequency.setTargetAtTime(active?92:wet?78:66,time,.22);
-   high.frequency.setTargetAtTime(active?147:wet?126:111,time,.3);
-   master.gain.setTargetAtTime(active?0.015:wet?0.012:0.009,time,.3);
+   const lower=(active?92:wet?78:66)+(gust?4:haze?-2:0);
+   const upper=(active?147:wet?126:111)+(gust?2:haze?-2:0);
+   // Quiet placeholder tonal ambience, never a realistic field recording.
+   // Weather never exceeds the prior .015 peak gain safety ceiling.
+   const base=active?.015:wet?.012:.009;
+   const level=Math.min(.015,base+(gust?.0015:haze?-.0008:0));
+   low.frequency.setTargetAtTime(lower,time,.22);
+   high.frequency.setTargetAtTime(upper,time,.3);
+   master.gain.setTargetAtTime(level,time,.3);
    return true;
   }
   return Object.freeze({enable,update,disable:clear,dispose:clear,
