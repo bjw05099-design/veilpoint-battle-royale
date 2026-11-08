@@ -417,6 +417,18 @@
       [-117,135,3.5,.7,.75,'aden-market-court-bench'],
       [-97,120,3.5,.7,.75,'aden-market-court-bench']
     ])o.push({x,z,w,d,h,type});
+    // Walk-in western public fish hall, authored once for both offline BR and
+    // CH01. The southern opening is genuinely unobstructed: a player can
+    // enter, pass between the two counters, and leave without a prompt.
+    // Distinct original fictional architecture, never an identifiable Aden site.
+    // Only revision 1 adds these collision bodies; legacy revision 0 is intact.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-164,121,.6,18,3.4,'aden-fishhall-wall'],
+      [-144,121,.6,18,3.4,'aden-fishhall-wall'],
+      [-154,130,20,.6,3.4,'aden-fishhall-wall'],
+      [-161,123,2.2,3.4,1.1,'aden-fishhall-counter'],
+      [-147,123,2.2,3.4,1.1,'aden-fishhall-counter']
+    ])o.push({x,z,w,d,h,type});
     // Eastern civilian transit forecourt. Open 14m-wide entrances at both
     // ends, two side benches and continuous ground-level pedestrian axis.
     // No real-world landmark replica. Story and BR use these SAME solids.
@@ -521,7 +533,7 @@
     // rare local overlap with the new block deterministically below.
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
       !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
-      !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-'));
+      !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-')&&!o.type.startsWith('aden-fishhall-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
