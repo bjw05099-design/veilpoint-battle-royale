@@ -446,7 +446,8 @@
   document.addEventListener('keydown',containStoryMenuFocus,true);
   document.addEventListener('focusin',containStoryMenuFocus,true);
   $('storyMenuMore').addEventListener('click',()=>setStoryMenuView('tools',true));
-  $('storyAudioOpen').addEventListener('click',()=>setStoryMenuView('audio',true));
+  // Menu-only harnesses predate the optional sound page.
+  if($('storyAudioOpen'))$('storyAudioOpen').addEventListener('click',()=>setStoryMenuView('audio',true));
   $('storyMenuAbout').addEventListener('click',()=>{
     // The About page also runs in isolated PC-menu harnesses that do not
     // instantiate a story world. Retain the ordinary About action there.
