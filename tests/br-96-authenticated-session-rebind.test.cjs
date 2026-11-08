@@ -57,6 +57,9 @@ test('loopback session handoff refuses forged data, preserves active 60Hz state 
   for(const t of secrets)assert.equal((await post('/ready',{ready:true},t)).status,200);
   const old=secrets[0],before=await get('/world',old);
   assert.equal(before.status,200);
+  const oldStream=await fetch(base+'/events',{headers:{'x-player-token':old}});
+  assert.equal(oldStream.status,200);
+  assert.equal(host.liveStreamCount,1,'prior live snapshot stream is active');
   assert.equal((await post('/resume-session',{token:'client-chosen'},old)).status,400);
   assert.equal((await post('/resume-session',{},'f'.repeat(64))).status,401);
   assert.equal((await post('/move',{seq:5,dx:1,dz:0},old)).status,200);
@@ -65,6 +68,8 @@ test('loopback session handoff refuses forged data, preserves active 60Hz state 
   const rotated=await post('/resume-session',{},old);
   assert.equal(rotated.status,200);
   const next=rotated.body.token;
+  assert.equal(host.liveStreamCount,0,'rotation immediately closes the old live stream');
+  await oldStream.body.cancel();
   assert.match(next,/^[a-f0-9]{64}$/);
   assert.notEqual(next,old);
   const after=await get('/world',next);
