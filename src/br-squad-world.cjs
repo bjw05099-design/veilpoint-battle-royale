@@ -10,7 +10,7 @@ const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // Server-authored movement budget: sprint is faster but finite, with a
 // recovery threshold that prevents instant exhaustion-toggle exploits.
-const SPRINT_SPEED=6.4, SPRINT_DRAIN_PER_SECOND=16;
+const SPRINT_SPEED=6.4, CROUCH_SPEED=2.7, SPRINT_DRAIN_PER_SECOND=16;
 const STAMINA_RECOVERY_PER_SECOND=9, STAMINA_REARM=25;
 const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 const REGROUP_RADIUS_METERS=12;
@@ -82,7 +82,7 @@ class BrSquadWorld {
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
-          stamina:100,sprintHeld:false,sprintDepleted:false,spectateSlot:null});
+          stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,spectateSlot:null});
       }
     }
   }
@@ -127,11 +127,15 @@ class BrSquadWorld {
     if(this.phase!=='moving'||!actor.eligible)
       return {ok:false,reason:'out_of_round'};
     if(!command||typeof command!=='object'||Array.isArray(command)||
-       Object.keys(command).length!==1||typeof command.sprint!=='boolean')
+       !['sprint','crouch,sprint'].includes(Object.keys(command).sort().join(','))||
+       typeof command.sprint!=='boolean'||
+       (command.crouch!==undefined&&typeof command.crouch!=='boolean'))
       throw new RangeError('invalid_pace');
     actor.sprintHeld=command.sprint;
+    actor.crouchHeld=command.crouch===true;
     actor.lastPresenceTick=this.tick;
-    return {ok:true,sprintHeld:actor.sprintHeld,stamina:Math.round(actor.stamina*100)/100};
+    return {ok:true,sprintHeld:actor.sprintHeld,crouched:actor.crouchHeld,
+      stamina:Math.round(actor.stamina*100)/100};
   }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
@@ -263,7 +267,7 @@ class BrSquadWorld {
       const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
       const direction=fresh?actor.direction:{x:0,z:0};
       const next={x:actor.x,z:actor.z};
-      const running=actor.sprintHeld&&!actor.sprintDepleted&&actor.stamina>0&&
+      const running=actor.sprintHeld&&!actor.crouchHeld&&!actor.sprintDepleted&&actor.stamina>0&&
         Math.hypot(direction.x,direction.z)>1e-8;
       // Reuse the very same fictional loading-apron ground truth as the
       // offline BR, rather than giving the online 96-person map a flat,
@@ -271,7 +275,8 @@ class BrSquadWorld {
       // The shallow wash follows the authoritative 60Hz tick, not client time.
       const terrain=Sim.wetApronFooting(actor);
       const wash=Sim.harborWaveWash(this.tick*STEP,actor);
-      const pace=(running?SPRINT_SPEED:SPEED)*terrain.mobility*wash.mobility;
+      const pace=(running?SPRINT_SPEED:actor.crouchHeld?CROUCH_SPEED:SPEED)*
+        terrain.mobility*wash.mobility;
       Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
         this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
@@ -446,7 +451,7 @@ class BrSquadWorld {
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         surface,
         stamina:Math.round(me.stamina*100)/100,
-        sprintHeld:me.sprintHeld,sprintDepleted:me.sprintDepleted,
+        sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
         outsideAreaTicks:me.outsideAreaTicks,
         boundaryGraceTicksRemaining:me.eligible&&positionInArea(playableArea,me.x,me.z).outside
@@ -455,7 +460,7 @@ class BrSquadWorld {
         placement:this.placements[me.team]},squad:mates,visible:seen};
   }
 }
-module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,
+module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,REGROUP_RADIUS_METERS,PRESENCE_STALE_TICKS,
   BOUNDARY_GRACE_TICKS};
