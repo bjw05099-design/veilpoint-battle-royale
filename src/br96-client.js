@@ -448,8 +448,9 @@ window.addEventListener('blur',resetKeys);
 window.addEventListener('pagehide',()=>harborAudio?.dispose());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
 function direction(){
- if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden||!el('vpAudioPanel').hidden)
+ if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
   return {dx:0,dz:0};
+ if(!el('vpAudioPanel').hidden)return {dx:0,dz:0};
  const dx=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
  const dz=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));
  const len=Math.hypot(dx,dz)||1;
