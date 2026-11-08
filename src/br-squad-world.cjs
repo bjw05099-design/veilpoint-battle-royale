@@ -66,6 +66,17 @@ class BrSquadWorld {
       }
     }
   }
+  // Transfer the same actor to a fresh server-secret session without moving,
+  // reviving, or resetting its 60Hz input sequence, rank or squad membership.
+  rebindSession(oldToken,newToken){
+    const actor=this.actors.get(oldToken);
+    if(!actor)throw new RangeError('unknown_session');
+    if(typeof newToken!=='string'||!/^[a-f0-9]{64}$/.test(newToken)||
+       this.actors.has(newToken))throw new RangeError('invalid_session');
+    this.actors.delete(oldToken);
+    this.actors.set(newToken,actor);
+    return {ok:true,playerId:actor.id,squad:actor.team+1,slot:actor.slot+1};
+  }
   move(token,command){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
