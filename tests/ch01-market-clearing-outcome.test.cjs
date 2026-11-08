@@ -14,7 +14,7 @@ test('CH01 reports physical walkway clearance as a witnessed optional outcome, n
  assert.ok(report.closingScene.lines.some(line=>/차양은 통행 구역에서 치웠/.test(line)));
  const pending=Story.debrief(completed(.5));
  assert.equal(pending.marketWalkwayCleared,false);
- assert.ok(pending.closingScene.lines.some(line=>/차양이 남아/.test(line)));
+ assert.ok(pending.closingScene.lines.some(line=>/차양이 아직 남아/.test(line)));
  assert.doesNotMatch(pending.summary,/통행 공간을 확보했습니다/);
  const legacy=Story.debrief(completed(0,false));
  assert.equal(legacy.marketWalkwayCleared,false);
