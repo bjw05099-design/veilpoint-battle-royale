@@ -1787,13 +1787,21 @@
       :(state.civilianRerouted
         ?'조현지: 주민이 본인 판단으로 구조단 접근로를 선택했지만, 실제 도착은 아직 확인되지 않았습니다.'
         :'조현지: 현지 주민의 이동은 아직 확인되지 않았습니다. 구조단과 확인된 범위를 구분해 보고하겠습니다.');
+    // The market walkway is a visible, physical consequence of a player's
+    // optional in-world action, never a new document task or invisible gate.
+    // A partial movement is not reported as a completed clearance.
+    const street=state.awningFallen
+      ?(state.awningShift===1
+        ?'마라(현지 기술자): 쓰러졌던 시장 차양은 통행 구역에서 치웠습니다. 주민 이동 판단은 현지 구조단이 계속 맡습니다.'
+        :'마라(현지 기술자): 시장 통행로에는 아직 쓰러진 차양이 남아 있습니다. 정리는 현지 담당자가 이어가겠습니다.')
+      :null;
     const radio=state.relayRestored
       ?'김지윤: 현장 비상 통신은 복구됐습니다. 그래도 본래 복귀 계획의 재승인과 이동 안전은 별개의 문제입니다.'
       :'김지윤: 통신 복구 여부는 미확인입니다. 한국에서 승인받은 복귀 일정대로 움직일 수 있는지도 재확인이 필요합니다.';
     return Object.freeze({
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
-      lines:Object.freeze([local,civilian,radio,
+      lines:Object.freeze([local,civilian,...(street?[street]:[]),radio,
         '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 지휘계통에 확인된 사실만 보고하고 철수 가능 여부를 다시 판단하겠습니다.']),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
@@ -1809,6 +1817,7 @@
       optionalTasks:optionalTaskAudit(state),
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
+      marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
@@ -1830,6 +1839,7 @@
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')+
         (state.transportVan?.arrived?' 현지 운송 차량이 실제 승차 지점에 도착했습니다. 승객 수송과 귀환은 아직 확인되지 않았습니다.':state.transportVan?' 현지 운송 차량이 이동 중이나 도착과 수송은 미확인입니다.':'')+
          (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
+        (state.awningFallen?(state.awningShift===1?' 시장 통행로의 쓰러진 차양을 실제로 옮겨 보행 공간을 확보했습니다.':' 시장 통행로의 쓰러진 차양은 아직 정리되지 않았습니다.'): '')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
 
