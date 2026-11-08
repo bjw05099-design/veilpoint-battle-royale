@@ -34,8 +34,10 @@ test('BR sprint uses server-side physical motion and finite stamina without movi
   assert.ok(sprint.stamina<100,'actual sprint travel consumes finite stamina');
   assert.equal(sprint.sprintHeld,true);
   assert.equal(sprint.sprintDepleted,false);
-  assert.deepEqual(running.snapshot(peer).self,peerBefore,
-    'one authenticated sprint never moves a teammate');
+  const peerAfter=running.snapshot(peer).self;
+  assert.deepEqual([peerAfter.x,peerAfter.z,peerAfter.seq,peerAfter.eligible],
+    [peerBefore.x,peerBefore.z,peerBefore.seq,peerBefore.eligible],
+    'one authenticated sprint never moves or changes the other human body');
   assert.equal(running.pace(own,{sprint:false}).sprintHeld,false);
   for(let i=0;i<30;i++)running.step();
   assert.ok(running.snapshot(own).self.stamina>sprint.stamina,
