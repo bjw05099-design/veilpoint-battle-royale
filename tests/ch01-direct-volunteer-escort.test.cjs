@@ -30,6 +30,9 @@ test('CH01 player can directly recruit a physically present civilian without two
   assert.equal(Story.missionTasks(s).find(t=>t.id==='guide').status,'following');
   assert.equal(s.dispatchReviewed,false);
   assert.equal(s.deploymentReviewed,false);
+  assert.match(Story.situation(s).mandate,/출국 전 브리핑/);
+  assert.match(Story.situation(s).mandate,/예기치 못한 내전/);
+  assert.doesNotMatch(Story.situation(s).mandate,/최초 파견 목적.*대피/);
   const restored=Story.restore(Story.serialize(s));
   assert.equal(restored.musterConfirmed,true);
   assert.equal(restored.guide.active,true);
