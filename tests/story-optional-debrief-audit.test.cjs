@@ -32,13 +32,14 @@ test('CH01 south debrief audits three optional field tasks without converting th
 test('CH01 east debrief counts only physically reviewed logs and delivered evidence, never route gate',()=>{
  const state=route('verification');
  const initial=Story.optionalTaskAudit(state);
- assert.equal(initial.total,2);assert.equal(initial.done,0);
+ assert.equal(initial.total,3);assert.equal(initial.done,0);
+  assert.equal(Story.missionTasks(state).find(x=>x.id==='evidence').optional,true);
  assert.equal(Story.missionTasks(state).find(x=>x.id==='gate').optional,false);
  state.gateLogReviewed=true;
  let audit=Story.optionalTaskAudit(state);
  assert.equal(audit.done,1);
  assert.deepEqual(audit.finished,['현장 중계 기록 검토']);
- assert.deepEqual(audit.unfinished,['현장 기록 전달']);
+ assert.deepEqual(audit.unfinished,['통신 기록 2건 추가 확인','현장 기록 전달']);
  state.logHandedOff=true;
  audit=Story.optionalTaskAudit(state);
  assert.equal(audit.done,2);
