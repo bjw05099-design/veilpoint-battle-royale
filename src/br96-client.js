@@ -119,6 +119,9 @@ function render(){
   });
   select.replaceChildren(first,...entries);
   if(entries.some(option=>option.value===previous))select.value=previous;
+  else if(w.spectatorView&&
+    entries.some(option=>option.value===String(w.spectatorView.slot)))
+    select.value=String(w.spectatorView.slot);
   else if(entries.length)select.value=entries[0].value;
   watchOptionsSignature=signature;
  }
@@ -154,7 +157,8 @@ function render(){
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
      ?' · 확정 '+w.standings[self.squad-1].placement+'위':'')+
-    (w.spectatorView?'\n관전 대상: '+w.spectatorView.slot+'번 분대원':
+    (w.spectatorView?'\n관전 대상: '+w.spectatorView.slot+'번 분대원'+
+      (w.spectatorView.automaticFallback?' · 기존 대상 퇴장으로 자동 전환':''):
       retired?'\n본인 경기 포기 · 아군 관전 선택 가능':'')+
     (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:'')+
     (w.matchOutcome?'\n최종 결과: '+

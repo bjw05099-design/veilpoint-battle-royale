@@ -31,7 +31,10 @@ test('96-person HTTP lobby supports only authenticated retired-squad viewing',as
   assert.equal((await post(base,'/move',{seq:1,dx:1,dz:0},roster[0])).status,409);
   assert.equal((await post(base,'/withdraw',{},roster[1])).status,200);
   const gone=await fetch(base+'/world',{headers:{'x-player-token':roster[0]}}).then(r=>r.json());
-  assert.equal(gone.spectatorView,null);
-  assert.deepEqual(gone.visible,[]);
+  assert.equal(gone.spectatorView.slot,3);
+  assert.equal(gone.spectatorView.automaticFallback,true);
+  const actual=await fetch(base+'/world',{headers:{'x-player-token':roster[2]}}).then(r=>r.json());
+  assert.deepEqual(gone.visible,actual.visible,'the replacement camera can only see its own legitimate sightlines');
+  assert.equal(JSON.stringify(gone).includes(roster[6]),false,'opponent secrets stay private');
  }finally{await host.close();}
 });

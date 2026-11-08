@@ -418,9 +418,20 @@ class BrSquadWorld {
     // A withdrawn viewer has no free-flying camera: they can inspect the
     // genuine live viewpoint of one eligible squad mate. Every rival shown
     // must satisfy that participant's same live range and obstacle checks.
-    const watched=!me.eligible&&this.phase==='moving'&&me.spectateSlot!==null
+    const selected=!me.eligible&&this.phase==='moving'&&me.spectateSlot!==null
       ?participants.find(p=>p.team===me.team&&p.slot===me.spectateSlot-1&&p.eligible)
       :null;
+    // If the selected real teammate later withdraws, continue the same
+    // squad's live view through the next eligible real teammate in ascending
+    // fixed seat order. Never switch across teams or create a free camera.
+    // The viewer's chosen slot remains unchanged, so this fallback cannot
+    // silently claim a new explicit selection or resurrect any actor.
+    const fallback=!me.eligible&&this.phase==='moving'&&me.spectateSlot!==null&&!selected
+      ?participants.filter(p=>p.team===me.team&&p.eligible)
+        .sort((a,b)=>((a.slot-(me.spectateSlot-1)+SQUAD_SIZE)%SQUAD_SIZE)-
+          ((b.slot-(me.spectateSlot-1)+SQUAD_SIZE)%SQUAD_SIZE))[0]||null
+      :null;
+    const watched=selected||fallback;
     const observer=me.eligible?me:watched;
     if(observer){
       // The broadphase cuts needless long-distance sightline tests while
@@ -471,7 +482,7 @@ class BrSquadWorld {
       squadRoute:this.squadRouteSnapshot(me.team),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
-        x:watched.x,z:watched.z}:null,
+        x:watched.x,z:watched.z,automaticFallback:!!fallback}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
