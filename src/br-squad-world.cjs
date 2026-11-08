@@ -22,12 +22,20 @@ const PRESENCE_STALE_TICKS=10*60;
 // only the consecutive counter, not the historical exposure statistic.
 const BOUNDARY_GRACE_TICKS=8*60;
 const OFFSETS=Object.freeze([[-4,-3],[0,-3],[4,-3],[-4,3],[0,3],[4,3]]);
+// Fictional public ferry hall access shutter, built for this online 96-body
+// simulation only. No real-world base, tactical machinery or site is copied.
+const CIVIC_GATE=Object.freeze({closedX:-45,openX:-53,z:145,w:5.6,d:.6,
+  height:2.4,speed:3,controls:[{x:-45,z:139},{x:-45,z:150}],reach:6.5});
 class BrSquadWorld {
   constructor(lobby,seed=20261108){
     if(!lobby||lobby.phase!=='roster_locked'||lobby.players.size!==CAPACITY)
       throw new RangeError('full_ready_roster_required');
     const game=Sim.newMatch(seed,0,'carbine');
     this.obstacles=game.obstacles.map(o=>({...o}));
+    const door={x:CIVIC_GATE.closedX,z:CIVIC_GATE.z,w:CIVIC_GATE.w,
+      d:CIVIC_GATE.d,h:CIVIC_GATE.height,type:'br96-civic-shutter'};
+    this.obstacles.push(door);
+    this.civicGate={door,targetX:CIVIC_GATE.closedX};
     this.actors=new Map();this.tick=0;
     // No client may author a squad result. Only real server-owned eligibility
     // transitions change this scorecard; ties cannot be invented by the HUD.
@@ -149,6 +157,31 @@ class BrSquadWorld {
     this.squadSignals.set(actor.team,notice);
     return {ok:true,signal:{...notice}};
   }
+  // A nearby human can physically operate this public passenger hall shutter
+  // from either side; clients never supply gate pose, velocity or coordinates.
+  operateCivicGate(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
+    const reachable=CIVIC_GATE.controls.some(control=>
+      Math.hypot(actor.x-control.x,actor.z-control.z)<=CIVIC_GATE.reach&&
+      !Sim.lineBlocked(actor.x,actor.z,control.x,control.z,this.obstacles));
+    if(!reachable)return {ok:false,reason:'too_far'};
+    const gate=this.civicGate;
+    if(Math.abs(gate.door.x-gate.targetX)>1e-7)
+      return {ok:false,reason:'in_motion'};
+    gate.targetX=gate.targetX===CIVIC_GATE.closedX
+      ?CIVIC_GATE.openX:CIVIC_GATE.closedX;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,gate:this.gateSnapshot()};
+  }
+  gateSnapshot(){
+    const gate=this.civicGate,delta=gate.targetX-gate.door.x;
+    return {x:gate.door.x,z:gate.door.z,w:gate.door.w,d:gate.door.d,
+      state:Math.abs(delta)>1e-7?(delta<0?'opening':'closing'):
+        gate.targetX===CIVIC_GATE.openX?'open':'closed'};
+  }
   // A withdrawn participant may view one still-eligible member of their OWN
   // six-person squad. Target selection is by fixed roster slot, not a player
   // token or arbitrary world coordinate. This never revives an actor.
@@ -198,6 +231,21 @@ class BrSquadWorld {
   step(){
     if(this.phase!=='moving')return;
     this.tick++;
+    const gate=this.civicGate;
+    if(Math.abs(gate.targetX-gate.door.x)>1e-7){
+      const previous=gate.door.x;
+      const difference=gate.targetX-previous;
+      const advance=Math.sign(difference)*Math.min(Math.abs(difference),
+        CIVIC_GATE.speed*STEP);
+      const next=previous+advance;
+      // A moving solid must not teleport through a living human body.
+      // Check its swept footprint, not only the final 60Hz door position.
+      const swept={...gate.door,x:(next+previous)/2,
+        w:gate.door.w+Math.abs(advance)};
+      const occupied=[...this.actors.values()].some(body=>body.eligible&&
+        Sim.blocked(body.x,body.z,RADIUS,[swept]));
+      if(!occupied)gate.door.x=next;
+    }
     for(const [squad,notice] of this.squadSignals){
       if(this.tick>=notice.expiresAtTick)this.squadSignals.delete(squad);
     }
@@ -350,6 +398,7 @@ class BrSquadWorld {
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       coastalWeather:weather,
       playableArea,
+      civicGate:this.gateSnapshot(),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadRegroup:regroup,
       squadLandmarks,
