@@ -30,7 +30,16 @@ test('BR96 uses exactly the same coastal wet loading surface as offline BR, not 
  assert.deepEqual(world.snapshot(token(6)).self.surface,{wet:false,waveActive:false,mobility:1});
  assert.equal(world.move(token(0),{seq:1,dx:1,dz:0}).ok,true);
  assert.equal(world.move(token(6),{seq:1,dx:1,dz:0}).ok,true);
- for(let i=0;i<60;i++)world.step();
+ for(let i=0;i<60;i++){
+  // Real clients refresh input before the authoritative 45-tick lease expires.
+  // Keep server lease protection: testing 60 unattended ticks would rightly
+  // stop an unattended player rather than prove 60 seconds of wet traction.
+  if(i===30){
+   assert.equal(world.move(token(0),{seq:2,dx:1,dz:0}).ok,true);
+   assert.equal(world.move(token(6),{seq:2,dx:1,dz:0}).ok,true);
+  }
+  world.step();
+ }
  const travelWet=wet.x-30,travelDry=dry.x-10;
  assert.ok(travelWet>3&&travelWet<4.2,'wet mobility has finite, measured traversal');
  assert.ok(Math.abs(travelDry-SPEED*60*STEP)<.001,'dry terrain retains old 60Hz speed');
@@ -48,7 +57,16 @@ test('BR96 shallow periodic wave is server-tick-based, reversible and does not i
  assert.equal(world.snapshot(token(6)).self.surface.waveActive,false);
  world.move(token(0),{seq:1,dx:1,dz:0});
  world.move(token(6),{seq:1,dx:1,dz:0});
- for(let i=0;i<60;i++)world.step();
+ for(let i=0;i<60;i++){
+  // Real clients refresh input before the authoritative 45-tick lease expires.
+  // Keep server lease protection: testing 60 unattended ticks would rightly
+  // stop an unattended player rather than prove 60 seconds of wet traction.
+  if(i===30){
+   assert.equal(world.move(token(0),{seq:2,dx:1,dz:0}).ok,true);
+   assert.equal(world.move(token(6),{seq:2,dx:1,dz:0}).ok,true);
+  }
+  world.step();
+ }
  assert.ok(Math.abs((wet.x-30)-SPEED*Sim.WET_LOADING_PAD.mobility*.78)<.001);
  assert.ok(Math.abs((dry.x-10)-SPEED)<.001);
  world.tick=18*60;
