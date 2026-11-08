@@ -67,6 +67,12 @@
   // traversable street geometry, so loading cannot spawn a wall on top of them.
   const FALLEN_AWNING=Object.freeze({x:24,z:-35,w:4.0,d:2.4,h:.72,
     type:'story-fallen-awning',routeId:'story-fallen-awning'});
+  // CH01 optional physical clearance: a lightweight fallen market awning
+  // moves only while the captain remains at its actual handle. There is no
+  // document clue, route unlock, remote command or hidden new mission gate.
+  const AWNING_SLIDE=4.8, AWNING_SLIDE_SECONDS=4;
+  const AWNING_HANDLE=Object.freeze({id:'awningHandle',x:20.5,z:-38,
+    kind:'objective',label:'쓰러진 차양 틀을 직접 치워 보행 통로 확보'});
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
   const GUIDE_START=Object.freeze({x:-10.5,z:-55}); // Waiting civilian aid coordinator.
   // CH01 civilian harbor worker traverses one small publicly reachable
@@ -192,9 +198,12 @@
     if(gate)gate.x=x;
     else state.world.obstacles.push({...EAST_CHECKPOINT,x});
     const debrisIndex=state.world.obstacles.findIndex(o=>o.routeId==='story-fallen-awning');
+    const awningX=FALLEN_AWNING.x+state.awningShift*AWNING_SLIDE;
     if(state.awningFallen&&debrisIndex<0)
-      state.world.obstacles.push({...FALLEN_AWNING});
-    else if(!state.awningFallen&&debrisIndex>=0)
+      state.world.obstacles.push({...FALLEN_AWNING,x:awningX});
+    else if(state.awningFallen&&debrisIndex>=0)
+      state.world.obstacles[debrisIndex].x=awningX;
+    else if(debrisIndex>=0)
       state.world.obstacles.splice(debrisIndex,1);
     return state;
   }
@@ -412,7 +421,7 @@
   }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
-      passageWarningHeard:false,transportVan:null,awningFallen:false,civilianRerouted:false,
+      passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -465,6 +474,14 @@
     // An unvisited office never reveals its contents on the global HUD.
     return state.officeBoardRead?[]:[POINTS.officeBoard];
   }
+  function localAwningMarker(state) {
+    if(!state.awningFallen||state.awningShift>=1||!state.combat.cleared||
+       !['records','decision','exit'].includes(state.phase))return [];
+    const p=state.world.player;
+    return Math.hypot(p.x-AWNING_HANDLE.x,p.z-AWNING_HANDLE.z)<6 &&
+      !Sim.lineBlocked(p.x,p.z,AWNING_HANDLE.x,AWNING_HANDLE.z,state.world.obstacles)
+      ?[AWNING_HANDLE]:[];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -473,13 +490,13 @@
       POINTS.decision,
       ...coordinatorRequestMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...officeMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -822,6 +839,29 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // The lightweight awning frame is pulled along the actual street edge
+    // over multiple fixed ticks. Stop if an actor occupies its swept footprint
+    // or the captain walks away; never jump, vanish or overlap a pedestrian.
+    if(state.awningWorking&&state.awningShift<1 &&
+       Math.hypot(p.x-AWNING_HANDLE.x,p.z-AWNING_HANDLE.z)<4.5) {
+      const current=FALLEN_AWNING.x+state.awningShift*AWNING_SLIDE;
+      const fraction=Math.min(1,state.awningShift+t/AWNING_SLIDE_SECONDS);
+      const proposed=FALLEN_AWNING.x+fraction*AWNING_SLIDE;
+      const swept={...FALLEN_AWNING,x:(current+proposed)/2,
+        w:FALLEN_AWNING.w+Math.abs(proposed-current)};
+      const actors=[p,...state.world.bots.filter(bot=>bot.alive),
+        state.worker,state.civilianWalker,
+        state.guide.active?state.guide:null].filter(Boolean);
+      if(!actors.some(body=>Sim.blocked(body.x,body.z,.8,[swept]))) {
+        state.awningShift=fraction;
+        if(state.awningShift===1){
+          state.awningWorking=false;
+          state.subtitle='마라(현지 기술자): 차양이 통행 구역에서 벗어났습니다. 길은 확보됐지만 주민 이동은 구조단이 판단합니다.';
+          state.message='차양 프레임을 실제 이동으로 치움 · 보행 통로 확보';
+        }
+        syncRoute(state);
+      }
+    }
     // An unexpected escalation occurs in the actually visited harbor after
     // the short Korea/arrival recap. No recovered deployment paper, arbitrary
     // checkpoint checklist or press-E console is necessary. Retain the older
@@ -1251,6 +1291,14 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='awningHandle'&&state.awningFallen&&state.combat.cleared&&
+       state.awningShift<1&&['records','decision','exit'].includes(state.phase)){
+      state.awningWorking=true;
+      state.subtitle='이수혁 대위: 쓰러진 가벼운 차양 틀을 길 가장자리로 끌어내겠다. 손잡이 근처에서 작업을 이어간다.';
+      state.message='차양 틀 이동 중 · 가까이 머무르면 실제로 이동합니다';
+      syncMarkers(state);
+      return {ok:true,event:'awning_clear_started',phase:state.phase};
+    }
     if(marker.id==='officeBoard'&&!state.officeBoardRead&&
        ['records','decision','exit'].includes(state.phase)){
       // The optional physical board says only that residents were asked to
@@ -1773,7 +1821,7 @@
     const p=state.world.player;
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
-      awningFallen:state.awningFallen,
+      awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
       workerInterviewed:state.workerInterviewed,
@@ -1802,12 +1850,22 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+29||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen').includes(k))||
+      Object.keys(data).length>expectedKeys.length+31||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
-         (data.awningFallen&&data.player&&Sim.blocked(data.player.x,data.player.z,.85,[FALLEN_AWNING]))))||
+         (data.awningFallen&&data.player&&
+           Sim.blocked(data.player.x,data.player.z,.85,
+             [{...FALLEN_AWNING,x:FALLEN_AWNING.x+
+               (data.awningShift===undefined?0:data.awningShift)*AWNING_SLIDE}]))))||
+      (hasOwn(data,'awningShift')!==hasOwn(data,'awningWorking'))||
+      (hasOwn(data,'awningShift')&&(!Number.isFinite(data.awningShift)||
+        data.awningShift<0||data.awningShift>1||
+        typeof data.awningWorking!=='boolean'||
+        ((data.awningShift>0||data.awningWorking)&&data.awningFallen!==true)||
+        (data.awningWorking&&
+          (data.awningShift>=1||!['records','decision','exit'].includes(data.phase)))))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
@@ -2075,6 +2133,8 @@
     state.civicVisited=hasOwn(data,'civicVisited')?data.civicVisited:false;
     state.passageWarningHeard=hasOwn(data,'passageWarningHeard')?data.passageWarningHeard:false;
     state.awningFallen=hasOwn(data,'awningFallen')?data.awningFallen:false;
+    state.awningShift=hasOwn(data,'awningShift')?data.awningShift:0;
+    state.awningWorking=hasOwn(data,'awningWorking')?data.awningWorking:false;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
     // Compatibility only: older v2 saves may retain a record of a retired
