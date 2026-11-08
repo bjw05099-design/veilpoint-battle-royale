@@ -386,6 +386,20 @@
       [-39,135,1.0,4,.68,'aden-ferry-hall-bench'],
       [-52,131,.65,1.1,1.65,'aden-ferry-hall-notice']
     ])o.push({x,z,w,d,h,type});
+    // A fourth, genuinely walkable shared seaside market lane. Two parallel
+    // public shopfronts flank a wide north-south passage; two short front
+    // walls leave the northern center physically OPEN (not a painted door).
+    // Original fictional civilian architecture, not an Aden site reconstruction.
+    // No second CH01 copy: both modes consume this same authored collision.
+    // Revision-zero historical rounds retain their original street geometry.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [16,147,.6,18,3.5,'aden-seafront-market-wall'],
+      [40,147,.6,18,3.5,'aden-seafront-market-wall'],
+      [20,156,8,.6,3.5,'aden-seafront-market-wall'],
+      [36,156,8,.6,3.5,'aden-seafront-market-wall'],
+      [20,146,1.8,3,1.1,'aden-seafront-market-counter'],
+      [36,146,1.8,3,1.1,'aden-seafront-market-counter']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -448,7 +462,7 @@
     // Draw from the original unmodified candidate sequence, then resolve only
     // rare local overlap with the new block deterministically below.
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
-      !o.type.startsWith('aden-ferry-hall-'));
+      !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
