@@ -14,6 +14,15 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:12px;min-height:
 section{border:1px solid #476168;background:#122127;border-radius:8px;min-height:0;padding:12px}
 #mapPanel{display:flex;flex-direction:column;gap:8px;position:relative}
 #civicGate{position:absolute;right:18px;top:18px;z-index:2;background:#2f6265;font-size:.82rem}
+#standingsToggle{position:absolute;left:18px;top:18px;z-index:2;background:#37535c;font-size:.82rem}
+#standingsPanel{position:absolute;inset:56px 16px 33px;z-index:3;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#102228;border:2px solid #7da2a0;border-radius:8px;padding:8px}
+#standingsPanel[hidden]{display:none}
+.standings-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex:0 0 auto}
+.standings-head strong{font-size:.95rem}
+#standingsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:5px;min-height:0;flex:1}
+.standings-tile{padding:3px 5px;border:1px solid #40585c;border-radius:4px;background:#1c3138;display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:.76rem;white-space:nowrap;overflow:hidden}
+.standings-tile.own{border-color:#afdfae;background:#2b4b4a}
+@media(max-height:680px){#standingsPanel{inset:45px 8px 25px;padding:5px}#standingsGrid{gap:3px}.standings-tile{padding:2px 3px;font-size:.7rem}}
 canvas{display:block;width:100%;height:100%;min-height:0;flex:1;background:#17282e;border:1px solid #3a5b62}
 #legend{font-size:.79rem;color:#c9d6d5;flex:0 0 auto}
 #sidebar{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
@@ -38,7 +47,29 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <section id="mapPanel" aria-label="서버 소유 96인 월드의 자기·아군·실제로 보이는 상대 지도">
 <canvas id="map" width="700" height="700"></canvas>
 <button id="civicGate" disabled title="현지 공용 여객 대기실 출입문 근처에서만 사용 가능">F · 여객 문</button>
-<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호 / F 여객 문</div>
+<button id="standingsToggle" aria-expanded="false" aria-controls="standingsPanel" title="서버 확정 16개 분대의 경기 상황">V · 분대 결과</button>
+<div id="standingsPanel" role="region" aria-label="16개 분대 경기 상황" hidden>
+ <div class="standings-head"><strong>실제 서버 분대 결과 · 미확정 순위는 표시하지 않음</strong><button id="standingsClose" aria-label="분대 결과 닫기">닫기</button></div>
+ <div id="standingsGrid" aria-live="off">
+<div class="standings-tile" data-squad="1"><strong>분대 01</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="2"><strong>분대 02</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="3"><strong>분대 03</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="4"><strong>분대 04</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="5"><strong>분대 05</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="6"><strong>분대 06</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="7"><strong>분대 07</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="8"><strong>분대 08</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="9"><strong>분대 09</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="10"><strong>분대 10</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="11"><strong>분대 11</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="12"><strong>분대 12</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="13"><strong>분대 13</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="14"><strong>분대 14</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="15"><strong>분대 15</strong><span>미확정</span></div>
+<div class="standings-tile" data-squad="16"><strong>분대 16</strong><span>미확정</span></div>
+ </div>
+</div>
+<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호 / F 여객 문 / V 결과표</div>
 </section>
 <section id="sidebar">
 <h2>접속 및 분대 편성</h2>

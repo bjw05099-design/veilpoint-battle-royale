@@ -19,6 +19,8 @@ function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';
+ el('standingsPanel').hidden=true;
+ el('standingsToggle').setAttribute('aria-expanded','false');
  try{sessionStorage.removeItem(SESSION);}catch(_){}
  render();
 }
@@ -118,6 +120,41 @@ function render(){
     (w.squadSignal?'\n분대 신호: '+w.squadSignal.kind:''):'\n96명 전원 준비 시 이동 시작')
   :'접속 전';
  draw(w);
+ renderStandings(w);
+}
+function renderStandings(w){
+ // Only the server's 16-slot public standings may assign a placement.
+ // In-progress teams have no guessed ranking, even if they are outnumbered.
+ const entries=Array.isArray(w?.standings)&&w.standings.length===16?w.standings:null;
+ const tiles=el('standingsGrid').querySelectorAll('.standings-tile');
+ for(let i=0;i<16;i++){
+  const tile=tiles[i],entry=entries?.[i];
+  if(!tile)continue;
+  const valid=entry&&entry.squad===i+1&&
+   Number.isInteger(entry.eligibleMembers)&&entry.eligibleMembers>=0&&
+   entry.eligibleMembers<=6&&
+   (entry.placement===null||
+    (Number.isInteger(entry.placement)&&entry.placement>=1&&entry.placement<=16));
+  tile.classList.toggle('own',w?.self?.squad===i+1);
+  const label=tile.children[1];
+  if(!label)continue;
+  label.textContent=valid
+   ?(entry.placement===null?'진행 중':'확정 '+entry.placement+'위')+
+     ' · '+entry.eligibleMembers+'/6명'
+   :'시작 전 · 미확정';
+ }
+}
+function toggleStandings(open){
+ const panel=el('standingsPanel'),next=typeof open==='boolean'?open:panel.hidden;
+ panel.hidden=!next;
+ el('standingsToggle').setAttribute('aria-expanded',String(next));
+ if(next){
+  // A player checking the score must not keep moving while the keyboard
+  // focus belongs to the visible overlay; the next 180ms input is neutral.
+  keys.clear();sprintIntent=false;lastSprint=null;
+  renderStandings(currentWorld());
+  el('standingsClose').focus({preventScroll:true});
+ }else el('standingsToggle').focus({preventScroll:true});
 }
 function draw(w){
  const width=canvas.width,height=canvas.height;
@@ -274,6 +311,12 @@ function canUseKeyboard(event){
 document.addEventListener('keydown',event=>{
  if(!canUseKeyboard(event))return;
  const key=event.code;
+ if(!event.repeat&&key==='KeyV'){event.preventDefault();toggleStandings();return;}
+ if(!el('standingsPanel').hidden){
+  if(key==='Escape'){event.preventDefault();toggleStandings(false);}
+  // Scoreboard focus takes priority over walking/sprinting/field controls.
+  return;
+ }
  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight'].includes(key)){
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
@@ -285,7 +328,8 @@ function resetKeys(){keys.clear();sprintIntent=false;lastSprint=null;render();}
 window.addEventListener('blur',resetKeys);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetKeys();});
 function direction(){
- if(document.hidden||!document.hasFocus())return {dx:0,dz:0};
+ if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
+  return {dx:0,dz:0};
  const dx=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
  const dz=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));
  const len=Math.hypot(dx,dz)||1;
@@ -350,6 +394,8 @@ el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
 el('location').addEventListener('click',()=>signal('location'));
 el('civicGate').addEventListener('click',operateGate);
+el('standingsToggle').addEventListener('click',()=>toggleStandings());
+el('standingsClose').addEventListener('click',()=>toggleStandings(false));
 el('sprint').addEventListener('click',()=>{sprintIntent=!sprintIntent;render();});
 el('withdraw').addEventListener('click',withdraw);
 el('spectate').addEventListener('click',spectate);

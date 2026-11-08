@@ -20,7 +20,7 @@ function fixture(){
    cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
  result.br96Checks=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],cases:[{
-  name:'BR96-local-squad',controls:10,issues:[],targets:[target('name'),target('join'),target('civicGate')]
+  name:'BR96-local-squad',controls:11,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},targets:[target('name'),target('join'),target('civicGate'),target('standingsToggle')]
  }]}));
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
@@ -36,6 +36,17 @@ function fixture(){
 test('missing BR96 browser measurement fails closed',()=>{
  const record=fixture();delete record.br96Checks;
  assert.throws(()=>validate(record),/Missing BR96 Chromium evidence/);
+});
+test('BR96 score overlay must have 16 visible rows and clickable, focused close button',()=>{
+ const invalid=fixture();
+ invalid.br96Checks[0].cases[0].standingsOverlay.tiles=15;
+ assert.throws(()=>validate(invalid),/exactly 16 squad cells/);
+ invalid.br96Checks[0].cases[0].standingsOverlay.tiles=16;
+ invalid.br96Checks[0].cases[0].standingsOverlay.closeProbes=4;
+ assert.throws(()=>validate(invalid),/close button is blocked/);
+ invalid.br96Checks[0].cases[0].standingsOverlay.closeProbes=5;
+ invalid.br96Checks[0].cases[0].standingsOverlay.scrolling=true;
+ assert.throws(()=>validate(invalid),/score overlay scrolls/);
 });
 test('BR96 civic gate overlay fails on blocked button pointer or focus',()=>{
  const result=fixture();result.br96Checks[0].cases[0].targets[2].hit=false;

@@ -137,8 +137,8 @@ function validate(evidence){
   assert.deepEqual(page.issues,[],'BR96 control clipped at '+size);
   assert.ok(page.controls>=10,'BR96 page has missing interactive controls at '+size);
   const targets=new Map(page.targets.map(t=>[t.id,t]));
-  assert.equal(targets.size,3,'BR96 focus targets must be unique');
-  for(const id of ['name','join','civicGate']){
+  assert.equal(targets.size,4,'BR96 focus targets must be unique');
+  for(const id of ['name','join','civicGate','standingsToggle']){
    const t=targets.get(id);
    assert.ok(t,'Missing BR96 target '+id);
    assert.equal(t.visible,true,'BR96 hidden '+id+' at '+size);
@@ -147,6 +147,12 @@ function validate(evidence){
    assert.equal(t.focused,true,'BR96 keyboard blocked '+id+' at '+size);
    assert.equal(t.probesPassed,5,'BR96 partial click '+id+' at '+size);
   }
+  const board=page.standingsOverlay;
+  assert.ok(board,'Missing BR96 real 16-squad overlay evidence at '+size);
+  assert.equal(board.tiles,16,'BR96 must show exactly 16 squad cells at '+size);
+  assert.equal(board.closeProbes,5,'BR96 score overlay close button is blocked at '+size);
+  assert.equal(board.closeFocused,true,'BR96 score overlay close button cannot focus at '+size);
+  assert.equal(board.scrolling,false,'BR96 score overlay scrolls at '+size);
  }
  assert.deepEqual([...brSizes].sort(),[...SIZES].sort(),'Missing BR96 viewport size');
 
