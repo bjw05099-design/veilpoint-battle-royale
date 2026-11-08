@@ -73,8 +73,11 @@ class BrSquadWorld {
     if(!actor)throw new RangeError('unknown_session');
     if(typeof newToken!=='string'||!/^[a-f0-9]{64}$/.test(newToken)||
        this.actors.has(newToken))throw new RangeError('invalid_session');
-    this.actors.delete(oldToken);
-    this.actors.set(newToken,actor);
+    // Retain original 96-seat iteration order: squad snapshots, equal-time
+    // broadphase proposals and existing UI roster order cannot jump merely
+    // because a player's authenticated transport secret changed.
+    this.actors=new Map([...this.actors].map(([key,body])=>
+      [key===oldToken?newToken:key,body]));
     return {ok:true,playerId:actor.id,squad:actor.team+1,slot:actor.slot+1};
   }
   move(token,command){
