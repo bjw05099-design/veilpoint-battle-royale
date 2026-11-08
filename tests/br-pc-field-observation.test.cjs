@@ -29,8 +29,8 @@ test('real BR observation lens magnifies Canvas view then restores user-selected
   assert.equal(r.verticalFov,base);
   assert.equal(r.fallback.verticalFov,base);
  }
- assert.throws(()=>r.setObservationZoom(true,300),RangeError);
- assert.throws(()=>r.setObservationZoom('true',55),RangeError);
+ assert.throws(()=>r.setObservationZoom(true,300),e=>e?.name==='RangeError');
+ assert.throws(()=>r.setObservationZoom('true',55),e=>e?.name==='RangeError');
  assert.equal(r.setObservationZoom(false,55),55);
 });
 test('temporary optics cannot modify the authoritative BR world, checkpoints or 60Hz time',()=>{
