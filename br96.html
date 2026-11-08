@@ -17,8 +17,8 @@ canvas{display:block;width:100%;height:100%;min-height:0;flex:1;background:#1728
 #legend{font-size:.79rem;color:#c9d6d5;flex:0 0 auto}
 #sidebar{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
 .group{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
-input,button{font:inherit;border-radius:5px;padding:7px;min-width:0}
-input{color:#edf3f1;background:#0c1a20;border:1px solid #53696c;flex:1 1 100px}
+input,button,select{font:inherit;border-radius:5px;padding:7px;min-width:0}
+input,select{color:#edf3f1;background:#0c1a20;border:1px solid #53696c;flex:1 1 100px}
 button{color:#fff;background:#275660;border:1px solid #71979a;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
 button:focus-visible,input:focus-visible{outline:2px solid #b8e6b1;outline-offset:2px}
@@ -36,7 +36,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <main>
 <section id="mapPanel" aria-label="서버 소유 96인 월드의 자기·아군·실제로 보이는 상대 지도">
 <canvas id="map" width="700" height="700"></canvas>
-<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호</div>
+<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 · WASD 이동 / Shift 달리기 / Q 집결 신호 / E 위치 신호</div>
 </section>
 <section id="sidebar">
 <h2>접속 및 분대 편성</h2>
@@ -46,6 +46,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <p id="status" role="status" aria-live="polite">대기 중 · 같은 PC에서 여러 브라우저 탭으로 입장할 수 있습니다.</p>
 <pre id="details" aria-label="분대 및 현재 게임 상태">접속 전</pre>
 <div class="group"><button id="regroup" disabled>Q 집결 신호</button><button id="location" disabled>E 현재 위치</button><button id="sprint" disabled aria-pressed="false">달리기 OFF</button></div>
+<div class="group" aria-label="경기 참가 상태와 분대 관전"><button id="withdraw" disabled>경기 포기</button><label for="watchSlot">아군 관전</label><select id="watchSlot" disabled aria-label="관전할 본인 분대 위치"><option value="">참가 중</option></select><button id="spectate" disabled>관전 전환</button></div>
 <pre id="roster" aria-label="분대 준비 명단">대기실이 시작되면 분대 정보를 표시합니다.</pre>
 <p class="note">현재 2D 플레이테스트이며 실전 전투, 공용 인터넷 호스팅, 96인 네트워크 부하 검증은 별도 개발 항목입니다. 개인 인증 토큰은 이 탭의 세션 저장소에만 유지됩니다. 지도는 서버가 허용한 주변 인원만 표시합니다.</p>
 </section>
