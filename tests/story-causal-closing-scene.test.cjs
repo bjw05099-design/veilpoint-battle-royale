@@ -26,7 +26,8 @@ test('CH01 south completion has an on-site local-coordinator response, not an in
  assert.match(scene.lines[0],/유수프.*확인하지 못한 주민/);
  assert.match(scene.lines[1],/아직 확인되지 않았습니다/);
  assert.match(scene.lines[2],/복구 여부는 미확인/);
- assert.match(scene.lines[3],/본래 파견 임무와 현장 상황이 달라졌습니다/);
+ assert.match(scene.lines[3],/한국에서 받은 지시는 그대로입니다/);
+ assert.match(scene.lines[3],/우리가 확인한 것과 모르는 것/);
  assert.match(scene.nextChapter,/미확정/);
  assert.deepEqual(Story.debrief(s).closingScene,scene);
  assert.equal(Story.debrief(s).campaignUnlocked,false);

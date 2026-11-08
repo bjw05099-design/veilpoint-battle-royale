@@ -155,11 +155,11 @@
   // 10 seconds of genuine 60Hz playable CH01 time show the scenes once.
   const OPENING_BEATS=Object.freeze([
     Object.freeze({until:3.4,location:'출국 전 · 대한민국',
-      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했습니다. 원래 임무는 현지 민간 통신망 협력과 구호 인력 지원입니다. 작전의 범위를 바꿀 권한은 현장에서 내 마음대로 생기지 않습니다.'}),
+      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했다. 민간 통신 협력과 구호 인력 지원. 그게 원래 임무다.'}),
     Object.freeze({until:6.8,location:'도착 · 가상 해안 도시 나흐린',
-      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정에 따라 연락망을 점검하고 복귀하겠습니다. 2011년의 정치 전환 시도와 2014년 이후의 충돌까지, 현지인이 겪은 역사는 한 문장의 상황 보고로 정리할 수 없습니다. 민간 협력자는 유수프 구조단입니다.'}),
+      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정대로 연락을 점검한 뒤 복귀하겠습니다. 현지 판단은 유수프 구조단이 맡습니다.'}),
     Object.freeze({until:10.2,location:'도착 후 · 예상 밖 상황 변화',
-      subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요합니다. 유수프 구조단은 대피 지원을 요청했지만, 누구를 언제 이동시킬지는 현지에서 결정합니다.'})
+      subtitle:'조현지(현장 무전): 도착한 뒤 충돌이 예상보다 빠르게 확대됐습니다. 복귀 경로를 재확인하고, 주민 이동은 유수프 구조단과 협의하겠습니다.'})
   ]);
   function openingBeat(state){
     if(!state||!['terminal','engagement'].includes(state.phase)||
@@ -1857,7 +1857,7 @@
       ?' 항구 작업자는 별도의 지시 없이 가까운 공용 보행 골목으로 걸어서 이동했습니다. 다른 주민의 안전은 미확인입니다.'
       :null;
     const rememberedSouth=state.workerInterviewed
-      ?' 항구 작업자의 가족은 1990년 통일과 1994년 전쟁을 서로 다르게 기억했습니다. 이 한 사람의 증언을 모든 남부 주민의 견해로 일반화하지 않습니다.'
+      ?' 작업자의 가족은 통일과 전쟁을 서로 다르게 기억했습니다. 그 가족의 말을 도시 전체의 목소리로 적지 않겠습니다.'
       :'';
     const yieldedVan=state.transportVan&&hasOwn(state.transportVan,'pauseUntil')
       ?' 나딤 운송 담당자가 요청받은 위치에서 차량을 잠시 멈춰 현장 통행을 양보했습니다. 승객 수송 및 철수 완료는 확인되지 않았습니다.'
@@ -1875,7 +1875,7 @@
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
-        '이수혁 대위: 본래 파견 임무와 현장 상황이 달라졌습니다. 한국에서 받은 지시는 여전히 유효하지만 이곳에서 벌어진 일을 지울 수는 없습니다. 지휘계통에 확인된 사실만 보고하겠습니다. 주민이 스스로 결정한 이동과 우리가 돕지 못한 일까지 구분하겠습니다. 철수 가능 여부는 새로 판단해야 합니다.'+
+        '이수혁 대위: 한국에서 받은 지시는 그대로입니다. 달라진 건 이곳의 상황입니다. 우리가 확인한 것과 모르는 것, 주민이 스스로 결정한 일을 분리해 보고하겠습니다. 복귀는 다시 승인받아야 합니다.'+
         (street?' '+street:'')+(workerReport||'')+yieldedVan+rememberedSouth]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
