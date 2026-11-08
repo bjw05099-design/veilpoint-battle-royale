@@ -346,6 +346,18 @@
       [111,101,3.4,.65,.65,'aden-pedestrian-bench'],
       [104,108,.65,.65,2.15,'aden-pedestrian-post']
     ])o.push({x,z,w,d,h,type});
+    // A third shared civic place: a shaded, walk-through neighborhood court.
+    // Four visible supports and two low side seats surround a genuinely open
+    // north-south center aisle. The high canopy has NO ground-level collider;
+    // BR and CH01 both use these same original non-sensitive urban footprints.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [35,67,.8,.8,3.2,'aden-shade-post'],
+      [51,67,.8,.8,3.2,'aden-shade-post'],
+      [35,83,.8,.8,3.2,'aden-shade-post'],
+      [51,83,.8,.8,3.2,'aden-shade-post'],
+      [37,75,.8,4,.7,'aden-shade-seat'],
+      [49,75,.8,4,.7,'aden-shade-seat']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -379,7 +391,7 @@
     // pickups simply because an additional, distant civic block was authored.
     // Draw from the original unmodified candidate sequence, then resolve only
     // rare local overlap with the new block deterministically below.
-    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-'));
+    const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
