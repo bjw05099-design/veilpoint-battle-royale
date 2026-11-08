@@ -17,6 +17,14 @@
  // Camera orientation is LOCAL; only a normalized walking direction goes
  // through the server's authenticated 60Hz move API. This is not a remote
  // position, free camera or way to reveal an unobserved opponent.
+ // Map-relative heading is a local camera label, not a real-world bearing,
+ // server-authorized position report, radar or additional observer capability.
+ function viewHeading(yaw){
+  const angle=(wrap(yaw)*180/Math.PI+360)%360;
+  const labels=['북','북동','동','남동','남','남서','서','북서'];
+  return Object.freeze({degrees:Math.round(angle)%360,
+   cardinal:labels[Math.round(angle/45)%8]});
+ }
  function relativeMovement(dx,dz,yaw){
   if(![dx,dz,yaw].every(Number.isFinite)||Math.hypot(dx,dz)>1+1e-8)
    throw new RangeError('invalid_camera_movement');
@@ -109,10 +117,13 @@
    if(!Number.isFinite(distance)||distance<.4||distance>maxDistance||
       Math.abs(relative)>FOV/2||col<0||col>=COLUMNS||
       rays[col].distance<depth-.6)return null;
-   return Object.freeze({kind:p.kind,id:p.id,col,depth});
+   // Only server-published, actually visible squadmates carry a local seat
+   // label. Never infer a hidden rival's squad, identity or location.
+   return Object.freeze({kind:p.kind,id:p.id,col,depth,
+    slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
-    angle,columns:COLUMNS,maxDistance});
+    angle,heading:viewHeading(angle),columns:COLUMNS,maxDistance});
  }
  function draw(ctx,{width,height,subject,yaw,obstacles,civicGate,handcart,squad,visible,
    visibilityMeters,weather}={}){
@@ -145,6 +156,11 @@
    ctx.fillRect(px-size*.16,horizon-size*.78,size*.32,size*.78);
    ctx.fillRect(px-size*.10,horizon-size,size*.20,size*.20);
    ctx.globalAlpha=1;
+   if(person.kind==='squad'&&person.slot!==null){
+    ctx.fillStyle='#dff4eb';ctx.font='11px system-ui';
+    ctx.fillText('아군 '+person.slot+' · '+Math.round(person.depth)+'m',
+      Math.max(3,px-size*.6),Math.max(14,horizon-size-5));
+   }
   }
   ctx.strokeStyle='#d6e9e2';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(width/2-8,height/2);ctx.lineTo(width/2+8,height/2);
@@ -153,7 +169,9 @@
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
   ctx.fillText('화면 클릭: 마우스 시야 회전 · WASD: 보는 방향 기준 이동 · Esc: 포인터 해제',14,47);
+  ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
+    '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
