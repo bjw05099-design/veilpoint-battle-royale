@@ -24,7 +24,7 @@ test('six humans vote on one physical walk-in sector, abstentions and ties never
  lobby.voteEntry(token(2),'block');
  assert.deepEqual(lobby.squadEntry(0).tally,{block:1,promenade:2,lane:1});
  const self=lobby.snapshot(token(0));
- assert.equal(self.self.entryChoice,'promenade');
+ assert.equal(self.entry.selfChoice,'promenade');
  assert.equal(self.entry.options.length,3);
  assert.deepEqual(self.entry.tally,{block:1,promenade:2,lane:1});
  assert.equal(JSON.stringify(self).includes(token(6)),false,'another squad token must never leak');
