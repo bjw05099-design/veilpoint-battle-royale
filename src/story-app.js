@@ -726,7 +726,8 @@
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete'){
       const report=recordCompletion();
-      menuOpen('CH01 완료 — '+state.subtitle+' '+(report?report.summary+' ':'')+
+      menuOpen('CH01 완료 — '+state.subtitle+' '+
+        (report?report.closingScene.lines[0]+' '+report.summary+' ':'')+
         (saveFailed?'현재 완료 기록은 저장되지 않았습니다. 이 탭을 닫으면 이전 체크포인트로 돌아갈 수 있습니다. ':'')+
         '현재는 짧은 브라우저 스토리 프리뷰이며, 12시간 캠페인은 아직 제작 중입니다.');
     }
@@ -1119,7 +1120,8 @@
       $('debriefReview').textContent='CH01 완료 · 경로: '+
         (report.route==='verification'?'동쪽 기록 검증':'남쪽 대피')+
         ' · 조사 기록 '+report.records.length+'/2 · 선택 과제 '+
-        report.optionalTasks.done+'/'+report.optionalTasks.total+' 완료 · '+report.summary;
+        report.optionalTasks.done+'/'+report.optionalTasks.total+' 완료 · '+
+        report.closingScene.lines[0]+' '+report.summary;
       $('debriefReview').classList.remove('hidden');
       $('menuText').textContent='저장된 CH01 종료 당시의 세계 상태와 분기 결과를 확인 중입니다. 결과를 확인한 뒤 새 미션을 시작할 수 있습니다.';
       $('continue').textContent='CH01 다시 시작';
