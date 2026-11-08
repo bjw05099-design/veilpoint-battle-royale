@@ -245,6 +245,7 @@ class SoftwareRenderer {
      o.type==='story-warehouse'?'story-warehouse':
      o.type==='story-office-wall'?'story-office-wall':
      o.type==='story-office-desk'?'story-office-desk':
+     o.type==='story-fallen-awning'?'story-fallen-awning':
      o.type==='story-water-kiosk'?'story-water-kiosk':
      o.type==='story-drydock-hull'?'story-drydock-hull':
      o.type==='story-rescue-locker'?'story-rescue-locker':
@@ -319,7 +320,7 @@ class SoftwareRenderer {
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
-   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='harbor-wash'?'#527e88':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-fallen-awning'?'#b58c65':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='harbor-wash'?'#527e88':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if((harborNight&&state.flashlightOn&&state.flashlightTicks>0)||
@@ -679,6 +680,15 @@ class Renderer {
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.68,.29,.22]);
     m.box(o.x,.55,o.z+o.d/2,o.w*.68,.62,.02,[.91,.88,.72]);
     m.box(o.x,.23,o.z+o.d/2,.10,.12,.04,[.29,.29,.27]);
+    continue;
+   }
+   if(o.type==='story-fallen-awning'){
+    // Fallen canvas and loose timber, the whole solid footprint matches the
+    // existing 60Hz body. No invisible full-height wall or scripted teleport.
+    m.box(o.x,0,o.z,o.w,.12,o.d,[.42,.33,.24]);
+    m.box(o.x,.12,o.z,o.w-.16,.12,o.d-.16,[.65,.45,.32]);
+    for(const x of [o.x-o.w/2+.14,o.x+o.w/2-.14])
+     m.box(x,0,o.z,.13,o.h,o.d,[.31,.27,.23]);
     continue;
    }
    if(o.type==='story-water-kiosk'){
