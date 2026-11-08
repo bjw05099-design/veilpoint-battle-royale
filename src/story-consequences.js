@@ -27,7 +27,7 @@
     let result=newTimeline();
     for(const event of raw.events){
       if(typeof event!=='string'||result.events.includes(event))throw new Error('Invalid event');
-      result=advance(result,event);
+      result=advance(result,event,event===EVENTS.SAFE_ROUTE?raw.route:undefined);
     }
     if(raw.route!==null&&raw.route!=='courtyard'&&raw.route!=='harbor')throw new Error('Invalid route');
     if(raw.route!==null&&!result.events.includes(EVENTS.SAFE_ROUTE))throw new Error('Route without guide');
