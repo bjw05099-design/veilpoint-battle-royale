@@ -1481,7 +1481,7 @@
       eastCheckpointCleared:verified&&gateOpen(state),
       emergencyRadioRestored:state.relayRestored,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
-      driverReportFiled:state.driverReportFiled,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
+      driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
       mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
@@ -1498,7 +1498,8 @@
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
         (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 물품 접수소의 현지 구조단에 직접 인계했습니다.':' 안내원은 집결지에서 현지 구조단에 직접 인계했습니다.'):state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')+
-        (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
+        (state.transportVan?.arrived?' 현지 운송 차량이 실제 승차 지점에 도착했습니다. 승객 수송과 귀환은 아직 확인되지 않았습니다.':state.transportVan?' 현지 운송 차량이 이동 중이나 도착과 수송은 미확인입니다.':'')+
+         (state.driverReportFiled?' 운송 담당자 진술을 장부와 대조해 현장에 접수했으며 차량 도착은 확인되지 않았습니다.':'')+
         (state.workerInterviewed?' 항구 작업자의 직접 목격담은 시간 미확인 진술로 별도 보존했습니다.':'')+
         (state.officeBoardRead?' 항구 주민 안내소의 남쪽 구조단 접수 공지를 직접 확인했으나 실제 수송 완료는 확인되지 않았습니다.':'')+
 
