@@ -20,7 +20,7 @@ function fixture(){
    cases:screenNames.map(name=>({name,controls:1,issues:[],targets:[target('test-control')]}))}));
  }
  result.br96Checks=sizes.map(([width,height])=>({width,height,requested:{width,height},errors:[],cases:[{
-  name:'BR96-local-squad',controls:11,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},targets:[target('name'),target('join'),target('civicGate'),target('standingsToggle')]
+  name:'BR96-local-squad',controls:11,issues:[],standingsOverlay:{tiles:16,closeProbes:5,closeFocused:true,scrolling:false},targets:[target('name'),target('join'),target('civicGate'),target('soundToggle'),target('standingsToggle')]
  }]}));
  result.keyboardChecks=sizes.map(([width,height])=>({width,height,cases:[
   {name:'BR-more-Escape',passed:true,focused:true},
