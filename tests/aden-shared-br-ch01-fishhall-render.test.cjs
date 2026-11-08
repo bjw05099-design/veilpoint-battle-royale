@@ -31,6 +31,8 @@ test('new shared 3D stone and wood is rendered from real physical bodies in both
  const fake=fakeGl(),renderer=new env.VeilpointRenderer(
   {clientWidth:640,clientHeight:360,getContext:t=>t==='webgl2'?fake.gl:null});
  for(const [mode,world] of [['br',Sim.newMatch(17,0)],['nahrin',Story.createState().world]]){
+  // Distant geography is legitimately culled; stand at the public entrance.
+  world.player.x=-154;world.player.z=105;world.player.yaw=Math.PI;
   fake.uploads.length=0;
   const checkpoint=JSON.stringify(world);
   renderer.draw(world);
