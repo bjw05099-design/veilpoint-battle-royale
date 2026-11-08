@@ -29,8 +29,14 @@ test('all 96 squad members have unique real world bodies and the same physical B
   }
  }
  const ordinary=Sim.newMatch(20261108,0,'carbine');
- assert.deepEqual(world.obstacles,ordinary.obstacles,
-  'shared server uses the physical offline BR geometry, not a guessed flat arena');
+ const shared=world.obstacles.filter(o=>o.type!=='br96-civic-shutter');
+ assert.deepEqual(shared,ordinary.obstacles,
+  'online mode must retain every actual offline BR collision, never substitute a flat arena');
+ const civic=world.obstacles.filter(o=>o.type==='br96-civic-shutter');
+ assert.equal(civic.length,1,'one additional online public shutter collider, not a second city map');
+ assert.deepEqual(civic[0],{x:-45,z:145,w:5.6,d:.6,h:2.4,type:'br96-civic-shutter'});
+ assert.equal(Sim.blocked(civic[0].x,civic[0].z,RADIUS,world.obstacles),true,
+  'initial civic door must physically block until an authenticated local activation');
  assert.equal(world.snapshot(token(0)).mode,'br-96-traversal-prototype');
 });
 test('real 60Hz input advances one authenticated actor without rewriting other squad poses',()=>{
