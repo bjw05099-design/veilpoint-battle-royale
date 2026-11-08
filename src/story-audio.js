@@ -17,10 +17,10 @@
     complete:Object.freeze({frequency:650,duration:.15,type:'sine'})
   });
   function create({AudioContextClass=null,enabled=true}={}) {
-    let context=null,active=0,on=!!enabled;
+    let context=null,active=0,on=!!enabled,volume=1;
     function play(kind) {
       const cue=Object.prototype.hasOwnProperty.call(CUES,kind)?CUES[kind]:null;
-      if(!on||!cue||typeof AudioContextClass!=='function'||active>=6)return false;
+      if(!on||volume<=0||!cue||typeof AudioContextClass!=='function'||active>=6)return false;
       try {
         if(!context)context=new AudioContextClass();
         if(context.state==='suspended'&&typeof context.resume==='function'){
@@ -31,7 +31,7 @@
         oscillator.type=cue.type;
         oscillator.frequency.setValueAtTime(cue.frequency,context.currentTime);
         gain.gain.setValueAtTime(.0001,context.currentTime);
-        gain.gain.linearRampToValueAtTime(.045,context.currentTime+.008);
+        gain.gain.linearRampToValueAtTime(.045*volume,context.currentTime+.008);
         gain.gain.exponentialRampToValueAtTime(.0001,context.currentTime+cue.duration);
         oscillator.connect(gain);gain.connect(context.destination);
         active++;
@@ -43,6 +43,8 @@
     }
     return Object.freeze({
       play,enabled:()=>on,setEnabled:value=>{on=!!value;return on;},
+      setVolume:value=>{if(!Number.isFinite(value)||value<0||value>1)throw new RangeError('invalid_audio_volume');volume=value;return volume;},
+      volume:()=>volume,
       dispose:()=>{on=false;if(context&&typeof context.close==='function')context.close().catch?.(()=>{});context=null;active=0;}
     });
   }

@@ -134,8 +134,30 @@ function setSoundEnabled(enabled){
   if(windSound)windSound.stop();if(footstepSound)footstepSound.stop();
  }else if(motorSound||windSound||footstepSound)syncMotorSound(true);
 }
+// One broad volume profile is shared across offline BR, CH01 and BR96.
+const AudioPrefs=global.VeilpointAudioPreferences;
+let audioMix=null;
+if(AudioPrefs){
+ // Preserve a deliberate old mute when migrating to the shared bus profile.
+ let existing=null;
+ try{existing=cameraStorage()?.getItem(AudioPrefs.KEY)}catch(_){}
+ if(existing===null){
+  try{if(global.localStorage.getItem('veilpoint.br.audio')==='off')
+   AudioPrefs.persist(cameraStorage(),{...AudioPrefs.DEFAULT,enabled:false});}catch(_){}
+ }
+}
+const audioControls=AudioPrefs&&$('vpAudioEnabled')
+ ?AudioPrefs.attach(document,cameraStorage(),prefs=>{
+   audioMix=prefs;setSoundEnabled(prefs.enabled);
+   motorSound?.setVolume?.(AudioPrefs.gain(prefs,'effects'));
+   windSound?.setVolume?.(AudioPrefs.gain(prefs,'ambience'));
+   footstepSound?.setVolume?.(AudioPrefs.gain(prefs,'effects'));
+ }):null;
 soundEnabledCheckbox.checked=soundEnabled;
-soundEnabledCheckbox.addEventListener('change',()=>setSoundEnabled(soundEnabledCheckbox.checked));
+soundEnabledCheckbox.addEventListener('change',()=>{
+ if(audioControls)audioControls.set({...audioControls.get(),enabled:soundEnabledCheckbox.checked});
+ else setSoundEnabled(soundEnabledCheckbox.checked);
+});
 function saveGraphics(){
  try{
   const serialized=graphics.serialize(graphicsSettings);
@@ -183,12 +205,16 @@ let graphicsReturnFocus=null;
 function setGraphicsSettingsScreen(screen='visual'){
  const names={visual:['graphicsVisualPage','graphicsTabVisual'],
   controls:['graphicsControlsPage','graphicsTabControls'],
+  audio:['graphicsAudioPage','graphicsTabAudio'],
   benchmark:['graphicsBenchmarkPage','graphicsTabBenchmark']};
  if(!Object.prototype.hasOwnProperty.call(names,screen))return;
  for(const [name,[panelId,tabId]] of Object.entries(names)){
   const selected=name===screen;
-  $(panelId).classList.toggle('hidden',!selected);
+  const panel=$(panelId);
+  if(!panel)continue; // Isolated legacy PC harnesses may omit the new sound page.
+  panel.classList.toggle('hidden',!selected);
   const tab=$(tabId);
+  if(!tab)continue;
   if(typeof tab.setAttribute==='function')
    tab.setAttribute('aria-selected',String(selected));
   tab.tabIndex=selected?0:-1;
@@ -197,9 +223,11 @@ function setGraphicsSettingsScreen(screen='visual'){
  if(screen!=='controls'&&typeof desktopUi!=='undefined')desktopUi.cancel();
 }
 const graphicsTabScreens=[['graphicsTabVisual','visual'],
- ['graphicsTabControls','controls'],['graphicsTabBenchmark','benchmark']];
+ ['graphicsTabControls','controls'],['graphicsTabAudio','audio'],
+ ['graphicsTabBenchmark','benchmark']];
 for(const [id,screen] of graphicsTabScreens){
  const tab=$(id);
+ if(!tab)continue;
  tab.addEventListener('click',()=>setGraphicsSettingsScreen(screen));
  tab.addEventListener('keydown',event=>{
   const keys=['ArrowRight','ArrowLeft','Home','End'];
@@ -1408,7 +1436,9 @@ addEventListener('keydown',e=>{
    e.preventDefault();const result=Game.toggleBrHeadlamp(simulation);
    if(result.ok){persistMatch();updateHud();}
   }
- if(e.code==='KeyM'){e.preventDefault();setSoundEnabled(!soundEnabled);}
+ if(e.code==='KeyM'){e.preventDefault();
+  if(audioControls)audioControls.set({...audioControls.get(),enabled:!soundEnabled});
+  else setSoundEnabled(!soundEnabled);}
  // Do not steal P from a user-remapped movement or interaction action.
  if(e.code==='KeyJ'&&!action&&canAct()){
   e.preventDefault();
@@ -1550,6 +1580,11 @@ windSound=global.VeilpointCoastalWindAudio&&
 footstepSound=global.VeilpointFootstepAudio&&
  typeof global.VeilpointFootstepAudio.createFootstepAudio==='function'
  ?global.VeilpointFootstepAudio.createFootstepAudio(()=>audio):null;
+if(AudioPrefs&&audioMix){
+ motorSound?.setVolume?.(AudioPrefs.gain(audioMix,'effects'));
+ windSound?.setVolume?.(AudioPrefs.gain(audioMix,'ambience'));
+ footstepSound?.setVolume?.(AudioPrefs.gain(audioMix,'effects'));
+}
 function syncMotorSound(unlock=false){
  if(!motorSound)return;
  const gate=Game.serviceGateStatus(simulation);
@@ -1565,7 +1600,10 @@ function syncMotorSound(unlock=false){
    exposure:global.VeilpointCoastalWindAudio.localWindExposure(
      simulation.player,simulation.obstacles,Game.lineBlocked)});
 }
-function tone(freq=560,duration=.08){if(!soundEnabled)return;try{if(!ensureAudio())return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){}}
+function tone(freq=560,duration=.08){if(!soundEnabled)return;
+ const volume=AudioPrefs&&audioMix?AudioPrefs.gain(audioMix,'effects'):1;
+ if(volume===0)return;
+ try{if(!ensureAudio())return;const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(freq*.5,audio.currentTime+duration);gain.gain.setValueAtTime(.06*volume,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.00001,audio.currentTime+duration);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+duration);}catch(e){} }
 function fire(){if(!canAct())return;const result=Game.tag(simulation,input.crouch);if(!result.ok)return;shotFeedback(true);}
 function shotFeedback(immediateSave=false){
  // A fixed-step held trigger may fire several times per second. Avoid a

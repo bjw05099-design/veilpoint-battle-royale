@@ -21,20 +21,22 @@ test('BR PC settings window has bounded viewport height with no inner or outer s
  assert.match(html,/@media\(max-height:480px\)/);
  assert.match(rule('#overlay'),/overflow:hidden/);
 });
-test('BR graphics settings are partitioned into three exclusive, accessible screens',()=>{
+test('BR graphics settings are partitioned into four exclusive, accessible screens',()=>{
  const header=html.slice(html.indexOf('<section id="graphicsPanel"'),
   html.indexOf('</section>',html.indexOf('<section id="graphicsPanel"')));
  assert.match(header,/<nav class="graphics-tabs" role="tablist"/);
  for(const [name,tab,label] of [['Visual','graphicsTabVisual','graphicsVisualPage'],
+  ['Audio','graphicsTabAudio','graphicsAudioPage'],
   ['Controls','graphicsTabControls','graphicsControlsPage'],
   ['Benchmark','graphicsTabBenchmark','graphicsBenchmarkPage']]){
   assert.match(header,new RegExp('id="'+tab+'"[^>]*role="tab"[^>]*aria-controls="'+label+'"'));
   assert.match(header,new RegExp('id="'+label+'"[^>]*role="tabpanel"[^>]*aria-labelledby="'+tab+'"'));
  }
  assert.match(header,/id="graphicsControlsPage" class="graphics-page hidden"/);
+ assert.match(header,/id="graphicsAudioPage" class="graphics-page hidden"/);
  assert.match(header,/id="graphicsBenchmarkPage" class="graphics-page hidden"/);
  assert.match(rule('#graphicsPanel .graphics-page.hidden'),/display:none!important/);
- assert.match(rule('#graphicsPanel .graphics-tabs'),/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+ assert.match(rule('#graphicsPanel .graphics-tabs'),/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 });
 test('all saved PC options and real 120-second benchmark actions remain present across tabs',()=>{
  for(const id of ['graphicsPreset','fpsLimit','renderScale','vegetation','effects','autoResolution',

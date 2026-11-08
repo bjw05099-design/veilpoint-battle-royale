@@ -9,8 +9,8 @@ const end=source.indexOf('function visibleGraphicsDialogControls(',start);
 assert.ok(start>=0&&end>start,'settings keyboard controller must exist');
 function setup(){
  const elements=new Map();
- for(const id of ['graphicsVisualPage','graphicsControlsPage','graphicsBenchmarkPage',
-  'graphicsTabVisual','graphicsTabControls','graphicsTabBenchmark']){
+ for(const id of ['graphicsVisualPage','graphicsControlsPage','graphicsAudioPage','graphicsBenchmarkPage',
+  'graphicsTabVisual','graphicsTabControls','graphicsTabAudio','graphicsTabBenchmark']){
   const el={id,attributes:{},handlers:{},focused:false,tabIndex:-1,
    classList:{hidden:false,toggle(name,value){if(name==='hidden')this.hidden=value;}},
    setAttribute(name,value){this.attributes[name]=value;},
@@ -40,6 +40,15 @@ test('arrow keys wrap between bounded pages and transfer focus without resuming 
  assert.equal(f.elements.get('graphicsTabVisual').attributes['aria-selected'],'true');
  assert.equal(f.elements.get('graphicsTabVisual').tabIndex,0);
  assert.equal(f.elements.get('graphicsTabBenchmark').tabIndex,-1);
+});
+test('audio tab is reachable by keyboard without unpausing the BR game',()=>{
+ const f=setup();
+ assert.deepEqual(press(f,'graphicsTabControls','ArrowRight'),{prevented:1,stopped:1});
+ assert.equal(f.elements.get('graphicsTabAudio').attributes['aria-selected'],'true');
+ assert.equal(f.elements.get('graphicsAudioPage').classList.hidden,false);
+ assert.equal(f.elements.get('graphicsVisualPage').classList.hidden,true);
+ assert.deepEqual(press(f,'graphicsTabAudio','ArrowRight'),{prevented:1,stopped:1});
+ assert.equal(f.elements.get('graphicsTabBenchmark').attributes['aria-selected'],'true');
 });
 test('Home/End choose first/last tab; other keys remain available to controls',()=>{
  const f=setup();

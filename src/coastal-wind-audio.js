@@ -23,7 +23,7 @@
  }
  function createCoastalWindAudio(getContext){
   if(typeof getContext!=='function')throw new TypeError('Audio context provider required');
-  let context=null,source=null,volume=null,level=0;
+  let context=null,source=null,volume=null,level=0,multiplier=1;
   function stop(){
    const oldSource=source,oldVolume=volume,oldContext=context;
    source=null;volume=null;context=null;level=0;
@@ -44,7 +44,7 @@
    const shelter=Number.isFinite(exposure)?Math.max(.4,Math.min(1,exposure)):1;
    const gust=gustLevel(elapsed);
    const target=enabled&&playable&&gust!==null
-    ?Math.min(MAX_GAIN,gust)*shelter:0;
+    ?Math.min(MAX_GAIN,gust)*shelter*multiplier:0;
    if(target===0){stop();return 0;}
    try{
     if(!source){
@@ -81,7 +81,10 @@
     return target;
    }catch(_){stop();return 0;} // Audio loss must never stall gameplay.
   }
-  return Object.freeze({sync,stop,get active(){return source!==null;},get level(){return level;}});
+  return Object.freeze({sync,stop,setVolume(value){
+   if(!Number.isFinite(value)||value<0||value>1)throw new RangeError('invalid_audio_volume');
+   multiplier=value;return multiplier;
+  },get active(){return source!==null;},get level(){return level;}});
  }
  return Object.freeze({MAX_GAIN,BUFFER_SAMPLES,localWindExposure,gustLevel,createCoastalWindAudio});
 });

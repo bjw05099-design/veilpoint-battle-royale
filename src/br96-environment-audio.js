@@ -9,7 +9,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
  function create({AudioContextClass=null}={}){
-  let context=null,low=null,high=null,master=null,enabled=false;
+  let context=null,low=null,high=null,master=null,enabled=false,volume=1,lastBase=.009;
   const usable=()=>typeof AudioContextClass==='function';
   function clear(){
    const stale=context;
@@ -33,7 +33,7 @@
     low.type='sine';high.type='triangle';
     low.frequency.setValueAtTime(66,context.currentTime);
     high.frequency.setValueAtTime(111,context.currentTime);
-    master.gain.setValueAtTime(.009,context.currentTime);
+    master.gain.setValueAtTime(lastBase*volume,context.currentTime);
     low.connect(master);high.connect(master);master.connect(context.destination);
     low.start();high.start();enabled=true;
     // Called only from the player's direct on-screen click.
@@ -65,10 +65,18 @@
    const level=Math.min(.015,base+(gust?.0015:haze?-.0008:0));
    low.frequency.setTargetAtTime(lower,time,.22);
    high.frequency.setTargetAtTime(upper,time,.3);
-   master.gain.setTargetAtTime(level,time,.3);
+   lastBase=level;
+   master.gain.setTargetAtTime(level*volume,time,.3);
    return true;
   }
-  return Object.freeze({enable,update,disable:clear,dispose:clear,
+  function setVolume(value){
+   if(!Number.isFinite(value)||value<0||value>1)throw new RangeError('invalid_audio_volume');
+   volume=value;
+   if(enabled&&master&&context&&Number.isFinite(context.currentTime))
+    master.gain.setTargetAtTime(lastBase*volume,context.currentTime,.08);
+   return volume;
+  }
+  return Object.freeze({enable,update,setVolume,volume:()=>volume,disable:clear,dispose:clear,
    enabled:()=>enabled,available:usable});
  }
  return Object.freeze({create});
