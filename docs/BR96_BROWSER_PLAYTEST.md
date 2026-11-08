@@ -64,6 +64,20 @@ shows the authenticated player's own current ground status. This is a
 small-waterfront terrain interaction, **not** a completed large Aden map or an
 online-performance benchmark.
 
+### Public match results without false ranking
+
+Press **V** (or the on-map **V · 분대 결과** button) to view the actual
+server-computed status of all **16 squads**, arranged in a four-by-four
+no-scroll PC board. A team whose result is not yet final is labeled
+**in progress** and has no invented current placement. Confirmed places
+come only from the authoritative match state, and simultaneous retirements
+retain the server's genuine ties. Only team numbers, active counts and
+confirmed placements are shown; other squads' player names, tokens,
+and off-screen positions never appear. **Escape** or the close button
+returns focus to the normal map. While reviewing the board, the keyboard
+movement intent is neutral, not allowed to keep steering a player off-screen.
+This is the local round prototype, not production matchmaking.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next
