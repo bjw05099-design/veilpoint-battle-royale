@@ -1032,14 +1032,14 @@
         w.x=clamp(w.x,WORKER_PATH.minX,WORKER_PATH.maxX);
         if(Math.abs(w.x-start)<1e-8)w.x=start;
       }
-      // A voluntarily interviewed civilian decides to leave the exposed
-      // pavement for a nearby open street. They must first reach the
-      // sidewalk corner on foot. This is a real 60Hz actor movement,
-      // not a teleport, a new escort mission or a distant HUD marker.
-      if(state.combat.cleared&&['records','decision','exit'].includes(state.phase)&&
+      // The local worker heads for a nearby pedestrian lane DURING the
+      // unexpected escalation, rather than waiting for the captain to finish
+      // the encounter. This is a real 60Hz voluntary movement with collision,
+      // not a teleport, an extra quest, or an order issued by the player.
+      if(['engagement','records','decision','exit'].includes(state.phase)&&
          w.x>=WORKER_PATH.maxX-1e-6&&w.z<WORKER_PATH.safeZ){
         // This person makes their own decision to leave an exposed public
-        // walkway after the witnessed escalation subsides. The captain's
+        // walkway when danger begins. The captain's
         // optional E interview does not unlock or command a civilian body.
         const before=w.z;
         const solids=state.world.obstacles.concat(
@@ -2120,9 +2120,9 @@
         Object.keys(data.worker).sort().join(',')!=='direction,x,z'||
         !Number.isFinite(data.worker.x)||!Number.isFinite(data.worker.z)||
         data.worker.x<WORKER_PATH.minX||data.worker.x>WORKER_PATH.maxX||
-        // Before this revision only interviewed workers could step toward
-        // shelter; retain both those v2 saves and the new autonomous walk.
-        (['records','decision','exit','complete'].includes(data.phase)
+        // Historical saves keep their previous sidewalk position. The worker
+        // can now move to shelter during the actual crisis without a new key.
+        (['engagement','records','decision','exit','complete','failed'].includes(data.phase)
           ?data.worker.z<WORKER_PATH.z-1e-8||
             data.worker.z>WORKER_PATH.safeZ+1e-8||
             (data.worker.z>WORKER_PATH.z+1e-8&&
