@@ -35,11 +35,11 @@ test('one local civilian driver request starts an observable vehicle rather than
  const inTransit=Story.serialize(s);
  assert.equal(Story.serialize(Story.restore(inTransit)),inTransit);
  s.world.player.x=0;s.world.player.z=-54;
- for(let i=0;i<1100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
+ for(let i=0;i<2100&&!s.transportVan.arrived;i++)Story.step(s,1/60,{});
  assert.equal(s.transportContact,2);
  assert.equal(s.transportVan.arrived,true);
  assert.equal(Story.markers(s).some(m=>m.id==='transportDriver'),false);
- assert.ok(s.world.witness&&s.world.witness.x===10&&s.world.witness.z===-54);
+ assert.equal(s.world.witness,null,'new driver is physically inside the arrived vehicle, not a ghost at the old staff post');
  assert.equal(Story.missionTasks(s).some(t=>t.id==='driver'),false,
    'vehicle progress does not become a compulsory document checklist');
  assert.match(Journal.entries(s).find(t=>t.id==='transport').detail,/승차 지점에 도착/);
@@ -101,12 +101,13 @@ test('previous saves migrate safely and invented conversations are rejected',()=
  assert.equal(s.world.obstacles.filter(o=>o.routeId==='story-civil-transport').length,1);
  const initial=s.transportVan.z;
  for(let i=0;i<60;i++)Story.step(s,1/60,{});
- assert.ok(s.transportVan.z>initial,'vehicle moves in the 60Hz world');
+ assert.equal(s.transportVan.z,initial,'no vehicle departure before the driver reaches the real cabin');
+ assert.ok(s.transportVan.driverZ<-54.5,'actual driver walks to the parked vehicle first');
  const saved=Story.serialize(s);
  const restored=Story.restore(saved);
  assert.equal(Story.serialize(restored),saved);
  assert.equal(restored.world.obstacles.filter(o=>o.routeId==='story-civil-transport').length,1);
- for(let i=0;i<1000;i++)Story.step(restored,1/60,{});
+ for(let i=0;i<2100;i++)Story.step(restored,1/60,{});
  assert.equal(restored.transportVan.arrived,true);
  assert.equal(restored.transportContact,2);
  assert.equal(restored.transportVan.z,-64);
