@@ -184,6 +184,19 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{...result,
       ...(result.ok?{world:world.snapshot(token)}:{})});
    }
+   if(req.method==='POST'&&url.pathname==='/squad-chat'){
+    // A token identifies one of the 96 real seats. Messages belong to its
+    // six-person squad only; no recipient team or author pose comes from HTTP.
+    lobby.snapshot(token);
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,256,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==1||typeof body.text!=='string')
+      return send(res,400,{error:'invalid_chat_request'});
+    const result=world.chat(token,body.text);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
+   }
    if(req.method==='POST'&&url.pathname==='/signal'){
     if(!world)return send(res,409,{error:'round_not_started'});
     const body=await readJson(req,128,bodyTimeoutMs);
