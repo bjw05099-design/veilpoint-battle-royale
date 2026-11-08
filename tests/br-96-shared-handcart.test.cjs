@@ -44,3 +44,16 @@ test('handcart remains stationary when another body blocks its swept path; withd
  assert.equal(world.handcart.operator,null);
  assert.equal(world.operateHandcart(token(0)).reason,'out_of_round');
 });
+test('walking away releases the cart, so future movement commands cannot push it remotely',()=>{
+ const world=launch(),actor=world.actors.get(token(0)),body=world.handcart.body;
+ actor.x=body.x;actor.z=body.z+2.1;
+ assert.equal(world.operateHandcart(token(0)).ok,true);
+ // Model a legitimate long walk completed while not holding the handle;
+ // all world state mutations here are test-fixture-only, never client API.
+ actor.x=body.x+15;actor.z=body.z+15;
+ world.move(token(0),{dx:0,dz:-1,seq:0});
+ const before=body.z;
+ world.step();
+ assert.equal(body.z,before);
+ assert.equal(world.handcart.operator,null);
+});
