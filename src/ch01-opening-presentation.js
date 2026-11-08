@@ -34,26 +34,40 @@
  }
  function attachMenu(doc){
   const button=doc.getElementById('chapterOpeningShow'),menu=doc.getElementById('menu');
-  if(!button||!menu)return null;
+  const host=doc.getElementById('chapterOpening');
+  if(!button||!menu||!host)return null;
   let controller=null;
+  function close(){
+   if(!controller)return;
+   controller.destroy();
+   controller=null;
+   menu.classList.remove('hidden');
+   button.focus({preventScroll:true});
+  }
   function show(){
-   if(controller)controller.destroy();
+   close();
    controller=mount(doc);
    if(!controller)return;
    menu.classList.add('hidden');
-   const nextButton=doc.querySelector('#chapterOpening [data-opening-next]');
-   nextButton.focus();
+   const nextButton=host.querySelector('[data-opening-next]');
+   nextButton.focus({preventScroll:true});
   }
   function advance(){
-   if(!controller)return;
-   // The mount handler advances first; this listener restores the original menu on completion.
-   if(!controller.snapshot().visible){
-    controller.destroy();controller=null;menu.classList.remove('hidden');button.focus();
+   // The mount handler advances first. The menu must return immediately
+   // after the final caption, without hiding the rest of the game UI.
+   if(controller&&!controller.snapshot().visible)close();
+  }
+  function onKeydown(event){
+   // Modal Escape is an actual keyboard exit, not another story objective.
+   if(controller&&event.key==='Escape'){
+    event.preventDefault();
+    close();
    }
   }
   button.addEventListener('click',show);
-  doc.querySelector('#chapterOpening [data-opening-next]').addEventListener('click',advance);
-  return {show};
+  host.querySelector('[data-opening-next]').addEventListener('click',advance);
+  doc.addEventListener('keydown',onKeydown);
+  return {show,close,active(){return !!controller;}};
  }
  if(typeof document!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>attachMenu(document),{once:true});
