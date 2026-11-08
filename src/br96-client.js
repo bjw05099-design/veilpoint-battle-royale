@@ -63,7 +63,7 @@ function render(){
  el('ready').disabled=!token||state?.phase!=='assembling';
  el('ready').textContent=state?.self?.ready?'준비 취소':'준비';
  const entryOptions=state?.entry?.options||[];
- const selectedEntry=entryOptions.find(o=>o.id===state?.self?.entryChoice);
+ const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
  for(const id of ['regroup','location','sprint','civicGate'])el(id).disabled=!active();
@@ -256,7 +256,7 @@ async function voteEntry(){
  if(!token||state?.phase!=='assembling'||state?.self?.ready)return;
  const options=state?.entry?.options||[];
  if(!options.length)return;
- const current=options.findIndex(o=>o.id===state.self.entryChoice);
+ const current=options.findIndex(o=>o.id===state.entry.selfChoice);
  const choice=options[(current+1)%options.length].id;
  const result=await command('/entry-vote',{choice},null);
  if(result?.ok)message('우리 분대 출발 위치 투표를 기록했습니다. 준비 전에 다시 누르면 변경할 수 있습니다.');
