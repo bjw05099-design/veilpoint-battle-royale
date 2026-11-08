@@ -51,6 +51,10 @@
    return line('조현지','동쪽 통제문 개방은 현지 구조단 확인이 필요합니다. 미확인 정보는 전파하지 않습니다.');
   }
   if(phase==='exit'&&state.choice==='evacuation'){
+   if(state.transportVan?.arrived)
+    return line('조현지','나딤의 차량이 실제 승차 지점에 도착했습니다. 주민 탑승과 출발은 현지 구조단 확인이 필요합니다.');
+   if(state.transportVan)
+    return line('유수프 라할','현지 운송 차량이 공공 도로로 접근 중입니다. 도착 전에는 이송 완료로 기록하지 않습니다.');
    if(state.driverReportFiled)
     return line('김지윤','운송 담당자 진술과 현장 장부가 함께 접수됐습니다. 배차 사실과 실제 차량 도착 여부는 분리해 후속 확인하겠습니다.');
    if(state.guide?.arrived||state.guide?.released)
