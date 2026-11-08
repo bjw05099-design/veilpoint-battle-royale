@@ -23,13 +23,15 @@ test('only withdrawn squad members may watch an eligible teammate, never author 
  assert.equal(w.move(viewer,{seq:1,dx:0,dz:1}).reason,'out_of_round');
  const before=w.snapshot(viewer),view=w.snapshot(mate);
  assert.deepEqual(before.spectatorView,
-   {playerId:view.self.id,slot:2,x:view.self.x,z:view.self.z});
+   {playerId:view.self.id,slot:2,x:view.self.x,z:view.self.z,automaticFallback:false});
  assert.equal(JSON.stringify(before).includes(token(6)),false);
  assert.equal(before.self.eligible,false);
  assert.equal(w.snapshot(token(6)).spectatorView,null);
  w.withdraw(mate);
- assert.equal(w.snapshot(viewer).spectatorView,null,'camera closes when target leaves');
- assert.deepEqual(w.snapshot(viewer).visible,[]);
+ const switched=w.snapshot(viewer);
+ assert.equal(switched.spectatorView.slot,3,'camera follows a real eligible squad member');
+ assert.equal(switched.spectatorView.automaticFallback,true);
+ assert.deepEqual(switched.visible,w.snapshot(token(2)).visible,'camera inherits only the replacement observer’s own verified view');
  assert.deepEqual(w.spectate(viewer,{slot:2}),{ok:false,reason:'teammate_unavailable'});
  assert.equal(w.spectate(viewer,{slot:3}).ok,true,'can choose another real teammate');
 });
