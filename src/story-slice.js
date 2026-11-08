@@ -124,6 +124,25 @@
     recordA: Object.freeze({title:'항구 중계 기록', time:'04:12', text:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
     recordB: Object.freeze({title:'대피소 수신 기록', time:'04:07', text:'해안도로의 통신 두절을 이미 다섯 분 전에 보고했다.'})
   });
+  // A concise non-blocking, three-beat predeparture/arrival reminder. The
+  // captain ALREADY knows his deployment and return instructions before
+  // leaving Korea. This is a camera/HUD narrative cue, never a collectible,
+  // mission gate, change of authority, or new save-file field. The first
+  // 10 seconds of genuine 60Hz playable CH01 time show the scenes once.
+  const OPENING_BEATS=Object.freeze([
+    Object.freeze({until:3.4,location:'출국 전 · 대한민국',
+      subtitle:'이수혁 대위(회상): 정식 파견 지시와 복귀 계획을 한국에서 확인했습니다. 원래 임무는 현지 민간 통신망 협력과 구호 인력 지원입니다.'}),
+    Object.freeze({until:6.8,location:'도착 · 가상 해안 도시 나흐린',
+      subtitle:'김지윤(현지 합류): 한국에서 브리핑받은 일정에 따라 연락망을 점검하고 복귀하겠습니다. 이 지역의 민간 협력자는 현지 구조단입니다.'}),
+    Object.freeze({until:10.2,location:'도착 후 · 예상 밖 상황 변화',
+      subtitle:'조현지(현장 무전): 도착한 뒤 무력 충돌이 예상보다 빠르게 번졌습니다. 본래 복귀 경로는 재확인이 필요하고, 유수프 구조단이 주민 대피 지원을 요청했습니다.'})
+  ]);
+  function openingBeat(state){
+    if(!state||state.phase!=='terminal'||
+      !Number.isFinite(state.world?.elapsed)||state.world.elapsed<0)return null;
+    const beat=OPENING_BEATS.find(b=>state.world.elapsed<b.until);
+    return beat?Object.freeze({location:beat.location,subtitle:beat.subtitle}):null;
+  }
   const phases = ['terminal','engagement','records','decision','exit','complete','failed'];
   const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
@@ -2021,6 +2040,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
