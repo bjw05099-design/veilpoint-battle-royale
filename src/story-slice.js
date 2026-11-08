@@ -1301,8 +1301,8 @@
         state.world.status='playing';
         state.phase='records';state.combat.cleared=true;
         state.subtitle=state.combat.supportUsed
-          ?'조현지(국정원): 이 대위님의 현장 보고와 김지윤의 연락을 확인했습니다. 사전 파견 목적은 그대로이며, 지금은 현지 구조단이 주민 이동을 결정합니다.'
-          :'조현지(국정원): 이 대위님의 현장 보고를 확인했습니다. 구조단이 주민 이동을 맡고 있습니다. 추가 기록은 선택적으로 확인할 수 있습니다.';
+          ?'조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 김지윤의 연락도 접수했습니다. 사전 파견 목적은 그대로이며, 지금은 현지 구조단이 주민 이동을 결정합니다.'
+          :'조현지(국정원): 이 대위님의 현장 보고 확인했습니다. 구조단이 주민 이동을 맡고 있습니다. 추가 기록은 선택적으로 확인할 수 있습니다.';
         state.message='안전 확보 · 기록 확인은 선택 사항';
         syncMarkers(state);
       }
@@ -1323,7 +1323,7 @@
     // This is a one-time field liaison call, not an instruction to search
     // another ledger or an invented new deployment order. The captain already
     // received his original mission and return briefing in Korea.
-    state.subtitle='김지윤(국정원): 한국에서 전달된 최초 파견 임무는 현지 연락망 확인과 구호 인력 지원입니다. 구조단이 보고한 최초 수신 시각은 04:07이지만 현장 검증 전 정보입니다. 지금 주민 이동은 유수프 구조단과 직접 협의하세요.';
+    state.subtitle='김지윤(국정원): 한국에서 전달된 최초 파견 임무는 현지 연락망 확인과 구호 인력 지원입니다. 현지 구조단이 공유한 04:07 수신 시각은 현장 확인 전 정보입니다. 지금 주민 이동은 유수프 구조단과 직접 협의하세요.';
     state.message='김지윤 현장 연락 접수 · 원래 파견 목적 유지 · 주민 이동은 현지 협의';
     return {ok:true,event:'support',report:true};
   }
