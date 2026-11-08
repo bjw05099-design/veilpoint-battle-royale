@@ -28,6 +28,8 @@ test('boundary has a visible eight-second continuous grace, not instant eliminat
  assert.equal(w.snapshot(token(0)).self.boundaryGraceTicksRemaining,null);
  assert.deepEqual(w.move(token(0),{seq:1,dx:1,dz:0}),{ok:false,reason:'out_of_round'});
  assert.equal(w.snapshot(token(1)).squad[0].eligible,false);
+ assert.equal(w.snapshot(token(1)).squad[0].boundaryGraceTicksRemaining,null,
+  'a retired teammate is not falsely shown a fresh grace countdown');
  assert.equal(w.snapshot(token(6)).squad.some(x=>x.id===player.id),false);
  assert.equal(w.activeSquads,16,'only one expired player cannot erase a six-person squad');
 });

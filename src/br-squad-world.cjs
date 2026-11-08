@@ -297,8 +297,9 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
-        boundaryGraceTicksRemaining:p.eligible&&positionInArea(playableArea,p.x,p.z).outside
-          ?Math.max(0,BOUNDARY_GRACE_TICKS-p.outsideStreakTicks):BOUNDARY_GRACE_TICKS,
+        boundaryGraceTicksRemaining:!p.eligible?null:
+          positionInArea(playableArea,p.x,p.z).outside
+            ?Math.max(0,BOUNDARY_GRACE_TICKS-p.outsideStreakTicks):BOUNDARY_GRACE_TICKS,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
     }
     // A withdrawn viewer has no free-flying camera: they can inspect the
