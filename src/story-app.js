@@ -1567,7 +1567,7 @@
     // movement. It has no pause, checklist, investigation or unlock gate.
     // Historic saves in later phases never replay the opening.
     const opening=Story.openingBeat(state);
-    $('status').textContent=(opening?opening.location+' · ':'')+
+    $('status').textContent=(opening?(opening.location.startsWith('출국 전')?'회상 · ':'현재 · ')+opening.location+' · ':'')+
       controlText(state.message)+' · 경과 '+Math.floor(state.world.elapsed)+'초'+
       (state.world.player.sprintExhausted?' · 지구력 회복 중: 25까지 회복해야 다시 달릴 수 있습니다.':'');
     $('subtitle').textContent=controlText(opening?opening.subtitle:state.subtitle);
