@@ -63,7 +63,9 @@ test('mission flow: relay, optional records, decision, verified exit and complet
   go(state,'terminal');
   assert.deepEqual(story.interact(state),{ok:true,event:'terminal',phase:'engagement'});
   clearEncounter(state);
-  assert.equal(story.markers(state).length,6,'original records/decision and the new walk-in office notice');
+  assert.equal(story.markers(state).length,6,'historic physical records remain reachable');
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'||m.id==='recordB'),false,
+    'only nearby records appear in the PC navigation HUD');
   go(state,'recordA');assert.equal(story.interact(state).ok,true);
   go(state,'recordB');assert.equal(story.interact(state).ok,true);
   assert.equal(state.found.length,2);
@@ -2506,4 +2508,26 @@ test('CH01 departure context remains visible after immediate relay activation wi
   state.world.elapsed=11;
   assert.equal(story.openingBeat(state),null);
   assert.equal(story.serialize(story.restore(saved)),saved);
+});
+
+// Optional records remain accessible in place, but never demand a long detour.
+test('CH01 optional records appear only near their physical location and do not gate exits',()=>{
+  const state=story.createState();
+  go(state,'terminal');assert.equal(story.interact(state).ok,true);
+  clearEncounter(state);
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'||m.id==='recordB'),false,
+    'distant optional records are hidden from the navigation HUD');
+  assert.equal(story.markers(state).some(m=>m.id==='recordA'),true,
+    'the original record remains a physical in-world interaction');
+  go(state,'recordA');
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordA'),true);
+  assert.equal(story.navigationMarkers(state).some(m=>m.id==='recordB'),false);
+  assert.equal(story.interact(state).ok,true);
+  go(state,'decision');
+  assert.equal(story.interact(state).ok,true);
+  assert.equal(story.choose(state,'evacuation').ok,true);
+  assert.deepEqual(state.found,['recordA']);
+  const loaded=story.restore(story.serialize(state));
+  assert.deepEqual(loaded.found,['recordA']);
+  assert.equal(loaded.choice,'evacuation');
 });
