@@ -186,6 +186,16 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
        ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
    }
+   if(req.method==='POST'&&url.pathname==='/route-vote'){
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,96,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==1||typeof body.choice!=='string')
+      return send(res,400,{error:'invalid_route_vote'});
+    const result=world.voteRoute(token,body.choice);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
+   }
    if(req.method==='POST'&&url.pathname==='/civic-gate'){
     if(!world)return send(res,409,{error:'round_not_started'});
     const body=await readJson(req,64,bodyTimeoutMs);
@@ -243,7 +253,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
   }catch(error){
    const reason=error instanceof RangeError?error.message:'server_error';
    const status=reason==='unknown_session'?401:
-    ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_signal_kind','invalid_json',
+    ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_signal_kind','invalid_route_choice','invalid_json',
      'invalid_join','invalid_entry_choice','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','invalid_resume_request','body_too_large','request_timeout'].includes(reason)?400:500;
    return send(res,status,{error:reason});
   }
