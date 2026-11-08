@@ -470,8 +470,9 @@
       !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
   }
   function officeMarkers(state) {
-    // A hand-reachable paper notice inside the actual open-door office.
-    // An unvisited office never reveals its contents on the global HUD.
+    // Keep physical interaction objects in the original world collection.
+    // Hiding the authoritative marker breaks old saved interactions and
+    // E-key fixtures; visibility is a separate PC navigation concern.
     return state.officeBoardRead?[]:[POINTS.officeBoard];
   }
   function localAwningMarker(state) {
@@ -531,7 +532,10 @@
     const p=state.world.player;
     return markers(state).filter(marker=>{
       if(ROUTE_WIDE_MARKERS.has(marker.id))return true;
-      const maxDistance=marker.id==='relay'?7:9;
+      // A legacy optional paper notice never becomes a distant HUD errand.
+      // Its E-key world marker is retained for old checkpoint compatibility.
+      const maxDistance=marker.id==='officeBoard'?7:
+        marker.id==='relay'?7:9;
       return Math.hypot(marker.x-p.x,marker.z-p.z)<=maxDistance&&
         !Sim.lineBlocked(p.x,p.z,marker.x,marker.z,state.world.obstacles);
     });
