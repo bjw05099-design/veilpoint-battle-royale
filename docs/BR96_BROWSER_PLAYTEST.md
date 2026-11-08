@@ -39,6 +39,19 @@ camera or reveals arbitrary opponent locations. A retiring teammate cannot
 remain a valid camera target. The public server-created squad standings show
 eligible members and confirmed placement, not invented live rankings.
 
+### Physically operable public ferry access
+
+The new 96-person local 2D world includes one **original fictional ferry
+waiting-hall sliding access panel**. Walk beside either public-side switch and
+press **F** (or the on-map **F · 여객 문** button). The server checks the actual
+player position and moves the solid barrier gradually at 60 Hz. The panel
+stops if any active player occupies its swept physical path, and opening the
+panel clears a genuinely traversable opening rather than hiding a painted
+door. The same public collider and open/closed state are visible to every
+squad, but no rival positions or credentials are leaked by the static city
+map. This is a gameplay and collision feature, not a reproduction of any
+real Aden security checkpoint.
+
 The player token is **never placed in a URL or a downloadable match file**.
 The current tab's `sessionStorage` retains it across reloads. On reload
 the UI reconciles the authoritative command sequence before sending the next

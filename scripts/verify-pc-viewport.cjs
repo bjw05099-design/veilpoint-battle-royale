@@ -185,12 +185,13 @@ function auditBr96(){
    if(pane.scrollHeight>pane.clientHeight+2||pane.scrollWidth>pane.clientWidth+2)
     page.issues.push({id:pane.id,reason:'panel-clipping',
      content:[pane.scrollWidth,pane.scrollHeight],client:[pane.clientWidth,pane.clientHeight]});
-  const rootRect=root.getBoundingClientRect();
-  for(const node of [root,map,...root.querySelectorAll('button,input,select,label,h2,pre,p')]){
+  const rootRect=root.getBoundingClientRect(),mapRect=map.getBoundingClientRect();
+  for(const node of [root,map,...root.querySelectorAll('button,input,select,label,h2,pre,p'),
+    ...map.querySelectorAll('button')]){
    if(!visible(node))continue;
    const rect=node.getBoundingClientRect();
    if(node.matches('button,input,select'))page.controls++;
-   const inside=node===root||node===map?null:rootRect;
+   const inside=node===root||node===map?null:root.contains(node)?rootRect:mapRect;
    if(rect.left< -1.5||rect.top< -1.5||rect.right>innerWidth+1.5||
       rect.bottom>innerHeight+1.5||
       (inside&&(rect.left<inside.left-1.5||rect.top<inside.top-1.5||
@@ -198,8 +199,13 @@ function auditBr96(){
     page.issues.push({id:node.id||node.tagName.toLowerCase(),reason:'clipped',
      bounds:[rect.left,rect.top,rect.right,rect.bottom]});
   }
-  for(const id of ['name','join']){
+  for(const id of ['name','join','civicGate']){
    const node=get(id),rect=node?.getBoundingClientRect();
+   // The public-gate control starts disabled until a real game begins.
+   // Temporarily enable it ONLY in this disconnected static Chromium page
+   // to prove actual pointer reach and keyboard accessibility.
+   const originalDisabled=node?.disabled;
+   if(id==='civicGate'&&node)node.disabled=false;
    const target={id,visible:!!node&&visible(node),enabled:!!node&&!node.disabled};
    if(target.visible&&target.enabled){
     const probes=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75]];
@@ -214,6 +220,7 @@ function auditBr96(){
    if(!target.visible||!target.enabled||!target.hit||!target.focused)
     page.issues.push({id,reason:'action not focusable or clickable',probesPassed:target.probesPassed});
    page.targets.push(target);
+   if(id==='civicGate'&&node)node.disabled=originalDisabled;
   }
   data.cases.push(page);
   data.errors=page.issues.map(item=>'BR96: '+JSON.stringify(item));

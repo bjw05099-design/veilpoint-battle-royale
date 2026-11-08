@@ -137,8 +137,8 @@ function validate(evidence){
   assert.deepEqual(page.issues,[],'BR96 control clipped at '+size);
   assert.ok(page.controls>=10,'BR96 page has missing interactive controls at '+size);
   const targets=new Map(page.targets.map(t=>[t.id,t]));
-  assert.equal(targets.size,2,'BR96 focus targets must be unique');
-  for(const id of ['name','join']){
+  assert.equal(targets.size,3,'BR96 focus targets must be unique');
+  for(const id of ['name','join','civicGate']){
    const t=targets.get(id);
    assert.ok(t,'Missing BR96 target '+id);
    assert.equal(t.visible,true,'BR96 hidden '+id+' at '+size);
