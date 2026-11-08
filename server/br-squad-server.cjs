@@ -189,7 +189,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     // six-person squad only; no recipient team or author pose comes from HTTP.
     lobby.snapshot(token);
     if(!world)return send(res,409,{error:'round_not_started'});
-    const body=await readJson(req,256,bodyTimeoutMs);
+    const body=await readJson(req,512,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||
        Object.keys(body).length!==1||typeof body.text!=='string')
       return send(res,400,{error:'invalid_chat_request'});
