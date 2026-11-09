@@ -48,6 +48,9 @@ test('native east exit waits on the genuine server gate without papers, extra sa
  assert.match(available,/GetOpeningFraction\(\)>=\.999f/);
  assert.doesNotMatch(available,/bReadHarbor && bReadShelter/);
  assert.match(hud,/Gate->GetOpeningFraction\(\)/);
+ assert.match(hud,/VPStoryGateObservation/);
+ assert.match(hud,/ProjectWorldLocationToScreen/);
+ assert.match(hud,/Sight.AddIgnoredActor\(Gate\)/);
  assert.match(hud,/EAST PUBLIC GATE \| PHYSICAL CLEARANCE/);
  assert.match(hudH,/TWeakObjectPtr<AVPStoryEastGate> CachedEastGate/);
  assert.doesNotMatch(save,/EastGateProgress|bGateCleared|GateOpenTime/,
