@@ -249,10 +249,16 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
         for(int32 Col=0;Col<=Last;Col+=Step)
         {
             const float Height=HeightCm(Col,Row);
-            const float Dx=(HeightCm(Col+Step,Row)-HeightCm(Col-Step,Row))/
-                (2.f*Step*SampleSpacingCm);
-            const float Dy=(HeightCm(Col,Row+Step)-HeightCm(Col,Row-Step))/
-                (2.f*Step*SampleSpacingCm);
+            const int32 Left=FMath::Max(0,Col-Step);
+            const int32 Right=FMath::Min(Last,Col+Step);
+            const int32 Bottom=FMath::Max(0,Row-Step);
+            const int32 Top=FMath::Min(Last,Row+Step);
+            // One-sided edge derivatives use their REAL sample span, not
+            // the clamped central 2*Step span that halves border slopes.
+            const float Dx=(HeightCm(Right,Row)-HeightCm(Left,Row))/
+                (float(Right-Left)*SampleSpacingCm);
+            const float Dy=(HeightCm(Col,Top)-HeightCm(Col,Bottom))/
+                (float(Top-Bottom)*SampleSpacingCm);
             Vertices.Add(FVector(Col*SampleSpacingCm,
                 Row*SampleSpacingCm,Height));
             Normals.Add(FVector(-Dx,-Dy,1.f).GetSafeNormal());
@@ -274,15 +280,15 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
     UProceduralMeshComponent* Mesh=NewObject<UProceduralMeshComponent>(this);
     if(!Mesh)return false;
     Mesh->SetupAttachment(SceneRoot);
-    // World-fixed 1:1 tile coordinates must NOT inherit a moved actor's
-    // transform. Nonzero preview-actor placement must preserve tile borders.
-    Mesh->SetWorldLocation(FVector(TileIndex.X*VPCityTerrain::TileEdgeCm,
-        TileIndex.Y*VPCityTerrain::TileEdgeCm,0.f));
     Mesh->SetCollisionEnabled(bCreateTerrainCollision?
         ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
     Mesh->SetCollisionResponseToAllChannels(ECR_Block);
     Mesh->bUseAsyncCooking=true;
     Mesh->RegisterComponent();
+    // World-fixed 1:1 tile origins must remain independent of the
+    // preview actor's offset in the Editor. Do this AFTER registration.
+    Mesh->SetWorldLocation(FVector(TileIndex.X*VPCityTerrain::TileEdgeCm,
+        TileIndex.Y*VPCityTerrain::TileEdgeCm,0.f));
     const TArray<FVector2D> EmptyUV;
     const TArray<FProcMeshTangent> EmptyTangents;
     Mesh->CreateMeshSection_LinearColor(0,Vertices,Triangles,Normals,
