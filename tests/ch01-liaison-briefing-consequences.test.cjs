@@ -32,7 +32,10 @@ test('CH01 briefing dialogue branches on actual player liaison call without alte
   assert.equal(state.phase,'exit');
   state.phase='complete';
   const report=Story.debrief(state);
-  assert.equal(report.predepartureBriefingAcknowledged,contact);
+  // His Korean predeparture briefing occurred regardless of an OPTIONAL
+  // later field liaison call. The latter is independently observable.
+  assert.equal(report.predepartureBriefingAcknowledged,true);
+  assert.equal(report.verifiedInformationOnly,contact);
   assert.equal(report.closingScene.lines.length,4);
   assert.match(report.closingScene.lines[2],/본래 복귀 일정|한국에서 승인받은 복귀 일정/);
   assert.equal(report.closingScene.lines[2].includes('교전 중 교신은 원래 파견 지시를 변경하지 않았습니다'),contact);

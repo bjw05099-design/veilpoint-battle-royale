@@ -623,10 +623,17 @@ class BrSquadWorld {
     // A voluntary position pin is a suggestion, never a required destination,
     // vote, scored rendezvous, or attendance check. Its server-issued coordinates
     // remain visible only to the sender's squad until expiry.
-    const squadVisited=participants.filter(p=>p.team===me.team)
-      .reduce((mask,p)=>mask|p.landmarkMask,0);
-    const squadLandmarks=Sim.LANDMARKS.filter((_,i)=>(squadVisited&(1<<i))!==0)
-      .map(place=>({label:place.label,x:place.x,z:place.z}));
+    const ownSquad=participants.filter(p=>p.team===me.team);
+    const squadLandmarks=Sim.LANDMARKS.flatMap((place,i)=>{
+      // An optional six-person public-neighborhood visit records only the
+      // actual server-observed footsteps of this squad's six human seats.
+      // A ping, lobby vote, remote coordinate, or rival's discovery never
+      // becomes an extra visitor. This grants no combat or score advantage.
+      const physicallyVisited=ownSquad.reduce((count,p)=>
+        count+((p.landmarkMask&(1<<i))!==0?1:0),0);
+      return physicallyVisited?[{label:place.label,x:place.x,z:place.z,
+        physicallyVisited,wholeSquadVisited:physicallyVisited===SQUAD_SIZE}]:[];
+    });
     // Round completion is a server decision, never a client estimate from
     // disappearing dots. A simultaneous elimination of every squad is a
     // shared tie even when all placements are numerically 1.
