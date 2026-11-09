@@ -13,6 +13,13 @@
  // Eye elevation is derived solely from the server's own/spectated stance.
  // It cannot move the actual collision capsule or reveal unseen actors.
  const EYE_STANDING=1.65,EYE_CROUCH=0.96;
+ // Read-only camera pitch, deliberately bounded to avoid impossible upside-down
+ // viewpoints. Walking direction and world snapshot remain server-authored.
+ const MAX_PITCH=0.44;
+ function clampPitch(pitch){
+  if(!Number.isFinite(pitch))throw new RangeError('invalid_view_pitch');
+  return Math.max(-MAX_PITCH,Math.min(MAX_PITCH,pitch));
+ }
  function wrap(yaw){
   if(!Number.isFinite(yaw))throw new RangeError('invalid_view_direction');
   return Math.atan2(Math.sin(yaw),Math.cos(yaw));
@@ -75,7 +82,7 @@
     weatherCode==='gusty'?[107,127,134]:[112,139,146];
   return 'rgb('+base.map((v,i)=>Math.min(255,Math.round(v*factor*(1-fog)+horizon[i]*fog))).join(',')+')';
  }
- function frame({subject,yaw=0,obstacles=[],civicGate=null,handcart=null,
+ function frame({subject,yaw=0,pitch=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
   if(!subject||![subject.x,subject.z].every(Number.isFinite))
    throw new RangeError('server_subject_required');
@@ -132,17 +139,17 @@
     slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
-    angle,heading:viewHeading(angle),columns:COLUMNS,maxDistance,
+    angle,pitch:clampPitch(pitch),heading:viewHeading(angle),columns:COLUMNS,maxDistance,
     eyeHeight:subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
- function draw(ctx,{width,height,subject,yaw,obstacles,civicGate,handcart,squad,visible,
+ function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
    visibilityMeters,weather}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
-  const model=frame({subject,yaw,obstacles,civicGate,handcart,squad,visible,visibilityMeters});
+  const model=frame({subject,yaw,pitch,obstacles,civicGate,handcart,squad,visible,visibilityMeters});
   const haze=weather?.code==='sea-haze',gusty=weather?.code==='gusty',
-    horizon=height*.52;
+    horizon=height*.52+Math.tan(model.pitch)*height*.68;
   ctx.fillStyle=haze?'#667b7e':gusty?'#6b848b':'#708b92';
   ctx.fillRect(0,0,width,horizon);
   ctx.fillStyle=haze?'#424c4b':gusty?'#414846':'#3d4340';ctx.fillRect(0,horizon,width,height-horizon);
@@ -198,11 +205,11 @@
   ctx.fillStyle='#f1f5ed';ctx.font='14px system-ui';
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
-  ctx.fillText('화면 클릭: 마우스 시야 회전 · WASD: 보는 방향 기준 이동 · Esc: 포인터 해제',14,47);
+  ctx.fillText('화면 클릭: 마우스 상하좌우 시야 · WASD: 시야 기준 이동 · Esc: 포인터 해제',14,47);
   ctx.fillText('자세: '+(subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
   ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,MAX_PITCH,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });

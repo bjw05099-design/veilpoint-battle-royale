@@ -46,7 +46,7 @@ function stopPrivateStream(){
 }
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
-let streetView=false,streetYaw=0; // local camera only, never part of movement POST
+let streetView=false,streetYaw=0,streetPitch=0; // camera-only, never part of movement POST
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
@@ -55,7 +55,7 @@ function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
- streetView=false;streetYaw=0;
+ streetView=false;streetYaw=0;streetPitch=0;
  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
@@ -85,7 +85,7 @@ function apply(next){
    stopPrivateStream();liveRetryAt=0;
    seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
-   streetView=false;streetYaw=0;
+   streetView=false;streetYaw=0;streetPitch=0;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
   }
  }
@@ -233,7 +233,7 @@ function render(){
   ?'전체 '+state.participants+'/'+state.capacity+'명 · 준비 '+state.readyCount+'/'+state.capacity+
    '\n본인 #'+self.id+' · '+self.squad+'분대 '+self.slot+'번'+
    '\n단계: '+state.phase+(state.roundNumber?' · '+state.roundNumber+'회차':'')+
-   (w?'\n보기: '+(streetView?'1인칭 거리 시야 · J/L로 회전':'2D 서버 진단 지도'):'')+
+   (w?'\n보기: '+(streetView?'1인칭 거리 시야 · 마우스 상하좌우 / J·L·I·K':'2D 서버 진단 지도'):'')+
    (state.entry?'\n분대 출발 예정: '+
      (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
      ' · 서버가 실제 출발 위치를 지정합니다.':'')+
@@ -310,7 +310,7 @@ function draw(w){
   const litSubject=w.spectatorView
     ?{...subject,headlampOn:!!w.squad?.find(p=>p.id===subject.id)?.headlampOn}:subject;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
-   subject:litSubject,yaw:streetYaw,obstacles:publicGeometry,
+   subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
   return;
@@ -503,7 +503,7 @@ function toggleStreetView(){
  streetView=!streetView;
  mapFollow=false;mapZoomLevel=0;
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
- if(!streetView&&document.pointerLockElement===canvas)document.exitPointerLock?.();
+ if(!streetView){streetPitch=0;if(document.pointerLockElement===canvas)document.exitPointerLock?.();}
  message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD는 바라보는 방향으로 걷기 · Esc 해제 · P 지도':
   '2D 서버 진단 지도로 돌아왔습니다.');
  render();
@@ -519,11 +519,19 @@ document.addEventListener('mousemove',event=>{
  if(document.pointerLockElement!==canvas||!streetView||
     !currentWorld()||!el('standingsPanel').hidden||
     !el('vpAudioPanel').hidden)return;
- if(!Number.isFinite(event.movementX))return;
+ if(!Number.isFinite(event.movementX)||!Number.isFinite(event.movementY))return;
  streetYaw=window.VeilpointBR96StreetView.wrap(
   streetYaw+Math.max(-160,Math.min(160,event.movementX))*.0025);
+ streetPitch=window.VeilpointBR96StreetView.clampPitch(
+  streetPitch-Math.max(-160,Math.min(160,event.movementY))*.0025);
  render();
 });
+function turnStreetPitch(delta){
+ if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
+ streetPitch=window.VeilpointBR96StreetView.clampPitch(streetPitch+delta);
+ keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+ render();
+}
 function turnStreetView(delta){
  if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
  streetYaw=window.VeilpointBR96StreetView.wrap(streetYaw+delta);
@@ -636,6 +644,9 @@ document.addEventListener('keydown',event=>{
  if(!event.repeat&&key==='KeyV'){event.preventDefault();toggleStandings();return;}
  if(!event.repeat&&key==='KeyP'&&el('standingsPanel').hidden){
   event.preventDefault();toggleStreetView();return;
+ }
+ if(streetView&&currentWorld()&&['KeyI','KeyK'].includes(key)){
+  event.preventDefault();turnStreetPitch(key==='KeyI'?Math.PI/36:-Math.PI/36);return;
  }
  if(streetView&&currentWorld()&&['KeyJ','KeyL'].includes(key)){
   event.preventDefault();turnStreetView(key==='KeyJ'?-Math.PI/24:Math.PI/24);return;
