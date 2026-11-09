@@ -9,6 +9,34 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
  const line=(speaker,message)=>Object.freeze({speaker,message});
+ // All these exchanges follow already saved, physically witnessed events.
+ // They never add a quest arrow, rewrite the chapter state or infer distant
+ // civilians from a private network/sensor. One human's recollection remains
+ // an individual's voice, not a claim about every Yemeni resident.
+ function localCharacterBeat(state){
+  if(!state||!['records','decision','exit'].includes(state.phase))return null;
+  const p=state.world?.player;
+  // The captain can directly observe one person finishing a short street
+  // walk only from nearby unobstructed positions; being saved as arrived
+  // alone does not grant an omniscient radio report.
+  if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
+     p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&
+     Math.hypot(p.x-state.civilianWalker.x,p.z-state.civilianWalker.z)<=7){
+   return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
+  }
+  if(state.waterReportFiled===true)
+   return line('유수프 라할','직접 확인한 급수대 현장 보고는 접수했다. 이걸로 도시 전체의 물 공급이 복구됐다고 판단하지는 않겠다.');
+  if(state.waterSurveyed===true)
+   return line('이수혁 대위','공용 급수대 한 곳의 상태만 직접 확인했다. 주민 전체의 생활이 복구됐는지는 현지 구조단 확인이 필요하다.');
+  if(state.workerInterviewed===true)
+   return line('조현지','항구 작업자가 들려준 1990년 통일과 1994년 전쟁의 기억은 같은 가족 안에서도 달랐습니다. 우리가 판단할 수 있는 것은 그가 직접 말한 경험까지입니다.');
+  if(state.civilianRerouted===true)
+   return line('이수혁 대위','주민이 자기 판단으로 남쪽 접근로를 택했다. 도착했는지 확인하지 않고 완료로 보고하지 않겠다.');
+  if(state.awningShift>=1&&state.combat?.cleared===true)
+   return line('마라','쓰러진 차양을 길 가장자리로 옮긴 건 확인했어. 그렇다고 골목 전체가 안전해졌다고 보장할 수는 없어.');
+  return null;
+ }
+
  function briefing(state){
   if(!state||typeof state!=='object')return line('현장 통신','교신 정보 확인 중');
   const phase=state.phase,found=Array.isArray(state.found)?state.found:[];
@@ -37,6 +65,10 @@
     return line('김지윤','항구 기록 04:12 확인. 대피소 원본을 보기 전에는 선후관계를 확정할 수 없습니다.');
    if(found.includes('recordB'))
     return line('김지윤','대피소 기록 04:07 확인. 항구 측 기록도 직접 대조해야 합니다.');
+   // Local character conflict comes from real encounters, not another
+   // invented paperwork objective or scripted forced-choice menu.
+   const witnessed=localCharacterBeat(state);
+   if(witnessed)return witnessed;
    // The captain can choose the practical civilian route without being
    // given an artificial assignment to collect more ledgers.
    return line('김지윤','기록 확인은 동쪽 경로를 선택할 때 필요한 별도 과정입니다. 남쪽 주민 이동은 현지 구조단과 협력해 우선 진행할 수 있습니다.');
@@ -69,6 +101,10 @@
     return line('이수혁 대위','구조용 물품을 직접 운반 중이다. 현지 구조단에 인계하기 전까지 완료로 보고하지 않는다.');
    if(state.aidStaged)
     return line('이수혁 대위','구조 물품은 현장 적재대에 있다. 구조단 인계는 아직 확인되지 않았다.');
+   // Human consequences can be heard after normal route tasks, without
+   // requiring a sixth form, ledger, route vote or manual flag.
+   const witnessed=localCharacterBeat(state);
+   if(witnessed)return witnessed;
    if(state.passageWarningHeard)
     return line('유수프 라할','남쪽 통로의 주민 인도를 진행 중입니다. 복귀 이동편의 실제 도착 여부는 아직 확인되지 않았습니다.');
    return line('이수혁 대위','남쪽 대피로를 확보한다. 민간인 확인은 현지 구조단과 협력한다.');
@@ -77,5 +113,5 @@
   if(phase==='failed')return line('현장 통신','신호가 중단됐습니다. 재시작 후 확인된 기록만 다시 보고합니다.');
   return line('현장 통신','임무 진행 상태를 확인 중입니다.');
  }
- return Object.freeze({briefing});
+ return Object.freeze({briefing,localCharacterBeat});
 });
