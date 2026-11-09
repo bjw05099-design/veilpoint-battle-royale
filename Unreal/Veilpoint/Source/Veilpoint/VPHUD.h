@@ -6,6 +6,7 @@
 
 class AVPZone;
 class AVPStoryMarker;
+class AVPStoryEastGate;
 class UWorld;
 
 // Native Windows fallback UI; no web runtime, imported widget or map required.
@@ -29,4 +30,6 @@ private:
     // Local J-key notebook visibility is a presentation flag. Facts are
     // read from the replicated CH01 story authority, never invented here.
     bool bStoryJournalOpen = false;
+    // One locally observed, replicated door — do not search every render FPS.
+    TWeakObjectPtr<AVPStoryEastGate> CachedEastGate;
 };
