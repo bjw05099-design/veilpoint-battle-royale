@@ -26,7 +26,7 @@ test('native objective HUD uses real 25m local range and 2.75m F reach in world 
  assert.match(hud,/NearestVisibleSq = FMath::Square\(2500\.f\)/);
  assert.match(hud,/NearestVisibleSq <= FMath::Square\(275\.f\)/);
  assert.match(hud,/const float Metres = FMath::Sqrt\(NearestVisibleSq\) \/ 100\.f/);
- assert.match(hud,/CH01 PHYSICAL OBJECTIVE IN REACH \| E TO INTERACT/);
+ assert.match(hud,/CH01 PHYSICAL OBJECTIVE IN REACH \| F TO INTERACT/);
  assert.match(hud,/CH01 VISIBLE OBJECTIVE %.1fm \| APPROACH TO INTERACT/);
  assert.match(marker,/FMath::Square\(275\.f\)/);
 });
