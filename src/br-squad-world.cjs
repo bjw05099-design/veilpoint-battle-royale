@@ -132,7 +132,10 @@ class BrSquadWorld {
     actor.direction={x:0,z:0};
     actor.lastMoveTick=this.tick-LEASE_TICKS-1;
     actor.sprintHeld=false;actor.crouchHeld=false;
-    actor.stepping=null;actor.benchResting=false;
+    // A server-accepted physical bench crossing already underway must
+    // FINISH its swept 60Hz trajectory. Dropping it halfway could leave
+    // the capsule inside a solid bench. Only stale free-movement is halted.
+    // Likewise an occupied, stationary bench stays occupied on rebind.
     // The last observed movement flag is a snapshot of the previous tick;
     // the next server tick computes stationary motion from zero input.
     actor.lastPresenceTick=this.tick;
