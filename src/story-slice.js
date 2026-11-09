@@ -953,6 +953,9 @@
         if(state.world.mara){state.world.mara.x=w.x;state.world.mara.z=w.z;}
         if(Math.hypot(w.x-MARA_PATH.endX,w.z-MARA_PATH.endZ)<.028){
           w.x=MARA_PATH.endX;w.z=MARA_PATH.endZ;w.arrived=true;
+          // The visible scene and the saved pedestrian must agree on the exact
+          // arrival tick, including the final centimetres of the 60Hz walk.
+          if(state.world.mara){state.world.mara.x=w.x;state.world.mara.z=w.z;state.world.mara.arrived=true;}
           if(Math.hypot(p.x-w.x,p.z-w.z)<9&&
              !Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles)){
             state.subtitle='마라(현지 기술자): 통로가 비어서 제 판단으로 골목으로 갑니다. 다른 주민들은 아직 확인하지 못했어요.';
