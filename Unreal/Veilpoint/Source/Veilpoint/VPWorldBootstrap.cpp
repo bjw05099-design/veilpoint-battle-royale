@@ -309,7 +309,9 @@ void AVPWorldBootstrap::BeginPlay()
         {-51.f,35.f,9.f,26.f,.16f},
         {-63.f,60.5f,28.f,7.f,.15f}
     };
-    static const float CraftRoofCenterCm[] = {365.f,365.f,327.f};
+    // WebGL Mesh.box(y) uses BOTTOM elevation; UE5 instances use centre.
+    // Preserve world-space roof bottoms at 3.65m / 3.27m exactly.
+    static const float CraftRoofCenterCm[] = {373.f,373.f,334.5f};
     for (int32 i=0;i<UE_ARRAY_COUNT(CraftCanopies);++i)
     {
         const FSharedPublicBlock& Roof=CraftCanopies[i];
@@ -320,6 +322,42 @@ void AVPWorldBootstrap::BeginPlay()
     // architectural detail; they do not substitute for solid building walls.
     AddBlock(Ground,FVector(-6300.f,3600.f,-4.f),FVector(31.6f,27.8f,.08f));
     AddBlock(Ground,FVector(-6300.f,6060.f,-4.f),FVector(27.f,9.f,.08f));
+    // Twin public shopfront interiors and a clear 10m pedestrian lane link
+    // the craft district toward the ferry. Native and both browser modes
+    // construct identical collision solids; doors are real wall gaps.
+    // Unsurveyed fictional street: no current real-world facility geometry.
+    static const FSharedPublicBlock SharedFerryApproachShops[] = {
+        {-51.f,105.f,.65f,16.f,3.5f},
+        {-40.f,109.f,.65f,8.f,3.5f},
+        // The real 5m north entrance preserves the existing ferry approach.
+        {-49.5f,113.5f,3.f,.7f,3.5f},
+        {-41.5f,113.5f,3.f,.7f,3.5f},
+        {-19.f,105.f,.65f,16.f,3.5f},
+        {-30.f,109.f,.65f,8.f,3.5f},
+        {-24.5f,113.5f,11.f,.7f,3.5f},
+        {-47.f,109.f,2.2f,1.2f,1.2f},
+        {-23.f,109.f,2.2f,1.2f,1.2f},
+        {-46.f,101.f,2.5f,1.f,.9f},
+        {-24.f,101.f,2.5f,1.f,.9f},
+        {-50.f,96.f,.65f,.65f,3.15f},
+        {-40.f,96.f,.65f,.65f,3.15f},
+        {-30.f,96.f,.65f,.65f,3.15f},
+        {-20.f,96.f,.65f,.65f,3.15f},
+        {-26.f,118.f,1.f,1.f,1.15f}
+    };
+    for(const FSharedPublicBlock& Part : SharedFerryApproachShops)
+        AddBlock(Buildings,FVector(Part.X*100.f,Part.Z*100.f,Part.H*50.f),
+            FVector(Part.W,Part.D,Part.H));
+    // Browser roofY is the bottom, not the center. Both canopies start
+    // at 3.53m, while keeping the entire shared central road open to sky.
+    static const FSharedPublicBlock FerryApproachShopRoofs[] = {
+        {-45.5f,105.f,10.f,16.f,.16f},
+        {-24.5f,105.f,10.f,16.f,.16f}
+    };
+    for(const FSharedPublicBlock& Roof : FerryApproachShopRoofs)
+        AddBlock(Buildings,FVector(Roof.X*100.f,Roof.Z*100.f,361.f),
+            FVector(Roof.W,Roof.D,Roof.H));
+    AddBlock(Ground,FVector(-3490.f,10700.f,-4.f),FVector(33.f,23.f,.08f));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))

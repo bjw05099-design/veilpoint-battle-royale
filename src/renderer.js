@@ -32,6 +32,15 @@ const CRAFT_PUBLIC_CANOPIES=Object.freeze([
  Object.freeze({x:-63,z:60.5,w:28,d:7,roofY:3.27,h:.15,
    type:'shared-public-canopy',color:Object.freeze([.62,.52,.39]),canvas:'#b09a76'})
 ]);
+// A second pair of original walk-in public shop roofs: the entire ten-metre
+// middle street remains open to sky and on-foot navigation. Neither mesh
+// creates an extra solid world-body or changes the three legacy civic roofs.
+const MARKET_LANE_ROOFS=Object.freeze([
+ Object.freeze({x:-45.5,z:105,w:10,d:16,roofY:3.53,h:.16,
+   type:'shared-public-canopy',color:Object.freeze([.61,.49,.38]),canvas:'#a89478'}),
+ Object.freeze({x:-24.5,z:105,w:10,d:16,roofY:3.53,h:.16,
+   type:'shared-public-canopy',color:Object.freeze([.53,.55,.47]),canvas:'#929883'})
+]);
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
 // Visible actor orientation is sourced only from an actually rendered 60Hz
 // opponent, never from an invisible opponent/radar or inferred client target.
@@ -313,8 +322,10 @@ class SoftwareRenderer {
   if(this.footpathWorld!==state.obstacles){
    this.footpathWorld=state.obstacles;
    this.footpaths=PublicFootpaths.planAll(state.obstacles);
+   this.localFootpaths=PublicFootpaths.planLocalPaths(state.obstacles);
   }
-  for(const road of this.footpaths||[])for(let i=1;i<road.points.length;i++){
+  for(const road of [...(this.footpaths||[]),...(this.localFootpaths||[])])
+   for(let i=1;i<road.points.length;i++){
    const a=road.points[i-1],b=road.points[i];
    const length=Math.hypot(b.x-a.x,b.z-a.z);
    if(length<.1)continue;
@@ -357,7 +368,8 @@ class SoftwareRenderer {
  if(state.terrainRevision===1||harborNight){
   for(const floor of [
    {x:-63,z:36,w:31.6,d:27.8,color:'#857967'},
-   {x:-63,z:60.6,w:27,d:9,color:'#9a8970'}
+   {x:-63,z:60.6,w:27,d:9,color:'#9a8970'},
+   {x:-34.9,z:107,w:33,d:23,color:'#8b816c'}
   ]){
    const hw=floor.w/2,hd=floor.d/2;
    polygon([proj(floor.x-hw,.09,floor.z-hd),
@@ -381,6 +393,7 @@ class SoftwareRenderer {
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+     o.type.startsWith('aden-laneshop-')?o.type:
      o.type.startsWith('aden-craft-')?o.type:
      o.type.startsWith('aden-ferry-hall-')?o.type:
      o.type.startsWith('aden-seafront-market-')?o.type:
@@ -417,6 +430,7 @@ class SoftwareRenderer {
  if(state.terrainRevision===1){
   for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
   for(const roof of CRAFT_PUBLIC_CANOPIES)objects.push(roof);
+  for(const roof of MARKET_LANE_ROOFS)objects.push(roof);
   objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
   objects.push({x:-45,z:135,h:.18,w:22,d:20,roofY:3.35,type:'aden-ferry-roof'});
  }
@@ -496,6 +510,13 @@ class SoftwareRenderer {
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='aden-seafront-market-wall'?'#a28c77':o.type==='aden-seafront-market-counter'?'#8c6848':
    o.type==='aden-transit-court-wall'?'#aa9481':o.type==='aden-transit-court-bench'?'#867867':
+   o.type.includes('aden-laneshop-outer-wall')?'#a4947c':
+   o.type.includes('aden-laneshop-inner-wall')?'#9e927f':
+   o.type.includes('aden-laneshop-back-wall')?'#a4947c':
+   o.type.includes('aden-laneshop-shelf')?'#80674e':
+   o.type.includes('aden-laneshop-counter')?'#b09572':
+   o.type.includes('aden-laneshop-post')?'#96836d':
+   o.type.includes('aden-laneshop-public-tap')?'#6d8787':
    o.type==='aden-craft-hall-wall'?'#a9997e':
    o.type==='aden-craft-hall-divider'?'#897d6c':
    o.type==='aden-craft-hall-shelf'?'#846e54':
@@ -625,7 +646,9 @@ class Renderer {
  // connector through houses. BR and CH01 share identical base colliders.
  if(this.worldTerrainRevision===1&&PublicFootpaths){
   this.publicRoads=PublicFootpaths.planAll(sim.obstacles);
-  for(const road of this.publicRoads)for(let i=1;i<road.points.length;i++){
+  this.localPublicRoads=PublicFootpaths.planLocalPaths(sim.obstacles);
+  for(const road of [...this.publicRoads,...this.localPublicRoads])
+   for(let i=1;i<road.points.length;i++){
    const a=road.points[i-1],b=road.points[i],
      length=Math.hypot(b.x-a.x,b.z-a.z);
    if(length<.01)continue;
@@ -683,6 +706,20 @@ class Renderer {
   if(o.type==='aden-pedestrian-post'){
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.45,.44,.40]);
    m.box(o.x,o.h-.18,o.z,o.w,.20,o.d,[.57,.54,.48]);
+   return;
+  }
+  // Public ferry approach shops are real interiors, not an opaque closed
+  // cuboid. Color/fascia are drawn INSIDE each actual collision footprint.
+  if(o.type.startsWith('aden-laneshop-')){
+   const wall=o.type.endsWith('wall'),post=o.type.endsWith('post'),
+     tap=o.type.endsWith('public-tap');
+   const base=wall?[.61,.54,.44]:post?[.53,.48,.40]:
+     tap?[.34,.47,.48]:o.type.endsWith('shelf')?[.42,.33,.25]:[.52,.40,.28];
+   m.box(o.x,0,o.z,o.w,o.h,o.d,base);
+   if(wall||post)
+    m.box(o.x,o.h-.17,o.z,o.w,.17,o.d,base.map(v=>Math.min(1,v*1.17)));
+   else if(!tap)
+    m.box(o.x,o.h-.12,o.z,o.w+.07,.12,o.d+.07,[.66,.51,.35]);
    return;
   }
   // All craft-hall details use the exact collision body from Sim. No
@@ -853,7 +890,8 @@ class Renderer {
  // no raised solid roof is ever added to the 60Hz obstacle collection.
  if(this.worldTerrainRevision===1){
   const floors=[{x:-78.8,z:22.1,w:31.6,d:27.8,col:[.43,.39,.31]},
-    {x:-76.5,z:56.1,w:27,d:9,col:[.47,.42,.34]}];
+    {x:-76.5,z:56.1,w:27,d:9,col:[.47,.42,.34]},
+    {x:-51.4,z:95.5,w:33,d:23,col:[.43,.40,.34]}];
   for(const floor of floors){
    const x1=floor.x,x2=floor.x+floor.w,z1=floor.z,z2=floor.z+floor.d;
    for(let x=x1;x<x2;x+=2.5)for(let z=z1;z<z2;z+=2.5){
@@ -863,6 +901,10 @@ class Renderer {
    }
   }
  }
+ // Public market-lane shop roofs belong to two ACTUALLY enterable rooms.
+ // Their separate collection preserves the legacy three-canopy contract.
+ if(this.worldTerrainRevision===1)for(const roof of MARKET_LANE_ROOFS)
+  m.box(roof.x,roof.roofY,roof.z,roof.w,roof.h,roof.d,roof.color);
  // Distinct market, western-court and transit roofs bring visible depth to
  // three PUBLIC ground-level areas. Canopy trim remains inside their authored
  // elevated footprint, so every existing BR/CH01 pedestrian entrance stays open.

@@ -33,11 +33,13 @@ test('UE5 map has 2 genuinely raised interior roofs and a separate shaded foreco
  assert.deepEqual(roofs,[
   [-75,35,9,26,.16],[-51,35,9,26,.16],[-63,60.5,28,7,.15]
  ]);
- assert.match(cpp,/CraftRoofCenterCm\[\] = \{365\.f,365\.f,327\.f\}/);
+ assert.match(cpp,/CraftRoofCenterCm\[\] = \{373\.f,373\.f,334\.5f\}/);
  assert.match(cpp,/AddBlock\(Buildings,FVector\(Roof\.X\*100\.f,Roof\.Z\*100\.f,CraftRoofCenterCm\[i\]\)/);
  assert.match(cpp,/AddBlock\(Ground,FVector\(-6300\.f,3600\.f,-4\.f\)/);
  assert.match(cpp,/AddBlock\(Ground,FVector\(-6300\.f,6060\.f,-4\.f\)/);
- const actualRoofBottom=roofs.map((r,i)=>[365,365,327][i]/100-r[4]/2);
+ const actualRoofBottom=roofs.map((r,i)=>[373,373,334.5][i]/100-r[4]/2);
+ assert.deepEqual(actualRoofBottom.map(v=>Number(v.toFixed(4))),[3.65,3.65,3.27],
+  'UE5 centered roof transforms must equal the visible WebGL bottom elevation');
  assert.ok(actualRoofBottom.every(h=>h>3.0),
   'overhead shade never blocks the on-foot capsule at body height');
 });
