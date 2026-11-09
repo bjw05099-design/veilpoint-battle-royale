@@ -28,7 +28,14 @@
    }
    if(reported.eligible!==true)return seat+'. '+name+' · 상태 확인 중';
    // 'stale' means no recent authenticated input, NOT proven disconnect.
-   return seat+'. '+name+' · '+(reported.connection==='stale'?'응답 대기':'참가 중');
+   // Teammate fatigue reflects only the authenticated server's current
+   // six-seat world; anonymous, missing or legacy snapshots show no guesses.
+   const stamina=Number.isFinite(reported.stamina)&&reported.stamina>=0&&
+     reported.stamina<=100?' · 지구력 '+Math.round(reported.stamina)+'/100':'';
+   const pace=reported.sprintDepleted===true?' · 전력질주 회복 중':
+     reported.resting===true?' · 휴식 회복 중':'';
+   return seat+'. '+name+' · '+(reported.connection==='stale'?'응답 대기':'참가 중')+
+     stamina+pace;
   });
   const label=world?(world.phase==='finished'?'우리 분대 · 최종 상태':'우리 분대 · 실시간 참가 상태'):'우리 분대 · 준비 명단';
   return label+'\n'+lines.join('\n');
