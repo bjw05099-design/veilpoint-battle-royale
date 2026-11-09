@@ -12,7 +12,7 @@ test('UE5 PC benchmark is opted into by a real F9 key and never claims configure
  assert.match(cpp,/NOT GPU/);
  assert.match(hud,/LastNativeBenchmarkStatus/);
  assert.match(header,/application-frame-time-not-gpu/);
- assert.match(header,/ve ilpoint/.replace('ve ilpoint','veilpoint'));
+ assert.match(header,/veilpoint-native-app-frame-v1/);
  assert.doesNotMatch(header,/gpuUsage|gpuLoad|monitorHz|rtx3070/i);
 });
 
