@@ -57,18 +57,20 @@
    return line('조현지','출국 전 계획에 없던 충돌이 확산되고 있습니다. 현장 통신 불안정. 확인되지 않은 보고를 사실로 확정하지 않겠습니다.');
   }
   if(phase==='records'||phase==='decision'){
+   // Immediate witnessed civilian consequences outrank optional archival context.
+   // The captain does not stop a live local encounter to recite paperwork.
+   const witnessed=localCharacterBeat(state);
+   if(witnessed)return witnessed;
    if(found.includes('recordA')&&found.includes('recordB'))
     return state.workerInterviewed
       ?line('김지윤','항구 04:12, 대피소 04:07은 원본 기록입니다. 현장 작업자의 조명 이상 목격담은 시각이 미확인된 별도 진술로 보존하겠습니다.')
       :line('김지윤','항구 04:12, 대피소 04:07. 기록은 일치하지 않으며 원인은 아직 확인되지 않았습니다.');
    if(found.includes('recordA'))
-    return line('김지윤','항구 기록 04:12 확인. 대피소 원본을 보기 전에는 선후관계를 확정할 수 없습니다.');
+    return line('김지윤','항구 기록 04:12 확인. 선후관계는 아직 확정되지 않았습니다.');
    if(found.includes('recordB'))
-    return line('김지윤','대피소 기록 04:07 확인. 항구 측 기록도 직접 대조해야 합니다.');
+    return line('김지윤','대피소 기록 04:07 확인. 다른 시각의 원인은 아직 불명확합니다.');
    // Local character conflict comes from real encounters, not another
    // invented paperwork objective or scripted forced-choice menu.
-   const witnessed=localCharacterBeat(state);
-   if(witnessed)return witnessed;
    // The captain can choose the practical civilian route without being
    // given an artificial assignment to collect more ledgers.
    return line('김지윤','기록 확인은 동쪽 경로를 선택할 때 필요한 별도 과정입니다. 남쪽 주민 이동은 현지 구조단과 협력해 우선 진행할 수 있습니다.');
