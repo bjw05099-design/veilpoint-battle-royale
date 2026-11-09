@@ -154,8 +154,16 @@ bool AVPStoryPedestrian::RestorePhysicalCheckpoint(
     // if scenery is occupied, leave the civilian unchanged.
     const FVector Before = GetActorLocation();
     FHitResult Hit;
-    const bool bPlaced = SetActorLocation(Location,true,&Hit,ETeleportType::None);
-    if (!bPlaced || Hit.bBlockingHit)
+    // A real walk may turn at the staffed sidewalk. Replay that saved
+    // two-leg route instead of sweeping diagonally through buildings.
+    bool bPlaced = true;
+    if (bSidewalk && FVector::Dist2D(Before,SidewalkDestination)>4.f)
+        bPlaced = SetActorLocation(SidewalkDestination,true,&Hit,ETeleportType::None) &&
+            !Hit.bBlockingHit;
+    if (bPlaced)
+        bPlaced = SetActorLocation(Location,true,&Hit,ETeleportType::None) &&
+            !Hit.bBlockingHit;
+    if (!bPlaced)
     {
         SetActorLocation(Before,false,nullptr,ETeleportType::TeleportPhysics);
         return false;
