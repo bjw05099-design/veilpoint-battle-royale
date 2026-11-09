@@ -171,6 +171,52 @@
   }
   return map;
  }
+ // Accept an explicit local-only DEM fixture (JSON). This validates the
+ // *declared* source metadata but does not establish genuine observation,
+ // usage rights or physical accuracy. No GPS-to-game conversion supported;
+ // only local metre tiles, heights and provenance are accepted. Fail closed.
+ function importHeightDataset(document){
+  if(!document||typeof document!=='object'||Array.isArray(document)||
+    Object.keys(document).some(k=>!['format','coordinateSystem','title','tiles'].includes(k))||
+    document.format!=='veilpoint-heightfield-v1'||
+    document.coordinateSystem!=='local-metre-unreferenced'||
+    typeof document.title!=='string'||document.title.trim().length<3||
+    document.title.length>100||
+    !Array.isArray(document.tiles)||document.tiles.length===0||
+    document.tiles.length>49)
+   throw new RangeError('Invalid offline heightfield document');
+  const tiles=document.tiles.map(raw=>{
+   if(!raw||typeof raw!=='object'||Array.isArray(raw)||
+     Object.keys(raw).some(k=>!['tx','tz','gridSize','samples','source'].includes(k))||
+     !raw.source||Object.keys(raw.source).some(k=>!
+       ['provider','observedDate','license','reference','scope','type'].includes(k)))
+    throw new RangeError('Invalid elevation-only tile record');
+   return createHeightTile(raw);
+  });
+  const registry=createRegistry(tiles);
+  const seams=auditRegistrySeams(registry,.15);
+  if(!seams.pass)throw new RangeError('Heightfield tile boundary mismatch');
+  return Object.freeze({title:document.title.trim(),
+   registry,tilesImported:registry.size,seams:seams.edgesChecked,
+   unreviewed:true,localOnly:true,accuracy:'source-declared-unverified'});
+ }
+ function auditRegistrySeams(registry,toleranceMetres=.15){
+  if(!(registry instanceof Map)||!validFinite(toleranceMetres)||
+     toleranceMetres<0||toleranceMetres>1)
+   throw new RangeError('Invalid registry seam audit');
+  let edgesChecked=0,maxGapMetres=0,pass=true;
+  for(const tile of registry.values())
+   for(const [dx,dz] of [[1,0],[0,1]]){
+    const neighbor=registry.get(tileKey(tile.tx+dx,tile.tz+dz));
+    if(!neighbor)continue;
+    if(tile.gridSize!==neighbor.gridSize)throw new RangeError(
+      'Adjacent terrain tiles require the same sampling density');
+    const audit=auditSeam(tile,neighbor,toleranceMetres);
+    edgesChecked++;maxGapMetres=Math.max(maxGapMetres,audit.maxGapMetres);
+    if(!audit.pass)pass=false;
+   }
+  return Object.freeze({pass,edgesChecked,maxGapMetres,toleranceMetres});
+ }
  function planStreaming(x,z,registry,loadedKeys=[],options={}){
   const origin=tileFor(x,z);
   if(!(registry instanceof Map)||!Array.isArray(loadedKeys)||
@@ -211,5 +257,5 @@
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
   DISTRICTS,SOURCE_SCOPE,point,tileKey,parseTileKey,tileFor,tileBounds,
-  validateSource,createHeightTile,heightAt,auditSeam,buildTerrainMesh,createRegistry,planStreaming});
+  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,createRegistry,planStreaming});
 });
