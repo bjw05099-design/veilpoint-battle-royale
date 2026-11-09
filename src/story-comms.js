@@ -40,7 +40,7 @@
  function briefing(state){
   if(!state||typeof state!=='object')return line('현장 통신','교신 정보 확인 중');
   const phase=state.phase,found=Array.isArray(state.found)?state.found:[];
-  if(phase==='terminal')return line('이수혁 대위','나흐린 중계기 상태를 현장에서 확인한다. 민간 대피 지원 범위에서 움직인다.');
+  if(phase==='terminal')return line('이수혁 대위','출국 전 승인된 현지 통신 협력 임무를 수행 중이다. 예정에 없던 교전으로 상황이 바뀌었다. 현지 구조단과 협의해 민간인 안전을 우선 확인한다.');
   if(phase==='engagement'){
    // Every status comes only from the captain's own playable 60Hz state
    // or an explicitly completed ally report. Never disclose opponents
@@ -54,7 +54,7 @@
     return line('이수혁 대위','휴대 자원이 얼마 남지 않았다. 보유량을 정확히 확인하겠다.');
    if(state.combat?.supportUsed===true)
     return line('김도겸 중사','요청하신 현장 확인 보고는 전달했습니다. 확인되지 않은 대상의 위치는 알 수 없습니다.');
-   return line('조현지','현장 통신 불안정. 확인되지 않은 보고를 사실로 확정하지 않겠습니다.');
+   return line('조현지','출국 전 계획에 없던 충돌이 확산되고 있습니다. 현장 통신 불안정. 확인되지 않은 보고를 사실로 확정하지 않겠습니다.');
   }
   if(phase==='records'||phase==='decision'){
    if(found.includes('recordA')&&found.includes('recordB'))
