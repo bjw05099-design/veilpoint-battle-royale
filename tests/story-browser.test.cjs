@@ -101,7 +101,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
       for(let i=1;i<=count;i++)this.frame((startFrame+i)*1000/60);
       context.VeilpointInput.forward=false;
     },
-    interact(){this.emit('keydown',{code:'KeyE'});},
+    interact(){this.emit('keydown',{code:'KeyF'});},
     clearEncounter(startFrame){
       // Real UI input path: pointer-locked mouse aim + SPACE, paced by the 60Hz clock.
       let frame=startFrame,yaw=0,shots=0;
@@ -447,7 +447,7 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   const store=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
   const app=boot(store);
   app.element('continue').click();
-  assert.match(app.element('combatStatus').textContent,/상자 잔량 12발.*접근 후 E/);
+  assert.match(app.element('combatStatus').textContent,/상자 잔량 12발.*접근 후 F/);
   assert.match(app.element('interaction').textContent,/잔량 12발.*필요한 만큼 확보/);
   app.interact();
   let saved=JSON.parse(store.get('veilpoint.story.ch01'));
@@ -455,7 +455,7 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   assert.equal(saved.combat.supplyUsed,false);
   assert.match(app.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
   assert.match(app.element('interaction').textContent,/잔량 11발.*휴대 한도 도달/);
-  assert.doesNotMatch(app.element('interaction').textContent,/\[E\]/);
+  assert.doesNotMatch(app.element('interaction').textContent,/\[F\]/);
   const resumed=boot(store);
   resumed.element('continue').click();
   assert.match(resumed.element('combatStatus').textContent,/휴대 한도 도달.*11발/);
@@ -463,7 +463,7 @@ test('CH01 finite supply UI reports partial stock, carrying limit and checkpoint
   rules.world.player.charges-=11;
   store.set('veilpoint.story.ch01',Story.serialize(rules));
   const final=boot(store);final.element('continue').click();
-  assert.match(final.element('interaction').textContent,/잔량 11발.*\[E\]/);
+  assert.match(final.element('interaction').textContent,/잔량 11발.*\[F\]/);
   final.interact();
   saved=JSON.parse(store.get('veilpoint.story.ch01'));
   assert.equal(saved.combat.supplyRemaining,0);
@@ -1182,18 +1182,18 @@ test('PC browser shows a reachable manual warning switch and preserves its HUD s
 });
 
 
-test('PC F toggles CH01 finite headlamp and saves through the live browser controller',()=>{
+test('PC L toggles CH01 finite headlamp and saves through the live browser controller',()=>{
  const shared=new Map(),app=boot(shared,false,'granted',true,true);
  app.element('continue').click();
  assert.match(app.element('flashlightStatus').textContent,/소등/);
- app.emit('keydown',{code:'KeyF'});
+ app.emit('keydown',{code:'KeyL'});
  assert.match(app.element('flashlightStatus').textContent,/점등/);
  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,true);
  app.frame(1000/60);
  assert.equal(JSON.parse(shared.get('veilpoint.story.ch01')).flashlightOn,true);
- app.emit('keydown',{code:'KeyF',repeat:true});
+ app.emit('keydown',{code:'KeyL',repeat:true});
  assert.match(app.element('flashlightStatus').textContent,/점등/);
- app.emit('keydown',{code:'KeyF'});
+ app.emit('keydown',{code:'KeyL'});
  assert.match(app.element('flashlightStatus').textContent,/소등/);
  const loaded=boot(shared,false,'granted',true,true);
  loaded.element('continue').click();
@@ -1838,7 +1838,7 @@ test('CH01 remapped PC interaction key is displayed in HUD and operates a physic
  const resumed=boot(store);
  resumed.element('continue').click();
  assert.match(resumed.element('interaction').textContent,/\[T\]/);
- assert.doesNotMatch(resumed.element('interaction').textContent,/\[E\]/);
+ assert.doesNotMatch(resumed.element('interaction').textContent,/\[F\]/);
  resumed.emit('keydown',{code:'KeyE'});
  assert.equal(JSON.parse(store.get('veilpoint.story.ch01')).phase,'terminal');
  resumed.emit('keydown',{code:'KeyT'});
@@ -1858,7 +1858,7 @@ test('CH01 PC remapped interact displays T and actual T key operates relay while
  app.moveForward(0,300);
  assert.match(app.element('interaction').textContent,/\[T\]/,
    'nearby 3D world relay advertises the actual remapped interaction key');
- assert.doesNotMatch(app.element('interaction').textContent,/\[E\]/);
+ assert.doesNotMatch(app.element('interaction').textContent,/\[F\]/);
  const objective=app.element('objective').textContent;
  assert.doesNotMatch(objective,/E로|E를/,'mission text must not advertise a dead key');
  app.emit('keydown',{code:'KeyE'});
