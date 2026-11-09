@@ -15,6 +15,7 @@ function fixture() {
   fs.mkdirSync(path.join(root, 'docs'));
   fs.writeFileSync(path.join(root, 'index.html'),
     '<script src="src/game.js"></script><img src="assets/mark.svg">');
+  fs.writeFileSync(path.join(root, 'terrain.html'), '<script src="src/game.js"></script>');
   fs.writeFileSync(path.join(root, 'story.html'),
     '<script src="src/game.js"></script>');
   fs.writeFileSync(path.join(root, 'src/game.js'), 'console.log("offline");');

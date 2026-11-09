@@ -13,6 +13,7 @@ function fixture() {
   fs.mkdirSync(path.join(dir, 'docs'));
   fs.writeFileSync(path.join(dir, 'index.html'), '<script src="src/game.js"></script><a href="story.html">Story</a>');
   fs.writeFileSync(path.join(dir, 'story.html'), '<script src="src/game.js"></script>');
+  fs.writeFileSync(path.join(dir, 'terrain.html'), '<script src="src/game.js"></script>');
   fs.writeFileSync(path.join(dir, 'src/game.js'), 'console.log("local")');
   for (const file of ['README.md', 'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'])
     fs.writeFileSync(path.join(dir, file), 'candidate');
@@ -24,8 +25,8 @@ test('independent ZIP inspection validates stored CRCs, per-file SHA256 and side
     const made = packageDemo(dir);
     const checked = verifyPackage(made.output);
     assert.equal(checked.sha256, made.sha256);
-    assert.equal(checked.files, 9);
-    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 9);
+    assert.equal(checked.files, 10);
+    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 10);
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 test('corrupted archive bytes and duplicate paths are rejected', () => {

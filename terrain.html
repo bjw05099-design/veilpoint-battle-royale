@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VEILPOINT — 아덴 1:1 타일 개발 미리보기</title>
+<style>
+:root{color-scheme:dark;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#111f26;color:#eaf3f0}
+main{height:100dvh;display:flex;flex-direction:column;min-width:0}
+header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:10px 18px;background:#172c31;border-bottom:1px solid #70867d75}
+header strong{font-size:clamp(13px,2vw,19px);letter-spacing:.07em}
+header a{color:#e2ebd2;text-decoration:none;border:1px solid #819d93;
+ border-radius:4px;padding:8px 13px;font-size:13px}
+.notice{flex:0 0 auto;padding:6px 18px;background:#554b2c;color:#fff0bf;
+ font-size:clamp(10px,1.4vw,12px);line-height:1.35}
+.canvas-wrap{flex:1 1 auto;min-height:0;position:relative}
+canvas{display:block;width:100%;height:100%;touch-action:none;background:#183139}
+.legend{position:absolute;top:12px;left:12px;pointer-events:none;
+ padding:10px;background:#13292ddc;border:1px solid #8aaba277;
+ font-size:11px;line-height:1.55;border-radius:5px;max-width:260px}
+.legend b{font-size:12px;color:#f2e5c5}
+footer{flex:0 0 auto;padding:8px 18px 10px;background:#172c31;
+ border-top:1px solid #70867d75;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.controls{display:flex;flex-wrap:wrap;gap:5px}
+button{background:#2c474c;border:1px solid #92b3a7;color:white;
+ border-radius:4px;min-height:34px;padding:6px 11px;cursor:pointer;font-weight:600}
+button:hover,button:focus-visible,header a:focus-visible{outline:2px solid #d4e8a6}
+#tileStatus{font-size:clamp(10px,1.5vw,12px);color:#d9e7d4;
+ flex:1 1 330px;line-height:1.35;font-variant-numeric:tabular-nums}
+@media(max-height:620px){
+ header{padding:5px 12px}.notice{padding:4px 12px}
+ footer{padding:4px 12px}.legend{padding:6px;font-size:10px}
+ button{min-height:30px;padding:4px 8px}
+}
+</style>
+</head>
+<body>
+<main>
+<header><strong>VEILPOINT / 1:1 CITY TERRAIN LAB</strong><a href="index.html">게임 메뉴로 돌아가기</a></header>
+<div class="notice" role="note"><b>중요: 창작용 테스트 지형입니다.</b> 실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다. 군사·보안 시설 지도나 현행 실측 지도도 아닙니다.</div>
+<div class="canvas-wrap">
+ <canvas id="terrainCanvas" width="1280" height="720" aria-label="1:1 미터 단위의 창작 화산 해안 지형 타일 지도"></canvas>
+ <div class="legend"><b>원본 창작 지형 · 축척 검증</b>
+ <div>청록색: 수면 아래 높이 · 황갈색: 지상 고도</div>
+ <div>연한 격자: 512m 타일 경계</div>
+ <div>밝은색 작은 사각형: 창작 민간 건물 모형</div>
+ <div>WASD/방향키: 128m 이동 · +/-: 배율 · R: 원점</div></div>
+</div>
+<footer>
+ <div class="controls" aria-label="지형 지도 이동">
+  <button id="west" type="button" aria-label="서쪽으로 이동">←</button>
+  <button id="north" type="button" aria-label="북쪽으로 이동">↑</button>
+  <button id="south" type="button" aria-label="남쪽으로 이동">↓</button>
+  <button id="east" type="button" aria-label="동쪽으로 이동">→</button>
+  <button id="zoomOut" type="button" aria-label="지도 축소">−</button>
+  <button id="zoomIn" type="button" aria-label="지도 확대">+</button>
+  <button id="reset" type="button">중심 복원</button>
+ </div>
+ <output id="tileStatus" role="status" aria-live="polite">지형 타일 준비 중</output>
+</footer>
+</main>
+<script src="src/aden-citywide-tiles.js"></script>
+<script src="src/aden-city-explorer.js"></script>
+<script src="src/aden-city-explorer-init.js"></script>
+</body>
+</html>

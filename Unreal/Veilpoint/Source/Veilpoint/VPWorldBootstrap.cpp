@@ -358,6 +358,38 @@ void AVPWorldBootstrap::BeginPlay()
         AddBlock(Buildings,FVector(Roof.X*100.f,Roof.Z*100.f,361.f),
             FVector(Roof.W,Roof.D,Roof.H));
     AddBlock(Ground,FVector(-3490.f,10700.f,-4.f),FVector(33.f,23.f,.08f));
+    // Crater-inspired CIVILIAN rainwater courtyard, original and unlocated:
+    // not a duplicate of Aden's historic protected tanks/cisterns. Six
+    // separate masonry sections preserve both eight-metre door openings.
+    // All 16 bodies are present on CH01 and BR peers at 1m = 100cm,
+    // exactly matching revision-1 browser 60Hz collision footprints.
+    static const FSharedPublicBlock CivicRainCourt[] = {
+        {-136.f,50.f,.65f,28.f,3.7f},
+        {-104.f,50.f,.65f,28.f,3.7f},
+        {-130.f,64.f,12.f,.65f,3.7f},
+        {-110.f,64.f,12.f,.65f,3.7f},
+        {-130.f,36.f,12.f,.65f,3.7f},
+        {-110.f,36.f,12.f,.65f,3.7f},
+        {-129.f,50.f,3.4f,4.6f,.72f},
+        {-111.f,50.f,3.4f,4.6f,.72f},
+        {-129.f,42.f,4.f,1.f,.68f},
+        {-111.f,42.f,4.f,1.f,.68f},
+        {-129.f,59.f,4.f,1.f,.68f},
+        {-111.f,59.f,4.f,1.f,.68f},
+        {-133.f,41.f,.7f,.7f,3.2f},
+        {-107.f,41.f,.7f,.7f,3.2f},
+        {-133.f,58.f,.7f,.7f,3.2f},
+        {-107.f,58.f,.7f,.7f,3.2f}
+    };
+    for(const FSharedPublicBlock& Body : CivicRainCourt)
+        AddBlock(Buildings,FVector(Body.X*100.f,Body.Z*100.f,Body.H*50.f),
+            FVector(Body.W,Body.D,Body.H));
+    // Two raised side roofs, no solid roof across the center aisle. Mesh
+    // bottom is 3.74m (= native center 3.815m, .15m roof thickness).
+    AddBlock(Buildings,FVector(-13000.f,5000.f,381.5f),FVector(10.f,20.f,.15f));
+    AddBlock(Buildings,FVector(-11000.f,5000.f,381.5f),FVector(10.f,20.f,.15f));
+    // Paving on the already solid common ground, nonblocking scenery.
+    AddBlock(Vegetation,FVector(-12000.f,5000.f,1.f),FVector(31.f,27.f,.02f));
     // Four ORIGINAL PUBLIC pedestrian connectors are already planned
     // against 60Hz physical obstacles in src/public-city-footpaths.js.
     // Reproduce their open, collision-verified straight segments in the

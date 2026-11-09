@@ -534,6 +534,30 @@
       [-20,96,.65,.65,3.15,'aden-laneshop-post'],
       [-26,118,1.0,1.0,1.15,'aden-laneshop-public-tap']
     ])o.push({x,z,w,d,h,type});
+    // Original Crater-inspired public rainwater court: civilian urban
+    // architecture, NOT a measured reproduction of Aden's protected historic
+    // cisterns, wells, service networks or current operational facilities.
+    // Two 8m doors are actual NORTH/SOUTH wall gaps; shallow dry stone basins
+    // and seats are individually solid. Built once for BR/BR96 and CH01.
+    // The central -80m X-axis remains clear for pedestrian traversal.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-136,50,.65,28,3.7,'aden-raincourt-wall'],
+      [-104,50,.65,28,3.7,'aden-raincourt-wall'],
+      [-130,64,12,.65,3.7,'aden-raincourt-wall'],
+      [-110,64,12,.65,3.7,'aden-raincourt-wall'],
+      [-130,36,12,.65,3.7,'aden-raincourt-wall'],
+      [-110,36,12,.65,3.7,'aden-raincourt-wall'],
+      [-129,50,3.4,4.6,.72,'aden-raincourt-dry-basin'],
+      [-111,50,3.4,4.6,.72,'aden-raincourt-dry-basin'],
+      [-129,42,4,1,.68,'aden-raincourt-seat'],
+      [-111,42,4,1,.68,'aden-raincourt-seat'],
+      [-129,59,4,1,.68,'aden-raincourt-seat'],
+      [-111,59,4,1,.68,'aden-raincourt-seat'],
+      [-133,41,.7,.7,3.2,'aden-raincourt-post'],
+      [-107,41,.7,.7,3.2,'aden-raincourt-post'],
+      [-133,58,.7,.7,3.2,'aden-raincourt-post'],
+      [-107,58,.7,.7,3.2,'aden-raincourt-post']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -689,7 +713,7 @@
       !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
       !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-')&&!o.type.startsWith('aden-fishhall-')&&
       !o.type.startsWith('aden-craft-hall-')&&!o.type.startsWith('aden-craft-court-')&&
-      !o.type.startsWith('aden-laneshop-'));
+      !o.type.startsWith('aden-laneshop-')&&!o.type.startsWith('aden-raincourt-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
