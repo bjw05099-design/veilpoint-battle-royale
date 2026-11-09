@@ -23,11 +23,37 @@ namespace VPCityTerrain
         return FString::Printf(TEXT("aden_x%d_z%d_505.r16"),Id.X,Id.Y);
     }
 
+    uint16 RawHeight(const TArray<uint8>& Bytes,int32 X,int32 Y)
+    {
+        const int32 At=(Y*Width+X)*2;
+        return uint16(Bytes[At]) | (uint16(Bytes[At+1])<<8);
+    }
+
+    // Offset is the direction FROM the proposed tile TO an already
+    // visible, hash-verified adjacent tile. Reject exact R16 border cracks
+    // before registering its collision/visual section.
+    bool MatchingEdgeR16(const TArray<uint8>& Proposed,
+        const TArray<uint8>& Neighbor,const FIntPoint& Offset)
+    {
+        if(Proposed.Num()!=BytesPerTile||Neighbor.Num()!=BytesPerTile||
+           FMath::Abs(Offset.X)+FMath::Abs(Offset.Y)!=1)return false;
+        for(int32 K=0;K<Width;++K)
+        {
+            int32 Ax=K,Ay=K,Bx=K,By=K;
+            if(Offset.X==1){Ax=Width-1;Ay=K;Bx=0;By=K;}
+            else if(Offset.X==-1){Ax=0;Ay=K;Bx=Width-1;By=K;}
+            else if(Offset.Y==1){Ax=K;Ay=Width-1;Bx=K;By=0;}
+            else {Ax=K;Ay=0;Bx=K;By=Width-1;}
+            if(RawHeight(Proposed,Ax,Ay)!=RawHeight(Neighbor,Bx,By))
+                return false;
+        }
+        return true;
+    }
+
     float DecodeCm(const TArray<uint8>& Bytes,int32 X,int32 Y,
         float HeightStepMetres,float MidpointMetres)
     {
-        const int32 At=(Y*Width+X)*2;
-        const uint16 Raw=uint16(Bytes[At]) | (uint16(Bytes[At+1])<<8);
+        const uint16 Raw=RawHeight(Bytes,X,Y);
         return (MidpointMetres+(int32(Raw)-32768)*HeightStepMetres)*100.f;
     }
 }
@@ -71,6 +97,8 @@ void AVPCityTerrainStreamActor::EndPlay(const EEndPlayReason::Type EndPlayReason
     for(auto& Pair : TileMeshes)
         if(IsValid(Pair.Value.Get()))Pair.Value->DestroyComponent();
     TileMeshes.Empty();
+    LoadedHeightBytes.Empty();
+    RejectedTiles.Empty();
     SourceTiles.Empty();
     Super::EndPlay(EndPlayReason);
 }
@@ -180,7 +208,27 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
     const FSourceTile* Tile=SourceTiles.Find(TileIndex);
     if(!Tile||TileMeshes.Contains(TileIndex))return false;
     TArray<uint8> Bytes;
-    if(!ReadValidatedR16(*Tile,Bytes))return false;
+    if(!ReadValidatedR16(*Tile,Bytes))
+    {
+        RejectedTiles.Add(TileIndex);
+        return false;
+    }
+    static const FIntPoint Adjacent[] = {
+        FIntPoint(1,0),FIntPoint(-1,0),
+        FIntPoint(0,1),FIntPoint(0,-1)
+    };
+    for(const FIntPoint& Offset : Adjacent)
+    {
+        const TArray<uint8>* AdjacentBytes=LoadedHeightBytes.Find(TileIndex+Offset);
+        if(AdjacentBytes && !VPCityTerrain::MatchingEdgeR16(
+            Bytes,*AdjacentBytes,Offset))
+        {
+            RejectedTiles.Add(TileIndex);
+            UE_LOG(LogTemp,Warning,TEXT("[VEILPOINT terrain] R16 seam mismatch at (%d,%d); tile rejected, no fake bridge."),
+                TileIndex.X,TileIndex.Y);
+            return false;
+        }
+    }
     const int32 Step=SampleStride;
     if(Step!=1&&Step!=2&&Step!=4&&Step!=8)return false;
     constexpr int32 Last=VPCityTerrain::Width-1; // 504 quads
@@ -226,7 +274,9 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
     UProceduralMeshComponent* Mesh=NewObject<UProceduralMeshComponent>(this);
     if(!Mesh)return false;
     Mesh->SetupAttachment(SceneRoot);
-    Mesh->SetRelativeLocation(FVector(TileIndex.X*VPCityTerrain::TileEdgeCm,
+    // World-fixed 1:1 tile coordinates must NOT inherit a moved actor's
+    // transform. Nonzero preview-actor placement must preserve tile borders.
+    Mesh->SetWorldLocation(FVector(TileIndex.X*VPCityTerrain::TileEdgeCm,
         TileIndex.Y*VPCityTerrain::TileEdgeCm,0.f));
     Mesh->SetCollisionEnabled(bCreateTerrainCollision?
         ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
@@ -241,30 +291,39 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
     if(TerrainVertexColorMaterial)
         Mesh->SetMaterial(0,TerrainVertexColorMaterial);
     TileMeshes.Add(TileIndex,Mesh);
+    LoadedHeightBytes.Add(TileIndex,MoveTemp(Bytes));
     return true;
 }
 
 void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
 {
     const FIntPoint Center=VPCityTileGrid::TileFromWorldCentimetres(WorldLocation);
-    if(Center==LastOrigin)return;
-    LastOrigin=Center;
     const int32 Radius=FMath::Clamp(LoadRadiusTiles,0,2);
-    // Missing published tiles stay missing; never synthesise topography
-    // in this native test. CandidateTiles yields near-to-far ring order.
+    if(Center==LastOrigin&&Radius==LastRadius)return;
+    LastOrigin=Center;
+    LastRadius=Radius;
+    // CandidateTiles is ordered by ring. Choose the closest AVAILABLE
+    // nine FIRST, not every tile in the radius. Otherwise a previous
+    // nine-tile selection can occupy the budget after crossing an edge and
+    // block the new center tile from loading.
     const TArray<FIntPoint> Candidates=VPCityTileGrid::CandidateTiles(Center,Radius);
+    constexpr int32 TileBudget=9; // conservative native preview on RTX3070
     TSet<FIntPoint> Desired;
     for(const FIntPoint& Candidate : Candidates)
-        if(SourceTiles.Contains(Candidate))Desired.Add(Candidate);
+        if(SourceTiles.Contains(Candidate)&&!RejectedTiles.Contains(Candidate))
+        {
+            if(Desired.Num()>=TileBudget)break;
+            Desired.Add(Candidate);
+        }
     for(auto It=TileMeshes.CreateIterator();It;++It)
     {
         if(!Desired.Contains(It.Key()))
         {
             if(IsValid(It.Value().Get()))It.Value()->DestroyComponent();
+            LoadedHeightBytes.Remove(It.Key());
             It.RemoveCurrent();
         }
     }
-    constexpr int32 TileBudget=9; // conservative native preview on RTX3070
     for(const FIntPoint& Candidate : Candidates)
     {
         if(TileMeshes.Num()>=TileBudget)break;
