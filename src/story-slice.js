@@ -1560,6 +1560,10 @@
           :'지금 어느 길을 선택하든 현지 사람과 먼저 이야기하세요. 문서가 아니라 실제 통행 상황이 중요해요.';
       state.subtitle='마라(현지 기술자): 쓰러진 차양이 옮겨진 뒤에야 이 길을 직접 걸어 나올 수 있었어요. 누군가가 제 대신 걸어온 건 아닙니다. '+response;
       state.message='마라와 현장에서 직접 대화 · 실제 통행 범위만 확인';
+      // Do not fall through into the unrelated old loot/record handler:
+      // the dialog is itself a completed local E-key interaction.
+      syncMarkers(state);
+      return {ok:true,event:'maraConversation',phase:state.phase};
     }else if(marker.id==='officeBoard'&&!state.officeBoardRead&&
        ['records','decision','exit'].includes(state.phase)){
       // The optional physical board says only that residents were asked to
