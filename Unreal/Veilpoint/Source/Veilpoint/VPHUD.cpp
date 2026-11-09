@@ -4,6 +4,7 @@
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
+#include "VPStoryEastGate.h"
 #include "VPStoryPedestrian.h"
 #include "VPGameUserSettings.h"
 #include "Misc/App.h"
@@ -142,6 +143,27 @@ void AVPHUD::DrawHUD()
                        : TEXT("HARBOR SIGNAL | NOT ACTIVE"),
                      FLinearColor(.78f,.88f,.87f,1.f),
                      TextX,Top+136.f*Scale,nullptr,.70f*Scale,false);
+        }
+        // The actual moving public exit is readable only while CH01 has
+        // selected east. This is a replicated physical actor, not a fictional
+        // client-controlled clearance countdown.
+        if(Story->StoryStage==EVPStoryStage::EastExit && GetWorld())
+        {
+            if(!CachedEastGate.IsValid())
+                for(TActorIterator<AVPStoryEastGate> It(GetWorld());It;++It)
+                {
+                    CachedEastGate=*It;
+                    break;
+                }
+            if(const AVPStoryEastGate* Gate=CachedEastGate.Get())
+            {
+                const float Fraction=Gate->GetOpeningFraction();
+                const FString GateLine=FString::Printf(
+                    TEXT("EAST PUBLIC GATE | PHYSICAL CLEARANCE %.0f%%"),
+                    Fraction*100.f);
+                DrawText(GateLine,FLinearColor(.82f,.91f,.82f,1.f),
+                    X,Y+184.f*Scale,nullptr,.74f*Scale,false);
+            }
         }
         // Nearby optional mission wayfinding must come from a truly observed,
         // currently available physical marker. Never turn an unseen route
