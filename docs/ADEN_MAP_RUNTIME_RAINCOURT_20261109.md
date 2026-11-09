@@ -2,7 +2,7 @@
 
 ## 1. Walkable shared Crater-style civilian architecture
 
-The existing 350m BR/BR96 and CH01 scene now contains a **fictional, publicly accessible rainwater courtyard** at local preview coordinates `(-80,-12)`. This is original civil architecture inspired by the historical concept of Aden's drainage and cisterns, **not** a replica of the exact Tanks of Tawila, protected historic structures, current restricted infrastructure or an actual city address.
+The existing 350m BR/BR96 and CH01 scene now contains a **fictional, publicly accessible rainwater courtyard** at local preview coordinates `(-120,50)`. This is original civil architecture inspired by the historical concept of Aden's drainage and cisterns, **not** a replica of the exact Tanks of Tawila, protected historic structures, current restricted infrastructure or an actual city address.
 
 - 16 separate fixed-height physical AABBs: 6 perimeter masonry pieces, 2 shallow **dry** stone decorative basins, 4 seats, 4 columns.
 - North and south entrances have a real central 8m-wide gap, tested with the actual 60Hz moving 0.85m capsule; the western wall blocks passage.
