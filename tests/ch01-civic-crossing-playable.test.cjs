@@ -48,6 +48,8 @@ test('a local optional citizen crossing is visible and cannot be operated from a
  assert.equal(r.ok,true);
  assert.equal(r.event,'civic_crossing_assist');
  assert.equal(s.civicCrossing.assisted,true);
+ assert.equal(Story.civicCrossingReached(s),false,'a conversation is not a completed crossing');
+ assert.equal(Story.civicCrossingArrivalCheckpoint(false,s),false);
  assert.equal(Story.interact(s).event==='civic_crossing_assist',false,
   'repeating F never creates a new artificial civilian task');
  assert.deepEqual({...resident},home,'the first click does not teleport a civilian');
@@ -70,9 +72,14 @@ test('resident waits for the player, resumes only on walkable ground and survive
  for(let i=0;i<500;i++)Story.step(s,1/60,{});
  assert.equal(s.civicCrossing.civilian.x,10);
  assert.equal(s.world.civicCrossing.x,10);
+ assert.equal(Story.civicCrossingReached(s),true);
+ assert.equal(s.world.civicCrossingArrived,true,'actual 60Hz arrival reaches the rendered world');
+ assert.equal(Story.civicCrossingArrivalCheckpoint(false,s),true);
+ assert.equal(Story.civicCrossingArrivalCheckpoint(true,s),false,'no per-frame repeat save');
  const checkpoint=Story.serialize(s),back=Story.restore(checkpoint);
  assert.deepEqual(back.civicCrossing,s.civicCrossing);
  assert.equal(back.world.civicCrossing.x,10);
+ assert.equal(back.world.civicCrossingArrived,true,'checkpoint restores witnessed world result');
  assert.equal(Story.serialize(back),checkpoint);
 });
 test('legacy v2 save has no newly invented extra citizen; corrupted civil position is rejected',()=>{

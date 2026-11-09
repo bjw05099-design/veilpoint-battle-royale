@@ -1693,7 +1693,7 @@
         ?'출구 통과 보류 · 운반 중인 물품을 현장 인계하거나 임시 적재대에 내려놓으세요'
       :nearby.id==='exitEvac'&&state.guide.active&&!state.guide.arrived
         ?'출구 통과 보류 · 안내원의 실제 안뜰 도착 또는 현지 구조단 인계가 필요합니다'+
-          (state.guide.waiting&&situation.guideStatus.includes('E로 동행 재개 가능')
+          (state.guide.waiting&&situation.guideStatus.includes('F로 동행 재개 가능')
             ?' · '+interactPrompt+' 가까운 안내원 동행 재개':'')
       :nearby.id==='guideControl'?interactPrompt+' '+nearby.label+' · 현장 안내원 위치에서 동행 상태 변경'
       :nearby.id==='guideRelease'||nearby.id==='guideTransfer'?interactPrompt+' '+nearby.label+' · 안내원 현장 인계'
@@ -1728,6 +1728,7 @@
       !Story.situation(state).eastGateOpen;
     const healthBefore=state.world.player.health;
     const guideArrivedBefore=state.guide.arrived;
+    const civicReachedBefore=Story.civicCrossingReached(state);
     const completeBefore=state.phase==='complete';
     const recordsBefore=state.phase==='records';
     const shotsBefore=running&&state.phase==='engagement'
@@ -1776,6 +1777,12 @@
     // the normal five-second traversal autosave. The transition is one-shot.
     if(running&&Story.escortArrivalCheckpoint(guideArrivedBefore,state))
       persist('안내원 안뜰 도착');
+    // A civilian arriving at the observed public crossing is a real fixed-step
+    // result, not an F-press success or an invented city-wide evacuation.
+    // Commit this one-shot state immediately; ordinary traversal keeps its
+    // existing bounded autosave fallback and older saves remain readable.
+    if(running&&Story.civicCrossingArrivalCheckpoint(civicReachedBefore,state))
+      persist('주민의 실제 건널목 도착');
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
     // A browser crash or refresh during quiet traversal must not rewind an entire

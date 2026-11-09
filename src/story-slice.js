@@ -507,6 +507,19 @@
   }
   // Unlike a quest arrow, a crossing resident offers a local optional F
   // interaction only after the player has observed the disrupted street.
+  // Reaching the physical far curb, rather than accepting a conversation,
+  // is the persistent consequence of this locally witnessed city event.
+  // Older v2 checkpoints already carry the full crossing position; no new
+  // save field, quest gate or omniscient remote report is introduced.
+  function civicCrossingReached(state){
+    const c=state.civicCrossing;
+    return !!(c&&c.disrupted&&c.assisted&&
+      Math.hypot(c.civilian.x-c.destination.x,c.civilian.z-c.destination.z)<1e-6);
+  }
+  function civicCrossingArrivalCheckpoint(wasReached,state){
+    return wasReached===false&&civicCrossingReached(state)&&
+      ['records','decision','exit','complete'].includes(state.phase);
+  }
   function civicCrossingMarkers(state){
     if(!Civic||!state.civicCrossing?.disrupted||
        state.civicCrossing.assisted||
@@ -666,6 +679,7 @@
     state.world.civilianWalker=state.civilianWalker;
     state.world.civicCrossing=state.civicCrossing?
       {...state.civicCrossing.civilian,role:'civic-crossing-resident'}:null;
+    state.world.civicCrossingArrived=civicCrossingReached(state);
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
     state.world.relayRestored=state.relayRestored;
@@ -743,7 +757,7 @@
       const d=Math.hypot(marker.x-p.x,marker.z-p.z);
       // The coordinator's fixed desk is not a remote release button:
       // returning the guide requires arm's-reach contact with BOTH staff and
-      // the actual civilian, with a clear path to each. The local E prompt
+      // the actual civilian, with a clear path to each. The local F prompt
       // uses the same rule, preventing a misleading interaction HUD.
       const guideInReach=!['guideRelease','guideTransfer'].includes(marker.id)||(
         Math.hypot(state.guide.x-p.x,state.guide.z-p.z)<2.1&&
@@ -870,8 +884,8 @@
       !Sim.lineBlocked(p.x,p.z,g.x,g.z,state.world.obstacles);
   }
   // Reaching a physically open, staffed corridor should conclude the short
-  // preview by actual travel, not a magic E press on an invisible finish box.
-  // The historical E interaction remains supported for saved game sessions.
+  // preview by actual travel, not a magic F press on an invisible finish box.
+  // The historical F interaction remains supported for saved game sessions.
   function finishAtExit(state){
     state.phase='complete';state.world.status='won';
     state.subtitle=state.choice==='verification'
@@ -975,6 +989,7 @@
       state.world.civicCrossing={
         ...state.civicCrossing.civilian,role:'civic-crossing-resident'
       };
+      state.world.civicCrossingArrived=civicCrossingReached(state);
     }
     // Unlike a fixed escort waypoint, Kim independently changes behavior
     // when the ordinary harbor becomes unsafe. He moves to the existing
@@ -1084,7 +1099,7 @@
     // An unexpected escalation occurs in the actually visited harbor after
     // the short Korea/arrival recap. No recovered deployment paper, arbitrary
     // checkpoint checklist or press-E console is necessary. Retain the older
-    // direct E interaction and save fields for legacy checkpoint compatibility.
+    // direct F interaction and save fields for legacy checkpoint compatibility.
     if(state.phase==='terminal'&&state.world.elapsed>=OPENING_BEATS[OPENING_BEATS.length-1].until&&
        Math.hypot(p.x-POINTS.terminal.x,p.z-POINTS.terminal.z)<=6)
       startUnexpectedEscalation(state);
@@ -1092,7 +1107,7 @@
     // physically reaching the staffed harbor corridor after the unexpected
     // escalation, not by searching ledgers or pressing E on a paper console.
     // This is an OPTIONAL automatic entry to the EXISTING decision dialog.
-    // Legacy E interaction and all v2 checkpoint fields remain compatible.
+    // Legacy F interaction and all v2 checkpoint fields remain compatible.
     // Merely restoring a checkpoint already inside the area never triggers it.
     if(state.phase==='records'&&movedDistance>1e-7){
       const from=Math.hypot(beforeX-ROUTE_FORK.x,beforeZ-ROUTE_FORK.z);
@@ -1150,7 +1165,7 @@
     }
     // A brief contextual announcement is triggered by the captain's actual
     // approach to an evacuation corridor. No fictional field paperwork or
-    // extra E interaction is created, and this does not block either exit.
+    // extra F interaction is created, and this does not block either exit.
     const reachedCorridor=state.phase==='exit'&&state.choice&&
       Math.hypot(p.x-(state.choice==='evacuation'?POINTS.exitEvac.x:POINTS.exitVerify.x),
                  p.z-(state.choice==='evacuation'?POINTS.exitEvac.z:POINTS.exitVerify.z))<=12;
@@ -1310,7 +1325,7 @@
       if(range>=14){
         g.waiting=true;
         state.subtitle='유수프(현지 구조단): 안내원이 뒤처져 현장에서 기다리고 있어. 직접 돌아가 동행을 재개해 줘.';
-        state.message='안내원 거리 이탈 · 현장 대기 · 접근 후 E로 재개';
+        state.message='안내원 거리 이탈 · 현장 대기 · 접근 후 F로 재개';
       }
       if(!g.waiting&&range>1.7&&range<14){
         // A long physical wall can increase separation beyond 11m while
@@ -1348,7 +1363,7 @@
         state.message='현지 대피 안내원 안뜰 도착 · 동행 결과 기록';
       }
     }
-    // Keep physical 3D E markers aligned with the actual moving civilian
+    // Keep physical 3D F markers aligned with the actual moving civilian
     // or escort, removing them when their local observation range ends.
     refreshMovingActorMarkers(state);
     // CH01 runs its own fixed-step loop instead of Sim.tick: expire transient
@@ -1487,7 +1502,7 @@
     if(state.phase==='exit'&&state.world.status==='playing'){
       const isSouth=state.choice==='evacuation';
       const exit=isSouth?POINTS.exitEvac:POINTS.exitVerify;
-      // The green/blue E marker is INSIDE the busy local courtyard; reaching
+      // The green/blue F marker is INSIDE the busy local courtyard; reaching
       // its 2m sphere cannot terminate the chapter before the player chooses
       // to speak to Yusuf, hand over supplies or inspect the nearby cabinet.
       // Cross a separate physical threshold BEYOND that site to leave:
@@ -1516,7 +1531,7 @@
     if(state.world.player.charges===0){
       const cacheAvailable=state.combat.supplyRemaining>0;
       state.subtitle=cacheAvailable
-        ?'유수프(현지 구조단): 표시된 유한 보급 상자에 남은 장비가 있어. 가까이 가서 E로 확보해.'
+        ?'유수프(현지 구조단): 표시된 유한 보급 상자에 남은 장비가 있어. 가까이 가서 F로 확보해.'
         :'마라(기술자): 남은 발사 자원이 없습니다. 메뉴에서 임무를 다시 시작할 수 있습니다.';
       state.message=cacheAvailable?'자원 소진 · 보급 상자 E 확보 또는 임무 재시작 가능':'자원 소진 · 임무 재시작 가능';
       return {ok:false,reason:'empty'};
@@ -1587,7 +1602,7 @@
     state.message=state.flashlightOn?'휴대 헤드램프 점등 · 설정된 키로 소등 가능':'휴대 헤드램프 소등 · 설정된 키로 점등 가능';
     return {ok:true,on:state.flashlightOn};
   }
-  // Both real-time witnessed arrival and the original E interaction enter
+  // Both real-time witnessed arrival and the original F interaction enter
   // exactly the same one-shot event. Never treat it as the deployment's purpose.
   function startUnexpectedEscalation(state){
     if(state.phase!=='terminal')return false;
@@ -1812,7 +1827,7 @@
       // a second crate or remotely transferring supplies to the aid team.
       state.aidStaged=true;state.world.aidStaged=true;state.world.carryingAid=false;
       state.subtitle='유수프(현지 구조단): 임시 적재대에 상자를 놓았어. 필요하면 같은 자리에서 다시 들어 인계해 줘.';
-      state.message='비상 물품 임시 적재 · E로 다시 들 수 있습니다';
+      state.message='비상 물품 임시 적재 · F로 다시 들 수 있습니다';
     }else if(marker.id==='aidResume'&&state.phase==='exit'&&state.choice==='evacuation'&&state.aidStaged){
       state.aidStaged=false;state.world.aidStaged=false;state.world.carryingAid=true;
       state.subtitle='유수프(현지 구조단): 적재대의 같은 상자를 다시 운반하는 거야. 남쪽 인계 지점은 그대로야.';
@@ -1880,11 +1895,11 @@
       state.subtitle=state.guide.waiting
         ?'유수프(현지 구조단): 안내원은 이곳에서 기다릴 거야. 직접 돌아와 동행을 재개해 줘.'
         :'유수프(현지 구조단): 안내원이 다시 함께 이동할 거야. 가까운 거리에서 천천히 안내해 줘.';
-      state.message=state.guide.waiting?'안내원 현장 대기 · 접근 후 E로 재개':'안내원 동행 재개 · 남쪽 안뜰로 이동';
+      state.message=state.guide.waiting?'안내원 현장 대기 · 접근 후 F로 재개':'안내원 동행 재개 · 남쪽 안뜰로 이동';
     }else if(marker.id==='guideTransfer'&&state.phase==='exit'&&state.choice==='evacuation'&&
       state.guide.active&&!state.guide.arrived){
       // Optional second physical handoff point: the staffed south aid station.
-      // The E prompt requires the player, the actual guide and the aid station
+      // The F prompt requires the player, the actual guide and the aid station
       // to be locally reachable; no remote dismissal, teleport or extra escort.
       state.guide.active=false;
       state.guide.released=true;
@@ -1950,7 +1965,7 @@
       }
       if(marker.id==='exitVerify'&&!gateOpen(state)){
         // The same 60Hz gate motor can be paused by a real person in its swept
-        // path. An E press must not present an advancing countdown while the
+        // path. An F press must not present an advancing countdown while the
         // local safety interlock is engaged.
         if(state.gateObstructed){
           state.subtitle='유수프(현지 구조단): 통제문 이동 구역에 사람이 있어 안전 정지했습니다. 이동 경로를 비워 주세요.';
@@ -2091,7 +2106,7 @@
         state.aidStaged?'민간 비상 물품 임시 적재 중 · 현지 구조단 인계 전':
         state.aidPickedUp?'민간 비상 물품 운반 중 · 현지 구조단 인계 필요':
           '민간 비상 물품 미수령 · 남쪽 인계는 선택 사항',
-      guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?(['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 현장 대기 · E로 구조단에 현장 인계 가능':nearest(state)?.id==='exitEvac'&&canResumeGuideAtExit(state)?'대피 안내원 안뜰 근처 대기 · 출구에서 E로 동행 재개 가능':nearest(state)?.id==='guideControl'?'대피 안내원 현장 대기 · E로 재개 가능':visibleEscortDistance(state)===null?'대피 안내원 현장 대기 · 마지막으로 확인한 위치로 돌아가세요':'대피 안내원 현장 대기 · 직접 닿을 만큼 다가가 E로 재개하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=14?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':(nearest(state)?.id==='guideControl'?'대피 안내원 동행 중 · E로 대기 지시 가능':['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 동행 중 · E로 구조단 현장 인계 가능':'대피 안내원 동행 중 · 안내원 곁으로 다가가 E로 대기 지시하세요')):
+      guideStatus:state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?'대피 안내원 남쪽 구조단 인계 완료':'대피 안내원 집결지 현장 인계 완료'):state.guide.active?(state.guide.arrived?'대피 안내원 안뜰 도착':state.guide.waiting?(['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 현장 대기 · F로 구조단에 현장 인계 가능':nearest(state)?.id==='exitEvac'&&canResumeGuideAtExit(state)?'대피 안내원 안뜰 근처 대기 · 출구에서 F로 동행 재개 가능':nearest(state)?.id==='guideControl'?'대피 안내원 현장 대기 · F로 재개 가능':visibleEscortDistance(state)===null?'대피 안내원 현장 대기 · 마지막으로 확인한 위치로 돌아가세요':'대피 안내원 현장 대기 · 직접 닿을 만큼 다가가 F로 재개하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=14?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':guideBodyPathBlocked(state.guide,state.world.player,state.world.obstacles)?(guideDetour(state,state.guide,state.world.player)?'대피 안내원 장애물 우회 중 · 가까운 거리에서 천천히 이동하세요':'대피 안내원과 시야 단절 · 가까운 통로로 다시 접근하세요'):Math.hypot(state.guide.x-state.world.player.x,state.guide.z-state.world.player.z)>=7?'대피 안내원과 거리 이탈 · 마지막으로 확인한 위치로 돌아가세요':(nearest(state)?.id==='guideControl'?'대피 안내원 동행 중 · F로 대기 지시 가능':['guideRelease','guideTransfer'].includes(nearest(state)?.id)?'대피 안내원 동행 중 · F로 구조단 현장 인계 가능':'대피 안내원 동행 중 · 안내원 곁으로 다가가 F로 대기 지시하세요')):
         state.musterConfirmed&&state.choice==='evacuation'?'대피 안내원 동행 선택 가능':'대피 안내원 동행 미시작',
       civilianConsequence:state.choice==='evacuation'
         ?(state.musterConfirmed?'유수프 구조단: 집결지 담당자와 직접 협조 · 미확인 주민은 후속 구조단 확인':'유수프 구조단: 남쪽 현장 담당자와 아직 만나지 않음')
@@ -2236,35 +2251,35 @@
   }
   function objective(state) {
     switch(state.phase){
-      case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. E로 직접 점검할 수도 있습니다.';
+      case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. F로 직접 점검할 수도 있습니다.';
       case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
         (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용되어 소진되었습니다.':
         state.world.player.charges>=state.world.player.maxCharges
           ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'
-          :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
+          :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 F로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
       case 'records':return (localRouteOffer(state)
-        ?localRouteOffer(state).speaker+' 바로 앞입니다. E키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다. 서류는 필요하지 않습니다.'
+        ?localRouteOffer(state).speaker+' 바로 앞입니다. F키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다. 서류는 필요하지 않습니다.'
         :'현지 구조단에 직접 접근하면 남쪽 주민 지원을 협의할 수 있습니다. 동쪽 담당자에게 직접 접근하면 통행을 요청할 수 있습니다. 기록 조사는 선택 사항입니다.')+
-        (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
-        (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
+        (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 F로 수령할 수 있습니다.':'')+
+        (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 F로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
       case 'decision':return localRouteOffer(state)
-        ?localRouteOffer(state).speaker+'에게 E키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다.'
+        ?localRouteOffer(state).speaker+'에게 F키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다.'
         :state.found.length===2
         ?'현장 기록을 추가 확인했습니다. 남쪽 대피 지원과 동쪽 통로 현장 확인 중 선택하세요.'
         :'두 경로 모두 선택할 수 있습니다. 동쪽 통로는 현지 통제소의 실제 개방을 기다려야 하며 기록 검토는 선택 사항입니다.';
       case 'exit':return state.choice==='verification'
-        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 E로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 E로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 F로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 F로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
         :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
           (state.world.carryingAid?' 운반 중인 비상 물품은 구조단에 인계하거나 임시 적재대에 내려놓아야 출구를 통과할 수 있습니다.':'')+
-          (state.musterConfirmed?' 집결지 구조단 담당자와 현장 협의 완료.':' 선택: 집결지의 유수프 구조단 담당자에게 직접 접근해 E로 협의할 수 있습니다.')+
+          (state.musterConfirmed?' 집결지 구조단 담당자와 현장 협의 완료.':' 선택: 집결지의 유수프 구조단 담당자에게 직접 접근해 F로 협의할 수 있습니다.')+
           (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
-            ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 E로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. E로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지 또는 남쪽 구조단 접수소에 직접 인계하세요.'):state.musterConfirmed
-            ?' 집결지 안내원(초록 표식)에게 E로 동행을 요청할 수 있습니다.':'')+
+            ?(state.guide.waiting?' 안내원이 현장에서 대기 중입니다. 가까이에서 F로 동행 재개 또는 집결지 인계가 가능합니다.':' 안내원 동행 중입니다. F로 잠시 대기시킬 수 있습니다. 반드시 안뜰까지 함께 도착하거나 집결지 또는 남쪽 구조단 접수소에 직접 인계하세요.'):state.musterConfirmed
+            ?' 집결지 안내원(초록 표식)에게 F로 동행을 요청할 수 있습니다.':'')+
           (state.aidDelivered?' 비상 물품 인계 완료.':state.aidStaged
-            ?' 상자가 임시 적재대에 있습니다. E로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp
-            ?' 상자를 운반 중입니다. 구조단에 인계하거나 임시 적재대에 E로 내려놓으세요.'
-            :' 선택: 비상 물품 상자를 E로 집어 구조단에 직접 인계할 수 있습니다.');
+            ?' 상자가 임시 적재대에 있습니다. F로 다시 들거나 그대로 대피할 수 있습니다.':state.aidPickedUp
+            ?' 상자를 운반 중입니다. 구조단에 인계하거나 임시 적재대에 F로 내려놓으세요.'
+            :' 선택: 비상 물품 상자를 F로 집어 구조단에 직접 인계할 수 있습니다.');
       default:return 'CH01 완료. 캠페인 전체 12시간은 아직 제작 중입니다.';
     }
   }
@@ -2775,6 +2790,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,localRouteOffer,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot,civicCrossingReached,civicCrossingArrivalCheckpoint
   });
 });

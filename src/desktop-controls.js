@@ -117,6 +117,12 @@
   const map=bindings&&typeof bindings==='object'?bindings:DEFAULT_BINDINGS;
   const label=action=>keyLabel(map[action]);
   return String(text??'')
+   // Native and browser CH01 now author F by default, but a player may
+   // explicitly remap the action (e.g. T). Show that actual saved key.
+   .replaceAll('F키',label('interact')+'키')
+   .replaceAll('F로',label('interact')+'로')
+   .replaceAll('F를',label('interact')+'를')
+   .replaceAll('F 누르',label('interact')+' 누르')
    .replaceAll('E로',label('interact')+'로')
    .replaceAll('E를',label('interact')+'를')
    .replaceAll('E 누르',label('interact')+' 누르')

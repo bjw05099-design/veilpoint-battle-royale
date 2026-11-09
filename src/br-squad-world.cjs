@@ -689,6 +689,11 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
+        // Only physical squad proximity is shared with this authenticated
+        // player. Personal exertion and opponent information remain private.
+        nearbyTeammate:p!==me&&p.eligible&&me.eligible&&
+          Math.hypot(p.x-me.x,p.z-me.z)<=12&&
+          !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles),
         benchResting:p.eligible&&p.benchResting,
         headlampOn:p.eligible&&p.headlampOn,
         waving:p.eligible&&p.waveUntilTick>this.tick,
