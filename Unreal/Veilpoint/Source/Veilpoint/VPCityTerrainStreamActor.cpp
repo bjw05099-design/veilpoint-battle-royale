@@ -238,6 +238,8 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
     Mesh->CreateMeshSection_LinearColor(0,Vertices,Triangles,Normals,
         UV0,EmptyUV,EmptyUV,EmptyUV,Colors,EmptyTangents,
         bCreateTerrainCollision,false);
+    if(TerrainVertexColorMaterial)
+        Mesh->SetMaterial(0,TerrainVertexColorMaterial);
     TileMeshes.Add(TileIndex,Mesh);
     return true;
 }
