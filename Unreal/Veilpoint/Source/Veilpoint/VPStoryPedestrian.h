@@ -29,8 +29,15 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01|Civilian")
     bool bReachedSouthCourtyard = false;
 
+    // Local resident responds to the unexpected disruption independently
+    // of the captain's mission choice; no rescue flag or quest reward.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01|Civilian")
+    bool bMovedToSidewalk = false;
+
 private:
     float FixedAccumulator = 0.f;
     static const FVector SouthApproachDestination;
+    static const FVector SidewalkDestination;
+    bool WalkToward(const FVector& Destination,float FixedSeconds);
     void AdvancePedestrian(float FixedSeconds);
 };
