@@ -579,6 +579,7 @@ class BrSquadWorld {
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
         headlampOn:p.eligible&&p.headlampOn,
         stepping:p.eligible&&!!p.stepping,
+        stepOverProgress:p.eligible&&p.stepping?p.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(p),
         eliminationReason:p.eligible?null:p.eliminationReason,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
@@ -614,7 +615,8 @@ class BrSquadWorld {
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
           moving:p.moving,crouched:p.crouchHeld,
-          headlampOn:p.headlampOn,stepping:!!p.stepping});
+          headlampOn:p.headlampOn,stepping:!!p.stepping,
+          stepOverProgress:p.stepping?p.stepping.progress/STEP_OVER_TICKS:null});
       }
     }
     const signal=this.squadSignals.get(me.team);
