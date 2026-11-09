@@ -482,6 +482,32 @@
       [-76,113,2.6,1.6,1.1,'aden-gallery-counter'],
       [-60,113,2.6,1.6,1.1,'aden-gallery-counter']
     ])o.push({x,z,w,d,h,type});
+    // Public craft hall and adjoining shaded pedestrian forecourt. This
+    // fictional, non-georeferenced neighborhood is shared by BR and CH01.
+    // Two usable side rooms open from a 12m CENTRAL passage; north and south
+    // 10m doors are physical gaps, not painted portals. Exterior forecourt
+    // furnishings remain solid, while roof panels are visual overhead only.
+    // Keep revision-0 save geometry unchanged; no special mission trigger.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-80,36,.7,30,3.6,'aden-craft-hall-wall'],
+      [-46,36,.7,30,3.6,'aden-craft-hall-wall'],
+      [-74,51,12,.7,3.6,'aden-craft-hall-wall'],
+      [-52,51,12,.7,3.6,'aden-craft-hall-wall'],
+      [-74,21,12,.7,3.6,'aden-craft-hall-wall'],
+      [-52,21,12,.7,3.6,'aden-craft-hall-wall'],
+      [-70,35,.65,14,2.8,'aden-craft-hall-divider'],
+      [-56,35,.65,14,2.8,'aden-craft-hall-divider'],
+      [-75,31,2.8,1.2,1.45,'aden-craft-hall-shelf'],
+      [-51,31,2.8,1.2,1.45,'aden-craft-hall-shelf'],
+      [-75,42,3,1.6,.92,'aden-craft-hall-table'],
+      [-51,42,3,1.6,.92,'aden-craft-hall-table'],
+      [-77,57,.8,.8,3.15,'aden-craft-court-post'],
+      [-49,57,.8,.8,3.15,'aden-craft-court-post'],
+      [-77,64,.8,.8,3.15,'aden-craft-court-post'],
+      [-49,64,.8,.8,3.15,'aden-craft-court-post'],
+      [-74,61,4,1,.72,'aden-craft-court-seat'],
+      [-52,61,4,1,.72,'aden-craft-court-seat']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -593,7 +619,8 @@
     // rare local overlap with the new block deterministically below.
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
       !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
-      !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-')&&!o.type.startsWith('aden-fishhall-'));
+      !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-')&&!o.type.startsWith('aden-fishhall-')&&
+      !o.type.startsWith('aden-craft-hall-')&&!o.type.startsWith('aden-craft-court-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
