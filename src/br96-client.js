@@ -763,7 +763,7 @@ async function loadPublicGeometry(){
     throw Error('invalid_public_geometry');
   // Reject forged/malformed public pavement payloads before using either
   // 2D or street projection. The server is the sole author of these surfaces.
-  const pavements=record.environment?.pavements;
+  const pavements=record.pavements;
   if(!Array.isArray(pavements)||pavements.length!==4||
      new Set(pavements.map(p=>p?.id)).size!==4||
      !pavements.every(p=>p&&['tawahi','mualla','crater','khormaksar'].includes(p.id)&&
