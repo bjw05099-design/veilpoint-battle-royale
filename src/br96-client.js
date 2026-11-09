@@ -222,7 +222,7 @@ function render(){
  const members=Array.isArray(state?.squad)?state.squad:[];
  const self=state?.self;
  el('roster').textContent=squadPanel?.roster(state)|| (members.length
-  ?'우리 분대\\n'+members.map((m,i)=>(i+1)+'. '+(m?m.name+' · '+(m.ready?'준비':'대기'):'빈 좌석')).join('\\n')
+  ?'우리 분대\n'+members.map((m,i)=>(i+1)+'. '+(m?m.name+' · '+(m.ready?'준비':'대기'):'빈 좌석')).join('\n')
   :'분대 대기 중');
  el('details').textContent=state
   ?'전체 '+state.participants+'/'+state.capacity+'명 · 준비 '+state.readyCount+'/'+state.capacity+
