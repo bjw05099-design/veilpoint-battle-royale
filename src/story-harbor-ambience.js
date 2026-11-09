@@ -26,6 +26,7 @@
  function acousticArea(player){
   if(indoors(player))return 'interior';
   const distance=(x,z)=>Math.hypot(player.x-x,player.z-z);
+  if(distance(-12,-60)<15)return 'relief-courtyard';
   if(distance(24,-35)<19)return 'market';
   if(distance(0,-18)<23)return 'harbor-approach';
   return 'open-harbor';
@@ -59,7 +60,15 @@
   // A single powered fixture never implies a city-wide recovery.
   if(state.relayRestored===true&&
      Math.hypot(player.x-8,player.z+42)<17)highHz=109;
-  return Object.freeze({lowHz,highHz,level,indoors:inside,area,moment});
+  // Reaching the south courtyard alone is not evidence of resupply.
+  // Once the captain has physically handed the crate to Yusuf's team,
+  // only the immediate public receiving yard gains a modest, calmer
+  // original synthesized activity bed. Other districts do not change.
+  const witnessedAid=state.aidDelivered===true&&
+    area==='relief-courtyard'&&moment==='changed-street';
+  if(witnessedAid){lowHz=56;highHz=119;}
+  return Object.freeze({lowHz,highHz,level,indoors:inside,area,moment,
+    witnessedAid});
  }
  function create({AudioContextClass=null}={}){
   let context=null,low=null,high=null,gain=null,enabled=false,volume=1,lastLevel=0;
