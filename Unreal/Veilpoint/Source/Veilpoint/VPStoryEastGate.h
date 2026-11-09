@@ -16,6 +16,7 @@ public:
     AVPStoryEastGate();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
     TObjectPtr<UStaticMeshComponent> Door;
@@ -27,6 +28,9 @@ public:
 
 private:
     float StepAccumulator=0.f;
+    // Server-started elevation replicated for late joiners observing a gate
+    // already in motion. Do not initialize from an interpolated client pose.
+    UPROPERTY(Replicated)
     float ClosedZ=0.f;
     static constexpr float TravelCm=340.f;
     static constexpr float SlideSpeedCmPerSecond=115.f;
