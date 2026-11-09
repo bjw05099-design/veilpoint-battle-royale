@@ -41,6 +41,14 @@ const MARKET_LANE_ROOFS=Object.freeze([
  Object.freeze({x:-24.5,z:105,w:10,d:16,roofY:3.53,h:.16,
    type:'shared-public-canopy',color:Object.freeze([.53,.55,.47]),canvas:'#929883'})
 ]);
+// Crater-inspired public rain court. Lintelled roofs only cover the SIDE
+// terraces; an unobstructed 8m-wide north/south pedestrian axis is open to sky.
+const RAINCOURT_CANOPIES=Object.freeze([
+ Object.freeze({x:-90,z:-12,w:10,d:20,roofY:3.74,h:.15,
+  type:'shared-public-canopy',color:Object.freeze([.56,.48,.38]),canvas:'#998672'}),
+ Object.freeze({x:-70,z:-12,w:10,d:20,roofY:3.74,h:.15,
+  type:'shared-public-canopy',color:Object.freeze([.61,.55,.45]),canvas:'#a79a80'})
+]);
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
 // Visible actor orientation is sourced only from an actually rendered 60Hz
 // opponent, never from an invisible opponent/radar or inferred client target.
@@ -400,7 +408,8 @@ class SoftwareRenderer {
   for(const floor of [
    {x:-63,z:36,w:31.6,d:27.8,color:'#857967'},
    {x:-63,z:60.6,w:27,d:9,color:'#9a8970'},
-   {x:-34.9,z:107,w:33,d:23,color:'#8b816c'}
+   {x:-34.9,z:107,w:33,d:23,color:'#8b816c'},
+   {x:-80,z:-12,w:31,d:27,color:'#a2927c'}
   ]){
    const hw=floor.w/2,hd=floor.d/2;
    polygon([proj(floor.x-hw,.09,floor.z-hd),
@@ -425,6 +434,7 @@ class SoftwareRenderer {
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
      o.type.startsWith('aden-laneshop-')?o.type:
+     o.type.startsWith('aden-raincourt-')?o.type:
      o.type.startsWith('aden-craft-')?o.type:
      o.type.startsWith('aden-ferry-hall-')?o.type:
      o.type.startsWith('aden-seafront-market-')?o.type:
@@ -462,6 +472,7 @@ class SoftwareRenderer {
   for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
   for(const roof of CRAFT_PUBLIC_CANOPIES)objects.push(roof);
   for(const roof of MARKET_LANE_ROOFS)objects.push(roof);
+  for(const roof of RAINCOURT_CANOPIES)objects.push(roof);
   objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
   objects.push({x:-45,z:135,h:.18,w:22,d:20,roofY:3.35,type:'aden-ferry-roof'});
  }
@@ -556,6 +567,10 @@ class SoftwareRenderer {
    o.type.includes('aden-laneshop-counter')?'#b09572':
    o.type.includes('aden-laneshop-post')?'#96836d':
    o.type.includes('aden-laneshop-public-tap')?'#6d8787':
+   o.type==='aden-raincourt-wall'?'#b3a48c':
+   o.type==='aden-raincourt-dry-basin'?'#7e7567':
+   o.type==='aden-raincourt-seat'?'#99846f':
+   o.type==='aden-raincourt-post'?'#b2a084':
    o.type==='aden-craft-hall-wall'?'#a9997e':
    o.type==='aden-craft-hall-divider'?'#897d6c':
    o.type==='aden-craft-hall-shelf'?'#846e54':
@@ -805,6 +820,25 @@ class Renderer {
     m.box(o.x,o.h-.12,o.z,o.w+.07,.12,o.d+.07,[.66,.51,.35]);
    return;
   }
+  if(o.type.startsWith('aden-raincourt-')){
+   // Separate physical wall segments, stone basin, seat and columns; none
+   // seals the north/south entries or exposes any real protected water site.
+   const wall=o.type==='aden-raincourt-wall',
+    basin=o.type==='aden-raincourt-dry-basin',
+    seat=o.type==='aden-raincourt-seat';
+   const body=wall?[.66,.59,.49]:
+    basin?[.39,.41,.39]:seat?[.56,.44,.33]:[.57,.49,.39];
+   m.box(o.x,0,o.z,o.w,o.h,o.d,body);
+   if(wall)m.box(o.x,o.h-.2,o.z,o.w+.05,.2,o.d+.05,[.76,.69,.56]);
+   if(basin){
+    // Dry public court decorative basin: a visually inset *dry* channel.
+    // Its only gameplay collider is the original shallow solid body.
+    m.box(o.x,o.h-.11,o.z,o.w+.2,.12,o.d+.2,[.55,.51,.43]);
+    m.box(o.x,o.h-.065,o.z,o.w-.35,.035,o.d-.35,[.30,.35,.36]);
+   }
+   if(seat)m.box(o.x,o.h-.12,o.z,o.w+.06,.12,o.d+.06,[.69,.56,.40]);
+   return;
+  }
   // All craft-hall details use the exact collision body from Sim. No
   // opaque exterior cube seals the two playable interior rooms.
   if(o.type==='aden-craft-hall-wall'){
@@ -974,7 +1008,8 @@ class Renderer {
  if(this.worldTerrainRevision===1){
   const floors=[{x:-78.8,z:22.1,w:31.6,d:27.8,col:[.43,.39,.31]},
     {x:-76.5,z:56.1,w:27,d:9,col:[.47,.42,.34]},
-    {x:-51.4,z:95.5,w:33,d:23,col:[.43,.40,.34]}];
+    {x:-51.4,z:95.5,w:33,d:23,col:[.43,.40,.34]},
+    {x:-95.5,z:-25.5,w:31,d:27,col:[.56,.49,.39]}];
   for(const floor of floors){
    const x1=floor.x,x2=floor.x+floor.w,z1=floor.z,z2=floor.z+floor.d;
    for(let x=x1;x<x2;x+=2.5)for(let z=z1;z<z2;z+=2.5){
@@ -984,6 +1019,10 @@ class Renderer {
    }
   }
  }
+ // Separate stone terraces surround the open central walking passage.
+ // These roofs sit above the human capsule and never enter Sim.obstacles.
+ if(this.worldTerrainRevision===1)for(const roof of RAINCOURT_CANOPIES)
+  m.box(roof.x,roof.roofY,roof.z,roof.w,roof.h,roof.d,roof.color);
  // Public market-lane shop roofs belong to two ACTUALLY enterable rooms.
  // Their separate collection preserves the legacy three-canopy contract.
  if(this.worldTerrainRevision===1)for(const roof of MARKET_LANE_ROOFS)
