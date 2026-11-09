@@ -9,6 +9,7 @@
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
+  const Ambient=global.VeilpointStoryHarborAmbience;
   const Comms=global.VeilpointStoryComms;
   const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
@@ -283,6 +284,7 @@
   }
   const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
     enabled:storage.get('veilpoint.story.audio')!=='off'});
+  const ambience=Ambient?.create({AudioContextClass:global.AudioContext||global.webkitAudioContext})||null;
   const AudioPrefs=global.VeilpointAudioPreferences;
   // Preserve an explicit old mute preference on the first upgrade.
   if(AudioPrefs&&!storage.get(AudioPrefs.KEY)&&storage.get('veilpoint.story.audio')==='off')
@@ -290,6 +292,8 @@
   const audioControls=AudioPrefs?.attach(document,desktopStorage,prefs=>{
     audio.setEnabled(prefs.enabled);
     audio.setVolume(AudioPrefs.gain(prefs,'effects'));
+    ambience?.setVolume(AudioPrefs.gain(prefs,'ambience'));
+    if(!prefs.enabled)ambience?.disable();
     $('soundEnabled').checked=prefs.enabled;
     storage.set('veilpoint.story.audio',prefs.enabled?'on':'off');
   })||null;
@@ -298,9 +302,22 @@
     if(audioControls)audioControls.set({...audioControls.get(),enabled:$('soundEnabled').checked});
     else{
       audio.setEnabled($('soundEnabled').checked);
+      if(!audio.enabled())ambience?.disable();
+      else if(ambience?.enable())ambience.update(state,running);
       storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
     }
   });
+  // No continuous sound is permitted before a DIRECT player gesture.
+  // Mouse/keyboard unlocks only the optional sound graph, never game input.
+  function unlockHarborAmbience(){
+    if(!audio.enabled()||!ambience||ambience.enabled())return;
+    if(ambience.enable())ambience.update(state,canAct());
+  }
+  document.addEventListener('pointerdown',unlockHarborAmbience,true);
+  document.addEventListener('keydown',event=>{
+    if(!event.repeat&&!event.altKey&&!event.ctrlKey&&!event.metaKey)
+      unlockHarborAmbience();
+  },true);
   const Camera=global.VeilpointCameraView||Object.freeze({
    read:()=>55,validate:value=>{
     if(![48,55,63,70,78].includes(value))throw new RangeError('Invalid camera FOV');
@@ -1418,6 +1435,9 @@
     clearInput();
     clock.reset();
     limiter.reset();
+    // Share the existing authoritative pagehide save/pause boundary.
+    // A second listener could run after an uncommitted checkpoint.
+    ambience?.dispose();
     if(!routeDialogOpen&&!journalOpen&&state.phase!=='complete'&&state.phase!=='failed')
       menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   });
@@ -1781,7 +1801,7 @@
         }catch(error){console.warn('VEILPOINT bodycam still failed',error);}
       }
     }
-    if(now-lastHud>180){lastHud=now;updateHud();}
+    if(now-lastHud>180){lastHud=now;ambience?.update(state,canAct());updateHud();}
   }
   const loaded=readCheckpoint();
   diskGeneration=loaded?storage.get(SAVE_KEY):null;
