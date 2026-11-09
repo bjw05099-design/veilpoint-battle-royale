@@ -40,7 +40,7 @@
  function briefing(state){
   if(!state||typeof state!=='object')return line('현장 통신','교신 정보 확인 중');
   const phase=state.phase,found=Array.isArray(state.found)?state.found:[];
-  if(phase==='terminal')return line('이수혁 대위','한국에서 브리핑받은 현지 통신 협력 임무에 따라 중계기 상태를 확인한다. 예정에 없던 교전에 참여하려고 파견된 것은 아니다. 복귀 계획도 출국 전에 이미 확인했다.');
+  if(phase==='terminal')return line('이수혁 대위','출국 전 승인된 현지 통신 협력 임무와 복귀 계획을 한국에서 이미 브리핑받았다. 중계기 상태를 확인한다. 예정에 없던 교전에 참여하기 위해 파견된 것은 아니다.');
   if(phase==='engagement'){
    // Every status comes only from the captain's own playable 60Hz state
    // or an explicitly completed ally report. Never disclose opponents
