@@ -593,7 +593,7 @@
     if (state.phase==='exit') return state.choice==='verification'
       ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -963,7 +963,8 @@
     state.world.elapsed+=t;
     if(Civic&&state.civicCrossing){
       state.civicCrossing=Civic.step(state.civicCrossing,{
-        disruption:state.phase!=='terminal',player:p
+        disruption:state.phase!=='terminal',player:p,
+        blocked:(x,z)=>Sim.blocked(x,z,.55,state.world.obstacles)
       });
       state.world.civicCrossing={
         ...state.civicCrossing.civilian,role:'civic-crossing-resident'
