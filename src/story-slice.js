@@ -2186,7 +2186,15 @@
         (street?' '+street:'')+
         (state.mara?.arrived?' 마라는 통행 공간이 열린 뒤 자신이 고른 공용 골목까지 걸었습니다. 다른 주민의 이동은 미확인입니다.':'')+
         (workerReport||'')+yieldedVan+rememberedSouth]),
-      nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
+      // This durable follow-up thread is derived exclusively from the existing
+      // validated V2 CH01 world. It is not a second campaign chapter or a
+      // fabricated civilian headcount, and never gates the existing exit.
+      aftercare:state.choice==='evacuation'&&state.aidDelivered
+        ?'verified_local_supply_handoff':state.civilianWalker?.arrived
+          ?'one_witnessed_walk_in':'unverified',
+      nextChapter:state.choice==='evacuation'&&state.aidDelivered
+        ?'후속 장면: 현지 구조단 물품 인수 확인 · 주민 접수와 복귀 경로는 계속 미확정 · CH01 프리뷰 종료'
+        :'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
   function debrief(state) {
@@ -2212,6 +2220,7 @@
       verifiedInformationOnly:state.combat.supportUsed||state.gateLogReviewed||state.logHandedOff,
       emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:true,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
+      localAidHandoffVerified:state.choice==='evacuation'&&state.aidDelivered,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
