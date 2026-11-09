@@ -182,7 +182,10 @@ function render(){
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
- for(const id of ['regroup','location','sprint','civicGate','handcart'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp'])el(id).disabled=!active();
+ el('headlamp').setAttribute('aria-pressed',String(!!w?.self?.headlampOn));
+ el('headlamp').textContent='H · 헤드램프 '+(w?.self?.headlampOn?'ON':'OFF');
+ el('headlamp').title='서버 배터리 '+Math.ceil((w?.self?.headlampTicks||0)/60)+'초';
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -239,6 +242,7 @@ function render(){
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
+    '\n개인 헤드램프: '+(w.self.headlampOn?'점등':'소등')+' · 잔여 '+Math.ceil(w.self.headlampTicks/60)+'초'+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
@@ -460,6 +464,11 @@ async function invite(){
  const answer=await command('/squad-invite',{},null);
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
+async function toggleHeadlamp(){
+ if(!active())return;
+ const result=await command('/headlamp',{},null);
+ if(result?.ok)message(result.on?'개인 헤드램프를 켰습니다. 서버 시계로 배터리가 소모됩니다.':'헤드램프를 껐습니다. 잔여 배터리가 보존됩니다.');
+}
 async function signal(kind){
  if(!active())return;
  const result=await command('/signal',{kind},null);
@@ -640,6 +649,7 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
  else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
+ else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
@@ -732,6 +742,7 @@ el('squadChatInput').addEventListener('keydown',event=>{
 });
 el('civicGate').addEventListener('click',operateGate);
 el('handcart').addEventListener('click',operateHandcart);
+el('headlamp').addEventListener('click',toggleHeadlamp);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
