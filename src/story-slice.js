@@ -541,6 +541,18 @@
       !Sim.lineBlocked(p.x,p.z,AWNING_HANDLE.x,AWNING_HANDLE.z,state.world.obstacles)
       ?[AWNING_HANDLE]:[];
   }
+  // Optional, fully local character scene: after Mara has PHYSICALLY crossed
+  // the cleared market lane, the captain may talk to her at arm's reach.
+  // This adds no investigation, route gate, quest arrow or save-file field.
+  function maraConversationMarkers(state) {
+    if(!state.mara?.arrived||state.awningShift!==1||
+       !['records','decision','exit'].includes(state.phase))return [];
+    const p=state.world.player,m=state.mara;
+    return Math.hypot(p.x-m.x,p.z-m.z)<4.8&&
+      !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)
+      ?[{id:'maraConversation',x:m.x,z:m.z,kind:'objective',
+        label:'마라와 현장에서 직접 대화'}]:[];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -549,13 +561,13 @@
       POINTS.decision,
       ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...officeMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -1536,7 +1548,19 @@
       syncMarkers(state);
       return {ok:true,event:'awning_clear_started',phase:state.phase};
     }
-    if(marker.id==='officeBoard'&&!state.officeBoardRead&&
+    if(marker.id==='maraConversation'&&state.mara?.arrived&&
+       state.awningShift===1&&['records','decision','exit'].includes(state.phase)){
+      // A human who really walked the cleared public market path can speak
+      // about THAT route only; she cannot know distant arrivals or grant the
+      // east gate permission. Different active choices change her response.
+      const response=state.choice==='evacuation'
+        ?'남쪽 안뜰의 주민 인계는 유수프 구조단이 결정합니다. 이 골목이 열렸다고 주민 전부가 도착한 건 아니에요.'
+        :state.choice==='verification'
+          ?'동쪽 통로는 현지 담당자의 개방 확인이 먼저예요. 이쪽 시장 통로를 제가 걸어 나온 것과는 별개입니다.'
+          :'지금 어느 길을 선택하든 현지 사람과 먼저 이야기하세요. 문서가 아니라 실제 통행 상황이 중요해요.';
+      state.subtitle='마라(현지 기술자): 쓰러진 차양이 옮겨진 뒤에야 이 길을 직접 걸어 나올 수 있었어요. 누군가가 제 대신 걸어온 건 아닙니다. '+response;
+      state.message='마라와 현장에서 직접 대화 · 실제 통행 범위만 확인';
+    }else if(marker.id==='officeBoard'&&!state.officeBoardRead&&
        ['records','decision','exit'].includes(state.phase)){
       // The optional physical board says only that residents were asked to
       // check in at the staffed south courtyard. It cannot confirm arrivals,
