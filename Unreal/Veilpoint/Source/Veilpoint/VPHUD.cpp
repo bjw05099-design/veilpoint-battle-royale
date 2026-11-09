@@ -157,12 +157,31 @@ void AVPHUD::DrawHUD()
                 }
             if(const AVPStoryEastGate* Gate=CachedEastGate.Get())
             {
-                const float Fraction=Gate->GetOpeningFraction();
-                const FString GateLine=FString::Printf(
-                    TEXT("EAST PUBLIC GATE | PHYSICAL CLEARANCE %.0f%%"),
-                    Fraction*100.f);
-                DrawText(GateLine,FLinearColor(.82f,.91f,.82f,1.f),
-                    X,Y+184.f*Scale,nullptr,.74f*Scale,false);
+                // An in-world gate is not a map-wide remote telemetry feed.
+                // The captain reads its position only inside his actual
+                // forward-facing PC viewport and clear line of sight.
+                const FVector EyeToGate=Gate->GetActorLocation()-Pawn->GetPawnViewLocation();
+                FVector2D Screen;
+                if(EyeToGate.SizeSquared()<=FMath::Square(1400.f) &&
+                   FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(),EyeToGate)>0.f &&
+                   PlayerOwner->ProjectWorldLocationToScreen(
+                       Gate->GetActorLocation(),Screen,false) &&
+                   Screen.X>=0.f && Screen.Y>=0.f &&
+                   Screen.X<Canvas->ClipX && Screen.Y<Canvas->ClipY)
+                {
+                    FCollisionQueryParams Sight(SCENE_QUERY_STAT(VPStoryGateObservation),true,Pawn);
+                    Sight.AddIgnoredActor(Gate);
+                    if(!GetWorld()->LineTraceTestByChannel(
+                        Pawn->GetPawnViewLocation(),Gate->GetActorLocation(),ECC_Visibility,Sight))
+                    {
+                        const float Fraction=Gate->GetOpeningFraction();
+                        const FString GateLine=FString::Printf(
+                            TEXT("EAST PUBLIC GATE | PHYSICAL CLEARANCE %.0f%%"),
+                            Fraction*100.f);
+                        DrawText(GateLine,FLinearColor(.82f,.91f,.82f,1.f),
+                            X,Y+184.f*Scale,nullptr,.74f*Scale,false);
+                    }
+                }
             }
         }
         // Nearby optional mission wayfinding must come from a truly observed,
