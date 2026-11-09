@@ -346,6 +346,21 @@ class SoftwareRenderer {
      proj(x+ww,.08,z+dd),proj(x-ww,.08,z+dd)],pavement.canvas);
   }
  }
+ // Fictional crafts hall: muted stone paving connects the open southern
+ // entrance, both physical side rooms and the open-air northern public yard.
+ // Canvas and WebGL use the same ground footprints; no extra collisions.
+ if(state.terrainRevision===1||harborNight){
+  for(const floor of [
+   {x:-63,z:36,w:31.6,d:27.8,color:'#857967'},
+   {x:-63,z:60.6,w:27,d:9,color:'#9a8970'}
+  ]){
+   const hw=floor.w/2,hd=floor.d/2;
+   polygon([proj(floor.x-hw,.09,floor.z-hd),
+     proj(floor.x+hw,.09,floor.z-hd),
+     proj(floor.x+hw,.09,floor.z+hd),
+     proj(floor.x-hw,.09,floor.z+hd)],floor.color);
+  }
+ }
  // The software renderer shows the same two finite civic light pools as
  // WebGL before the witnessed outage. The ground remains walkable and its
  // physical colliders are unchanged when the lamps fail.
