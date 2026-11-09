@@ -73,9 +73,11 @@
    // invented paperwork objective or scripted forced-choice menu.
    // The captain can choose the practical civilian route without being
    // given an artificial assignment to collect more ledgers.
-   return line('김지윤','기록 확인은 동쪽 경로를 선택할 때 필요한 별도 과정입니다. 남쪽 주민 이동은 현지 구조단과 협력해 우선 진행할 수 있습니다.');
+   return line('김지윤','남쪽 주민 지원은 유수프 구조단과 직접 협의하면 됩니다. 동쪽 통로도 현지 담당자에게 직접 요청할 수 있습니다. 기록 비교는 선택 사항이며, 한국에서 받은 임무는 이미 브리핑받았습니다.');
   }
   if(phase==='exit'&&state.choice==='verification'){
+   if(state.gateObstructed===true)
+    return line('조현지','동쪽 통제문이 보행자와 부딪힐 위험으로 멈췄습니다. 실제 개방 전에 통행 완료로 판단할 수 없습니다. 현지 담당자의 확인이 필요합니다.');
    if(state.logHandedOff)
     return line('조현지','확인된 중계 기록이 현지 통제소에 전달됐습니다. 후속 분석은 계속됩니다.');
    if(state.gateLogReviewed)
