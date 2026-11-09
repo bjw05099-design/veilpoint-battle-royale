@@ -26,9 +26,18 @@ test('actual fixed-step story incident blacks out local civic lighting and persi
  assert.equal(state.combat.started,true);
  assert.equal(state.world.publicStreetPowered,false);
  assert.equal(state.world.scene,'nahrin');
+ // The visual loss is a real reason for an existing player-controlled action:
+ // finite-battery headlamp use, not a new quest or magic city power switch.
+ const lamp=Story.toggleFlashlight(state);
+ assert.deepEqual(lamp,{ok:true,on:true});
+ assert.equal(state.world.flashlightOn,true);
+ const beforeBattery=state.flashlightTicks;
+ Story.step(state,1/60,{});
+ assert.equal(state.flashlightTicks,beforeBattery-1);
  const loaded=Story.restore(Story.serialize(state));
  assert.equal(loaded.phase,'engagement');
  assert.equal(loaded.world.publicStreetPowered,false);
+ assert.equal(loaded.world.flashlightOn,true);
  // Restoring a civilian relay later illuminates its own two lamps only;
  // the original district blackout never becomes an implausible grid repair.
  state.phase='records';state.combat.cleared=true;
