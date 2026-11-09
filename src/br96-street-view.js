@@ -175,7 +175,7 @@
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
   for(const person of model.seen){
-   const bodyHeight=person.benchResting?.95:person.crouched?1.22:1.75;
+   const bodyHeight=person.benchResting?0.95:person.crouched?1.22:1.75;
    const size=Math.min(height*2,bodyHeight*focal/person.depth);
    const px=(person.col+.5)*strip;
    const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
