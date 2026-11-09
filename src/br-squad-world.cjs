@@ -689,6 +689,11 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
+        // Same-squad exertion is server-measured from accepted 60Hz travel.
+        // No opponent stamina or self-declared client value is broadcast.
+        stamina:Math.round(p.stamina*100)/100,
+        sprintDepleted:p.eligible&&p.sprintDepleted,
+        resting:p.eligible&&p.resting,
         benchResting:p.eligible&&p.benchResting,
         headlampOn:p.eligible&&p.headlampOn,
         waving:p.eligible&&p.waveUntilTick>this.tick,
