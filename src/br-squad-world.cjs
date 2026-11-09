@@ -106,6 +106,9 @@ class BrSquadWorld {
           eliminatedAtTick:null,eliminationReason:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
           landmarkMask:0,
+          // Only actual accepted authoritative 60Hz displacement contributes
+          // to this personal post-round travel record. No client-authored GPS.
+          traveledMeters:0,sprintedMeters:0,benchRestTicks:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
           headlampOn:false,headlampTicks:HEADLAMP_TICKS,
@@ -534,6 +537,9 @@ class BrSquadWorld {
       // A blocked body did not run. Only actual server-measured travel consumes
       // stamina, even when a wall or another player interrupts a sprint.
       const traveled=Math.hypot(next.x-actor.x,next.z-actor.z);
+      actor.traveledMeters+=traveled;
+      if(running&&traveled>1e-8)actor.sprintedMeters+=traveled;
+      if(actor.benchResting&&!wantsMove&&traveled<1e-8)actor.benchRestTicks++;
       actor.resting=!wantsMove&&traveled<1e-8;
       // Body facing comes only from physically accepted 60Hz displacement.
       // A rejected wall/peer collision never changes remote avatar posture.
@@ -697,6 +703,22 @@ class BrSquadWorld {
     // shared tie even when all placements are numerically 1.
     const champion=this.phase==='finished'&&this.activeSquads===1
       ?this.placements.findIndex(rank=>rank===1)+1:null;
+    // A genuine PERSONAL journey record for this authenticated participant,
+    // never invented squad achievements or another player's path telemetry.
+    // Published only after a server-authoritative finished round.
+    const personalRecap=this.phase==='finished'?Object.freeze({
+      schema:'veilpoint-br96-personal-journey-v1',
+      participantSlot:me.slot+1,squad:me.team+1,
+      roundTicks:this.tick,
+      activeSeconds:Math.round(survivingTicks(me)/60*100)/100,
+      walkedMeters:Math.round((me.traveledMeters-me.sprintedMeters)*100)/100,
+      sprintedMeters:Math.round(me.sprintedMeters*100)/100,
+      totalMeters:Math.round(me.traveledMeters*100)/100,
+      benchRestSeconds:Math.round(me.benchRestTicks/60*100)/100,
+      locationsVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
+      ownSquadPlacement:this.placements[me.team],
+      ownResult:me.eliminationReason||'active_at_finish'
+    }):null;
     const matchOutcome=this.phase==='finished'?Object.freeze({
       kind:champion===null?'shared_tie':
         me.team+1===champion?'squad_win':'squad_placed',
@@ -705,7 +727,7 @@ class BrSquadWorld {
       finishedTick:this.tick
     }):null;
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
-      matchOutcome,
+      matchOutcome,personalRecap,
       coastalWeather:weather,
       playableArea,
       squadEntry:this.entryPlans[me.team],
