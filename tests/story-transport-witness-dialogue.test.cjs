@@ -67,7 +67,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
   item.entity===before.civilianWalker||item.entity===before.world.mara||
-  item.entity===before.world.kimJiyoon),
+  item.entity===before.world.kimJiyoon||
+   item.entity===before.world.civicCrossing),
   'before evacuation there is no driver; only original and newly authored civilians can be observed');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{
@@ -139,7 +140,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
   item.entity===before.civilianWalker||item.entity===before.world.mara||
-  item.entity===before.world.kimJiyoon),
+  item.entity===before.world.kimJiyoon||
+   item.entity===before.world.civicCrossing),
   'before evacuation there is no driver; only original and newly authored civilians can be observed');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{

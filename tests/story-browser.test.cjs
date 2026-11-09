@@ -85,7 +85,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
   });
   const scripts=['src/simulation.js','src/visibility.js','src/performance.js',
     'src/graphics.js','src/clock.js','src/fps.js','src/campaign.js','src/navigation.js',
-    'src/story-slice.js','src/story-audio.js','src/desktop-controls.js',
+    'src/ch01-civic-recovery.js','src/story-slice.js','src/story-audio.js','src/desktop-controls.js',
     'src/checkpoint-recovery.js','src/field-journal.js','src/story-app.js'];
   for(const script of scripts){
     const source=fs.readFileSync(path.join(__dirname,'..',script),'utf8');

@@ -5,10 +5,11 @@
 (function (root, factory) {
   const api = factory(
     root.VeilpointSim || (typeof module === 'object' && module.exports ? require('./simulation.js') : null),
-    root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null));
+    root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null),
+    root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   // Older embedded CH01 clients omit optional history; never block the game.
@@ -464,6 +465,7 @@
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
       mara:newMarketMara(),liaisonZ:LIAISON_WALK.startZ,
       kimJiyoon:newKimJiyoon(),
+      civicCrossing:Civic?Civic.initial():null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -501,6 +503,18 @@
        Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles))return [];
     return [{id:'residentRoute',x:w.x,z:w.z,kind:'evac',
       label:'현지 주민과 구조단 접근로 직접 대화'}];
+  }
+  // Unlike a quest arrow, a crossing resident offers a local optional F
+  // interaction only after the player has observed the disrupted street.
+  function civicCrossingMarkers(state){
+    if(!Civic||!state.civicCrossing?.disrupted||
+       state.civicCrossing.assisted||
+       !['records','decision','exit'].includes(state.phase))return [];
+    const p=state.world.player,m=Civic.CROSSING;
+    if(Math.hypot(p.x-m.x,p.z-m.z)>=6||
+       Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles))return [];
+    return [{id:'civicCrossing',x:m.x,z:m.z,kind:'evac',
+      label:'통행로 옆 현지 주민에게 직접 길을 안내'}];
   }
   function onsiteLiaisonMarkers(state){
     if(!state.combat?.cleared||state.relayRestored||
@@ -573,13 +587,13 @@
       POINTS.decision,
       ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...officeMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -649,6 +663,8 @@
       ['records','decision','exit','complete'].includes(state.phase)
       ?{x:LIAISON_WALK.x,z:state.liaisonZ,role:'jo-hyunji'}:null;
     state.world.civilianWalker=state.civilianWalker;
+    state.world.civicCrossing=state.civicCrossing?
+      {...state.civicCrossing.civilian,role:'civic-crossing-resident'}:null;
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
     state.world.relayRestored=state.relayRestored;
@@ -925,6 +941,10 @@
       const w=state.civilianWalker,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
+    if(state.civicCrossing){
+      const w=state.civicCrossing.civilian,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     // The guide remains a solid person while waiting at muster and after
     // the physical handoff, not an intangible prop when following stops.
     if(state.choice==='evacuation'&&state.musterConfirmed){
@@ -941,6 +961,15 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    if(Civic&&state.civicCrossing){
+      state.civicCrossing=Civic.step(state.civicCrossing,{
+        disruption:state.phase!=='terminal',player:p,
+        blocked:(x,z)=>Sim.blocked(x,z,.55,state.world.obstacles)
+      });
+      state.world.civicCrossing={
+        ...state.civicCrossing.civilian,role:'civic-crossing-resident'
+      };
+    }
     // Unlike a fixed escort waypoint, Kim independently changes behavior
     // when the ordinary harbor becomes unsafe. He moves to the existing
     // staffed street during the first crisis and follows the captain once
@@ -1571,6 +1600,16 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='civicCrossing'&&Civic&&state.civicCrossing?.disrupted&&
+       !state.civicCrossing.assisted){
+      state.civicCrossing=Civic.step(state.civicCrossing,{
+        assist:true,player:state.world.player
+      });
+      state.subtitle='현지 주민: 저쪽 보행로는 아직 막혀 있지 않군요. 제가 걸어서 이동해 보겠습니다. 다른 주민들도 무사히 도착했다고 말할 수는 없습니다.';
+      state.message='현지 주민에게 실제 가까이서 길 안내 · 보행 여부는 현장에서 확인';
+      syncMarkers(state);
+      return {ok:true,event:'civic_crossing_assist',phase:state.phase};
+    }
     if(marker.id==='liaisonAssist'&&state.combat.cleared&&
        !state.relayRestored&&['records','decision'].includes(state.phase)){
       // One on-site civilian relay can be restored, without granting any
@@ -2238,6 +2277,7 @@
       mara:{x:state.mara.x,z:state.mara.z,arrived:state.mara.arrived},
       liaisonZ:state.liaisonZ,
       kimJiyoon:state.kimJiyoon?{x:state.kimJiyoon.x,z:state.kimJiyoon.z}:null,
+      ...(state.civicCrossing?{civicCrossing:state.civicCrossing}:{}),
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
         ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
@@ -2268,8 +2308,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+34||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon').includes(k))||
+      Object.keys(data).length>expectedKeys.length+35||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -2296,6 +2336,21 @@
         (data.awningWorking&&
           (data.awningShift>=1||!['records','decision','exit'].includes(data.phase)))))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+      (hasOwn(data,'civicCrossing')&&(
+        !Civic||(()=>{
+          try{
+            const crossing=Civic.restore(data.civicCrossing);
+            const c=crossing.civilian,init=Civic.initial();
+            return crossing.tick>86400*60||
+              (crossing.assisted&&crossing.tick===0)||
+              (!crossing.assisted&&c.x!==init.civilian.x)||
+              (crossing.disrupted&&data.phase==='terminal')||
+              c.x<init.civilian.x||c.x>init.destination.x||c.z!==init.civilian.z||
+              crossing.destination.x!==init.destination.x||
+              crossing.destination.z!==init.destination.z||
+              (crossing.assisted&&!['records','decision','exit','complete'].includes(data.phase));
+          }catch(_){return true;}
+        })()))||
       (hasOwn(data,'kimJiyoon')&&data.kimJiyoon!==null&&(
         !data.kimJiyoon||typeof data.kimJiyoon!=='object'||
         Array.isArray(data.kimJiyoon)||
@@ -2607,6 +2662,9 @@
     // character beside the starting point in a late-game loaded mission.
     state.kimJiyoon=hasOwn(data,'kimJiyoon')?
       (data.kimJiyoon?{...data.kimJiyoon}:null):null;
+    // Older v2 saves must not suddenly spawn a new resident at the crossing.
+    state.civicCrossing=Civic&&hasOwn(data,'civicCrossing')?
+      Civic.restore(data.civicCrossing):null;
     state.liaisonZ=hasOwn(data,'liaisonZ')?data.liaisonZ:LIAISON_WALK.startZ;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
