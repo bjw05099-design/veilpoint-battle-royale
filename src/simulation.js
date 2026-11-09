@@ -487,6 +487,41 @@
   // Optional public-neighborhood discoveries are earned by approaching their
   // walkable street-level marker with an unobstructed view. Nothing reveals
   // unseen opponents, private facilities, or a distant objective.
+  // The real Aden peninsula's PUBLIC district relationships inform this
+  // fictional city's placement. World Bank/JICA civic geography:
+  // western Tawahi port -> northern Ma'alla coastal strip -> southeast
+  // volcanic Crater -> northeast Khormaksar isthmus.
+  // These are demo-local, non-georeferenced anchor coordinates, NOT GPS,
+  // current checkpoints, base perimeters or real-world attackable sites.
+  // Each anchor references ALREADY PHYSICAL, shared 60Hz BR/CH01 geometry.
+  // Nothing about their ordering changes saved terrain revisions or pathing.
+  const PUBLIC_CITY_DISTRICTS=Object.freeze([
+    Object.freeze({id:'tawahi',reference:'서부 타와히 항만',
+      label:'서부 항만 참고',x:-154,z:105,physicalType:'aden-fishhall-wall'}),
+    Object.freeze({id:'mualla',reference:'마알라 북쪽 해안',
+      label:'북쪽 해안 참고',x:-28,z:65,physicalType:'aden-promenade-post'}),
+    Object.freeze({id:'crater',reference:'크레이터 화산 분지',
+      label:'남동 시가지 참고',x:28,z:136,physicalType:'aden-seafront-market-wall'}),
+    Object.freeze({id:'khormaksar',reference:'호르막사르 반도 연결부',
+      label:'북동 연결부 참고',x:134,z:108,physicalType:'aden-transit-court-wall'})
+  ]);
+  const PUBLIC_CITY_ADJACENCY=Object.freeze([
+    Object.freeze({from:'tawahi',to:'mualla',kind:'coastal-district-sequence'}),
+    Object.freeze({from:'mualla',to:'crater',kind:'peninsula-commercial-transition'}),
+    Object.freeze({from:'crater',to:'khormaksar',kind:'peninsula-isthmus-connection'})
+  ]);
+  function publicDistrictAt(player,obstacles){
+    if(!player||!Number.isFinite(player.x)||!Number.isFinite(player.z)||
+       !Array.isArray(obstacles))return null;
+    for(const place of PUBLIC_CITY_DISTRICTS){
+      if(Math.hypot(player.x-place.x,player.z-place.z)<=9 &&
+         obstacles.some(o=>o.type===place.physicalType &&
+           Math.hypot(o.x-place.x,o.z-place.z)<=22) &&
+         !lineBlocked(player.x,player.z,place.x,place.z,obstacles))
+        return place;
+    }
+    return null;
+  }
   const LANDMARKS=Object.freeze([
     Object.freeze({x:-45,z:121,label:'PUBLIC FERRY HALL'}),
     Object.freeze({x:43,z:75,label:'CIVIC SHADE COURT'}),
@@ -1920,6 +1955,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
