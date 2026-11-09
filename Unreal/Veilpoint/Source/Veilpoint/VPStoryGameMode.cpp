@@ -160,22 +160,27 @@ UVPStoryCheckpoint* ReadVerifiedCheckpoint(const FString& Slot)
         UGameplayStatics::LoadGameFromSlot(Slot, CH01UserIndex));
     return IsCoherentSaved(Saved) ? Saved : nullptr;
 }
-void RestoreVerifiedCivilianPose(UWorld* World, const UVPStoryCheckpoint* Saved)
+bool RestoreVerifiedCivilianPose(UWorld* World, const UVPStoryCheckpoint* Saved)
 {
-    if (!World || !Saved || Saved->SchemaVersion != 3 ||
-        !Saved->bHasCivilianPose) return;
+    if (!World || !Saved) return false;
+    // V1/V2 saves never claimed a pedestrian pose; keep their authored
+    // starting position and existing mission compatibility intact.
+    if (Saved->SchemaVersion != 3 || !Saved->bHasCivilianPose) return true;
     for (TActorIterator<AVPStoryPedestrian> It(World); It; ++It)
     {
         if (!IsValid(*It)) continue;
-        if (!It->RestorePhysicalCheckpoint(
+        if (It->RestorePhysicalCheckpoint(
                 Saved->SavedCivilianPosition,
                 Saved->bSavedCivilianAtSidewalk,
-                Saved->bSavedCivilianAtSouthCourtyard))
-            UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: saved civilian pose blocked; keeping real current body"));
-        return;
+                Saved->bSavedCivilianAtSouthCourtyard)) return true;
+        // RestorePhysicalCheckpoint rolls the physical capsule back when
+        // a swept move collides. Do not silently adopt an inconsistent
+        // objective-only save; try the previous verified generation.
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: civilian world pose blocked; trying previous checkpoint"));
+        return false;
     }
-    UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: saved civilian pose unavailable; no pedestrian spawned"));
-}
+    UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: saved pedestrian missing; trying previous checkpoint"));
+    return false;
 }
 
 void AVPStoryGameMode::RestoreStoryCheckpoint()
@@ -197,20 +202,18 @@ void AVPStoryGameMode::RestoreStoryCheckpoint()
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State) return;
     UVPStoryCheckpoint* Primary = ReadVerifiedCheckpoint(CH01Slot);
-    if (Primary && State->RestoreProgress(
-        Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord,
-        Primary->SchemaVersion >= 2 && Primary->bSavedBeaconActivated))
-    {
-        RestoreVerifiedCivilianPose(GetWorld(), Primary);
+    if (Primary && RestoreVerifiedCivilianPose(GetWorld(), Primary) &&
+        State->RestoreProgress(
+            Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord,
+            Primary->SchemaVersion >= 2 && Primary->bSavedBeaconActivated))
         return;
-    }
     UVPStoryCheckpoint* Backup = ReadVerifiedCheckpoint(CH01BackupSlot);
-    if (Backup && State->RestoreProgress(
-        Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord,
-        Backup->SchemaVersion >= 2 && Backup->bSavedBeaconActivated))
+    if (Backup && RestoreVerifiedCivilianPose(GetWorld(), Backup) &&
+        State->RestoreProgress(
+            Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord,
+            Backup->SchemaVersion >= 2 && Backup->bSavedBeaconActivated))
     {
-        RestoreVerifiedCivilianPose(GetWorld(), Backup);
-        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective backup"));
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective and civilian backup"));
         return;
     }
     if (UGameplayStatics::DoesSaveGameExist(CH01Slot, CH01UserIndex) ||
