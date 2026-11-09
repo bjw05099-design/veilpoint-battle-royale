@@ -91,6 +91,9 @@ test('offline delivery has an independent local terrain page, a clear non-survey
  assert.match(html,/src="src\/aden-city-explorer\.js"/);
  assert.match(html,/src="src\/aden-city-explorer-init\.js"/);
  assert.match(html,/href="index\.html"/);
+ const index=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+ assert.match(index,/id="terrainLabEntry" href="terrain\.html"/);
+ assert.match(index,/창작 테스트 지형이며 실제 아덴 DEM이 아닙니다/);
  const files=collectFiles().map(x=>x.name);
  for(const name of ['terrain.html','src/aden-citywide-tiles.js',
    'src/aden-city-explorer.js','src/aden-city-explorer-init.js']){
