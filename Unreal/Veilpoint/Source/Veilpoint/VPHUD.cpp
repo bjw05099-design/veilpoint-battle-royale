@@ -49,6 +49,39 @@ void AVPHUD::DrawHUD()
         Canvas->ClipX,Canvas->ClipY,ConfiguredCap);
     DrawText(PixelLine,FLinearColor(.75f,.83f,.90f,1.f),
              TelemetryX,45.f*Scale,nullptr,.72f*Scale,false);
+    // Explicit PC F9 toggles an on-device frame capture; 120 seconds of
+    // valid application frame deltas save automatically. A shorter capture
+    // must have at least 5 seconds and 120 real frames. No GPU utilization,
+    // monitor Hz, RTX model or hardware-identifying data is fabricated.
+    const auto SaveNativeBenchmark=[this,ConfiguredCap]()
+    {
+        FString SavedPath;
+        const bool bSaved=FrameTelemetry.EndCaptureAndSave(
+            FMath::RoundToInt(Canvas->ClipX),FMath::RoundToInt(Canvas->ClipY),
+            ConfiguredCap,SavedPath);
+        LastNativeBenchmarkStatus=bSaved
+            ?TEXT("APP-FRAME JSON SAVED TO PROJECT SAVED/BENCHMARKS")
+            :TEXT("BENCHMARK TOO SHORT OR FILE SAVE FAILED; RETRY F9");
+    };
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::F9))
+    {
+        if (FrameTelemetry.IsCapturing()) SaveNativeBenchmark();
+        else
+        {
+            FrameTelemetry.BeginCapture();
+            LastNativeBenchmarkStatus=TEXT("RECORDING LOCAL APP FRAMES");
+        }
+    }
+    if (FrameTelemetry.IsCapturing() &&
+        FrameTelemetry.GetCaptureElapsedSeconds()>=120.f)
+        SaveNativeBenchmark();
+    const FString CaptureLine=FrameTelemetry.IsCapturing()
+        ?FString::Printf(TEXT("F9 END / AUTO 120s: %.1fs | %d FRAMES | NOT GPU"),
+            FrameTelemetry.GetCaptureElapsedSeconds(),
+            FrameTelemetry.GetCaptureSampleCount())
+        :LastNativeBenchmarkStatus;
+    DrawText(CaptureLine,FLinearColor(.86f,.86f,.69f,1.f),
+             TelemetryX,65.f*Scale,nullptr,.67f*Scale,false);
 
     // Display the actual native authoritative stamina rather than inventing
     // a local count based on render FPS. It is safe for offline and net PIE.
