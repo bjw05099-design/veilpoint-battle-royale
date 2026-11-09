@@ -583,6 +583,20 @@ canvas.addEventListener('click',()=>{
  if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
   canvas.requestPointerLock?.();
 });
+ // Middle button (pressing the wheel), not wheel scrolling or a keyboard E.
+ // The server creates a quickmark at the authenticated actor's true feet.
+ // In street view the canvas owns pointer lock; in the 2D diagnostic the
+ // canvas is the explicitly clicked play surface.
+ canvas.addEventListener('mousedown',event=>{
+  if(event.button!==1)return;
+  event.preventDefault(); // prevent Chrome's middle-button autoscroll
+  if(!event.repeat&&!event.ctrlKey&&!event.altKey&&!event.metaKey&&
+     active()&&el('standingsPanel').hidden&&el('vpAudioPanel').hidden)
+   signal('location');
+ });
+ canvas.addEventListener('auxclick',event=>{
+  if(event.button===1)event.preventDefault();
+ });
 document.addEventListener('mousemove',event=>{
  if(document.pointerLockElement!==canvas||!streetView||
     !currentWorld()||!el('standingsPanel').hidden||
@@ -737,7 +751,7 @@ document.addEventListener('keydown',event=>{
  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight','KeyC'].includes(key)){
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
- else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
+ // Middle mouse button owns location-only quickmark (no keyboard E).
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();interactNearby();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
