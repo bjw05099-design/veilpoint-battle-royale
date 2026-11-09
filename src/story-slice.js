@@ -2344,8 +2344,7 @@
             return crossing.tick>86400*60||
               (crossing.assisted&&crossing.tick===0)||
               (!crossing.assisted&&c.x!==init.civilian.x)||
-              (crossing.tick>0&&
-                crossing.disrupted!==['engagement','records','decision','exit','complete','failed'].includes(data.phase))||
+              (crossing.disrupted&&data.phase==='terminal')||
               c.x<init.civilian.x||c.x>init.destination.x||c.z!==init.civilian.z||
               crossing.destination.x!==init.destination.x||
               crossing.destination.z!==init.destination.z||
