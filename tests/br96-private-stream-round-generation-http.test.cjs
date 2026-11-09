@@ -11,14 +11,22 @@ async function post(base,url,body,token){
 async function receiveFrame(reader,matcher){
  let frame='';
  for(let attempt=0;attempt<12;attempt++){
-  const next=await Promise.race([
-   reader.read(),
-   new Promise((_,reject)=>setTimeout(()=>reject(new Error('stream_frame_timeout')),5000))
-  ]);
+  let timer;
+  let next;
+  try{
+   next=await Promise.race([
+    reader.read(),
+    new Promise((_,reject)=>{
+     timer=setTimeout(()=>reject(new Error('stream_frame_timeout')),5000);
+    })
+   ]);
+  }finally{clearTimeout(timer);}
   if(next.done)throw new Error('stream_ended_before_frame');
   frame+=new TextDecoder().decode(next.value);
   if(frame.length>98304)throw new Error('unexpected_stream_growth');
-  if(matcher.test(frame))return frame;
+  const matching=frame.match(matcher);
+  // Wait for a *complete* world packet, not merely its SSE id prefix.
+  if(matching&&frame.slice(matching.index).includes('\n\n'))return frame;
  }
  throw new Error('stream_frame_not_received');
 }
