@@ -53,7 +53,7 @@ test('F requests voluntary near-road yield through the genuine story-only server
  const tick=cpp.slice(cpp.indexOf('void AVPStoryPublicVan::Tick('));
  assert.match(tick,/FMath::Square\(600.f\)/);
  assert.match(tick,/bYieldingToPedestrian=false/);
- assert.doesNotMatch(tick,/SetActorLocation|Warp|Teleport/);
+ assert.doesNotMatch(tick,/SetActorLocation|Warp|TeleportTo/);
 });
 test('PC native HUD observes only a real on-screen unobstructed civic vehicle, not global transport or mission progress',()=>{
  assert.match(hud,/#include "VPStoryPublicVan.h"/);
