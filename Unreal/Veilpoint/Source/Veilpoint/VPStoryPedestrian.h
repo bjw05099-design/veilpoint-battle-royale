@@ -34,6 +34,13 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01|Civilian")
     bool bMovedToSidewalk = false;
 
+    // Validates a pose against the two original public walkway segments.
+    // Offline checkpoint restoration alone may recreate a saved position.
+    static bool IsCoherentCheckpointPose(const FVector& Position,
+        bool bSidewalk, bool bSouth);
+    bool RestoreOfflineCheckpointPose(const FVector& Position,
+        bool bSidewalk, bool bSouth);
+
 private:
     float FixedAccumulator = 0.f;
     static const FVector SouthApproachDestination;
