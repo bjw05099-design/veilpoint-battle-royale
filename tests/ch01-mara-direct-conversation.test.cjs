@@ -19,7 +19,7 @@ function crossedScene(){
  assert.equal(state.mara.arrived,true);
  return state;
 }
-test('Mara's optional conversation requires a real cleared market crossing and direct local proximity',()=>{
+test("Mara's optional conversation requires a real cleared market crossing and direct local proximity",()=>{
  const s=marketScene();
  go(s,25,-38);
  assert.equal(Story.markers(s).some(m=>m.id==='maraConversation'),false);
