@@ -8,6 +8,7 @@ const path=require('node:path');
 const {BrSquadLobby}=require('../src/br-squad-lobby.cjs');
 const {BrSquadWorld}=require('../src/br-squad-world.cjs');
 const Sim=require('../src/simulation.js');
+const {nearbyCivicSurfaces}=require('../src/br96-civic-proximity.cjs');
 const {createFixedStepClock}=require('./team-server.cjs');
 const {readJson}=require('./json-body.cjs');
 const BR96_HTML=fs.readFileSync(path.resolve(__dirname,'../br96.html'));
@@ -163,6 +164,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       environment:{wetLoadingPad:{x,z,width,depth}},
       // Separate public district ground surfaces preserve the legacy
       // wet-loading-apron response contract for all existing clients.
+      nearbyPavementIds:nearbyCivicSurfaces(world.actors.get(token),Sim.PUBLIC_CITY_PAVEMENTS),
       pavements:Sim.PUBLIC_CITY_PAVEMENTS.map(p=>({
         id:p.id,x:p.x,z:p.z,w:p.w,d:p.d,canvas:p.canvas
       })),
