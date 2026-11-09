@@ -12,8 +12,8 @@ const input=read('Config/DefaultInput.ini');
 const pedestrian=read('Source/Veilpoint/VPStoryPedestrian.cpp');
 const pedestrianHeader=read('Source/Veilpoint/VPStoryPedestrian.h');
 
-test('native F key controls an actual attached light cone, not a full-screen fake vision filter',()=>{
- assert.match(input,/ActionName="FieldLight",Key=F/);
+test('native L key controls an actual attached light cone, leaving F for interaction',()=>{
+ assert.match(input,/ActionName="FieldLight",Key=L/);
  assert.match(character,/#include "Components\/SpotLightComponent.h"/);
  assert.match(header,/TObjectPtr<USpotLightComponent> FieldLight/);
  assert.match(character,/CreateDefaultSubobject<USpotLightComponent>\(TEXT\("HelmetFieldLight"\)\)/);
