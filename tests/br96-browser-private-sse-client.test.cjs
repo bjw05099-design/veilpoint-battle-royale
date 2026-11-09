@@ -50,6 +50,9 @@ test('bounded parser, identity checks, round replay handling and private-stream 
  assert.match(client,/pagehide',\(\)=>\{stopPrivateStream\(\)/);
  assert.match(client,/lastLiveAt>0&&Date\.now\(\)-lastLiveAt<2000/);
  assert.match(client,/if\(!healthy\|\|pollCount%8===0\)poll\(\)/);
- assert.match(client,/liveRetryAt=Date\.now\(\)\+4000/);
+ assert.match(client,/liveRetryAt=state\?\.roundNumber!==ownRound\?0:Date\.now\(\)\+4000/);
+ assert.match(client,/if\(frame\.roundNumber<ownRound\)continue/);
+ assert.match(client,/if\(frame\.roundNumber>ownRound\)\{/);
+ assert.match(client,/controller\.abort\(\);await poll\(\);break/);
  assert.match(server,/if\(world\.tick===beforeTick\|\|world\.tick%15!==0\)return/);
 });
