@@ -274,6 +274,52 @@ void AVPWorldBootstrap::BeginPlay()
     for (const FSharedPublicBlock& Block : SharedCivilianGallery)
         AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
             FVector(Block.W,Block.D,Block.H));
+    // Same original PUBLIC craft hall and open forecourt in native BR and
+    // CH01: eighteen grounded collision bodies, two enterable side rooms
+    // and a 10m-wide open center. Never a surveyed real conflict facility.
+    // Instanced bodies are created on host AND clients before the mode split.
+    static const FSharedPublicBlock SharedCraftHall[] = {
+        {-80.f,36.f,.7f,30.f,3.6f},
+        {-46.f,36.f,.7f,30.f,3.6f},
+        {-74.f,51.f,12.f,.7f,3.6f},
+        {-52.f,51.f,12.f,.7f,3.6f},
+        {-74.f,21.f,12.f,.7f,3.6f},
+        {-52.f,21.f,12.f,.7f,3.6f},
+        {-70.f,35.f,.65f,14.f,2.8f},
+        {-56.f,35.f,.65f,14.f,2.8f},
+        {-75.f,31.f,2.8f,1.2f,1.45f},
+        {-51.f,31.f,2.8f,1.2f,1.45f},
+        {-75.f,42.f,3.f,1.6f,.92f},
+        {-51.f,42.f,3.f,1.6f,.92f},
+        {-77.f,57.f,.8f,.8f,3.15f},
+        {-49.f,57.f,.8f,.8f,3.15f},
+        {-77.f,64.f,.8f,.8f,3.15f},
+        {-49.f,64.f,.8f,.8f,3.15f},
+        {-74.f,61.f,4.f,1.f,.72f},
+        {-52.f,61.f,4.f,1.f,.72f}
+    };
+    for (const FSharedPublicBlock& Block : SharedCraftHall)
+        AddBlock(Buildings,FVector(Block.X*100.f,Block.Z*100.f,Block.H*50.f),
+            FVector(Block.W,Block.D,Block.H));
+    // Raised roofs cover each side room and forecourt, NOT the open central
+    // corridor. The underside is over 3m above ground, leaving the normal
+    // character capsule fully able to traverse both public entrances.
+    static const FSharedPublicBlock CraftCanopies[] = {
+        {-75.f,35.f,9.f,26.f,.16f},
+        {-51.f,35.f,9.f,26.f,.16f},
+        {-63.f,60.5f,28.f,7.f,.15f}
+    };
+    static const float CraftRoofCenterCm[] = {365.f,365.f,327.f};
+    for (int32 i=0;i<UE_ARRAY_COUNT(CraftCanopies);++i)
+    {
+        const FSharedPublicBlock& Roof=CraftCanopies[i];
+        AddBlock(Buildings,FVector(Roof.X*100.f,Roof.Z*100.f,CraftRoofCenterCm[i]),
+            FVector(Roof.W,Roof.D,Roof.H));
+    }
+    // Thin stone-paving surfaces are actual ground-level, nonblocking
+    // architectural detail; they do not substitute for solid building walls.
+    AddBlock(Ground,FVector(-6300.f,3600.f,-4.f),FVector(31.6f,27.8f,.08f));
+    AddBlock(Ground,FVector(-6300.f,6060.f,-4.f),FVector(27.f,9.f,.08f));
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
