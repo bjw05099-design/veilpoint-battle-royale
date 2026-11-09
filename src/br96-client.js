@@ -756,8 +756,8 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
- // F is the single default key for nearby interactions; E keeps the
- // existing voluntary map marker, while R/T are not redundant hotkeys.
+ // F is the single default nearby interaction key; R/T are unbound
+ // and E is free. Press the wheel to mark one's true server position.
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
