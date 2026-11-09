@@ -47,8 +47,14 @@ test('region vista never leaks into gameplay bodies, server authority, navigatio
  assert.deepEqual(worldBodies(old),[]);
  const saved=Sim.snapshotMatch(old);
  assert.equal(Sim.snapshotMatch(Sim.restoreMatch(saved)),saved);
- for(const a of Sim.ADEN_GEOGRAPHIC_VISTA.buildings.slice(0,5))
-  assert.equal(Sim.blocked(a.x,a.z,.85,[]),false);
+ for(const a of Sim.ADEN_GEOGRAPHIC_VISTA.buildings.slice(0,5)){
+  // Outside-world coordinates are ALWAYS blocked by WORLD bounds, even
+  // when the obstacle list is empty. This is intentional boundary safety,
+  // not a newly injected obstacle that could strand a legacy player.
+  assert.equal(Sim.blocked(a.x,a.z,.85,[]),true);
+  assert.ok(a.z>Sim.WORLD);
+  assert.equal(game.obstacles.some(o=>o.type==='aden-vista-building'),false);
+ }
 });
 test('the 96-human server uses one current shared world and never inserts faraway vista as a collidable structure',()=>{
  const lobby=new BrSquadLobby(),token=i=>i.toString(16).padStart(64,'0');
