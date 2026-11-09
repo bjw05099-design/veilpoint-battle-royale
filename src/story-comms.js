@@ -29,7 +29,7 @@
   if(state.waterSurveyed===true)
    return line('이수혁 대위','공용 급수대 한 곳의 상태만 직접 확인했다. 주민 전체의 생활이 복구됐는지는 현지 구조단 확인이 필요하다.');
   if(state.workerInterviewed===true)
-   return line('조현지','항구 작업자가 들려준 1990년 통일과 1994년 전쟁의 기억은 같은 가족 안에서도 달랐습니다. 우리가 판단할 수 있는 것은 그가 직접 말한 경험까지입니다.');
+   return line('조현지','항구 작업자가 들려준 1990년 통일과 1994년 전쟁의 기억은 같은 가족 안에서도 달랐습니다. 우리가 판단할 수 있는 것은 그가 직접 말한 경험까지이며, 당시 시각이 미확인된 별도 진술로 기록합니다.');
   if(state.civilianRerouted===true)
    return line('이수혁 대위','주민이 자기 판단으로 남쪽 접근로를 택했다. 도착했는지 확인하지 않고 완료로 보고하지 않겠다.');
   if(state.awningShift>=1&&state.combat?.cleared===true)
