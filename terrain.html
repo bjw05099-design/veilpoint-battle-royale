@@ -27,7 +27,13 @@ footer{flex:0 0 auto;padding:8px 18px 10px;background:#172c31;
 .controls{display:flex;flex-wrap:wrap;gap:5px}
 button{background:#2c474c;border:1px solid #92b3a7;color:white;
  border-radius:4px;min-height:34px;padding:6px 11px;cursor:pointer;font-weight:600}
-button:hover,button:focus-visible,header a:focus-visible{outline:2px solid #d4e8a6}
+button:hover,button:focus-visible,header a:focus-visible,
+input:focus-visible{outline:2px solid #d4e8a6}
+#importFileLabel{font-size:11px;color:#e2e6d2}
+#heightFile{font-size:10px;max-width:min(250px,65vw);color:#ecf7f2}
+#heightFile::file-selector-button{padding:6px;border:1px solid #89a89d;
+ border-radius:4px;background:#2c474c;color:#fff;cursor:pointer}
+#tileStatus{min-width:0;overflow-wrap:anywhere}
 #tileStatus{font-size:clamp(10px,1.5vw,12px);color:#d9e7d4;
  flex:1 1 330px;line-height:1.35;font-variant-numeric:tabular-nums}
 @media(max-height:620px){
@@ -43,11 +49,13 @@ button:hover,button:focus-visible,header a:focus-visible{outline:2px solid #d4e8
 <div class="notice" role="note"><b>중요: 창작용 테스트 지형입니다.</b> 실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다. 군사·보안 시설 지도나 현행 실측 지도도 아닙니다.</div>
 <div class="canvas-wrap">
  <canvas id="terrainCanvas" width="1280" height="720" aria-label="1:1 미터 단위의 창작 화산 해안 지형 타일 지도"></canvas>
- <div class="legend"><b>원본 창작 지형 · 축척 검증</b>
+ <div class="legend"><b id="mapLegendTitle">원본 창작 지형 · 축척 검증</b>
  <div>청록색: 수면 아래 높이 · 황갈색: 지상 고도</div>
  <div>연한 격자: 512m 타일 경계</div>
- <div>밝은색 작은 사각형: 창작 민간 건물 모형</div>
- <div>WASD/방향키: 128m 이동 · +/-: 배율 · R: 원점</div></div>
+ <div id="fictionalHouseLegend">밝은색 작은 사각형: 창작 민간 건물 모형</div>
+ <div>WASD/방향키: 128m 이동 · +/-: 배율 · R: 원점</div>
+ <div>H: 입체 지형 · C: 실제 등고선 켜기/끄기</div>
+ <div>외부 고도 JSON은 출처와 권리를 표시해도 검증 완료가 아닙니다.</div></div>
 </div>
 <footer>
  <div class="controls" aria-label="지형 지도 이동">
@@ -58,11 +66,18 @@ button:hover,button:focus-visible,header a:focus-visible{outline:2px solid #d4e8
   <button id="zoomOut" type="button" aria-label="지도 축소">−</button>
   <button id="zoomIn" type="button" aria-label="지도 확대">+</button>
   <button id="reset" type="button">중심 복원</button>
+  <button id="relief" type="button">입체 음영 전환</button>
+  <button id="contours" type="button">등고선 전환</button>
+  <button id="resetSample" type="button">창작 지형 복원</button>
  </div>
+ <label id="importFileLabel" for="heightFile">로컬 고도 JSON 파일
+ <input id="heightFile" type="file" accept=".json,application/json"
+ aria-label="로컬 파일 선택 (외부 전송 없음)"></label>
  <output id="tileStatus" role="status" aria-live="polite">지형 타일 준비 중</output>
 </footer>
 </main>
 <script src="src/aden-citywide-tiles.js"></script>
+<script src="src/aden-map-relief.js"></script>
 <script src="src/aden-city-explorer.js"></script>
 <script src="src/aden-city-explorer-init.js"></script>
 </body>

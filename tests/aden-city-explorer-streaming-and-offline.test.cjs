@@ -88,6 +88,7 @@ test('offline delivery has an independent local terrain page, a clear non-survey
  assert.match(html,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  assert.match(html,/id="terrainCanvas"/);
  assert.match(html,/src="src\/aden-citywide-tiles\.js"/);
+ assert.match(html,/src="src\/aden-map-relief\.js"/);
  assert.match(html,/src="src\/aden-city-explorer\.js"/);
  assert.match(html,/src="src\/aden-city-explorer-init\.js"/);
  assert.match(html,/href="index\.html"/);
@@ -96,18 +97,21 @@ test('offline delivery has an independent local terrain page, a clear non-survey
  assert.match(index,/창작 테스트 지형이며 실제 아덴 DEM이 아닙니다/);
  const files=collectFiles().map(x=>x.name);
  for(const name of ['terrain.html','src/aden-citywide-tiles.js',
-   'src/aden-city-explorer.js','src/aden-city-explorer-init.js']){
+   'src/aden-map-relief.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js']){
   assert.ok(files.includes(name),'bundled: '+name);
  }
  assert.deepEqual(referencedAssets('terrain.html',html),[
-  'src/aden-citywide-tiles.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js']);
+  'src/aden-citywide-tiles.js','src/aden-map-relief.js',
+  'src/aden-city-explorer.js','src/aden-city-explorer-init.js']);
  assert.doesNotMatch(html,/<script>(?!<\/script>)/);
 });
 test('browser global setup loads from local assets without network access or browser-specific APIs',()=>{
  const lib=fs.readFileSync(path.resolve(__dirname,'../src/aden-citywide-tiles.js'),'utf8'),
+  relief=fs.readFileSync(path.resolve(__dirname,'../src/aden-map-relief.js'),'utf8'),
   viewer=fs.readFileSync(path.resolve(__dirname,'../src/aden-city-explorer.js'),'utf8');
  const context=vm.createContext({});
  vm.runInContext(lib,context);
+ vm.runInContext(relief,context);
  vm.runInContext(viewer,context);
  assert.equal(context.VeilpointAdenCityTiles.TILE_METRES,512);
  assert.equal(context.VeilpointAdenCityExplorer.createPreviewRegistry().size,25);
