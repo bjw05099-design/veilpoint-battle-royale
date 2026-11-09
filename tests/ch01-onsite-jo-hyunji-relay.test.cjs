@@ -51,7 +51,8 @@ test('on-foot Jo Hyunji collaboration restores one public relay, never a distant
  assert.match(s.subtitle,/출국 전에/);
  assert.match(s.subtitle,/유수프/);
  assert.equal(Story.markers(s).some(m=>m.id==='liaisonAssist'),false);
- assert.equal(Story.interact(s).event,'not_a_repeat','no repeatable reward');
+ assert.notEqual(Story.nearest(s)?.id,'liaisonAssist',
+   'restored relay removes the one-time local conversation prompt');
  const before=Story.serialize(s),restored=Story.restore(before);
  assert.equal(Story.serialize(restored),before);
  assert.equal(restored.relayRestored,true);
