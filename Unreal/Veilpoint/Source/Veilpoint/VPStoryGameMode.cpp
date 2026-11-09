@@ -2,6 +2,7 @@
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
 #include "VPStoryPedestrian.h"
+#include "VPStoryEastGate.h"
 #include "VPWorldBootstrap.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -72,6 +73,18 @@ void AVPStoryGameMode::BeginPlay()
             AuthoredActions.AddUnique(Placement.Action);
         }
     }
+    // Fictional local civic passage: a real raised shutter begins to move only
+    // after the official east-route conversation. Reuse an editor-placed actor
+    // when an authored map replaces these temporary procedural placeholders.
+    bool bHasEastGate=false;
+    for(TActorIterator<AVPStoryEastGate> It(GetWorld());It;++It)
+    {
+        if(IsValid(*It)){bHasEastGate=true;break;}
+    }
+    if(!bHasEastGate)
+        GetWorld()->SpawnActor<AVPStoryEastGate>(
+            AVPStoryEastGate::StaticClass(),
+            FVector(4050.f,1400.f,150.f),FRotator::ZeroRotator);
     // One visible, colliding pedestrian already stands in the south public
     // walking district. After the captain and local aid team select the south
     // corridor the actor walks at fixed speed. An editor-authored civilian

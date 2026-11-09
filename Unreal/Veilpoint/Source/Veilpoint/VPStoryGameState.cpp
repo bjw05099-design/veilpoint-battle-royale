@@ -1,6 +1,8 @@
 #include "VPStoryGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "VPStoryGameMode.h"
+#include "VPStoryEastGate.h"
+#include "EngineUtils.h"
 #include "Engine/World.h"
 
 void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
@@ -70,7 +72,13 @@ bool AVPStoryGameState::IsAvailable(EVPStoryAction Action) const
     case EVPStoryStage::SouthExit:
         return Action == EVPStoryAction::ReachSouth;
     case EVPStoryStage::EastExit:
-        return Action == EVPStoryAction::ReachEast;
+        // A remote E or an open-air detour cannot bypass the physically
+        // sliding public exit. Only the server's real door being fully
+        // raised makes the local ReachEast interaction available.
+        if(Action!=EVPStoryAction::ReachEast || !GetWorld())return false;
+        for(TActorIterator<AVPStoryEastGate> It(GetWorld());It;++It)
+            if(IsValid(*It))return It->GetOpeningFraction()>=.999f;
+        return false;
     case EVPStoryStage::Complete:
         return false;
     }

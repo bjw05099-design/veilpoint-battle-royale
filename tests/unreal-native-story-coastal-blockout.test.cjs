@@ -27,8 +27,12 @@ test('native CH01 blockout uses a different replicated actor class, not an unrel
 test('native CH01 blockout has physically separated record stations, two exits and an unblocked central route',()=>{
  const body=world.slice(world.indexOf('static const FCoastalBlock StoryBlocks[]'),world.indexOf('for(const FCoastalBlock& Block'));
  const matches=[...body.matchAll(/\{FVector\(([-.\d]+)f,([-.\d]+)f,([-.\d]+)f\), FVector\(([-.\d]+)f,([-.\d]+)f,([-.\d]+)f\)\}/g)];
- assert.equal(matches.length,14,'all coastal block placements must remain explicit, not generated from hidden randomness');
+ assert.equal(matches.length,16,'fourteen existing blocks plus two authored east public gate shoulders');
  const blocks=matches.map(m=>m.slice(1).map(Number));
+ // Check both added structures instead of merely accepting an enlarged count:
+ // gate location is an original fictional public passage, not a real target.
+ assert.ok(blocks.some(a=>a.join(',')==='4050,600,145,0.4,10,2.9'));
+ assert.ok(blocks.some(a=>a.join(',')==='4050,2200,145,0.4,10,2.9'));
  const markers=[{x:650,y:0},{x:1700,y:-500},{x:1700,y:500},
   {x:2800,y:-400},{x:2800,y:400},{x:4600,y:-1400},{x:4600,y:1400}];
  for(const marker of markers)for(const [x,y,,sx,sy] of blocks){
