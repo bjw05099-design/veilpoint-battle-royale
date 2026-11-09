@@ -40,6 +40,21 @@ PR의 개발 초점은 **아덴 전체 민간 도시 1:1 제작을 위한 지형
 3. `src/aden-city-explorer.js`: 기존 25타일 계산·캐시·이동·LOD 기능 유지하면서 위 입체 경관과 등고선을 표시. 외부 타일을 열면 창작 주거 모형 105개는 숨기고 입력한 고도만 그립니다. 창작 지형 복원 버튼이 있습니다.
 4. `terrain.html`: 키보드 `H` = 지형 입체도 전환, `C` = 등고선 전환. WASD·방향키·확대·축소·원점 복원은 그대로 유지합니다. 화면은 모든 자료 상태를 "외부 검증 전"으로 표현합니다.
 
+## UE5 Landscape 원본 후보 변환기
+
+Epic의 [Landscape Technical Guide](https://dev.epicgames.com/documentation/unreal-engine/landscape-technical-guide-in-unreal-engine)에서 **505×505 정점** 지형이 유효한 권장 구성(63쿼드/섹션, 2×2섹션/컴포넌트, 4×4컴포넌트)임을 확인했다. [Heightmap Import 문서](https://dev.epicgames.com/documentation/unreal-engine/importing-and-exporting-landscape-heightmaps-in-unreal-engine)는 **16비트 그레이스케일 `.r16`** 파일을 지원한다. 현행 지형 편집기에서 실제 가져오기/UE5 엔진 빌드까지 실행한 것은 아니다.
+
+```bash
+node scripts/export-ue5-heightmaps.cjs imported-local-tiles.json ./out/ue5-heightmaps
+```
+
+- 먼저 위의 **오프라인 타일 JSON 검증**(출처 선언, local-metre-unreferenced, 최대 49개 타일, 각 타일 17/33/65 샘플, 높이 15cm 허용)을 통과해야 한다.
+- 505×505 높이맵을 **row-major, 16비트 unsigned little-endian** `.r16`으로 작성한다. 보간은 기존 저해상도 표본을 재배치할 뿐, 실제 지형 디테일을 새로 측정하지 않는다.
+- 파일의 경계는 **양옆 505개 표본이 양자화 이후 정확히 같아야** 한다. 브라우저에서는 15cm 이하로 허용한 이음새라도 UE5 출력에서 1픽셀이라도 달라지면 변환을 거부한다.
+- `IMPORT_MANIFEST.json`에 타일 좌표(게임 내부 local metres), 파일별 SHA-256, 정점간 XY 스케일(`512m / 504 quads`), 공통 Z 스케일, 권장 Landscape Actor 높이 오프셋을 기록한다.
+- 기본 고도 인코딩은 **-550~3050m** 범위로, 중심 `1250m`, `zScale=703.125cm`, 1샘플 고도 단계 `3600/65536 ≈ 5.5cm`이다. UE5에서 실제 Actor Z 위치, 지형 고도 기준면과 World Partition 오프셋은 별도로 확인해야 한다.
+- 변환 후에도 **라이선스 승인, 지리 정확도, 실측 아덴 포함 범위, UE5 빌드 여부는 모두 미확인 상태**로 표시된다. 수출한 파일만으로 World Partition 자동 구성 또는 1:1 실제 아덴 월드 완성을 주장하지 않는다.
+
 ## 추후 진짜 아덴 지도 완성을 위한 순서
 
 - 자료 제공자의 이용약관·실제 취득일·고도 기준 및 범위를 검증한 뒤 **민간 공개 지형**만 별도 반입한다. NASA·UNESCO 지형 맥락 설명은 개별 건물의 측량 근거가 될 수 없다.
