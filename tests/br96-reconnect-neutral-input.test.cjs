@@ -76,3 +76,24 @@ test('real HTTP resume replaces a human session without ghost motion and keeps t
   assert.equal(server.world.actors.size,96);
  }finally{await server.close();}
 });
+
+test('reconnection keeps an already accepted physical bench passage from freezing inside a collider',()=>{
+ const world=fullWorld(),old=token(0),newSession='d'.repeat(64);
+ const bench={x:0,z:0,w:3.5,d:.7,h:.75,type:'aden-market-court-bench'};
+ world.obstacles.push(bench);
+ const actor=world.actors.get(old);
+ actor.x=0;actor.z=2;
+ assert.equal(world.move(old,{dx:0,dz:-1,seq:1}).ok,true);
+ assert.equal(world.stepOver(old).ok,true);
+ for(let i=0;i<24;i++)world.step();
+ assert.ok(actor.stepping && actor.stepping.progress>0);
+ const mid=actor.z,progress=actor.stepping.progress;
+ world.rebindSession(old,newSession);
+ assert.equal(actor.stepping.progress,progress,'old authorized crossing cannot be erased mid-body');
+ for(let i=24;i<48;i++)world.step();
+ assert.equal(actor.stepping,null);
+ assert.ok(actor.z<-1.35&&actor.z<mid);
+ assert.equal(world.snapshot(newSession).self.stepOverProgress,null);
+ assert.equal(world.snapshot(newSession).self.seq,1);
+ assert.equal(world.actors.size,96);
+});
