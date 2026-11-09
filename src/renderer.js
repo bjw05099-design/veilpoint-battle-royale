@@ -324,8 +324,13 @@ class SoftwareRenderer {
  for(const mark of plan.trailMarkers||[])objects.push({x:mark.x,z:mark.z,h:.95,w:.22,d:.22,type:'trail-marker'});
  for(const {entity:b} of plan.bots)objects.push({x:b.x,z:b.z,angle:b.angle,h:1.9,w:.7,d:.7,type:'bot'});
  for(const {entity:g} of plan.guides||[])objects.push({x:g.x,z:g.z,h:1.75,w:.55,d:.55,type:'guide'});
- for(const {entity:w} of plan.witnesses||[])objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,
-  type:w.role==='jo-hyunji'?'liaison':'witness'});
+ for(const {entity:w} of plan.witnesses||[]){
+  // The existing civilian/witness render contract stays unchanged. The
+  // separately identified character takes a distinct visual branch.
+  if(w.role==='jo-hyunji')
+   objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'liaison'});
+  else objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'witness'});
+ }
  for(const {entity:w} of plan.workers||[])objects.push({x:w.x,z:w.z,h:1.74,w:.55,d:.55,type:'worker'});
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
   w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
