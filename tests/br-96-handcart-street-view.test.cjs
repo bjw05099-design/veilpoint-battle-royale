@@ -14,5 +14,7 @@ test('server-positioned moving handcart has a real foreground silhouette in BR96
    'first-person ray must use the server-updated physical position');
  const client=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'),'utf8');
  assert.match(client,/civicGate:w\.civicGate,handcart:w\.handcart/);
- assert.match(client,/KeyT.*operateHandcart/);
+ assert.match(client,/key==='KeyF'&&active\(\)/);
+ assert.match(client,/async function interactNearby\(\)/);
+ assert.match(client,/command\('\/interact',\{\},null\)/);
 });
