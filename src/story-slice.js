@@ -618,7 +618,7 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
-    state.world.mara=state.mara;
+    state.world.mara=state.mara?{...state.mara,role:'mara'}:null;
     state.world.liaison=state.combat.cleared&&
       ['records','decision','exit','complete'].includes(state.phase)
       ?{x:POINTS.liaisonAssist.x,z:POINTS.liaisonAssist.z,role:'jo-hyunji'}:null;
