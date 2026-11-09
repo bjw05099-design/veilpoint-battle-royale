@@ -310,8 +310,12 @@ function draw(w){
   const subject=w.spectatorView
    ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
   // The spectator HUD uses the EXISTING same-squad roster's observed light.
+  // A spectator's pose is already visible in their authenticated six-person
+  // roster. Reuse that instead of changing the stable spectatorView contract.
+  const watchedMate=w.spectatorView?w.squad?.find(p=>p.id===subject.id):null;
   const litSubject=w.spectatorView
-    ?{...subject,headlampOn:!!w.squad?.find(p=>p.id===subject.id)?.headlampOn}:subject;
+    ?{...subject,headlampOn:!!watchedMate?.headlampOn,
+      crouched:!!watchedMate?.crouched,benchResting:!!watchedMate?.benchResting}:subject;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
    subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
