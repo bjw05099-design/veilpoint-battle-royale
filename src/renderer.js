@@ -252,6 +252,17 @@ class SoftwareRenderer {
   const pad=global.VeilpointSim.WET_LOADING_PAD;
   objects.push({x:pad.x,z:pad.z,w:pad.width,d:pad.depth,h:.09,type:'harbor-wash'});
  }
+ // Four public ground-level district surfaces are original walkable
+ // street dressing. They use the SAME authored coordinates as the
+ // 60Hz collision world, but introduce zero new invisible colliders.
+ if(state.terrainRevision===1||harborNight){
+  for(const pavement of global.VeilpointSim.PUBLIC_CITY_PAVEMENTS){
+   if(Math.hypot(p.x-pavement.x,p.z-pavement.z)>100)continue;
+   const x=pavement.x,z=pavement.z,ww=pavement.w/2,dd=pavement.d/2;
+   polygon([proj(x-ww,.08,z-dd),proj(x+ww,.08,z-dd),
+     proj(x+ww,.08,z+dd),proj(x-ww,.08,z+dd)],pavement.canvas);
+  }
+ }
  for(const o of state.obstacles){
   // Driver camera occupies the vehicle cabin; no duplicate opaque box
   // should obscure the actual road during first-person travel.
@@ -444,6 +455,19 @@ class Renderer {
  for(const v of [-2.2,2.2])m.box(0,-.025,v,350,.025,2.5,[.20,.21,.20]);
  for(let z=-175;z<175;z+=15)m.box(0,.006,z,0.20,.02,5.2,[.67,.59,.40]);
  for(let x=-175;x<175;x+=15)m.box(x,-.01,0,5.2,.024,.18,[.54,.48,.33]);
+ // Public stone paving in four Aden-referenced fictional civilian districts.
+ // Tessellated surfaces follow the authored ground relief; they are not
+ // ghost colliders or an exact surveyed current street map.
+ if(this.worldTerrainRevision===1)for(const pavement of global.VeilpointSim.PUBLIC_CITY_PAVEMENTS){
+  const minX=pavement.x-pavement.w/2,maxX=pavement.x+pavement.w/2;
+  const minZ=pavement.z-pavement.d/2,maxZ=pavement.z+pavement.d/2;
+  for(let x=minX;x<maxX;x+=3)for(let z=minZ;z<maxZ;z+=3){
+   const x2=Math.min(maxX,x+3),z2=Math.min(maxZ,z+3),y=.045;
+   m.quad([x,height(x,z)+y,z],[x,height(x,z2)+y,z2],
+     [x2,height(x2,z2)+y,z2],[x2,height(x2,z)+y,z],
+     pavement.color);
+  }
+ }
  // Visible waterlogged apron has the same footprint as the fixed-step
  // player and rival traction rule. No hidden or unrendered movement modifier.
  if(this.sceneMode==='br'){
