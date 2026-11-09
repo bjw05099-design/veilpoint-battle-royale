@@ -9,7 +9,8 @@ function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veilpoint-package-'));
   for (const p of ['src','docs']) fs.mkdirSync(path.join(dir,p));
   fs.writeFileSync(path.join(dir,'index.html'), '<script src="src/game.js"></script>');
-  fs.writeFileSync(path.join(dir,'story.html'), '<script src="src/game.js"></script>');\n  fs.writeFileSync(path.join(dir,'terrain.html'), '<script src="src/game.js"></script>');
+  fs.writeFileSync(path.join(dir,'story.html'), '<script src="src/game.js"></script>');
+  fs.writeFileSync(path.join(dir,'terrain.html'), '<script src="src/game.js"></script>');
   fs.writeFileSync(path.join(dir,'src/game.js'), 'console.log("offline")');
   for (const p of ['README.md','docs/DEMO_DELIVERY_GATES.md','docs/GRAPHICS_PROFILES.md'])
     fs.writeFileSync(path.join(dir,p), 'prototype');
