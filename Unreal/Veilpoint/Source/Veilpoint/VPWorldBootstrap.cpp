@@ -108,6 +108,21 @@ void AVPWorldBootstrap::BeginPlay()
     // Resources below are separately spawned server-side replicated actors.
     // Native untextured fallback landscape. Replace with Nanite assets and authored maps.
     AddBlock(Ground,FVector(0,0,-70),FVector(350.f,350.f,1.3f));
+    // Four civilian neighborhood paving surfaces follow the same fictional
+    // Aden-inspired placement as BR and CH01 browser PUBLIC_CITY_PAVEMENTS.
+    // They are walkable NON-COLLIDING street finish, not checkpoint walls;
+    // the underlying terrain and existing road access remain authoritative.
+    // These are NOT surveyed modern streets or sensitive facility layouts.
+    struct FPublicPavement { float X,Z,W,D; };
+    static const FPublicPavement PublicDistrictPavements[] = {
+        {-154.f,105.f,12.f,10.f}, // Tawahi-referenced western waterfront
+        {-28.f,65.f,13.f,8.f},    // Ma'alla-referenced coastal frontage
+        {28.f,136.f,10.f,8.f},   // Crater-referenced public market
+        {134.f,108.f,12.f,8.f}   // Khormaksar-referenced mainland approach
+    };
+    for (const FPublicPavement& Paving : PublicDistrictPavements)
+        AddBlock(Vegetation,FVector(Paving.X*100.f,Paving.Z*100.f,1.5f),
+            FVector(Paving.W,Paving.D,.03f));
     // The browser BR and CH01 now share a *real, traversable* seafront
     // market. Carry its exact six fictional street-level solids to the
     // native Windows blockout (browser x,z => UE X,Y, metres => cm).
