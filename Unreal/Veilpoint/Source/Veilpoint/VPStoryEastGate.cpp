@@ -2,6 +2,7 @@
 #include "VPStoryGameState.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
 AVPStoryEastGate::AVPStoryEastGate()
@@ -22,17 +23,29 @@ AVPStoryEastGate::AVPStoryEastGate()
     Door->SetMobility(EComponentMobility::Movable);
 }
 
+void AVPStoryEastGate::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+{
+    Super::GetLifetimeReplicatedProps(Out);
+    DOREPLIFETIME(AVPStoryEastGate,ClosedZ);
+}
+
 void AVPStoryEastGate::BeginPlay()
 {
     Super::BeginPlay();
     // Authored native levels may relocate this door. Capture the closed
     // location once rather than assuming browser coordinates or world origin.
-    ClosedZ=GetActorLocation().Z;
+    if(HasAuthority())
+    {
+        ClosedZ=GetActorLocation().Z;
+        ForceNetUpdate();
+    }
 }
 
 float AVPStoryEastGate::GetOpeningFraction() const
 {
-    return FMath::Clamp((GetActorLocation().Z-ClosedZ)/TravelCm,0.f,1.f);
+    return ClosedZ>0.f
+        ? FMath::Clamp((GetActorLocation().Z-ClosedZ)/TravelCm,0.f,1.f)
+        : 0.f;
 }
 
 void AVPStoryEastGate::Tick(float DeltaSeconds)
