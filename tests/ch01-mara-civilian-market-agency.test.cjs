@@ -27,7 +27,7 @@ test('Mara is a real public actor from the opening and no compulsory marker or r
  for(let i=0;i<150;i++)Story.step(s,1/60,{});
  assert.deepEqual(s.mara,before,'civilian does not magically escape while the awning is still blocking the street');
  assert.ok(!Story.markers(s).some(m=>m.id==='mara'),
-   'civilian's own judgment does not create escort or checklist tasks');
+   "civilian ownership of the decision never creates escort or checklist tasks");
 });
 test('optional physical awning actually opens market passage for a self-directed 60Hz civilian walk',()=>{
  const s=afterEscalation();
