@@ -43,8 +43,10 @@ test('WebGL and software scene both draw real before-after lighting from the sav
  assert.match(renderer,/uNight>\.5&&uCivicOn>\.5/);
  assert.match(renderer,/vec3 streetLamps\[2\]=vec3\[2\]/);
  assert.match(renderer,/civicOn:g\.getUniformLocation\(this\.prog,'uCivicOn'\)/);
- assert.match(renderer,/g\.uniform1f\(l\.civicOn,night&&state\.publicStreetPowered===true\?1:0\)/);
- assert.match(renderer,/if\(harborNight&&state\.publicStreetPowered===true\)/);
+ assert.match(renderer,/g\.uniform1f\(l\.civicOn,civicStreetLampLevel\(state\)\)/);
+ assert.match(renderer,/function civicStreetLampLevel\(state\)/);
+ assert.match(renderer,/state\.publicStreetPowered===true\?1:0/);
+ assert.match(renderer,/if\(civicStreetLampLevel\(state\)>0\)/);
  assert.match(renderer,/polygon\(\[proj\(x-2,\.085,-20\)/);
  assert.doesNotMatch(storySource,/publicStreetPowered:.*true.*checkpoint/);
 });
