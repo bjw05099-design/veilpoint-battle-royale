@@ -329,7 +329,9 @@ void AVPWorldBootstrap::BeginPlay()
     static const FSharedPublicBlock SharedFerryApproachShops[] = {
         {-51.f,105.f,.65f,16.f,3.5f},
         {-40.f,109.f,.65f,8.f,3.5f},
-        {-45.5f,113.5f,11.f,.7f,3.5f},
+        // The real 5m north entrance preserves the existing ferry approach.
+        {-49.5f,113.5f,3.f,.7f,3.5f},
+        {-41.5f,113.5f,3.f,.7f,3.5f},
         {-19.f,105.f,.65f,16.f,3.5f},
         {-30.f,109.f,.65f,8.f,3.5f},
         {-24.5f,113.5f,11.f,.7f,3.5f},
