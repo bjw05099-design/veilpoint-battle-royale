@@ -82,6 +82,51 @@
     weatherCode==='gusty'?[107,127,134]:[112,139,146];
   return 'rgb('+base.map((v,i)=>Math.min(255,Math.round(v*factor*(1-fog)+horizon[i]*fog))).join(',')+')';
  }
+ // Project public, non-colliding civic ground onto the actual player-local
+ // 1st-person horizon. Near-plane polygon clipping keeps the ground stable
+ // even when a player stands ON the pavement. Never use it for actor sight.
+ function civicGroundPolygons(subject,yaw,pitch,pavements,width,height,eyeHeight,
+   maxDistance=MAX_DISTANCE){
+  if(!Array.isArray(pavements)||pavements.length>32)
+   throw new RangeError('invalid_public_pavements');
+  const angle=wrap(yaw),horizon=height*.52+Math.tan(clampPitch(pitch))*height*.68,
+   focal=height*.68,near=.65;
+  const output=[];
+  for(const ground of pavements){
+   if(!ground||![ground.x,ground.z,ground.w,ground.d].every(Number.isFinite)||
+      ground.w<=0||ground.d<=0||ground.w>60||ground.d>60||
+      !/^#[0-9a-f]{6}$/i.test(ground.canvas||''))
+      throw new RangeError('invalid_public_pavement');
+   if(Math.hypot(ground.x-subject.x,ground.z-subject.z)>
+      maxDistance+Math.hypot(ground.w,ground.d))continue;
+   const verts=[
+    [-1,-1],[1,-1],[1,1],[-1,1]
+   ].map(([u,v])=>{
+    const dx=ground.x+u*ground.w/2-subject.x,
+      dz=ground.z+v*ground.d/2-subject.z;
+    return {side:dx*Math.cos(angle)+dz*Math.sin(angle),
+      depth:dx*Math.sin(angle)-dz*Math.cos(angle)};
+   });
+   const clipped=[];
+   for(let i=0;i<verts.length;i++){
+    const a=verts[i],b=verts[(i+1)%verts.length],
+      aIn=a.depth>=near,bIn=b.depth>=near;
+    if(aIn)clipped.push(a);
+    if(aIn!==bIn){
+     const part=(near-a.depth)/(b.depth-a.depth);
+     clipped.push({side:a.side+part*(b.side-a.side),depth:near});
+    }
+   }
+   if(clipped.length<3)continue;
+   const points=clipped.map(v=>Object.freeze({
+     x:Math.max(-width*4,Math.min(width*5,width/2+v.side*focal/v.depth)),
+     y:Math.max(horizon,Math.min(height*5,horizon+eyeHeight*focal/v.depth))
+   }));
+   output.push(Object.freeze({id:ground.id||null,
+     canvas:ground.canvas,points:Object.freeze(points)}));
+  }
+  return Object.freeze(output);
+ }
  function frame({subject,yaw=0,pitch=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
   if(!subject||![subject.x,subject.z].every(Number.isFinite))
@@ -146,7 +191,7 @@
       subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
  function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
-   visibilityMeters,weather}={}){
+   visibilityMeters,weather,pavements=[]}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
@@ -157,6 +202,19 @@
   ctx.fillRect(0,0,width,horizon);
   ctx.fillStyle=haze?'#424c4b':gusty?'#414846':'#3d4340';ctx.fillRect(0,horizon,width,height-horizon);
   ctx.fillStyle='#9aa19a';ctx.fillRect(0,horizon-1,width,2);
+  // Actual original city plazas and quay pavements are continuous flat ground
+  // below existing raycast buildings, never painted OVER an opaque wall.
+  const ground=civicGroundPolygons(subject,yaw,pitch,pavements,
+    width,height,model.eyeHeight,model.maxDistance);
+  for(const patch of ground){
+   ctx.fillStyle=patch.canvas;ctx.beginPath();
+   for(let i=0;i<patch.points.length;i++){
+    const vertex=patch.points[i];
+    if(i===0)ctx.moveTo(vertex.x,vertex.y);
+    else ctx.lineTo(vertex.x,vertex.y);
+   }
+   ctx.closePath();ctx.fill();
+  }
   const strip=width/model.columns,focal=height*.68;
   for(let i=0;i<model.columns;i++){
    const ray=model.rays[i];
@@ -226,5 +284,6 @@
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,
+  civicGroundPolygons,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
