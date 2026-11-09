@@ -241,7 +241,7 @@ function render(){
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
-    '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+
+    '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+' · 전원 직접 방문 '+(w.squadLandmarks?.filter(site=>site.wholeSquadVisited).length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     '\n개인 헤드램프: '+(w.self.headlampOn?'점등':'소등')+' · 잔여 '+Math.ceil(w.self.headlampTicks/60)+'초'+
@@ -385,7 +385,7 @@ function draw(w){
   if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return;
   ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(p.x),z(p.z),r,0,Math.PI*2);ctx.fill();
  }
- for(const site of w.squadLandmarks||[])dot(site,'#9eabb2',4);
+ for(const site of w.squadLandmarks||[])dot(site,site.wholeSquadVisited?'#d5eab5':'#9eabb2',site.wholeSquadVisited?6:4);
  for(const rival of w.visible||[])dot(rival,'#ef897e',6);
  for(const mate of w.squad||[])if(mate.id!==w.self.id)dot(mate,'#8cb6e6',6);
  if(w.squadSignal){
