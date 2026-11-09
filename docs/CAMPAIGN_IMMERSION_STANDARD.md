@@ -4,6 +4,8 @@
 
 **CH01 incremental implementation (2026-10-27):** The browser preview includes an original, fictional three-human-opponent encounter with finite shots with player-controlled aim/fire, readable threat count, one-use 김지윤 support and 조현지 progression callouts. The encounter is deliberately non-graphic and is not proof of cinematic immersion, complete ally AI, voice performance, measured combat share or full mission runtime. Local checkpoint v2 records encounter state and migrates v1 saves. Human browser playtests remain required.
 
+**2026-11-09 gameplay-reference integration:** [Causal CH01 gameplay/companion/city production specification](CH01_CAUSAL_GAMEPLAY_REFERENCE_2026-11-09.md) is the actionable scene-design supplement based on the owner's annotated ~14m18s video analysis. It is *not* a claim that the full reference video was independently watched, nor that the proposed moments are implemented. Prior scene names, dialogue, locations and choreography must not be copied.
+
 **Binding canon:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md). Twelve chapters / 720 minutes of *authored target* (actual duration unmeasured), Korean special-forces Captain **Lee Su-hyeok** as playable lead, important fictional NIS agents **Kim Ji-yun** and **Jo Hyeon-ji**, fictional Middle Eastern conflict across Sahir Coast/Nahrin, dominant combat-first gameplay with variety, and three modes overall (campaign, Operations multiplayer, battle royale).
 
 ## Difference between cinematic appearance and participatory immersion
@@ -19,7 +21,7 @@ A film controls every shot; a compelling interactive campaign must remain cohere
 3. **Cohesive visual realism.** Physically consistent materials, lighting and exposure; authored unique streets and architecture, depth, atmospheric conditions, character faces and animations. Lumen/Nanite/TSR are tools, not proof of visual quality. Validate in *moving gameplay*, including dim interiors, dusk/day/night and high-contrast transitions.
 4. **Spatial audiovisual narrative.** Believable dialogue positions and transitions, clear ally/enemy/civilian vocal identity, sound propagation and environmental ambience, dynamic music that responds to narrative tension without overwhelming speech. Subtitles, audio cues and independent volume controls must preserve playability.
 5. **Believable characters with memory and motives.** Captain Lee, NIS characters and local allies should react to the same event consistently across missions, remember limited earlier choices, have their own objectives and avoid constant exposition over gameplay. Provide context for uncertainty instead of omniscient plot messages.
-6. **Combat-led but varied intensity.** Target ~60–65% of campaign *interactive* runtime as fictional combat/action encounters. Distinct mission goals, environmental reactions, readable feedback, AI credibility and movement variety matter more than uninterrupted repetitive fire or graphic effects. Short quiet stretches serve suspense and connection.
+6. **Combat-led but varied intensity.** Target **50% combat**, **20% urgent movement/rescue**, **22% character/narrative**, **8% exploration/interactions** across the authored 12-hour campaign (targets, not measured gameplay). Distinct mission goals, environmental reactions, readable feedback, AI credibility and movement variety matter more than uninterrupted repetitive fire or graphic effects. Short quiet stretches serve suspense and connection.
 7. **Technical reliability protects immersion.** Maintain stable frame pacing and low input delay, quality settings and 165 Hz-capable options on supported hardware. Avoid clipping, teleporting NPCs, inconsistent objective prompts, broken checkpoints, intrusive UI, sudden audio cuts and immersion-breaking scene reloads.
 
 ## Interactive "scene grammar" — what to implement
@@ -31,6 +33,8 @@ At chapter/storyboard level, specify:
 - **Character consequence:** who notices/responds and how?
 - **Transition:** how does the next activity flow without a jarring interruption?
 - **Fallback:** what happens if the player waits, takes another route, misses optional material, pauses or loads a checkpoint?
+- **Prior-scene cause:** which observable preceding action/event made the new objective necessary, instead of a disconnected marker?
+- **City/companion continuity:** which physically observable civic and companion states will still be true in the next space and after loading?
 
 No world event should rely solely on a static cinematic that ignores the player's physical position. A bounded scripted sequence can be acceptable if its input and follow-up state are reliable.
 
@@ -45,10 +49,11 @@ No world event should rely solely on a static cinematic that ignores the player'
 ## Concrete implementation gates
 
 ### CH01 (first priority after stable browser demo)
-- [ ] Existing **noncombat** story browser slice remains functional and its characters/canon are consistent.
+- [ ] Existing story browser slice, including its implemented non-graphic encounter, remains functional and its characters/canon are consistent.
 - [ ] Add a **playable fictional combat encounter** with game-oriented encounter AI, objective state, accessible feedback and checkpoint/resume; avoid scripting a victory that happens without player engagement.
 - [ ] Captain Lee / NIS ally / Mara dialogue responds to player actions and the mission state, with readable subtitles; do not rely on an uninterruptible transcript.
 - [ ] At least one scripted environmental transition happens **in gameplay** and correctly persists (or deterministically reconstructs) through reload.
+- [ ] A civilian/daily-life interaction and companion response causally lead to a **different playable goal** after a witnessed local emergency; companions and street state remain coherent on checkpoint load. This is a proposed feature, not a completed scene.
 - [ ] First-person camera, audio, UI, reduced-motion options and checkpoint consistency have automated checks where feasible, plus actual human/browser playthrough recording.
 - [ ] Implement an independently testable 5–15-minute vertical slice, **then time actual play**. The existing CH01 preview is not a 50-minute production mission.
 
