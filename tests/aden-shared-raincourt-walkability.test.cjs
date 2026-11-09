@@ -33,24 +33,24 @@ test('16 real civilian raincourt fixtures are shared by BR and CH01 and remain n
  for(const world of [match,chapter.world]){
   for(const b of bodies(world))assert.equal(Sim.blocked(b.x,b.z,.85,world.obstacles),true);
   for(const pos of [
-   [-80,-34],[-80,-26],[-80,-12],[-80,2],[-80,9],
-   [-86,-12],[-74,-12],[-80,-2],[-80,-20]
+   [-120,28],[-120,36],[-120,50],[-120,64],[-120,71],
+   [-126,50],[-114,50],[-120,60],[-120,42]
   ])assert.equal(Sim.blocked(pos[0],pos[1],.85,world.obstacles),false,
    'open public entrance must stay physically accessible '+pos);
  }
 });
 test('player-size body can cross both doorways and circulate around both dry stone basins at fixed 60Hz',()=>{
- const route=[{x:-80,z:-34},{x:-80,z:-26},{x:-80,z:-12},
-  {x:-80,z:2},{x:-80,z:9}];
+ const route=[{x:-120,z:28},{x:-120,z:36},{x:-120,z:50},
+  {x:-120,z:64},{x:-120,z:71}];
  for(const world of [Sim.newMatch(2,0),Story.createState().world]){
   travel(world.obstacles,route);
-  travel(world.obstacles,[{x:-80,z:-18},{x:-85,z:-18},
-   {x:-85,z:-6},{x:-80,z:-6}]);
-  travel(world.obstacles,[{x:-80,z:-18},{x:-75,z:-18},
-   {x:-75,z:-6},{x:-80,z:-6}]);
-  const stopped={x:-100,z:-12};
+  travel(world.obstacles,[{x:-120,z:44},{x:-125,z:44},
+   {x:-125,z:56},{x:-120,z:56}]);
+  travel(world.obstacles,[{x:-120,z:44},{x:-115,z:44},
+   {x:-115,z:56},{x:-120,z:56}]);
+  const stopped={x:-140,z:50};
   for(let i=0;i<200;i++)Sim.moveEntity(stopped,3,0,1/60,world.obstacles,.85);
-  assert.ok(stopped.x<-96.75,'west stone wall physically closes side entry');
+  assert.ok(stopped.x<-136.75,'west stone wall physically closes side entry');
  }
 });
 test('new civic court preserves all existing four public district routes, legacy BR saves, CH01 checkpoints and BR96 authority',()=>{
