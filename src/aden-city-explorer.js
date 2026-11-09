@@ -109,7 +109,14 @@
   let triangles=0,visible=0;
   const toScreen=(x,z,elevation=0)=>Relief.project(
    [x,elevation,z],state,w,h,state.zoom,state.relief);
-  for(const key of plan.active){
+  // Draw distant/northern relief before lower/southern terrain. Streaming
+  // chooses tiles by distance for caching, but that is NOT a valid painter's
+  // order when oblique projection moves high contours up the screen.
+  const paintOrder=[...plan.active].sort((a,b)=>{
+   const at=registry.get(a),bt=registry.get(b);
+   return at.tz-bt.tz||at.tx-bt.tx;
+  });
+  for(const key of paintOrder){
    const mesh=cache.get(key).mesh,p=mesh.positions,indices=mesh.triangles;
    for(let i=0;i<indices.length;i+=3){
     const a=indices[i]*3,b=indices[i+1]*3,c=indices[i+2]*3,
@@ -181,6 +188,11 @@
   const cache=new Map();
   let state=viewState();
   function refresh(){
+   const legend=doc.getElementById('mapLegendTitle'),
+    houses=doc.getElementById('fictionalHouseLegend');
+   if(legend)legend.textContent=activeDataset?
+    '입력한 로컬 고도 · 출처 외부 검증 전':'원본 창작 지형 · 축척 검증';
+   if(houses)houses.hidden=!!activeDataset;
    const width=Math.max(320,canvas.clientWidth||canvas.width||960),
      height=Math.max(200,canvas.clientHeight||canvas.height||600);
    const dpr=Math.max(1,Math.min(2,(typeof devicePixelRatio==='number'?devicePixelRatio:1)));
