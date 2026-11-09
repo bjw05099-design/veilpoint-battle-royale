@@ -1,5 +1,6 @@
 #include "VPStoryPedestrian.h"
 #include "VPStoryGameState.h"
+#include "VPStoryGameMode.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -12,6 +13,7 @@ const FVector AVPStoryPedestrian::SouthApproachDestination(4300.f,-1150.f,80.f);
 // One short, nearby public-lane exit is chosen by the local civilian after
 // the unexpected disruption, regardless of which later route the captain uses.
 const FVector AVPStoryPedestrian::SidewalkDestination(3850.f,-800.f,80.f);
+static const FVector PreviewCivilianStart(3400.f,-800.f,80.f);
 
 AVPStoryPedestrian::AVPStoryPedestrian()
 {
@@ -78,6 +80,10 @@ void AVPStoryPedestrian::Tick(float DeltaSeconds)
             if (WalkToward(SidewalkDestination,StepSeconds)){
                 bMovedToSidewalk=true;
                 ForceNetUpdate();
+                // The real curb arrival, not an interaction caption, is the
+                // first durable civilian consequence in native CH01.
+                if (AVPStoryGameMode* Mode = GetWorld()->GetAuthGameMode<AVPStoryGameMode>())
+                    Mode->PersistStoryCheckpoint();
             }
         }else if (Story->StoryStage == EVPStoryStage::SouthExit){
             AdvancePedestrian(StepSeconds);
@@ -114,5 +120,49 @@ void AVPStoryPedestrian::AdvancePedestrian(float FixedSeconds)
     if (WalkToward(SouthApproachDestination,FixedSeconds)){
         bReachedSouthCourtyard=true;
         ForceNetUpdate();
+        // Persist only after completing the actual swept pedestrian walk.
+        // Replays cannot synthesize arrival by skipping the world clock.
+        if (AVPStoryGameMode* Mode = GetWorld()->GetAuthGameMode<AVPStoryGameMode>())
+            Mode->PersistStoryCheckpoint();
     }
+}
+
+// V3 checkpoints must describe a position attained along one of the two
+// authored walking legs. Prior v1/v2 saves do not contain civilian state.
+bool AVPStoryPedestrian::IsCoherentCheckpointPose(
+    const FVector& Location, bool bSidewalk, bool bCourtyard)
+{
+    if (Location.ContainsNaN() || bCourtyard && !bSidewalk ||
+        FMath::Abs(Location.Z-80.f)>2.f) return false;
+    const FVector Start = bSidewalk ? SidewalkDestination : PreviewCivilianStart;
+    const FVector Finish = bSidewalk ? SouthApproachDestination : SidewalkDestination;
+    const FVector Leg = Finish-Start;
+    const float Progress = FVector::DotProduct(Location-Start,Leg)/Leg.SizeSquared();
+    if (!FMath::IsFinite(Progress) || Progress<-.001f || Progress>1.001f) return false;
+    const FVector Closest = Start+Leg*FMath::Clamp(Progress,0.f,1.f);
+    return FVector::Dist(Location,Closest)<=5.f &&
+        (!bCourtyard || FVector::Dist2D(Location,SouthApproachDestination)<=4.f);
+}
+
+bool AVPStoryPedestrian::RestorePhysicalCheckpoint(
+    const FVector& Location, bool bSidewalk, bool bCourtyard)
+{
+    if (!HasAuthority() || !GetWorld() ||
+        !IsCoherentCheckpointPose(Location,bSidewalk,bCourtyard)) return false;
+    // Only native standalone SaveGame recovery can call this method. Sweep
+    // to the *saved* position (not an arbitrary gameplay transport command);
+    // if scenery is occupied, leave the civilian unchanged.
+    const FVector Before = GetActorLocation();
+    FHitResult Hit;
+    const bool bPlaced = SetActorLocation(Location,true,&Hit,ETeleportType::None);
+    if (!bPlaced || Hit.bBlockingHit)
+    {
+        SetActorLocation(Before,false,nullptr,ETeleportType::TeleportPhysics);
+        return false;
+    }
+    bMovedToSidewalk=bSidewalk;
+    bReachedSouthCourtyard=bCourtyard;
+    FixedAccumulator=0.f;
+    ForceNetUpdate();
+    return true;
 }
