@@ -160,7 +160,13 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,200,{schema:'veilpoint-br96-public-geometry-v1',
       // Public non-sensitive environmental region, shared by both modes.
       // Gameplay traction is calculated by the server on true actor poses.
-      environment:{wetLoadingPad:{x,z,width,depth}},
+      environment:{wetLoadingPad:{x,z,width,depth},
+        // Four original, public ground-plane districts from the same
+        // authored Sim geometry used by the CH01 and offline BR renderers.
+        // This contains zero live player positions or private state.
+        pavements:Sim.PUBLIC_CITY_PAVEMENTS.map(p=>({
+          id:p.id,x:p.x,z:p.z,w:p.w,d:p.d,canvas:p.canvas
+        }))},
       obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter'&&o.routeId!=='br-dock-handcart').map(o=>({
         x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
       }))});
