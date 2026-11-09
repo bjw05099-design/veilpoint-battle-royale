@@ -24,8 +24,7 @@ test('same market footprint has distinct ordinary and changed-street acoustic pr
  assert.equal(JSON.stringify(s),JSON.stringify({...s}),
   'reading the local acoustic profile cannot change story state');
  assert.ok(before.level>0&&after.level>0);
- assert.equal(Ambience.profile(s),Ambience.profile(s).moment==='changed-street'?Ambience.profile(s):null,
-  'test runner should not accidentally rely on returned object identity');
+ assert.deepEqual(Ambience.profile(s),after,'the same observed world returns the same acoustic profile');
  assert.notEqual(JSON.stringify(s),original,'the test intentionally changed the incident fixture');
 });
 
