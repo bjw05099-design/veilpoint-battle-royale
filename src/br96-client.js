@@ -182,7 +182,7 @@ function render(){
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
- for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate','handcart','shuttle','headlamp'])el(id).disabled=!active();
  el('stepOver').disabled=!active()||w?.self?.stepOverProgress!==null&&
    w?.self?.stepOverProgress!==undefined;
  el('headlamp').setAttribute('aria-pressed',String(!!w?.self?.headlampOn));
@@ -249,6 +249,7 @@ function render(){
       '\n보행 장애물 통과: '+Math.round(w.self.stepOverProgress*100)+'% · 서버 60Hz':'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
+    (w.shuttle?'\n공공 서비스 차량: '+(w.shuttle.ownDriver?'운전 중':'현장 접근 가능')+(w.shuttle.ownDriver?' · 잔여 연료 '+w.shuttle.fuel.toFixed(2):''):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
@@ -363,6 +364,11 @@ function draw(w){
    ctx.fillStyle=g.state==='closed'?'#dcb573':'#9dcdbb';
    ctx.fillRect(x(g.x-g.w/2),z(g.z-g.d/2),g.w*scale,Math.max(2,g.d*scale));
  }
+ if(w.shuttle){
+   const v=w.shuttle;
+   ctx.fillStyle=v.ownDriver?'#d2b875':v.occupied?'#a5bdc2':'#72958e';
+   ctx.fillRect(x(v.x-v.w/2),z(v.z-v.d/2),v.w*scale,v.d*scale);
+  }
  if(w.handcart){
    const cart=w.handcart;
    ctx.fillStyle=cart.heldBySelf?'#d5bb88':'#9db2a9';
@@ -568,6 +574,16 @@ function setAudioPanel(open){
  else el('soundSettings').focus({preventScroll:true});
  render();
 }
+async function operateShuttle(){
+ if(!active())return;
+ const result=await command('/shuttle',{},null);
+ if(result?.ok){
+  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
+  message(result.action==='enter'
+   ?'공공 서비스 차량에 탑승했습니다. WASD로 천천히 이동 · B는 완전히 정차 후 하차'
+   :'실제 공공 차량 옆의 빈 공간으로 하차했습니다.');
+ }
+}
 async function operateHandcart(){
  if(!active())return;
  const result=await command('/handcart',{},null);
@@ -661,6 +677,7 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
  else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
+ else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();operateShuttle();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
 });
@@ -755,6 +772,7 @@ el('squadChatInput').addEventListener('keydown',event=>{
 });
 el('civicGate').addEventListener('click',operateGate);
 el('handcart').addEventListener('click',operateHandcart);
+el('shuttle').addEventListener('click',operateShuttle);
 el('headlamp').addEventListener('click',toggleHeadlamp);
 el('stepOver').addEventListener('click',stepOverBench);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
