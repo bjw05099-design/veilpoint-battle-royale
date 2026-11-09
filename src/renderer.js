@@ -322,8 +322,10 @@ class SoftwareRenderer {
   if(this.footpathWorld!==state.obstacles){
    this.footpathWorld=state.obstacles;
    this.footpaths=PublicFootpaths.planAll(state.obstacles);
+   this.localFootpaths=PublicFootpaths.planLocalPaths(state.obstacles);
   }
-  for(const road of this.footpaths||[])for(let i=1;i<road.points.length;i++){
+  for(const road of [...(this.footpaths||[]),...(this.localFootpaths||[])])
+   for(let i=1;i<road.points.length;i++){
    const a=road.points[i-1],b=road.points[i];
    const length=Math.hypot(b.x-a.x,b.z-a.z);
    if(length<.1)continue;
@@ -644,7 +646,9 @@ class Renderer {
  // connector through houses. BR and CH01 share identical base colliders.
  if(this.worldTerrainRevision===1&&PublicFootpaths){
   this.publicRoads=PublicFootpaths.planAll(sim.obstacles);
-  for(const road of this.publicRoads)for(let i=1;i<road.points.length;i++){
+  this.localPublicRoads=PublicFootpaths.planLocalPaths(sim.obstacles);
+  for(const road of [...this.publicRoads,...this.localPublicRoads])
+   for(let i=1;i<road.points.length;i++){
    const a=road.points[i-1],b=road.points[i],
      length=Math.hypot(b.x-a.x,b.z-a.z);
    if(length<.01)continue;
