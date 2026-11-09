@@ -11,7 +11,7 @@ function onStreet(){
  s.combat.cleared=true;s.phase='records';
  return s;
 }
-test('existing E interaction actually offers both staffed routes without collecting original deployment papers',()=>{
+test('existing F interaction actually offers both staffed routes without collecting original deployment papers',()=>{
  for(const [pointId,expected,kind] of [
   ['coordinatorRequest','유수프 구조단','south'],
   ['eastLocalRequest','동쪽 현지 통로 담당자','east']
@@ -20,10 +20,10 @@ test('existing E interaction actually offers both staffed routes without collect
   assert.deepEqual(s.found,[]);
   at(s,Story.POINTS[pointId]);
   const offer=Story.localRouteOffer(s);
-  assert.ok(offer,'offer derived from genuine nearest reachable E-key target');
+  assert.ok(offer,'offer derived from genuine nearest reachable F-key target');
   assert.equal(offer.kind,kind);
   assert.equal(offer.speaker,expected);
-  assert.match(Story.objective(s),/E키/);
+  assert.match(Story.objective(s),/F키/);
   assert.match(Story.objective(s),/서류는 필요하지 않습니다|진행할 수 있습니다/);
   const result=Story.interact(s);
   assert.equal(result.ok,true);
