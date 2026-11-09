@@ -132,25 +132,20 @@ test('browser story app initializes with objective, menu and 60Hz clock',()=>{
   assert.equal(app.element('quality').value,'balanced');
   assert.match(app.element('fps').textContent,/60Hz/);
 });
-test('PC F smoke: native event reaches CH01 world interaction with pointer lock',()=>{
+test('PC F directly activates a physically reached CH01 relay and checkpoints the changed world',()=>{
  const app=boot();
- const desktop=app.context.VeilpointDesktopControls;
- const original=app.context.VeilpointStorySlice.interact;
- let invoked=0,details=null;
- app.context.VeilpointStorySlice.interact=function(state,...rest){
-  invoked++;
-  const result=original(state,...rest);
-  details={result,phase:state.phase,player:{x:state.world.player.x,z:state.world.player.z}};
-  return result;
- };
  app.element('continue').click();
+ const desktop=app.context.VeilpointDesktopControls;
+ assert.equal(desktop.actionFor('KeyF',desktop.load(app.context.localStorage)),
+  'interact');
+ assert.equal(app.context.document.pointerLockElement,app.element('scene'),
+  'the active canvas owns PC aim before F interaction');
  app.moveForward(0,300);
- const locked=app.context.document.pointerLockElement!==null;
- const bindings=desktop.load(app.context.localStorage).bindings;
  app.interact();
- assert.equal(invoked,1,'F not dispatched: '+JSON.stringify({locked,bindings,
-  ctrl:app.context.VeilpointInput,objective:app.element('objective').textContent}));
- assert.equal(details.result.ok,true,'F dispatched but world rejected: '+JSON.stringify(details));
+ assert.match(app.element('objective').textContent,/무장 대치자/,
+  'only a real terminal interaction can transition the mission phase');
+ assert.equal(JSON.parse(app.store.get('veilpoint.story.ch01')).phase,'engagement',
+  'successful F interaction must persist the physical mission transition');
 });
 test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and save',()=>{
   const app=boot();
