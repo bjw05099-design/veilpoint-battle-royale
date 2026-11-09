@@ -1,5 +1,6 @@
 #include "VPStoryPedestrian.h"
 #include "VPStoryGameState.h"
+#include "VPStoryGameMode.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -12,6 +13,47 @@ const FVector AVPStoryPedestrian::SouthApproachDestination(4300.f,-1150.f,80.f);
 // One short, nearby public-lane exit is chosen by the local civilian after
 // the unexpected disruption, regardless of which later route the captain uses.
 const FVector AVPStoryPedestrian::SidewalkDestination(3850.f,-800.f,80.f);
+
+bool AVPStoryPedestrian::IsCoherentCheckpointPose(const FVector& Position,
+    bool bSidewalk, bool bSouth)
+{
+    // Only the actual two authored walking segments are valid. A handcrafted
+    // remote position, out-of-world location or impossible completed rescue
+    // cannot be loaded via the local save file.
+    if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y) ||
+        !FMath::IsFinite(Position.Z) || Position.X < 3396.f ||
+        Position.X > 4304.f || FMath::Abs(Position.Z-80.f)>2.f ||
+        (bSouth && !bSidewalk)) return false;
+    const float ExpectedY = Position.X<=3850.f ? -800.f :
+        -800.f-(Position.X-3850.f)*350.f/450.f;
+    if (FMath::Abs(Position.Y-ExpectedY)>8.f) return false;
+    if (!bSidewalk && Position.X>3854.f) return false;
+    if (bSidewalk && Position.X<3846.f) return false;
+    if (bSouth && FVector::Dist2D(Position,SouthApproachDestination)>4.f)
+        return false;
+    return true;
+}
+
+bool AVPStoryPedestrian::RestoreOfflineCheckpointPose(const FVector& Position,
+    bool bSidewalk, bool bSouth)
+{
+    if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode()!=NM_Standalone ||
+        !IsCoherentCheckpointPose(Position,bSidewalk,bSouth)) return false;
+    // Check the real solid capsule at the loaded pose before reconstituting
+    // the world. Ignore this actor only; neighbors and the city remain solid.
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(VPCivilianCheckpoint),false,this);
+    if (GetWorld()->OverlapBlockingTestByChannel(Position,FQuat::Identity,
+        ECC_Pawn,FCollisionShape::MakeCapsule(43.f,85.f),Params)) return false;
+    // The only instantaneous reposition is at offline world LOAD, never a
+    // 60Hz action, path shortcut, network RPC or live scene response.
+    if (!SetActorLocation(Position,false,nullptr,ETeleportType::TeleportPhysics))
+        return false;
+    bMovedToSidewalk=bSidewalk;
+    bReachedSouthCourtyard=bSouth;
+    FixedAccumulator=0.f;
+    ForceNetUpdate();
+    return true;
+}
 
 AVPStoryPedestrian::AVPStoryPedestrian()
 {
@@ -78,6 +120,10 @@ void AVPStoryPedestrian::Tick(float DeltaSeconds)
             if (WalkToward(SidewalkDestination,StepSeconds)){
                 bMovedToSidewalk=true;
                 ForceNetUpdate();
+                // One genuine arrival, never periodic disk writes from a
+                // render frame. The saved physical location survives restart.
+                if (AVPStoryGameMode* Mode=GetWorld()->GetAuthGameMode<AVPStoryGameMode>())
+                    Mode->PersistStoryCheckpoint();
             }
         }else if (Story->StoryStage == EVPStoryStage::SouthExit){
             AdvancePedestrian(StepSeconds);
@@ -114,5 +160,7 @@ void AVPStoryPedestrian::AdvancePedestrian(float FixedSeconds)
     if (WalkToward(SouthApproachDestination,FixedSeconds)){
         bReachedSouthCourtyard=true;
         ForceNetUpdate();
+        if (AVPStoryGameMode* Mode=GetWorld()->GetAuthGameMode<AVPStoryGameMode>())
+            Mode->PersistStoryCheckpoint();
     }
 }
