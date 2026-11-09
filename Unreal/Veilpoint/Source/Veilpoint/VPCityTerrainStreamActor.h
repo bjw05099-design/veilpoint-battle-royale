@@ -6,6 +6,7 @@
 
 class UProceduralMeshComponent;
 class USceneComponent;
+class UMaterialInterface;
 
 // Opt-in 1:1 CIVILIAN terrain study actor. Place ONLY in the dedicated
 // Aden_TerrainLab level; it is NOT spawned by BR96 or story bootstrap.
@@ -35,6 +36,11 @@ public:
 
     UPROPERTY(EditAnywhere, Category="VEILPOINT|Civil Terrain")
     bool bCreateTerrainCollision=true;
+
+    // Assigned by the opt-in Editor authoring script to render the decoded
+    // elevation/slope vertex colours. It is not an authentic terrain scan.
+    UPROPERTY(EditAnywhere, Category="VEILPOINT|Civil Terrain")
+    TObjectPtr<UMaterialInterface> TerrainVertexColorMaterial=nullptr;
 
     UFUNCTION(BlueprintPure, Category="VEILPOINT|Civil Terrain")
     int32 GetLoadedTileCount() const { return TileMeshes.Num(); }
