@@ -206,8 +206,7 @@ void AVPHUD::DrawHUD()
         // already-replicated civilian's actual on-foot status only when that
         // person is inside the PC camera frustum and genuinely unobstructed.
         // The derived caption neither moves them nor grants a story objective.
-        if (Story->StoryStage==EVPStoryStage::SouthExit ||
-            Story->StoryStage==EVPStoryStage::Complete)
+        if (Story->StoryStage!=EVPStoryStage::RestoreRelay)
         {
             for (TActorIterator<AVPStoryPedestrian> It(World); It; ++It)
             {
@@ -227,10 +226,18 @@ void AVPHUD::DrawHUD()
                 Query.AddIgnoredActor(Person);
                 if (World->LineTraceTestByChannel(Eye,
                     Person->GetActorLocation(),ECC_Visibility,Query)) continue;
-                DrawText(Person->bReachedSouthCourtyard
+                // Only a genuinely visible, replicated person gets a caption.
+                // A side-lane pause must not be misreported as all-civilian
+                // evacuation or an already completed southern walk.
+                const TCHAR* Progress=Person->bReachedSouthCourtyard
                     ? TEXT("LOCAL WITNESS: WALKED TO THE SOUTH PUBLIC COURT")
-                    : TEXT("LOCAL WITNESS: WALKING THROUGH THE SOUTH LANE"),
-                    FLinearColor(.86f,.89f,.78f,1.f),
+                    : Person->bMovedToSidewalk &&
+                      Story->StoryStage==EVPStoryStage::SouthExit
+                        ? TEXT("LOCAL WITNESS: WALKING THROUGH THE SOUTH LANE")
+                        : Person->bMovedToSidewalk
+                          ? TEXT("LOCAL WITNESS: STOPPED AT NEARBY PUBLIC WALKWAY")
+                          : TEXT("LOCAL WITNESS: MOVING TO NEARBY PUBLIC WALKWAY");
+                DrawText(Progress, FLinearColor(.86f,.89f,.78f,1.f),
                     X,Y+179.f*Scale,nullptr,.75f*Scale,false);
                 break;
             }
