@@ -59,7 +59,7 @@ test('nine-slot native streaming chooses new center and evicts obsolete cells, e
  assert.match(c,/if\(TileMeshes\.Num\(\)>=TileBudget\)break/);
  assert.match(native,/if\(Center==LastOrigin&&Radius==LastRadius\)return/);
  assert.match(header,/int32 LastRadius=-1/);
- assert.match(grid,/for\(int32 Ring=0;Ring<=Radius;\+\+Ring\)/);
+ assert.match(grid,/for\s*\(int32 Ring=0;\s*Ring<=Radius;\s*\+\+Ring\)/);
  const available=new Set();
  for(let x=-3;x<=4;x++)for(let z=-3;z<=4;z++)available.add(x+','+z);
  const a=selected([0,0],2,available);
