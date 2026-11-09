@@ -99,5 +99,28 @@
      points:points||Object.freeze([]),walkable:!!points});
   }));
  }
- return Object.freeze({STEP,WIDTH,CLEARANCE,plan,planAll});
+ // Public walking links between three actual *new* street-level spaces.
+ // Split at physically accessible crossroads: this guarantees the visible
+ // paving enters the shop lane instead of choosing a distant shortcut.
+ // These are fictional gameplay coordinates, not real street navigation.
+ const LOCAL_MAP_LINKS=Object.freeze([
+  Object.freeze({id:'craft-to-promenade',
+    from:Object.freeze({x:-63,z:66}),to:Object.freeze({x:-28,z:80})}),
+  Object.freeze({id:'promenade-to-shop-street',
+    from:Object.freeze({x:-28,z:90}),to:Object.freeze({x:-35,z:96})}),
+  Object.freeze({id:'shop-street-through',
+    from:Object.freeze({x:-35,z:96}),to:Object.freeze({x:-35,z:116})}),
+  Object.freeze({id:'shop-street-to-ferry',
+    from:Object.freeze({x:-35,z:116}),to:Object.freeze({x:-45,z:121})})
+ ]);
+ function planLocalPaths(obstacles){
+  if(!Array.isArray(obstacles)||!obstacles.some(o=>o.type==='aden-craft-hall-wall')||
+    !obstacles.some(o=>o.type==='aden-laneshop-outer-wall'))return Object.freeze([]);
+  return Object.freeze(LOCAL_MAP_LINKS.map(link=>{
+   const points=plan(link.from,link.to,obstacles);
+   return Object.freeze({id:link.id,from:link.from,to:link.to,
+    points:points||Object.freeze([]),walkable:!!points});
+  }));
+ }
+ return Object.freeze({STEP,WIDTH,CLEARANCE,plan,planAll,planLocalPaths,LOCAL_MAP_LINKS});
 });
