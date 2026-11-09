@@ -1,0 +1,103 @@
+/* VEILPOINT - original fictional pedestrian street connections.
+ * Continuity is computed against the same public-world solids used by 60Hz
+ * offline BR and CH01. This is NOT a georeferenced road or security map.
+ */
+(function(root,factory){
+ const api=factory(typeof module==='object'&&module.exports?
+   require('./simulation.js'):root.VeilpointSim);
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ else root.VeilpointPublicFootpaths=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(Sim){
+ 'use strict';
+ const STEP=2,WIDTH=1.3,CLEARANCE=1.05,MAX_VISITS=11000;
+ const DIRECTIONS=Object.freeze([[1,0],[0,1],[-1,0],[0,-1],
+   [1,1],[-1,1],[-1,-1],[1,-1]]);
+ function heapPush(heap,node){
+  let i=heap.length;heap.push(node);
+  while(i){const p=(i-1)>>1;if(heap[p].f<=node.f)break;
+   heap[i]=heap[p];i=p;}heap[i]=node;
+ }
+ function heapPop(heap){
+  const top=heap[0],tail=heap.pop();
+  if(heap.length){
+   let i=0;
+   while(i*2+1<heap.length){
+    let c=i*2+1;
+    if(c+1<heap.length&&heap[c+1].f<heap[c].f)c++;
+    if(heap[c].f>=tail.f)break;
+    heap[i]=heap[c];i=c;
+   }
+   heap[i]=tail;
+  }
+  return top;
+ }
+ function segmentClear(a,b,inflated){
+  return !Sim.lineBlocked(a.x,a.z,b.x,b.z,inflated);
+ }
+ function plan(from,to,obstacles){
+  if(!from||!to||!Array.isArray(obstacles)||
+     ![from.x,from.z,to.x,to.z].every(Number.isFinite))return null;
+  if(Sim.blocked(from.x,from.z,CLEARANCE,obstacles)||
+     Sim.blocked(to.x,to.z,CLEARANCE,obstacles))return null;
+  // Circle-body clearance also protects the swept width of the visible
+  // paving; no painted route may cut through an existing playable wall.
+  const solids=obstacles.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
+  if(segmentClear(from,to,solids))return Object.freeze([from,to].map(p=>Object.freeze({x:p.x,z:p.z})));
+  const minX=Math.max(-169,Math.min(from.x,to.x)-32),
+    maxX=Math.min(169,Math.max(from.x,to.x)+32),
+    minZ=Math.max(-169,Math.min(from.z,to.z)-32),
+    maxZ=Math.min(169,Math.max(from.z,to.z)+32);
+  const key=(i,j)=>i+','+j,points=new Map(),scores=new Map(),closed=new Set();
+  const start={i:0,j:0,x:from.x,z:from.z,g:0,
+    f:Math.hypot(to.x-from.x,to.z-from.z)};
+  const open=[];heapPush(open,start);
+  scores.set(key(0,0),0);points.set(key(0,0),{...start,prev:null});
+  let visited=0,goal=null;
+  while(open.length&&visited++<MAX_VISITS){
+   const n=heapPop(open),id=key(n.i,n.j);
+   if(closed.has(id))continue;
+   closed.add(id);
+   if(Math.hypot(n.x-to.x,n.z-to.z)<=STEP*.75&&
+      segmentClear(n,to,solids)){goal=id;break;}
+   for(const [di,dj] of DIRECTIONS){
+    const i=n.i+di,j=n.j+dj,x=from.x+i*STEP,z=from.z+j*STEP,
+      nextKey=key(i,j);
+    if(x<minX||x>maxX||z<minZ||z>maxZ||closed.has(nextKey)||
+       Sim.blocked(x,z,CLEARANCE,obstacles))continue;
+    if(!segmentClear(n,{x,z},solids))continue;
+    const g=n.g+STEP*Math.hypot(di,dj);
+    if(g>= (scores.get(nextKey)??Infinity)-1e-9)continue;
+    scores.set(nextKey,g);
+    const next={i,j,x,z,g,f:g+Math.hypot(to.x-x,to.z-z)};
+    points.set(nextKey,{...next,prev:id});heapPush(open,next);
+   }
+  }
+  if(!goal)return null;
+  const path=[{x:to.x,z:to.z}];
+  for(let id=goal;id;id=points.get(id).prev){
+   const p=points.get(id);path.push({x:p.x,z:p.z});
+  }
+  path.reverse();
+  const smoothed=[path[0]];
+  for(let i=1;i<path.length;){
+   let far=i;
+   for(let j=path.length-1;j>=i;j--){
+    if(segmentClear(smoothed[smoothed.length-1],path[j],solids)){
+     far=j;break;
+    }
+   }
+   smoothed.push(path[far]);i=far+1;
+  }
+  return Object.freeze(smoothed.map(p=>Object.freeze(p)));
+ }
+ function planAll(obstacles){
+  const districts=Sim.PUBLIC_CITY_DISTRICTS;
+  return Object.freeze(Sim.PUBLIC_CITY_ADJACENCY.map(link=>{
+   const from=districts.find(p=>p.id===link.from),to=districts.find(p=>p.id===link.to);
+   const points=plan(from,to,obstacles);
+   return Object.freeze({from:link.from,to:link.to,
+     points:points||Object.freeze([]),walkable:!!points});
+  }));
+ }
+ return Object.freeze({STEP,WIDTH,CLEARANCE,plan,planAll});
+});
