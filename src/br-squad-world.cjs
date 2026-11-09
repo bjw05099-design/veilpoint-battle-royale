@@ -12,6 +12,11 @@ const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // recovery threshold that prevents instant exhaustion-toggle exploits.
 const SPRINT_SPEED=6.4, CROUCH_SPEED=2.7, SPRINT_DRAIN_PER_SECOND=16;
 const STAMINA_RECOVERY_PER_SECOND=9, REST_RECOVERY_PER_SECOND=12.5, STAMINA_REARM=25;
+// Existing fictional public benches are an optional place to sit and recover
+// more comfortably, NOT the only place stamina can return. The participant
+// must reach a real server-owned seat and may stand at any time.
+const BENCH_RECOVERY_PER_SECOND=17;
+const RESTABLE_SEAT=/^aden-[a-z-]+(?:bench|seat)$/;
 // Recovery is about exertion, never a special zone. Resting anywhere in the
 // physical map recovers faster than walking. Holding movement into a wall
 // does not count as rest, and sprinting only drains on actual displacement.
@@ -104,7 +109,7 @@ class BrSquadWorld {
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
           headlampOn:false,headlampTicks:HEADLAMP_TICKS,
-          resting:false,spectateSlot:null,stepping:null,
+          resting:false,benchResting:false,spectateSlot:null,stepping:null,
           lastWaveTick:-WAVE_COOLDOWN_TICKS,waveUntilTick:0});
       }
     }
@@ -183,6 +188,34 @@ class BrSquadWorld {
     actor.waveUntilTick=this.tick+WAVE_TICKS;
     actor.lastPresenceTick=this.tick;
     return {ok:true,untilTick:actor.waveUntilTick};
+  }
+  // An actual player can sit beside an existing PUBLIC seat they have walked
+  // up to; no client-selected bench, world coordinate or objective teleport.
+  // This is an optional local comfort action, not required for recovery.
+  nearbyBench(actor){
+    return this.obstacles.find(o=>RESTABLE_SEAT.test(o.type||'')&&
+      o.h<=.85&&
+      Math.hypot(Math.max(0,Math.abs(actor.x-o.x)-o.w/2),
+        Math.max(0,Math.abs(actor.z-o.z)-o.d/2))<=1.25&&
+      !Sim.lineBlocked(actor.x,actor.z,o.x,o.z,
+        this.obstacles.filter(other=>other!==o)))||null;
+  }
+  benchRest(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
+    if(actor.benchResting){
+      actor.benchResting=false;
+      return {ok:true,seated:false,stamina:actor.stamina};
+    }
+    if(actor.moving||actor.stepping||
+       Math.hypot(actor.direction.x,actor.direction.z)>1e-8)
+      return {ok:false,reason:'still_moving'};
+    if(!this.nearbyBench(actor))return {ok:false,reason:'bench_too_far'};
+    actor.benchResting=true;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,seated:true,stamina:actor.stamina};
   }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
@@ -448,6 +481,8 @@ class BrSquadWorld {
     const proposals=players.map(actor=>{
       const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
       const direction=fresh?actor.direction:{x:0,z:0};
+      if(actor.benchResting&&(Math.hypot(direction.x,direction.z)>1e-8||
+          actor.stepping||!this.nearbyBench(actor)))actor.benchResting=false;
       const next={x:actor.x,z:actor.z};
       const running=actor.sprintHeld&&!actor.crouchHeld&&!actor.sprintDepleted&&actor.stamina>0&&
         Math.hypot(direction.x,direction.z)>1e-8;
@@ -509,7 +544,8 @@ class BrSquadWorld {
         if(actor.stamina<=0)actor.sprintDepleted=true;
       }else{
         actor.stamina=Math.min(100,actor.stamina+
-          (actor.resting?REST_RECOVERY_PER_SECOND:STAMINA_RECOVERY_PER_SECOND)*STEP);
+          (actor.benchResting&&actor.resting?BENCH_RECOVERY_PER_SECOND:
+           actor.resting?REST_RECOVERY_PER_SECOND:STAMINA_RECOVERY_PER_SECOND)*STEP);
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
@@ -595,6 +631,7 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
+        benchResting:p.eligible&&p.benchResting,
         headlampOn:p.eligible&&p.headlampOn,
         waving:p.eligible&&p.waveUntilTick>this.tick,
         stepping:p.eligible&&!!p.stepping,
@@ -634,6 +671,7 @@ class BrSquadWorld {
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
           moving:p.moving,crouched:p.crouchHeld,
+          benchResting:p.benchResting,
           headlampOn:p.headlampOn,waving:p.waveUntilTick>this.tick,
           stepping:!!p.stepping,
           stepOverProgress:p.stepping?p.stepping.progress/STEP_OVER_TICKS:null});
@@ -677,7 +715,8 @@ class BrSquadWorld {
       squadChat:this.squadChat[me.team].map(message=>({...message})),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
-        x:watched.x,z:watched.z,automaticFallback:!!fallback}:null,
+        x:watched.x,z:watched.z,crouched:watched.crouchHeld,
+        benchResting:watched.benchResting,automaticFallback:!!fallback}:null,
       capacity:CAPACITY,squadCount:SQUADS,squadSize:SQUAD_SIZE,
       remainingSquads:this.activeSquads,
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
@@ -694,6 +733,7 @@ class BrSquadWorld {
         surface,
         stamina:Math.round(me.stamina*100)/100,
         resting:me.eligible&&me.resting,
+        benchResting:me.eligible&&me.benchResting,
         sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
         outsideAreaTicks:me.outsideAreaTicks,
