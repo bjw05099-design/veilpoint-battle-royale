@@ -24,8 +24,10 @@ test('CH01 arrival has ordinary streetlight; on-foot witnessed escalation cuts o
  assert.equal(s.world.obstacles.length>=originalObstacles,true);
  assert.equal(s.world.scene,'nahrin');
  // Local emergency radio cannot pretend to restore the entire city grid.
- s.relayRestored=true;
- Story.step(s,1/60,{});
+ s.phase='records';s.combat.cleared=true;
+ s.world.player.x=12;s.world.player.z=-39;
+ const relay=Story.interact(s); // physically reachable F action
+ assert.equal(relay.event,'onsite_liaison_relay');
  assert.equal(s.world.relayRestored,true);
  assert.equal(s.world.publicStreetPowered,false);
  assert.equal(civicLight(s.world),0);
