@@ -997,6 +997,11 @@
         (state.liaisonZ-LIAISON_WALK.endZ)/t);
       Sim.moveEntity(actor,0,-speed,t,colliders,LIAISON_WALK.radius);
       state.liaisonZ=clamp(actor.z,LIAISON_WALK.endZ,LIAISON_WALK.startZ);
+      // Fixed-step arithmetic can leave a few femtometres at the end point.
+      // Snap only once the actual swept step is already within 1 micrometre;
+      // never skip a collision or leap across a person.
+      if(Math.abs(state.liaisonZ-LIAISON_WALK.endZ)<1e-6)
+        state.liaisonZ=LIAISON_WALK.endZ;
       actor.z=state.liaisonZ;
     }
     // An unexpected escalation occurs in the actually visited harbor after
@@ -2252,7 +2257,7 @@
        (!Number.isFinite(data.liaisonZ)||
         data.liaisonZ<LIAISON_WALK.endZ||data.liaisonZ>LIAISON_WALK.startZ||
         (data.liaisonZ<LIAISON_WALK.startZ&&
-         (data.relayRestored!==true||
+         (!data.combat?.cleared||
           !['records','decision','exit','complete'].includes(data.phase)))))||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
