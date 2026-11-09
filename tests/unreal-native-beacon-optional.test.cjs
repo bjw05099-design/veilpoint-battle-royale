@@ -24,17 +24,17 @@ test('UE5 story has a real optional physical action with server-replicated beaco
  assert.match(mc,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
  assert.match(mc,/if \(Model\) Model->SetVisibility\(IsAvailable\(\)\)/);
 });
-test('UE5 native CH01 V2 beacon save keeps V1 checkpoint compatibility and readback proof',()=>{
+test('UE5 native CH01 V3 world save retains V1/V2 beacon compatibility and readback proof',()=>{
  const data=read('VPStoryCheckpoint.h'),mode=read('VPStoryGameMode.cpp'),state=read('VPStoryGameState.cpp');
- assert.match(data,/int32 SchemaVersion = 2/);
+ assert.match(data,/int32 SchemaVersion = 3/);
  assert.match(data,/bool bSavedBeaconActivated = false/);
  assert.match(mode,/Saved->SchemaVersion != 1 && Saved->SchemaVersion != 2/);
- assert.match(mode,/Saved->SchemaVersion == 2 && Saved->bSavedBeaconActivated/);
- assert.match(mode,/Saved->SchemaVersion = 2/);
+ assert.match(mode,/Saved->SchemaVersion >= 2 && Saved->bSavedBeaconActivated/);
+ assert.match(mode,/Saved->SchemaVersion = 3/);
  assert.match(mode,/Saved->bSavedBeaconActivated = State->bBeaconActivated/);
  assert.match(mode,/Check->bSavedBeaconActivated == Saved->bSavedBeaconActivated/);
- assert.match(mode,/Primary->SchemaVersion == 2 && Primary->bSavedBeaconActivated/);
- assert.match(mode,/Backup->SchemaVersion == 2 && Backup->bSavedBeaconActivated/);
+ assert.match(mode,/Primary->SchemaVersion >= 2 && Primary->bSavedBeaconActivated/);
+ assert.match(mode,/Backup->SchemaVersion >= 2 && Backup->bSavedBeaconActivated/);
  assert.match(state,/bBeacon && Stage == EVPStoryStage::RestoreRelay/);
  assert.match(state,/bBeaconActivated = bBeacon/);
  assert.doesNotMatch(shadow(mode),/http:|WebSocket|curl |external_api/);
