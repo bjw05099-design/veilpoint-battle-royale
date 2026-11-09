@@ -382,7 +382,7 @@ test('browser keyboard and touch send combat intent without target or damage inj
   await a.poll(); await b.poll(); await settle();
   const token = a.storage.get('veilpoint.team.tabSession');
   const player = server.match.players.get(token);
-  a.doc('keydown', {code: 'KeyF'});
+  a.doc('keydown', {code: 'Space'});
   await settle();
   assert.equal(player.ammo, 11);
   await a.poll();await settle();
@@ -390,7 +390,7 @@ test('browser keyboard and touch send combat intent without target or damage inj
   assert.doesNotMatch(a.node('status').textContent, /명중 확인/);
   assert.ok(server.requests.some(r => r.body?.type === 'fire' &&
     Object.keys(r.body).sort().join(',') === 'seq,type'));
-  a.doc('keydown', {code: 'KeyF', repeat: true});
+  a.doc('keydown', {code: 'Space', repeat: true});
   await settle();
   assert.equal(player.ammo, 11, 'held-key repeat must not generate extra commands');
   a.node('reload').click();
@@ -900,7 +900,7 @@ test('PC lobby-held capture never auto-activates on the next authoritative round
   const token = a.storage.get('veilpoint.team.tabSession');
   const player = server.match.players.get(token);
   // The PC player presses E before both clients are ready, then keeps it held.
-  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyF', target: a.node('arena')});
   assert.equal(player.capturing, false, 'lobby intent is never sent to the server');
   a.node('ready').click(); b.node('ready').click(); await settle();
   await a.poll(); await b.poll(); await settle();
@@ -910,14 +910,14 @@ test('PC lobby-held capture never auto-activates on the next authoritative round
   assert.equal(server.requests.filter(r => r.token === token &&
     r.body?.type === 'capture' && r.body.active).length, 0);
   // OS repeat from the held E must not count as a new physical press.
-  a.doc('keydown', {code: 'KeyE', repeat: true, target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyF', repeat: true, target: a.node('arena')});
   await settle();
   assert.equal(player.capturing, false);
-  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
-  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keyup', {code: 'KeyF', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyF', target: a.node('arena')});
   await settle();
   assert.equal(player.capturing, true, 'fresh PC press still captures normally');
-  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keyup', {code: 'KeyF', target: a.node('arena')});
   await settle();
   assert.equal(player.capturing, false, 'release stops capture');
 });
@@ -1061,7 +1061,7 @@ test('PC team UI focus stops held movement, capture and fire without window blur
   await a.poll(); await b.poll(); await settle();
   const player = server.match.players.get(a.storage.get('veilpoint.team.tabSession'));
   a.doc('keydown', {code: 'KeyD'});
-  a.doc('keydown', {code: 'KeyE'});
+  a.doc('keydown', {code: 'KeyF'});
   await settle();
   assert.equal(player.direction.x, 1);
   assert.equal(player.capturing, true);
@@ -1335,7 +1335,7 @@ test('PC team UI explains deliberate release/repress after an earned relay point
   const selfToken = [...server.match.players.keys()][0];
   server.match.players.get(selfToken).x = 0;
   [...server.match.players.values()][1].x = 8;
-  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyF', target: a.node('arena')});
   await settle();
   for (let i = 0; i < 120; i++) {
     server.match.step();
@@ -1343,7 +1343,7 @@ test('PC team UI explains deliberate release/repress after an earned relay point
   }
   assert.equal(server.match.score.red, 1);
   assert.match(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
-  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keyup', {code: 'KeyF', target: a.node('arena')});
   await settle();
   await a.poll();await settle();
   assert.doesNotMatch(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
@@ -1357,7 +1357,7 @@ test('PC team HUD prompts a fresh relay press after an observed hit', async () =
   await a.poll();await b.poll();await settle();
   const [aToken, bToken] = [...server.match.players.keys()];
   server.match.players.get(aToken).x = 0;
-  a.doc('keydown', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keydown', {code: 'KeyF', target: a.node('arena')});
   await settle();
   for (let i = 0; i < 60; i++) server.match.step();
   assert.equal(server.match.players.get(aToken).captureArmed, true);
@@ -1365,7 +1365,7 @@ test('PC team HUD prompts a fresh relay press after an observed hit', async () =
   assert.equal(server.match.players.get(aToken).captureArmed, false);
   await a.poll();await settle();
   assert.match(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
-  a.doc('keyup', {code: 'KeyE', target: a.node('arena')});
+  a.doc('keyup', {code: 'KeyF', target: a.node('arena')});
   await settle();await a.poll();await settle();
   assert.doesNotMatch(a.node('status').textContent, /점령 키를 놓고 다시 눌러/);
 });
@@ -2416,7 +2416,7 @@ test('PC team relay progress HUD reflects only published authoritative team perc
  player.x=0;player.z=0;
  const other=[...server.match.players.values()].find(p=>p!==player);
  other.x=8;other.z=0;
- a.doc('keydown',{code:'KeyE',target:a.node('arena')});await settle();
+ a.doc('keydown',{code: 'KeyF',target:a.node('arena')});await settle();
  for(let i=0;i<60;i++){
   server.match.step();
   if(i===50)await a.heartbeat();
@@ -2428,7 +2428,7 @@ test('PC team relay progress HUD reflects only published authoritative team perc
  assert.match(a.node('relayProgress').textContent,new RegExp('우리 팀 '+expected+'%'));
  assert.match(b.node('relayProgress').textContent,new RegExp('상대 팀 '+expected+'%'));
  assert.doesNotMatch(a.node('relayProgress').textContent,/x:|z:|Player/);
- a.doc('keyup',{code:'KeyE',target:a.node('arena')});await settle();
+ a.doc('keyup',{code: 'KeyF',target:a.node('arena')});await settle();
  await a.poll();await settle();
  assert.match(a.node('relayProgress').textContent,/우리 팀 0%/);
  const markup=fs.readFileSync(path.join(__dirname,'../team.html'),'utf8');

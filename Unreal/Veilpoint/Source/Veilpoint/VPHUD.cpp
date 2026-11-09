@@ -120,7 +120,7 @@ void AVPHUD::DrawHUD()
     {
         DrawText(Story->GetObjectiveLabel(), FLinearColor(.82f,.94f,.87f,1.f),
                  X, Y + 95.f * Scale, nullptr, .8f * Scale, false);
-        DrawText(TEXT("LOCAL STORY PROTOTYPE | E: INTERACT | J: FIELD NOTES"),
+        DrawText(TEXT("LOCAL STORY PROTOTYPE | F: INTERACT | J: FIELD NOTES"),
                  FLinearColor(.78f,.87f,.92f,1.f),
                  X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
         // Three short temporal briefing/arrival beats for a FRESH story only.

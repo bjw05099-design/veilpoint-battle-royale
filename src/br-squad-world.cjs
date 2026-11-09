@@ -220,6 +220,50 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,seated:true,stamina:actor.stamina};
   }
+  // Unified F interaction: classify ONLY authenticated server-owned nearby
+  // geometry and the actor's actual location. The client never supplies a
+  // target name, position or proximity override. If objects overlap, nearest
+  // reachable wins; an existing held/seated action always releases first.
+  interactNearby(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)
+      return {ok:false,reason:'out_of_round'};
+    if(this.handcart.operator===actor)
+      return {kind:'handcart',...this.operateHandcart(token)};
+    if(actor.benchResting)
+      return {kind:'bench',...this.benchRest(token)};
+    const options=[];
+    for(const control of CIVIC_GATE.controls){
+      const distance=Math.hypot(actor.x-control.x,actor.z-control.z);
+      if(distance<=CIVIC_GATE.reach &&
+         !Sim.lineBlocked(actor.x,actor.z,control.x,control.z,this.obstacles))
+        options.push({kind:'gate',distance});
+    }
+    const cart=this.handcart.body;
+    if(cart&&!this.handcart.operator){
+      const distance=Math.hypot(actor.x-cart.x,actor.z-cart.z);
+      if(distance>=1.45&&distance<=2.6 &&
+         !Sim.lineBlocked(actor.x,actor.z,cart.x,cart.z,
+           this.obstacles.filter(o=>o!==cart)))
+        options.push({kind:'handcart',distance});
+    }
+    const bench=this.nearbyBench(actor);
+    if(bench){
+      const distance=Math.hypot(
+        Math.max(0,Math.abs(actor.x-bench.x)-bench.w/2),
+        Math.max(0,Math.abs(actor.z-bench.z)-bench.d/2));
+      options.push({kind:'bench',distance});
+    }
+    options.sort((a,b)=>a.distance-b.distance||
+      ['gate','handcart','bench'].indexOf(a.kind)-
+      ['gate','handcart','bench'].indexOf(b.kind));
+    if(!options.length)return {ok:false,reason:'no_reachable_interaction'};
+    const chosen=options[0].kind;
+    const result=chosen==='gate'?this.operateCivicGate(token):
+      chosen==='handcart'?this.operateHandcart(token):this.benchRest(token);
+    return {kind:chosen,...result};
+  }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
   // presence is observational, while competitive eligibility is independent.

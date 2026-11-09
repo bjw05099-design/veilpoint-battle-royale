@@ -263,14 +263,14 @@ test('BR proximity prompt distinguishes compatible ammo from incompatible suppli
  app.frame(300);
  assert.match(app.node('pickupPrompt').textContent,/INCOMPATIBLE/);
  const ammo=g.player.charges;
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(g.player.charges,ammo);
  wrong.x=100;wrong.z=100;
  const right=g.loot.find(item=>item.weaponId==='carbine');
  right.x=0;right.z=0;
  app.frame(600);
  assert.match(app.node('pickupPrompt').textContent,/CARBINE/);
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.ok(g.player.charges>=ammo);
  assert.equal(right.picked,true);
 });
@@ -326,13 +326,13 @@ test('BR proximity HUD does not invite a physically unreachable pickup',()=>{
  ammo.x=2.6;ammo.z=0;
  app.frame(300);
  assert.doesNotMatch(app.node('pickupPrompt').textContent,/CARBINE/);
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(g.player.charges,12);
  assert.equal(ammo.picked,false);
  ammo.x=1.4;
  app.frame(600);
  assert.match(app.node('pickupPrompt').textContent,/CARBINE/);
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(g.player.charges,24);
  assert.equal(ammo.picked,true);
 });
@@ -364,7 +364,7 @@ test('BR mixed loot pile gives keyboard and touch users the same compatible pick
   assert.match(app.node('pickupPrompt').textContent,/PRECISION/);
   const before=p.charges;
   if(touch)app.node('lootButton').dispatch('pointerdown');
-  else app.emit('keydown',{code:'KeyE'});
+  else app.emit('keydown',{code:'KeyF'});
   assert.ok(p.charges>before);
   assert.equal(right.picked,true);
   assert.equal(wrong.picked,false);
@@ -382,7 +382,7 @@ test('BR pause blocks keyboard firing, reload, supply, aim and assist without ad
   p.charges=12;p.loaded=12;
   const yaw=p.yaw, elapsed=g.elapsed, shots=g.lastTagAt;
   app.emit('blur');
-  for(const code of ['Space','KeyR','KeyE','KeyH','KeyW'])
+  for(const code of ['Space','KeyR','KeyF','KeyH','KeyW'])
     app.emit('keydown',{code});
   app.emit('mousemove',{movementX:100,movementY:10});
   app.node('scene').dispatch('click');
@@ -398,7 +398,7 @@ test('BR pause blocks keyboard firing, reload, supply, aim and assist without ad
   app.node('play').click();app.frame(3000/60);
   app.emit('keydown',{code:'Space'});
   assert.equal(p.charges,11,'firing works after explicit resume');
-  app.emit('keydown',{code:'KeyE'});
+  app.emit('keydown',{code:'KeyF'});
   assert.ok(p.charges>11,'reachable physical supply works after resume');
   app.emit('keydown',{code:'KeyR'});
   assert.ok(p.reloadRemaining>0,'reload works after resume');
@@ -1220,7 +1220,7 @@ test('offline BR remains playable when browser denies the localStorage getter', 
     'PC controls fall back to defaults without storage');
 });
 
-test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume agree',()=>{
+test('PC F operates the actual BR service yard gate; HUD, 60Hz slide and resume agree',()=>{
  const store=new Map(),app=boot({store});
  app.node('play').click();
  app.frame(1000/60);
@@ -1229,8 +1229,8 @@ test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume 
  game.player.x=30;game.player.z=-21.8;game.player.yaw=0;
  const at=500;
  app.frame(at); // Force the quarter-second HUD refresh after relocating in the test.
- assert.match(app.node('pickupPrompt').textContent,/\[E\] OPERATE SERVICE YARD/);
- app.emit('keydown',{code:'KeyE'});
+ assert.match(app.node('pickupPrompt').textContent,/\[F\] OPERATE SERVICE YARD/);
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(game.yardGate.engaged,true);
  assert.ok(store.get('veilpoint.brCheckpoint.v1'),'operating physical controls saves the world');
  app.frame(at+1000/60);
@@ -1246,7 +1246,7 @@ test('PC E operates the actual BR service yard gate; HUD, 60Hz slide and resume 
  assert.equal(resumed.game.obstacles.find(o=>o.routeId==='br-service-gate').x,37.2);
 });
 
-test('BR gate E starts audible local motor; moving away and pausing stop the cue',()=>{
+test('BR gate F starts audible local motor; moving away and pausing stop the cue',()=>{
  const app=boot({store:new Map()});
  const events=[];
  app.context.AudioContext=class {
@@ -1258,9 +1258,9 @@ test('BR gate E starts audible local motor; moving away and pausing stop the cue
  app.node('play').click();app.frame(1000/60);
  const game=app.game;
  game.player.x=30;game.player.z=-21.8;
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(game.yardGate.engaged,true);
- assert.ok(events.includes('started'),'E gesture unlocks local procedural motor sound');
+ assert.ok(events.includes('started'),'F gesture unlocks local procedural motor sound');
  assert.ok(!events.includes('stopped'));
  game.player.x=0;game.player.z=0;
  app.frame(200);
@@ -1278,7 +1278,7 @@ test('BR PC gate HUD labels a stalled physical motor rather than falsely claimin
  const world=app.game;
  world.player.x=app.context.VeilpointSim.SERVICE_YARD.switchX;
  world.player.z=app.context.VeilpointSim.SERVICE_YARD.switchZ;
- app.emit('keydown',{code:'KeyE'});
+ app.emit('keydown',{code:'KeyF'});
  assert.equal(world.yardGate.engaged,true);
  world.bots[0].x=app.context.VeilpointSim.SERVICE_YARD.x;
  world.bots[0].z=app.context.VeilpointSim.SERVICE_YARD.z;

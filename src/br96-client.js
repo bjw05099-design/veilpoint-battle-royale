@@ -191,7 +191,7 @@ function render(){
  el('headlamp').title='서버 배터리 '+Math.ceil((w?.self?.headlampTicks||0)/60)+'초';
  el('wave').setAttribute('aria-pressed',String(!!w?.self?.waving));
  el('benchRest').setAttribute('aria-pressed',String(!!w?.self?.benchResting));
- el('benchRest').textContent=w?.self?.benchResting?'R · 자리에서 일어나기':'R · 벤치에서 쉬기';
+ el('benchRest').textContent=w?.self?.benchResting?'F · 자리에서 일어나기':'F · 벤치에서 쉬기';
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -290,8 +290,7 @@ function renderJourney(w){
    '실제 보행 거리: '+n(personal.walkedMeters)+'m\n'+
    '실제 달리기 거리: '+n(personal.sprintedMeters)+'m\n'+
    '전체 이동 거리: '+n(personal.totalMeters)+'m\n'+
-   '공공 벤치 휴식: '+n(personal.benchRestSeconds)+'초\n'+
-   '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
+    '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
    '종료 당시 본인 상태: '+
      (personal.ownResult==='active_at_finish'?'경기 참가 중':
       personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
@@ -521,6 +520,18 @@ async function stepOverBench(){
  const result=await command('/step-over',{},null);
  if(result?.ok)message('낮은 공공 벤치를 실제로 넘는 중 · 이동 방향과 착지 공간은 서버가 확인합니다.');
 }
+async function interactNearby(){
+ if(!active())return;
+ const result=await command('/interact',{},null);
+ if(!result?.ok)return;
+ if(result.kind==='bench')message(result.seated?
+   '가까운 공공 벤치에 앉았습니다. 이동하면 자동으로 일어납니다.':
+   '벤치에서 일어났습니다.');
+ else if(result.kind==='handcart')message(result.action==='grip'?
+   '가까운 손수레를 잡았습니다. F로 놓을 수 있습니다.':
+   '손수레를 놓았습니다.');
+ else if(result.kind==='gate')message('가까운 공용 출입문의 작동을 시작했습니다.');
+}
 async function benchRest(){
  if(!active())return;
  const result=await command('/bench-rest',{},null);
@@ -572,6 +583,20 @@ canvas.addEventListener('click',()=>{
  if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
   canvas.requestPointerLock?.();
 });
+ // Middle button (pressing the wheel), not wheel scrolling or a keyboard E.
+ // The server creates a quickmark at the authenticated actor's true feet.
+ // In street view the canvas owns pointer lock; in the 2D diagnostic the
+ // canvas is the explicitly clicked play surface.
+ canvas.addEventListener('mousedown',event=>{
+  if(event.button!==1)return;
+  event.preventDefault(); // prevent Chrome's middle-button autoscroll
+  if(!event.repeat&&!event.ctrlKey&&!event.altKey&&!event.metaKey&&
+     active()&&el('standingsPanel').hidden&&el('vpAudioPanel').hidden)
+   signal('location');
+ });
+ canvas.addEventListener('auxclick',event=>{
+  if(event.button===1)event.preventDefault();
+ });
 document.addEventListener('mousemove',event=>{
  if(document.pointerLockElement!==canvas||!streetView||
     !currentWorld()||!el('standingsPanel').hidden||
@@ -726,13 +751,13 @@ document.addEventListener('keydown',event=>{
  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight','KeyC'].includes(key)){
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
- else if(!event.repeat&&key==='KeyE'&&active()){event.preventDefault();signal('location');}
- else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
- else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
+ // Middle mouse button owns location-only quickmark (no keyboard E).
+ else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();interactNearby();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
- else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();benchRest();}
+ // F is the single default nearby interaction key; R/T are unbound
+ // and E is free. Press the wheel to mark one's true server position.
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){

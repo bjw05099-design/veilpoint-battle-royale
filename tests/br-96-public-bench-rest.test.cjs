@@ -111,13 +111,13 @@ test('authenticated HTTP only rests beside real public furniture, never a client
  }finally{await server.close();}
 });
 
-test('PC R key, click and filtered seated street view are connected without navigation unlock',()=>{
+test('PC F context, click and filtered seated street view are connected without navigation unlock',()=>{
  const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
  const html=read('br96.html'),client=read('src/br96-client.js'),
    server=read('server/br-squad-server.cjs');
  assert.match(html,/id="benchRest" disabled/);
- assert.match(client,/key==='KeyR'&&active\(\)/);
- assert.match(client,/command\('\/bench-rest',\{\},null\)/);
+ assert.match(client,/key==='KeyF'&&active\(\)/);
+ assert.match(client,/command\('\/interact',\{\},null\)/);
  assert.match(client,/el\('benchRest'\)\.addEventListener\('click',benchRest\)/);
  assert.match(server,/url\.pathname==='\/bench-rest'/);
  assert.doesNotMatch(client,/command\('\/bench-rest',\{[^}]+\}/);

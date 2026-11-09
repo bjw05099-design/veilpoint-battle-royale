@@ -8,7 +8,10 @@ const Controls=require('../src/desktop-controls.js');
 test('CH01 default PC mission hints preserve truthful original keyboard actions',()=>{
  const binds=Controls.normalize({}).bindings;
  const authored='클릭/SPACE 발사 · Q 상황 보고 · E로 재개 · E를 누르세요 · E 누르 · R키 · R 재장전';
- assert.equal(Controls.storyHintText(authored,binds),authored);
+ assert.equal(Controls.storyHintText(authored,binds),
+  '클릭/SPACE 발사 · Q 상황 보고 · F로 재개 · F를 누르세요 · F 누르 · R키 · R 재장전');
+ assert.equal(Controls.actionFor('KeyF',Controls.normalize({})),'interact');
+ assert.equal(Controls.actionFor('KeyE',Controls.normalize({})),null);
  assert.equal(Controls.storyHintText(undefined,binds),'');
 });
 

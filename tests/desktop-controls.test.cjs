@@ -34,7 +34,7 @@ test('binding updates preserve uniqueness and reject reserved/menu keys',()=>{
  assert.equal(C.actionFor('KeyT',C.load(storage)),'reload');
 });
 test('invalid or poisoned saved settings cannot create duplicate binds or NaN aim',()=>{
- store.set(C.STORAGE_KEY,JSON.stringify({sensitivity:999,invertY:'true',bindings:{...C.DEFAULT_BINDINGS,fire:'KeyE'}}));
+ store.set(C.STORAGE_KEY,JSON.stringify({sensitivity:999,invertY:'true',bindings:{...C.DEFAULT_BINDINGS,fire:'KeyF'}}));
  const p=C.load(storage);
  assert.equal(p.sensitivity,1);assert.equal(p.invertY,false);
  assert.equal(p.bindings.fire,'Space');
@@ -234,17 +234,18 @@ test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reje
  const notify=windowListeners.get('storage');
  assert.equal(typeof notify,'function');
  assert.equal(C.actionFor('Space',controls.get()),'fire');
- const changed=C.bind(C.normalize({}),'fire','KeyF').value;
+ const changed=C.bind(C.normalize({}),'fire','KeyE').value;
  changed.sensitivity=2.25;
  changed.invertY=true;
  localStorage.setItem(C.STORAGE_KEY,JSON.stringify(changed));
  notify({key:C.STORAGE_KEY,storageArea:localStorage});
  assert.equal(releases,1,'remote remap must release held mouse and keyboard inputs');
- assert.equal(C.actionFor('KeyF',controls.get()),'fire');
+ assert.equal(C.actionFor('KeyE',controls.get()),'fire');
+ assert.equal(C.actionFor('KeyF',controls.get()),'interact');
  assert.equal(C.actionFor('Space',controls.get()),null);
  assert.equal(controls.get().sensitivity,2.25);
  assert.ok(Math.abs(C.mouseDelta(10,10,controls.get()).pitch-0.037125)<1e-12);
- assert.equal(nodes.get('desktopBindKey').textContent,'KeyF');
+ assert.equal(nodes.get('desktopBindKey').textContent,'KeyE');
  notify({key:C.STORAGE_KEY,storageArea:localStorage});
  notify({key:'veilpoint.graphics',storageArea:localStorage});
  notify({key:C.STORAGE_KEY,storageArea:{}});
@@ -382,14 +383,14 @@ test('PC remapping UI rejects bare OS modifiers and still accepts a later valid 
 
 test('CH01 headlamp and objective guidance use PC remaps without changing fixed-step state',()=>{
  const defaults=C.normalize({});
- assert.equal(C.actionFor('KeyF',defaults),'headlamp','legacy F shortcut stays available');
+ assert.equal(C.actionFor('KeyF',defaults),'interact','F is the default contextual interaction');
  assert.equal(C.actionFor('KeyN',defaults),'guidance','legacy N shortcut stays available');
  assert.equal(C.actionFor('KeyL',defaults),'headlamp');
  assert.equal(C.actionFor('KeyB',defaults),'guidance');
  const lamp=C.bind(defaults,'headlamp','KeyT');
  assert.equal(lamp.ok,true);
  assert.equal(C.actionFor('KeyT',lamp.value),'headlamp');
- assert.equal(C.actionFor('KeyF',lamp.value),null,'legacy alias stops when headlamp is remapped');
+ assert.equal(C.actionFor('KeyF',lamp.value),'interact','lamp remapping never steals F interactions');
  const guide=C.bind(lamp.value,'guidance','KeyY');
  assert.equal(guide.ok,true);
  assert.equal(C.actionFor('KeyY',guide.value),'guidance');
