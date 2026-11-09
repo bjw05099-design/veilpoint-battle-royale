@@ -17,7 +17,12 @@ const SHARED_PUBLIC_CANOPIES=Object.freeze([
  Object.freeze({x:-107,z:128,w:26,d:23,roofY:3.60,h:.15,
    type:'shared-public-canopy',color:Object.freeze([.47,.45,.41]),canvas:'#928a78'}),
  Object.freeze({x:134,z:125,w:29,d:20,roofY:3.30,h:.15,
-   type:'shared-public-canopy',color:Object.freeze([.49,.53,.49]),canvas:'#99aa9e'}),
+   type:'shared-public-canopy',color:Object.freeze([.49,.53,.49]),canvas:'#99aa9e'})
+]);
+// Keep the three original public canopies unchanged: legacy contracts and
+// test scenes depend on their identities. New craft roofs have a separate
+// generated collection, loaded only on the current revision-1 city.
+const CRAFT_PUBLIC_CANOPIES=Object.freeze([
  // Craft hall has two independent roofed rooms, with an open-air central
  // walking aisle. A third shade cloth belongs to the adjoining forecourt.
  Object.freeze({x:-75,z:35,w:9,d:26,roofY:3.65,h:.16,
@@ -411,6 +416,7 @@ class SoftwareRenderer {
   objects.push({...part,type:'story-shop-frontage'});
  if(state.terrainRevision===1){
   for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
+  for(const roof of CRAFT_PUBLIC_CANOPIES)objects.push(roof);
   objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
   objects.push({x:-45,z:135,h:.18,w:22,d:20,roofY:3.35,type:'aden-ferry-roof'});
  }
@@ -865,6 +871,11 @@ class Renderer {
   for(const side of [-1,1])
    m.box(roof.x+side*(roof.w/2-.14),roof.roofY-.11,roof.z,
      .24,.11,roof.d,roof.color.map(v=>v*.78));
+ }
+ // New craft roofs are independent from the original three canopies;
+ // both renderer paths use the same authored raised roof dimensions.
+ if(this.worldTerrainRevision===1)for(const roof of CRAFT_PUBLIC_CANOPIES){
+  m.box(roof.x,roof.roofY,roof.z,roof.w,roof.h,roof.d,roof.color);
  }
  // Shared waterfront passenger hall: walk-in south entry and north doorway
  // have no roof-level collision; the two low benches are ordinary solid props.
