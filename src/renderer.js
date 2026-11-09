@@ -17,7 +17,15 @@ const SHARED_PUBLIC_CANOPIES=Object.freeze([
  Object.freeze({x:-107,z:128,w:26,d:23,roofY:3.60,h:.15,
    type:'shared-public-canopy',color:Object.freeze([.47,.45,.41]),canvas:'#928a78'}),
  Object.freeze({x:134,z:125,w:29,d:20,roofY:3.30,h:.15,
-   type:'shared-public-canopy',color:Object.freeze([.49,.53,.49]),canvas:'#99aa9e'})
+   type:'shared-public-canopy',color:Object.freeze([.49,.53,.49]),canvas:'#99aa9e'}),
+ // Craft hall has two independent roofed rooms, with an open-air central
+ // walking aisle. A third shade cloth belongs to the adjoining forecourt.
+ Object.freeze({x:-75,z:35,w:9,d:26,roofY:3.65,h:.16,
+   type:'shared-public-canopy',color:Object.freeze([.65,.56,.44]),canvas:'#ad9576'}),
+ Object.freeze({x:-51,z:35,w:9,d:26,roofY:3.65,h:.16,
+   type:'shared-public-canopy',color:Object.freeze([.54,.58,.53]),canvas:'#98a092'}),
+ Object.freeze({x:-63,z:60.5,w:28,d:7,roofY:3.27,h:.15,
+   type:'shared-public-canopy',color:Object.freeze([.62,.52,.39]),canvas:'#b09a76'})
 ]);
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
 // Visible actor orientation is sourced only from an actually rendered 60Hz
@@ -353,6 +361,7 @@ class SoftwareRenderer {
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+     o.type.startsWith('aden-craft-')?o.type:
      o.type.startsWith('aden-ferry-hall-')?o.type:
      o.type.startsWith('aden-seafront-market-')?o.type:
      o.type.startsWith('aden-transit-court-')?o.type:
@@ -466,6 +475,12 @@ class SoftwareRenderer {
  let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='aden-seafront-market-wall'?'#a28c77':o.type==='aden-seafront-market-counter'?'#8c6848':
    o.type==='aden-transit-court-wall'?'#aa9481':o.type==='aden-transit-court-bench'?'#867867':
+   o.type==='aden-craft-hall-wall'?'#a9997e':
+   o.type==='aden-craft-hall-divider'?'#897d6c':
+   o.type==='aden-craft-hall-shelf'?'#846e54':
+   o.type==='aden-craft-hall-table'?'#9b7654':
+   o.type==='aden-craft-court-post'?'#8b8b79':
+   o.type==='aden-craft-court-seat'?'#8b7862':
    o.type==='aden-fishhall-wall'?'#afa18d':o.type==='aden-fishhall-counter'?'#79634d':
    o.type==='aden-ferry-hall-wall'?'#a89a83':o.type==='aden-ferry-hall-bench'?'#857668':o.type==='aden-ferry-hall-notice'?'#756754':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
@@ -649,6 +664,31 @@ class Renderer {
    m.box(o.x,o.h-.18,o.z,o.w,.20,o.d,[.57,.54,.48]);
    return;
   }
+  // All craft-hall details use the exact collision body from Sim. No
+  // opaque exterior cube seals the two playable interior rooms.
+  if(o.type==='aden-craft-hall-wall'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.62,.56,.45]);
+   m.box(o.x,o.h-.20,o.z,o.w,.2,o.d,[.72,.64,.51]);return;
+  }
+  if(o.type==='aden-craft-hall-divider'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.55,.51,.45]);return;
+  }
+  if(o.type==='aden-craft-hall-shelf'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.45,.34,.24]);
+   m.box(o.x,o.h*.52,o.z,o.w+.04,.08,o.d+.04,[.64,.49,.33]);return;
+  }
+  if(o.type==='aden-craft-hall-table'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.50,.39,.29]);
+   m.box(o.x,o.h-.10,o.z,o.w+.08,.10,o.d+.08,[.71,.55,.38]);return;
+  }
+  if(o.type==='aden-craft-court-post'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.51,.51,.44]);
+   m.box(o.x,o.h-.18,o.z,o.w,.18,o.d,[.67,.65,.55]);return;
+  }
+  if(o.type==='aden-craft-court-seat'){
+   m.box(o.x,0,o.z,o.w,o.h,o.d,[.49,.40,.33]);
+   m.box(o.x,o.h-.12,o.z,o.w,.12,o.d,[.64,.53,.40]);return;
+  }
   if(o.type==='aden-gallery-post'){
    // Open gallery supports are real 60Hz solids; no invisible arch wall.
    m.box(o.x,0,o.z,o.w,o.h,o.d,[.61,.54,.44]);
@@ -788,6 +828,20 @@ class Renderer {
   const isContainer=o.type==='container',isShed=o.type==='shed';const col=isContainer?[.20,.25,.25]:isShed?[.37,.34,.29]:[.43,.44,.39];m.box(o.x,0,o.z,o.w,o.h,o.d,col);if(!isContainer){m.box(o.x,o.h,o.z,o.w+1,.36,o.d+1,[.20,.21,.20]);for(let n=-1;n<=1;n+=2){const xx=o.x+n*o.w*.24,front=o.z+o.d/2+.03;m.box(xx,o.h*.45,front,2.1,2.3,.13,[.12,.17,.18]);m.box(xx,o.h*.45,front+.09,1.5,1.7,.08,[.29,.42,.45]);}m.box(o.x-.2,o.h*.21,o.z-o.d/2-.06,2.8,o.h*.42,.1,[.16,.17,.17]);}
  if(i%3===0){m.box(o.x+o.w/2+1,0,o.z,1.6,o.h*.55,2,[.24,.26,.26]);}}
  );
+ // Shared craft hall and adjacent public court use walkable flooring only;
+ // no raised solid roof is ever added to the 60Hz obstacle collection.
+ if(this.worldTerrainRevision===1){
+  const floors=[{x:-78.8,z:22.1,w:31.6,d:27.8,col:[.43,.39,.31]},
+    {x:-76.5,z:56.1,w:27,d:9,col:[.47,.42,.34]}];
+  for(const floor of floors){
+   const x1=floor.x,x2=floor.x+floor.w,z1=floor.z,z2=floor.z+floor.d;
+   for(let x=x1;x<x2;x+=2.5)for(let z=z1;z<z2;z+=2.5){
+    const xx=Math.min(x2,x+2.5),zz=Math.min(z2,z+2.5);
+    m.quad([x,height(x,z)+.058,z],[x,height(x,zz)+.058,zz],
+      [xx,height(xx,zz)+.058,zz],[xx,height(xx,z)+.058,z],floor.col);
+   }
+  }
+ }
  // Distinct market, western-court and transit roofs bring visible depth to
  // three PUBLIC ground-level areas. Canopy trim remains inside their authored
  // elevated footprint, so every existing BR/CH01 pedestrian entrance stays open.
