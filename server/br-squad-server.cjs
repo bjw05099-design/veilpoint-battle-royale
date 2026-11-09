@@ -195,6 +195,19 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{...result,
       ...(result.ok?{world:world.snapshot(token)}:{})});
    }
+   if(req.method==='POST'&&url.pathname==='/wave'){
+    // Only an authenticated real seat can perform a server-owned gesture.
+    // This endpoint has no target, coordinates, invented avatar or bonus.
+    lobby.snapshot(token);
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_wave_request'});
+    const result=world.wave(token);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
+   }
    if(req.method==='POST'&&url.pathname==='/headlamp'){
     // Actual authenticated human may toggle only their OWN finite light.
     lobby.snapshot(token);

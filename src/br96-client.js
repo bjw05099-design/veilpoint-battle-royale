@@ -182,12 +182,13 @@ function render(){
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
- for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp','wave'])el(id).disabled=!active();
  el('stepOver').disabled=!active()||w?.self?.stepOverProgress!==null&&
    w?.self?.stepOverProgress!==undefined;
  el('headlamp').setAttribute('aria-pressed',String(!!w?.self?.headlampOn));
  el('headlamp').textContent='H · 헤드램프 '+(w?.self?.headlampOn?'ON':'OFF');
  el('headlamp').title='서버 배터리 '+Math.ceil((w?.self?.headlampTicks||0)/60)+'초';
+ el('wave').setAttribute('aria-pressed',String(!!w?.self?.waving));
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -476,6 +477,11 @@ async function stepOverBench(){
  const result=await command('/step-over',{},null);
  if(result?.ok)message('낮은 공공 벤치를 실제로 넘는 중 · 이동 방향과 착지 공간은 서버가 확인합니다.');
 }
+async function wave(){
+ if(!active())return;
+ const result=await command('/wave',{},null);
+ if(result?.ok)message('짧게 손을 들어 주변 사람에게 응답했습니다. 실제로 보는 사람만 움직임을 확인합니다.');
+}
 async function toggleHeadlamp(){
  if(!active())return;
  const result=await command('/headlamp',{},null);
@@ -674,6 +680,7 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
+ else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
@@ -768,6 +775,7 @@ el('civicGate').addEventListener('click',operateGate);
 el('handcart').addEventListener('click',operateHandcart);
 el('headlamp').addEventListener('click',toggleHeadlamp);
 el('stepOver').addEventListener('click',stepOverBench);
+el('wave').addEventListener('click',wave);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));

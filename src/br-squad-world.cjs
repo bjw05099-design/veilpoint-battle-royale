@@ -19,6 +19,9 @@ const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // Human-only squad text. It never contains authentication tokens or opponent
 // messages and is limited to a bounded history and 60Hz authoritative cadence.
 const CHAT_LIMIT=6, CHAT_MAX_CHARS=96, CHAT_INTERVAL_TICKS=180;
+// A brief, grounded hand acknowledgement. Human-owned, non-scoring and
+// server-clock bounded; it never teleports a player or reveals a hidden rival.
+const WAVE_TICKS=2*60,WAVE_COOLDOWN_TICKS=5*60;
 // 10-second presence window is only a reconnect diagnostic; a stale
 // connection never silently eliminates a human squad or awards a rank.
 const PRESENCE_STALE_TICKS=10*60;
@@ -101,7 +104,8 @@ class BrSquadWorld {
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
           headlampOn:false,headlampTicks:HEADLAMP_TICKS,
-          resting:false,spectateSlot:null,stepping:null});
+          resting:false,spectateSlot:null,stepping:null,
+          lastWaveTick:-WAVE_COOLDOWN_TICKS,waveUntilTick:0});
       }
     }
   }
@@ -165,6 +169,20 @@ class BrSquadWorld {
     actor.headlampOn=!actor.headlampOn;
     actor.lastPresenceTick=this.tick;
     return {ok:true,on:actor.headlampOn,ticks:actor.headlampTicks};
+  }
+  // One human can briefly acknowledge an actually present teammate or
+  // passer-by. No target identity, position, squad vote or reward is accepted.
+  wave(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    if(this.tick-actor.lastWaveTick<WAVE_COOLDOWN_TICKS)
+      return {ok:false,reason:'wave_cooldown',retryTicks:
+        WAVE_COOLDOWN_TICKS-(this.tick-actor.lastWaveTick)};
+    actor.lastWaveTick=this.tick;
+    actor.waveUntilTick=this.tick+WAVE_TICKS;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,untilTick:actor.waveUntilTick};
   }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
@@ -578,6 +596,7 @@ class BrSquadWorld {
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
         headlampOn:p.eligible&&p.headlampOn,
+        waving:p.eligible&&p.waveUntilTick>this.tick,
         stepping:p.eligible&&!!p.stepping,
         stepOverProgress:p.eligible&&p.stepping?p.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(p),
@@ -615,7 +634,8 @@ class BrSquadWorld {
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
           moving:p.moving,crouched:p.crouchHeld,
-          headlampOn:p.headlampOn,stepping:!!p.stepping,
+          headlampOn:p.headlampOn,waving:p.waveUntilTick>this.tick,
+          stepping:!!p.stepping,
           stepOverProgress:p.stepping?p.stepping.progress/STEP_OVER_TICKS:null});
       }
     }
@@ -667,6 +687,7 @@ class BrSquadWorld {
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
         headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
+        waving:me.eligible&&me.waveUntilTick>this.tick,
         stepOverProgress:me.stepping?me.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(me),
         eliminationReason:me.eligible?null:me.eliminationReason,

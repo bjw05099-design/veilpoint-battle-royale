@@ -37,6 +37,38 @@ function beaconLightLevel(state){
     state.beaconEnabled!==true||!Number.isFinite(state.elapsed))return 0;
  return state.elapsed%1.6<.9?1:0;
 }
+// A small original street-front transition, located ON an existing solid
+// fictional harbor facade (east building x34..50, northern wall z=-28).
+// The open shop frontage becomes a lowered shutter after the actual witnessed
+// CH01 event. It NEVER creates ghost collision, an enterable fake doorway, a
+// document objective or an unearned second event. The same visible geometry
+// is consumed by both WebGL and the 2D software fallback, including on restore.
+function storyStreetFrontage(state){
+ if(!state||state.scene!=='nahrin')return Object.freeze([]);
+ const changed=Array.isArray(state.obstacles)&&state.obstacles.some(o=>
+   o.routeId==='story-fallen-awning');
+ const frontage=[
+  {x:39.4,y:2.52,z:-27.78,w:4.6,h:.22,d:.09,
+   color:changed?[.28,.29,.29]:[.75,.63,.43],
+   canvas:changed?'#52534e':'#cfac75'},
+  {x:39.4,y:.08,z:-27.73,w:3.72,h:changed?2.44:1.95,d:.075,
+   color:changed?[.34,.36,.37]:[.19,.33,.34],
+   canvas:changed?'#676c6d':'#406467'}
+ ];
+ // The roll in the ordinary scene is raised above the viewing window;
+ // after escalation, the same solid building wall is visibly shuttered.
+ if(!changed){
+  frontage[1].y=.37;
+  frontage.push({x:39.4,y:2.36,z:-27.66,w:4.0,h:.16,d:.095,
+   color:[.82,.63,.33],canvas:'#c69a56'});
+ }else{
+  frontage.push({x:39.4,y:1.04,z:-27.62,w:3.7,h:.065,d:.09,
+   color:[.28,.30,.31],canvas:'#52595b'});
+  frontage.push({x:39.4,y:1.75,z:-27.62,w:3.7,h:.065,d:.09,
+   color:[.28,.30,.31],canvas:'#52595b'});
+ }
+ return Object.freeze(frontage.map(part=>Object.freeze(part)));
+}
 function m4Perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),a=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*a,-1,0,0,2*far*near*a,0]);}
 function m4LookAt(e,c,up){let z=safeNorm([e[0]-c[0],e[1]-c[1],e[2]-c[2]]),x=safeNorm([up[1]*z[2]-up[2]*z[1],up[2]*z[0]-up[0]*z[2],up[0]*z[1]-up[1]*z[0]]),y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-(x[0]*e[0]+x[1]*e[1]+x[2]*e[2]),-(y[0]*e[0]+y[1]*e[1]+y[2]*e[2]),-(z[0]*e[0]+z[1]*e[1]+z[2]*e[2]),1]);}
 function shader(gl,type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
@@ -316,6 +348,10 @@ class SoftwareRenderer {
   objects.push({x:pad.x,z:pad.z,h:.035,w:pad.width,d:pad.depth,type:'wet-apron'});
   objects.push({x:30,z:-21.8,h:1.3,w:.55,d:.4,type:'yard-switch'});
  }
+ // A lived-in facade changes after the same incident that modifies the
+ // collision world. No invisible replacement building is introduced.
+ for(const part of storyStreetFrontage(state))
+  objects.push({...part,type:'story-shop-frontage'});
  if(state.terrainRevision===1){
   for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
   objects.push({x:43,z:75,h:.22,w:18,d:18,roofY:3.28,type:'aden-shade-roof'});
@@ -350,6 +386,12 @@ class SoftwareRenderer {
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
+ }
+ if(o.type==='story-shop-frontage'){
+  // Painted panel lies directly on the existing solid building facade.
+  polygon([proj(x-ww,o.y,z),proj(x+ww,o.y,z),
+    proj(x+ww,o.y+o.h,z),proj(x-ww,o.y+o.h,z)],o.canvas);
+  continue;
  }
  if(o.type==='shared-public-canopy'){
   const top=o.roofY+o.h;
@@ -954,6 +996,8 @@ class Renderer {
   mesh.box(-7,.25,-55,.62,.5,.48,[.46,.40,.31]);
  }
  if(state.scene==='nahrin'){
+  for(const part of storyStreetFrontage(state))
+   mesh.box(part.x,part.y,part.z,part.w,part.h,part.d,part.color);
   // The paper receipt remains on the local counter. Its ink/status strip
   // changes only after the player physically submits the verified log.
   mesh.box(18,1.055,-42.53,.6,.035,.20,
@@ -1196,6 +1240,7 @@ class Renderer {
 global.VeilpointSharedPublicCanopies=SHARED_PUBLIC_CANOPIES;
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointBeaconLight=beaconLightLevel;
+global.VeilpointStoryStreetFrontage=storyStreetFrontage;
 global.VeilpointRenderer=Renderer;
 global.VeilpointActorFacing=actorFacing;
 })(globalThis);
