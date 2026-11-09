@@ -79,6 +79,11 @@
   const MARA_PATH=Object.freeze({startX:19.5,startZ:-35,endX:25,endZ:-39.5,
     speed:1.05,radius:.55});
   const newMarketMara=()=>({x:MARA_PATH.startX,z:MARA_PATH.startZ,arrived:false});
+  // After personally restoring the public relay, Jo physically walks along
+  // the staffed harbour pavement. She does not teleport, direct a rescue,
+  // or provide omniscient reports; this position persists in old v2 saves.
+  const LIAISON_WALK=Object.freeze({x:12,startZ:-39,endZ:-46,
+    speed:1.05,radius:.55});
   const AWNING_HANDLE=Object.freeze({id:'awningHandle',x:20.5,z:-38,
     kind:'objective',label:'쓰러진 차양 틀을 직접 치워 보행 통로 확보'});
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
@@ -451,7 +456,7 @@
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
-      mara:newMarketMara(),
+      mara:newMarketMara(),liaisonZ:LIAISON_WALK.startZ,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -633,7 +638,7 @@
     state.world.mara=state.mara?{...state.mara,role:'mara'}:null;
     state.world.liaison=state.combat.cleared&&
       ['records','decision','exit','complete'].includes(state.phase)
-      ?{x:POINTS.liaisonAssist.x,z:POINTS.liaisonAssist.z,role:'jo-hyunji'}:null;
+      ?{x:LIAISON_WALK.x,z:state.liaisonZ,role:'jo-hyunji'}:null;
     state.world.civilianWalker=state.civilianWalker;
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
@@ -975,6 +980,24 @@
           }
         }
       }
+    }
+    // Once the local relay is really restored, Jo moves from its control
+    // point toward the already walkable staffed footpath. The captain may
+    // stand in her way; then she waits. The position is part of the same
+    // validated v2 checkpoint, not a camera-only NPC or scripted jump.
+    if(state.relayRestored&&state.world.liaison &&
+       ['records','decision','exit'].includes(state.phase)&&
+       state.liaisonZ>LIAISON_WALK.endZ+1e-8){
+      const actor=state.world.liaison;
+      const otherPeople=[p,state.worker,state.mara,state.civilianWalker,
+        state.choice==='evacuation'&&state.guide.active?state.guide:null]
+        .filter(Boolean).map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+      const colliders=state.world.obstacles.concat(actorBlockers(state),otherPeople);
+      const speed=Math.min(LIAISON_WALK.speed,
+        (state.liaisonZ-LIAISON_WALK.endZ)/t);
+      Sim.moveEntity(actor,0,-speed,t,colliders,LIAISON_WALK.radius);
+      state.liaisonZ=clamp(actor.z,LIAISON_WALK.endZ,LIAISON_WALK.startZ);
+      actor.z=state.liaisonZ;
     }
     // An unexpected escalation occurs in the actually visited harbor after
     // the short Korea/arrival recap. No recovered deployment paper, arbitrary
@@ -2166,6 +2189,7 @@
       passageWarningHeard:state.passageWarningHeard,
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
       mara:{x:state.mara.x,z:state.mara.z,arrived:state.mara.arrived},
+      liaisonZ:state.liaisonZ,
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
         ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
@@ -2196,8 +2220,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+32||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara').includes(k))||
+      Object.keys(data).length>expectedKeys.length+33||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -2224,6 +2248,12 @@
         (data.awningWorking&&
           (data.awningShift>=1||!['records','decision','exit'].includes(data.phase)))))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+      (hasOwn(data,'liaisonZ')&&
+       (!Number.isFinite(data.liaisonZ)||
+        data.liaisonZ<LIAISON_WALK.endZ||data.liaisonZ>LIAISON_WALK.startZ||
+        (data.liaisonZ<LIAISON_WALK.startZ&&
+         (data.relayRestored!==true||
+          !['records','decision','exit','complete'].includes(data.phase)))))||
       (hasOwn(data,'beaconEnabled')&&typeof data.beaconEnabled!=='boolean')||
       // An unpowered repeater cannot sustain its locally wired warning fixture.
       (data.beaconEnabled===true&&data.relayRestored!==true)||
@@ -2513,6 +2543,7 @@
     state.awningShift=hasOwn(data,'awningShift')?data.awningShift:0;
     state.awningWorking=hasOwn(data,'awningWorking')?data.awningWorking:false;
     state.mara=hasOwn(data,'mara')?{...data.mara}:newMarketMara();
+    state.liaisonZ=hasOwn(data,'liaisonZ')?data.liaisonZ:LIAISON_WALK.startZ;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
     // Compatibility only: older v2 saves may retain a record of a retired
