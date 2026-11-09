@@ -37,7 +37,7 @@
   if(state.mara?.arrived===true && p &&
      Math.hypot(p.x-state.mara.x,p.z-state.mara.z)<=8 &&
      !Sim.lineBlocked(p.x,p.z,state.mara.x,state.mara.z,state.world.obstacles))
-   return line('마라','통로가 실제로 비어서 제가 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
+   return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
   if(state.awningShift>=1&&state.combat?.cleared===true)
    return line('마라','쓰러진 차양을 길 가장자리로 옮긴 건 확인했어. 그렇다고 골목 전체가 안전해졌다고 보장할 수는 없어.');
   return null;
