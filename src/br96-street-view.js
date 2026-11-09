@@ -64,15 +64,16 @@
   return fraction*(weatherCode==='sea-haze'?.90:
     weatherCode==='gusty'?.70:weatherCode==='clearing'?.50:.38);
  }
- function shade(type,depth,visibleDistance=95,weatherCode='clear'){
+ function shade(type,depth,visibleDistance=95,weatherCode='clear',lampLit=false){
   const tint=String(type||'');
   const base=tint.includes('warehouse')||tint.includes('building')?[113,127,126]:
     tint.includes('wall')||tint.includes('shutter')?[118,130,128]:
     tint.includes('bench')||tint.includes('counter')?[158,139,108]:[113,119,111];
-  const factor=Math.max(.36,1-depth/135),fog=weatherFogFraction(depth,visibleDistance,weatherCode);
+  const factor=Math.max(.36,1-depth/135)*(lampLit&&depth<24?1+.42*(1-depth/24):1),
+     fog=weatherFogFraction(depth,visibleDistance,weatherCode);
   const horizon=weatherCode==='sea-haze'?[102,123,126]:
     weatherCode==='gusty'?[107,127,134]:[112,139,146];
-  return 'rgb('+base.map((v,i)=>Math.round(v*factor*(1-fog)+horizon[i]*fog)).join(',')+')';
+  return 'rgb('+base.map((v,i)=>Math.min(255,Math.round(v*factor*(1-fog)+horizon[i]*fog))).join(',')+')';
  }
  function frame({subject,yaw=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
@@ -153,7 +154,11 @@
    // A low wall becomes taller on screen when the authenticated body crouches.
    const wallHeight=Math.min(height*4,ray.height*focal/d);
    const baseY=horizon+model.eyeHeight*focal/d,y=baseY-wallHeight;
-   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code);
+   // The headlamp brightens only real, already raycast public wall surfaces
+   // in the local forward cone; it never grants seeing an unseen rival.
+   const lit=subject.headlampOn===true&&d<24&&
+     Math.abs((i+.5)/model.columns-.5)<.22;
+   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
