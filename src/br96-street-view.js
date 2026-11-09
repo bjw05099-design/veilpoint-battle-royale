@@ -12,7 +12,7 @@
  const FOV=78*Math.PI/180,MAX_DISTANCE=95,COLUMNS=210;
  // Eye elevation is derived solely from the server's own/spectated stance.
  // It cannot move the actual collision capsule or reveal unseen actors.
- const EYE_STANDING=1.65,EYE_CROUCH=0.96;
+ const EYE_STANDING=1.65,EYE_CROUCH=0.96,EYE_SEATED=0.91;
  // Read-only camera pitch, deliberately bounded to avoid impossible upside-down
  // viewpoints. Walking direction and world snapshot remain server-authored.
  const MAX_PITCH=0.44;
@@ -134,6 +134,7 @@
     // Pose is from the authenticated server movement snapshot, not the map.
     facing:Number.isFinite(p.facing)?wrap(p.facing):null,
     moving:p.moving===true,crouched:p.crouched===true,
+    benchResting:p.benchResting===true,
     waving:p.waving===true,
     stepOverProgress:Number.isFinite(p.stepOverProgress)&&
       p.stepOverProgress>=0&&p.stepOverProgress<=1?p.stepOverProgress:null,
@@ -141,7 +142,8 @@
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
     angle,pitch:clampPitch(pitch),heading:viewHeading(angle),columns:COLUMNS,maxDistance,
-    eyeHeight:subject.crouched===true?EYE_CROUCH:EYE_STANDING});
+    eyeHeight:subject.benchResting===true?EYE_SEATED:
+      subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
  function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
    visibilityMeters,weather}={}){
@@ -173,7 +175,7 @@
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
   for(const person of model.seen){
-   const bodyHeight=person.crouched?1.22:1.75;
+   const bodyHeight=person.benchResting?0.95:person.crouched?1.22:1.75;
    const size=Math.min(height*2,bodyHeight*focal/person.depth);
    const px=(person.col+.5)*strip;
    const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
@@ -195,7 +197,12 @@
     ctx.fillRect(px+size*.15,feetY-size*.90,size*.085,size*.42);
     ctx.fillRect(px+size*.15,feetY-size*1.10,size*.085,size*.25);
    }
-   if(person.moving){
+   if(person.benchResting){
+    // Bend both feet beside the already-authoritative public bench; visual
+    // comfort never moves the physical capsule inside solid furniture.
+    ctx.fillRect(px-size*.23,feetY-size*.15,size*.18,size*.15);
+    ctx.fillRect(px+size*.05,feetY-size*.15,size*.18,size*.15);
+   }else if(person.moving){
     ctx.fillRect(px-size*.13,feetY-size*.19,size*.09,size*.19);
     ctx.fillRect(px+size*.04,feetY-size*.28,size*.09,size*.28);
    }else ctx.fillRect(px-size*.11,feetY-size*.19,size*.22,size*.19);
@@ -213,10 +220,11 @@
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
   ctx.fillText('화면 클릭: 마우스 상하좌우 시야 · WASD: 시야 기준 이동 · Esc: 포인터 해제',14,47);
-  ctx.fillText('자세: '+(subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
+  ctx.fillText('자세: '+(subject.benchResting===true?'벤치에서 휴식':
+    subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
   ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
   return model;
  }
- return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,MAX_PITCH,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+ return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
