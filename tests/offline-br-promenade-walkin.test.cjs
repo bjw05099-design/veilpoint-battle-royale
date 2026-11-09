@@ -46,7 +46,7 @@ test('PC offline menu offers the one new start without changing existing choices
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const client=fs.readFileSync(path.join(root,'src/app.js'),'utf8');
  for(const prior of ['central','service','east','west','ferry'])
-  assert.match(html,new RegExp('<option value="'+prior+'">'));
+  assert.match(html,new RegExp('<option value="'+prior+'"(?: selected)?>'));
  assert.match(html,/<option value="promenade">해안 보행로/);
  assert.match(client,/Game\.ENTRY_SITES/);
  assert.match(client,/simulation\.entrySite/);
