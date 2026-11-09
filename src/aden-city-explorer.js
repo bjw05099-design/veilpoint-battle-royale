@@ -6,12 +6,14 @@
  */
 (function(root,factory){
  const api=factory(root.VeilpointAdenCityTiles||
-  (typeof module==='object'&&module.exports?require('./aden-citywide-tiles.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-citywide-tiles.js'):null),
+  root.VeilpointAdenRelief||
+  (typeof module==='object'&&module.exports?require('./aden-map-relief.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief){
  'use strict';
- if(!Tiles)throw new Error('Requires src/aden-citywide-tiles.js');
+ if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
   provider:'VEILPOINT original terrain preview',
   observedDate:'2026-11-09',license:'Original fictional art (not a real Aden DEM)',
@@ -62,20 +64,31 @@
  }
  const CIVIC_SHELLS=civilianBlockout();
  function viewState(options={}){
-  const x=options.x??0,z=options.z??0,zoom=options.zoom??.63;
+  const x=options.x??0,z=options.z??0,zoom=options.zoom??.63,
+   relief=options.relief??.38,showContours=options.showContours??true;
   Tiles.point(x,z);
-  if(!Number.isFinite(zoom)||zoom<.22||zoom>2.5)
+  if(!Number.isFinite(zoom)||zoom<.22||zoom>2.5||
+     !Number.isFinite(relief)||relief<0||relief>1||
+     typeof showContours!=='boolean')
    throw new RangeError('Invalid city preview zoom');
-  return Object.freeze({x,z,zoom});
+  return Object.freeze({x,z,zoom,relief,showContours});
  }
  function pan(state,dx,dz){
   if(!Number.isFinite(dx)||!Number.isFinite(dz))throw new RangeError('Invalid pan');
-  return viewState({x:state.x+dx,z:state.z+dz,zoom:state.zoom});
+  return viewState({x:state.x+dx,z:state.z+dz,zoom:state.zoom,
+   relief:state.relief,showContours:state.showContours});
  }
  function setZoom(state,next){
-  return viewState({x:state.x,z:state.z,zoom:Math.min(2.5,Math.max(.22,next))});
+  return viewState({x:state.x,z:state.z,zoom:Math.min(2.5,Math.max(.22,next)),
+   relief:state.relief,showContours:state.showContours});
  }
- function draw(canvas,registry,state,cache=new Map()){
+ function setRelief(state,relief){
+  return viewState({...state,relief});
+ }
+ function setContours(state,showContours){
+  return viewState({...state,showContours});
+ }
+ function draw(canvas,registry,state,cache=new Map(),options={}){
   if(!canvas||typeof canvas.getContext!=='function'||!(registry instanceof Map))
    throw new TypeError('Invalid terrain canvas/registry');
   const ctx=canvas.getContext('2d');
@@ -94,33 +107,33 @@
   // Never display triangles for an unresolved tile: missing geodata remains
   // a distinctly unknown region, not invented "verified" topology.
   let triangles=0,visible=0;
-  const toScreen=(x,z)=>[
-   w/2+(x-state.x)*state.zoom,
-   h/2+(z-state.z)*state.zoom];
+  const toScreen=(x,z,elevation=0)=>Relief.project(
+   [x,elevation,z],state,w,h,state.zoom,state.relief);
   for(const key of plan.active){
    const mesh=cache.get(key).mesh,p=mesh.positions,indices=mesh.triangles;
    for(let i=0;i<indices.length;i+=3){
     const a=indices[i]*3,b=indices[i+1]*3,c=indices[i+2]*3,
-     a2=toScreen(p[a],p[a+2]),b2=toScreen(p[b],p[b+2]),
-     c2=toScreen(p[c],p[c+2]);
+     va=[p[a],p[a+1],p[a+2]],vb=[p[b],p[b+1],p[b+2]],
+     vc=[p[c],p[c+1],p[c+2]],
+     a2=toScreen(...[va[0],va[2],va[1]]),
+     b2=toScreen(...[vb[0],vb[2],vb[1]]),
+     c2=toScreen(...[vc[0],vc[2],vc[1]]);
     if((a2[0]<-10&&b2[0]<-10&&c2[0]<-10)||
        (a2[0]>w+10&&b2[0]>w+10&&c2[0]>w+10)||
        (a2[1]<-10&&b2[1]<-10&&c2[1]<-10)||
        (a2[1]>h+10&&b2[1]>h+10&&c2[1]>h+10))continue;
-    const y=(p[a+1]+p[b+1]+p[c+1])/3,
-     vx=p[b]-p[a],vz=p[b+2]-p[a+2],
-     wx=p[c]-p[a],wz=p[c+2]-p[a+2],
-     area=Math.abs(vx*wz-vz*wx)||1,
-     slope=Math.min(1,Math.abs((p[b+1]-p[a+1])*wz-
-                  (p[c+1]-p[a+1])*vz)/area*3);
-    const light=Math.max(0,Math.min(21,Math.round((y+30)/7))),
-     shadow=Math.round(slope*30);
-    ctx.fillStyle=y<=0?'#315f72':y>100?'#887568':
-     'rgb('+Math.min(205,110+light*3)+','+
-      Math.max(80,125+light-shadow)+','+
-      Math.max(64,99+light-shadow)+')';
+    ctx.fillStyle=Relief.triangleColor(va,vb,vc);
     ctx.beginPath();ctx.moveTo(...a2);ctx.lineTo(...b2);ctx.lineTo(...c2);
     ctx.closePath();ctx.fill();triangles++;
+    if(state.showContours&&state.zoom>=.48){
+     const lines=Relief.contours(va,vb,vc,25);
+     ctx.strokeStyle='#f5ecd180';ctx.lineWidth=Math.max(.5,state.zoom*.65);
+     for(const line of lines){
+      const from=toScreen(line.from[0],line.from[2],line.from[1]),
+       to=toScreen(line.to[0],line.to[2],line.to[1]);
+      ctx.beginPath();ctx.moveTo(...from);ctx.lineTo(...to);ctx.stroke();
+     }
+    }
    }
    const tile=registry.get(key),b=Tiles.tileBounds(tile.tx,tile.tz),
     ul=toScreen(b.minX,b.minZ),br=toScreen(b.maxX,b.maxZ);
@@ -131,15 +144,21 @@
   // Visual-only conceptual civic building shells. They do not participate
   // in the existing arena, BR96 authoritative world or legacy save format.
   let houses=0;
-  for(const home of CIVIC_SHELLS){
+  for(const home of options.showFictionalBuildings===false?[]:CIVIC_SHELLS){
    const key=Tiles.tileFor(home.x,home.z).key;
    if(!plan.active.includes(key))continue;
-   const [px,pz]=toScreen(home.x,home.z),
-    ww=home.w*state.zoom,dd=home.d*state.zoom;
+   const tile=registry.get(key),
+    elevation=tile?Tiles.heightAt(tile,home.x,home.z):0,
+    [px,pz]=toScreen(home.x,home.z,elevation),
+    ww=home.w*state.zoom,dd=home.d*state.zoom,
+    facadeHeight=home.h*state.zoom*state.relief;
    if(px+ww/2<0||px-ww/2>w||pz+dd/2<0||pz-dd/2>h)continue;
    ctx.fillStyle='#34454b';ctx.fillRect(px-ww/2+2,pz-dd/2+3,ww,dd);
-   ctx.fillStyle=home.color;ctx.fillRect(px-ww/2,pz-dd/2,ww,dd);
-   ctx.fillStyle='#948778';ctx.fillRect(px-ww/2,pz-dd/2,ww,Math.max(1,state.zoom));
+   ctx.fillStyle='#716257';
+   ctx.fillRect(px-ww/2,pz-dd/2-facadeHeight,ww,facadeHeight+dd);
+   ctx.fillStyle=home.color;ctx.fillRect(px-ww/2,pz-dd/2-facadeHeight,ww,dd);
+   ctx.fillStyle='#ddd0ae';
+   ctx.fillRect(px-ww/2,pz-dd/2-facadeHeight,ww,Math.max(1,state.zoom));
    houses++;
   }
   const origin=Tiles.tileFor(state.x,state.z);
@@ -149,14 +168,17 @@
   ctx.moveTo(axis[0],axis[1]-7);ctx.lineTo(axis[0],axis[1]+7);ctx.stroke();
   return Object.freeze({origin:origin.key,active:visible,triangles,
    housesVisible:houses,unresolved:plan.unresolved.length,lodStep:lod,
-   zoom:state.zoom,provenance:'artist-blockout',realAdenTilesLoaded:0});
+   zoom:state.zoom,relief:state.relief,showContours:state.showContours,
+   provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
+   realAdenTilesLoaded:0});
  }
  function attach(doc=typeof document!=='undefined'?document:null){
   if(!doc)return null;
   const canvas=doc.getElementById('terrainCanvas'),
    info=doc.getElementById('tileStatus');
   if(!canvas||!info)return null;
-  const registry=createPreviewRegistry(),cache=new Map();
+  let registry=createPreviewRegistry(),activeDataset=null;
+  const cache=new Map();
   let state=viewState();
   function refresh(){
    const width=Math.max(320,canvas.clientWidth||canvas.width||960),
@@ -164,10 +186,15 @@
    const dpr=Math.max(1,Math.min(2,(typeof devicePixelRatio==='number'?devicePixelRatio:1)));
    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
    // State in world metres, zoom in CSS pixels => convert to bitmap pixels.
-   const stats=draw(canvas,registry,setZoom(state,state.zoom*dpr),cache);
-   info.textContent='원본: 창작 아트 테스트 (실측 아덴 0타일) · '+
+   const zoomState={...state,zoom:state.zoom*dpr};
+   const stats=draw(canvas,registry,zoomState,cache,{
+    imported:!!activeDataset,showFictionalBuildings:!activeDataset});
+   info.textContent=(activeDataset?
+    '로컬 자료 입력 (출처·권리·정확도 외부 검증 전): '+activeDataset.title+
+    ' / '+activeDataset.tilesImported+'개 타일 · ':
+    '원본: 창작 아트 테스트 (실측 아덴 0타일) · ')+
     stats.origin+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
-    '개 · 실제 1:1 미터 좌표 · 지형 삼각형 '+stats.triangles+'개';
+    '개 · 1:1 미터 좌표 · 삼각형 '+stats.triangles+'개 · 실제 아덴 검증 0타일';
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
@@ -178,26 +205,52 @@
    if(which==='zoomIn')state=setZoom(state,state.zoom*1.25);
    if(which==='zoomOut')state=setZoom(state,state.zoom/1.25);
    if(which==='reset')state=viewState();
+   if(which==='relief')state=setRelief(state,state.relief>0?0:.38);
+   if(which==='contours')state=setContours(state,!state.showContours);
    refresh();
   }
-  for(const id of ['north','south','east','west','zoomIn','zoomOut','reset']){
+  function loadDataset(value){
+   const parsed=Tiles.importHeightDataset(value);
+   registry=parsed.registry;activeDataset=parsed;
+   state=viewState();cache.clear();refresh();
+   return parsed;
+  }
+  function resetSample(){
+   registry=createPreviewRegistry();activeDataset=null;
+   state=viewState();cache.clear();refresh();
+  }
+  const fileInput=doc.getElementById('heightFile');
+  if(fileInput)fileInput.addEventListener('change',async event=>{
+   const file=event.target?.files?.[0];
+   if(!file)return;
+   if(file.size>4*1024*1024){
+    info.textContent='입력 실패: 파일은 4MB 이하만 허용합니다';return;
+   }
+   try{loadDataset(JSON.parse(await file.text()));}
+   catch(error){info.textContent='지형 입력 거부: '+error.message;}
+  });
+  const resetButton=doc.getElementById('resetSample');
+  if(resetButton)resetButton.addEventListener('click',resetSample);
+  for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
   }
   if(typeof window!=='undefined'){
    window.addEventListener('keydown',event=>{
-    if(event.altKey||event.ctrlKey||event.metaKey)return;
+    if(event.altKey||event.ctrlKey||event.metaKey||
+       /^(input|textarea|select)$/i.test(event.target?.tagName||''))return;
     const key=event.key.toLowerCase(),
      which={arrowup:'north',w:'north',arrowdown:'south',s:'south',
       arrowleft:'west',a:'west',arrowright:'east',d:'east',
-      '+':'zoomIn','=':'zoomIn','-':'zoomOut',r:'reset'}[key];
+      '+':'zoomIn','=':'zoomIn','-':'zoomOut',r:'reset',h:'relief',c:'contours'}[key];
     if(which){event.preventDefault();action(which);}
    });
    window.addEventListener('resize',refresh);
   }
   refresh();
-  return Object.freeze({getState:()=>state,action,refresh,registry});
+  return Object.freeze({getState:()=>state,getRegistry:()=>registry,
+   getDataset:()=>activeDataset,action,refresh,loadDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
-  CIVIC_SHELLS,viewState,pan,setZoom,draw,attach});
+  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,draw,attach});
 });
