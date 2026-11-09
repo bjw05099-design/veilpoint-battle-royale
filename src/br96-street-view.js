@@ -134,6 +134,7 @@
     // Pose is from the authenticated server movement snapshot, not the map.
     facing:Number.isFinite(p.facing)?wrap(p.facing):null,
     moving:p.moving===true,crouched:p.crouched===true,
+    waving:p.waving===true,
     stepOverProgress:Number.isFinite(p.stepOverProgress)&&
       p.stepOverProgress>=0&&p.stepOverProgress<=1?p.stepOverProgress:null,
     slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
@@ -188,6 +189,12 @@
      .23+.10*Math.abs(Math.cos(person.facing-model.angle));
    ctx.fillRect(px-size*broadness/2,feetY-size*.78,size*broadness,size*.59);
    ctx.fillRect(px-size*.10,feetY-size,size*.20,size*.20);
+   if(person.waving){
+    // Deliberate human-scale arm movement without a bright floating icon.
+    // The server owns the finite pose; FOV and wall ray masking remain intact.
+    ctx.fillRect(px+size*.15,feetY-size*.90,size*.085,size*.42);
+    ctx.fillRect(px+size*.15,feetY-size*1.10,size*.085,size*.25);
+   }
    if(person.moving){
     ctx.fillRect(px-size*.13,feetY-size*.19,size*.09,size*.19);
     ctx.fillRect(px+size*.04,feetY-size*.28,size*.09,size*.28);
