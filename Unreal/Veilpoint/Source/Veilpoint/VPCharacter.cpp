@@ -1,6 +1,7 @@
 #include "VPCharacter.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
+#include "VPStoryPublicVan.h"
 #include "VPStoryGameState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
@@ -256,7 +257,7 @@ void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive()) Serve
 void AVPCharacter::ServerTryInteract_Implementation()
 {
     if (!IsAlive() || !GetWorld()) return;
-    // The native CH01 mode reuses the PC E key, but the server alone
+    // Native CH01 uses the PC F key, but the server alone
     // validates the actual physical marker and advances story progress.
     // A BR pickup cannot accidentally advance the story (or vice versa).
     if (GetWorld()->GetGameState<AVPStoryGameState>())
@@ -279,6 +280,23 @@ void AVPCharacter::ServerTryInteract_Implementation()
             BestDistanceSq=DistanceSq;
         }
         if (Nearest) Nearest->TryActivate(this);
+        else
+        {
+            // A real F interaction at a public roadside is optional. The
+            // same authority checks distance/occlusion before allowing the
+            // local civilian van to stop. A mission marker always takes
+            // precedence, and BR never receives this new interaction.
+            AVPStoryPublicVan* NearestVan=nullptr;
+            float BestVanSq=FMath::Square(425.f);
+            for(TActorIterator<AVPStoryPublicVan> It(GetWorld());It;++It)
+            {
+                if(!IsValid(*It))continue;
+                const float DistSq=FVector::DistSquared2D(
+                    GetActorLocation(),It->GetActorLocation());
+                if(DistSq<BestVanSq){BestVanSq=DistSq;NearestVan=*It;}
+            }
+            if(NearestVan)NearestVan->TryToggleYield(this);
+        }
         return;
     }
     AVPPickup* Nearest = nullptr;
