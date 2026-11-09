@@ -653,8 +653,8 @@ test('CH01 empty-fire instructions respect whether the finite cache remains avai
  const s=story.createState();go(s,'terminal');story.interact(s);
  s.world.player.charges=0;s.world.player.loaded=0;
  assert.equal(story.fire(s).reason,'empty');
- assert.match(s.subtitle,/유수프.*보급 상자.*E/);
- assert.match(story.objective(s),/보급 상자.*E/);
+ assert.match(s.subtitle,/유수프.*보급 상자.*F/);
+ assert.match(story.objective(s),/보급 상자.*F/);
  go(s,'supply');assert.equal(story.interact(s).ok,true);
  s.world.player.charges=0;s.world.player.loaded=0;
  assert.equal(story.fire(s).reason,'empty');
