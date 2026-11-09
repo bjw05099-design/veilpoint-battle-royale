@@ -20,6 +20,11 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+    // A local standalone checkpoint may restore only a pose that lies on
+    // the civilian's existing physical walking path, never client GPS.
+    static bool IsCoherentCheckpointPose(const FVector& Location, bool bSidewalk, bool bCourtyard);
+    bool RestorePhysicalCheckpoint(const FVector& Location, bool bSidewalk, bool bCourtyard);
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01|Civilian")
     TObjectPtr<UCapsuleComponent> PedestrianBody;
 

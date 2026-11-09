@@ -24,7 +24,13 @@ test('UE5 story pedestrian has actual replicated, solid, collision-swept actor a
  assert.match(cpp,/constexpr int32 MaxSteps = 8/);
  assert.match(cpp,/AddActorWorldOffset\(Delta,true,&Hit,ETeleportType::None\)/);
  assert.match(cpp,/if \(Hit\.bBlockingHit\) return/);
- assert.doesNotMatch(cpp,/TeleportTo\(|SetActorLocation\(|SetActorTransform\(|ServerTryTag|ApplyDamage/);
+ // Live 60Hz civilian movement may NEVER reposition a person; a separately
+ // validated standalone SaveGame restore is permitted after session restart.
+ const live=cpp.slice(cpp.indexOf('void AVPStoryPedestrian::Tick'),
+   cpp.indexOf('bool AVPStoryPedestrian::IsCoherentCheckpointPose'));
+ assert.doesNotMatch(live,/TeleportTo\(|SetActorLocation\(|SetActorTransform\(|ServerTryTag|ApplyDamage/);
+ assert.match(cpp,/bool AVPStoryPedestrian::RestorePhysicalCheckpoint/);
+ assert.match(cpp,/!IsCoherentCheckpointPose\(Location,bSidewalk,bCourtyard\)/);
 });
 test('UE5 CH01 pedestrian is spawned only by native story authority, once per authored map, not BR',()=>{
  assert.match(mode,/if \(!HasAuthority\(\) \|\| !GetWorld\(\)\) return/);
@@ -45,6 +51,10 @@ test('UE5 grounded civilian travel never becomes a fake mission result or save e
  assert.match(world,/AddBlock\(Ground,FVector\(0,0,-70\),FVector\(350\.f,350\.f,1\.3f\)\)/);
  assert.equal(-70+1.3*100/2,80-85,'the pedestrian capsule feet rest on the authored world ground');
  assert.match(cpp,/constexpr float WalkSpeed=125\.f/);
- assert.doesNotMatch(h+cpp,/TryAdvance\(|PersistStoryCheckpoint\(|SetLifeSpan\(|SetActorHiddenInGame\(/);
+ assert.doesNotMatch(h+cpp,/TryAdvance\(|SetLifeSpan\(|SetActorHiddenInGame\(/);
+ // Fixed-step arrival persistence is evidence of real pedestrian travel,
+ // not authority to unlock an exit or invent a rescue result.
+ assert.match(cpp,/bMovedToSidewalk=true;[\s\S]*?Mode->PersistStoryCheckpoint\(\)/);
+ assert.match(cpp,/bReachedSouthCourtyard=true;[\s\S]*?Mode->PersistStoryCheckpoint\(\)/);
  assert.doesNotMatch(mode,/bReachedSouthCourtyard\s*\?\s*EVPStoryStage/);
 });
