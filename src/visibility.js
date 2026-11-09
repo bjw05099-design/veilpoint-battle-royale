@@ -113,6 +113,13 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.civilianWalker,.55,state.obstacles)){
    witnesses.push({entity:state.civilianWalker});boxes+=2;
  }
+ // Jo Hyunji is a physically present character with the same finite
+ // camera, line-of-sight and solid-cover checks as other local civilians.
+ if(state.scene==='nahrin'&&state.liaison&&
+    inView(p,state.liaison.x,state.liaison.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.liaison,.55,state.obstacles)){
+  witnesses.push({entity:state.liaison});boxes+=2;
+ }
  // A CH01 civilian traverses a genuine sidewalk using the same physical
  // collision rule as the captain. It appears only when camera-visible and
  // not obscured behind opaque harbor buildings.
