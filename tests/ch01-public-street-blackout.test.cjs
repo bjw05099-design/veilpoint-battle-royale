@@ -31,10 +31,15 @@ test('actual fixed-step story incident blacks out local civic lighting and persi
  assert.equal(loaded.world.publicStreetPowered,false);
  // Restoring a civilian relay later illuminates its own two lamps only;
  // the original district blackout never becomes an implausible grid repair.
- state.relayRestored=true;
- Story.step(state,1/60,{});
- assert.equal(state.world.publicStreetPowered,false);
+ state.phase='records';state.combat.cleared=true;
+ state.world.player.x=12;state.world.player.z=-39;
+ // Use the existing reachable F interaction; changing an internal variable
+ // directly would not synchronize the renderer's authoritative world.
+ const result=Story.interact(state);
+ assert.equal(result.ok,true);
+ assert.equal(result.event,'onsite_liaison_relay');
  assert.equal(state.world.relayRestored,true);
+ assert.equal(state.world.publicStreetPowered,false);
 });
 
 test('WebGL and software scene both draw real before-after lighting from the saved world',()=>{
