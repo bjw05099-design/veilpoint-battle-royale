@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const ROSTERS=Object.freeze([1,4,18]);
-const SITES=Object.freeze(['central','service','east','west','ferry']);
+const SITES=Object.freeze(['central','service','east','west','ferry','promenade']);
 const LIGHTS=Object.freeze(['day','dusk']);
 const WEAPONS=Object.freeze(['carbine','compact','marksman','shotgun','support','sidearm','precision']);
 const MAX_SEED=9999999999;
