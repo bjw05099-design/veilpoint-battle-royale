@@ -123,6 +123,9 @@
    // Only server-published, actually visible squadmates carry a local seat
    // label. Never infer a hidden rival's squad, identity or location.
    return Object.freeze({kind:p.kind,id:p.id,col,depth,
+    // Pose is from the authenticated server movement snapshot, not the map.
+    facing:Number.isFinite(p.facing)?wrap(p.facing):null,
+    moving:p.moving===true,crouched:p.crouched===true,
     slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
@@ -155,14 +158,22 @@
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
   for(const person of model.seen){
-   const size=Math.min(height*2,1.75*focal/person.depth);
+   const bodyHeight=person.crouched?1.22:1.75;
+   const size=Math.min(height*2,bodyHeight*focal/person.depth);
    const px=(person.col+.5)*strip;
    const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
    ctx.globalAlpha=1-fog;
    ctx.fillStyle=person.kind==='squad'?'#a2cbdf':'#d4aa99';
    const feetY=horizon+model.eyeHeight*focal/person.depth;
-   ctx.fillRect(px-size*.16,feetY-size*.78,size*.32,size*.78);
+   // Body shape is read-only; moving into a wall cannot rotate the server pose.
+   const broadness=person.facing===null?.32:
+     .23+.10*Math.abs(Math.cos(person.facing-model.angle));
+   ctx.fillRect(px-size*broadness/2,feetY-size*.78,size*broadness,size*.59);
    ctx.fillRect(px-size*.10,feetY-size,size*.20,size*.20);
+   if(person.moving){
+    ctx.fillRect(px-size*.13,feetY-size*.19,size*.09,size*.19);
+    ctx.fillRect(px+size*.04,feetY-size*.28,size*.09,size*.28);
+   }else ctx.fillRect(px-size*.11,feetY-size*.19,size*.22,size*.19);
    ctx.globalAlpha=1;
    if(person.kind==='squad'&&person.slot!==null){
     ctx.fillStyle='#dff4eb';ctx.font='11px system-ui';
