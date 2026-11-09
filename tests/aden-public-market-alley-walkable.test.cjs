@@ -35,15 +35,15 @@ function fixedStepWalk(points,obstacles){
  }
  return actor;
 }
-test('15 grounded shop-street bodies are exactly shared by current BR and CH01',()=>{
+test('16 grounded shop-street bodies are exactly shared by current BR and CH01',()=>{
  const br=Sim.newMatch(20261109,0),story=Story.createState();
- assert.equal(geometry(br).length,15);
+ assert.equal(geometry(br).length,16);
  assert.deepEqual(geometry(story.world),geometry(br));
  const byType=Object.groupBy?.(geometry(br),o=>o.type)||
   Object.fromEntries([...new Set(geometry(br).map(o=>o.type))]
    .map(k=>[k,geometry(br).filter(o=>o.type===k)]));
  for(const [type,count] of [['outer-wall',2],['inner-wall',2],
-   ['back-wall',2],['shelf',2],['counter',2],['post',4],['public-tap',1]]){
+   ['back-wall',3],['shelf',2],['counter',2],['post',4],['public-tap',1]]){
   assert.equal(byType['aden-laneshop-'+type]?.length,count,type);
  }
  for(const world of [br,story.world]){
@@ -52,6 +52,11 @@ test('15 grounded shop-street bodies are exactly shared by current BR and CH01',
   const central=waypoints.map(([x,z])=>({x,z}));
   assertWalkable(central,world.obstacles);
   fixedStepWalk(central,world.obstacles);
+  // This is a historically existing BR96 ferry-hall entrance contract:
+  // the public landmark is observed only after actual northbound movement.
+  const originalFerryApproach=[{x:-45,z:112},{x:-45,z:121}];
+  assertWalkable(originalFerryApproach,world.obstacles);
+  fixedStepWalk(originalFerryApproach,world.obstacles);
   // Each shop is reached from the open street, with a physical south entry.
   const west=[{x:-35,z:98},{x:-43,z:98},{x:-43,z:110}];
   const east=[{x:-35,z:98},{x:-27,z:98},{x:-27,z:110}];
