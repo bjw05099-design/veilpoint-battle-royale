@@ -118,8 +118,27 @@ constexpr int32 CH01UserIndex = 0;
 // The final authority check still happens in AVPStoryGameState::RestoreProgress.
 bool IsCoherentSaved(const UVPStoryCheckpoint* Saved)
 {
-    if (!Saved || (Saved->SchemaVersion != 1 && Saved->SchemaVersion != 2)) return false;
-    const bool Beacon = Saved->SchemaVersion == 2 && Saved->bSavedBeaconActivated;
+    if (!Saved || (Saved->SchemaVersion != 1 && Saved->SchemaVersion != 2 &&
+        Saved->SchemaVersion != 3)) return false;
+    if (Saved->SchemaVersion == 3)
+    {
+        // A V3 pose is an observed civilian milestone, not player input.
+        // Old V1/V2 objectives intentionally have no new compulsory actor.
+        if (Saved->bHasPedestrianPose)
+        {
+            if (!AVPStoryPedestrian::IsCoherentCheckpointPose(
+                Saved->SavedPedestrianPosition,
+                Saved->bSavedPedestrianOnSidewalk,
+                Saved->bSavedPedestrianReachedSouth)) return false;
+            if (Saved->SavedStage == EVPStoryStage::RestoreRelay &&
+                (Saved->bSavedPedestrianOnSidewalk ||
+                 FVector::Dist2D(Saved->SavedPedestrianPosition,
+                     FVector(3400.f,-800.f,80.f))>4.f)) return false;
+        }
+        else if (Saved->bSavedPedestrianOnSidewalk ||
+                 Saved->bSavedPedestrianReachedSouth) return false;
+    }
+    const bool Beacon = Saved->SchemaVersion >= 2 && Saved->bSavedBeaconActivated;
     const bool Harbor = Saved->bSavedHarborRecord;
     const bool Shelter = Saved->bSavedShelterRecord;
     switch (Saved->SavedStage)
@@ -164,16 +183,37 @@ void AVPStoryGameMode::RestoreStoryCheckpoint()
     }
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State) return;
+    // Only reconstruct the actually saved single pedestrian in this offline
+    // world. No client-submitted positions and no citywide evacuation claims.
+    const auto RestoreCivilian = [this](const UVPStoryCheckpoint* Saved)
+    {
+        if (!Saved || Saved->SchemaVersion < 3 || !Saved->bHasPedestrianPose)
+            return; // V1/V2: preserve the old authored starting state.
+        for (TActorIterator<AVPStoryPedestrian> It(GetWorld()); It; ++It)
+        {
+            if (!IsValid(*It)) continue;
+            if (!It->RestoreOfflineCheckpointPose(
+                Saved->SavedPedestrianPosition,
+                Saved->bSavedPedestrianOnSidewalk,
+                Saved->bSavedPedestrianReachedSouth))
+                UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: civilian checkpoint pose blocked; retaining authored spawn"));
+            return;
+        }
+    };
     UVPStoryCheckpoint* Primary = ReadVerifiedCheckpoint(CH01Slot);
     if (Primary && State->RestoreProgress(
         Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord,
-        Primary->SchemaVersion == 2 && Primary->bSavedBeaconActivated))
+        Primary->SchemaVersion >= 2 && Primary->bSavedBeaconActivated))
+    {
+        RestoreCivilian(Primary);
         return;
+    }
     UVPStoryCheckpoint* Backup = ReadVerifiedCheckpoint(CH01BackupSlot);
     if (Backup && State->RestoreProgress(
         Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord,
-        Backup->SchemaVersion == 2 && Backup->bSavedBeaconActivated))
+        Backup->SchemaVersion >= 2 && Backup->bSavedBeaconActivated))
     {
+        RestoreCivilian(Backup);
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective backup"));
         return;
     }
@@ -191,11 +231,25 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
     UVPStoryCheckpoint* Saved = Cast<UVPStoryCheckpoint>(
         UGameplayStatics::CreateSaveGameObject(UVPStoryCheckpoint::StaticClass()));
     if (!Saved) return false;
-    Saved->SchemaVersion = 2;
+    Saved->SchemaVersion = 3;
     Saved->SavedStage = State->StoryStage;
     Saved->bSavedHarborRecord = State->bReadHarbor;
     Saved->bSavedShelterRecord = State->bReadShelter;
     Saved->bSavedBeaconActivated = State->bBeaconActivated;
+    // The real replicated capsule is authoritative. Persist its continuous
+    // pose and two finite milestones, not a scripted arrival or UI summary.
+    for (TActorIterator<AVPStoryPedestrian> It(GetWorld()); It; ++It)
+    {
+        if (!IsValid(*It)) continue;
+        const FVector Position = It->GetActorLocation();
+        if (!AVPStoryPedestrian::IsCoherentCheckpointPose(Position,
+            It->bMovedToSidewalk,It->bReachedSouthCourtyard)) return false;
+        Saved->bHasPedestrianPose = true;
+        Saved->SavedPedestrianPosition = Position;
+        Saved->bSavedPedestrianOnSidewalk = It->bMovedToSidewalk;
+        Saved->bSavedPedestrianReachedSouth = It->bReachedSouthCourtyard;
+        break;
+    }
     // Copy only a coherent, previously confirmed primary into the backup slot
     // BEFORE overwriting the active slot. If that copy fails, retain primary.
     // This is best-effort redundancy, not an atomic filesystem transaction.
@@ -213,7 +267,12 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
         Check->bSavedHarborRecord == Saved->bSavedHarborRecord &&
         Check->bSavedShelterRecord == Saved->bSavedShelterRecord &&
         Check->SchemaVersion == Saved->SchemaVersion &&
-        Check->bSavedBeaconActivated == Saved->bSavedBeaconActivated;
+        Check->bSavedBeaconActivated == Saved->bSavedBeaconActivated &&
+        Check->bHasPedestrianPose == Saved->bHasPedestrianPose &&
+        Check->bSavedPedestrianOnSidewalk == Saved->bSavedPedestrianOnSidewalk &&
+        Check->bSavedPedestrianReachedSouth == Saved->bSavedPedestrianReachedSouth &&
+        (!Saved->bHasPedestrianPose ||
+         Check->SavedPedestrianPosition.Equals(Saved->SavedPedestrianPosition,.01f));
     if (!bVerified)
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save verification failed)"));
     return bVerified;
