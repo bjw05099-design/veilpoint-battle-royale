@@ -45,7 +45,7 @@ test('physical door appears through valid static BR96 PC controls without client
  const html=fs.readFileSync(path.resolve(__dirname,'../br96.html'),'utf8');
  const client=fs.readFileSync(path.resolve(__dirname,'../src/br96-client.js'),'utf8');
  assert.match(html,/id="civicGate"/);
- assert.match(html,/F 여객 문/);
+ assert.match(html,/F · 여객 문/);
  assert.match(client,/async function operateGate\(\)/);
  assert.match(client,/command\('\/civic-gate',\{\},null\)/);
  assert.match(client,/key==='KeyF'&&active\(\)/);
