@@ -66,8 +66,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  const before=Story.createState();
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
-  item.entity===before.civilianWalker),
-  'before evacuation there is no driver; the independently present resident is not erased');
+  item.entity===before.civilianWalker||item.entity===before.world.mara),
+  'before evacuation there is no driver; only original and newly authored civilians can be observed');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{
  const s=evacuation(),raw=JSON.parse(Story.serialize(s));
@@ -137,8 +137,8 @@ test('the witness is an actual locally visible solid human and never an unseen w
  const before=Story.createState();
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
-  item.entity===before.civilianWalker),
-  'before evacuation there is no driver; the independently present resident is not erased');
+  item.entity===before.civilianWalker||item.entity===before.world.mara),
+  'before evacuation there is no driver; only original and newly authored civilians can be observed');
 });
 test('previous saves migrate safely and invented conversations are rejected',()=>{
  const s=evacuation(),raw=JSON.parse(Story.serialize(s));

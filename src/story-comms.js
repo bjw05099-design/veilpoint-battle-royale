@@ -3,10 +3,12 @@
  * hidden information channel. Only observed saved story state is consulted.
  */
 (function(root,factory){
- const api=factory();
+ const sim=typeof module==='object'&&module.exports?
+   require('./simulation.js'):root.VeilpointSim;
+ const api=factory(sim);
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointStoryComms=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Sim){
  'use strict';
  const line=(speaker,message)=>Object.freeze({speaker,message});
  // All these exchanges follow already saved, physically witnessed events.
@@ -32,6 +34,10 @@
    return line('조현지','항구 작업자가 들려준 1990년 통일과 1994년 전쟁의 기억은 같은 가족 안에서도 달랐습니다. 우리가 판단할 수 있는 것은 그가 직접 말한 경험까지이며, 당시 시각이 미확인된 별도 진술로 기록합니다.');
   if(state.civilianRerouted===true)
    return line('이수혁 대위','주민이 자기 판단으로 남쪽 접근로를 택했다. 도착했는지 확인하지 않고 완료로 보고하지 않겠다.');
+  if(state.mara?.arrived===true && p &&
+     Math.hypot(p.x-state.mara.x,p.z-state.mara.z)<=8 &&
+     !Sim.lineBlocked(p.x,p.z,state.mara.x,state.mara.z,state.world.obstacles))
+   return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
   if(state.awningShift>=1&&state.combat?.cleared===true)
    return line('마라','쓰러진 차양을 길 가장자리로 옮긴 건 확인했어. 그렇다고 골목 전체가 안전해졌다고 보장할 수는 없어.');
   return null;

@@ -113,6 +113,13 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.civilianWalker,.55,state.obstacles)){
    witnesses.push({entity:state.civilianWalker});boxes+=2;
  }
+ // Mara's independent market journey is a physical, optional local scene.
+ // The player gets no distant position marker or awareness through walls.
+ if(state.scene==='nahrin'&&state.mara&&
+    inView(p,state.mara.x,state.mara.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.mara,.55,state.obstacles)){
+  witnesses.push({entity:state.mara});boxes+=2;
+ }
  // Jo Hyunji is a physically present character with the same finite
  // camera, line-of-sight and solid-cover checks as other local civilians.
  if(state.scene==='nahrin'&&state.liaison&&

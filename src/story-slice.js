@@ -74,6 +74,11 @@
   // moves only while the captain remains at its actual handle. There is no
   // document clue, route unlock, remote command or hidden new mission gate.
   const AWNING_SLIDE=4.8, AWNING_SLIDE_SECONDS=4;
+  // Mara decides to use an actually cleared, public street. This is optional
+  // local life, never a player escort assignment or guaranteed evacuation.
+  const MARA_PATH=Object.freeze({startX:19.5,startZ:-35,endX:25,endZ:-39.5,
+    speed:1.05,radius:.55});
+  const newMarketMara=()=>({x:MARA_PATH.startX,z:MARA_PATH.startZ,arrived:false});
   const AWNING_HANDLE=Object.freeze({id:'awningHandle',x:20.5,z:-38,
     kind:'objective',label:'쓰러진 차양 틀을 직접 치워 보행 통로 확보'});
   const GATE_SAFETY_RADIUS = .95; // Player body radius .85 + 10 cm motion buffer.
@@ -446,6 +451,7 @@
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
+      mara:newMarketMara(),
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -612,6 +618,7 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
+    state.world.mara=state.mara?{...state.mara,role:'mara'}:null;
     state.world.liaison=state.combat.cleared&&
       ['records','decision','exit','complete'].includes(state.phase)
       ?{x:POINTS.liaisonAssist.x,z:POINTS.liaisonAssist.z,role:'jo-hyunji'}:null;
@@ -876,6 +883,10 @@
       const w=state.worker,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
+    if(state.mara){
+      const w=state.mara,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     if(state.world.liaison){
       const w=state.world.liaison,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
@@ -912,7 +923,7 @@
       const swept={...FALLEN_AWNING,x:(current+proposed)/2,
         w:FALLEN_AWNING.w+Math.abs(proposed-current)};
       const actors=[p,...state.world.bots.filter(bot=>bot.alive),
-        state.worker,state.civilianWalker,
+        state.worker,state.civilianWalker,state.mara,
         state.guide.active?state.guide:null].filter(Boolean);
       if(!actors.some(body=>Sim.blocked(body.x,body.z,.8,[swept]))) {
         state.awningShift=fraction;
@@ -922,6 +933,35 @@
           state.message='차양 프레임을 실제 이동으로 치움 · 보행 통로 확보';
         }
         syncRoute(state);
+      }
+    }
+    // After the real awning clears, Mara independently crosses the public
+    // market walkway. At any 60Hz step, a physical wall or person stops her.
+    // No client-assigned route, remote rescue notification, or new quest.
+    if(state.mara&&!state.mara.arrived&&state.awningShift===1&&
+       ['records','decision','exit'].includes(state.phase)){
+      const w=state.mara,dx=MARA_PATH.endX-w.x,dz=MARA_PATH.endZ-w.z;
+      const distance=Math.hypot(dx,dz);
+      if(distance>.001){
+        const pedestrians=[p,state.worker,state.civilianWalker,
+          state.world.liaison,state.choice==='evacuation'&&state.guide.active?state.guide:null]
+          .filter(Boolean).map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+        Sim.moveEntity(w,dx/distance*MARA_PATH.speed,dz/distance*MARA_PATH.speed,
+          t,state.world.obstacles.concat(actorBlockers(state),pedestrians),MARA_PATH.radius);
+        w.x=clamp(w.x,MARA_PATH.startX,MARA_PATH.endX);
+        w.z=clamp(w.z,MARA_PATH.endZ,MARA_PATH.startZ);
+        if(state.world.mara){state.world.mara.x=w.x;state.world.mara.z=w.z;}
+        if(Math.hypot(w.x-MARA_PATH.endX,w.z-MARA_PATH.endZ)<.028){
+          w.x=MARA_PATH.endX;w.z=MARA_PATH.endZ;w.arrived=true;
+          // The visible scene and the saved pedestrian must agree on the exact
+          // arrival tick, including the final centimetres of the 60Hz walk.
+          if(state.world.mara){state.world.mara.x=w.x;state.world.mara.z=w.z;state.world.mara.arrived=true;}
+          if(Math.hypot(p.x-w.x,p.z-w.z)<9&&
+             !Sim.lineBlocked(p.x,p.z,w.x,w.z,state.world.obstacles)){
+            state.subtitle='마라(현지 기술자): 통로가 비어서 제 판단으로 골목으로 갑니다. 다른 주민들은 아직 확인하지 못했어요.';
+            state.message='마라의 실제 보행 도착 확인 · 다른 주민은 미확인';
+          }
+        }
       }
     }
     // An unexpected escalation occurs in the actually visited harbor after
@@ -1951,7 +1991,9 @@
       route:east?'east-physically-opened':'south-civilian-priority',
       lines:Object.freeze([local,civilian,radio,
         '이수혁 대위: 한국에서 받은 지시는 그대로입니다. 달라진 건 이곳의 상황입니다. 우리가 확인한 것과 모르는 것, 주민이 스스로 결정한 일을 분리해 보고하겠습니다. 복귀는 다시 승인받아야 합니다.'+
-        (street?' '+street:'')+(workerReport||'')+yieldedVan+rememberedSouth]),
+        (street?' '+street:'')+
+        (state.mara?.arrived?' 마라는 통행 공간이 열린 뒤 자신이 고른 공용 골목까지 걸었습니다. 다른 주민의 이동은 미확인입니다.':'')+
+        (workerReport||'')+yieldedVan+rememberedSouth]),
       nextChapter:'후속 상황과 복귀 계획은 미확정 · CH01 프리뷰 종료'
     });
   }
@@ -1968,6 +2010,7 @@
       protagonist:'이수혁',route:state.choice,records,
       eastCheckpointCleared:verified&&gateOpen(state),
       marketWalkwayCleared:state.awningFallen&&state.awningShift===1,
+      maraUsedOpenMarketLane:state.awningShift===1&&state.mara?.arrived===true,
       harborWorkerReachedShelter:!!state.worker&&state.worker.z>=WORKER_PATH.safeZ-1e-6,
       civilianVehicleYieldRequested:!!state.transportVan&&hasOwn(state.transportVan,'pauseUntil'),
       // Read-only dramatic consequences: character memory never alters v2 saves,
@@ -2067,6 +2110,7 @@
     return {version:VERSION,phase:state.phase,found:state.found.slice(),choice:state.choice,relayRestored:state.relayRestored,beaconEnabled:state.beaconEnabled,flashlightOn:state.flashlightOn,flashlightTicks:state.flashlightTicks,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,dispatchReviewed:state.dispatchReviewed,transportContact:state.transportContact,driverReportFiled:state.driverReportFiled,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       passageWarningHeard:state.passageWarningHeard,
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
+      mara:{x:state.mara.x,z:state.mara.z,arrived:state.mara.arrived},
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
         ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
@@ -2097,8 +2141,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+31||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking').includes(k))||
+      Object.keys(data).length>expectedKeys.length+32||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -2106,6 +2150,17 @@
            Sim.blocked(data.player.x,data.player.z,.85,
              [{...FALLEN_AWNING,x:FALLEN_AWNING.x+
                (data.awningShift===undefined?0:data.awningShift)*AWNING_SLIDE}]))))||
+      (hasOwn(data,'mara')&&(
+        !data.mara||typeof data.mara!=='object'||Array.isArray(data.mara)||
+        Object.keys(data.mara).sort().join(',')!=='arrived,x,z'||
+        typeof data.mara.arrived!=='boolean'||
+        !Number.isFinite(data.mara.x)||!Number.isFinite(data.mara.z)||
+        data.mara.x<MARA_PATH.startX||data.mara.x>MARA_PATH.endX||
+        data.mara.z<MARA_PATH.endZ||data.mara.z>MARA_PATH.startZ||
+        data.mara.arrived!==(data.mara.x===MARA_PATH.endX&&
+          data.mara.z===MARA_PATH.endZ)||
+        ((data.awningShift===undefined||data.awningShift<1)&&
+          (data.mara.x!==MARA_PATH.startX||data.mara.z!==MARA_PATH.startZ))))||
       (hasOwn(data,'awningShift')!==hasOwn(data,'awningWorking'))||
       (hasOwn(data,'awningShift')&&(!Number.isFinite(data.awningShift)||
         data.awningShift<0||data.awningShift>1||
@@ -2402,6 +2457,7 @@
     state.awningFallen=hasOwn(data,'awningFallen')?data.awningFallen:false;
     state.awningShift=hasOwn(data,'awningShift')?data.awningShift:0;
     state.awningWorking=hasOwn(data,'awningWorking')?data.awningWorking:false;
+    state.mara=hasOwn(data,'mara')?{...data.mara}:newMarketMara();
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
     // Compatibility only: older v2 saves may retain a record of a retired
