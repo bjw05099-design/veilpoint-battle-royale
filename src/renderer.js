@@ -44,9 +44,9 @@ const MARKET_LANE_ROOFS=Object.freeze([
 // Crater-inspired public rain court. Lintelled roofs only cover the SIDE
 // terraces; an unobstructed 8m-wide north/south pedestrian axis is open to sky.
 const RAINCOURT_CANOPIES=Object.freeze([
- Object.freeze({x:-90,z:-12,w:10,d:20,roofY:3.74,h:.15,
+ Object.freeze({x:-130,z:50,w:10,d:20,roofY:3.74,h:.15,
   type:'shared-public-canopy',color:Object.freeze([.56,.48,.38]),canvas:'#998672'}),
- Object.freeze({x:-70,z:-12,w:10,d:20,roofY:3.74,h:.15,
+ Object.freeze({x:-110,z:50,w:10,d:20,roofY:3.74,h:.15,
   type:'shared-public-canopy',color:Object.freeze([.61,.55,.45]),canvas:'#a79a80'})
 ]);
 const rand=(seed)=>{let x=seed|0;return()=>{x=(Math.imul(x,1664525)+1013904223)|0;return(x>>>0)/4294967296;};};
@@ -409,7 +409,7 @@ class SoftwareRenderer {
    {x:-63,z:36,w:31.6,d:27.8,color:'#857967'},
    {x:-63,z:60.6,w:27,d:9,color:'#9a8970'},
    {x:-34.9,z:107,w:33,d:23,color:'#8b816c'},
-   {x:-80,z:-12,w:31,d:27,color:'#a2927c'}
+   {x:-120,z:50,w:31,d:27,color:'#a2927c'}
   ]){
    const hw=floor.w/2,hd=floor.d/2;
    polygon([proj(floor.x-hw,.09,floor.z-hd),
@@ -1009,7 +1009,7 @@ class Renderer {
   const floors=[{x:-78.8,z:22.1,w:31.6,d:27.8,col:[.43,.39,.31]},
     {x:-76.5,z:56.1,w:27,d:9,col:[.47,.42,.34]},
     {x:-51.4,z:95.5,w:33,d:23,col:[.43,.40,.34]},
-    {x:-95.5,z:-25.5,w:31,d:27,col:[.56,.49,.39]}];
+    {x:-135.5,z:36.5,w:31,d:27,col:[.56,.49,.39]}];
   for(const floor of floors){
    const x1=floor.x,x2=floor.x+floor.w,z1=floor.z,z2=floor.z+floor.d;
    for(let x=x1;x<x2;x+=2.5)for(let z=z1;z<z2;z+=2.5){
