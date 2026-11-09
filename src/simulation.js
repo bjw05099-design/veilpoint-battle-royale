@@ -456,6 +456,19 @@
       [-37,80,2.4,1,.7,'aden-promenade-seat'],
       [-19,80,2.4,1,.7,'aden-promenade-seat']
     ])o.push({x,z,w,d,h,type});
+    // Walkable public shade-stop between the coastal promenade and the
+    // eastern neighborhood. Four narrow supports and two seats leave the
+    // entire central east-west aisle open. All six solids are shared with
+    // CH01 via createWorld(), and are intentionally fictional civic scenery.
+    // Existing revision-0 checkpoints retain their old geometry.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-9,48,.65,.65,3.0,'aden-shadestop-post'],
+      [9,48,.65,.65,3.0,'aden-shadestop-post'],
+      [-9,61,.65,.65,3.0,'aden-shadestop-post'],
+      [9,61,.65,.65,3.0,'aden-shadestop-post'],
+      [-7,55,2.4,1,.7,'aden-shadestop-seat'],
+      [7,55,2.4,1,.7,'aden-shadestop-seat']
+    ])o.push({x,z,w,d,h,type});
     // Civilian covered market gallery connects two original public
     // neighborhoods through an open, unobstructed 10 m pedestrian axis.
     // Columns and merchant counters are separate physical objects. This is
