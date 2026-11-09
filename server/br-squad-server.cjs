@@ -16,6 +16,7 @@ const BR96_AUDIO=fs.readFileSync(path.resolve(__dirname,'../src/br96-environment
 const AUDIO_PREFS=fs.readFileSync(path.resolve(__dirname,'../src/audio-preferences.js'));
 const BR96_CAMERA=fs.readFileSync(path.resolve(__dirname,'../src/br96-map-camera.js'));
 const BR96_STREET=fs.readFileSync(path.resolve(__dirname,'../src/br96-street-view.js'));
+const BR96_SQUAD_PANEL=fs.readFileSync(path.resolve(__dirname,'../src/br96-squad-panel.js'));
 
 function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTick=true}={}) {
  if(!['127.0.0.1','localhost','::1'].includes(host))throw new RangeError('loopback_host_required');
@@ -77,7 +78,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    // Serve only the two locally owned, hard-coded browser assets. The HTTP
    // world API stays bound to loopback; no path traversal or token in URL.
    if(req.method==='GET'&&(url.pathname==='/'||
-      url.pathname==='/br96-client.js'||url.pathname==='/br96-environment-audio.js'||url.pathname==='/br96-map-camera.js'||url.pathname==='/br96-street-view.js'||url.pathname==='/audio-preferences.js')){
+      url.pathname==='/br96-client.js'||url.pathname==='/br96-environment-audio.js'||url.pathname==='/br96-map-camera.js'||url.pathname==='/br96-street-view.js'||url.pathname==='/br96-squad-panel.js'||url.pathname==='/audio-preferences.js')){
      const script=url.pathname!=='/';
      res.writeHead(200,{
        'Content-Type':script?'text/javascript; charset=utf-8':'text/html; charset=utf-8',
@@ -89,6 +90,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
        url.pathname==='/br96-client.js'?BR96_CLIENT:
        url.pathname==='/br96-map-camera.js'?BR96_CAMERA:
        url.pathname==='/br96-street-view.js'?BR96_STREET:
+       url.pathname==='/br96-squad-panel.js'?BR96_SQUAD_PANEL:
        url.pathname==='/audio-preferences.js'?AUDIO_PREFS:BR96_AUDIO);
    }
    if(req.method==='POST'&&url.pathname==='/join'){
