@@ -322,7 +322,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
-    actor.direction={x:0,z:0};
+    actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
     const peers=[...this.actors.values()];
@@ -442,7 +442,7 @@ class BrSquadWorld {
         actor.eligible=false;
         actor.eliminatedAtTick=this.tick;
         actor.eliminationReason='area_expiry';
-        actor.direction={x:0,z:0};
+        actor.direction={x:0,z:0};actor.moving=false;
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
       }
