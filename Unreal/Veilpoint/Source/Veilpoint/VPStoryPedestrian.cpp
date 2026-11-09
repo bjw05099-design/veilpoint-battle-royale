@@ -148,6 +148,7 @@ bool AVPStoryPedestrian::RestorePhysicalCheckpoint(
     const FVector& Location, bool bSidewalk, bool bCourtyard)
 {
     if (!HasAuthority() || !GetWorld() ||
+        GetWorld()->GetNetMode()!=NM_Standalone ||
         !IsCoherentCheckpointPose(Location,bSidewalk,bCourtyard)) return false;
     // Only native standalone SaveGame recovery can call this method. Sweep
     // to the *saved* position (not an arbitrary gameplay transport command);
