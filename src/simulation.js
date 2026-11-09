@@ -515,6 +515,8 @@
        !Array.isArray(obstacles))return null;
     for(const place of PUBLIC_CITY_DISTRICTS){
       if(Math.hypot(player.x-place.x,player.z-place.z)<=9 &&
+         obstacles.some(o=>o.type===place.physicalType &&
+           Math.hypot(o.x-place.x,o.z-place.z)<=22) &&
          !lineBlocked(player.x,player.z,place.x,place.z,obstacles))
         return place;
     }
