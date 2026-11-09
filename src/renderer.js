@@ -37,6 +37,9 @@ function beaconLightLevel(state){
     state.beaconEnabled!==true||!Number.isFinite(state.elapsed))return 0;
  return state.elapsed%1.6<.9?1:0;
 }
+function civicStreetLampLevel(state){
+ return state?.scene==='nahrin'&&state.publicStreetPowered===true?1:0;
+}
 // A small original street-front transition, located ON an existing solid
 // fictional harbor facade (east building x34..50, northern wall z=-28).
 // The open shop frontage becomes a lowered shutter after the actual witnessed
@@ -338,7 +341,7 @@ class SoftwareRenderer {
  // The software renderer shows the same two finite civic light pools as
  // WebGL before the witnessed outage. The ground remains walkable and its
  // physical colliders are unchanged when the lamps fail.
- if(harborNight&&state.publicStreetPowered===true){
+ if(civicStreetLampLevel(state)>0){
   for(const x of [-7,7]){
    polygon([proj(x-2,.085,-20),proj(x+2,.085,-20),
     proj(x+2,.085,-16),proj(x-2,.085,-16)],'#82724b');
@@ -1259,7 +1262,7 @@ class Renderer {
  // Dusk uses reduced daylight without enabling CH01-only powered lamps.
  g.uniform1f(l.night,night?1:dusk?.44:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
- g.uniform1f(l.civicOn,night&&state.publicStreetPowered===true?1:0);
+ g.uniform1f(l.civicOn,civicStreetLampLevel(state));
  g.uniform1f(l.beaconOn,night?beaconLightLevel(state):0);
  g.uniform1f(l.flashOn,(night&&state.flashlightOn&&state.flashlightTicks>0)||
     (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)?1:0);
@@ -1282,6 +1285,7 @@ class Renderer {
  this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
+global.VeilpointCivicStreetLamp=civicStreetLampLevel;
 global.VeilpointSharedPublicCanopies=SHARED_PUBLIC_CANOPIES;
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointBeaconLight=beaconLightLevel;
