@@ -5,9 +5,12 @@ const Story=require('../src/story-slice.js');
 
 function civilianScene(){
   const state=Story.createState();
-  state.phase='records';
-  state.combat.cleared=true;
+  state.world.player.x=Story.POINTS.terminal.x;
+  state.world.player.z=Story.POINTS.terminal.z;
+  assert.equal(Story.interact(state).phase,'engagement');
   for(const actor of state.world.bots){actor.alive=false;actor.health=0;}
+  state.combat.cleared=true;
+  state.phase='records';
   return state;
 }
 
