@@ -386,6 +386,62 @@ void AVPWorldBootstrap::BeginPlay()
             FVector(Mid.X*100.f,Mid.Y*100.f,1.5f),
             FVector(Length,1.3f,.03f)));
     }
+    // ADEN REGIONAL DISTANCE GEOGRAPHY (public NASA + UNESCO references).
+    // The 350m playable world is NOT a surveyed 1/3-scale Aden city.
+    // Far scenery provides the documented horseshoe-like Shamsan volcanic
+    // skyline, a sheltered western sea and low-rise port-town silhouette.
+    // It lives OUTSIDE the +/-175m collision map on ALL peers, and always
+    // uses the existing noncolliding Vegetation ISM: no inaccessible towers
+    // create remote collision or affect gameplay line-of-sight/saves.
+    AddBlock(Vegetation,FVector(-35600.f,8200.f,-24.f),
+        FVector(356.f,630.f,.12f)); // western sheltered bay surface
+    struct FAdenGeoPeak { float X,H; };
+    static const FAdenGeoPeak ShamsanArc[] = {
+        {-267.f,19.f},{-231.f,39.f},{-195.f,58.f},{-158.f,47.f},
+        {-123.f,74.f},{-90.f,68.f},{-57.f,88.f},{-23.f,69.f},
+        {13.f,95.f},{48.f,78.f},{87.f,57.f},{124.f,41.f},{164.f,24.f}
+    };
+    static const FAdenGeoPeak WesternBayHeadland[] = {
+        {-427.f,8.f},{-395.f,21.f},{-362.f,34.f},{-330.f,28.f},
+        {-297.f,48.f},{-264.f,31.f},{-229.f,22.f},{-197.f,8.f}
+    };
+    static const FAdenGeoPeak EasternIsthmusRise[] = {
+        {157.f,9.f},{189.f,24.f},{225.f,18.f},
+        {257.f,33.f},{294.f,25.f},{332.f,12.f}
+    };
+    // These are LOW-POLY NATIVE BLOCKOUT ridges, NOT Nanite landscape art.
+    // WebGL's mountain mesh uses weathered triangular slopes; the native
+    // fallback will receive authored assets and true material color later.
+    const auto AddDistantRidge=[this](const FAdenGeoPeak* Profile,int32 Count,float Z)
+    {
+        for (int32 i=1;i<Count;++i)
+        {
+            const FAdenGeoPeak& A=Profile[i-1];
+            const FAdenGeoPeak& B=Profile[i];
+            const float Width=FMath::Abs(B.X-A.X);
+            const float Height=FMath::Max(A.H,B.H);
+            AddBlock(Vegetation,FVector((A.X+B.X)*50.f,Z*100.f,Height*50.f),
+                FVector(Width,12.f,Height));
+        }
+    };
+    AddDistantRidge(ShamsanArc,UE_ARRAY_COUNT(ShamsanArc),258.f);
+    AddDistantRidge(WesternBayHeadland,UE_ARRAY_COUNT(WesternBayHeadland),226.f);
+    AddDistantRidge(EasternIsthmusRise,UE_ARRAY_COUNT(EasternIsthmusRise),280.f);
+    // 4x12 deterministic UNPLAYABLE city backcloth. Coordinates and
+    // building-height distribution mirror Sim.ADEN_GEOGRAPHIC_VISTA.
+    // Architectural massing suggests low/mid-rise Aden's mixed historic
+    // civilian street fabric, not identifiable modern buildings.
+    for (int32 i=0;i<48;++i)
+    {
+        const int32 Row=i/12,Col=i%12;
+        const float X=-157.f+float(Col*27)+(Row%2?6.f:0.f);
+        const float Z=187.f+float(Row*12);
+        const float Width=11.f+float(((i+Row)%3)*2);
+        const float Depth=8.f+float(((i+1)%3)*2);
+        const float Height=7.f+float((i*7)%12);
+        AddBlock(Vegetation,FVector(X*100.f,Z*100.f,Height*50.f),
+            FVector(Width,Depth,Height));
+    }
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))

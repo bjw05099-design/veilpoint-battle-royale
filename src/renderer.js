@@ -294,6 +294,14 @@ if(uFlashOn>.5){
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
 float fogFactor=1.-exp(-pow(vDistance*uFogDensity,1.7));
+// Regional scenery lies outside the +/-175m playable map. In clear
+// weather, avoid erasing the distinctive volcano/bay silhouette with 97%
+// fog. Real opponents/interactive buildings remain fully fogged and subject
+// to the existing authoritative visibility planner. During sea haze this
+// special case is disabled so weather stays visually meaningful.
+float distantScenery=step(175.5,max(abs(vWorld.x),abs(vWorld.z)));
+float clearAir=1.-step(.014,uFogDensity);
+fogFactor=mix(fogFactor,min(fogFactor,.74),distantScenery*clearAir);
 vec3 linear=mix(diffuse,uFog,clamp(fogFactor,0.,.97));
 vec3 graded=aces(linear*uExposure);
 graded=pow(graded,vec3(.96));
@@ -336,7 +344,30 @@ class SoftwareRenderer {
      harborNight?'#545249':'#898474');
   }
  }
+ // Distant regional geography is drawn behind gameplay objects. Canvas
+ // uses the same mountain profiles and western bay as WebGL, without relying
+ // on an online panoramic image or revealing nonvisible competitors.
+ if(state.terrainRevision===1||harborNight){
+  const vista=global.VeilpointSim.ADEN_GEOGRAPHIC_VISTA,sea=vista.ocean,
+   left=sea.x-sea.w/2,right=sea.x+sea.w/2,
+   bottom=sea.z-sea.d/2,top=sea.z+sea.d/2;
+  // Coarse scenic tessellation avoids requiring all four huge ocean-plane
+  // corners to fall in front of the camera at once.
+  for(let x=left;x<right;x+=65)for(let z=bottom;z<top;z+=65)
+   polygon([proj(x,sea.y,z),proj(Math.min(right,x+65),sea.y,z),
+     proj(Math.min(right,x+65),sea.y,Math.min(top,z+65)),
+     proj(x,sea.y,Math.min(top,z+65))],'#345b66');
+  for(const ridge of [...vista.ridges].sort((a,b)=>b.z-a.z))
+   for(let i=1;i<ridge.peaks.length;i++){
+    const a=ridge.peaks[i-1],b=ridge.peaks[i];
+    polygon([proj(a.x,-.08,ridge.baseZ),proj(b.x,-.08,ridge.baseZ),
+      proj(b.x,b.h,ridge.z),proj(a.x,a.h,ridge.z)],ridge.canvas);
+   }
+ }
  const objects=[];
+ if(state.terrainRevision===1||harborNight)
+  for(const home of global.VeilpointSim.ADEN_GEOGRAPHIC_VISTA.buildings)
+   objects.push({...home,type:'aden-vista-building'});
  // The low quay apron shows shallow waves only during the same phase that
  // affects actual traction in the offline BR fixed-step movement model.
  if(state.scene!=='nahrin'&&global.VeilpointSim.harborWaveWash(state.elapsed).active){
@@ -459,7 +490,7 @@ class SoftwareRenderer {
  for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);
   // Keep distant precision silhouettes in the Canvas fallback as well as
   // WebGL. Do not extend foliage, buildings or cache geometry unnecessarily.
-  if(d>145&&!(o.type==='bot'&&
+  if(d>145&&!(o.type==='aden-vista-building'&&d<365)&&!(o.type==='bot'&&
     (p.weaponId==='precision'||p.weaponId==='marksman')&&
     d<=Visibility.actorViewDistance(p.weaponId)))continue;
  const x=o.x,z=o.z,ww=o.w*.5,dd=o.d*.5;
@@ -473,6 +504,12 @@ class SoftwareRenderer {
   polygon([proj(x-ww,o.y,z),proj(x+ww,o.y,z),
     proj(x+ww,o.y+o.h,z),proj(x-ww,o.y+o.h,z)],o.canvas);
   continue;
+ }
+ if(o.type==='aden-vista-building'){
+  // Skyline houses have flat parapets, not a single featureless slab.
+  const roof=proj(x,Math.max(0,o.h-.17),z);
+  if(roof){ctx.fillStyle='#9b968a';
+   ctx.fillRect(roof[0]-1,roof[1]-1,2,2);}
  }
  if(o.type==='shared-public-canopy'){
   const top=o.roofY+o.h;
@@ -507,7 +544,9 @@ class SoftwareRenderer {
   p010=corner(-ww,o.h,-dd),p110=corner(ww,o.h,-dd),
   p001=corner(-ww,0,dd),p101=corner(ww,0,dd),
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
- let color=o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
+ let color=o.type==='aden-vista-building'?
+   ['#afa394','#9e9b91','#b8a08a','#8c8b86'][o.tone]:
+   o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='aden-seafront-market-wall'?'#a28c77':o.type==='aden-seafront-market-counter'?'#8c6848':
    o.type==='aden-transit-court-wall'?'#aa9481':o.type==='aden-transit-court-bench'?'#867867':
    o.type.includes('aden-laneshop-outer-wall')?'#a4947c':
@@ -639,6 +678,50 @@ class Renderer {
   m.box(pad.x,.045,pad.z,pad.width,.038,pad.depth,[.16,.24,.27]);
   for(const offset of [-4,0,4])
    m.box(pad.x+offset,.068,pad.z+2,1.2,.006,7,[.20,.30,.33]);
+ }
+ // NASA/UNESCO-grounded ADEN REGIONAL VISTA, beyond the small playable
+ // demo: mountains behind dense low-rise port streets; sheltered water off
+ // the western seafront. It uses the SAME immutable Sim source as native UE5.
+ // Never turn distant mountain, sea or houses into client-side colliders.
+ if(this.worldTerrainRevision===1){
+  const vista=global.VeilpointSim.ADEN_GEOGRAPHIC_VISTA,ocean=vista.ocean;
+  const sea=[.125,.245,.29],west=ocean.x-ocean.w/2,east=ocean.x+ocean.w/2,
+    south=ocean.z-ocean.d/2,north=ocean.z+ocean.d/2;
+  for(let x=west;x<east;x+=44)for(let z=south;z<north;z+=44){
+   const x2=Math.min(east,x+44),z2=Math.min(north,z+44),
+     glint=.01*(1+Math.sin(x*.021+z*.013));
+   m.quad([x,ocean.y,z],[x,ocean.y,z2],
+     [x2,ocean.y,z2],[x2,ocean.y,z],
+     sea.map((v,i)=>v+glint*(i===2?1.5:1)));
+  }
+  // Geological silhouette arcs are fully outside 175m movement bounds.
+  // Each adjacent pair forms two sloping rock triangles, with alternating
+  // weathered basalt strata; no big cuboid mountain occludes the whole sky.
+  for(const ridge of vista.ridges)for(let i=1;i<ridge.peaks.length;i++){
+   const a=ridge.peaks[i-1],b=ridge.peaks[i],
+     footA=[a.x,-.08,ridge.baseZ],footB=[b.x,-.08,ridge.baseZ],
+     peakA=[a.x,a.h,ridge.z],peakB=[b.x,b.h,ridge.z],
+     tint=i%3===0?1.10:i%3===1?.91:1.0,
+     stone=ridge.tone.map(v=>v*tint);
+   m.tri(footA,peakB,footB,stone);
+   m.tri(footA,peakA,peakB,stone.map(v=>v*.9));
+  }
+  const limestone=[[.66,.61,.54],[.57,.54,.49],
+    [.68,.56,.46],[.50,.49,.47]];
+  for(const home of vista.buildings){
+   const stone=limestone[home.tone];
+   m.box(home.x,0,home.z,home.w,home.h,home.d,stone);
+   m.box(home.x,home.h-.28,home.z,home.w+.18,.28,home.d+.18,
+     stone.map(v=>Math.min(.9,v*1.07)));
+   // Public skyline window recesses: multiple narrow vertical bands
+   // instead of a huge flat generic industrial block.
+   const front=home.z-home.d/2-.025,levels=Math.floor(home.h/3.1);
+   for(let level=1;level<=Math.min(levels,4);level++)
+    for(const side of [-1,1]){
+     const x=home.x+side*home.w*.23,y=level*2.8-.2;
+     m.box(x,y,front,home.w*.17,1.2,.05,[.25,.27,.29]);
+    }
+  }
  }
  const sim=global.VeilpointSim.newMatch(1,0,'carbine',false,'central','day',this.worldTerrainRevision);
  // Distinct civic districts become one pedestrian environment. Plan the
