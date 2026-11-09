@@ -234,7 +234,7 @@ test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reje
  const notify=windowListeners.get('storage');
  assert.equal(typeof notify,'function');
  assert.equal(C.actionFor('Space',controls.get()),'fire');
- const changed=C.bind(C.normalize({}),'fire','KeyF').value;
+ const changed=C.bind(C.normalize({}),'fire','KeyE').value;
  changed.sensitivity=2.25;
  changed.invertY=true;
  localStorage.setItem(C.STORAGE_KEY,JSON.stringify(changed));
@@ -382,14 +382,14 @@ test('PC remapping UI rejects bare OS modifiers and still accepts a later valid 
 
 test('CH01 headlamp and objective guidance use PC remaps without changing fixed-step state',()=>{
  const defaults=C.normalize({});
- assert.equal(C.actionFor('KeyF',defaults),'headlamp','legacy F shortcut stays available');
+ assert.equal(C.actionFor('KeyF',defaults),'interact','F is the default contextual interaction');
  assert.equal(C.actionFor('KeyN',defaults),'guidance','legacy N shortcut stays available');
  assert.equal(C.actionFor('KeyL',defaults),'headlamp');
  assert.equal(C.actionFor('KeyB',defaults),'guidance');
  const lamp=C.bind(defaults,'headlamp','KeyT');
  assert.equal(lamp.ok,true);
  assert.equal(C.actionFor('KeyT',lamp.value),'headlamp');
- assert.equal(C.actionFor('KeyF',lamp.value),null,'legacy alias stops when headlamp is remapped');
+ assert.equal(C.actionFor('KeyF',lamp.value),'interact','lamp remapping never steals F interactions');
  const guide=C.bind(lamp.value,'guidance','KeyY');
  assert.equal(guide.ok,true);
  assert.equal(C.actionFor('KeyY',guide.value),'guidance');
