@@ -27,12 +27,12 @@ void AVPStoryEastGate::BeginPlay()
     Super::BeginPlay();
     // Authored native levels may relocate this door. Capture the closed
     // location once rather than assuming browser coordinates or world origin.
-    ClosedY=GetActorLocation().Y;
+    ClosedZ=GetActorLocation().Z;
 }
 
 float AVPStoryEastGate::GetOpeningFraction() const
 {
-    return FMath::Clamp((GetActorLocation().Y-ClosedY)/TravelCm,0.f,1.f);
+    return FMath::Clamp((GetActorLocation().Z-ClosedZ)/TravelCm,0.f,1.f);
 }
 
 void AVPStoryEastGate::Tick(float DeltaSeconds)
@@ -50,13 +50,13 @@ void AVPStoryEastGate::Tick(float DeltaSeconds)
     {
         StepAccumulator-=FixedStep;
         const FVector Now=GetActorLocation();
-        const float Target=ClosedY+TravelCm;
-        const float Next=FMath::Min(Target,Now.Y+SlideSpeedCmPerSecond*FixedStep);
-        if(Next-Now.Y<=.01f)break;
+        const float Target=ClosedZ+TravelCm;
+        const float Next=FMath::Min(Target,Now.Z+SlideSpeedCmPerSecond*FixedStep);
+        if(Next-Now.Z<=.01f)break;
         FHitResult Hit;
         // Swept motion is essential: if a real player is in its path, the
         // door stops, never passing through the collision capsule.
-        SetActorLocation(FVector(Now.X,Next,Now.Z),true,&Hit,ETeleportType::None);
+        SetActorLocation(FVector(Now.X,Now.Y,Next),true,&Hit,ETeleportType::None);
         if(Hit.IsValidBlockingHit())break;
     }
 }
