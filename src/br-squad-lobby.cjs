@@ -156,7 +156,8 @@ class BrSquadLobby {
   rebindSession(oldToken,newToken){
     const player=this.players.get(oldToken);
     if(!player)throw new RangeError('unknown_session');
-    if(this.phase!=='roster_locked')return {ok:false,reason:'round_not_started'};
+    if(!['assembling','roster_locked'].includes(this.phase))
+      return {ok:false,reason:'invalid_lobby_phase'};
     if(typeof newToken!=='string'||!SECRET.test(newToken)||this.players.has(newToken))
       throw new RangeError('invalid_session');
     if(this.seats[player.team][player.slot]!==oldToken)
@@ -167,6 +168,16 @@ class BrSquadLobby {
       this.entryVotes.set(newToken,this.entryVotes.get(oldToken));
       this.entryVotes.delete(oldToken);
     }
+    // Preserve a genuine player's pre-round invite capabilities and
+    // cooldown across secure transport rotation. Losing them would invalidate
+    // invitations already shared with real squad members or let the user
+    // bypass the existing three-second conversation cadence.
+    if(this.lobbyChatLast.has(oldToken)){
+      this.lobbyChatLast.set(newToken,this.lobbyChatLast.get(oldToken));
+      this.lobbyChatLast.delete(oldToken);
+    }
+    for(const invite of this.invites.values())
+      if(invite.owner===oldToken)invite.owner=newToken;
     this.seats[player.team][player.slot]=newToken;
     return {ok:true,playerId:player.id,squad:player.team+1,slot:player.slot+1};
   }

@@ -24,6 +24,10 @@ private:
     // enemy positions or a client-authoritative power flag for these lights.
     UPROPERTY(Transient)
     TArray<TObjectPtr<UPointLightComponent>> StoryHarborLamps;
+    // Independent public street grid: initially lit before the incident,
+    // visibly lost afterward. Only the existing local relay can be restored.
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UPointLightComponent>> StoryPublicStreetLamps;
     void CreateStoryHarborLamps();
     void SyncStoryHarborLamps();
     void AddBlock(UInstancedStaticMeshComponent* Component, FVector Location, FVector Scale);

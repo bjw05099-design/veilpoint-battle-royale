@@ -113,18 +113,25 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    }
    const token=req.headers['x-player-token'];
    if(req.method==='POST'&&url.pathname==='/resume-session'){
-    if(!world||world.phase!=='moving')return send(res,409,{error:'round_not_active'});
+    // Existing real members may securely rotate their credential BEFORE
+    // all 96 ready, without leaving/rejoining or moving anyone's seat.
+    // A finished round remains frozen; a new-round replay is separate.
+    if((world&&world.phase!=='moving')||
+       (!world&&lobby.phase!=='assembling'))
+      return send(res,409,{error:'round_not_active'});
     const body=await readJson(req,64,bodyTimeoutMs);
     if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
       return send(res,400,{error:'invalid_resume_request'});
     // The old live token authenticates the caller; the new secret is always
     // generated here, NEVER accepted as a client-provided body field.
-    lobby.snapshot(token);world.snapshot(token);
+    lobby.snapshot(token);
+    if(world)world.snapshot(token);
     let replacement;
     do{replacement=crypto.randomBytes(32).toString('hex');}
-    while(lobby.players.has(replacement)||world.actors.has(replacement));
+    while(lobby.players.has(replacement)||
+      (world&&world.actors.has(replacement)));
     lobby.rebindSession(token,replacement);
-    world.rebindSession(token,replacement);
+    if(world)world.rebindSession(token,replacement);
     const stream=liveStreams.get(token);
     if(stream){liveStreams.delete(token);stream.end();}
     return send(res,200,{token:replacement,state:stateFor(replacement)});

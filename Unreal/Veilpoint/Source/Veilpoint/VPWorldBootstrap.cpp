@@ -74,6 +74,28 @@ void AVPWorldBootstrap::CreateStoryHarborLamps()
         Lamp->RegisterComponent();
         StoryHarborLamps.Add(Lamp);
     }
+    // Ordinary street lighting exists BEFORE the witnessed CH01 incident.
+    // These independent lamps never share the repaired harbor relay bus.
+    // Three non-colliding civilian pavement pools make the transition
+    // observable from the actual native first-person city, not only the HUD.
+    static const FVector PublicStreetLocations[] = {
+        FVector(-1100.f,1200.f,330.f),
+        FVector(0.f,1000.f,340.f),
+        FVector(1350.f,1250.f,330.f)
+    };
+    for (const FVector& Position : PublicStreetLocations)
+    {
+        UPointLightComponent* Street=NewObject<UPointLightComponent>(this);
+        if (!Street) continue;
+        Street->SetupAttachment(RootComponent);
+        Street->SetRelativeLocation(Position);
+        Street->SetIntensity(1200.f);
+        Street->SetAttenuationRadius(750.f);
+        Street->SetLightColor(FLinearColor(1.f,.82f,.60f));
+        Street->SetVisibility(false);
+        Street->RegisterComponent();
+        StoryPublicStreetLamps.Add(Street);
+    }
     SyncStoryHarborLamps();
 }
 
@@ -89,6 +111,16 @@ void AVPWorldBootstrap::SyncStoryHarborLamps()
     {
         if (IsValid(Lamp.Get()) && Lamp->IsVisible()!=bPowered)
             Lamp->SetVisibility(bPowered);
+    }
+    // Replicated stage is the ONLY authority for this local visual change:
+    // new games retain their normal public lighting until the witnessed
+    // disruption; restored V1/V2/V3 checkpoints do not replay that past light.
+    // Repairing the local relay above must NOT turn the city grid back on.
+    const bool bPublicGridPowered=State && State->StoryStage==EVPStoryStage::RestoreRelay;
+    for (const TObjectPtr<UPointLightComponent>& Street : StoryPublicStreetLamps)
+    {
+        if (IsValid(Street.Get()) && Street->IsVisible()!=bPublicGridPowered)
+            Street->SetVisibility(bPublicGridPowered);
     }
 }
 
