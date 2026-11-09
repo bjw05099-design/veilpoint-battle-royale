@@ -8,6 +8,9 @@ const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
+// Fictional, non-combat pedestrian-service shuttle. The server never accepts
+// vehicle coordinates or speed over HTTP. Disabled on any human overlap.
+const SHUTTLE_SPEED=3.2, SHUTTLE_ACCEL=2.4, SHUTTLE_BRAKE=5.5;
 // Server-authored movement budget: sprint is faster but finite, with a
 // recovery threshold that prevents instant exhaustion-toggle exploits.
 const SPRINT_SPEED=6.4, CROUCH_SPEED=2.7, SPRINT_DRAIN_PER_SECOND=16;
@@ -50,6 +53,9 @@ class BrSquadWorld {
     // server bodies. Only one nearby participant may push it at a time.
     this.handcart={body:this.obstacles.find(o=>o.routeId==='br-dock-handcart'),operator:null};
     if(!this.handcart.body)throw new Error('missing_shared_dock_handcart');
+    const shuttleBody=this.obstacles.find(o=>o.routeId==='br-yard-shuttle');
+    if(!shuttleBody)throw new Error('missing_shared_civic_service_shuttle');
+    this.shuttle={body:shuttleBody,driver:null,speed:0,fuel:Sim.YARD_SHUTTLE.fuel};
     this.actors=new Map();this.tick=0;
     // No client may author a squad result. Only real server-owned eligibility
     // transitions change this scorecard; ties cannot be invented by the HUD.
@@ -270,6 +276,77 @@ class BrSquadWorld {
     }
     return {ok:false,reason:'no_reachable_low_bench'};
   }
+  // Real vehicle access is a walk-up action on the existing common-world
+  // service shuttle, never a teleport or a map-selection control.
+  operateShuttle(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    const ride=this.shuttle,body=ride.body;
+    if(ride.driver===actor){
+      if(ride.speed>.12)return {ok:false,reason:'vehicle_moving'};
+      const blockers=this.obstacles;
+      for(const side of [1,-1])for(const offset of [body.w/2+RADIUS+.4,body.w/2+RADIUS+1.1]){
+        const x=body.x+side*offset,z=body.z;
+        if(Math.abs(x)>=169||Sim.blocked(x,z,RADIUS,blockers)||
+          [...this.actors.values()].some(other=>other!==actor&&other.eligible&&
+            Math.hypot(other.x-x,other.z-z)<2*RADIUS+.1))continue;
+        actor.x=x;actor.z=z;actor.direction={x:0,z:0};actor.moving=false;
+        ride.driver=null;ride.speed=0;actor.lastMoveTick=this.tick;
+        return {ok:true,action:'exit',fuel:ride.fuel};
+      }
+      return {ok:false,reason:'exit_obstructed'};
+    }
+    if(ride.driver)return {ok:false,reason:'occupied'};
+    const distance=Math.hypot(actor.x-body.x,actor.z-body.z);
+    if(distance<1.5||distance>4.1||actor.stepping||
+       this.handcart.operator===actor||
+       Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
+         this.obstacles.filter(o=>o!==body)))return {ok:false,reason:'out_of_reach'};
+    ride.driver=actor;ride.speed=0;
+    actor.x=body.x;actor.z=body.z;actor.direction={x:0,z:0};
+    actor.sprintHeld=false;actor.crouchHeld=false;actor.lastPresenceTick=this.tick;
+    return {ok:true,action:'enter',fuel:ride.fuel};
+  }
+  // A seated person remains inside exactly one continuously colliding
+  // vehicle; all human bodies and fixed public world structures are solid.
+  advanceShuttle(){
+    const ride=this.shuttle,actor=ride.driver,body=ride.body;
+    if(!actor||!actor.eligible){ride.driver=null;ride.speed=0;return false;}
+    const fresh=this.tick-actor.lastMoveTick<=LEASE_TICKS;
+    const moving=fresh&&Math.hypot(actor.direction.x,actor.direction.z)>.01&&ride.fuel>0;
+    ride.speed=Math.max(0,Math.min(SHUTTLE_SPEED,
+      ride.speed+(moving?SHUTTLE_ACCEL:-SHUTTLE_BRAKE)*STEP));
+    if(ride.speed<=1e-6||!moving)return false;
+    const dx=actor.direction.x*ride.speed*STEP,dz=actor.direction.z*ride.speed*STEP;
+    const next={...body,x:body.x+dx,z:body.z+dz};
+    if(Math.abs(next.x)+next.w/2>=175||Math.abs(next.z)+next.d/2>=175){ride.speed=0;return false;}
+    const swept={...body,x:body.x+dx/2,z:body.z+dz/2,
+      w:body.w+Math.abs(dx),d:body.d+Math.abs(dz)};
+    const solids=this.obstacles.filter(o=>o!==body);
+    if(solids.some(o=>Math.abs(swept.x-o.x)*2<swept.w+o.w&&
+       Math.abs(swept.z-o.z)*2<swept.d+o.d)||
+       [...this.actors.values()].some(other=>other!==actor&&other.eligible&&
+         Sim.blocked(other.x,other.z,RADIUS,[swept]))){ride.speed=0;return false;}
+    body.x=next.x;body.z=next.z;
+    actor.x=body.x;actor.z=body.z;
+    actor.facing=Math.atan2(dx,-dz);
+    ride.fuel=Math.max(0,ride.fuel-Math.hypot(dx,dz)*.0025);
+    if(ride.fuel===0)ride.speed=0;
+    return true;
+  }
+  shuttleSnapshot(token,observer){
+    const ride=this.shuttle,body=ride.body;
+    const observed=observer&&(ride.driver===observer||
+      (Math.hypot(observer.x-body.x,observer.z-body.z)<=32&&
+       !Sim.lineBlocked(observer.x,observer.z,body.x,body.z,
+         this.obstacles.filter(o=>o!==body))));
+    if(!observed)return null;
+    return {x:body.x,z:body.z,w:body.w,d:body.d,h:body.h,
+      occupied:ride.driver!==null,ownDriver:ride.driver===this.actors.get(token),
+      moving:ride.speed>.12,
+      fuel:ride.driver===this.actors.get(token)?ride.fuel:null};
+  }
   // One real human interacts at arm's reach. No client-positioned cart, speed
   // boost, magic carrying or remote mutation of another team's world state.
   operateHandcart(token){
@@ -373,6 +450,7 @@ class BrSquadWorld {
     if(!actor.eligible)return {ok:false,reason:'already_withdrawn'};
     if(this.phase!=='moving')return {ok:false,reason:'round_complete'};
     if(this.handcart.operator===actor)this.handcart.operator=null;
+    if(this.shuttle.driver===actor){this.shuttle.driver=null;this.shuttle.speed=0;}
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
@@ -405,6 +483,7 @@ class BrSquadWorld {
       if(actor.headlampTicks===0)actor.headlampOn=false;
     }
     const cartPusher=this.advanceHandcart();
+    const shuttleMoved=this.advanceShuttle();
     const gate=this.civicGate;
     if(Math.abs(gate.targetX-gate.door.x)>1e-7){
       const previous=gate.door.x;
@@ -455,7 +534,7 @@ class BrSquadWorld {
           this.obstacles.filter(o=>o!==movement.bench))){
           next.x=candidate.x;next.z=candidate.z;stepAdvance=true;
         }
-      }else if(actor!==cartPusher)
+      }else if(actor!==cartPusher&&actor!==this.shuttle.driver)
         Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
           this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
@@ -484,7 +563,7 @@ class BrSquadWorld {
       actor.resting=!wantsMove&&traveled<1e-8;
       // Body facing comes only from physically accepted 60Hz displacement.
       // A rejected wall/peer collision never changes remote avatar posture.
-      actor.moving=traveled>1e-7;
+      actor.moving=(actor===this.shuttle.driver&&shuttleMoved)||traveled>1e-7;
       if(actor.moving)actor.facing=Math.atan2(next.x-actor.x,-(next.z-actor.z));
       if(running&&traveled>1e-8){
         actor.stamina=Math.max(0,actor.stamina-SPRINT_DRAIN_PER_SECOND*STEP);
@@ -525,6 +604,7 @@ class BrSquadWorld {
         actor.eliminatedAtTick=this.tick;
         actor.eliminationReason='area_expiry';
         actor.headlampOn=false;actor.stepping=null;
+        if(this.shuttle.driver===actor){this.shuttle.driver=null;this.shuttle.speed=0;}
         actor.direction={x:0,z:0};actor.moving=false;
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
@@ -646,6 +726,7 @@ class BrSquadWorld {
       squadEntry:this.entryPlans[me.team],
       civicGate:this.gateSnapshot(),
       handcart:this.handcartSnapshot(token),
+      shuttle:this.shuttleSnapshot(token,observer),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadChat:this.squadChat[me.team].map(message=>({...message})),
       squadLandmarks,
@@ -659,6 +740,7 @@ class BrSquadWorld {
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
+        driving:me.eligible&&this.shuttle.driver===me,
         headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
         stepOverProgress:me.stepping?me.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(me),
@@ -678,4 +760,5 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS,STEP_OVER_TICKS};
+  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS,STEP_OVER_TICKS,
+  SHUTTLE_SPEED};
