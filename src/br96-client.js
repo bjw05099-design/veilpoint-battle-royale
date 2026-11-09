@@ -301,7 +301,8 @@ function draw(w){
  const width=canvas.width,height=canvas.height;
  if(streetView&&w&&publicGeometry&&window.VeilpointBR96StreetView){
   const subject=w.spectatorView
-   ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
+   ?{...w.spectatorView,id:w.spectatorView.playerId,
+      headlampOn:!!w.squad?.find(p=>p.id===w.spectatorView.playerId)?.headlampOn}:w.self;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
    subject,yaw:streetYaw,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
