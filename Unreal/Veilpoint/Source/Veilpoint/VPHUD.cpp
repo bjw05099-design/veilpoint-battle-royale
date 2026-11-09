@@ -6,6 +6,7 @@
 #include "VPStoryMarker.h"
 #include "VPStoryEastGate.h"
 #include "VPStoryPedestrian.h"
+#include "VPStoryPublicVan.h"
 #include "VPGameUserSettings.h"
 #include "Misc/App.h"
 #include "EngineUtils.h"
@@ -270,7 +271,7 @@ void AVPHUD::DrawHUD()
             const float Metres = FMath::Sqrt(NearestVisibleSq) / 100.f;
             const bool bReachable = NearestVisibleSq <= FMath::Square(275.f);
             const FString PhysicalHint = bReachable
-                ? TEXT("CH01 PHYSICAL OBJECTIVE IN REACH | E TO INTERACT")
+                ? TEXT("CH01 PHYSICAL OBJECTIVE IN REACH | F TO INTERACT")
                 : FString::Printf(TEXT("CH01 VISIBLE OBJECTIVE %.1fm | APPROACH TO INTERACT"), Metres);
             DrawText(PhysicalHint, FLinearColor(.83f,.93f,.78f,1.f),
                      X, Y + 157.f * Scale, nullptr, .75f * Scale, false);
@@ -315,6 +316,41 @@ void AVPHUD::DrawHUD()
                     X,Y+179.f*Scale,nullptr,.75f*Scale,false);
                 break;
             }
+        }
+        // A *different* observable street event: the local driver's real
+        // 60Hz vehicle position/stop is never a map-wide quest indicator.
+        // F appears only when the visible vehicle is actually in reach.
+        for(TActorIterator<AVPStoryPublicVan> It(World);It;++It)
+        {
+            const AVPStoryPublicVan* Van=*It;
+            if(!IsValid(Van))continue;
+            const FVector ToVan=Van->GetActorLocation()-Eye;
+            if(ToVan.SizeSquared()>FMath::Square(1800.f) ||
+               FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(),ToVan)<=0.f)
+                continue;
+            FVector2D VanScreen;
+            if(!PlayerOwner->ProjectWorldLocationToScreen(
+                Van->GetActorLocation(),VanScreen,false) ||
+               !FMath::IsFinite(VanScreen.X) || !FMath::IsFinite(VanScreen.Y) ||
+               VanScreen.X<0.f || VanScreen.Y<0.f ||
+               VanScreen.X>=Canvas->ClipX || VanScreen.Y>=Canvas->ClipY)
+                continue;
+            FCollisionQueryParams VanView(SCENE_QUERY_STAT(VPPublicVanObserved),true,Pawn);
+            VanView.AddIgnoredActor(Van);
+            if(World->LineTraceTestByChannel(
+                Eye,Van->GetActorLocation(),ECC_Visibility,VanView))continue;
+            const bool bInReach=FVector::DistSquared2D(
+                Pawn->GetActorLocation(),Van->GetActorLocation())<=FMath::Square(425.f);
+            const TCHAR* StreetStatus=Van->bParkedAtPublicStop
+                ?TEXT("LOCAL SERVICE VAN: PARKED AT PUBLIC STOP")
+                :Van->bYieldingToPedestrian
+                  ?(bInReach?TEXT("LOCAL SERVICE VAN: YIELDING | F TO RELEASE")
+                            :TEXT("LOCAL SERVICE VAN: YIELDING"))
+                  :(bInReach?TEXT("LOCAL SERVICE VAN: MOVING | F TO REQUEST YIELD")
+                            :TEXT("LOCAL SERVICE VAN: MOVING TO PUBLIC STOP"));
+            DrawText(StreetStatus,FLinearColor(.82f,.91f,.88f,1.f),
+                X,Y+201.f*Scale,nullptr,.75f*Scale,false);
+            break;
         }
         return;
     }

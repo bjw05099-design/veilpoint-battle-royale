@@ -125,6 +125,20 @@ class BrSquadWorld {
     if(!actor)throw new RangeError('unknown_session');
     if(typeof newToken!=='string'||!/^[a-f0-9]{64}$/.test(newToken)||
        this.actors.has(newToken))throw new RangeError('invalid_session');
+    // A rotated token must not inherit the old network session's held
+    // movement, sprint or cart steering. Keep exact server-owned position,
+    // stamina, squad, sequence and lifetime records intact until a NEW input.
+    if(this.handcart.operator===actor)this.handcart.operator=null;
+    actor.direction={x:0,z:0};
+    actor.lastMoveTick=this.tick-LEASE_TICKS-1;
+    actor.sprintHeld=false;actor.crouchHeld=false;
+    // A server-accepted physical bench crossing already underway must
+    // FINISH its swept 60Hz trajectory. Dropping it halfway could leave
+    // the capsule inside a solid bench. Only stale free-movement is halted.
+    // Likewise an occupied, stationary bench stays occupied on rebind.
+    // The last observed movement flag is a snapshot of the previous tick;
+    // the next server tick computes stationary motion from zero input.
+    actor.lastPresenceTick=this.tick;
     // Retain original 96-seat iteration order: squad snapshots, equal-time
     // broadphase proposals and existing UI roster order cannot jump merely
     // because a player's authenticated transport secret changed.

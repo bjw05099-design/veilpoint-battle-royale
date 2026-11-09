@@ -2,6 +2,7 @@
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
 #include "VPStoryPedestrian.h"
+#include "VPStoryPublicVan.h"
 #include "VPStoryEastGate.h"
 #include "VPWorldBootstrap.h"
 #include "Engine/World.h"
@@ -102,6 +103,24 @@ void AVPStoryGameMode::BeginPlay()
         GetWorld()->SpawnActor<AVPStoryPedestrian>(
             AVPStoryPedestrian::StaticClass(),
             FVector(3400.f,-800.f,80.f),FRotator::ZeroRotator,CivilianParams);
+    }
+    // One fictional municipal road vehicle makes the changing public street
+    // visible in actual native play. It walks a real drivable roadway at
+    // server 60Hz, yields to a nearby player on F, and is NOT a mission gate.
+    // Editor-authored versions always take precedence over the bootstrap.
+    bool bAuthoredVan=false;
+    for(TActorIterator<AVPStoryPublicVan> It(GetWorld());It;++It)
+    {
+        if(IsValid(*It)){bAuthoredVan=true;break;}
+    }
+    if(!bAuthoredVan)
+    {
+        FActorSpawnParameters VanParams;
+        VanParams.SpawnCollisionHandlingOverride=
+            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+        GetWorld()->SpawnActor<AVPStoryPublicVan>(
+            AVPStoryPublicVan::StaticClass(),
+            FVector(2100.f,-1500.f,80.f),FRotator::ZeroRotator,VanParams);
     }
     // Native progression currently persists only in standalone story preview.
     // Multiplayer PIE must not share one machine-wide local save slot.
