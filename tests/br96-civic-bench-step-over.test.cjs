@@ -65,8 +65,10 @@ test('real collision with a second player interrupts the trajectory rather than 
  other.x=0;other.z=-.05; // person now occupies the eventual crossing corridor
  const start=a.z;
  for(let i=0;i<10;i++)w.step();
- assert.equal(a.z,start,'moving body is physically blocked, cannot tunnel');
- assert.equal(w.snapshot(token(0)).self.stepOverProgress,0);
+ assert.ok(a.z<start&&a.z>other.z+2*RADIUS-1e-8,
+  'movement must stop at the real second capsule, never tunnel');
+ assert.ok(w.snapshot(token(0)).self.stepOverProgress<10/STEP_OVER_TICKS,
+  'blocking human pauses only the authorized physical trajectory');
  other.x=20;other.z=20;
  for(let i=0;i<STEP_OVER_TICKS;i++)w.step();
  assert.equal(a.stepping,null);
