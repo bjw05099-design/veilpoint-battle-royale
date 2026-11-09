@@ -358,6 +358,34 @@ void AVPWorldBootstrap::BeginPlay()
         AddBlock(Buildings,FVector(Roof.X*100.f,Roof.Z*100.f,361.f),
             FVector(Roof.W,Roof.D,Roof.H));
     AddBlock(Ground,FVector(-3490.f,10700.f,-4.f),FVector(33.f,23.f,.08f));
+    // Four ORIGINAL PUBLIC pedestrian connectors are already planned
+    // against 60Hz physical obstacles in src/public-city-footpaths.js.
+    // Reproduce their open, collision-verified straight segments in the
+    // native public map: craft court -> promenade -> shops -> ferry hall.
+    // They are visual pavement ONLY, not additional solid collision cover.
+    // Use the existing noncolliding Vegetation ISM rather than Buildings or
+    // the colliding ground: old and new player capsules can pass freely.
+    // This fictional layout is not a surveyed or geolocated city route.
+    struct FPublicWalkingLink { FVector2D From,To; };
+    static const FPublicWalkingLink NativeLocalWalkingLinks[] = {
+        {FVector2D(-63.f,66.f), FVector2D(-28.f,80.f)},
+        {FVector2D(-28.f,90.f), FVector2D(-35.f,96.f)},
+        {FVector2D(-35.f,96.f), FVector2D(-35.f,116.f)},
+        {FVector2D(-35.f,116.f), FVector2D(-45.f,121.f)}
+    };
+    for (const FPublicWalkingLink& Link : NativeLocalWalkingLinks)
+    {
+        const FVector2D Span=Link.To-Link.From;
+        const float Length=Span.Size();
+        if (Length<=KINDA_SMALL_NUMBER) continue;
+        const FVector2D Mid=(Link.From+Link.To)*.5f;
+        const float Angle=FMath::RadiansToDegrees(FMath::Atan2(Span.Y,Span.X));
+        // UE X/Y are browser world X/Z in centimetres, and the default
+        // cube is 1m. Rotation aligns the local X axis with the route.
+        Vegetation->AddInstance(FTransform(FRotator(0.f,Angle,0.f),
+            FVector(Mid.X*100.f,Mid.Y*100.f,1.5f),
+            FVector(Length,1.3f,.03f)));
+    }
     // Branch on the replicated actor CLASS, never on the client arrival time
     // of AVPStoryGameState; ISM instance transforms do not replicate.
     if(IsA(AVPStoryWorldBootstrap::StaticClass()))
