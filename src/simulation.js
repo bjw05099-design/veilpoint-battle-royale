@@ -508,6 +508,29 @@
       [-74,61,4,1,.72,'aden-craft-court-seat'],
       [-52,61,4,1,.72,'aden-craft-court-seat']
     ])o.push({x,z,w,d,h,type});
+    // Original public coastal shop street linking the open craft hall,
+    // promenade and ferry approach. Two individually enterable street-front
+    // rooms flank a 9m central on-foot lane. This is a local fictional
+    // neighborhood, not an existing Aden establishment or mapped checkpoint.
+    // Ground-level dividers stop SHORT of their south entrances. Each fixture
+    // has a 60Hz collision body shared by CH01, offline BR and BR96.
+    if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
+      [-51,105,.65,16,3.5,'aden-laneshop-outer-wall'],
+      [-40,109,.65,8,3.5,'aden-laneshop-inner-wall'],
+      [-45.5,113.5,11,.7,3.5,'aden-laneshop-back-wall'],
+      [-19,105,.65,16,3.5,'aden-laneshop-outer-wall'],
+      [-30,109,.65,8,3.5,'aden-laneshop-inner-wall'],
+      [-24.5,113.5,11,.7,3.5,'aden-laneshop-back-wall'],
+      [-47,109,2.2,1.2,1.2,'aden-laneshop-shelf'],
+      [-23,109,2.2,1.2,1.2,'aden-laneshop-shelf'],
+      [-46,101,2.5,1.0,.9,'aden-laneshop-counter'],
+      [-24,101,2.5,1.0,.9,'aden-laneshop-counter'],
+      [-50,96,.65,.65,3.15,'aden-laneshop-post'],
+      [-40,96,.65,.65,3.15,'aden-laneshop-post'],
+      [-30,96,.65,.65,3.15,'aden-laneshop-post'],
+      [-20,96,.65,.65,3.15,'aden-laneshop-post'],
+      [-26,118,1.0,1.0,1.15,'aden-laneshop-public-tap']
+    ])o.push({x,z,w,d,h,type});
     return o;
   }
   // Fixed, surveyed BR entry sectors. This is a *new-round* deployment choice,
@@ -620,7 +643,8 @@
     const historicalSpawnObstacles=obstacles.filter(o=>!o.type.startsWith('aden-civic-')&&!o.type.startsWith('aden-arcade-')&&!o.type.startsWith('aden-pedestrian-')&&!o.type.startsWith('aden-shade-')&&
       !o.type.startsWith('aden-ferry-hall-')&&!o.type.startsWith('aden-seafront-market-')&&
       !o.type.startsWith('aden-market-court-')&&!o.type.startsWith('aden-transit-court-')&&!o.type.startsWith('aden-fishhall-')&&
-      !o.type.startsWith('aden-craft-hall-')&&!o.type.startsWith('aden-craft-court-'));
+      !o.type.startsWith('aden-craft-hall-')&&!o.type.startsWith('aden-craft-court-')&&
+      !o.type.startsWith('aden-laneshop-'));
     const deployment=ENTRY_SITES[entrySite];
     if(blocked(deployment.x,deployment.z,ACTOR_RADIUS+.1,obstacles)||
        Math.hypot(deployment.x,deployment.z)>169)
