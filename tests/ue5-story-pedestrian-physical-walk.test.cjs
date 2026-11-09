@@ -24,7 +24,13 @@ test('UE5 story pedestrian has actual replicated, solid, collision-swept actor a
  assert.match(cpp,/constexpr int32 MaxSteps = 8/);
  assert.match(cpp,/AddActorWorldOffset\(Delta,true,&Hit,ETeleportType::None\)/);
  assert.match(cpp,/if \(Hit\.bBlockingHit\) return/);
- assert.doesNotMatch(cpp,/TeleportTo\(|SetActorLocation\(|SetActorTransform\(|ServerTryTag|ApplyDamage/);
+ // Instant relocation is allowed exclusively when rebuilding a verified
+ // offline save before play. Live Tick/WalkToward must still use swept travel.
+ const live=cpp.slice(cpp.indexOf('void AVPStoryPedestrian::Tick'));
+ assert.doesNotMatch(live,/TeleportTo\(|SetActorLocation\(|SetActorTransform\(|ServerTryTag|ApplyDamage/);
+ assert.match(cpp,/RestoreOfflineCheckpointPose\(/);
+ assert.match(cpp,/GetNetMode\(\)!=NM_Standalone/);
+ assert.match(cpp,/SetActorLocation\(Position,false,nullptr,ETeleportType::TeleportPhysics\)/);
 });
 test('UE5 CH01 pedestrian is spawned only by native story authority, once per authored map, not BR',()=>{
  assert.match(mode,/if \(!HasAuthority\(\) \|\| !GetWorld\(\)\) return/);
@@ -45,6 +51,10 @@ test('UE5 grounded civilian travel never becomes a fake mission result or save e
  assert.match(world,/AddBlock\(Ground,FVector\(0,0,-70\),FVector\(350\.f,350\.f,1\.3f\)\)/);
  assert.equal(-70+1.3*100/2,80-85,'the pedestrian capsule feet rest on the authored world ground');
  assert.match(cpp,/constexpr float WalkSpeed=125\.f/);
- assert.doesNotMatch(h+cpp,/TryAdvance\(|PersistStoryCheckpoint\(|SetLifeSpan\(|SetActorHiddenInGame\(/);
+ // Only real sidewalk/south arrival may persist the actor. None of these
+ // calls is a mission-objective unlock or an invented full-city rescue.
+ assert.doesNotMatch(h+cpp,/TryAdvance\(|SetLifeSpan\(|SetActorHiddenInGame\(/);
+ assert.match(cpp,/bMovedToSidewalk=true;[\s\S]*?Mode->PersistStoryCheckpoint\(\)/);
+ assert.match(cpp,/bReachedSouthCourtyard=true;[\s\S]*?Mode->PersistStoryCheckpoint\(\)/);
  assert.doesNotMatch(mode,/bReachedSouthCourtyard\s*\?\s*EVPStoryStage/);
 });
