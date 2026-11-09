@@ -806,7 +806,7 @@ class BrSquadWorld {
       ownResult:me.eliminationReason||'active_at_finish'
     }):null;
     const matchOutcome=this.phase==='finished'?Object.freeze({
-      kind:champion===null?'shared_tie':
+      kind:champion===null?(this.placements[me.team]===1?'shared_tie':'squad_placed'):
         me.team+1===champion?'squad_win':'squad_placed',
       winningSquad:champion,
       ownSquadPlacement:this.placements[me.team],
