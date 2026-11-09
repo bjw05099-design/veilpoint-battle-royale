@@ -318,7 +318,6 @@
     if(!event.repeat&&!event.altKey&&!event.ctrlKey&&!event.metaKey)
       unlockHarborAmbience();
   },true);
-  global.addEventListener('pagehide',()=>ambience?.dispose());
   const Camera=global.VeilpointCameraView||Object.freeze({
    read:()=>55,validate:value=>{
     if(![48,55,63,70,78].includes(value))throw new RangeError('Invalid camera FOV');
@@ -1436,6 +1435,9 @@
     clearInput();
     clock.reset();
     limiter.reset();
+    // Share the existing authoritative pagehide save/pause boundary.
+    // A second listener could run after an uncommitted checkpoint.
+    ambience?.dispose();
     if(!routeDialogOpen&&!journalOpen&&state.phase!=='complete'&&state.phase!=='failed')
       menuOpen('창이 비활성화되어 자동 일시정지했습니다. 이어하기를 눌러 재개하세요.');
   });
