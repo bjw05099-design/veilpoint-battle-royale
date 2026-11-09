@@ -541,22 +541,22 @@
     // and seats are individually solid. Built once for BR/BR96 and CH01.
     // The central -80m X-axis remains clear for pedestrian traversal.
     if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
-      [-96,-12,.65,28,3.7,'aden-raincourt-wall'],
-      [-64,-12,.65,28,3.7,'aden-raincourt-wall'],
-      [-90,2,12,.65,3.7,'aden-raincourt-wall'],
-      [-70,2,12,.65,3.7,'aden-raincourt-wall'],
-      [-90,-26,12,.65,3.7,'aden-raincourt-wall'],
-      [-70,-26,12,.65,3.7,'aden-raincourt-wall'],
-      [-89,-12,3.4,4.6,.72,'aden-raincourt-dry-basin'],
-      [-71,-12,3.4,4.6,.72,'aden-raincourt-dry-basin'],
-      [-89,-20,4,1,.68,'aden-raincourt-seat'],
-      [-71,-20,4,1,.68,'aden-raincourt-seat'],
-      [-89,-3,4,1,.68,'aden-raincourt-seat'],
-      [-71,-3,4,1,.68,'aden-raincourt-seat'],
-      [-93,-21,.7,.7,3.2,'aden-raincourt-post'],
-      [-67,-21,.7,.7,3.2,'aden-raincourt-post'],
-      [-93,-4,.7,.7,3.2,'aden-raincourt-post'],
-      [-67,-4,.7,.7,3.2,'aden-raincourt-post']
+      [-136,50,.65,28,3.7,'aden-raincourt-wall'],
+      [-104,50,.65,28,3.7,'aden-raincourt-wall'],
+      [-130,64,12,.65,3.7,'aden-raincourt-wall'],
+      [-110,64,12,.65,3.7,'aden-raincourt-wall'],
+      [-130,36,12,.65,3.7,'aden-raincourt-wall'],
+      [-110,36,12,.65,3.7,'aden-raincourt-wall'],
+      [-129,50,3.4,4.6,.72,'aden-raincourt-dry-basin'],
+      [-111,50,3.4,4.6,.72,'aden-raincourt-dry-basin'],
+      [-129,42,4,1,.68,'aden-raincourt-seat'],
+      [-111,42,4,1,.68,'aden-raincourt-seat'],
+      [-129,59,4,1,.68,'aden-raincourt-seat'],
+      [-111,59,4,1,.68,'aden-raincourt-seat'],
+      [-133,41,.7,.7,3.2,'aden-raincourt-post'],
+      [-107,41,.7,.7,3.2,'aden-raincourt-post'],
+      [-133,58,.7,.7,3.2,'aden-raincourt-post'],
+      [-107,58,.7,.7,3.2,'aden-raincourt-post']
     ])o.push({x,z,w,d,h,type});
     return o;
   }
