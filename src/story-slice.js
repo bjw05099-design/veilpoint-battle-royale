@@ -79,6 +79,12 @@
   const MARA_PATH=Object.freeze({startX:19.5,startZ:-35,endX:25,endZ:-39.5,
     speed:1.05,radius:.55});
   const newMarketMara=()=>({x:MARA_PATH.startX,z:MARA_PATH.startZ,arrived:false});
+  // Kim Jiyoon is a physical companion, not an omniscient radio or HUD pin.
+  // He starts beside the same authored arrival street as the captain; later
+  // his own 60Hz footsteps respond to the witnessed neighborhood change.
+  const KIM_JIYOON_START=Object.freeze({x:-3,z:9});
+  const KIM_JIYOON_STAFFED=Object.freeze({x:-9,z:-10});
+  const newKimJiyoon=()=>({...KIM_JIYOON_START});
   // After personally restoring the public relay, Jo physically walks along
   // the staffed harbour pavement. She does not teleport, direct a rescue,
   // or provide omniscient reports; this position persists in old v2 saves.
@@ -457,6 +463,7 @@
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
       mara:newMarketMara(),liaisonZ:LIAISON_WALK.startZ,
+      kimJiyoon:newKimJiyoon(),
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
       aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
@@ -636,6 +643,8 @@
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
     state.world.mara=state.mara?{...state.mara,role:'mara'}:null;
+    state.world.kimJiyoon=state.kimJiyoon?
+      {...state.kimJiyoon,role:'kim-jiyoon'}:null;
     state.world.liaison=state.combat.cleared&&
       ['records','decision','exit','complete'].includes(state.phase)
       ?{x:LIAISON_WALK.x,z:state.liaisonZ,role:'jo-hyunji'}:null;
@@ -908,6 +917,10 @@
       const w=state.world.liaison,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
+    if(state.kimJiyoon){
+      const w=state.kimJiyoon,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
     if(state.civilianWalker){
       const w=state.civilianWalker,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
@@ -928,6 +941,35 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // Unlike a fixed escort waypoint, Kim independently changes behavior
+    // when the ordinary harbor becomes unsafe. He moves to the existing
+    // staffed street during the first crisis and follows the captain once
+    // the immediate episode clears. No teleports, distant sensor reports,
+    // new mission checklist or UI-follow arrow.
+    if(state.kimJiyoon&&['terminal','engagement','records','decision','exit'].includes(state.phase)){
+      const w=state.kimJiyoon;
+      const keepNear=state.phase==='terminal'||state.combat.cleared;
+      const goal=keepNear?{
+        x:p.x-Math.sin(p.yaw)*2.6,
+        z:p.z+Math.cos(p.yaw)*2.6
+      }:KIM_JIYOON_STAFFED;
+      const dx=goal.x-w.x,dz=goal.z-w.z,distance=Math.hypot(dx,dz);
+      // No forced sprint toward an unobserved distant player.
+      const followSpeed=distance>8?5:distance>3?3.3:1.8;
+      if(distance>.36&&distance<55){
+        const others=[p,state.worker,state.mara,state.civilianWalker,
+          state.world.liaison,state.choice==='evacuation'&&state.guide.active?
+            state.guide:null].filter(Boolean)
+          .map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+        const solids=state.world.obstacles.concat(actorBlockers(state),others);
+        const pace=Math.min(keepNear?followSpeed:1.8,distance/t);
+        Sim.moveEntity(w,dx/distance*pace,dz/distance*pace,t,solids,.55);
+      }
+      if(state.world.kimJiyoon){
+        state.world.kimJiyoon.x=w.x;
+        state.world.kimJiyoon.z=w.z;
+      }
+    }
     // The lightweight awning frame is pulled along the actual street edge
     // over multiple fixed ticks. Stop if an actor occupies its swept footprint
     // or the captain walks away; never jump, vanish or overlap a pedestrian.
@@ -2195,6 +2237,7 @@
       awningFallen:state.awningFallen,awningShift:state.awningShift,awningWorking:state.awningWorking,
       mara:{x:state.mara.x,z:state.mara.z,arrived:state.mara.arrived},
       liaisonZ:state.liaisonZ,
+      kimJiyoon:state.kimJiyoon?{x:state.kimJiyoon.x,z:state.kimJiyoon.z}:null,
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
         ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
@@ -2225,8 +2268,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+33||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ').includes(k))||
+      Object.keys(data).length>expectedKeys.length+34||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -2253,6 +2296,18 @@
         (data.awningWorking&&
           (data.awningShift>=1||!['records','decision','exit'].includes(data.phase)))))||
       (hasOwn(data,'relayRestored')&&typeof data.relayRestored!=='boolean')||
+      (hasOwn(data,'kimJiyoon')&&data.kimJiyoon!==null&&(
+        !data.kimJiyoon||typeof data.kimJiyoon!=='object'||
+        Array.isArray(data.kimJiyoon)||
+        Object.keys(data.kimJiyoon).sort().join(',')!=='x,z'||
+        !Number.isFinite(data.kimJiyoon.x)||
+        !Number.isFinite(data.kimJiyoon.z)||
+        Math.abs(data.kimJiyoon.x)>180||Math.abs(data.kimJiyoon.z)>180||
+        Sim.blocked(data.kimJiyoon.x,data.kimJiyoon.z,.55,
+          Sim.newMatch(20261027,0).obstacles.filter(o=>o.type!=='yard-gate'&&
+            o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&
+            o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-'))
+          .concat(STORY_STRUCTURES)) ))||
       (hasOwn(data,'liaisonZ')&&
        (!Number.isFinite(data.liaisonZ)||
         data.liaisonZ<LIAISON_WALK.endZ||data.liaisonZ>LIAISON_WALK.startZ||
@@ -2548,6 +2603,10 @@
     state.awningShift=hasOwn(data,'awningShift')?data.awningShift:0;
     state.awningWorking=hasOwn(data,'awningWorking')?data.awningWorking:false;
     state.mara=hasOwn(data,'mara')?{...data.mara}:newMarketMara();
+    // Older checkpoints have no companion; do not retroactively create a
+    // character beside the starting point in a late-game loaded mission.
+    state.kimJiyoon=hasOwn(data,'kimJiyoon')?
+      (data.kimJiyoon?{...data.kimJiyoon}:null):null;
     state.liaisonZ=hasOwn(data,'liaisonZ')?data.liaisonZ:LIAISON_WALK.startZ;
     state.waterSurveyed=hasOwn(data,'waterSurveyed')?data.waterSurveyed:false;
     state.waterReportFiled=hasOwn(data,'waterReportFiled')?data.waterReportFiled:false;
