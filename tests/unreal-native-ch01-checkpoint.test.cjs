@@ -15,8 +15,12 @@ test('UE5 CH01 native objective save is versioned, local and independent of brow
  assert.match(save,/class VEILPOINT_API UVPStoryCheckpoint : public USaveGame/);
  for(const field of ['SchemaVersion','SavedStage','bSavedHarborRecord','bSavedShelterRecord'])
   assert.match(save,new RegExp('UPROPERTY\\(SaveGame\\)[\\s\\S]*?\\b'+field+'\\b'));
- assert.match(save,/SchemaVersion = 2/);
+ assert.match(save,/SchemaVersion = 3/);
+ assert.match(mode,/Saved->SchemaVersion != 2/);
+ assert.match(mode,/Saved->SchemaVersion != 3/);
  assert.match(save,/bSavedBeaconActivated = false/);
+ assert.match(save,/bHasPedestrianPose = false/);
+ assert.match(save,/SavedPedestrianPosition = FVector::ZeroVector/);
  assert.match(mode,/veilpoint\.ch01\.native\.v1/);
  assert.doesNotMatch(mode,/veilpoint\.brCheckpoint|ve​ilpoint\.graphics|cloud/);
  assert.doesNotMatch(mode,/SavedPlayerTransform|SavedAmmo|SavedHealth/);
