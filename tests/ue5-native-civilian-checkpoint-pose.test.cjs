@@ -20,6 +20,9 @@ test('native V3 saves record actual civilian pose and preserve V1/V2 compatibili
  assert.match(mode,/Saved->SavedPedestrianPosition = Position/);
  assert.match(mode,/Check->SavedPedestrianPosition\.Equals\(Saved->SavedPedestrianPosition,\.01f\)/);
  assert.match(mode,/ReadVerifiedCheckpoint\(CH01BackupSlot\)/);
+ assert.match(mode,/if \(Primary && RestoreCivilian\(Primary\) && State->RestoreProgress\(/);
+ assert.match(mode,/if \(Backup && RestoreCivilian\(Backup\) && State->RestoreProgress\(/);
+ assert.match(mode,/civilian checkpoint pose blocked; trying verified backup/);
 });
 
 test('pedestrian pose is finite and load-only reconstitution cannot bypass 60Hz walking',()=>{
