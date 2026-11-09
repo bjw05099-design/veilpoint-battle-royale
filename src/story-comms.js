@@ -73,7 +73,7 @@
    // invented paperwork objective or scripted forced-choice menu.
    // The captain can choose the practical civilian route without being
    // given an artificial assignment to collect more ledgers.
-   return line('김지윤','남쪽 주민 지원은 유수프 구조단과 직접 협의하면 됩니다. 동쪽 통로도 현지 담당자에게 직접 요청할 수 있습니다. 기록 비교는 선택 사항이며, 한국에서 받은 임무는 이미 브리핑받았습니다.');
+   return line('김지윤','남쪽 주민 이동 지원은 유수프 구조단과 직접 협의하면 됩니다. 동쪽 통로도 현지 담당자에게 직접 요청할 수 있습니다. 기록 비교는 선택 사항이며, 한국에서 받은 임무는 이미 브리핑받았습니다.');
   }
   if(phase==='exit'&&state.choice==='verification'){
    if(state.gateObstructed===true)
