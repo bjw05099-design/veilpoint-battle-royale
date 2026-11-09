@@ -13,7 +13,7 @@ test('a colliding obstruction inside an entrance is rejected',()=>{
  const q=fixture(), b=q.buildings[0];
  const parts=[...q.parts,{owner:b.id,role:'blocked-entry',solid:true,
    x:b.x,z:b.z-b.d/2,y:b.groundMetres+1,w:2,d:1,h:2}];
- const result=validate({...q,parts:parts.slice(0,39)});
+ const result=validate({...q,parts:[...q.parts.slice(0,38),parts[39]]});
  // Replace one nonessential prop to retain inventory contract.
  assert.equal(result.ok,false);
  assert.match(result.failures.join(' '),/blocked entrance/);
