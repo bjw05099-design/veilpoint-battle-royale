@@ -2,6 +2,14 @@
 
 **Primary real-world reference:** Aden, southern Yemen; **historical visual baseline:** approximately 2015, the year in which the conflict escalated significantly. The project is still original fiction: **Nahrin / Sahir Coast** is a fictionalized playable district, not a claim to portray real events or actors, and the fictional Korean captain, NIS cast, and twelve-chapter campaign retain their established canon.
 
+## Scope supersession — 2026-11-09 (owner decision)
+
+**OLD TARGET REVOKED:** The planned map size of **one third of Aden** is no longer a target. The long-term map objective is **all of Aden's civilian urban area at 1:1 real-world scale (one world metre per represented metre)**, with real geographic/architectural fidelity as supported by dated, licensed public data. The geographic target is Aden itself; fictional character/event canon remains creative fiction. **No exact-replica achievement is implied.** Do not extrapolate a numeric total map width, area or count from an overview image without a defensible boundary dataset.
+
+**Map architecture:** tile public heightfields and civilian scenery in 512-metre squares, stream budgeted nearby tiles, and use high/medium/far LOD plus robust tile-edge seam checks. Authentic topographic elevation is distinct from building-scale scans. 2015 is the campaign's reference period; observations made in other years require explicit temporal qualifications. The 350m offline demo remains a separate playable test site and is **not georeferenced or a delivered tile of a fully built Aden**. Its existing collision/save/BR96 logic must not be broken to claim the new coverage.
+
+**Data & safety:** publicly licensed, date-provenanced civil geography, topography, shorelines and streets can inform the visual city. No real-time conflict intelligence, protected/restricted building internals, current checkpoint layout or tactical operational site placement; fictionalize such locations. Collect attribution/ODbL/Copernicus notices and verify rights before import. New target requires native UE5 World Partition + Landscape + assets + real QA; source-only math is not that implementation.
+
 **Decision:** Real-world geographical, urban and architectural fidelity is required. Do not substitute a generic sand-desert map, random box-city, or undifferentiated Middle Eastern architecture for researched Aden landscapes. The **current** BR browser terrain, CH01 low-poly port, and native UE5 blockout are **NOT** measured against Aden reference data; this file is a production requirement, **not** an implementation or accuracy claim.
 
 ## Non-negotiable world-building reference
