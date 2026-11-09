@@ -1608,7 +1608,9 @@
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
          '] 표식 변경 / 자동 선택 · [SHIFT+'+
-         Desktop.keyLabel(bindings.guidance)+'] 역순':'');
+         Desktop.keyLabel(bindings.guidance)+'] 역순':'')+
+      (Sim.publicDistrictAt(state.world.player,state.world.obstacles)?
+       ' · 도시 구조: '+Sim.publicDistrictAt(state.world.player,state.world.obstacles).label:'');
     // A factual pre-departure/arrival recap plays over actual controllable
     // movement. It has no pause, checklist, investigation or unlock gate.
     // Historic saves in later phases never replay the opening.
