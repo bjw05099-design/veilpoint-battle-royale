@@ -60,7 +60,7 @@ test('CH01 PC interaction HUD distinguishes blocked cargo, required escort and a
   assert.match(app,/출구 통과 보류 · 운반 중인 물품/);
   assert.match(app,/nearby\.id==='exitEvac'&&state\.guide\.active&&!state\.guide\.arrived/);
   assert.match(app,/출구 통과 보류 · 안내원의 실제 안뜰 도착/);
-  assert.match(app,/situation\.guideStatus\.includes\('E로 동행 재개 가능'\)/);
+  assert.match(app,/situation\.guideStatus\.includes\('F로 동행 재개 가능'\)/);
   const active=evac();
   active.musterConfirmed=true;
   active.guide.active=true;
