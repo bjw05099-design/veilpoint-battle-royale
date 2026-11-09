@@ -507,6 +507,19 @@
   }
   // Unlike a quest arrow, a crossing resident offers a local optional F
   // interaction only after the player has observed the disrupted street.
+  // Reaching the physical far curb, rather than accepting a conversation,
+  // is the persistent consequence of this locally witnessed city event.
+  // Older v2 checkpoints already carry the full crossing position; no new
+  // save field, quest gate or omniscient remote report is introduced.
+  function civicCrossingReached(state){
+    const c=state.civicCrossing;
+    return !!(c&&c.disrupted&&c.assisted&&
+      Math.hypot(c.civilian.x-c.destination.x,c.civilian.z-c.destination.z)<1e-6);
+  }
+  function civicCrossingArrivalCheckpoint(wasReached,state){
+    return wasReached===false&&civicCrossingReached(state)&&
+      ['records','decision','exit','complete'].includes(state.phase);
+  }
   function civicCrossingMarkers(state){
     if(!Civic||!state.civicCrossing?.disrupted||
        state.civicCrossing.assisted||
@@ -666,6 +679,7 @@
     state.world.civilianWalker=state.civilianWalker;
     state.world.civicCrossing=state.civicCrossing?
       {...state.civicCrossing.civilian,role:'civic-crossing-resident'}:null;
+    state.world.civicCrossingArrived=civicCrossingReached(state);
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
     state.world.relayRestored=state.relayRestored;
@@ -975,6 +989,7 @@
       state.world.civicCrossing={
         ...state.civicCrossing.civilian,role:'civic-crossing-resident'
       };
+      state.world.civicCrossingArrived=civicCrossingReached(state);
     }
     // Unlike a fixed escort waypoint, Kim independently changes behavior
     // when the ordinary harbor becomes unsafe. He moves to the existing
@@ -2775,6 +2790,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,localRouteOffer,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
+    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot,civicCrossingReached,civicCrossingArrivalCheckpoint
   });
 });
