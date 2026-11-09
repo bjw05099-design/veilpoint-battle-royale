@@ -33,7 +33,14 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
  // the SAME filtered world.snapshot(token) response as GET /world.
  const liveStreams=new Map();
  const publishSnapshot=(token,res)=>{
-  const frame='event: world\ndata: '+JSON.stringify(world.snapshot(token))+'\n\n';
+  // Each authenticated event owns BOTH its round generation and server tick.
+  // A browser still viewing the previous round must not render a new-round
+  // tick 0 as an old-world rewind while its slower /state poll is pending.
+  // Metadata is public to that one session; bodies remain the existing
+  // token-filtered world.snapshot(token), with no opponent secrets.
+  const snapshot=world.snapshot(token);
+  const frame='id: '+roundNumber+':'+snapshot.tick+'\n'+
+    'event: world\ndata: '+JSON.stringify(snapshot)+'\n\n';
   if(!res.write(frame)){ // never accumulate unlimited buffered frames
    liveStreams.delete(token);res.end();
   }
