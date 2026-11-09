@@ -113,6 +113,13 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.civilianWalker,.55,state.obstacles)){
    witnesses.push({entity:state.civilianWalker});boxes+=2;
  }
+ // Civic crossing resident is visible only in the player's true frustum
+ // with wall occlusion; there is never a remote resident/travel HUD pin.
+ if(state.scene==='nahrin'&&state.civicCrossing&&
+    inView(p,state.civicCrossing.x,state.civicCrossing.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.civicCrossing,.55,state.obstacles)){
+   witnesses.push({entity:state.civicCrossing});boxes+=2;
+ }
  // Mara's independent market journey is a physical, optional local scene.
  // The player gets no distant position marker or awareness through walls.
  if(state.scene==='nahrin'&&state.mara&&
