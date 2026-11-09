@@ -129,6 +129,8 @@
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evac', label:'유수프 구조단 집결지 현장 담당자'}),
     coordinatorRequest: Object.freeze({id:'coordinatorRequest',x:-9,z:-55,kind:'evac',label:'유수프 구조 책임자와 직접 대피 지원 협의'}),
+    // A second staff-guided pedestrian approach, not a paperwork collection.
+    eastLocalRequest: Object.freeze({id:'eastLocalRequest',x:19,z:-53,kind:'verify',label:'동쪽 현지 통제 담당자와 현장 통행 협의'}),
     dispatchLedger: Object.freeze({id:'dispatchLedger',x:-24,z:-57,kind:'evidence',label:'남쪽 구조단 접수 장부'}),
     // An observed person, not a remotely read dossier or a confirmed bus.
     transportDriver: Object.freeze({id:'transportDriver',x:10,z:-54,kind:'evac',label:'운송 담당자 나딤 · 현장 대화'}),
@@ -490,6 +492,12 @@
   // A face-to-face, purely optional street-side request to a visible local
   // driver. No paperwork, remote vehicle dispatch or invented passenger rescue.
   // The vehicle remains a physical collider and its route never teleports.
+  function eastLocalRequestMarkers(state){
+    if(!state.combat?.cleared||!['records','decision'].includes(state.phase))return [];
+    const p=state.world.player,m=POINTS.eastLocalRequest;
+    return Math.hypot(p.x-m.x,p.z-m.z)<6&&
+      !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
+   }
   function transportYieldMarkers(state){
     const v=state.transportVan,p=state.world.player;
     if(!v||v.arrived||state.phase!=='exit'||state.choice!=='evacuation'||
@@ -522,7 +530,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...coordinatorRequestMarkers(state),
+      ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
@@ -1396,6 +1404,18 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='eastLocalRequest'&&state.combat.cleared&&
+       ['records','decision'].includes(state.phase)){
+       // No field paperwork, route vote or teleported clearance. This local
+       // request only starts the existing timed, collision-checked gate.
+       const previous=state.phase;
+       state.phase='decision';
+       const selected=choose(state,'verification');
+       if(!selected.ok){state.phase=previous;syncMarkers(state);return selected;}
+       state.subtitle='동쪽 현지 통제 담당자: 지금은 동쪽 통로로 이동할 수 있도록 현장 개방을 요청하겠습니다. 제가 문을 열기 전에는 통과하지 마세요. 출국 전 파견 임무와 귀환 계획은 이미 알고 계시겠지만, 이곳 사정은 도착 후 달라졌습니다.';
+       state.message='현지 담당자에게 직접 통행 요청 · 통제문 실제 개방 대기';
+       return {ok:true,event:'east_route_in_person',choice:'verification',phase:state.phase};
+    }
     if(marker.id==='transportYield'&&state.transportVan&&!state.transportVan.arrived&&
        state.phase==='exit'&&state.choice==='evacuation'){
       const v=state.transportVan;
