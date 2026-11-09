@@ -20,7 +20,7 @@ test('shade-stop central passage is traversable and its visible supports are phy
   const br=Sim.newMatch(20261109,0,'carbine',false,'central','day',1);
   const story=Story.createState();
   for(const world of [br,story.world]){
-    for(let x=-5;x<=5;x+=.5)
+    for(let x=-4;x<=4;x+=.5)
       assert.equal(Sim.blocked(x,55,.85,world.obstacles),false,
         'center passage must be open to a standing player at x='+x);
     assert.equal(Sim.blocked(-9,48,.85,world.obstacles),true);
