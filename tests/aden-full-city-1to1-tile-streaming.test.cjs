@@ -95,6 +95,32 @@ test('seam tests catch both east-west and north-south cracks before an imported 
  assert.ok(Tiles.auditSeam(main,broken).maxGapMetres>1);
  assert.throws(()=>Tiles.auditSeam(main,syntheticTile(2,0)),/cardinal neighbors/);
 });
+test('public DEM tiles generate actual full-scale mesh triangles and seam-matching LODs',()=>{
+ const a=syntheticTile(-1,0),b=syntheticTile(0,0);
+ const detailed=Tiles.buildTerrainMesh(a,1),medium=Tiles.buildTerrainMesh(a,2),
+  far=Tiles.buildTerrainMesh(a,4);
+ assert.deepEqual([detailed.vertexCount,medium.vertexCount,far.vertexCount],[289,81,25]);
+ assert.deepEqual([detailed.triangleCount,medium.triangleCount,far.triangleCount],[512,128,32]);
+ for(const m of [detailed,medium,far]){
+  assert.equal(m.metresPerWorldUnit,1);
+  assert.deepEqual(m.positions.slice(0,3),[-512,a.samples[0],0]);
+  assert.deepEqual(m.positions.slice(-3),[0,a.samples.at(-1),512]);
+  assert.equal(m.triangles.length,m.triangleCount*3);
+  assert.ok(Object.isFrozen(m)&&Object.isFrozen(m.positions)&&Object.isFrozen(m.triangles));
+ }
+ for(const step of [1,2,4]){
+  const left=Tiles.buildTerrainMesh(a,step),right=Tiles.buildTerrainMesh(b,step);
+  const n=(16/step)+1;
+  for(let row=0;row<n;row++){
+   const westLast=left.positions.slice((row*n+n-1)*3,(row*n+n)*3);
+   const eastFirst=right.positions.slice((row*n)*3,(row*n+1)*3);
+   assert.deepEqual(westLast,eastFirst,
+    'two adjacent terrain meshes have no physical LOD boundary height gap');
+  }
+ }
+ assert.throws(()=>Tiles.buildTerrainMesh(a,3),/LOD/);
+ assert.throws(()=>Tiles.buildTerrainMesh(a,32),/LOD/);
+});
 test('deterministic streaming never loads unprovided city data or silently asserts complete city',()=>{
  const registry=Tiles.createRegistry(Array.from({length:25},(_,i)=>
   syntheticTile(i%5-2,Math.floor(i/5)-2)));
@@ -108,6 +134,9 @@ test('deterministic streaming never loads unprovided city data or silently asser
  assert.ok(plan.keep.every(k=>old.includes(k)));
  assert.ok(plan.unload.includes('aden:3:3'));
  assert.equal(plan.completeCity,false);
+ assert.ok(plan.unresolved.length>0,'unimported city coverage stays visibly missing');
+ assert.equal(plan.unresolved.includes('aden:0:-1'),false,
+  'the exact user location was included in the supplied public tile registry');
  assert.equal(plan.streamedWorldMetresPerUnit,1);
  assert.deepEqual(Tiles.planStreaming(3,-3,registry,old,{radius:2,maxLoaded:9}),plan);
  assert.ok(Object.isFrozen(plan.active));
