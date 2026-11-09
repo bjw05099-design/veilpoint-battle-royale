@@ -63,7 +63,14 @@ private:
     TMap<FIntPoint,TObjectPtr<UProceduralMeshComponent>> TileMeshes;
 
     TMap<FIntPoint,FSourceTile> SourceTiles;
+    // Keep only up to nine validated raw half-megabyte tiles resident. Their
+    // exact border samples are compared before adjoining native mesh build.
+    TMap<FIntPoint,TArray<uint8>> LoadedHeightBytes;
+    // A corrupted or discontinuous tile is rejected until the lab restarts.
+    // No repeated disk reads every 0.75 seconds and no fake gap-filling.
+    TSet<FIntPoint> RejectedTiles;
     FIntPoint LastOrigin=FIntPoint(MAX_int32,MAX_int32);
+    int32 LastRadius=-1;
     float HeightStepMetres=0.f;
     float MidpointMetres=0.f;
     float SampleSpacingCm=0.f;

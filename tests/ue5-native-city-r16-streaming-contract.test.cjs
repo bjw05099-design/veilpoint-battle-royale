@@ -93,7 +93,9 @@ test('manifest import and runtime loader require the exact same 505-pixel endian
   'OutBytes.Num()!=VPCityTerrain::BytesPerTile'
  ])assert.ok(native.includes(text),text);
  assert.match(native,/FPaths::Combine\(FPaths::ProjectSavedDir\(\),\s*TEXT\("CityTiles"\)/);
- assert.match(native,/const uint16 Raw=uint16\(Bytes\[At\]\) \| \(uint16\(Bytes\[At\+1\]\)<<8\)/);
+ assert.match(native,/return uint16\(Bytes\[At\]\) \| \(uint16\(Bytes\[At\+1\]\)<<8\)/);
+ assert.match(native,/const uint16 Raw=RawHeight\(Bytes,X,Y\)/);
+ assert.match(native,/VPCityTerrain::MatchingEdgeR16\(/);
  assert.match(native,/\(MidpointMetres\+\(int32\(Raw\)-32768\)\*HeightStepMetres\)\*100\.f/);
  assert.match(native,/SampleSpacingCm=float\(Spacing\)/);
 });
