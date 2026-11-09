@@ -319,7 +319,8 @@ function draw(w){
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
    subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
-   visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
+   visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather,
+   pavements:publicEnvironment?.pavements||[]});
   return;
  }
  ctx.clearRect(0,0,width,height);
@@ -346,6 +347,13 @@ function draw(w){
   ctx.strokeStyle='#79a9a9';ctx.lineWidth=1.5;
   ctx.strokeRect(x(pad.x-pad.width/2),z(pad.z-pad.depth/2),
     pad.width*scale,pad.depth*scale);
+ }
+ // The 2D diagnostic and first-person walk both show the SAME server-public
+ // civic plazas without inventing live map objects or private squad positions.
+ for(const patch of publicEnvironment?.pavements||[]){
+  ctx.fillStyle=patch.canvas;
+  ctx.fillRect(x(patch.x-patch.w/2),z(patch.z-patch.d/2),
+    patch.w*scale,patch.d*scale);
  }
  // Draw the same PUBLIC fictional building footprints used by server-owned
  // 60Hz collision: wide sidewalks remain visible, walls are not magic.
@@ -753,8 +761,18 @@ async function loadPublicGeometry(){
   if(!valid||!pad||![pad.x,pad.z,pad.width,pad.depth].every(Number.isFinite)||
      pad.width<=0||pad.depth<=0||pad.width>350||pad.depth>350)
     throw Error('invalid_public_geometry');
+  // Reject forged/malformed public pavement payloads before using either
+  // 2D or street projection. The server is the sole author of these surfaces.
+  const pavements=record.environment?.pavements;
+  if(!Array.isArray(pavements)||pavements.length!==4||
+     new Set(pavements.map(p=>p?.id)).size!==4||
+     !pavements.every(p=>p&&['tawahi','mualla','crater','khormaksar'].includes(p.id)&&
+      [p.x,p.z,p.w,p.d].every(Number.isFinite)&&
+      p.w>0&&p.d>0&&p.w<=60&&p.d<=60&&
+      /^#[0-9a-f]{6}$/i.test(p.canvas||'')))
+    throw Error('invalid_public_pavements');
   publicGeometry=record.obstacles;
-  publicEnvironment={wetLoadingPad:pad};
+  publicEnvironment={wetLoadingPad:pad,pavements};
   render();
  }catch(error){
   // The server may transition from lobby to world after the previous poll.
