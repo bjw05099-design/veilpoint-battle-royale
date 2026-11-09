@@ -24,26 +24,26 @@ function reachEscort() {
 
 test('CH01 paused escort HUD only offers E resume when companion is visible and nearby',()=>{
   const s=reachEscort();
-  // Behind the guide, the handoff desk is out of arm's reach: E resumes.
+  // Behind the guide, the handoff desk is out of arm's reach: F resumes.
   s.world.player.x=s.guide.x-1;s.world.player.z=s.guide.z;
   assert.equal(story.nearest(s)?.id,'guideControl');
   assert.notEqual(story.situation(s).visibleEscortDistance,null);
-  assert.match(story.situation(s).guideStatus,/E로 재개/);
+  assert.match(story.situation(s).guideStatus,/F로 재개/);
   // On the other side, the staffed desk takes interaction priority over resume.
   s.world.player.x=s.guide.x+0.8;
   assert.equal(story.nearest(s)?.id,'guideRelease');
-  assert.match(story.situation(s).guideStatus,/E로.*인계/);
-  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개/);
-  // Visible from several metres away does not mean the PC E key can reach.
+  assert.match(story.situation(s).guideStatus,/F로.*인계/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/F로 재개/);
+  // Visible from several metres away does not mean the PC F key can reach.
   s.world.player.x=s.guide.x-3;
   assert.equal(story.nearest(s),null);
   assert.notEqual(story.situation(s).visibleEscortDistance,null);
   assert.match(story.situation(s).guideStatus,/다가가/);
-  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개 가능/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/F로 재개 가능/);
   s.world.player.x=story.POINTS.exitEvac.x;
   s.world.player.z=story.POINTS.exitEvac.z;
   assert.equal(story.situation(s).visibleEscortDistance,null);
-  assert.doesNotMatch(story.situation(s).guideStatus,/E로 재개/);
+  assert.doesNotMatch(story.situation(s).guideStatus,/F로 재개/);
   assert.match(story.situation(s).guideStatus,/돌아가세요/);
   const restored=story.restore(story.serialize(s));
   assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
@@ -69,12 +69,12 @@ test('CH01 fixed-step waiting guide HUD and interaction target survive checkpoin
   assert.doesNotMatch(story.situation(reloaded).guideStatus,/현장 대기/);
 });
 
-test('CH01 following guide HUD only offers real PC E hold or staffed handoff within reach',()=>{
+test('CH01 following guide HUD only offers real PC F hold or staffed handoff within reach',()=>{
  const s=reachEscort();
  s.guide.waiting=false;
  s.world.player.x=s.guide.x-1;s.world.player.z=s.guide.z;
  assert.equal(story.nearest(s)?.id,'guideControl');
- assert.match(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ assert.match(story.situation(s).guideStatus,/F로 대기 지시 가능/);
  const saved=story.serialize(s);
  const restored=story.restore(saved);
  assert.equal(story.situation(restored).guideStatus,story.situation(s).guideStatus);
@@ -84,16 +84,16 @@ test('CH01 following guide HUD only offers real PC E hold or staffed handoff wit
  // restore; that collision safety rule is independent of this HUD test.
  s.world.player.x=s.guide.x+0.8;
  assert.equal(story.nearest(s)?.id,'guideRelease');
- assert.match(story.situation(s).guideStatus,/E로.*인계 가능/);
- assert.doesNotMatch(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ assert.match(story.situation(s).guideStatus,/F로.*인계 가능/);
+ assert.doesNotMatch(story.situation(s).guideStatus,/F로 대기 지시 가능/);
  s.world.player.x=s.guide.x-3;
  assert.equal(story.nearest(s),null);
  assert.notEqual(story.situation(s).visibleEscortDistance,null,
    'guide is visible but outside direct action reach');
  assert.match(story.situation(s).guideStatus,/다가가/);
- assert.doesNotMatch(story.situation(s).guideStatus,/E로 대기 지시 가능/);
+ assert.doesNotMatch(story.situation(s).guideStatus,/F로 대기 지시 가능/);
  s.world.player.x=s.guide.x-1;
  assert.equal(story.interact(s).event,'guideControl');
  assert.equal(s.guide.waiting,true);
- assert.match(story.situation(s).guideStatus,/E로 재개 가능/);
+ assert.match(story.situation(s).guideStatus,/F로 재개 가능/);
 });
