@@ -1103,14 +1103,17 @@
         ?(preferredX===CIVILIAN_WALK.x?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x)
         :preferredX;
       const dx=destinationX-w.x,dz=CIVILIAN_WALK.endZ-w.z;
-      const distance=Math.hypot(dx,dz)||1;
+      const distance=Math.hypot(dx,dz);
+      // The final frame must use only the remaining distance, rather than
+      // adding a visible .04m snap after a full walking step.
+      const pace=Math.min(CIVILIAN_WALK.speed,distance/t);
       const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
       if(state.choice==='evacuation'&&state.guide.active&&!state.guide.released)
         bodies.push({x:state.guide.x,z:state.guide.z,w:1.1,d:1.1});
       const solids=state.world.obstacles.concat(bodies,actorBlockers(state));
       const previousX=w.x,previousZ=w.z;
-      Sim.moveEntity(w,dx/distance*CIVILIAN_WALK.speed,
-        dz/distance*CIVILIAN_WALK.speed,t,solids,.55);
+      if(distance>1e-8)Sim.moveEntity(w,dx/distance*pace,
+        dz/distance*pace,t,solids,.55);
       // A civilian encountering a standing person or fixed street fixture
       // tries the OTHER side of this already authored two-metre pavement.
       // This is a finite, collision-checked walking step, not pathfinding
@@ -1127,7 +1130,7 @@
       }
       w.x=clamp(w.x,CIVILIAN_WALK.aidLaneX,CIVILIAN_WALK.x);
       w.z=clamp(w.z,CIVILIAN_WALK.endZ,start);
-      if(Math.hypot(w.x-destinationX,w.z-CIVILIAN_WALK.endZ)<.04){
+      if(Math.hypot(w.x-destinationX,w.z-CIVILIAN_WALK.endZ)<1e-6){
         w.x=destinationX;w.z=CIVILIAN_WALK.endZ;w.arrived=true;
         // Do not provide a magical remote notification across the map.
         if(Math.hypot(p.x-w.x,p.z-w.z)<12&&
