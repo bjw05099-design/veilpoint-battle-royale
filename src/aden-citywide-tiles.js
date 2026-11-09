@@ -120,6 +120,36 @@
   return Object.freeze({pass:maxGap<=toleranceMetres,maxGapMetres:maxGap,
    samplesChecked:n,left:a.key,right:b.key});
  }
+ // Generate actual triangle geometry at 1:1 physical scale for an
+ // imported public DEM heightfield. LODs are subgrids of the SAME samples,
+ // so each distance tier retains the same tile corner elevations. Native
+ // and browser consumers can upload these metre-space vertices separately.
+ function buildTerrainMesh(tile,stride=1){
+  if(!tile||!Array.isArray(tile.samples)||!GRIDS.includes(tile.gridSize))
+   throw new TypeError('Invalid source tile for terrain mesh');
+  const n=tile.gridSize;
+  if(!Number.isInteger(stride)||stride<1||
+    (n-1)%stride!==0||(stride&(stride-1))!==0)
+   throw new RangeError('Invalid terrain mesh LOD step');
+  const columns=(n-1)/stride+1,
+   positions=[],triangles=[],x0=tile.tx*TILE_METRES,z0=tile.tz*TILE_METRES,
+   metresBetweenSamples=TILE_METRES/(n-1);
+  for(let r=0;r<n;r+=stride)
+   for(let c=0;c<n;c+=stride){
+    const h=tile.samples[r*n+c];
+    if(!validFinite(h))throw new RangeError('Invalid terrain sample');
+    positions.push(x0+c*metresBetweenSamples,h,z0+r*metresBetweenSamples);
+   }
+  for(let r=0;r<columns-1;r++)
+   for(let c=0;c<columns-1;c++){
+    const a=r*columns+c,b=a+1,d=(r+1)*columns+c,e=d+1;
+    triangles.push(a,d,b,b,d,e);
+   }
+  return Object.freeze({key:tile.key,lodStep:stride,
+   metresPerWorldUnit:METRES_PER_UNIT,
+   vertexCount:positions.length/3,triangleCount:triangles.length/3,
+   positions:Object.freeze(positions),triangles:Object.freeze(triangles)});
+ }
  function createRegistry(tiles){
   if(!Array.isArray(tiles)||tiles.length>25000)throw new RangeError('Invalid city tile registry');
   const map=new Map();
@@ -181,5 +211,5 @@
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
   DISTRICTS,SOURCE_SCOPE,point,tileKey,parseTileKey,tileFor,tileBounds,
-  validateSource,createHeightTile,heightAt,auditSeam,createRegistry,planStreaming});
+  validateSource,createHeightTile,heightAt,auditSeam,buildTerrainMesh,createRegistry,planStreaming});
 });
