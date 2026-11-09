@@ -61,8 +61,17 @@
       return Object.freeze({...result,events:Object.freeze(result.events.slice())});
     result=advance(result,EVENTS.ESCALATION);
     result=advance(result,EVENTS.CONTACT_LOST);
+    // A real on-foot east route can now be completed without optional
+    // documents. An actually reached corridor, a completed moving public
+    // gate, and a confirmed CH01 exit prove locally authorized passage.
+    // A menu route selection alone cannot invent a consultation or escape.
+    const witnessedEastClearance=state.choice==='verification'&&
+      state.phase==='complete'&&state.passageWarningHeard===true&&
+      Number.isFinite(state.gateReadyAt)&&state.gateReadyAt>0&&
+      Number.isFinite(state.world.elapsed)&&state.world.elapsed>=state.gateReadyAt;
     const hasLocalConsultation=state.musterConfirmed===true||
-      (state.choice==='verification'&&state.gateLogReviewed===true);
+      (state.choice==='verification'&&
+        (state.gateLogReviewed===true||witnessedEastClearance));
     if(hasLocalConsultation){
       result=advance(result,EVENTS.LOCAL_GUIDE);
       if(['evacuation','verification'].includes(state.choice))
