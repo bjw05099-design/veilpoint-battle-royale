@@ -6,10 +6,11 @@
   const api = factory(
     root.VeilpointSim || (typeof module === 'object' && module.exports ? require('./simulation.js') : null),
     root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null),
-    root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null));
+    root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null),
+    root.VeilpointStreetFlood || (typeof module === 'object' && module.exports ? require('./ch01-street-flood.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   // Older embedded CH01 clients omit optional history; never block the game.
@@ -671,6 +672,10 @@
     state.world.beaconEnabled=state.beaconEnabled;
     state.world.flashlightOn=state.flashlightOn;
     state.world.flashlightTicks=state.flashlightTicks;
+    // Derive the same public street-water patch after a witnessed disruption.
+    // v2 saves need no new checkpoint field: their validated phase persists.
+    state.world.streetFlood=StreetFlood&&StreetFlood.visible(state.phase)
+      ?StreetFlood.PATCH:null;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
     // Preserve the authored marker identity separately from the renderer's
@@ -911,7 +916,8 @@
     const paced=!!input.crouch&&escortPaceAvailable(state);
     const speed=(input.crouch?(paced?1.6:3.1):sprint?9.5:6.1)*
       Sim.FIREARMS[p.weaponId].mobility*
-      Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1);
+      Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1)*
+      (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z):1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     // A real actor blocks walking through their position. Historic saves
     // starting in an overlap can still move out of the footprint.

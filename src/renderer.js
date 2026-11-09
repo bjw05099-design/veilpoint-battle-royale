@@ -303,6 +303,14 @@ class SoftwareRenderer {
   const pad=global.VeilpointSim.WET_LOADING_PAD;
   objects.push({x:pad.x,z:pad.z,w:pad.width,d:pad.depth,h:.09,type:'harbor-wash'});
  }
+ // After the witnessed CH01 city disruption, the damaged public drain leaves
+ // a shallow visible street patch. Its exact rectangle also controls 60Hz
+ // footing; unlike a solid wall, it cannot block a route or strand old saves.
+ if(harborNight&&state.streetFlood){
+  const wet=state.streetFlood,hw=wet.w/2,hd=wet.d/2;
+  polygon([proj(wet.x-hw,.025,wet.z-hd),proj(wet.x+hw,.025,wet.z-hd),
+   proj(wet.x+hw,.025,wet.z+hd),proj(wet.x-hw,.025,wet.z+hd)],'#426d74');
+ }
  // Four public ground-level district surfaces are original walkable
  // street dressing. They use the SAME authored coordinates as the
  // 60Hz collision world, but introduce zero new invisible colliders.
@@ -984,6 +992,13 @@ class Renderer {
   mesh.box(pad.x,.085,pad.z,pad.width,.012,pad.depth,[.27,.44,.51]);
   for(const offset of [-4,0,4])
    mesh.box(pad.x+offset,.102,pad.z+2,.8,.006,6,[.51,.62,.65]);
+ }
+ if(state.scene==='nahrin'&&state.streetFlood){
+  const wet=state.streetFlood;
+  mesh.box(wet.x,.027,wet.z,wet.w,.012,wet.d,[.20,.36,.41]);
+  // Thin, ground-level sheen conveys changed footing without a false collider.
+  for(const xOffset of [-3.1,0,3.1])
+   mesh.box(wet.x+xOffset,.046,wet.z+.9,.4,.005,wet.d*.58,[.34,.48,.52]);
  }
  if(state.scene==='nahrin'&&!state.aidPickedUp){
   mesh.box(-7,.25,-47,.62,.5,.48,[.46,.40,.31]);

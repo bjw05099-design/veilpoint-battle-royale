@@ -6,6 +6,7 @@ const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY,ENTRY_CHOICES}=require('./br-squad-lobby.cjs');
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
+const {assessPedestrianFlow}=require('./br96-pedestrian-flow.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // Server-authored movement budget: sprint is faster but finite, with a
@@ -539,8 +540,10 @@ class BrSquadWorld {
       // The shallow wash follows the authoritative 60Hz tick, not client time.
       const terrain=Sim.wetApronFooting(actor);
       const wash=Sim.harborWaveWash(this.tick*STEP,actor);
+      const flow=assessPedestrianFlow(actor,players,(ax,az,bx,bz)=>
+        Sim.lineBlocked(ax,az,bx,bz,this.obstacles));
       const pace=(running?SPRINT_SPEED:actor.crouchHeld?CROUCH_SPEED:SPEED)*
-        terrain.mobility*wash.mobility;
+        terrain.mobility*wash.mobility*flow.mobility;
       let stepAdvance=false;
       if(actor.stepping){
         const movement=actor.stepping;
@@ -672,6 +675,11 @@ class BrSquadWorld {
     // it is diagnostic, never a client-provided 96-person movement modifier.
     const terrain=Sim.wetApronFooting(me);
     const wash=Sim.harborWaveWash(this.tick*STEP,me);
+    // Only the authenticated body's own nearby visible foot traffic reaches
+    // its HUD. Never expose hidden rival counts or client-chosen density.
+    const pedestrianFlow=me.eligible?assessPedestrianFlow(me,
+      [...this.actors.values()].filter(p=>p.eligible),(ax,az,bx,bz)=>
+        Sim.lineBlocked(ax,az,bx,bz,this.obstacles)):null;
     const surface=Object.freeze({wet:terrain.wet,
       waveActive:terrain.wet&&wash.active,
       mobility:Math.round(terrain.mobility*wash.mobility*10000)/10000});
@@ -795,7 +803,7 @@ class BrSquadWorld {
         stepOverProgress:me.stepping?me.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(me),
         eliminationReason:me.eligible?null:me.eliminationReason,
-        surface,
+        surface,pedestrianFlow,
         stamina:Math.round(me.stamina*100)/100,
         resting:me.eligible&&me.resting,
         benchResting:me.eligible&&me.benchResting,
