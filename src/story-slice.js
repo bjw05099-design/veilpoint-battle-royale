@@ -950,6 +950,7 @@
           t,state.world.obstacles.concat(actorBlockers(state),pedestrians),MARA_PATH.radius);
         w.x=clamp(w.x,MARA_PATH.startX,MARA_PATH.endX);
         w.z=clamp(w.z,MARA_PATH.endZ,MARA_PATH.startZ);
+        if(state.world.mara){state.world.mara.x=w.x;state.world.mara.z=w.z;}
         if(Math.hypot(w.x-MARA_PATH.endX,w.z-MARA_PATH.endZ)<.028){
           w.x=MARA_PATH.endX;w.z=MARA_PATH.endZ;w.arrived=true;
           if(Math.hypot(p.x-w.x,p.z-w.z)<9&&
