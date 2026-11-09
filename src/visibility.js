@@ -127,6 +127,14 @@ function planVisible(state,aspect=16/9){
     hasExposedSilhouette(p,state.liaison,.55,state.obstacles)){
   witnesses.push({entity:state.liaison});boxes+=2;
  }
+ // Kim Jiyoon exists as an actually moving nearby companion. He receives
+ // the same frustum and opaque-wall test as the existing local CH01 people,
+ // never an omniscient compass, silhouette through cover or remote target.
+ if(state.scene==='nahrin'&&state.kimJiyoon&&
+    inView(p,state.kimJiyoon.x,state.kimJiyoon.z,1,MAX_DISTANCE,halfFov)&&
+    hasExposedSilhouette(p,state.kimJiyoon,.55,state.obstacles)){
+   witnesses.push({entity:state.kimJiyoon});boxes+=2;
+ }
  // A CH01 civilian traverses a genuine sidewalk using the same physical
  // collision rule as the captain. It appears only when camera-visible and
  // not obscured behind opaque harbor buildings.

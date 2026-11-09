@@ -161,6 +161,11 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       // Public non-sensitive environmental region, shared by both modes.
       // Gameplay traction is calculated by the server on true actor poses.
       environment:{wetLoadingPad:{x,z,width,depth}},
+      // Separate public district ground surfaces preserve the legacy
+      // wet-loading-apron response contract for all existing clients.
+      pavements:Sim.PUBLIC_CITY_PAVEMENTS.map(p=>({
+        id:p.id,x:p.x,z:p.z,w:p.w,d:p.d,canvas:p.canvas
+      })),
       obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter'&&o.routeId!=='br-dock-handcart').map(o=>({
         x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
       }))});
