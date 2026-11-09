@@ -251,7 +251,13 @@ void AVPWorldBootstrap::BeginPlay()
             {FVector(1700.f,850.f,100.f), FVector(1.3f,.7f,2.f)},
             {FVector(2800.f,0.f,90.f), FVector(1.2f,.7f,1.9f)},
             {FVector(4350.f,-1950.f,110.f), FVector(1.2f,.7f,2.3f)},
-            {FVector(4350.f,1950.f,110.f), FVector(1.2f,.7f,2.3f)}
+            {FVector(4350.f,1950.f,110.f), FVector(1.2f,.7f,2.3f)},
+            // East civilian passage: two fixed facade shoulders on either
+            // side of the 6m gate opening. A 4.8m raised door leaves less
+            // than capsule width at each edge while closed. This is an
+            // original fictional public doorway, not a real facility replica.
+            {FVector(4050.f,600.f,145.f), FVector(.4f,10.f,2.9f)},
+            {FVector(4050.f,2200.f,145.f), FVector(.4f,10.f,2.9f)}
         };
         for(const FCoastalBlock& Block : StoryBlocks)
             AddBlock(Buildings,Block.Center,Block.Scale);
