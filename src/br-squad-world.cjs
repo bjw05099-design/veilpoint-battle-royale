@@ -132,7 +132,9 @@ class BrSquadWorld {
     actor.direction={x:0,z:0};
     actor.lastMoveTick=this.tick-LEASE_TICKS-1;
     actor.sprintHeld=false;actor.crouchHeld=false;
-    actor.stepping=null;actor.benchResting=false;actor.moving=false;
+    actor.stepping=null;actor.benchResting=false;
+    // The last observed movement flag is a snapshot of the previous tick;
+    // the next server tick computes stationary motion from zero input.
     actor.lastPresenceTick=this.tick;
     // Retain original 96-seat iteration order: squad snapshots, equal-time
     // broadphase proposals and existing UI roster order cannot jump merely
