@@ -125,7 +125,7 @@ function verifyArchive(bytes) {
   const allowed = new Set([...REQUIRED, 'MANIFEST.sha256', 'NOTICE.txt']);
   // A valid checksum alone does not prove the browser can load: reject missing
   // local scripts, images and other directly referenced assets in either page.
-  for (const page of ['index.html', 'story.html']) {
+  for (const page of ['index.html', 'story.html', 'terrain.html']) {
     let references;
     try {references = referencedAssets(page, entries.get(page).toString('utf8'));}
     catch {invalid('html_assets:' + page);}
