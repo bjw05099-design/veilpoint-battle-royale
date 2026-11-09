@@ -26,6 +26,8 @@ const PRESENCE_STALE_TICKS=10*60;
 // 8-second grace. Crossing outside is not instantly fatal; re-entering resets
 // only the consecutive counter, not the historical exposure statistic.
 const BOUNDARY_GRACE_TICKS=8*60;
+// Server-owned finite lamp; battery follows simulation ticks, not frames.
+const HEADLAMP_TICKS=10*60*60;
 const OFFSETS=Object.freeze([[-4,-3],[0,-3],[4,-3],[-4,3],[0,3],[4,3]]);
 // Fictional public ferry hall access shutter, built for this online 96-body
 // simulation only. No real-world base, tactical machinery or site is copied.
@@ -95,6 +97,7 @@ class BrSquadWorld {
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
+          headlampOn:false,headlampTicks:HEADLAMP_TICKS,
           resting:false,spectateSlot:null});
       }
     }
@@ -149,6 +152,16 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,sprintHeld:actor.sprintHeld,crouched:actor.crouchHeld,
       stamina:Math.round(actor.stamina*100)/100};
+  }
+  // No client-supplied power, timer, or rival discovery.
+  headlamp(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    if(!actor.headlampOn&&actor.headlampTicks===0)return {ok:false,reason:'battery_empty'};
+    actor.headlampOn=!actor.headlampOn;
+    actor.lastPresenceTick=this.tick;
+    return {ok:true,on:actor.headlampOn,ticks:actor.headlampTicks};
   }
   // An explicit authenticated heartbeat refreshes server-side presence.
   // Dropped network connections must not invent a sixth squad elimination:
@@ -322,6 +335,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
+    actor.headlampOn=false;
     actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
@@ -343,6 +357,12 @@ class BrSquadWorld {
   step(){
     if(this.phase!=='moving')return;
     this.tick++;
+    // Advance independent lamps at the very same authoritative 60Hz clock.
+    for(const actor of this.actors.values()){
+      if(!actor.eligible||!actor.headlampOn)continue;
+      actor.headlampTicks=Math.max(0,actor.headlampTicks-1);
+      if(actor.headlampTicks===0)actor.headlampOn=false;
+    }
     const cartPusher=this.advanceHandcart();
     const gate=this.civicGate;
     if(Math.abs(gate.targetX-gate.door.x)>1e-7){
@@ -442,6 +462,7 @@ class BrSquadWorld {
         actor.eligible=false;
         actor.eliminatedAtTick=this.tick;
         actor.eliminationReason='area_expiry';
+        actor.headlampOn=false;
         actor.direction={x:0,z:0};actor.moving=false;
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
@@ -494,6 +515,7 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
+        headlampOn:p.eligible&&p.headlampOn,
         survivalTicks:survivingTicks(p),
         eliminationReason:p.eligible?null:p.eliminationReason,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
@@ -528,7 +550,8 @@ class BrSquadWorld {
         if(p.team===me.team||Math.hypot(p.x-observer.x,p.z-observer.z)>weather.visibilityMeters||
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
-          moving:p.moving,crouched:p.crouchHeld});
+          moving:p.moving,crouched:p.crouchHeld,
+          headlampOn:p.headlampOn});
       }
     }
     const signal=this.squadSignals.get(me.team);
@@ -571,6 +594,7 @@ class BrSquadWorld {
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
+        headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
         survivalTicks:survivingTicks(me),
         eliminationReason:me.eligible?null:me.eliminationReason,
         surface,
@@ -588,4 +612,4 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND};
+  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS};
