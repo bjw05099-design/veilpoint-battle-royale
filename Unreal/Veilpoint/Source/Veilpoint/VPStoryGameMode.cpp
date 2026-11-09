@@ -185,35 +185,34 @@ void AVPStoryGameMode::RestoreStoryCheckpoint()
     if (!State) return;
     // Only reconstruct the actually saved single pedestrian in this offline
     // world. No client-submitted positions and no citywide evacuation claims.
-    const auto RestoreCivilian = [this](const UVPStoryCheckpoint* Saved)
+    const auto RestoreCivilian = [this](const UVPStoryCheckpoint* Saved) -> bool
     {
-        if (!Saved || Saved->SchemaVersion < 3 || !Saved->bHasPedestrianPose)
-            return; // V1/V2: preserve the old authored starting state.
+        if (!Saved) return false;
+        if (Saved->SchemaVersion < 3 || !Saved->bHasPedestrianPose)
+            return true; // V1/V2: preserve the authored starting body.
         for (TActorIterator<AVPStoryPedestrian> It(GetWorld()); It; ++It)
         {
             if (!IsValid(*It)) continue;
-            if (!It->RestoreOfflineCheckpointPose(
+            if (It->RestoreOfflineCheckpointPose(
                 Saved->SavedPedestrianPosition,
                 Saved->bSavedPedestrianOnSidewalk,
-                Saved->bSavedPedestrianReachedSouth))
-                UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: civilian checkpoint pose blocked; retaining authored spawn"));
-            return;
+                Saved->bSavedPedestrianReachedSouth)) return true;
+            UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: civilian checkpoint pose blocked; trying verified backup"));
+            return false;
         }
+        UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: saved civilian actor missing; trying verified backup"));
+        return false;
     };
     UVPStoryCheckpoint* Primary = ReadVerifiedCheckpoint(CH01Slot);
-    if (Primary && State->RestoreProgress(
+    if (Primary && RestoreCivilian(Primary) && State->RestoreProgress(
         Primary->SavedStage, Primary->bSavedHarborRecord, Primary->bSavedShelterRecord,
         Primary->SchemaVersion >= 2 && Primary->bSavedBeaconActivated))
-    {
-        RestoreCivilian(Primary);
         return;
-    }
     UVPStoryCheckpoint* Backup = ReadVerifiedCheckpoint(CH01BackupSlot);
-    if (Backup && State->RestoreProgress(
+    if (Backup && RestoreCivilian(Backup) && State->RestoreProgress(
         Backup->SavedStage, Backup->bSavedHarborRecord, Backup->bSavedShelterRecord,
         Backup->SchemaVersion >= 2 && Backup->bSavedBeaconActivated))
     {
-        RestoreCivilian(Backup);
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: restored prior confirmed objective backup"));
         return;
     }
