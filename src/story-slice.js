@@ -1092,7 +1092,16 @@
     if(state.civilianWalker&&!state.civilianWalker.arrived&&state.combat.cleared&&
        ['records','decision','exit'].includes(state.phase)){
       const w=state.civilianWalker,start=w.z;
-      const destinationX=state.civilianRerouted?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x;
+      const preferredX=state.civilianRerouted?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x;
+      // Choose the neighboring public lane BEFORE reaching a stationary
+      // person, then stay on it until physically past them. Otherwise a
+      // direct-to-destination walk can undo each lateral step on the next
+      // 60Hz tick and trap the civilian beside the same human.
+      const pedestrianNearby=Math.abs(w.z-p.z)<4&&p.z<w.z+1&&
+        Math.abs(p.x-preferredX)<1.6;
+      const destinationX=pedestrianNearby
+        ?(preferredX===CIVILIAN_WALK.x?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x)
+        :preferredX;
       const dx=destinationX-w.x,dz=CIVILIAN_WALK.endZ-w.z;
       const distance=Math.hypot(dx,dz)||1;
       const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
