@@ -294,6 +294,14 @@ if(uFlashOn>.5){
 float grain=(hash(gl_FragCoord.xy+uTime*23.)-.5)*.035*uEffects;
 diffuse+=grain;
 float fogFactor=1.-exp(-pow(vDistance*uFogDensity,1.7));
+// Regional scenery lies outside the +/-175m playable map. In clear
+// weather, avoid erasing the distinctive volcano/bay silhouette with 97%
+// fog. Real opponents/interactive buildings remain fully fogged and subject
+// to the existing authoritative visibility planner. During sea haze this
+// special case is disabled so weather stays visually meaningful.
+float distantScenery=step(175.5,max(abs(vWorld.x),abs(vWorld.z)));
+float clearAir=1.-step(.014,uFogDensity);
+fogFactor=mix(fogFactor,min(fogFactor,.74),distantScenery*clearAir);
 vec3 linear=mix(diffuse,uFog,clamp(fogFactor,0.,.97));
 vec3 graded=aces(linear*uExposure);
 graded=pow(graded,vec3(.96));
