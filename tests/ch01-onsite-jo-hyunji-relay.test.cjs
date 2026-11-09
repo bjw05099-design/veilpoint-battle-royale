@@ -65,7 +65,9 @@ test('on-foot Jo Hyunji collaboration restores one public relay, never a distant
 });
 test('story actor rendering and old checkpoint serialization remain compatible',()=>{
  const render=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
- assert.match(render,/w\.role==='jo-hyunji'\?'liaison':'witness'/);
+ assert.match(render,/if\(w\.role==='jo-hyunji'\)/);
+ assert.match(render,/type:'liaison'/);
+ assert.match(render,/type:'witness'/);
  assert.match(render,/liaison\?\[\.34,\.42,\.51\]/);
  const original=Story.serialize(Story.createState());
  assert.equal(Story.serialize(Story.restore(original)),original);
