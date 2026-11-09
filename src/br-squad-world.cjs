@@ -90,7 +90,7 @@ class BrSquadWorld {
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
           direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
           // Monotonic server clock only; no client-reported survival time.
-          eliminatedAtTick:null,
+          eliminatedAtTick:null,eliminationReason:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
           landmarkMask:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
@@ -321,6 +321,7 @@ class BrSquadWorld {
     if(this.handcart.operator===actor)this.handcart.operator=null;
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
+    actor.eliminationReason='voluntary_withdrawal';
     actor.direction={x:0,z:0};
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
@@ -436,6 +437,7 @@ class BrSquadWorld {
       for(const actor of expired){
         actor.eligible=false;
         actor.eliminatedAtTick=this.tick;
+        actor.eliminationReason='area_expiry';
         actor.direction={x:0,z:0};
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
@@ -488,6 +490,7 @@ class BrSquadWorld {
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         survivalTicks:survivingTicks(p),
+        eliminationReason:p.eligible?null:p.eliminationReason,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
         boundaryGraceTicksRemaining:!p.eligible?null:
           positionInArea(playableArea,p.x,p.z).outside
@@ -562,6 +565,7 @@ class BrSquadWorld {
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         survivalTicks:survivingTicks(me),
+        eliminationReason:me.eligible?null:me.eliminationReason,
         surface,
         stamina:Math.round(me.stamina*100)/100,
         resting:me.eligible&&me.resting,
