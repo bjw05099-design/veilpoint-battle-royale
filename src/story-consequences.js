@@ -9,12 +9,13 @@
   'use strict';
   const EVENTS=Object.freeze({
     ARRIVED:'arrived',ESCALATION:'escalation',CONTACT_LOST:'contact_lost',
-    LOCAL_GUIDE:'local_guide',SAFE_ROUTE:'safe_route',EXIT:'exit'
+    LOCAL_GUIDE:'local_guide',SAFE_ROUTE:'safe_route',
+    LOCAL_AID_OBSERVED:'local_aid_observed',EXIT:'exit'
   });
   const PREREQUISITES=Object.freeze({
     escalation:['arrived'],contact_lost:['escalation'],
     local_guide:['escalation'],safe_route:['local_guide'],
-    exit:['contact_lost','safe_route']
+    local_aid_observed:['safe_route'],exit:['contact_lost','safe_route']
   });
   function newTimeline(){
     return {version:1,briefedBeforeDeparture:true,originalMandate:'civilian liaison and communications support',
@@ -23,7 +24,7 @@
   function restoreTimeline(raw){
     if(!raw||raw.version!==1||raw.briefedBeforeDeparture!==true||
        raw.originalMandate!=='civilian liaison and communications support'||
-       !Array.isArray(raw.events)||raw.events.length>6)throw new Error('Invalid story timeline');
+       !Array.isArray(raw.events)||raw.events.length>7)throw new Error('Invalid story timeline');
     let result=newTimeline();
     for(const event of raw.events){
       if(typeof event!=='string'||result.events.includes(event))throw new Error('Invalid event');
@@ -77,6 +78,11 @@
       if(['evacuation','verification'].includes(state.choice))
         result=advance(result,EVENTS.SAFE_ROUTE,
           state.choice==='evacuation'?'courtyard':'harbor');
+      // Only an actual physical civilian aid handoff can author this optional
+      // follow-up thread. Route selection, an unopened crate or a reported
+      // vehicle arrival do not prove that the local aid team received supplies.
+      if(state.choice==='evacuation'&&state.aidDelivered===true)
+        result=advance(result,EVENTS.LOCAL_AID_OBSERVED);
       if(state.phase==='complete'&&result.events.includes(EVENTS.SAFE_ROUTE))
         result=advance(result,EVENTS.EXIT);
     }

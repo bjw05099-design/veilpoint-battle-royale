@@ -258,6 +258,7 @@ function render(){
      (state.entry.options.find(o=>o.id===state.entry.choice)?.label||'기본 접근로')+
      ' · 서버가 실제 출발 위치를 지정합니다.':'')+
    (w?'\n서버 틱 '+w.tick+' · 생존 '+Math.floor((w.self.survivalTicks||0)/60)+'초 · 남은 분대 '+w.remainingSquads+
+    '\n경기 제한시간 · 서버 기준 '+Math.ceil((w.roundClock?.remainingTicks||0)/60)+'초 남음'+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.benchResting?' · 공공 벤치에서 휴식 중':w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.benchResting?'앉아서 휴식':w.self.crouched?'낮춘 자세':'서기')+(w.self.pedestrianFlow?.busy?' · 보행 혼잡 '+Math.round(w.self.pedestrianFlow.mobility*100)+'%':'')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
@@ -278,7 +279,7 @@ function render(){
       (w.spectatorView.automaticFallback?' · 기존 대상 퇴장으로 자동 전환':''):
       retired?'\n본인 경기 포기 · 아군 관전 선택 가능':'')+
     (w.matchOutcome?'\n최종 결과: '+
-     (w.matchOutcome.kind==='shared_tie'?'모든 분대 동시 종료 · 공동 순위':
+     (w.matchOutcome.kind==='shared_tie'?(w.matchOutcome.reason==='time_limit'?'제한시간 종료 · 남은 분대 공동 순위':'모든 분대 동시 종료 · 공동 순위'):
        w.matchOutcome.kind==='squad_win'?'우리 분대 우승':
        '우리 분대 '+w.matchOutcome.ownSquadPlacement+'위')+
      (w.matchOutcome.winningSquad===null?'':' · 우승 분대 '+w.matchOutcome.winningSquad):''):'\n96명 전원 준비 시 이동 시작')
