@@ -8,6 +8,8 @@
 
 **Binding canon:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md). Twelve chapters / 720 minutes of *authored target* (actual duration unmeasured), Korean special-forces Captain **Lee Su-hyeok** as playable lead, important fictional NIS agents **Kim Ji-yun** and **Jo Hyeon-ji**, fictional Middle Eastern conflict across Sahir Coast/Nahrin, dominant combat-first gameplay with variety, and three modes overall (campaign, Operations multiplayer, battle royale).
 
+**Playthrough timestamp-to-implementation mapping:** [Owner-provided scene-by-scene 14m18s breakdown and original Nahrin acceptance checks](REFERENCE_PLAYTHROUGH_CAUSALITY_2026_11_09.md) complements the main [causal CH01 gameplay specification](CH01_CAUSAL_GAMEPLAY_REFERENCE_2026-11-09.md). Its first coded follow-up is locally different **synthetic** urban ambience before/after the real in-game escalation. This does not certify authentic field recordings or full cinematic implementation.
+
 ## Difference between cinematic appearance and participatory immersion
 
 A film controls every shot; a compelling interactive campaign must remain coherent when the player approaches a scene at an unexpected angle, pauses, changes speed, misses a clue, uses accessibility settings or returns from a checkpoint.
@@ -50,7 +52,7 @@ No world event should rely solely on a static cinematic that ignores the player'
 
 ### CH01 (first priority after stable browser demo)
 - [ ] Existing story browser slice, including its implemented non-graphic encounter, remains functional and its characters/canon are consistent.
-- [ ] Add a **playable fictional combat encounter** with game-oriented encounter AI, objective state, accessible feedback and checkpoint/resume; avoid scripting a victory that happens without player engagement.
+- [ ] Extend the **existing playable fictional combat encounter** with game-oriented encounter AI, objective state, accessible feedback and checkpoint/resume; avoid scripting a victory that happens without player engagement.
 - [ ] Captain Lee / NIS ally / Mara dialogue responds to player actions and the mission state, with readable subtitles; do not rely on an uninterruptible transcript.
 - [ ] At least one scripted environmental transition happens **in gameplay** and correctly persists (or deterministically reconstructs) through reload.
 - [ ] A civilian/daily-life interaction and companion response causally lead to a **different playable goal** after a witnessed local emergency; companions and street state remain coherent on checkpoint load. This is a proposed feature, not a completed scene.

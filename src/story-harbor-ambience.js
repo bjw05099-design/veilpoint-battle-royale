@@ -18,18 +18,48 @@
     (x>=-56&&x<=-34&&z>=125&&z<=145) ||
     (x>=-164&&x<=-144&&z>=112&&z<=130);
  }
+ // The same PUBLIC harbor approach is encountered before and after the
+ // unexpected escalation.  Distinct *synthetic* harmonic beds communicate
+ // local environmental change; these are not licensed recordings or a claim
+ // to faithfully reproduce real Aden.  Coordinates only select sound near
+ // the player, never reveal distant actors or generate story objectives.
+ function acousticArea(player){
+  if(indoors(player))return 'interior';
+  const distance=(x,z)=>Math.hypot(player.x-x,player.z-z);
+  if(distance(24,-35)<19)return 'market';
+  if(distance(0,-18)<23)return 'harbor-approach';
+  return 'open-harbor';
+ }
  function profile(state){
-  if(!state||!state.world||!state.world.player)
-   return Object.freeze({lowHz:54,highHz:96,level:0,indoors:false});
-  const phase=state.phase,inside=indoors(state.world.player);
-  const active=phase!=='failed'&&phase!=='complete';
-  // Keep speech and game effects unobscured during the opening encounter.
-  // Restoration of one local power line does NOT mean the whole city is safe.
+  if(!state||!state.world||!state.world.player||
+     ![state.world.player.x,state.world.player.z].every(Number.isFinite))
+   return Object.freeze({lowHz:54,highHz:96,level:0,indoors:false,
+     area:'unavailable',moment:'silent'});
+  const phase=state.phase,player=state.world.player,area=acousticArea(player);
+  const inside=area==='interior',active=phase!=='failed'&&phase!=='complete';
+  // One original, observable incident changes an already visited street.
+  // "After" does not claim the whole fictional city is destroyed or safe.
+  const moment=!active?'silent':phase==='terminal'?'ordinary':
+    phase==='engagement'?'escalation':'changed-street';
+  // Speech and effects retain priority while danger is unfolding.
   const base=!active?0:phase==='engagement'?.0028:
     phase==='terminal'?.0043:.0062;
   const level=clamp(base*(inside?.40:1),0,.008);
-  return Object.freeze({lowHz:inside?51:58,
-   highHz:state.relayRestored===true?109:96,level,indoors:inside});
+  let lowHz=inside?51:58,highHz=96;
+  if(area==='market'){
+   lowHz=moment==='ordinary'?65:moment==='silent'?58:47;
+   highHz=moment==='ordinary'?125:moment==='silent'?96:78;
+  }else if(area==='harbor-approach'){
+   lowHz=moment==='ordinary'?60:moment==='silent'?58:49;
+   highHz=moment==='ordinary'?105:moment==='silent'?96:81;
+  }else if(inside && moment!=='ordinary' && moment!=='silent'){
+   lowHz=46;highHz=84;
+  }
+  // Restored relay power affects only its actual nearby public walkway.
+  // A single powered fixture never implies a city-wide recovery.
+  if(state.relayRestored===true&&
+     Math.hypot(player.x-8,player.z+42)<17)highHz=109;
+  return Object.freeze({lowHz,highHz,level,indoors:inside,area,moment});
  }
  function create({AudioContextClass=null}={}){
   let context=null,low=null,high=null,gain=null,enabled=false,volume=1,lastLevel=0;
