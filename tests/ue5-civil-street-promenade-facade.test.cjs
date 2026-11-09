@@ -51,8 +51,10 @@ test('original city strip contributes a continuous 33-cell publicly walkable ter
   }
   assert.ok(scene.parts.filter(p=>p.role==='entry-paver').length>9);
   const road=walkway.map(p=>p.y);
-  assert.ok(Math.max(...road)-Math.min(...road)<2.5,
-   'the short sidewalk must not conceal unsupported extreme terrain leaps');
+  assert.ok(Math.max(...road)-Math.min(...road)<4,
+   'the civic street follows the gentle changing local terrain instead of floating flat');
+  assert.ok(road.slice(1).every((y,i)=>Math.abs(y-road[i])<.25),
+   'neighboring 4m civic pavers must have a small step on this original terrain fixture');
   assert.deepEqual(scene.entrances.map(e=>e.doorwayMetres),[4.4,4.8,5.2]);
  });
 });
