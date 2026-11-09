@@ -65,7 +65,7 @@ test('character comms reacts to physical east door obstruction and never mandate
  const blocked=Comms.briefing(s);
  assert.equal(blocked.speaker,'조현지');
  assert.match(blocked.message,/멈췄습니다/);
- assert.doesNotMatch(blocked.message,/통행 완료/);
+ assert.match(blocked.message,/완료로 판단할 수 없습니다/);
  s.gateObstructed=false;
  assert.notEqual(Comms.briefing(s).message,blocked.message);
 });
