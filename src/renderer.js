@@ -369,6 +369,8 @@ class SoftwareRenderer {
    objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'market-resident'});
   else if(w.role==='kim-jiyoon')
    objects.push({x:w.x,z:w.z,h:1.8,w:.56,d:.55,type:'field-companion'});
+  else if(w.role==='civic-crossing-resident')
+   objects.push({x:w.x,z:w.z,h:1.73,w:.55,d:.55,type:'crossing-resident'});
   else objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'witness'});
  }
  for(const {entity:w} of plan.workers||[])objects.push({x:w.x,z:w.z,h:1.74,w:.55,d:.55,type:'worker'});
@@ -436,7 +438,8 @@ class SoftwareRenderer {
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
-   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-fallen-awning'?'#b58c65':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='liaison'?'#627b94':o.type==='market-resident'?'#b18f66':o.type==='field-companion'?'#6f858d':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='harbor-wash'?'#527e88':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
+   o.type==='aden-pedestrian-bench'?'#8a7661':o.type==='aden-pedestrian-post'?'#827f72':o.type==='yard-switch'?(global.VeilpointSim.serviceGateStatus(state).obstructed?'#d65045':global.VeilpointSim.gateMotorActive(state)?'#e5a748':global.VeilpointSim.serviceGateStatus(state).open?'#54b977':'#89a2a5'):o.type==='story-civil-transport'?'#657d87':o.type==='story-building'?'#88786a':o.type==='story-warehouse'?'#6e7066':o.type==='story-office-wall'?'#91816a':o.type==='story-office-desk'?'#776351':o.type==='story-fallen-awning'?'#b58c65':o.type==='story-water-kiosk'?'#8d7b64':o.type==='story-drydock-hull'?'#53656c':o.type==='story-rescue-locker'?'#b85b44':o.type==='volcanic-outcrop'?'#464644':o.type==='building'?'#6e7470':o.type==='bot'?'#24352e':o.type==='guide'?'#7c8c96':o.type==='liaison'?'#627b94':o.type==='market-resident'?'#b18f66':o.type==='field-companion'?'#6f858d':
+    o.type==='crossing-resident'?'#a48a69':o.type==='witness'?'#7d8c77':o.type==='worker'?'#a18c72':o.type==='gate-log'?(state.gateLogReviewed?'#4d8c73':'#8e7651'):o.type==='report-desk'?(state.logHandedOff?'#487e67':'#9a8465'):o.type==='trail-marker'?'#d4ac48':o.type==='field-pouch'?'#77756c':o.type==='dock-handcart'?'#567078':o.type==='yard-service-vehicle'?'#4e6470':o.type==='dock-inspection-wall'?'#546467':o.type==='harbor-wash'?'#527e88':o.type==='wet-apron'?'#344b52':o.type==='med'?'#62ca9d':'#f4bc72';
  // Low-fidelity Canvas fallback: brighten nearby prop faces in the
  // headlamp's forward cone without drawing a screen-space magic glow.
  if((harborNight&&state.flashlightOn&&state.flashlightTicks>0)||
@@ -1099,9 +1102,10 @@ class Renderer {
  // Real local CH01 human NPC rather than a bright HUD-only objective.
  for(const {entity:w} of plan.witnesses||[]){
   const liaison=w.role==='jo-hyunji',marketResident=w.role==='mara',
-    companion=w.role==='kim-jiyoon';
+    companion=w.role==='kim-jiyoon',crossing=w.role==='civic-crossing-resident';
   mesh.box(w.x,.05,w.z,.56,1.20,.45,liaison?[.34,.42,.51]:
-    marketResident?[.57,.43,.27]:companion?[.37,.47,.53]:[.42,.49,.38]);
+    marketResident?[.57,.43,.27]:companion?[.37,.47,.53]:
+    crossing?[.55,.46,.33]:[.42,.49,.38]);
   mesh.box(w.x,1.39,w.z,.42,.42,.40,[.60,.48,.37]);
  }
  // Mobile street-life silhouette is drawn only from visible 60Hz CH01
