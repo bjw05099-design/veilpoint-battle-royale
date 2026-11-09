@@ -39,5 +39,5 @@ test('CH01 60Hz loop, renderer and PC save hook use the same physical crossing r
  assert.match(story,/Civic\.restore\(data\.civicCrossing\)/);
  assert.match(app,/const civicReachedBefore=Story\.civicCrossingReached\(state\)/);
  assert.match(app,/Story\.civicCrossingArrivalCheckpoint\(civicReachedBefore,state\)\)\s*persist\(/);
- assert.doesNotMatch(app,/setTimeout\([^]*civicCrossingArrivalCheckpoint/);
+ assert.match(app,/persist\('주민의 실제 건널목 도착'\)/);
 });
