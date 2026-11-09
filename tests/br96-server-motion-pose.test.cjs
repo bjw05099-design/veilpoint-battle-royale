@@ -44,7 +44,7 @@ test('moving and crouched people are only rendered from server-approved local sn
   obstacles:[{x:0,z:-12,w:4,d:1,h:3}],
   squad:[{id:2,slot:2,x:2,z:-5,eligible:true,facing:Math.PI/2,moving:true,crouched:true}],
   visible:[{id:9,x:0,z:-19,facing:2,moving:true,crouched:true},
-           {id:10,x:-5,z:-5,facing:0,moving:false,crouched:false}],
+           {id:10,x:-3,z:-6,facing:0,moving:false,crouched:false}],
   visibilityMeters:95});
  assert.equal(view.seen.find(x=>x.id===2).crouched,true);
  assert.equal(view.seen.find(x=>x.id===2).moving,true);
