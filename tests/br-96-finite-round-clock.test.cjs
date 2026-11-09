@@ -35,7 +35,7 @@ test('real server tick closes the round without fabricating a sole champion or o
  const winner=world.snapshot(token(6)),retired=world.snapshot(token(0));
  assert.deepEqual(winner.matchOutcome,{kind:'shared_tie',winningSquad:null,
   ownSquadPlacement:1,finishedTick:ROUND_LIMIT_TICKS,reason:'time_limit'});
- assert.deepEqual(retired.matchOutcome,{kind:'shared_tie',winningSquad:null,
+ assert.deepEqual(retired.matchOutcome,{kind:'squad_placed',winningSquad:null,
   ownSquadPlacement:16,finishedTick:ROUND_LIMIT_TICKS,reason:'time_limit'});
  assert.equal(winner.personalRecap.ownResult,'active_at_finish');
  assert.equal(retired.personalRecap.ownResult,'voluntary_withdrawal');
@@ -56,9 +56,10 @@ test('deadline does not overwrite a genuine earlier squad champion',()=>{
  assert.deepEqual(world.snapshot(token(95)).matchOutcome,{
   kind:'squad_win',winningSquad:16,ownSquadPlacement:1,finishedTick:0
  });
- world.tick=ROUND_LIMIT_TICKS+1;world.step();
+ world.step();world.step();
  assert.equal(world.finishReason,null);
+ assert.equal(world.tick,0,'an earlier champion freezes the server-owned round');
  assert.deepEqual(world.snapshot(token(95)).matchOutcome,{
-  kind:'squad_win',winningSquad:16,ownSquadPlacement:1,finishedTick:ROUND_LIMIT_TICKS+1
+  kind:'squad_win',winningSquad:16,ownSquadPlacement:1,finishedTick:0
  });
 });
