@@ -11,7 +11,7 @@
  const CROSSING=Object.freeze({x:6,z:-16,radius:2.5});
  const SPEED=1.1;
  function initial(){return {version:1,tick:0,disrupted:false,assisted:false,civilian:{x:2,z:-16},destination:{x:10,z:-16}};}
- function step(state,{disruption=false,assist=false,player}={}){
+ function step(state,{disruption=false,assist=false,player,blocked=null}={}){
    if(!state||state.version!==1||!Number.isSafeInteger(state.tick)||state.tick<0)throw new TypeError('invalid_civic_state');
    const near=player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
      Math.hypot(player.x-CROSSING.x,player.z-CROSSING.z)<=CROSSING.radius;
@@ -22,7 +22,17 @@
      const dx=state.destination.x-civilian.x,dz=state.destination.z-civilian.z;
      const distance=Math.hypot(dx,dz);
      const travel=Math.min(distance,SPEED/60);
-     if(distance>0){civilian.x+=dx/distance*travel;civilian.z+=dz/distance*travel;}
+     if(distance>0){
+      const nextX=civilian.x+dx/distance*travel;
+      const nextZ=civilian.z+dz/distance*travel;
+      // A person cannot pass through the captain or an authored solid wall.
+      // Wait in place until the actual route is physically passable.
+      const occupied=!!player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
+        Math.hypot(nextX-player.x,nextZ-player.z)<1.1;
+      if(!occupied&&!(typeof blocked==='function'&&blocked(nextX,nextZ))){
+       civilian.x=nextX;civilian.z=nextZ;
+      }
+    }
    }
    return {version:1,tick:state.tick+1,disrupted,assisted,civilian,destination:{...state.destination}};
  }
