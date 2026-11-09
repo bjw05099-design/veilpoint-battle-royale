@@ -1693,7 +1693,7 @@
         ?'출구 통과 보류 · 운반 중인 물품을 현장 인계하거나 임시 적재대에 내려놓으세요'
       :nearby.id==='exitEvac'&&state.guide.active&&!state.guide.arrived
         ?'출구 통과 보류 · 안내원의 실제 안뜰 도착 또는 현지 구조단 인계가 필요합니다'+
-          (state.guide.waiting&&situation.guideStatus.includes('E로 동행 재개 가능')
+          (state.guide.waiting&&situation.guideStatus.includes('F로 동행 재개 가능')
             ?' · '+interactPrompt+' 가까운 안내원 동행 재개':'')
       :nearby.id==='guideControl'?interactPrompt+' '+nearby.label+' · 현장 안내원 위치에서 동행 상태 변경'
       :nearby.id==='guideRelease'||nearby.id==='guideTransfer'?interactPrompt+' '+nearby.label+' · 안내원 현장 인계'
