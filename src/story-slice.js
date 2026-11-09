@@ -2006,6 +2006,21 @@
           state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
     });
   }
+  // The real E-key target decides which locally staffed option is playable.
+  // This is presentation derived from existing 60Hz markers and collision;
+  // no magical range, new required research or checkpoint field is added.
+  function localRouteOffer(state){
+    if(!state.combat?.cleared||
+       !['records','decision'].includes(state.phase))return null;
+    const marker=nearest(state);
+    if(marker?.id==='coordinatorRequest')
+      return Object.freeze({kind:'south',speaker:'유수프 구조단',
+        action:'남쪽 주민 지원 현장 협의'});
+    if(marker?.id==='eastLocalRequest')
+      return Object.freeze({kind:'east',speaker:'동쪽 현지 통로 담당자',
+        action:'동쪽 통행 직접 요청'});
+    return null;
+  }
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. E로 직접 점검할 수도 있습니다.';
@@ -2015,10 +2030,14 @@
           ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'
           :' 보급 상자 잔량 '+state.combat.supplyRemaining+'발은 가까이에서 E로 확보할 수 있습니다.');
       case 'failed':return '신호가 끊겼습니다. 메뉴에서 미션을 다시 시작하세요.';
-      case 'records':return '남쪽 주민 대피가 가능합니다. 중앙 통제소에서 경로를 결정하세요. 동쪽 통로가 필요할 때만 기록을 대조할 수 있습니다.'+
+      case 'records':return (localRouteOffer(state)
+        ?localRouteOffer(state).speaker+' 바로 앞입니다. E키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다. 서류는 필요하지 않습니다.'
+        :'현지 구조단에 직접 접근하면 남쪽 주민 지원을 협의할 수 있습니다. 동쪽 담당자에게 직접 접근하면 통행을 요청할 수 있습니다. 기록 조사는 선택 사항입니다.')+
         (state.combat.supplyRemaining>0?' 남은 현장 보급은 가까이에서 E로 수령할 수 있습니다.':'')+
         (!state.relayRestored?' 비상 통신 중계기 전원(황금 표식)을 E로 연결하면 동쪽 통제문 준비가 4초로 단축됩니다.':'');
-      case 'decision':return state.found.length===2
+      case 'decision':return localRouteOffer(state)
+        ?localRouteOffer(state).speaker+'에게 E키로 '+localRouteOffer(state).action+'를 진행할 수 있습니다.'
+        :state.found.length===2
         ?'현장 기록을 추가 확인했습니다. 남쪽 대피 지원과 동쪽 통로 현장 확인 중 선택하세요.'
         :'두 경로 모두 선택할 수 있습니다. 동쪽 통로는 현지 통제소의 실제 개방을 기다려야 하며 기록 검토는 선택 사항입니다.';
       case 'exit':return state.choice==='verification'
@@ -2485,7 +2504,7 @@
     return {state,report};
   }
   return Object.freeze({
-    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,interact,toggleFlashlight,fire,autoFire,support,choose,
+    VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,localRouteOffer,interact,toggleFlashlight,fire,autoFire,support,choose,
     objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot
   });
 });
