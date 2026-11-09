@@ -586,6 +586,48 @@
       color:Object.freeze([
         [.40,.37,.31],[.38,.39,.35],[.50,.39,.30],[.42,.44,.39]
       ][i]),canvas:['#8b816e','#818779','#a99073','#92988a'][i]})));
+  // Regional Aden identity beyond this 350m PLAYABLE demo. Sources:
+  // NASA Earth Observatory (2016), UNESCO Historic City of Aden (2025):
+  // a horseshoe-like volcanic range, dense low/mid-rise port city and the
+  // sheltered maritime bay. Shapes are fictional artist-authored silhouettes,
+  // explicitly NOT 1:1 terrain, current facility positions, geocoordinates,
+  // hidden roads or a substitute for later surveyed/licensed landform art.
+  // All pieces lie OUTSIDE the 175m playable limit and never enter the
+  // 60Hz physics world, BR96 server geometry, saves or navigation decisions.
+  const ADEN_GEOGRAPHIC_VISTA=Object.freeze({
+    source:'NASA Earth Observatory 2016; UNESCO Historic City of Aden 2025',
+    ocean:Object.freeze({x:-356,z:82,w:356,d:630,y:-.24}),
+    ridges:Object.freeze([
+      Object.freeze({id:'shamsan-arc',z:258,baseZ:222,
+        tone:Object.freeze([.35,.295,.255]),canvas:'#62564e',
+        peaks:Object.freeze([
+          [-267,19],[-231,39],[-195,58],[-158,47],[-123,74],
+          [-90,68],[-57,88],[-23,69],[13,95],[48,78],
+          [87,57],[124,41],[164,24]
+        ].map(([x,h])=>Object.freeze({x,h})))}),
+      Object.freeze({id:'western-bay-headland',z:226,baseZ:207,
+        tone:Object.freeze([.29,.27,.25]),canvas:'#55524e',
+        peaks:Object.freeze([
+          [-427,8],[-395,21],[-362,34],[-330,28],
+          [-297,48],[-264,31],[-229,22],[-197,8]
+        ].map(([x,h])=>Object.freeze({x,h})))}),
+      Object.freeze({id:'isthmus-rise',z:280,baseZ:258,
+        tone:Object.freeze([.43,.36,.30]),canvas:'#76665a',
+        peaks:Object.freeze([
+          [157,9],[189,24],[225,18],[257,33],[294,25],[332,12]
+        ].map(([x,h])=>Object.freeze({x,h})))})
+    ]),
+    // Dense neutral port-town silhouette: exposed light render shells only.
+    // Deterministic 4 x 12 city blocks, never colliding or spawning actors.
+    buildings:Object.freeze(Array.from({length:48},(_,i)=>{
+      const row=Math.floor(i/12),col=i%12;
+      return Object.freeze({
+        x:-157+col*27+(row%2?6:0),z:187+row*12,
+        w:11+(i+row)%3*2,d:8+(i+1)%3*2,
+        h:7+(i*7)%12,tone:(i+row)%4
+      });
+    }))
+  });
   function publicDistrictAt(player,obstacles){
     if(!player||!Number.isFinite(player.x)||!Number.isFinite(player.z)||
        !Array.isArray(obstacles))return null;
@@ -2033,6 +2075,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,ADEN_GEOGRAPHIC_VISTA,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
