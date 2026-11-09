@@ -27,8 +27,7 @@ test('96 real-member server differentiates voluntary exit from out-of-area expir
  assert.equal(world.snapshot(token(0)).squad[2].eliminationReason,'area_expiry');
  assert.match(Panel.roster(snapshot(token(0))),/3\. Resident 2 · 경기 종료 \(구역 밖 체류 만료\)/);
  const distant=world.snapshot(token(7));
- assert.equal(distant.squad.every(p=>p.id>=7&&p.id<=12),false,
-  'IDs are stable roster identifiers, not arbitrary token indexing');
+ assert.equal(distant.squad.length,6,'only the six genuine members of this squad are visible');
  assert.equal(distant.squad.some(p=>p.id===world.actors.get(token(2)).id),false,
   'opponent retirement reason is never copied into an unrelated squad roster');
  assert.equal(world.actors.get(token(3)).eligible,true);
