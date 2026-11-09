@@ -12,7 +12,7 @@ const MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 128;
 const MAX_UNCOMPRESSED_ENTRY_BYTES = 2 * 1024 * 1024;
 const MAX_UNCOMPRESSED_TOTAL_BYTES = 16 * 1024 * 1024;
-const REQUIRED = ['index.html', 'story.html', 'README.md', 'QUICK_START.txt',
+const REQUIRED = ['index.html', 'story.html', 'terrain.html', 'README.md', 'QUICK_START.txt',
   'docs/DEMO_DELIVERY_GATES.md', 'docs/GRAPHICS_PROFILES.md'];
 
 function invalid(reason) {throw new Error('invalid_demo_zip:' + reason);}
