@@ -132,6 +132,26 @@ test('browser story app initializes with objective, menu and 60Hz clock',()=>{
   assert.equal(app.element('quality').value,'balanced');
   assert.match(app.element('fps').textContent,/60Hz/);
 });
+test('PC F smoke: native event reaches CH01 world interaction with pointer lock',()=>{
+ const app=boot();
+ const desktop=app.context.VeilpointDesktopControls;
+ const original=app.context.VeilpointStorySlice.interact;
+ let invoked=0,details=null;
+ app.context.VeilpointStorySlice.interact=function(state,...rest){
+  invoked++;
+  const result=original(state,...rest);
+  details={result,phase:state.phase,player:{x:state.world.player.x,z:state.world.player.z}};
+  return result;
+ };
+ app.element('continue').click();
+ app.moveForward(0,300);
+ const locked=app.context.document.pointerLockElement!==null;
+ const bindings=desktop.load(app.context.localStorage).bindings;
+ app.interact();
+ assert.equal(invoked,1,'F not dispatched: '+JSON.stringify({locked,bindings,
+  ctrl:app.context.VeilpointInput,objective:app.element('objective').textContent}));
+ assert.equal(details.result.ok,true,'F dispatched but world rejected: '+JSON.stringify(details));
+});
 test('end-to-end CH01 browser UI: start, relay, optional evacuation, exit and save',()=>{
   const app=boot();
   app.element('continue').click();
