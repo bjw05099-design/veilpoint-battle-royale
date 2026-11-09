@@ -28,6 +28,9 @@ const PRESENCE_STALE_TICKS=10*60;
 const BOUNDARY_GRACE_TICKS=8*60;
 // Server-owned finite lamp; battery follows simulation ticks, not frames.
 const HEADLAMP_TICKS=10*60*60;
+// Only low, already-colliding fictional public benches can be stepped over.
+const STEP_OVER_TICKS=48,STEP_OVER_RADIUS=RADIUS;
+const STEPPABLE_BENCH=/^aden-(pedestrian|ferry-hall|market-court|transit-court)-bench$/;
 const OFFSETS=Object.freeze([[-4,-3],[0,-3],[4,-3],[-4,3],[0,3],[4,3]]);
 // Fictional public ferry hall access shutter, built for this online 96-body
 // simulation only. No real-world base, tactical machinery or site is copied.
@@ -98,7 +101,7 @@ class BrSquadWorld {
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
           headlampOn:false,headlampTicks:HEADLAMP_TICKS,
-          resting:false,spectateSlot:null});
+          resting:false,spectateSlot:null,stepping:null});
       }
     }
   }
@@ -229,6 +232,44 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,gate:this.gateSnapshot()};
   }
+  // 60Hz low-bench passage, without teleportation or client-supplied
+  // destination. Tall buildings, fences and other benches remain solid.
+  stepOver(token){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    if(actor.stepping||this.handcart.operator===actor||actor.crouchHeld||
+       actor.sprintHeld)return {ok:false,reason:'busy'};
+    if(this.tick-actor.lastMoveTick>LEASE_TICKS||
+       Math.hypot(actor.direction.x,actor.direction.z)<.75)
+      return {ok:false,reason:'approach_required'};
+    for(const bench of this.obstacles){
+      if(!STEPPABLE_BENCH.test(bench.type)||!(bench.h>0&&bench.h<=1.1))continue;
+      const acrossX=bench.d>bench.w;
+      const delta=acrossX?actor.x-bench.x:actor.z-bench.z;
+      const extent=(acrossX?bench.w:bench.d)/2;
+      const lateral=acrossX?actor.z-bench.z:actor.x-bench.x;
+      const lateralExtent=(acrossX?bench.d:bench.w)/2;
+      const side=Math.sign(delta);
+      if(!side||Math.abs(delta)<extent+RADIUS-.04||
+         Math.abs(delta)>extent+RADIUS+1.1||
+         Math.abs(lateral)>lateralExtent-RADIUS*.6||
+         (acrossX?actor.direction.x:actor.direction.z)*-side<.72)continue;
+      const destination={x:acrossX?bench.x-side*(extent+RADIUS+.30):actor.x,
+        z:acrossX?actor.z:bench.z-side*(extent+RADIUS+.30)};
+      // Explicit landing must be physically clear for a capsule and cannot
+      // overrun a living person. No target coordinate arrives over HTTP.
+      if(Sim.blocked(destination.x,destination.z,RADIUS,this.obstacles)||
+         [...this.actors.values()].some(p=>p!==actor&&p.eligible&&
+           Math.hypot(p.x-destination.x,p.z-destination.z)<RADIUS*2+.1))
+        continue;
+      actor.stepping={bench,start:{x:actor.x,z:actor.z},
+        destination,progress:0};
+      actor.lastPresenceTick=this.tick;
+      return {ok:true,kind:'public_bench',durationTicks:STEP_OVER_TICKS};
+    }
+    return {ok:false,reason:'no_reachable_low_bench'};
+  }
   // One real human interacts at arm's reach. No client-positioned cart, speed
   // boost, magic carrying or remote mutation of another team's world state.
   operateHandcart(token){
@@ -335,7 +376,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
-    actor.headlampOn=false;
+    actor.headlampOn=false;actor.stepping=null;
     actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
@@ -400,15 +441,32 @@ class BrSquadWorld {
       const wash=Sim.harborWaveWash(this.tick*STEP,actor);
       const pace=(running?SPRINT_SPEED:actor.crouchHeld?CROUCH_SPEED:SPEED)*
         terrain.mobility*wash.mobility;
-      if(actor!==cartPusher)Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
-        this.obstacles,RADIUS);
+      let stepAdvance=false;
+      if(actor.stepping){
+        const movement=actor.stepping;
+        const nextProgress=(movement.progress+1)/STEP_OVER_TICKS;
+        const t=Math.min(1,nextProgress);
+        const candidate={x:movement.start.x+
+            (movement.destination.x-movement.start.x)*t,
+          z:movement.start.z+(movement.destination.z-movement.start.z)*t};
+        // The traversed bench is below the raised foot, but EVERY other
+        // obstacle and human remains solid even during the passage.
+        if(!Sim.blocked(candidate.x,candidate.z,RADIUS,
+          this.obstacles.filter(o=>o!==movement.bench))){
+          next.x=candidate.x;next.z=candidate.z;stepAdvance=true;
+        }
+      }else if(actor!==cartPusher)
+        Sim.moveEntity(next,direction.x*pace,direction.z*pace,STEP,
+          this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
       if(nearbyBodies.nearby(next.x,next.z,2*RADIUS).some(other=>other!==actor&&
         Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
         next.x=actor.x;next.z=actor.z;
       }
-      return {actor,next,running,wantsMove:Math.hypot(direction.x,direction.z)>1e-8};
+      return {actor,next,running:actor.stepping?false:running,
+        wantsMove:actor.stepping?true:Math.hypot(direction.x,direction.z)>1e-8,
+        stepAdvance};
     });
     for(let i=0;i<proposals.length;i++)for(let j=i+1;j<proposals.length;j++){
       const a=proposals[i],b=proposals[j];
@@ -419,7 +477,7 @@ class BrSquadWorld {
     }
     const area=brPlayableArea(this.tick);
     const expired=[];
-    for(const {actor,next,running,wantsMove} of proposals){
+    for(const {actor,next,running,wantsMove,stepAdvance} of proposals){
       // A blocked body did not run. Only actual server-measured travel consumes
       // stamina, even when a wall or another player interrupts a sprint.
       const traveled=Math.hypot(next.x-actor.x,next.z-actor.z);
@@ -437,6 +495,10 @@ class BrSquadWorld {
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
+      if(actor.stepping&&stepAdvance&&traveled>1e-8){
+        actor.stepping.progress++;
+        if(actor.stepping.progress>=STEP_OVER_TICKS)actor.stepping=null;
+      }
       // A real squad earns each public neighborhood only by its own
       // member physically approaching the landmark in the 60Hz world.
       // Static public labels can be shared; opponents and unvisited places
@@ -462,7 +524,7 @@ class BrSquadWorld {
         actor.eligible=false;
         actor.eliminatedAtTick=this.tick;
         actor.eliminationReason='area_expiry';
-        actor.headlampOn=false;
+        actor.headlampOn=false;actor.stepping=null;
         actor.direction={x:0,z:0};actor.moving=false;
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
@@ -516,6 +578,7 @@ class BrSquadWorld {
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
         headlampOn:p.eligible&&p.headlampOn,
+        stepping:p.eligible&&!!p.stepping,
         survivalTicks:survivingTicks(p),
         eliminationReason:p.eligible?null:p.eliminationReason,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
@@ -551,7 +614,7 @@ class BrSquadWorld {
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
           moving:p.moving,crouched:p.crouchHeld,
-          headlampOn:p.headlampOn});
+          headlampOn:p.headlampOn,stepping:!!p.stepping});
       }
     }
     const signal=this.squadSignals.get(me.team);
@@ -595,6 +658,7 @@ class BrSquadWorld {
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
         headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
+        stepOverProgress:me.stepping?me.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(me),
         eliminationReason:me.eligible?null:me.eliminationReason,
         surface,
@@ -612,4 +676,4 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS};
+  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS,STEP_OVER_TICKS};
