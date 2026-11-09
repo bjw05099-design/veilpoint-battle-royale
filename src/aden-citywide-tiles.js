@@ -125,8 +125,17 @@
   const map=new Map();
   for(const tile of tiles){
    if(!tile||tile.key!==tileKey(tile.tx,tile.tz)||
-     tile.metresPerWorldUnit!==METRES_PER_UNIT||!Object.isFrozen(tile.samples))
+     tile.metresPerWorldUnit!==METRES_PER_UNIT||
+     !GRIDS.includes(tile.gridSize)||!Array.isArray(tile.samples)||
+     tile.samples.length!==tile.gridSize*tile.gridSize||
+     tile.samples.some(n=>!validFinite(n)||n<-500||n>3000)||
+     !Object.isFrozen(tile)||!Object.isFrozen(tile.samples)||
+     tile.sampleIntervalMetres!==TILE_METRES/(tile.gridSize-1))
     throw new TypeError('Only validated 1:1 height tiles may enter registry');
+   const provenance=validateSource(tile.source);
+   if(provenance.scope!=='public-terrain'||
+      tile.quality!==(provenance.type==='artist-blockout'?'blockout':'dataset-derived'))
+    throw new RangeError('Invalid tile source grade');
    if(map.has(tile.key))throw new RangeError('Duplicate tile '+tile.key);
    map.set(tile.key,tile);
   }
@@ -152,11 +161,21 @@
     a.key.localeCompare(b.key));
   const active=desired.slice(0,maxLoaded).map(o=>o.key),set=new Set(active),
    existing=new Set(loadedKeys);
+  // Report missing coverage explicitly. A blank tile MUST remain unknown,
+  // rather than being silently filled with a made-up surveyed street.
+  const unresolved=[];
+  for(let ring=0;ring<=radius;ring++)
+   for(let dx=-ring;dx<=ring;dx++)
+    for(let dz=-ring;dz<=ring;dz++)
+     if(Math.max(Math.abs(dx),Math.abs(dz))===ring){
+      const key=tileKey(origin.tx+dx,origin.tz+dz);
+      if(!registry.has(key))unresolved.push(key);
+     }
   return Object.freeze({origin:origin.key,
    active:Object.freeze(active),load:Object.freeze(active.filter(k=>!existing.has(k))),
    keep:Object.freeze(active.filter(k=>existing.has(k))),
    unload:Object.freeze([...existing].filter(k=>!set.has(k)).sort()),
-   unresolved:Object.freeze([]),
+   unresolved:Object.freeze(unresolved),
    completeCity:false, // Do not infer full-city coverage from a finite registry.
    streamedWorldMetresPerUnit:METRES_PER_UNIT});
  }
