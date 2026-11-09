@@ -102,16 +102,23 @@ function apply(next){
  render();
 }
 function parsePrivateWorld(packet){
- let event='',data='';
+ let event='',data='',id='';
  for(const line of packet.split('\n')){
   if(line.startsWith('event: '))event=line.slice(7);
   else if(line.startsWith('data: '))data+=line.slice(6);
+  else if(line.startsWith('id: '))id=line.slice(4);
  }
- if(event!=='world'||!data||data.length>65536)return null;
+ if(event!=='world'||!data||data.length>65536||
+    !/^[1-9][0-9]{0,8}:[0-9]{1,12}$/.test(id))return null;
  try{
   const world=JSON.parse(data);
-  return world?.mode==='br-96-traversal-prototype'&&
-    Number.isSafeInteger(world.tick)&&world.tick>=0&&world.self?world:null;
+  const [roundNumber,serverTick]=id.split(':').map(Number);
+  // A stream is identified by the server's real round generation. A
+  // delayed packet from the previous match must never rewind local bodies.
+  return world?.mode==='br-96-traversal-prototype'&&world.self&&
+    Number.isSafeInteger(world.tick)&&world.tick>=0&&
+    Number.isSafeInteger(serverTick)&&world.tick===serverTick
+    ?{world,roundNumber}:null;
  }catch(_){return null;}
 }
 async function connectPrivateWorldStream(){
@@ -135,13 +142,20 @@ async function connectPrivateWorldStream(){
    while((boundary=pending.indexOf('\n\n'))!==-1){
     const packet=pending.slice(0,boundary);
     pending=pending.slice(boundary+2);
-    const world=parsePrivateWorld(packet);
-    if(!world)continue; // retry and malformed events cannot mutate a match
+    const frame=parsePrivateWorld(packet);
+    if(!frame)continue; // malformed or mismatched tick cannot mutate a match
     if(token!==ownToken||state?.roundNumber!==ownRound){
      controller.abort();break;
     }
+    if(frame.roundNumber<ownRound)continue; // never replay an older world
+    if(frame.roundNumber>ownRound){
+     // The server has actually begun a new match. Fetch its full
+     // authenticated roster and let apply() reset input/tick/UI together;
+     // a partial SSE world alone cannot author a new round.
+     controller.abort();await poll();break;
+    }
     lastLiveAt=Date.now();
-    apply({...state,world});
+    apply({...state,world:frame.world,roundNumber:frame.roundNumber});
    }
   }
  }catch(error){
@@ -149,7 +163,9 @@ async function connectPrivateWorldStream(){
  }finally{
   if(liveAbort===controller){
    liveAbort=null;lastLiveAt=0;
-   liveRetryAt=Date.now()+4000; // bounded retry after stream disconnect
+   // Only a real new-round transition receives immediate stream resubscribe.
+   // Network failures continue with the existing bounded four-second retry.
+   liveRetryAt=state?.roundNumber!==ownRound?0:Date.now()+4000;
   }
  }
 }

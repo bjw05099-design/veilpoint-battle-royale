@@ -37,6 +37,9 @@ function beaconLightLevel(state){
     state.beaconEnabled!==true||!Number.isFinite(state.elapsed))return 0;
  return state.elapsed%1.6<.9?1:0;
 }
+function civicStreetLampLevel(state){
+ return state?.scene==='nahrin'&&state.publicStreetPowered===true?1:0;
+}
 // A small original street-front transition, located ON an existing solid
 // fictional harbor facade (east building x34..50, northern wall z=-28).
 // The open shop frontage becomes a lowered shutter after the actual witnessed
@@ -211,7 +214,7 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uBeaconOn,uFlashOn,uFogDensity;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uCivicOn,uBeaconOn,uFlashOn,uFogDensity;
 uniform vec3 uFlashEye,uFlashDir;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -220,6 +223,19 @@ void main(){vec3 N=normalize(vNormal),L=normalize(uSun);float lambert=max(dot(N,
 vec3 diffuse=vColor*mix(.18+.47*sky+.68*lambert,.12+.14*sky+.10*lambert,uNight);
 float highlight=pow(max(dot(reflect(-L,N),vec3(0.,.72, .69)),0.),26.);
 diffuse+=vec3(1.,.87,.63)*highlight*mix(.10,.025,uNight);
+// Two occupied public street lamps were working at arrival. The sudden
+// local blackout changes the SAME visible world the captain just walked.
+// The emergency relay restores a separate pair of lamps, not grid power.
+// Finite pools of warm light are a visual change, never enemy detection.
+if(uNight>.5&&uCivicOn>.5){
+ vec3 streetLamps[2]=vec3[2](vec3(-7.,3.4,-18.),vec3(7.,3.4,-18.));
+ for(int i=0;i<2;i++){
+  vec3 offset=streetLamps[i]-vWorld;
+  float d=length(offset);
+  float facing=max(dot(N,normalize(offset)),0.);
+  diffuse+=vColor*vec3(1.,.79,.51)*facing*1.55/(1.+.07*d*d);
+ }
+}
 // Two original, fixed wall luminaires illuminate the harbor only after the
 // player physically restores the civilian relay. Inverse-square-like falloff,
 // surface-facing response and bounded range prevent an omnipresent glow.
@@ -320,6 +336,15 @@ class SoftwareRenderer {
    const x=pavement.x,z=pavement.z,ww=pavement.w/2,dd=pavement.d/2;
    polygon([proj(x-ww,.08,z-dd),proj(x+ww,.08,z-dd),
      proj(x+ww,.08,z+dd),proj(x-ww,.08,z+dd)],pavement.canvas);
+  }
+ }
+ // The software renderer shows the same two finite civic light pools as
+ // WebGL before the witnessed outage. The ground remains walkable and its
+ // physical colliders are unchanged when the lamps fail.
+ if(civicStreetLampLevel(state)>0){
+  for(const x of [-7,7]){
+   polygon([proj(x-2,.085,-20),proj(x+2,.085,-20),
+    proj(x+2,.085,-16),proj(x-2,.085,-16)],'#82724b');
   }
  }
  for(const o of state.obstacles){
@@ -528,7 +553,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),civicOn:g.getUniformLocation(this.prog,'uCivicOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -1237,6 +1262,7 @@ class Renderer {
  // Dusk uses reduced daylight without enabling CH01-only powered lamps.
  g.uniform1f(l.night,night?1:dusk?.44:0);
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
+ g.uniform1f(l.civicOn,civicStreetLampLevel(state));
  g.uniform1f(l.beaconOn,night?beaconLightLevel(state):0);
  g.uniform1f(l.flashOn,(night&&state.flashlightOn&&state.flashlightTicks>0)||
     (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)?1:0);
@@ -1259,6 +1285,7 @@ class Renderer {
  this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
+global.VeilpointCivicStreetLamp=civicStreetLampLevel;
 global.VeilpointSharedPublicCanopies=SHARED_PUBLIC_CANOPIES;
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
 global.VeilpointBeaconLight=beaconLightLevel;

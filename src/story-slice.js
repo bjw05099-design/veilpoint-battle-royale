@@ -682,6 +682,13 @@
     state.world.civicCrossingArrived=civicCrossingReached(state);
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
+    // The occupied harbor's original civic street lamps are lit while the
+    // captain first walks the neighborhood. The unexpected local grid loss
+    // switches them off at the actual 60Hz incident. Restoring the emergency
+    // relay powers only its OWN small wall lamps, not the entire city grid.
+    // Derive this directly from validated mission phase: legacy V2 checkpoint
+    // saves never receive an invented global power restoration flag.
+    state.world.publicStreetPowered=state.phase==='terminal';
     state.world.relayRestored=state.relayRestored;
     state.world.beaconEnabled=state.beaconEnabled;
     state.world.flashlightOn=state.flashlightOn;
