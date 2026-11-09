@@ -25,6 +25,10 @@ def prepare_vertex_color_material():
         if not isinstance(found, unreal.Material):
             raise RuntimeError("Existing terrain material path is not a Material")
         return found
+    # A separate original material package; never replace user materials.
+    if not unreal.EditorAssetLibrary.does_directory_exist("/Game/Materials"):
+        if not unreal.EditorAssetLibrary.make_directory("/Game/Materials"):
+            raise RuntimeError("Cannot create terrain material directory")
     asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
     material = asset_tools.create_asset(
         "M_CityTerrainPreview", "/Game/Materials",
