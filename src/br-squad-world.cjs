@@ -88,7 +88,7 @@ class BrSquadWorld {
         if(!point)throw new Error('no_room_for_96_real_bodies');
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
-          direction:{x:0,z:0},seq:-1,lastMoveTick:0,eligible:true,
+          direction:{x:0,z:0},facing:0,moving:false,seq:-1,lastMoveTick:0,eligible:true,
           // Monotonic server clock only; no client-reported survival time.
           eliminatedAtTick:null,eliminationReason:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
@@ -322,7 +322,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
-    actor.direction={x:0,z:0};
+    actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
       this.squadSignals.delete(actor.team);
     const peers=[...this.actors.values()];
@@ -404,6 +404,10 @@ class BrSquadWorld {
       // stamina, even when a wall or another player interrupts a sprint.
       const traveled=Math.hypot(next.x-actor.x,next.z-actor.z);
       actor.resting=!wantsMove&&traveled<1e-8;
+      // Body facing comes only from physically accepted 60Hz displacement.
+      // A rejected wall/peer collision never changes remote avatar posture.
+      actor.moving=traveled>1e-7;
+      if(actor.moving)actor.facing=Math.atan2(next.x-actor.x,-(next.z-actor.z));
       if(running&&traveled>1e-8){
         actor.stamina=Math.max(0,actor.stamina-SPRINT_DRAIN_PER_SECOND*STEP);
         if(actor.stamina<=0)actor.sprintDepleted=true;
@@ -438,7 +442,7 @@ class BrSquadWorld {
         actor.eligible=false;
         actor.eliminatedAtTick=this.tick;
         actor.eliminationReason='area_expiry';
-        actor.direction={x:0,z:0};
+        actor.direction={x:0,z:0};actor.moving=false;
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
       }
@@ -489,6 +493,7 @@ class BrSquadWorld {
     for(const p of participants){
       if(p.eligible)active[p.team]++;
       if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
+        facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
         survivalTicks:survivingTicks(p),
         eliminationReason:p.eligible?null:p.eliminationReason,
         outsideArea:positionInArea(playableArea,p.x,p.z).outside,
@@ -522,7 +527,8 @@ class BrSquadWorld {
       for(const p of nearby.nearby(observer.x,observer.z,weather.visibilityMeters)){
         if(p.team===me.team||Math.hypot(p.x-observer.x,p.z-observer.z)>weather.visibilityMeters||
           Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
-        seen.push({id:p.id,x:p.x,z:p.z});
+        seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
+          moving:p.moving,crouched:p.crouchHeld});
       }
     }
     const signal=this.squadSignals.get(me.team);
@@ -564,6 +570,7 @@ class BrSquadWorld {
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        facing:me.facing,moving:me.eligible&&me.moving,
         survivalTicks:survivingTicks(me),
         eliminationReason:me.eligible?null:me.eliminationReason,
         surface,
