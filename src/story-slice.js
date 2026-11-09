@@ -126,6 +126,10 @@
     recordB: Object.freeze({id:'recordB', x:-17, z:-30, kind:'evidence', label:'대피소 기록'}),
     decision: Object.freeze({id:'decision', x:0, z:-41, kind:'objective', label:'교차 확인 콘솔'}),
     relay: Object.freeze({id:'relay', x:8, z:-42, kind:'objective', label:'비상 통신 중계기 전원'}),
+    // Jo Hyunji is present at this original public relay footpath after
+    // unforeseen escalation, not remotely summoned from an unknown site.
+    liaisonAssist: Object.freeze({id:'liaisonAssist',x:12,z:-39,
+      kind:'objective',label:'조현지 · 현장 비상 통신 협의'}),
     beacon: Object.freeze({id:'beacon', x:-42, z:-27, kind:'objective', label:'항구 대피 안내 경고등 수동 스위치'}),
     muster: Object.freeze({id:'muster', x:-9, z:-55, kind:'evac', label:'유수프 구조단 집결지 현장 담당자'}),
     coordinatorRequest: Object.freeze({id:'coordinatorRequest',x:-9,z:-55,kind:'evac',label:'유수프 구조 책임자와 직접 대피 지원 협의'}),
@@ -480,6 +484,13 @@
     return [{id:'residentRoute',x:w.x,z:w.z,kind:'evac',
       label:'현지 주민과 구조단 접근로 직접 대화'}];
   }
+  function onsiteLiaisonMarkers(state){
+    if(!state.combat?.cleared||state.relayRestored||
+       !['records','decision'].includes(state.phase))return [];
+    const p=state.world.player,m=POINTS.liaisonAssist;
+    return Math.hypot(p.x-m.x,p.z-m.z)<6&&
+      !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
+  }
   // A face-to-face civilian-led evacuation request is offered only when the
   // coordinator is actually in reach and visible. No paperwork, remote route
   // menu, map-wide actor tracking or checkpoint schema change is introduced.
@@ -530,7 +541,7 @@
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),
+      ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...localAwningMarker(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
@@ -601,6 +612,9 @@
     // Renderer consumes the same saved physical relay state as mission rules.
     state.world.guide=state.choice==='evacuation'?state.guide:null;
     state.world.worker=state.worker;
+    state.world.liaison=state.combat.cleared&&
+      ['records','decision','exit','complete'].includes(state.phase)
+      ?{x:POINTS.liaisonAssist.x,z:POINTS.liaisonAssist.z,role:'jo-hyunji'}:null;
     state.world.civilianWalker=state.civilianWalker;
     syncCivilianShuttle(state);
     state.world.witness=transportWitness(state);
@@ -860,6 +874,10 @@
     // figure that the player can walk through on a pedestrian path.
     if(state.worker){
       const w=state.worker,body={x:w.x,z:w.z,w:1.1,d:1.1};
+      if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
+    }
+    if(state.world.liaison){
+      const w=state.world.liaison,body={x:w.x,z:w.z,w:1.1,d:1.1};
       if(!Sim.blocked(p.x,p.z,.85,[body]))occupied.push(body);
     }
     if(state.civilianWalker){
@@ -1404,6 +1422,16 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='liaisonAssist'&&state.combat.cleared&&
+       !state.relayRestored&&['records','decision'].includes(state.phase)){
+      // One on-site civilian relay can be restored, without granting any
+      // imaginary global communications, passage approval or extraction.
+      state.relayRestored=true;
+      state.subtitle='조현지(국정원 · 현장): 출국 전에 브리핑받은 임무는 민간 연락망 협력이었습니다. 현지 구조단과 협력해 이 중계 회선만 연결하겠습니다. 주민 이동과 복귀 경로는 유수프 측의 별도 현장 확인이 필요합니다.';
+      state.message='조현지와 현장 통신 협력 · 민간 중계 회선 복구 · 철수 여부 미확정';
+      syncMarkers(state);
+      return {ok:true,event:'onsite_liaison_relay',phase:state.phase};
+    }
     if(marker.id==='eastLocalRequest'&&state.combat.cleared&&
        ['records','decision'].includes(state.phase)){
        // No field paperwork, route vote or teleported clearance. This local
