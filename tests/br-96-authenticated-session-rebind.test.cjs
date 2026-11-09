@@ -53,7 +53,14 @@ test('loopback session handoff refuses forged data, preserves active 60Hz state 
    const j=await post('/join',{name:'Human '+i});
    assert.equal(j.status,201);secrets.push(j.body.token);
   }
-  assert.equal((await post('/resume-session',{},secrets[0])).status,409);
+  // A real 96-seat staging roster may rotate one verified session before
+  // launch; its original seat and readiness must remain unchanged.
+  const staged=await post('/resume-session',{},secrets[0]);
+  assert.equal(staged.status,200);
+  assert.equal(staged.body.state.participants,96);
+  assert.equal(staged.body.state.self.squad,1);
+  assert.equal((await get('/state',secrets[0])).status,401);
+  secrets[0]=staged.body.token;
   for(const t of secrets)assert.equal((await post('/ready',{ready:true},t)).status,200);
   const old=secrets[0],before=await get('/world',old);
   assert.equal(before.status,200);
