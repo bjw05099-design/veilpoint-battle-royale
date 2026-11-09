@@ -27,7 +27,7 @@ public:
 
 private:
     float StepAccumulator=0.f;
-    float ClosedY=0.f;
-    static constexpr float TravelCm=620.f;
-    static constexpr float SlideSpeedCmPerSecond=135.f;
+    float ClosedZ=0.f;
+    static constexpr float TravelCm=340.f;
+    static constexpr float SlideSpeedCmPerSecond=115.f;
 };
