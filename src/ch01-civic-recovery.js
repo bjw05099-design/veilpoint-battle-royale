@@ -18,7 +18,9 @@
    const disrupted=state.disrupted||disruption===true;
    const assisted=state.assisted||(disrupted&&assist===true&&near);
    const civilian={...state.civilian};
-   if(disrupted&&assisted){
+   // A face-to-face F interaction records intent; walking starts on the
+  // NEXT 60Hz world tick, not by mutating coordinates inside a UI click.
+  if(disrupted&&state.assisted){
      const dx=state.destination.x-civilian.x,dz=state.destination.z-civilian.z;
      const distance=Math.hypot(dx,dz);
      const travel=Math.min(distance,SPEED/60);
