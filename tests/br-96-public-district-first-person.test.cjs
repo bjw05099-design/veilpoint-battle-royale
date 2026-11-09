@@ -79,7 +79,7 @@ test('authenticated public geometry contains precisely the shared original pavem
   assert.equal(response.status,200);
   const body=await response.json();
   assert.equal(body.schema,'veilpoint-br96-public-geometry-v1');
-  assert.deepEqual(body.environment.pavements,
+  assert.deepEqual(body.pavements,
    Sim.PUBLIC_CITY_PAVEMENTS.map(p=>({id:p.id,x:p.x,z:p.z,w:p.w,d:p.d,canvas:p.canvas})));
   assert.equal(JSON.stringify(body).includes(sessions[0]),false);
   assert.ok(!('actors' in body)&&!('players' in body));
