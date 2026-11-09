@@ -6,6 +6,7 @@
 'use strict';
 const V3=(x,y,z)=>[x,y,z];
 const Visibility=global.VeilpointVisibility;
+const PublicFootpaths=global.VeilpointPublicFootpaths;
 // Three fictional, human-scale civic ceilings enrich the SAME walkable
 // neighborhoods in BR and CH01. Roofs are ABOVE the walking capsule: they
 // never create collision blocks, require new saves or reproduce a real site.
@@ -245,6 +246,24 @@ class SoftwareRenderer {
  const eyeHeight=1.64-(global.VeilpointInput&&global.VeilpointInput.crouch?.55:0);
  const proj=(x,y,z)=>{const dx=x-p.x,dz=z-p.z,a=dx*cos+dz*sin,b=dx*sin-dz*cos,yy=y-eyeHeight,up=yy*Math.cos(p.pitch)-b*Math.sin(p.pitch),depth=b*Math.cos(p.pitch)+yy*Math.sin(p.pitch);if(depth<.3)return null;return [w*.5+a*focal/depth,h*.5-up*focal/depth,depth];};
  const polygon=(pts,color)=>{if(pts.some(x=>!x))return;ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
+ // Every point of this public footpath comes from collision-checked walkable
+ // geometry. Only draw the surface; no new invisible collider or mission gate.
+ if((state.terrainRevision===1||harborNight)&&PublicFootpaths){
+  if(this.footpathWorld!==state.obstacles){
+   this.footpathWorld=state.obstacles;
+   this.footpaths=PublicFootpaths.planAll(state.obstacles);
+  }
+  for(const road of this.footpaths||[])for(let i=1;i<road.points.length;i++){
+   const a=road.points[i-1],b=road.points[i];
+   const length=Math.hypot(b.x-a.x,b.z-a.z);
+   if(length<.1)continue;
+   const px=-(b.z-a.z)/length*PublicFootpaths.WIDTH*.5,
+     pz=(b.x-a.x)/length*PublicFootpaths.WIDTH*.5;
+   polygon([proj(a.x-px,.07,a.z-pz),proj(a.x+px,.07,a.z+pz),
+     proj(b.x+px,.07,b.z+pz),proj(b.x-px,.07,b.z-pz)],
+     harborNight?'#545249':'#898474');
+  }
+ }
  const objects=[];
  // The low quay apron shows shallow waves only during the same phase that
  // affects actual traction in the offline BR fixed-step movement model.
@@ -477,6 +496,28 @@ class Renderer {
    m.box(pad.x+offset,.068,pad.z+2,1.2,.006,7,[.20,.30,.33]);
  }
  const sim=global.VeilpointSim.newMatch(1,0,'carbine',false,'central','day',this.worldTerrainRevision);
+ // Distinct civic districts become one pedestrian environment. Plan the
+ // actual collision-clear route instead of drawing an implausible straight
+ // connector through houses. BR and CH01 share identical base colliders.
+ if(this.worldTerrainRevision===1&&PublicFootpaths){
+  this.publicRoads=PublicFootpaths.planAll(sim.obstacles);
+  for(const road of this.publicRoads)for(let i=1;i<road.points.length;i++){
+   const a=road.points[i-1],b=road.points[i],
+     length=Math.hypot(b.x-a.x,b.z-a.z);
+   if(length<.01)continue;
+   const ux=(b.x-a.x)/length,uz=(b.z-a.z)/length,
+     sx=-uz*PublicFootpaths.WIDTH*.5,sz=ux*PublicFootpaths.WIDTH*.5;
+   for(let t=0;t<length;t+=2){
+    const end=Math.min(length,t+2),ax=a.x+ux*t,az=a.z+uz*t,
+      bx=a.x+ux*end,bz=a.z+uz*end;
+    m.quad([ax-sx,height(ax-sx,az-sz)+.052,az-sz],
+      [ax+sx,height(ax+sx,az+sz)+.052,az+sz],
+      [bx+sx,height(bx+sx,bz+sz)+.052,bz+sz],
+      [bx-sx,height(bx-sx,bz-sz)+.052,bz-sz],
+      [.39,.37,.33]);
+   }
+  }
+ }
  sim.obstacles.forEach((o,i)=>{
   // A sliding gate must not remain as a solid closed panel in the static mesh:
   // it is drawn once from the live world by the dynamic geometry planner.
