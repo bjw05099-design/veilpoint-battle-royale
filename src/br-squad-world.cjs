@@ -35,6 +35,10 @@ const PRESENCE_STALE_TICKS=10*60;
 // 8-second grace. Crossing outside is not instantly fatal; re-entering resets
 // only the consecutive counter, not the historical exposure statistic.
 const BOUNDARY_GRACE_TICKS=8*60;
+// A 15-minute authoritative prototype round cannot stall indefinitely once
+// public-area contraction ends. Multiple surviving squads share first place:
+// there is no invented champion, combat outcome or client-side timer.
+const ROUND_LIMIT_TICKS=15*60*60;
 // Server-owned finite lamp; battery follows simulation ticks, not frames.
 const HEADLAMP_TICKS=10*60*60;
 // Only low, already-colliding fictional public benches can be stepped over.
@@ -64,6 +68,7 @@ class BrSquadWorld {
     // transitions change this scorecard; ties cannot be invented by the HUD.
     this.phase='moving';this.activeSquads=SQUADS;
     this.placements=Array(SQUADS).fill(null);
+    this.finishReason=null;
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
     this.squadSignals=new Map();
@@ -676,6 +681,16 @@ class BrSquadWorld {
         }
       }
     }
+    // Finish only AFTER the same 60Hz tick's boundary events have been
+    // resolved. Remaining real squads receive the same first-place rank;
+    // already-retired squads retain their previously settled positions.
+    if(this.phase==='moving'&&this.tick>=ROUND_LIMIT_TICKS){
+      const liveTeams=new Set([...this.actors.values()]
+        .filter(actor=>actor.eligible).map(actor=>actor.team));
+      for(const team of liveTeams)if(this.placements[team]===null)
+        this.placements[team]=1;
+      this.phase='finished';this.finishReason='time_limit';
+    }
   }
   snapshot(token){
     const me=this.actors.get(token);
@@ -795,10 +810,13 @@ class BrSquadWorld {
         me.team+1===champion?'squad_win':'squad_placed',
       winningSquad:champion,
       ownSquadPlacement:this.placements[me.team],
-      finishedTick:this.tick
+      finishedTick:this.tick,
+      ...(this.finishReason==='time_limit'?{reason:'time_limit'}:{})
     }):null;
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
       matchOutcome,personalRecap,
+      roundClock:Object.freeze({limitTicks:ROUND_LIMIT_TICKS,
+        remainingTicks:Math.max(0,ROUND_LIMIT_TICKS-this.tick)}),
       coastalWeather:weather,
       playableArea,
       squadEntry:this.entryPlans[me.team],
@@ -838,4 +856,5 @@ class BrSquadWorld {
 module.exports={BrSquadWorld,STEP,RADIUS,SPEED,SPRINT_SPEED,CROUCH_SPEED,
   SPRINT_DRAIN_PER_SECOND,STAMINA_RECOVERY_PER_SECOND,STAMINA_REARM,LEASE_TICKS,
   SIGNAL_TTL_TICKS,SIGNAL_COOLDOWN_TICKS,PRESENCE_STALE_TICKS,
-  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS,STEP_OVER_TICKS};
+  BOUNDARY_GRACE_TICKS,REST_RECOVERY_PER_SECOND,HEADLAMP_TICKS,STEP_OVER_TICKS,
+  ROUND_LIMIT_TICKS};
