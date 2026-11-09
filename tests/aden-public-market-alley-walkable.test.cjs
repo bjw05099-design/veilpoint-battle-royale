@@ -20,6 +20,21 @@ function assertWalkable(points,obstacles,r=.85){
   }
  }
 }
+// The same 60Hz swept, wall-sliding body movement used by actual gameplay,
+// not just direct collision sampling or a nonphysical animated camera.
+function fixedStepWalk(points,obstacles){
+ const actor={...points[0]};
+ for(let i=1;i<points.length;i++){
+  const target=points[i],dx=target.x-actor.x,dz=target.z-actor.z;
+  const distance=Math.hypot(dx,dz),ticks=Math.ceil(distance/3*60);
+  const vx=dx/ticks*60,vz=dz/ticks*60;
+  for(let tick=0;tick<ticks;tick++)
+   Sim.moveEntity(actor,vx,vz,1/60,obstacles,.85);
+  assert.ok(Math.hypot(actor.x-target.x,actor.z-target.z)<.12,
+   'a human-size physical actor must actually reach '+[target.x,target.z].join(','));
+ }
+ return actor;
+}
 test('15 grounded shop-street bodies are exactly shared by current BR and CH01',()=>{
  const br=Sim.newMatch(20261109,0),story=Story.createState();
  assert.equal(geometry(br).length,15);
@@ -34,10 +49,22 @@ test('15 grounded shop-street bodies are exactly shared by current BR and CH01',
  for(const world of [br,story.world]){
   for(const body of geometry(world))
    assert.equal(Sim.blocked(body.x,body.z,.85,world.obstacles),true);
-  assertWalkable(waypoints.map(([x,z])=>({x,z})),world.obstacles);
+  const central=waypoints.map(([x,z])=>({x,z}));
+  assertWalkable(central,world.obstacles);
+  fixedStepWalk(central,world.obstacles);
   // Each shop is reached from the open street, with a physical south entry.
-  assertWalkable([{x:-35,z:98},{x:-43,z:98},{x:-43,z:110}],world.obstacles);
-  assertWalkable([{x:-35,z:98},{x:-27,z:98},{x:-27,z:110}],world.obstacles);
+  const west=[{x:-35,z:98},{x:-43,z:98},{x:-43,z:110}];
+  const east=[{x:-35,z:98},{x:-27,z:98},{x:-27,z:110}];
+  assertWalkable(west,world.obstacles);
+  assertWalkable(east,world.obstacles);
+  fixedStepWalk(west,world.obstacles);
+  fixedStepWalk(east,world.obstacles);
+  // A ground-level exterior wall must stop an ordinary actor; the door
+  // is an actual opening on the shop's SOUTH facade, not a pass-through.
+  const blockedActor={x:-55,z:105};
+  for(let i=0;i<150;i++)
+   Sim.moveEntity(blockedActor,4,0,1/60,world.obstacles,.85);
+  assert.ok(blockedActor.x < -52,'solid west shop wall blocks side entry');
  }
 });
 test('four neighborhood footpaths visibly connect the craft court, promenade, two shops and ferry',()=>{
