@@ -15,6 +15,34 @@ import unreal
 PACKAGE = "/Game/Maps/Aden_TerrainLab"
 CONTENT_MAPS = os.path.join(unreal.Paths.project_content_dir(), "Maps")
 LEVEL_FILE = os.path.join(CONTENT_MAPS, "Aden_TerrainLab.umap")
+MATERIAL_PATH = "/Game/Materials/M_CityTerrainPreview"
+
+
+def prepare_vertex_color_material():
+    """An original, editor-generated material. Existing assets are NEVER overwritten."""
+    if unreal.EditorAssetLibrary.does_asset_exist(MATERIAL_PATH):
+        found = unreal.load_asset(MATERIAL_PATH)
+        if not isinstance(found, unreal.Material):
+            raise RuntimeError("Existing terrain material path is not a Material")
+        return found
+    asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
+    material = asset_tools.create_asset(
+        "M_CityTerrainPreview", "/Game/Materials",
+        unreal.Material, unreal.MaterialFactoryNew())
+    if not material:
+        raise RuntimeError("Could not create original terrain vertex color material")
+    expression = unreal.MaterialEditingLibrary.create_material_expression(
+        material, unreal.MaterialExpressionVertexColor, -400, 0)
+    if not expression or not unreal.MaterialEditingLibrary.connect_material_property(
+        expression, "RGB", unreal.MaterialProperty.MP_BASE_COLOR):
+        raise RuntimeError("Vertex-color material input was not connected")
+    # Do not claim that this single generic material is final Aden photogrammetry.
+    errors = unreal.MaterialEditingLibrary.recompile_material(material)
+    if errors:
+        raise RuntimeError("Terrain material shader compilation failed: " + str(errors))
+    if not unreal.EditorAssetLibrary.save_loaded_asset(material):
+        raise RuntimeError("Terrain preview material was not saved")
+    return material
 
 
 def author_terrain_lab():
@@ -30,6 +58,8 @@ def author_terrain_lab():
     actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     if not editor or not levels or not actors:
         raise RuntimeError("Editor subsystems unavailable")
+
+    material = prepare_vertex_color_material()
 
     os.makedirs(CONTENT_MAPS, exist_ok=True)
     if not levels.new_level(PACKAGE, False):
@@ -62,6 +92,7 @@ def author_terrain_lab():
     terrain.set_editor_property("load_radius_tiles", 1)
     terrain.set_editor_property("sample_stride", 8)
     terrain.set_editor_property("create_terrain_collision", True)
+    terrain.set_editor_property("terrain_vertex_color_material", material)
 
     if not levels.save_current_level() or not os.path.isfile(LEVEL_FILE):
         raise RuntimeError("Native preview level did not save")
