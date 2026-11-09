@@ -240,11 +240,12 @@ test('BR and CH01 PC controls apply cross-tab remaps, clear held inputs and reje
  localStorage.setItem(C.STORAGE_KEY,JSON.stringify(changed));
  notify({key:C.STORAGE_KEY,storageArea:localStorage});
  assert.equal(releases,1,'remote remap must release held mouse and keyboard inputs');
- assert.equal(C.actionFor('KeyF',controls.get()),'fire');
+ assert.equal(C.actionFor('KeyE',controls.get()),'fire');
+ assert.equal(C.actionFor('KeyF',controls.get()),'interact');
  assert.equal(C.actionFor('Space',controls.get()),null);
  assert.equal(controls.get().sensitivity,2.25);
  assert.ok(Math.abs(C.mouseDelta(10,10,controls.get()).pitch-0.037125)<1e-12);
- assert.equal(nodes.get('desktopBindKey').textContent,'KeyF');
+ assert.equal(nodes.get('desktopBindKey').textContent,'KeyE');
  notify({key:C.STORAGE_KEY,storageArea:localStorage});
  notify({key:'veilpoint.graphics',storageArea:localStorage});
  notify({key:C.STORAGE_KEY,storageArea:{}});
