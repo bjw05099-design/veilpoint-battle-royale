@@ -517,7 +517,10 @@
     if(terrainRevision===1)for(const [x,z,w,d,h,type] of [
       [-51,105,.65,16,3.5,'aden-laneshop-outer-wall'],
       [-40,109,.65,8,3.5,'aden-laneshop-inner-wall'],
-      [-45.5,113.5,11,.7,3.5,'aden-laneshop-back-wall'],
+      // A 5m ACTUAL northern public doorway avoids sealing the long-
+      // established ferry-hall south approach at x=-45, z=112..121.
+      [-49.5,113.5,3,.7,3.5,'aden-laneshop-back-wall'],
+      [-41.5,113.5,3,.7,3.5,'aden-laneshop-back-wall'],
       [-19,105,.65,16,3.5,'aden-laneshop-outer-wall'],
       [-30,109,.65,8,3.5,'aden-laneshop-inner-wall'],
       [-24.5,113.5,11,.7,3.5,'aden-laneshop-back-wall'],
