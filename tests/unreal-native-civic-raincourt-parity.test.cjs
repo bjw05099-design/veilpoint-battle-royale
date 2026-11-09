@@ -26,15 +26,15 @@ test('Unreal C++ and actual BR/CH01 collision worlds share 16 identical civic ra
 });
 test('both native side roofs align with visible WebGL/Canvas and stay above walkable capsule',()=>{
  assert.match(renderer,/const RAINCOURT_CANOPIES=Object\.freeze\(\[/);
- assert.match(renderer,/x:-90,z:-12,w:10,d:20,roofY:3\.74,h:\.15/);
- assert.match(renderer,/x:-70,z:-12,w:10,d:20,roofY:3\.74,h:\.15/);
- for(const x of [-9000,-7000]){
-  assert.ok(source.includes('FVector('+x+'.f,-1200.f,381.5f)'));
+ assert.match(renderer,/x:-130,z:50,w:10,d:20,roofY:3\.74,h:\.15/);
+ assert.match(renderer,/x:-110,z:50,w:10,d:20,roofY:3\.74,h:\.15/);
+ for(const x of [-13000,-11000]){
+  assert.ok(source.includes('FVector('+x+'.f,5000.f,381.5f)'));
  }
  assert.equal(Number((3.815-.15/2).toFixed(4)),3.74);
  assert.match(renderer,/if\(o\.type\.startsWith\('aden-raincourt-'\)\)/);
  for(const type of ['wall','dry-basin','seat','post'])
   assert.match(renderer,new RegExp("o\\.type==='aden-raincourt-"+type+"'"));
- assert.match(source,/AddBlock\(Vegetation,FVector\(-8000\.f,-1200\.f,1\.f\)/);
+ assert.match(source,/AddBlock\(Vegetation,FVector\(-12000\.f,5000\.f,1\.f\)/);
  assert.match(source,/Vegetation->SetCollisionEnabled\(ECollisionEnabled::NoCollision\)/);
 });
