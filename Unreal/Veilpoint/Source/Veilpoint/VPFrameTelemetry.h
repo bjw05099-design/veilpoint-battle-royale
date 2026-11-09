@@ -52,18 +52,18 @@ public:
         const bool bFullWindow=CaptureElapsedSeconds>=120.f;
         const FString UTC=FDateTime::UtcNow().ToString(TEXT("%Y-%m-%dT%H:%M:%SZ"));
         const FString Json=FString::Printf(
-            TEXT("{\\n  \\"schema\\": \\"veilpoint-native-app-frame-v1\\",")
-            TEXT("\\n  \\"metric\\": \\"application-frame-time-not-gpu\\",")
-            TEXT("\\n  \\"utc\\": \\"%s\\",")
-            TEXT("\\n  \\"full120Seconds\\": %s,")
-            TEXT("\\n  \\"validDurationSeconds\\": %.3f,")
-            TEXT("\\n  \\"sampleCount\\": %d,")
-            TEXT("\\n  \\"rejectedFrames\\": %d,")
-            TEXT("\\n  \\"viewportWidth\\": %d, \\"viewportHeight\\": %d,")
-            TEXT("\\n  \\"configuredCapFps\\": %.1f,")
-            TEXT("\\n  \\"meanFps\\": %.3f, \\"meanFrameMs\\": %.4f,")
-            TEXT("\\n  \\"p50FrameMs\\": %.4f, \\"p95FrameMs\\": %.4f, \\"p99FrameMs\\": %.4f")
-            TEXT("\\n}\\n"),
+            TEXT("{\n  \"schema\": \"veilpoint-native-app-frame-v1\",")
+            TEXT("\n  \"metric\": \"application-frame-time-not-gpu\",")
+            TEXT("\n  \"utc\": \"%s\",")
+            TEXT("\n  \"full120Seconds\": %s,")
+            TEXT("\n  \"validDurationSeconds\": %.3f,")
+            TEXT("\n  \"sampleCount\": %d,")
+            TEXT("\n  \"rejectedFrames\": %d,")
+            TEXT("\n  \"viewportWidth\": %d, \"viewportHeight\": %d,")
+            TEXT("\n  \"configuredCapFps\": %.1f,")
+            TEXT("\n  \"meanFps\": %.3f, \"meanFrameMs\": %.4f,")
+            TEXT("\n  \"p50FrameMs\": %.4f, \"p95FrameMs\": %.4f, \"p99FrameMs\": %.4f")
+            TEXT("\n}\n"),
             *UTC, bFullWindow?TEXT("true"):TEXT("false"),
             CaptureElapsedSeconds,Sorted.Num(),RejectedFrames,
             ViewportWidth,ViewportHeight,ConfiguredCap,
