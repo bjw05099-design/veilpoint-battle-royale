@@ -1728,6 +1728,7 @@
       !Story.situation(state).eastGateOpen;
     const healthBefore=state.world.player.health;
     const guideArrivedBefore=state.guide.arrived;
+    const civicReachedBefore=Story.civicCrossingReached(state);
     const completeBefore=state.phase==='complete';
     const recordsBefore=state.phase==='records';
     const shotsBefore=running&&state.phase==='engagement'
@@ -1776,6 +1777,12 @@
     // the normal five-second traversal autosave. The transition is one-shot.
     if(running&&Story.escortArrivalCheckpoint(guideArrivedBefore,state))
       persist('안내원 안뜰 도착');
+    // A civilian arriving at the observed public crossing is a real fixed-step
+    // result, not an F-press success or an invented city-wide evacuation.
+    // Commit this one-shot state immediately; ordinary traversal keeps its
+    // existing bounded autosave fallback and older saves remain readable.
+    if(running&&Story.civicCrossingArrivalCheckpoint(civicReachedBefore,state))
+      persist('주민의 실제 건널목 도착');
     // Persist the actual world transition once, rather than writing every 60Hz tick.
     if(gatePending&&Story.situation(state).eastGateOpen)persist();
     // A browser crash or refresh during quiet traversal must not rewind an entire
