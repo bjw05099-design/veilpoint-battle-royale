@@ -17,10 +17,10 @@ function waitingAtCourtyard(){
  return s;
 }
 
-test('CH01 staffed courtyard E hint resumes nearby held escort before completing route',()=>{
+test('CH01 staffed courtyard F hint resumes nearby held escort before completing route',()=>{
  const s=waitingAtCourtyard();
- assert.equal(Story.nearest(s)?.id,'exitEvac','exit is the actual E target');
- assert.match(Story.situation(s).guideStatus,/출구에서 E로 동행 재개/);
+ assert.equal(Story.nearest(s)?.id,'exitEvac','exit is the actual F target');
+ assert.match(Story.situation(s).guideStatus,/출구에서 F로 동행 재개/);
  const saved=Story.serialize(s);
  const recovered=Story.restore(saved);
  assert.equal(Story.situation(recovered).guideStatus,Story.situation(s).guideStatus);
@@ -41,10 +41,10 @@ test('CH01 staffed courtyard E hint resumes nearby held escort before completing
 test('CH01 blocked civilian line cannot show courtyard resume or silently end the mission',()=>{
  const s=waitingAtCourtyard(),exit=Story.POINTS.exitEvac;
  // An occupied passage blocks the real contact: even at the exit desk the
- // player must return by a physically walkable route, not press E remotely.
+ // player must return by a physically walkable route, not press F remotely.
  s.world.obstacles.push({x:exit.x+0.95,z:exit.z,w:.35,d:1.6,type:'story-container'});
  assert.equal(Story.nearest(s)?.id,'exitEvac');
- assert.doesNotMatch(Story.situation(s).guideStatus,/출구에서 E로 동행 재개/);
+ assert.doesNotMatch(Story.situation(s).guideStatus,/출구에서 F로 동행 재개/);
  const before=Story.serialize(s);
  const result=Story.interact(s);
  assert.equal(result.ok,false);
