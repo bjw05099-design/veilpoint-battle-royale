@@ -29,12 +29,15 @@ function fakeCanvas(){
   getContext:()=>ctx},values};
 }
 function fakeDocument(){
- const {canvas}=fakeCanvas(),status={textContent:''},events={};
+ const {canvas}=fakeCanvas(),status={textContent:''},events={},
+  legend={textContent:''},houses={hidden:false};
  return {
-  status,events,
+  status,events,legend,houses,
   getElementById(id){
    if(id==='terrainCanvas')return canvas;
    if(id==='tileStatus')return status;
+   if(id==='mapLegendTitle')return legend;
+   if(id==='fictionalHouseLegend')return houses;
    return {addEventListener(_kind,fn){events[id]=fn}};
   }
  };
@@ -94,6 +97,8 @@ test('actual browser terrain renderer consumes imported local heightfield and st
  assert.equal(app.getRegistry().size,2);
  assert.equal(app.getDataset().accuracy,'source-declared-unverified');
  assert.match(ui.status.textContent,/외부 검증 전/);
+ assert.match(ui.legend.textContent,/입력한 로컬 고도/);
+ assert.equal(ui.houses.hidden,true);
  assert.match(ui.status.textContent,/실제 아덴 검증 0타일/);
  assert.doesNotMatch(ui.status.textContent,/실측 아덴 2타일/);
  const {canvas}=fakeCanvas();
@@ -113,6 +118,8 @@ test('actual browser terrain renderer consumes imported local heightfield and st
  assert.equal(app.getRegistry().size,25);
  assert.equal(app.getDataset(),null);
  assert.match(ui.status.textContent,/창작 아트 테스트/);
+ assert.match(ui.legend.textContent,/원본 창작 지형/);
+ assert.equal(ui.houses.hidden,false);
 });
 test('file input never downloads geometry and refuses oversized or malicious elevation files',async()=>{
  const ui=fakeDocument();Explorer.attach(ui);
