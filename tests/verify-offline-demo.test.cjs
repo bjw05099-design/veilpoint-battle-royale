@@ -26,7 +26,7 @@ test('independent ZIP inspection validates stored CRCs, per-file SHA256 and side
     const checked = verifyPackage(made.output);
     assert.equal(checked.sha256, made.sha256);
     assert.equal(checked.files, 10);
-    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 9);
+    assert.equal(inspectZip(fs.readFileSync(made.output)).size, 10);
   } finally {fs.rmSync(dir, {recursive:true, force:true});}
 });
 test('corrupted archive bytes and duplicate paths are rejected', () => {
