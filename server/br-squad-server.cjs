@@ -161,7 +161,8 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       // Public non-sensitive environmental region, shared by both modes.
       // Gameplay traction is calculated by the server on true actor poses.
       environment:{wetLoadingPad:{x,z,width,depth}},
-      obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter'&&o.routeId!=='br-dock-handcart').map(o=>({
+      obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter'&&o.routeId!=='br-dock-handcart'&&
+        o.routeId!=='br-yard-shuttle').map(o=>({
         x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
       }))});
    }
@@ -242,6 +243,19 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{
        ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
+   }
+   if(req.method==='POST'&&url.pathname==='/shuttle'){
+    // No remotely supplied coordinates, steering authority, actor ID, fuel,
+    // or seat selection; the current authenticated human must walk up.
+    lobby.snapshot(token);
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_shuttle_request'});
+    const result=world.operateShuttle(token);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
    }
    if(req.method==='POST'&&url.pathname==='/handcart'){
     // Authenticate even before launch; anonymous requests never reveal round state.
