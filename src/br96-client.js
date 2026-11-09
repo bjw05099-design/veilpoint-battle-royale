@@ -182,13 +182,15 @@ function render(){
  const selectedEntry=entryOptions.find(o=>o.id===state?.entry?.selfChoice);
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
- for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp','wave'])el(id).disabled=!active();
+ for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp','wave','benchRest'])el(id).disabled=!active();
  el('stepOver').disabled=!active()||w?.self?.stepOverProgress!==null&&
    w?.self?.stepOverProgress!==undefined;
  el('headlamp').setAttribute('aria-pressed',String(!!w?.self?.headlampOn));
  el('headlamp').textContent='H · 헤드램프 '+(w?.self?.headlampOn?'ON':'OFF');
  el('headlamp').title='서버 배터리 '+Math.ceil((w?.self?.headlampTicks||0)/60)+'초';
  el('wave').setAttribute('aria-pressed',String(!!w?.self?.waving));
+ el('benchRest').setAttribute('aria-pressed',String(!!w?.self?.benchResting));
+ el('benchRest').textContent=w?.self?.benchResting?'R · 자리에서 일어나기':'R · 벤치에서 쉬기';
  // A withdrawn player may watch only the server's own eligible squad mates.
  // Build select entries with textContent, never insert untrusted names as HTML.
  const retired=!!w&&w.phase==='moving'&&!w.self.eligible;
@@ -240,7 +242,7 @@ function render(){
      ' · 서버가 실제 출발 위치를 지정합니다.':'')+
    (w?'\n서버 틱 '+w.tick+' · 생존 '+Math.floor((w.self.survivalTicks||0)/60)+'초 · 남은 분대 '+w.remainingSquads+
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
-    '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
+    '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.benchResting?' · 공공 벤치에서 휴식 중':w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.benchResting?'앉아서 휴식':w.self.crouched?'낮춘 자세':'서기')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+' · 전원 직접 방문 '+(w.squadLandmarks?.filter(site=>site.wholeSquadVisited).length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
@@ -477,6 +479,13 @@ async function stepOverBench(){
  const result=await command('/step-over',{},null);
  if(result?.ok)message('낮은 공공 벤치를 실제로 넘는 중 · 이동 방향과 착지 공간은 서버가 확인합니다.');
 }
+async function benchRest(){
+ if(!active())return;
+ const result=await command('/bench-rest',{},null);
+ if(result?.ok)message(result.seated?
+   '가까운 공공 벤치에서 휴식 중 · 아무 곳에서나 지구력이 회복되지만 벤치에서는 조금 더 편히 쉽니다.':
+   '벤치에서 일어났습니다. 일반 이동을 다시 할 수 있습니다.');
+}
 async function wave(){
  if(!active())return;
  const result=await command('/wave',{},null);
@@ -681,6 +690,7 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
+ else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();benchRest();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
@@ -776,6 +786,7 @@ el('handcart').addEventListener('click',operateHandcart);
 el('headlamp').addEventListener('click',toggleHeadlamp);
 el('stepOver').addEventListener('click',stepOverBench);
 el('wave').addEventListener('click',wave);
+el('benchRest').addEventListener('click',benchRest);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
