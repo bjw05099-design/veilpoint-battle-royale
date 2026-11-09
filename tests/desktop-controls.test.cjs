@@ -34,7 +34,7 @@ test('binding updates preserve uniqueness and reject reserved/menu keys',()=>{
  assert.equal(C.actionFor('KeyT',C.load(storage)),'reload');
 });
 test('invalid or poisoned saved settings cannot create duplicate binds or NaN aim',()=>{
- store.set(C.STORAGE_KEY,JSON.stringify({sensitivity:999,invertY:'true',bindings:{...C.DEFAULT_BINDINGS,fire:'KeyE'}}));
+ store.set(C.STORAGE_KEY,JSON.stringify({sensitivity:999,invertY:'true',bindings:{...C.DEFAULT_BINDINGS,fire:'KeyF'}}));
  const p=C.load(storage);
  assert.equal(p.sensitivity,1);assert.equal(p.invertY,false);
  assert.equal(p.bindings.fire,'Space');
