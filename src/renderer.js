@@ -324,15 +324,6 @@ class SoftwareRenderer {
   polygon([proj(wet.x-hw,.025,wet.z-hd),proj(wet.x+hw,.025,wet.z-hd),
    proj(wet.x+hw,.025,wet.z+hd),proj(wet.x-hw,.025,wet.z+hd)],'#426d74');
  }
- // The software renderer shows the same two finite civic light pools as
- // WebGL before the witnessed outage. The ground remains walkable and its
- // physical colliders are unchanged when the lamps fail.
- if(harborNight&&state.publicStreetPowered===true){
-  for(const x of [-7,7]){
-   polygon([proj(x-2,.085,-20),proj(x+2,.085,-20),
-    proj(x+2,.085,-16),proj(x-2,.085,-16)],'#82724b');
-  }
- }
  // Four public ground-level district surfaces are original walkable
  // street dressing. They use the SAME authored coordinates as the
  // 60Hz collision world, but introduce zero new invisible colliders.
@@ -342,6 +333,15 @@ class SoftwareRenderer {
    const x=pavement.x,z=pavement.z,ww=pavement.w/2,dd=pavement.d/2;
    polygon([proj(x-ww,.08,z-dd),proj(x+ww,.08,z-dd),
      proj(x+ww,.08,z+dd),proj(x-ww,.08,z+dd)],pavement.canvas);
+  }
+ }
+ // The software renderer shows the same two finite civic light pools as
+ // WebGL before the witnessed outage. The ground remains walkable and its
+ // physical colliders are unchanged when the lamps fail.
+ if(harborNight&&state.publicStreetPowered===true){
+  for(const x of [-7,7]){
+   polygon([proj(x-2,.085,-20),proj(x+2,.085,-20),
+    proj(x+2,.085,-16),proj(x-2,.085,-16)],'#82724b');
   }
  }
  for(const o of state.obstacles){
