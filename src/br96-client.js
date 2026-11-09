@@ -301,10 +301,12 @@ function draw(w){
  const width=canvas.width,height=canvas.height;
  if(streetView&&w&&publicGeometry&&window.VeilpointBR96StreetView){
   const subject=w.spectatorView
-   ?{...w.spectatorView,id:w.spectatorView.playerId,
-      headlampOn:!!w.squad?.find(p=>p.id===w.spectatorView.playerId)?.headlampOn}:w.self;
+   ?{...w.spectatorView,id:w.spectatorView.playerId}:w.self;
+  // The spectator HUD uses the EXISTING same-squad roster's observed light.
+  const litSubject=w.spectatorView
+    ?{...subject,headlampOn:!!w.squad?.find(p=>p.id===subject.id)?.headlampOn}:subject;
   window.VeilpointBR96StreetView.draw(ctx,{width,height,
-   subject,yaw:streetYaw,obstacles:publicGeometry,
+   subject:litSubject,yaw:streetYaw,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather});
   return;
