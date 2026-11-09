@@ -4,7 +4,7 @@
  const STORAGE_KEY='veilpoint.desktopControls.v1';
  const DEFAULT_BINDINGS=Object.freeze({
   forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',
-  crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyE',assist:'KeyH',support:'KeyQ',
+  crouch:'KeyC',fire:'Space',reload:'KeyR',interact:'KeyF',assist:'KeyH',support:'KeyQ',
   headlamp:'KeyL',guidance:'KeyB',cacheMove:'KeyU'
  });
  const ACTIONS=Object.freeze(Object.keys(DEFAULT_BINDINGS));
@@ -24,6 +24,11 @@
    // Older saved profiles predate the CH01 guide and BR cache-shift action.
    // Preserve every existing PC binding, even when it already uses L or B.
    const expanded={...source.bindings};
+   // Upgrade legacy E-interact profiles to the new default F only when the
+   // physical F key is not already owned by a custom remapped action.
+   if(expanded.interact==='KeyE'&&
+      !ACTIONS.some(action=>action!=='interact'&&expanded[action]==='KeyF'))
+     expanded.interact='KeyF';
    const additions=['headlamp','guidance','cacheMove'];
    const used=new Set(ACTIONS.filter(a=>!additions.includes(a)).map(a=>expanded[a]));
    for(const extra of additions){
@@ -130,7 +135,7 @@
   for(const action of ACTIONS)if(bindings[action]===code)return action;
   // Preserve original alternate PC movement keys until the primary key is remapped.
   const aliases={ArrowUp:'forward',ArrowDown:'back',ArrowLeft:'left',ArrowRight:'right',ShiftRight:'sprint',
-   KeyF:'headlamp',KeyN:'guidance'};
+   KeyN:'guidance'};
   const alias=aliases[code];
   return alias&&bindings[alias]===DEFAULT_BINDINGS[alias]?alias:null;
  }
