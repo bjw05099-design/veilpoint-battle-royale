@@ -8,6 +8,20 @@ async function post(base,url,body,token){
   body:JSON.stringify(body)});
  return {status:response.status,data:await response.json()};
 }
+async function receiveFrame(reader,matcher){
+ let frame='';
+ for(let attempt=0;attempt<12;attempt++){
+  const next=await Promise.race([
+   reader.read(),
+   new Promise((_,reject)=>setTimeout(()=>reject(new Error('stream_frame_timeout')),5000))
+  ]);
+  if(next.done)throw new Error('stream_ended_before_frame');
+  frame+=new TextDecoder().decode(next.value);
+  if(frame.length>98304)throw new Error('unexpected_stream_growth');
+  if(matcher.test(frame))return frame;
+ }
+ throw new Error('stream_frame_not_received');
+}
 test('real HTTP BR96 stream carries server-owned round:tick across 96-human rematch without leaking secrets',async()=>{
  const host=createBrSquadServer({port:0,autoTick:false});
  const addr=await host.listen(),base='http://127.0.0.1:'+addr.port;
@@ -25,8 +39,7 @@ test('real HTTP BR96 stream carries server-owned round:tick across 96-human rema
    signal:ac.signal});
   assert.equal(response.status,200);
   const reader=response.body.getReader();
-  const decoder=new TextDecoder();
-  const first=decoder.decode((await reader.read()).value);
+  const first=await receiveFrame(reader,/id: 1:0\nevent: world\ndata: /);
   assert.match(first,/id: 1:0\nevent: world\ndata: /);
   assert.doesNotMatch(first,new RegExp(joined[0]));
   assert.doesNotMatch(first,new RegExp(joined[6]));
@@ -41,7 +54,7 @@ test('real HTTP BR96 stream carries server-owned round:tick across 96-human rema
   assert.equal(host.world.phase,'moving');
   assert.equal(host.world.tick,0);
   for(let i=0;i<15;i++)host.step();
-  const next=decoder.decode((await reader.read()).value);
+  const next=await receiveFrame(reader,/id: 2:15\nevent: world\ndata: /);
   assert.match(next,/id: 2:15\nevent: world\ndata: /);
   assert.doesNotMatch(next,new RegExp(joined[0]));
   assert.equal(host.world.tick,15);
