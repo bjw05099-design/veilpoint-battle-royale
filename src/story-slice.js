@@ -1098,9 +1098,24 @@
       const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
       if(state.choice==='evacuation'&&state.guide.active&&!state.guide.released)
         bodies.push({x:state.guide.x,z:state.guide.z,w:1.1,d:1.1});
+      const solids=state.world.obstacles.concat(bodies,actorBlockers(state));
+      const previousX=w.x,previousZ=w.z;
       Sim.moveEntity(w,dx/distance*CIVILIAN_WALK.speed,
-        dz/distance*CIVILIAN_WALK.speed,t,
-        state.world.obstacles.concat(bodies,actorBlockers(state)),.55);
+        dz/distance*CIVILIAN_WALK.speed,t,solids,.55);
+      // A civilian encountering a standing person or fixed street fixture
+      // tries the OTHER side of this already authored two-metre pavement.
+      // This is a finite, collision-checked walking step, not pathfinding
+      // through buildings, teleportation, or a player-issued escort order.
+      // No new checkpoint field is needed: the real x/z position is saved.
+      if(Math.hypot(w.x-previousX,w.z-previousZ)<1e-8&&
+         w.z>CIVILIAN_WALK.endZ+.05){
+        const alternate=destinationX===CIVILIAN_WALK.x
+          ?CIVILIAN_WALK.aidLaneX:CIVILIAN_WALK.x;
+        if(Math.abs(alternate-w.x)>.03){
+          const side=Math.sign(alternate-w.x);
+          Sim.moveEntity(w,side*CIVILIAN_WALK.speed,0,t,solids,.55);
+        }
+      }
       w.x=clamp(w.x,CIVILIAN_WALK.aidLaneX,CIVILIAN_WALK.x);
       w.z=clamp(w.z,CIVILIAN_WALK.endZ,start);
       if(Math.hypot(w.x-destinationX,w.z-CIVILIAN_WALK.endZ)<.04){
@@ -1975,12 +1990,12 @@
       southernFamilyPerspectiveHeard:state.workerInterviewed,
       civilianAgencyObserved:state.civilianRerouted&&state.civilianWalker?.arrived===true,
       verifiedInformationOnly:state.combat.supportUsed||state.gateLogReviewed||state.logHandedOff,
-      emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:state.combat.supportUsed,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
+      emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:true,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
       guideArrived:state.guide.arrived,guideReleased:state.guide.released,
-      mandate:'limited-civilian-evacuation',intelligenceRole:'advisory-only',
+      mandate:'preapproved-civilian-communications-cooperation',intelligenceRole:'advisory-only',
       clockDiscrepancy:state.gateLogReviewed?'retransmission-confirmed':conflict?'unresolved':'not-cross-checked',
       civilianOutcome:verified?'east-clearance-confirmed':
         (state.musterConfirmed?'south-headcount-verified':'south-evacuation-prioritized'),
