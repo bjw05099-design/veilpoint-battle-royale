@@ -22,7 +22,7 @@ test('native CH01 HUD draws only physically available and directly observable st
  assert.doesNotMatch(story,/HiddenEnemy|GetAllActorsOfClass|UE_LOG.*OBJECTIVE REACH/);
  assert.match(marker,/return !bUsed && State && State->IsAvailable\(Action\)/);
 });
-test('native objective HUD uses real 25m local range and 2.75m E reach in world centimetres',()=>{
+test('native objective HUD uses real 25m local range and 2.75m F reach in world centimetres',()=>{
  assert.match(hud,/NearestVisibleSq = FMath::Square\(2500\.f\)/);
  assert.match(hud,/NearestVisibleSq <= FMath::Square\(275\.f\)/);
  assert.match(hud,/const float Metres = FMath::Sqrt\(NearestVisibleSq\) \/ 100\.f/);
