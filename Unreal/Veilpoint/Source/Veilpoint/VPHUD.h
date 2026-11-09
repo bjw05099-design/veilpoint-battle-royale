@@ -22,6 +22,9 @@ private:
     // The zone is a replicated server-owned actor; clients only read its data.
     TWeakObjectPtr<AVPZone> CachedZone;
     FVPFrameTelemetry FrameTelemetry;
+    // F9 is local opt-in, never RPC/replicated. The generated JSON remains
+    // on this Windows installation under Saved/Benchmarks.
+    FString LastNativeBenchmarkStatus = TEXT("F9: START 120s APP-FRAME TEST");
     // Replicated objective actors are small and static. Refresh discovery at
     // bounded intervals instead of scanning every 165Hz HUD paint.
     TWeakObjectPtr<UWorld> ObservedStoryWorld;

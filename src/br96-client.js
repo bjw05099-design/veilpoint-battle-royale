@@ -47,6 +47,7 @@ function stopPrivateStream(){
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
 let streetView=false,streetYaw=0,streetPitch=0; // camera-only, never part of movement POST
+let dismissedJourneyRound=null; // local UI only; server remains authoritative
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
@@ -55,7 +56,7 @@ function cleanSession(){
  token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
- streetView=false;streetYaw=0;streetPitch=0;
+ streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
@@ -85,7 +86,7 @@ function apply(next){
    stopPrivateStream();liveRetryAt=0;
    seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
-   streetView=false;streetYaw=0;streetPitch=0;
+   streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
   }
  }
@@ -268,6 +269,35 @@ function render(){
   :'접속 전';
  draw(w);
  renderStandings(w);
+ renderJourney(w);
+}
+// The server owns every number and only sends PERSONAL data after round end.
+// No client movement estimates, rival route telemetry or invented awards.
+function renderJourney(w){
+ const personal=w?.phase==='finished'?w.personalRecap:null;
+ const panel=el('journeyPanel');
+ if(!personal||personal.schema!=='veilpoint-br96-personal-journey-v1'||
+    dismissedJourneyRound===state?.roundNumber){
+  panel.hidden=true;return;
+ }
+ const n=value=>Number.isFinite(value)&&value>=0?value.toFixed(2):'—';
+ const rank=Number.isInteger(personal.ownSquadPlacement)?
+   personal.ownSquadPlacement+'위':'공동 순위';
+ el('journeyText').textContent=
+   '우리 분대 '+personal.squad+' · 본인 '+personal.participantSlot+'번\n'+
+   '서버 확정 순위: '+rank+'\n'+
+   '실제 참가 시간: '+n(personal.activeSeconds)+'초\n'+
+   '실제 보행 거리: '+n(personal.walkedMeters)+'m\n'+
+   '실제 달리기 거리: '+n(personal.sprintedMeters)+'m\n'+
+   '전체 이동 거리: '+n(personal.totalMeters)+'m\n'+
+   '공공 벤치 휴식: '+n(personal.benchRestSeconds)+'초\n'+
+   '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
+   '종료 당시 본인 상태: '+
+     (personal.ownResult==='active_at_finish'?'경기 참가 중':
+      personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
+      personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':'종료 사유 확인 필요')+
+   '\n※ 개인 활동 기록이며 공격·승리 점수나 실전 성능 분석이 아닙니다.';
+ panel.hidden=false;
 }
 function renderStandings(w){
  // Only the server's 16-slot public standings may assign a placement.
@@ -812,6 +842,10 @@ el('benchRest').addEventListener('click',benchRest);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
+el('journeyDismiss').addEventListener('click',()=>{
+ dismissedJourneyRound=state?.roundNumber??0;
+ el('journeyPanel').hidden=true;
+});
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
 el('mapFollow').addEventListener('click',toggleMapFollow);
 el('streetToggle').addEventListener('click',toggleStreetView);
