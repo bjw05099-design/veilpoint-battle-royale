@@ -481,7 +481,8 @@
     service:Object.freeze({x:46,z:-5,label:'North service road'}),
     east:Object.freeze({x:90,z:-90,label:'East harbor approach'}),
     west:Object.freeze({x:-98,z:-110,label:'West harbor approach'}),
-    ferry:Object.freeze({x:-45,z:121,label:'Public ferry waiting hall · south entrance'})
+    ferry:Object.freeze({x:-45,z:121,label:'Public ferry waiting hall · south entrance'}),
+    promenade:Object.freeze({x:-28,z:65,label:'Public coastal promenade · open central walkway'})
   });
   // Optional public-neighborhood discoveries are earned by approaching their
   // walkable street-level marker with an unobstructed view. Nothing reveals
