@@ -182,6 +182,19 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     return send(res,result.ok?200:409,{...result,
       ...(result.ok?{world:world.snapshot(token)}:{})});
    }
+   if(req.method==='POST'&&url.pathname==='/step-over'){
+    // The player can request a near-body motion, never coordinates, bench ID
+    // or a landing pose. Every check is performed against the live server map.
+    lobby.snapshot(token);
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const body=await readJson(req,64,bodyTimeoutMs);
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+       Object.keys(body).length!==0)
+      return send(res,400,{error:'invalid_step_over_request'});
+    const result=world.stepOver(token);
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
+   }
    if(req.method==='POST'&&url.pathname==='/headlamp'){
     // Actual authenticated human may toggle only their OWN finite light.
     lobby.snapshot(token);

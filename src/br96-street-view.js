@@ -127,6 +127,8 @@
     // Pose is from the authenticated server movement snapshot, not the map.
     facing:Number.isFinite(p.facing)?wrap(p.facing):null,
     moving:p.moving===true,crouched:p.crouched===true,
+    stepOverProgress:Number.isFinite(p.stepOverProgress)&&
+      p.stepOverProgress>=0&&p.stepOverProgress<=1?p.stepOverProgress:null,
     slot:p.kind==='squad'&&Number.isInteger(p.slot)&&p.slot>=1&&p.slot<=6?p.slot:null});
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
@@ -169,7 +171,11 @@
    const fog=weatherFogFraction(person.depth,model.maxDistance,weather?.code);
    ctx.globalAlpha=1-fog;
    ctx.fillStyle=person.kind==='squad'?'#a2cbdf':'#d4aa99';
-   const feetY=horizon+model.eyeHeight*focal/person.depth;
+   // The server's own 60Hz bench transition supplies a finite rise and
+   // landing arc, not a fabricated jump or client-invented actor altitude.
+   const lift=person.stepOverProgress===null?0:
+      .8*Math.sin(Math.PI*person.stepOverProgress);
+   const feetY=horizon+(model.eyeHeight-lift)*focal/person.depth;
    // Body shape is read-only; moving into a wall cannot rotate the server pose.
    const broadness=person.facing===null?.32:
      .23+.10*Math.abs(Math.cos(person.facing-model.angle));

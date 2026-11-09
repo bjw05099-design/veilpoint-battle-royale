@@ -183,6 +183,8 @@ function render(){
  el('entryVote').disabled=!token||state?.phase!=='assembling'||!!state?.self?.ready;
  el('entryVote').textContent='출발 투표: '+(selectedEntry?.label||'미선택');
  for(const id of ['regroup','location','sprint','civicGate','handcart','headlamp'])el(id).disabled=!active();
+ el('stepOver').disabled=!active()||w?.self?.stepOverProgress!==null&&
+   w?.self?.stepOverProgress!==undefined;
  el('headlamp').setAttribute('aria-pressed',String(!!w?.self?.headlampOn));
  el('headlamp').textContent='H · 헤드램프 '+(w?.self?.headlampOn?'ON':'OFF');
  el('headlamp').title='서버 배터리 '+Math.ceil((w?.self?.headlampTicks||0)/60)+'초';
@@ -243,6 +245,8 @@ function render(){
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
     '\n개인 헤드램프: '+(w.self.headlampOn?'점등':'소등')+' · 잔여 '+Math.ceil(w.self.headlampTicks/60)+'초'+
+    (w.self.stepOverProgress!==null&&w.self.stepOverProgress!==undefined?
+      '\n보행 장애물 통과: '+Math.round(w.self.stepOverProgress*100)+'% · 서버 60Hz':'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
     (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
@@ -467,6 +471,11 @@ async function invite(){
  const answer=await command('/squad-invite',{},null);
  if(answer?.ok)message('우리 분대 초대 코드: '+answer.code+' · 함께 참가할 사람에게만 전달하세요.');
 }
+async function stepOverBench(){
+ if(!active())return;
+ const result=await command('/step-over',{},null);
+ if(result?.ok)message('낮은 공공 벤치를 실제로 넘는 중 · 이동 방향과 착지 공간은 서버가 확인합니다.');
+}
 async function toggleHeadlamp(){
  if(!active())return;
  const result=await command('/headlamp',{},null);
@@ -653,6 +662,7 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();operateGate();}
  else if(!event.repeat&&key==='KeyT'&&active()){event.preventDefault();operateHandcart();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
+ else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
 function resetKeys(){
@@ -746,6 +756,7 @@ el('squadChatInput').addEventListener('keydown',event=>{
 el('civicGate').addEventListener('click',operateGate);
 el('handcart').addEventListener('click',operateHandcart);
 el('headlamp').addEventListener('click',toggleHeadlamp);
+el('stepOver').addEventListener('click',stepOverBench);
 el('soundToggle').addEventListener('click',toggleHarborAudio);
 el('soundSettings').addEventListener('click',()=>setAudioPanel(true));
 el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
