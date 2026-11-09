@@ -75,6 +75,9 @@ test('WebGL and Canvas explicitly draw the same authored sea, volcanic skyline a
  assert.match(source,/m\.box\(home\.x,0,home\.z,home\.w,home\.h,home\.d,stone\)/);
  assert.match(source,/const vista=global\.VeilpointSim\.ADEN_GEOGRAPHIC_VISTA,sea=vista\.ocean/);
  assert.match(source,/type:'aden-vista-building'/);
+ assert.match(source,/float distantScenery=step\(175\.5,max\(abs\(vWorld\.x\),abs\(vWorld\.z\)\)\)/);
+ assert.match(source,/float clearAir=1\.-step\(\.014,uFogDensity\)/);
+ assert.match(source,/fogFactor=mix\(fogFactor,min\(fogFactor,\.74\),distantScenery\*clearAir\)/);
  assert.match(source,/if\(d>145&&!\(o\.type==='aden-vista-building'&&d<365\)/);
  const context=vm.createContext({VeilpointSim:Sim});
  vm.runInContext(source,context);
