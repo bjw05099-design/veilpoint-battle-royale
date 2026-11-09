@@ -510,6 +510,17 @@
     Object.freeze({from:'mualla',to:'crater',kind:'peninsula-commercial-transition'}),
     Object.freeze({from:'crater',to:'khormaksar',kind:'peninsula-isthmus-connection'})
   ]);
+  // Four nonblocking public ground surfaces make the actual district
+  // relationship visibly legible within the existing small demo. They are
+  // local fictional civic spaces, not GPS or operational checkpoint layouts.
+  // The same authored footprint feeds BR, CH01 and UE5 native blockout.
+  // Keep historic revision-0 rounds unchanged by applying these in renderers.
+  const PUBLIC_CITY_PAVEMENTS=Object.freeze(PUBLIC_CITY_DISTRICTS.map((place,i)=>
+    Object.freeze({id:place.id,x:place.x,z:place.z,
+      w:[12,13,10,12][i],d:[10,8,8,8][i],
+      color:Object.freeze([
+        [.40,.37,.31],[.38,.39,.35],[.50,.39,.30],[.42,.44,.39]
+      ][i]),canvas:['#8b816e','#818779','#a99073','#92988a'][i]})));
   function publicDistrictAt(player,obstacles){
     if(!player||!Number.isFinite(player.x)||!Number.isFinite(player.z)||
        !Array.isArray(obstacles))return null;
@@ -1955,6 +1966,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {localDetourHeading,ENTRY_SITES,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });
