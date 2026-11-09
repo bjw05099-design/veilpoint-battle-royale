@@ -66,7 +66,10 @@ test('old v2 saves remain readable, forged remote Jo positions are rejected',()=
  const prior=Story.restore(JSON.stringify(old));
  assert.equal(prior.liaisonZ,-39);
  assert.equal(prior.world.liaison.z,-39);
- const forged={...old,liaisonZ:-45,relayRestored:false};
+ // A line may later lose power without walking its actual people backwards.
+ // A fabricated completed walk without the recorded encounter remains invalid.
+ const forged={...old,liaisonZ:-45,relayRestored:false,
+  combat:{...old.combat,cleared:false}};
  assert.throws(()=>Story.restore(JSON.stringify(forged)),RangeError);
  assert.throws(()=>Story.restore(JSON.stringify({...old,liaisonZ:-100})),RangeError);
  assert.throws(()=>Story.restore(JSON.stringify({...old,liaisonZ:NaN})),RangeError);
