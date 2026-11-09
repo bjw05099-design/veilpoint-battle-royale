@@ -9,16 +9,19 @@ function tuples(section){
  return [...section.matchAll(/\{\s*([-\d.]+)f,\s*([-\d.]+)f,\s*([-\d.]+)f,\s*([-\d.]+)f,\s*([-\d.]+)f\s*\}/g)]
   .map(m=>m.slice(1).map(Number));
 }
-test('all 15 new public shop fixtures match native/BR/CH01 actual collision footprints',()=>{
+test('all 16 new public shop fixtures match native/BR/CH01 actual collision footprints',()=>{
  const start=native.indexOf('static const FSharedPublicBlock SharedFerryApproachShops[] = {');
  const end=native.indexOf('for(const FSharedPublicBlock& Part : SharedFerryApproachShops)',start);
  assert.ok(start>0&&end>start,'native must instantiate the whole shop row');
  const nativeSolids=tuples(native.slice(start,end));
- assert.equal(nativeSolids.length,15);
+ assert.equal(nativeSolids.length,16);
  const browser=w=>w.obstacles.filter(o=>o.type.startsWith('aden-laneshop-'))
   .map(o=>[o.x,o.z,o.w,o.d,o.h]);
  assert.deepEqual(nativeSolids,browser(Sim.newMatch(20261109,0)));
  assert.deepEqual(nativeSolids,browser(Story.createState().world));
+ assert.deepEqual(nativeSolids.slice(2,4),[
+  [-49.5,113.5,3,.7,3.5],[-41.5,113.5,3,.7,3.5]
+ ],'the preexisting -45m ferry lane passes through a true five-metre northern door');
  assert.match(native.slice(end,end+240),
   /AddBlock\(Buildings,FVector\(Part\.X\*100\.f,Part\.Z\*100\.f,Part\.H\*50\.f\)/);
 });
