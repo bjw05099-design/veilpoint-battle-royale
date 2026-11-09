@@ -79,7 +79,8 @@ test('native CH01 checkpoint restores only coherent evidence, falling back to th
  assert.match(recovery,/UVPStoryCheckpoint\* Backup = ReadVerifiedCheckpoint\(CH01BackupSlot\)/);
  assert.ok(recovery.indexOf('ReadVerifiedCheckpoint(CH01Slot)')<
   recovery.indexOf('ReadVerifiedCheckpoint(CH01BackupSlot)'),'only inspect backup after primary');
- assert.match(recovery,/Backup && State->RestoreProgress\(/);
+ assert.match(recovery,/Backup && RestoreCivilian\(Backup\) && State->RestoreProgress\(/,
+  'a saved pedestrian must be restored or rejected before promoting backup objective progress');
  assert.doesNotMatch(recovery,/DeleteGameInSlot\(CH01Slot[^)]*\)\s*;\s*UVPStoryCheckpoint\* Backup/);
 });
 test('native CH01 saves preserve one previous valid generation and verify actual reread',()=>{
