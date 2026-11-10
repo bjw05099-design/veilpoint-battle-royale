@@ -9,7 +9,8 @@ const end=source.indexOf('\n}',start);
 const atmosphere=vm.runInNewContext('('+source.slice(start,end+2)+')');
 test('96-person server weather is reflected in actual shared renderer haze without touching physics',()=>{
  const scene=Sim.newMatch(23,0);scene.status='playing';const before=Sim.snapshotMatch(scene);
- for(const [tick,expected] of [[0,.009],[2700,.035],[5400,.021],[8100,.013],[10800,.009]]){
+ for(const [tick,expected] of [[0,.009],[2700,.009],[3600,.035],
+  [5400,.035],[6300,.021],[8100,.021],[9000,.009],[10800,.009]]){
   scene.coastalWeather=coastalWeatherAtTick(tick);
   assert.equal(atmosphere(scene),expected);
   assert.equal(atmosphere({...scene,scene:'nahrin'}),.009,'CH01 authored atmosphere unaffected');
