@@ -66,7 +66,10 @@ test('BR96 distant, opponent, blocked and active owner grips never become remote
  assert.equal(world.handcart.operator===old,false);
  // An authenticated session rotation retains the single physical operator.
  assert.equal(world.rebindSession(token(1),token(200)).ok,true);
- assert.equal(world.handcart.operator,mate);
- assert.equal(world.snapshot(token(200)).handcart.heldBySelf,true);
+ // Secure transport rotation must release a held cart and neutralize stale
+ // movement. The physical body remains stationary; there is no remote grip.
+ assert.equal(world.handcart.operator,null);
+ assert.equal(world.snapshot(token(200)).handcart.heldBySelf,false);
+ assert.equal(world.snapshot(token(200)).handcart.squadOperatorSlot,undefined);
  assert.throws(()=>world.snapshot(token(1)),/unknown_session/);
 });
