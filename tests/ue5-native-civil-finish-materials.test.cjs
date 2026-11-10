@@ -9,8 +9,9 @@ const native=fs.readFileSync(path.resolve(__dirname,'../scripts/ue5-author-civil
 test('181 original street actors resolve to <=27 deterministic material variants with exact shared roughness',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-finish-ue5-'));
  try{
-  prepare(dir);
-  const street=Street.build(dir),first=applyCivilFinishes(street);
+  const tiles=path.join(dir,'CityTiles');
+  prepare(tiles);
+  const street=Street.build(tiles),first=applyCivilFinishes(street);
   assert.equal(street.parts.length,181);
   assert.equal(first.partCount,181);
   const unique=new Map();
@@ -31,15 +32,15 @@ test('181 original street actors resolve to <=27 deterministic material variants
   assert.ok(unique.size>10&&unique.size<=27);
   assert.deepEqual(applyCivilFinishes(street),first);
   const initial=JSON.stringify(street);
-  const saved=Street.write(dir);
+  const saved=Street.write(tiles);
   assert.ok(fs.existsSync(saved.filename));
-  const fromDisk=Finish.write(dir);
+  const fromDisk=Finish.write(tiles);
   const sidecar=JSON.parse(fs.readFileSync(fromDisk.filename,'utf8'));
   assert.deepEqual(sidecar.assignments,first.assignments);
   assert.equal(sidecar.sourceR16Sha256,street.sourceR16Sha256);
   assert.equal(sidecar.partCount,181);
   assert.equal(JSON.stringify(street),initial,'render finishes may not alter original collision geometry');
-  assert.throws(()=>Finish.write(dir),/EEXIST/,'never overwrite signed-off civilian art sidecar');
+  assert.throws(()=>Finish.write(tiles),/EEXIST/,'never overwrite signed-off civilian art sidecar');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('UE5 material authoring consumes validated sidecar and creates actual shared BaseColor/Roughness shaders',()=>{
