@@ -968,11 +968,19 @@
   // Reaching a physically open, staffed corridor should conclude the short
   // preview by actual travel, not a magic F press on an invisible finish box.
   // The historical F interaction remains supported for saved game sessions.
+  // Derived from existing V2 evidence on both first completion and
+  // checkpoint restore. Never persist a transient voice line or invent
+  // unseen civilian results when reloading an already finished chapter.
+  function completionRecap(state){
+    return state.choice==='verification'
+      ?'이수혁 대위: 동쪽 통로가 실제로 열렸다. 기록 시각이 다른 원인은 아직 확인되지 않았다.'
+      :state.musterConfirmed===true
+        ?'이수혁 대위: 남쪽 구조단 담당자와 직접 협의했다. 확인되지 않은 주민의 이동까지 완료로 보고하지 않겠다.'
+        :'이수혁 대위: 남쪽 안뜰에 실제로 도착했다. 주민 접수 인원과 현장 이송 결과는 아직 확인하지 못했다.';
+  }
   function finishAtExit(state){
     state.phase='complete';state.world.status='won';
-    state.subtitle=state.choice==='verification'
-      ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
-      :'유수프: 남쪽 안뜰의 대피 인원을 확인했어. 동쪽 통제소는 아직 닫혀 있어.';
+    state.subtitle=completionRecap(state);
     state.message='CH01 완료 · 첫 번째 신호가 복구되었습니다.';
   }
   function step(state, dt, input={}) {
@@ -2984,7 +2992,9 @@
     state.world.elapsed=data.elapsed;
     if(state.phase==='complete')state.world.status='won';
     if(state.phase==='failed'){state.world.status='lost';state.world.player.alive=false;}
-    state.subtitle='체크포인트를 불러왔습니다. '+objective(state);
+    state.subtitle=state.phase==='complete'
+      ?completionRecap(state)
+      :'체크포인트를 불러왔습니다. '+objective(state);
     state.message='CH01 / 이어하기';
     syncRoute(state);
     if(recoverGateOverlap(state))state.message='CH01 / 이전 저장 위치를 통제소 밖으로 안전하게 복구했습니다.';

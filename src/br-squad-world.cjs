@@ -631,7 +631,7 @@ class BrSquadWorld {
       const terrain=Sim.wetApronFooting(actor);
       const wash=Sim.harborWaveWash(this.tick*STEP,actor);
       const flow=assessPedestrianFlow(actor,players,(ax,az,bx,bz)=>
-        Sim.lineBlocked(ax,az,bx,bz,this.obstacles));
+        Sim.lineBlocked(ax,az,bx,bz,this.obstacles),direction);
       const pace=(running?SPRINT_SPEED:actor.crouchHeld?CROUCH_SPEED:SPEED)*
         terrain.mobility*wash.mobility*flow.mobility;
       let stepAdvance=false;
@@ -811,7 +811,8 @@ class BrSquadWorld {
     // its HUD. Never expose hidden rival counts or client-chosen density.
     const pedestrianFlow=me.eligible?assessPedestrianFlow(me,
       [...this.actors.values()].filter(p=>p.eligible),(ax,az,bx,bz)=>
-        Sim.lineBlocked(ax,az,bx,bz,this.obstacles)):null;
+        Sim.lineBlocked(ax,az,bx,bz,this.obstacles),
+      me.moving&&this.tick-me.lastMoveTick<=LEASE_TICKS?me.direction:null):null;
     const surface=Object.freeze({wet:terrain.wet,
       waveActive:terrain.wet&&wash.active,
       mobility:Math.round(terrain.mobility*wash.mobility*10000)/10000});

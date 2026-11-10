@@ -26,7 +26,9 @@ test('CH01 actual on-foot south arrival closes the short preview without an invi
  walkSouth(s);
  assert.equal(s.phase,'complete');
  assert.equal(s.world.status,'won');
- assert.match(s.subtitle,/유수프/);
+ assert.match(s.subtitle,/남쪽 안뜰에 실제로 도착/);
+ assert.match(s.subtitle,/아직 확인하지 못했다/,
+  'walking to the exit cannot fabricate a coordinator headcount');
  assert.ok(s.world.player.z<=-65.5,
   'the player must travel beyond the staffed southern exit, not merely approach a mission icon');
  const elapsed=s.world.elapsed;
