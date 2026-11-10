@@ -241,6 +241,26 @@
    provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
    realAdenTilesLoaded:0});
  }
+ // Focus a newly imported local DEM on an ACTUALLY LOADED tile, not on
+ // the fictional (0,0) sample. Sparse data can leave its bounding-box center
+ // empty; choose the nearest real tile instead. This runs only at import time.
+ function importedTerrainFocus(registry){
+  if(!(registry instanceof Map)||registry.size===0)
+   throw new TypeError('No imported terrain tiles to focus');
+  const tiles=[...registry.values()].map(tile=>({
+   key:tile.key,x:(tile.tx+.5)*Tiles.TILE_METRES,
+   z:(tile.tz+.5)*Tiles.TILE_METRES
+  })).filter(tile=>{
+   try{Tiles.point(tile.x,tile.z);return true;}catch(_){return false;}
+  });
+  if(!tiles.length)throw new RangeError('Imported terrain lies outside the viewable local coordinates');
+  const minX=Math.min(...tiles.map(t=>t.x)),maxX=Math.max(...tiles.map(t=>t.x)),
+   minZ=Math.min(...tiles.map(t=>t.z)),maxZ=Math.max(...tiles.map(t=>t.z)),
+   cx=(minX+maxX)/2,cz=(minZ+maxZ)/2;
+  tiles.sort((a,b)=>Math.hypot(a.x-cx,a.z-cz)-Math.hypot(b.x-cx,b.z-cz)||
+   a.key.localeCompare(b.key));
+  return Object.freeze({x:tiles[0].x,z:tiles[0].z,key:tiles[0].key});
+ }
  function attach(doc=typeof document!=='undefined'?document:null){
   if(!doc)return null;
   const canvas=doc.getElementById('terrainCanvas'),
@@ -288,8 +308,11 @@
   }
   function loadDataset(value){
    const parsed=Tiles.importHeightDataset(value);
+   const focus=importedTerrainFocus(parsed.registry);
+   const centered=viewState({x:focus.x,z:focus.z});
+   // Failed imports do not replace the previous registry or current view.
    registry=parsed.registry;activeDataset=parsed;
-   state=viewState();cache.clear();refresh();
+   state=centered;cache.clear();refresh();
    return parsed;
   }
   function resetSample(){
@@ -329,5 +352,6 @@
    getDataset:()=>activeDataset,action,refresh,loadDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
-  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,draw,attach});
+  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,draw,
+  importedTerrainFocus,attach});
 });
