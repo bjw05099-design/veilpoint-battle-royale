@@ -38,7 +38,12 @@ test('the route is primary gameplay; optional reports do not become a visible ch
   assert.ok(publicIds.includes('exitEvac'),'primary physical exit remains visible');
   assert.ok(!publicIds.includes('dispatchLedger'),'remote optional intake paperwork is hidden');
   assert.match(app,/const publicMarkers=visibleMissionMarkers\(\)/);
-  assert.match(app,/for\(const m of visibleMissionMarkers\(\)\)/);
+  // The local minimap renderer now owns canvas drawing, but receives only
+  // the SAME visibleMissionMarkers() collection already filtered by story rules.
+  assert.match(app,/markers:visibleMissionMarkers\(\),walkRoute,escort:observedGuide/);
+  const map=fs.readFileSync(path.resolve(__dirname,'../src/story-local-minimap.js'),'utf8');
+  assert.match(map,/if\(Array\.isArray\(markers\)\)for\(const m of markers\)/);
+  assert.match(map,/if\(!m\|\|!contains\(f,m\.x,m\.z\)\)continue/);
 });
 test('saved CH01 v2 opening generation is unchanged by flashback text and HUD presentation',()=>{
   const state=Story.createState();

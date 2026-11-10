@@ -6,6 +6,9 @@
   const $=id=>document.getElementById(id);
   const Story=global.VeilpointStorySlice;
   const Navigation=global.VeilpointNavigation;
+  const LocalMinimap=global.VeilpointStoryLocalMinimap;
+  const Pedestrian=global.VeilpointStoryPedestrianGuidance;
+  const PedestrianCache=global.VeilpointStoryPedestrianRouteCache;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
@@ -24,6 +27,8 @@
   global.VeilpointInput=input;
   let stillRequested=false;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
+  // UI-only: route reuse cannot mutate 60Hz actor state or V2 checkpoints.
+  const pedestrianRouteCache=PedestrianCache?.create();
   // G is reserved by the PC input binder. It focuses the existing story
   // settings inside the pause menu without permitting any 60Hz world step.
   let graphicsMenuFocused=false;
@@ -1558,32 +1563,20 @@
     return Story.markers(state).filter(marker=>
       local.has(marker.id)||marker.id===guidanceId);
   }
-  function minimap(){
+  function minimap(walkRoute=null){
     const c=$('minimap'),ctx=c.getContext('2d');
-    if(!ctx)return;
-    const w=c.width,h=c.height,tx=x=>(x+75)/150*w,tz=z=>(z+90)/130*h;
-    ctx.fillStyle='#0b2326';ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle='#3c5552';ctx.lineWidth=1;
-    for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(w*i/6,0);ctx.lineTo(w*i/6,h);ctx.stroke();}
-    for(const o of state.world.obstacles){
-      ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
-    }
-    for(const m of visibleMissionMarkers()){
-      ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
-      ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
-    }
-    // The local walking guide is a known companion, but only shown when the
-    // captain can directly observe them; never plot unseen opponents or actors.
-    const escort=state.world.guide,player=state.world.player;
-    if(escort&&Math.hypot(escort.x-player.x,escort.z-player.z)<20&&
-       !Sim.lineBlocked(player.x,player.z,escort.x,escort.z,state.world.obstacles)){
-      ctx.fillStyle='#c6d4de';ctx.beginPath();ctx.arc(tx(escort.x),tz(escort.z),3.6,0,Math.PI*2);ctx.fill();
-    }
-    // Map depicts accessible objectives and the player's location, not unseen opponents.
-    const p=state.world.player;
-    ctx.fillStyle='#faffd4';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='#faffd4';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));
-    ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*12,tz(p.z)-Math.cos(p.yaw)*12);ctx.stroke();
+    if(!ctx||!LocalMinimap)return;
+    const player=state.world.player;
+    // Only an actually visible, physically nearby known guide can appear;
+    // no distant or unobserved civilian/hostile entity is introduced.
+    const guide=state.world.guide;
+    const observedGuide=guide&&Math.hypot(guide.x-player.x,guide.z-player.z)<20&&
+      !Sim.lineBlocked(player.x,player.z,guide.x,guide.z,state.world.obstacles)
+      ?guide:null;
+    LocalMinimap.draw(ctx,c,{
+      player,obstacles:state.world.obstacles,
+      markers:visibleMissionMarkers(),walkRoute,escort:observedGuide
+    });
   }
   function updateHud(){
     const bindings=desktopUi.get().bindings;
@@ -1610,9 +1603,24 @@
         state.choice==='evacuation'?'exitEvac':'exitVerify'
       :null;
     const escortHint=escortIncomplete?situation.guideStatus:null;
+    // Reuse the same SELECTED public marker as the text compass, with a
+    // bounded actual A* street check only when the straight line is blocked.
+    // No new quest, AI target tracking or checkpoint field is created.
+    const walkTarget=Pedestrian?.targetFor(state.world.player,publicMarkers,
+      guidanceId,primaryTarget,escortIncomplete&&!preferGuide&&guidanceId===null);
+    // A* is expensive at PC HUD refresh frequency; reuse only after checking
+    // every mutable obstacle AABB, public target identity and live first leg.
+    // A changed/blocked segment triggers a fresh bounded search immediately.
+    if(!walkTarget)pedestrianRouteCache?.clear();
+    const walkRoute=walkTarget
+      ?(pedestrianRouteCache
+        ?pedestrianRouteCache.get(state.world.player,walkTarget,state.world.obstacles)
+        :Pedestrian.plan(state.world.player,walkTarget,state.world.obstacles))
+      :null;
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
       state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
       state.world.obstacles,primaryTarget,escortHint)+
+      (walkRoute?.kind==='detour'?Pedestrian.instruction(walkRoute):'')+
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
@@ -1724,7 +1732,7 @@
       :interactPrompt+' '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz'+(renderer&&renderer.lastStaticVisibilityStats?' · 정적 지형 '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스':'');
-    minimap();
+    minimap(walkRoute);
   }
   function frame(now){
     global.requestAnimationFrame(frame);

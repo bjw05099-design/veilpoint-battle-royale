@@ -15,6 +15,9 @@ test('local civilian outcome requires actual arrival at authored destination, no
  s.civilianWalker={x:-4,z:-54,arrived:true};
  assert.notEqual(Comms.onsiteWitness(s)?.speaker,'이수혁 대위');
  s.civilianWalker.z=-58;
+ s.civilianWalker.x=-2;
+ assert.equal(Comms.onsiteWitness(s),null,'arrival requires the exact authored destination x and z');
+ s.civilianWalker.x=-4;
  assert.equal(Comms.onsiteWitness(s)?.speaker,'이수혁 대위');
  assert.match(Comms.onsiteWitness(s).message,/실제로 도착/);
  s.world.obstacles=[{x:-3,z:-58,w:1,d:5}];
@@ -36,9 +39,12 @@ test('unmodified physical companion and active incident dialogue remain authorit
  assert.equal(Comms.fieldRadio(s).speaker,'조현지');
 });
 test('radio dialogue is read-only for v2 saves and 60Hz world',()=>{
+ const playable=Story.createState(),serialized=Story.serialize(playable);
+ for(let i=0;i<12;i++){Comms.fieldRadio(playable);Comms.briefing(playable);Comms.localCharacterBeat(playable);}
+ assert.equal(Story.serialize(playable),serialized,'a real playable V2 checkpoint is byte-for-byte unchanged');
+ assert.equal(Story.serialize(Story.restore(serialized)),serialized,'the existing V2 decoder stays compatible');
  const s=state();s.waterReportFiled=true;s.waterSurveyed=true;
- const before=JSON.stringify(s),serialized=Story.serialize(s);
+ const before=JSON.stringify(s);
  for(let i=0;i<12;i++){Comms.fieldRadio(s);Comms.briefing(s);Comms.localCharacterBeat(s);}
- assert.equal(JSON.stringify(s),before);
- assert.equal(Story.serialize(s),serialized);
+ assert.equal(JSON.stringify(s),before,'the synthetic onsite dialogue scene is also read-only');
 });

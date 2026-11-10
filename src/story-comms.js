@@ -29,7 +29,7 @@
   // outcome. Old/restored flags alone cannot substitute for the actual
   // authored civilian destination in the 60Hz world.
   if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
-     state.civilianWalker.z===-58&&
+     state.civilianWalker.x===-4&&state.civilianWalker.z===-58&&
      observed(state.civilianWalker,7))
    return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
   if(state.mara?.arrived===true&&observed(state.mara,8))
