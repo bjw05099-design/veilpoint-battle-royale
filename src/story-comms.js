@@ -5,10 +5,12 @@
 (function(root,factory){
  const sim=typeof module==='object'&&module.exports?
    require('./simulation.js'):root.VeilpointSim;
- const api=factory(sim);
+ const hall=typeof module==='object'&&module.exports?
+   require('./aden-hall-lights.js'):root.VeilpointHallLights;
+ const api=factory(sim,hall);
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointStoryComms=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Sim){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Sim,HallLights){
  'use strict';
  const line=(speaker,message)=>Object.freeze({speaker,message});
  // A physically nearby civilian can speak directly; location, blocked sight
@@ -70,9 +72,13 @@
         dz=Math.max(0,Math.abs(p.z-o.z)-o.d/2);
       return dx*dx+dz*dz<.85*.85;
      }))return null;
+  const localCircuitOn=HallLights?.level(state.world)===1;
+  const observedLight=localCircuitOn
+    ?'아까 연결한 공용 중계기 회선 덕분에 이 주민 회관의 내부 조명만 켜져 있다. 도시 전체의 전기가 복구된 것은 아니다.'
+    :'주민 회관 조명은 여전히 꺼져 있다. 복구되지 않은 실내를 보고 다른 지역의 전력 상태를 추측할 수는 없다.';
   return state.musterConfirmed
-    ?line('이수혁 대위','실제 구조단 접수는 남쪽에서 확인했다. 이 공용 회관에 사람이 보이지 않는다고 주민이 모두 이동했다고 결론 낼 수는 없다.')
-    :line('이수혁 대위','문이 열린 주민 회관이 비어 있다. 누구의 이동도 확인되지 않았다. 현지 구조단에 직접 확인해야 할 것은 위치가 아니라 현재 접수된 사실이다.');
+    ?line('이수혁 대위',observedLight+' 실제 구조단 접수는 남쪽에서 확인했다. 이 회관에 사람이 보이지 않는다고 모두 이동했다고 말할 수는 없다.')
+    :line('이수혁 대위',observedLight+' 이 주민 회관은 지금 비어 있다. 누구의 이동도 아직 확인되지 않았다. 주민 이동 여부는 유수프 구조단에 직접 확인해야 한다.');
  }
  // All these exchanges follow already saved, physically witnessed events.
  // They never add a quest arrow, rewrite the chapter state or infer distant
