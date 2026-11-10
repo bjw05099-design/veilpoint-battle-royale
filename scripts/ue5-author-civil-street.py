@@ -36,6 +36,56 @@ COLORS = {
 }
 
 
+FINISH_VARIANTS = {
+    "warm-lime": ((.76,.69,.57),(.69,.63,.54),(.81,.72,.60)),
+    "sandstone-edge": ((.54,.48,.40),(.59,.51,.43),(.48,.44,.39)),
+    "aged-wood": ((.37,.28,.20),(.31,.25,.19),(.43,.32,.22)),
+    "painted-lattice": ((.48,.38,.27),(.38,.35,.29),(.54,.43,.33)),
+    "muted-glass": ((.25,.34,.33),(.29,.36,.35),(.22,.31,.30)),
+    "cloth-cream": ((.71,.62,.46),(.77,.68,.53),(.63,.58,.48)),
+    "terra-frieze": ((.61,.43,.31),(.55,.39,.30),(.67,.48,.36)),
+    "street-paving": ((.50,.48,.43),(.46,.45,.41),(.53,.50,.44)),
+    "street-edge": ((.37,.36,.34),(.41,.39,.36),(.34,.34,.33)),
+}
+
+def checked_finishes(scene):
+    """An OPTIONAL verified sidecar, not a replacement for saved collision."""
+    filename = os.path.join(ROOT, "CIVIL_FINISH_VARIANTS.json")
+    if not os.path.exists(filename):
+        return None  # Existing original street authoring stays compatible.
+    doc = read_json_small(filename, 260000)
+    if (doc.get("format") != "veilpoint-original-civil-finishes-v1"
+            or doc.get("sourceStreetFormat") != scene["format"]
+            or doc.get("sourceR16Sha256") != scene["sourceR16Sha256"]
+            or doc.get("coordinateSystem") != "local-metre-unreferenced"
+            or doc.get("originalArchitectureOnly") is not True
+            or doc.get("actualAdenCoverageVerified") is not False
+            or doc.get("sourceTerrainUnverified") is not True
+            or doc.get("sensitiveOperationalSites") is not False
+            or doc.get("partCount") != EXPECTED_PIECES):
+        raise RuntimeError("Unverified civilian material variant source")
+    entries = doc.get("assignments")
+    if not isinstance(entries, list) or len(entries) != EXPECTED_PIECES:
+        raise RuntimeError("Incomplete original facade material assignments")
+    verified = {}
+    for part, item in zip(scene["parts"], entries):
+        if not isinstance(item, dict) or item.get("partId") != part["id"] or item.get("baseFinish") != part["finish"]:
+            raise RuntimeError("Civic material assignment does not match authored actor order")
+        variants = FINISH_VARIANTS[part["finish"]]
+        pick = hashlib.sha256((part["id"] + "|" + part["finish"]).encode("utf-8")).digest()[0] % len(variants)
+        rough_byte = hashlib.sha256((part["finish"] + "|" + str(pick)).encode("utf-8")).digest()[0]
+        roughness = round(.63 + rough_byte / 255 * .25, 4)
+        if (type(item.get("variant")) is not int or item["variant"] != pick
+                or item.get("baseColor") != list(variants[pick])
+                or item.get("roughness") != roughness
+                or item.get("metallic") != 0 or item.get("emissive") is not False
+                or item.get("collisionUnchanged") is not True):
+            raise RuntimeError("Civic finish assignment cannot be reproduced from the original part ID")
+        verified[part["id"]] = (part["finish"], pick, variants[pick], roughness)
+    return verified
+
+
+
 def read_json_small(filename, max_bytes=260000):
     if not os.path.isfile(filename) or os.path.getsize(filename) > max_bytes:
         raise RuntimeError("Missing or oversized local civic street source: " +
@@ -102,7 +152,7 @@ def check_scene():
     return scene
 
 
-def material_for(name, rgb):
+def material_for(name, rgb, roughness=None):
     asset_name = "M_CivilStreet_" + name.replace("-", "_")
     asset_path = "/Game/Materials/" + asset_name
     if unreal.EditorAssetLibrary.does_asset_exist(asset_path):
@@ -126,6 +176,15 @@ def material_for(name, rgb):
     if not unreal.MaterialEditingLibrary.connect_material_property(
             color, "", unreal.MaterialProperty.MP_BASE_COLOR):
         raise RuntimeError("Could not wire civilian material Base Color")
+    if roughness is not None:
+        scalar = unreal.MaterialEditingLibrary.create_material_expression(
+            result, unreal.MaterialExpressionConstant, -350, 180)
+        if not scalar:
+            raise RuntimeError("Could not create civic roughness node")
+        scalar.set_editor_property("r", roughness)
+        if not unreal.MaterialEditingLibrary.connect_material_property(
+                scalar, "", unreal.MaterialProperty.MP_ROUGHNESS):
+            raise RuntimeError("Could not wire civic material Roughness")
     errors = unreal.MaterialEditingLibrary.recompile_material(result)
     if errors:
         raise RuntimeError("Original civic material compilation failed: " + str(errors))
@@ -136,6 +195,9 @@ def material_for(name, rgb):
 
 def author_scene():
     scene = check_scene()
+    # Verify ALL 181 optional material records and their source terrain before
+    # spawning any actor or creating native editor assets.
+    finishes = checked_finishes(scene)
     world = unreal.get_editor_subsystem(
         unreal.UnrealEditorSubsystem).get_editor_world()
     if not world or LEVEL not in world.get_path_name():
@@ -149,7 +211,16 @@ def author_scene():
     cube = unreal.load_asset("/Engine/BasicShapes/Cube")
     if not cube:
         raise RuntimeError("Original mesh primitive missing")
-    materials = {name: material_for(name, rgb) for name, rgb in COLORS.items()}
+    materials = {name: material_for(name, rgb) for name, rgb in COLORS.items()} if finishes is None else {}
+    if finishes is not None:
+        # 9 finishes x 3 deterministic variants = 27 real reusable UE5
+        # shader assets, not one material per actor (181 redundant shaders).
+        for finish, variants in FINISH_VARIANTS.items():
+            for index, rgb in enumerate(variants):
+                rough_byte = hashlib.sha256((finish + "|" + str(index)).encode("utf-8")).digest()[0]
+                roughness = round(.63 + rough_byte / 255 * .25, 4)
+                materials[(finish, index)] = material_for(
+                    finish + "_V" + str(index), rgb, roughness)
     created = 0
     for p in scene["parts"]:
         actor = actors.spawn_actor_from_class(
@@ -165,7 +236,11 @@ def author_scene():
         mesh.set_static_mesh(cube)
         actor.set_actor_scale3d(
             unreal.Vector(p["w"], p["d"], p["h"]))
-        mesh.set_material(0, materials[p["finish"]])
+        if finishes is None:
+            mesh.set_material(0, materials[p["finish"]])
+        else:
+            finish, variant, _, _ = finishes[p["id"]]
+            mesh.set_material(0, materials[(finish, variant)])
         mesh.set_collision_enabled(
             unreal.CollisionEnabled.QUERY_AND_PHYSICS if p["solid"]
             else unreal.CollisionEnabled.NO_COLLISION)
@@ -177,6 +252,8 @@ def author_scene():
         raise RuntimeError("Standalone civilian street scene was not saved")
     unreal.log("[VEILPOINT] Created 181 ORIGINAL facade, louver, "+
                "pavement and ordinary civilian lighting blocks.")
+    unreal.log("[VEILPOINT] %s real UE5 facade materials; original verified collision unchanged." %
+               ("27 deterministic variation" if finishes is not None else "9 fallback"))
     unreal.log("[VEILPOINT] 33 continuous promenade pavers and 3 walk-in "+
                "public door approaches; not a surveyed real Aden district.")
     unreal.log("[VEILPOINT] Native PIE collision, performance and city "+
