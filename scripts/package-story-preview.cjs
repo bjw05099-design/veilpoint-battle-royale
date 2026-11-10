@@ -25,8 +25,18 @@ function verifiedSource(root,name){
  return Object.freeze({name,data});
 }
 function collectStoryFiles(root=ROOT){
- const html=verifiedSource(root,'story.html');
- const sources=referencedAssets('story.html',html.data.toString('utf8'));
+ const source=verifiedSource(root,'story.html');
+ const original=source.data.toString('utf8');
+ // The combined BR/CH01 source page legitimately links back to the BR menu.
+ // Inside a STORY-ONLY ZIP, that destination is our own story landing page:
+ // reword the existing button without changing the checked-in dual-mode demo.
+ const combinedLink='<a id="modeSelectLink" class="secondary" href="index.html">배틀로얄로 이동</a>';
+ const standaloneLink='<a id="modeSelectLink" class="secondary" href="index.html">스토리 시작 화면으로</a>';
+ if(original.includes('id="modeSelectLink"')&&!original.includes(combinedLink))
+  throw new Error('story_mode_link_template_changed');
+ const adapted=original.replace(combinedLink,standaloneLink);
+ const html=Object.freeze({name:'story.html',data:Buffer.from(adapted)});
+ const sources=referencedAssets('story.html',adapted);
  const names=[...new Set(['story.html',DOC,...sources])].sort();
  if(!sources.includes('src/story-app.js')||!sources.includes('src/story-slice.js'))
   throw new Error('story_source_missing_critical_scripts');
@@ -55,6 +65,12 @@ function verifyStoryArchive(zip){
    throw new Error('story_notice_changed:'+name);
  }
  const story=entries.get('story.html').toString('utf8');
+ // Even a correctly re-signed ZIP must not offer a phantom Battle Royale
+ // option after its BR entrypoint was deliberately excluded.
+ if(story.includes('id="modeSelectLink"')&&
+    (!story.includes('<a id="modeSelectLink" class="secondary" href="index.html">스토리 시작 화면으로</a>')||
+     story.includes('배틀로얄로 이동')))
+  throw new Error('story_br_link_not_retargeted');
  const sources=referencedAssets('story.html',story);
  const allowed=new Set([...FIXED,...sources]);
  for(const file of sources){

@@ -88,3 +88,31 @@ test('actual VEILPOINT CH01 entrypoint and all script dependencies make a story-
  const doc=fs.readFileSync(path.join(ROOT,'docs/STORY_FIRST_RELEASE_PLAN.md'),'utf8');
  assert.match(doc,/First release: Windows PC story mode/);
 });
+
+test('story-only archive relabels an inherited BR menu link without altering source demo or Save & Exit',()=>{
+ const rootOriginal=fs.readFileSync(path.join(ROOT,'story.html'),'utf8');
+ assert.match(rootOriginal,/id="modeSelectLink"[^>]*>배틀로얄로 이동<\/a>/,
+  'combined demo must retain its real BR return link');
+ const entries=Story.storyEntries(ROOT),
+       html=entries.find(x=>x.name==='story.html').data.toString('utf8');
+ assert.match(html,/id="modeSelectLink"[^>]*href="index.html">스토리 시작 화면으로<\/a>/);
+ assert.doesNotMatch(html,/배틀로얄로 이동/);
+ const runtime=fs.readFileSync(path.join(ROOT,'src/story-app.js'),'utf8');
+ assert.match(runtime,/location\.assign\('index.html'\)/,
+  'Save & Exit still leads to the standalone STORY landing without rewriting gameplay');
+ assert.equal(Story.verifyStoryArchive(buildZip(entries)).storyOnly,true);
+ // Re-sign a bundle that restores the original BR label: the independent
+ // verifier, not just a stale SHA manifest, must explicitly reject it.
+ const changed=entries.map(x=>x.name==='story.html'
+   ?{name:x.name,data:Buffer.from(rootOriginal)}:x);
+ const manifest=[...changed].filter(x=>x.name!=='MANIFEST.sha256'&&x.name!=='NOTICE.txt')
+  .sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)
+  .map(x=>require('node:crypto').createHash('sha256').update(x.data).digest('hex')+'  '+x.name)
+  .join('\n')+'\n';
+ const forged=changed.map(x=>x.name==='MANIFEST.sha256'
+  ?{name:x.name,data:Buffer.from(manifest)}:x)
+  .sort((a,b)=>a.name.localeCompare(b.name,'en'));
+ assert.throws(()=>Story.verifyStoryArchive(buildZip(forged)),/story_br_link_not_retargeted/);
+ assert.equal(fs.readFileSync(path.join(ROOT,'story.html'),'utf8'),rootOriginal,
+  'packaging is a copy-time presentation change, never mutation of the original BR-compatible story source');
+});
