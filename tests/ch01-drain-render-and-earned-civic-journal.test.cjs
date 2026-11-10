@@ -56,14 +56,16 @@ test('WebGL and Canvas fallback consume identical fixed-step drain props and nev
    'both render paths must use the same authored asset list');
  assert.match(renderer,/polygon\(\[proj\(d\.x-d\.w\/2,y,d\.z-d\.d\/2\)/);
  assert.match(renderer,/mesh\.box\(d\.x,d\.y,d\.z,d\.w,d\.h,d\.d,d\.rgb\)/);
- const state=Story.createState(),before=state.world.obstacles.map(o=>o.id);
+ const state=Story.createState();
  const empty=Journal.entries(state);
  assert.equal(empty.some(x=>x.id==='streetDrain'),false);
  state.world.player.x=Story.POINTS.terminal.x;
  state.world.player.z=Story.POINTS.terminal.z;
  assert.equal(Story.interact(state).phase,'engagement');
- assert.deepEqual(state.world.obstacles.map(o=>o.id),before,
-  'a visual storm drain must not change the authored play-space collisions');
+ const obstaclesBefore=JSON.stringify(state.world.obstacles);
+ Flood.details(state.world.streetFlood);
+ assert.equal(JSON.stringify(state.world.obstacles),obstaclesBefore,
+  'render-only storm drain fixtures must not alter the active 60Hz collisions');
 });
 test('CH01 optional wet-street action reaches the journal only after the actual 60Hz task finishes, including restore',()=>{
  const state=realDrainScene();
