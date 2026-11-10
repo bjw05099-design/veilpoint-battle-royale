@@ -46,6 +46,6 @@ test('small LOD height corrections ground feet without extra movement or new sav
  assert.equal(step.version,1);
  assert.equal(step.blocked,false);
  assert.ok(step.x>128&&step.x<=128+Walk.SPEED_METRES_PER_SECOND/60+1e-8);
- assert.equal(step.y,20.12);
+ assert.ok(Math.abs(step.y-20.12)<1e-8);
  assert.equal(step.z,128);
 });
