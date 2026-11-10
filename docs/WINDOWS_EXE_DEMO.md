@@ -71,7 +71,7 @@ extract the release ZIP; open `VEILPOINT.Demo.exe` from its extracted folder.
   original synthetic terrain buttons remain available in this **combined
   development preview** for regression work.
 - To launch CH01 without any BR/terrain navigation, use
-  `VEILPOINT.Demo.exe --story-only` in PowerShell after extracting the
+  `.\VEILPOINT.Demo.exe --story-only` in PowerShell after extracting the
   package. The host hides the other navigation buttons **and** blocks both
   top-level navigation and new-window requests to their pages, including
   in-page links.
