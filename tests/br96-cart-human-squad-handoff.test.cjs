@@ -49,8 +49,8 @@ test('BR96 distant, opponent, blocked and active owner grips never become remote
  const old=atHandle(world,0,1);
  assert.equal(world.operateHandcart(token(0)).action,'grip');
  for(let i=0;i<LEASE_TICKS+2;i++)world.step();
- assert.equal(world.operateHandcart(token(1)).reason,'in_use',
-   'same-squad person is still at their natural spawn, not at the cart');
+ assert.equal(world.operateHandcart(token(1)).reason,'out_of_reach',
+   'a same-squad member must actually walk to the handle first');
  const rival=atHandle(world,6,-1);
  assert.equal(world.operateHandcart(token(6)).reason,'in_use',
    'opponent has no cart takeover privilege');
