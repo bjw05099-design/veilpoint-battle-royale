@@ -38,6 +38,10 @@ test('optional story-only host blocks BR and terrain navigation at every entry p
  }
  assert.match(host,/core\.WebResourceRequested \+=/);
  assert.match(host,/!IsLocalHost\(requested\)/);
+ assert.match(host,/core\.FrameNavigationStarting \+=/);
+ assert.match(host,/if \(storyOnly\) e\.Cancel = true/);
+ assert.match(host,/storyOnly \? "StoryOnly" : "WebView2"/);
+ assert.match(manual,/DemoHost\\StoryOnly/);
  assert.match(host,/OfflinePayloadVerifier\.Verify\(gameFolder\)/);
  assert.match(host,/Application\.Run\(new DemoWindow\(\)\)/,
   'mixed dev host must remain accessible to later BR development');
