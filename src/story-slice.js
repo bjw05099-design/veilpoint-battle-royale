@@ -1519,10 +1519,10 @@
       const crossed=isSouth
         ?beforeZ>southEdge&&p.z<=southEdge&&Math.abs(p.x-exit.x)<2.2
         :beforeX<eastEdge&&p.x>=eastEdge&&Math.abs(p.z-exit.z)<2.2;
-      const companionsReady=!isSouth||(!state.world.carryingAid&&
-        !(state.guide.active&&!state.guide.arrived&&!state.guide.released));
-      const permitted=isSouth||gateOpen(state);
-      if(crossed&&movedDistance>1e-7&&companionsReady&&permitted&&
+      // The same exact gate/cargo/guide rule owns both HUD and physical
+      // threshold completion. A player never sees "available" while the
+      // 60Hz exit refuses the very same real state.
+      if(crossed&&movedDistance>1e-7&&exitReadiness(state).ready&&
          !Sim.lineBlocked(beforeX,beforeZ,p.x,p.z,state.world.obstacles)){
         finishAtExit(state);
         syncMarkers(state);
@@ -2025,6 +2025,37 @@
     syncMarkers(state);
     return {ok:true,event:'back'};
   }
+  // One source of truth for the ACTUAL CH01 exit crossing and PC progress
+  // HUD: a visible green/blue marker is never permission to teleport, and
+  // optional civilian tasks cannot be silently converted into mandatory
+  // objectives. Only voluntarily carried aid and an already-following guide
+  // may hold the south threshold; only physical gate travel holds the east.
+  // All values derive from existing V2 world fields, no new save schema.
+  function exitReadiness(state){
+    if(state.phase==='complete')
+      return Object.freeze({ready:true,reason:'completed',label:'현장 경로 종료 확인'});
+    if(state.phase!=='exit'||!['evacuation','verification'].includes(state.choice))
+      return Object.freeze({ready:false,reason:'route_not_selected',label:'경로 선택 전'});
+    if(state.choice==='verification'){
+      if(!gateOpen(state))
+        return Object.freeze({ready:false,
+          reason:state.gateObstructed?'gate_safety_stop':'gate_opening',
+          label:state.gateObstructed
+            ?'동쪽 통제문 이동 경로에서 벗어나 개방을 기다리세요'
+            :'동쪽 통제문 실제 개방을 기다리세요'});
+      return Object.freeze({ready:true,reason:'east_clear',label:'동쪽 통로 직접 통과 가능'});
+    }
+    if(state.world.carryingAid)
+      return Object.freeze({ready:false,reason:'aid_in_hands',
+        label:'운반 중인 물품을 구조단에 인계하거나 임시 적재대에 내려놓으세요'});
+    const guide=state.guide;
+    if(guide.active&&!guide.arrived&&!guide.released)
+      return Object.freeze({ready:false,
+        reason:guide.waiting?'guide_waiting':'guide_en_route',
+        label:guide.waiting?'동행 안내원이 대기 중입니다. 가까이서 F로 재개하거나 구조단에 인계하세요':
+          '안내원과 함께 실제 안뜰에 도착하거나 구조단에 인계하세요'});
+    return Object.freeze({ready:true,reason:'south_clear',label:'남쪽 안뜰 출구 직접 통과 가능'});
+  }
   function missionTasks(state) {
     // Read-only progress derived entirely from the real CH01 world. The
     // tracker never grants completion, discovers an unseen actor, changes a
@@ -2047,7 +2078,7 @@
          item('guide','현장 안내원 동행·인계',guideStatus,true),
         item('aid','비상 물품 현장 인계',aidStatus,true),
         item('exit','남쪽 안뜰 도착',completed?'done':
-          (state.world.carryingAid||(guide.active&&!guideDone))?'blocked':'available')
+          exitReadiness(state).ready?'available':'blocked')
       ]);
     }
     return Object.freeze([
@@ -2056,7 +2087,8 @@
       item('log','현장 중계 기록 검토',state.gateLogReviewed?'done':gateOpen(state)?'available':'locked',true),
       item('handoff','현장 기록 전달',state.logHandedOff?'done':
         state.gateLogReviewed?'available':'locked',true),
-      item('exit','동쪽 통로 이동',completed?'done':gateOpen(state)?'available':'blocked')
+      item('exit','동쪽 통로 이동',completed?'done':
+        exitReadiness(state).ready?'available':'blocked')
     ]);
   }
   // The courtyard marker may be the actual E target while a visible guide
@@ -2103,6 +2135,7 @@
         !gateOpen(state)&&state.gateObstructed,
       eastGateRemainingSeconds:state.choice==='verification'&&!gateOpen(state)?Math.max(0,Math.ceil((state.gateReadyAt-state.world.elapsed)*60-1e-8)/60):0,
       routeReviewAvailable:state.phase==='exit'&&markers(state).some(m=>m.id==='decision'),
+      exitReadiness:exitReadiness(state),
       visibleEscortDistance:visibleEscortDistance(state),
       escortPaceAvailable:escortPaceAvailable(state),
       radio:state.relayRestored?'현지 비상 무전 복구 완료 · 항구 벽등 점등 · 동쪽 통제문 준비 4초':'비상 무전 미복구 · 동쪽 통제문 준비 8초',
@@ -2285,8 +2318,8 @@
         ?'현장 기록을 추가 확인했습니다. 남쪽 대피 지원과 동쪽 통로 현장 확인 중 선택하세요.'
         :'두 경로 모두 선택할 수 있습니다. 동쪽 통로는 현지 통제소의 실제 개방을 기다려야 하며 기록 검토는 선택 사항입니다.';
       case 'exit':return state.choice==='verification'
-        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 F로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 F로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
-        :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)의 실제 통로를 걸어서 통과하세요. 가까운 표식은 F로 직접 확인할 수도 있습니다.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 F로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 F로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
+        :'남쪽 안뜰(초록 표식) 뒤의 실제 출구를 걸어서 통과하세요. 가까운 표식은 F로 직접 확인할 수도 있습니다.'+
           (state.world.carryingAid?' 운반 중인 비상 물품은 구조단에 인계하거나 임시 적재대에 내려놓아야 출구를 통과할 수 있습니다.':'')+
           (state.musterConfirmed?' 집결지 구조단 담당자와 현장 협의 완료.':' 선택: 집결지의 유수프 구조단 담당자에게 직접 접근해 F로 협의할 수 있습니다.')+
           (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
@@ -2806,6 +2839,6 @@
   }
   return Object.freeze({
     VERSION,POINTS,RECORDS,INTERACT_RADIUS,GATE_CLEARANCE_SECONDS,createState,step,markers,navigationMarkers,localPublicAddress,nearest,localRouteOffer,interact,toggleFlashlight,fire,autoFire,support,choose,
-    objective,situation,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot,civicCrossingReached,civicCrossingArrivalCheckpoint
+    objective,situation,exitReadiness,openingBeat,missionTasks,optionalTaskAudit,debrief,closingScene,escortArrivalCheckpoint,backToRecords,serialize,restore,recoverCheckpoint,reviewCompletedMission,validateSnapshot,civicCrossingReached,civicCrossingArrivalCheckpoint
   });
 });

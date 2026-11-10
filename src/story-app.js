@@ -1654,7 +1654,9 @@
       const progress={done:'현장 도착',available:'직접 이동 가능',
         waiting:'현지 담당자가 개방 중',blocked:'현장 이동 확인 필요'};
       tracker.textContent=(state.choice==='evacuation'?'남쪽 대피':'동쪽 통로')+
-        ' · '+primary.label+' · '+(progress[primary.status]||'진행 중');
+        ' · '+primary.label+' · '+(progress[primary.status]||'진행 중')+
+        (primary.status==='blocked'&&situation.exitReadiness?.label
+          ?' · '+situation.exitReadiness.label:'');
     }else tracker.textContent='';
     const combatActive=state.phase==='engagement';
     const p=state.world.player;
