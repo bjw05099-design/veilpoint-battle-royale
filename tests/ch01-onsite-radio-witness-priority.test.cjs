@@ -8,6 +8,7 @@ function observedState(){
  const s=Story.createState();
  s.phase='records';s.combat.cleared=true;
  s.civilianRerouted=true;s.civilianWalker.arrived=true;
+ s.civilianWalker.x=-4;s.civilianWalker.z=-58;
  s.world.player.x=s.civilianWalker.x;
  s.world.player.z=s.civilianWalker.z-1.2;
  return s;
