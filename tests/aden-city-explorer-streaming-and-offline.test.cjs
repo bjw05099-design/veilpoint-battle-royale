@@ -41,7 +41,8 @@ test('viewer renders real visible terrain triangles, original civic roofs and li
  assert.equal(one.lodStep,2);
  assert.ok(one.triangles>=2500);
  assert.ok(one.housesVisible>50);
- assert.equal(data.paths,one.triangles);
+ assert.ok(one.roadTriangles>0,'fictional road surfaces render on the loaded land');
+ assert.equal(data.paths,one.triangles+one.roadTriangles);
  assert.equal(cache.size,25);
  const two=Explorer.draw(canvas,registry,Explorer.setZoom(Explorer.viewState(),.30),cache);
  assert.equal(two.lodStep,4);
@@ -97,12 +98,14 @@ test('offline delivery has an independent local terrain page, a clear non-survey
  assert.match(index,/창작 테스트 지형이며 실제 아덴 DEM이 아닙니다/);
  const files=collectFiles().map(x=>x.name);
  for(const name of ['terrain.html','src/aden-citywide-tiles.js',
-   'src/aden-map-relief.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js']){
+   'src/aden-map-relief.js','src/aden-preview-streets.js',
+   'src/aden-city-explorer.js','src/aden-city-explorer-init.js']){
   assert.ok(files.includes(name),'bundled: '+name);
  }
  assert.deepEqual(referencedAssets('terrain.html',html),[
   'src/aden-citywide-tiles.js','src/aden-map-relief.js',
-  'src/aden-city-explorer.js','src/aden-city-explorer-init.js']);
+  'src/aden-preview-streets.js','src/aden-city-explorer.js',
+  'src/aden-city-explorer-init.js']);
  assert.doesNotMatch(html,/<script>(?!<\/script>)/);
 });
 test('browser global setup loads from local assets without network access or browser-specific APIs',()=>{
