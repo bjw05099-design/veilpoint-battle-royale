@@ -34,7 +34,7 @@ test('late HTTP chat acknowledgements can clear ONLY their own unchanged draft',
  assert.equal(g.finish('teamA',12),true);
 });
 
-test('session rotation or unanimous new round cannot let an old chat response erase a new player's text',()=>{
+test('session rotation or unanimous new round cannot let an old chat response erase newly typed chat',()=>{
  const g=Panel.createDraftGuard();
  assert.equal(g.begin('old',5,'hello'),true);
  g.reset();
