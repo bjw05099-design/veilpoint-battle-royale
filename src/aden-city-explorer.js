@@ -399,6 +399,7 @@
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
    walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
+  let publicRoomCursor=0;
   function invalidateWalking(){
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
@@ -491,6 +492,18 @@
    if(button)button.setAttribute?.('aria-pressed','true');
    refresh();return true;
   }
+  function focusNextPublicRoom(){
+   // Camera shortcut for touring eight distinct ORIGINAL public interiors.
+   // Never teleports a live pedestrian through a wall or changes game saves.
+   if(walk||activeDataset||!Districts)return null;
+   const rooms=Districts.PUBLIC_INTERIORS;
+   if(!rooms.length)return null;
+   const room=rooms[publicRoomCursor%rooms.length];
+   publicRoomCursor++;
+   state=viewState({...state,x:room.x,z:room.z+room.d/2+2,
+    zoom:Math.max(1.2,state.zoom)});
+   refresh();return room.id;
+  }
   function toggleNearbyDoor(){
    if(!walk||activeDataset||!Districts||!Walk)return false;
    const nearest=Districts.PUBLIC_INTERIORS.map(room=>({
@@ -552,7 +565,7 @@
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
    const dataset=Object.freeze({...parsed,filesImported:1});
-   invalidateWalking();closedDoors.clear();
+   invalidateWalking();closedDoors.clear();publicRoomCursor=0;
    registry=parsed.registry;activeDataset=dataset;
    state=centered;cache.clear();refresh();
    return dataset;
@@ -573,7 +586,7 @@
    });
    // All validations succeeded; commit exactly once. Existing tile objects
    // and their cached current-LOD meshes remain valid and camera stays put.
-   invalidateWalking();closedDoors.clear();
+   invalidateWalking();closedDoors.clear();publicRoomCursor=0;
    registry=combined.registry;activeDataset=dataset;refresh();
    return dataset;
   }
@@ -590,7 +603,7 @@
    // Reset is a newer user decision, not an intermediate render. Never let
    // an older File.text() promise resurrect an imported dataset afterward.
    fileSelectionRevision++;
-   invalidateWalking();closedDoors.clear();
+   invalidateWalking();closedDoors.clear();publicRoomCursor=0;
    registry=createPreviewRegistry();activeDataset=null;
    state=viewState();cache.clear();refresh();
   }
@@ -622,6 +635,8 @@
   if(resetButton)resetButton.addEventListener('click',resetSample);
   const walkButton=doc.getElementById('walkProbe');
   if(walkButton)walkButton.addEventListener('click',toggleWalking);
+  const roomTourButton=doc.getElementById('publicRoomTour');
+  if(roomTourButton)roomTourButton.addEventListener('click',focusNextPublicRoom);
   for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
@@ -655,7 +670,7 @@
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
    getClosedDoors:()=>Object.freeze([...closedDoors].sort()),
-   action,refresh,toggleWalking,toggleNearbyDoor,walkStep,
+   action,refresh,toggleWalking,toggleNearbyDoor,focusNextPublicRoom,walkStep,
    loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
