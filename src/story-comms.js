@@ -30,6 +30,50 @@
    return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
   return null;
  }
+ // Three local, non-omniscient dramatic beats rely on actual 60Hz actor
+ // poses or on a room the player has physically entered. There is NO quest
+ // flag, global notification, automatic investigation or additional save key.
+ // Existing V2 checkpoints can hear these beats after resuming, while the
+ // opening and active incident keep their established dialogue unchanged.
+ function onsiteColleague(state){
+  if(!state?.combat?.cleared||
+     !['records','decision','exit'].includes(state.phase))return null;
+  const p=state.world?.player,obstacles=state.world?.obstacles;
+  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z)||!Array.isArray(obstacles))return null;
+  const nearby=(person,reach)=>person&&Number.isFinite(person.x)&&
+    Number.isFinite(person.z)&&
+    Math.hypot(p.x-person.x,p.z-person.z)<=reach&&
+    !Sim.lineBlocked(p.x,p.z,person.x,person.z,obstacles);
+  if(nearby(state.world.liaison,5.0)){
+    return state.relayRestored
+      ?line('조현지','우리가 직접 복구한 공용 중계기는 이 골목까지만 연결됩니다. 한국에서 받은 복귀 지시가 바뀐 것은 아니고, 실제 운송편과 주민 이동도 별도로 확인해야 합니다.')
+      :line('조현지','공용 중계기가 끊긴 동안 현지 구조단은 직접 사람을 보내 소식을 전했습니다. 복귀할 수 있다는 보고는 아직 확인되지 않았습니다.');
+  }
+  if(nearby(state.world.kimJiyoon,5.0)){
+    return state.workerInterviewed
+      ?line('김지윤','작업자의 가족이 1990년 통일과 1994년 전쟁을 서로 다르게 기억한다는 말을 직접 들었습니다. 진술의 범위를 넘어 모든 주민의 뜻으로 기록할 수는 없습니다.')
+      :line('김지윤','한국에서 받은 본래 임무는 민간 연락 협력입니다. 이 항구에서 확인한 사실만 구분해 보고해야 합니다. 아직 모르는 인원과 이동은 빈칸으로 남겨두겠습니다.');
+  }
+  return null;
+ }
+ function onsitePublicHall(state){
+  if(!state?.combat?.cleared||
+     !['records','decision','exit'].includes(state.phase))return null;
+  const p=state.world?.player,obstacles=state.world?.obstacles;
+  if(!p||!Array.isArray(obstacles)||!Number.isFinite(p.x)||!Number.isFinite(p.z))return null;
+  // A room must exist physically in the same CH01 collision map. A forged
+  // client coordinate or old save with no authored hall cannot narrate it.
+  if(!obstacles.some(o=>o.id==='harbor-hall-north'&&o.type==='story-public-hall-wall')||
+     p.x<25||p.x>31||p.z<30||p.z>39||
+     obstacles.some(o=>{
+      const dx=Math.max(0,Math.abs(p.x-o.x)-o.w/2),
+        dz=Math.max(0,Math.abs(p.z-o.z)-o.d/2);
+      return dx*dx+dz*dz<.85*.85;
+     }))return null;
+  return state.musterConfirmed
+    ?line('이수혁 대위','실제 구조단 접수는 남쪽에서 확인했다. 이 공용 회관에 사람이 보이지 않는다고 주민이 모두 이동했다고 결론 낼 수는 없다.')
+    :line('이수혁 대위','문이 열린 주민 회관이 비어 있다. 누구의 이동도 확인되지 않았다. 현지 구조단에 직접 확인해야 할 것은 위치가 아니라 현재 접수된 사실이다.');
+ }
  // All these exchanges follow already saved, physically witnessed events.
  // They never add a quest arrow, rewrite the chapter state or infer distant
  // civilians from a private network/sensor. One human's recollection remains
@@ -137,7 +181,8 @@
  // real characters invisible whenever the player could hear a relay nearby.
  // No persistent gameplay state changes; old v2 checkpoints still work.
  function fieldRadio(state,publicAddress=null){
-  return onsiteWitness(state)||publicAddress||briefing(state);
+  return onsiteWitness(state)||onsiteColleague(state)||onsitePublicHall(state)||
+    publicAddress||briefing(state);
  }
- return Object.freeze({briefing,localCharacterBeat,onsiteWitness,fieldRadio});
+ return Object.freeze({briefing,localCharacterBeat,onsiteWitness,onsiteColleague,onsitePublicHall,fieldRadio});
 });

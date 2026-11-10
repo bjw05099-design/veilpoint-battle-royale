@@ -1,5 +1,15 @@
 # VEILPOINT demo delivery gates · 2026-11-27
 
+> **2026-11-10 binding release-order update:** The first full product release
+> is a **standalone Windows PC story mode**; the Battle Royale release follows
+> later and reuses validated story maps, assets and shared gameplay systems.
+> Map 35% / story 35% / BR 20% / stabilization 10% is the rolling development
+> effort allocation. The November 27 date remains a **demo candidate target**,
+> not a promise of a finished 12-hour campaign or simultaneous BR launch.
+> The original browser-BR-primary text below is preserved as the historical
+> 2026-10-27 demo plan, not the new release priority.
+> See [Story-first release plan](STORY_FIRST_RELEASE_PLAN.md).
+
 This is a **delivery target**, not a claim that a playable or photoreal Unreal binary already exists.
 
 ## Two tracks (1 solo developer + AI)
