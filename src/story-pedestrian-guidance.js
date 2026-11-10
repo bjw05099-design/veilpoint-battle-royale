@@ -51,7 +51,11 @@
   // Do not report paths from/to a player-height AABB occupied by a wall.
   if(Sim.blocked(p.x,p.z,clearance,obstacles)||
      Sim.blocked(destination.x,destination.z,clearance,obstacles))return null;
-  if(!Navigation.directLineBlocked(p,destination,obstacles)){
+  // The display must use the SAME inflated standing-body clearance as
+  // the public footpath planner. A centerline can pass a narrow gap that
+  // the real 60Hz player capsule cannot traverse.
+  const inflated=obstacles.map(o=>({...o,w:o.w+2*clearance,d:o.d+2*clearance}));
+  if(!Sim.lineBlocked(p.x,p.z,destination.x,destination.z,inflated)){
    return Object.freeze({id:marker.id,kind:'direct',
     points:Object.freeze([Object.freeze(p),Object.freeze(destination)]),
     distance:straight,segment:straight,heading:Navigation.direction(player,destination),
@@ -63,7 +67,6 @@
   const found=Footpaths.plan(p,destination,obstacles,{maxVisits});
   if(!found||found.length<2||found.length>MAX_SEGMENTS)return null;
   const all=found.map(x=>Object.freeze({x:x.x,z:x.z}));
-  const inflated=obstacles.map(o=>({...o,w:o.w+2*clearance,d:o.d+2*clearance}));
   let distance=0;
   for(let i=1;i<all.length;i++){
    const a=all[i-1],b=all[i],len=Math.hypot(a.x-b.x,a.z-b.z);
