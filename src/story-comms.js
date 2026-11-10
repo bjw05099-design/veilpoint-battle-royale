@@ -118,7 +118,7 @@
    // This is the captain's own memory of a local conversation. Jo's presence
    // or a live radio link cannot be inferred from a saved interview flag.
    // When Jo actually stands nearby, onsiteColleague() above speaks for her.
-   return line('이수혁 대위','작업자가 직접 들려준 1990년 통일과 1994년 전쟁의 기억은 가족 안에서도 달랐다. 그의 개인적인 경험만 들었으며 다른 주민의 생각이나 정확한 목격 시각은 아직 확인하지 못했다.');
+   return line('이수혁 대위','작업자가 직접 들려준 1990년 통일과 1994년 전쟁의 기억은 가족 안에서도 달랐다. 그가 직접 말한 경험까지만 확인했다. 목격 시각이 미확인된 별도 진술로 남겼으며 다른 주민의 생각은 아직 확인하지 못했다.');
   if(state.civilianRerouted===true)
    return line('이수혁 대위','주민이 자기 판단으로 남쪽 접근로를 택했다. 도착했는지 확인하지 않고 완료로 보고하지 않겠다.');
 
