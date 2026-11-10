@@ -10,6 +10,7 @@
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
   const Ambient=global.VeilpointStoryHarborAmbience;
+  const Footfalls=global.VeilpointStoryFootfall;
   const Comms=global.VeilpointStoryComms;
   const Desktop=global.VeilpointDesktopControls;
   const SAVE_KEY='veilpoint.story.ch01';
@@ -285,6 +286,7 @@
   const audio=Audio.create({AudioContextClass:global.AudioContext||global.webkitAudioContext,
     enabled:storage.get('veilpoint.story.audio')!=='off'});
   const ambience=Ambient?.create({AudioContextClass:global.AudioContext||global.webkitAudioContext})||null;
+  const footfalls=Footfalls?.create({AudioContextClass:global.AudioContext||global.webkitAudioContext})||null;
   const AudioPrefs=global.VeilpointAudioPreferences;
   // Preserve an explicit old mute preference on the first upgrade.
   if(AudioPrefs&&!storage.get(AudioPrefs.KEY)&&storage.get('veilpoint.story.audio')==='off')
@@ -293,7 +295,8 @@
     audio.setEnabled(prefs.enabled);
     audio.setVolume(AudioPrefs.gain(prefs,'effects'));
     ambience?.setVolume(AudioPrefs.gain(prefs,'ambience'));
-    if(!prefs.enabled)ambience?.disable();
+    footfalls?.setVolume(AudioPrefs.gain(prefs,'effects'));
+    if(!prefs.enabled){ambience?.disable();footfalls?.disable();}
     $('soundEnabled').checked=prefs.enabled;
     storage.set('veilpoint.story.audio',prefs.enabled?'on':'off');
   })||null;
@@ -302,7 +305,7 @@
     if(audioControls)audioControls.set({...audioControls.get(),enabled:$('soundEnabled').checked});
     else{
       audio.setEnabled($('soundEnabled').checked);
-      if(!audio.enabled())ambience?.disable();
+      if(!audio.enabled()){ambience?.disable();footfalls?.disable();}
       else if(ambience?.enable())ambience.update(state,running);
       storage.set('veilpoint.story.audio',audio.enabled()?'on':'off');
     }
@@ -310,8 +313,13 @@
   // No continuous sound is permitted before a DIRECT player gesture.
   // Mouse/keyboard unlocks only the optional sound graph, never game input.
   function unlockHarborAmbience(){
-    if(!audio.enabled()||!ambience||ambience.enabled())return;
-    if(ambience.enable())ambience.update(state,canAct());
+    // Audio starts only after an actual mouse/key gesture. This enables the
+    // original atmosphere and the new character's local movement sounds;
+    // neither feature unmutes a previously disabled player preference.
+    if(!audio.enabled())return;
+    if(ambience&&!ambience.enabled()&&ambience.enable())
+      ambience.update(state,canAct());
+    if(footfalls&&!footfalls.enabled())footfalls.enable();
   }
   document.addEventListener('pointerdown',unlockHarborAmbience,true);
   document.addEventListener('keydown',event=>{
@@ -1742,6 +1750,9 @@
         audio.play('shot');persistShot();
       }
     });
+    // Footfalls are driven by resolved 60Hz displacement, not pressed keys.
+    // Paused/loading/blocked motion must remain silent; no new save fields.
+    footfalls?.update(state,canAct(),input.crouch,input.sprint);
     // Actual arrival near the local route fork now opens the original
     // keyboard-accessible choice overlay automatically. The old E marker
     // remains functional for previously saved checkpoints in the area.
