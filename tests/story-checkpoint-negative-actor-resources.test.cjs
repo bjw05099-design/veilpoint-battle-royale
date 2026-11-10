@@ -20,10 +20,11 @@ test('negative bot health is not accepted as playable checkpoint state',()=>{
  const baseline=Story.createState();
  const backup=Story.serialize(baseline);
  const invalid=Story.createState();
- assert.ok(invalid.world.bots.length>0);
- invalid.world.bots[0].health=-1;
+ // The opening CH01 state may contain no bots: construct a poisoned actor.
+ invalid.world.bots.push({x:invalid.world.player.x+2,z:invalid.world.player.z+2,health:-1});
  const restored=Recovery.recover('primary',backup,(primary,secondary)=>
   primary===null?Story.recoverCheckpoint(null,secondary):{source:'primary',state:invalid});
  assert.equal(restored.source,'backup');
- assert.equal(restored.state.world.bots[0].health>=0,true);
+ assert.deepEqual(restored.state.world.bots,baseline.world.bots);
+ assert.ok(restored.state.world.bots.every(bot=>bot.health>=0));
 });
