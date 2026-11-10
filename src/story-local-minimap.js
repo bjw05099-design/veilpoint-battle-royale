@@ -45,6 +45,9 @@
  function segment(f,a,b){
   if(!f||!a||!b||![a.x,a.z,b.x,b.z].every(Number.isFinite))return null;
   const dx=b.x-a.x,dz=b.z-a.z;
+  // A zero-length segment is not a visible pedestrian route; do not leave
+  // an artificial dot when the player is already at that exact waypoint.
+  if(Math.hypot(dx,dz)<1e-9)return null;
   let t0=0,t1=1;
   for(const [p,q] of [
    [-dx,a.x-f.left],[dx,f.right-a.x],
