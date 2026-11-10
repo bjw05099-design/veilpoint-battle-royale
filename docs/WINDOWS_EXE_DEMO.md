@@ -77,11 +77,11 @@ extract the release ZIP; open `VEILPOINT.Demo.exe` from its extracted folder.
   in-page links.
 - **This is not a separately compiled UE5 game or a BR-free distribution
   archive.** The same combined WebView2 asset payload remains bundled.
-  The mixed host retains its existing \`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2\`
-  profile; \`--story-only\` uses a distinct \`...\DemoHost\StoryOnly\`
+  The mixed host retains its existing `%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2`
+  profile; `--story-only` uses a distinct `...\DemoHost\StoryOnly`
   profile to avoid importing development BR session state into the
   story-only launch. Checkpoints do not auto-migrate between the profiles.
-  Only \`veilpoint-story-preview.zip\` is packaged without the BR entrypoint;
+  Only `veilpoint-story-preview.zip` is packaged without the BR entrypoint;
   a native story-only Windows game still needs a separate build and playtest.
 
 ## Offline runtime and saves
@@ -94,9 +94,9 @@ and developer tools are disabled. These measures reduce accidental remote
 resource loads; they are not a security audit or anti-cheat solution.
 
 The mixed WebView2 host keeps checkpoints in
-\`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2\`. The optional \`--story-only\`
-mode uses \`%LOCALAPPDATA%\VEILPOINT\DemoHost\StoryOnly\` instead.
-Both are separate from \`file://\` browser checkpoints. Moving a release
+`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2`. The optional `--story-only`
+mode uses `%LOCALAPPDATA%\VEILPOINT\DemoHost\StoryOnly` instead.
+Both are separate from `file://` browser checkpoints. Moving a release
 folder does not change the virtual origin, but clearing its corresponding
 profile deletes that host's stored progress; story and BR keys remain
 independent in the mixed profile.
