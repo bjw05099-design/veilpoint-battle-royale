@@ -236,8 +236,23 @@
     else obstacles.push({x:CIVILIAN_SHUTTLE.x,z:v.z,w:CIVILIAN_SHUTTLE.w,
       d:CIVILIAN_SHUTTLE.d,h:CIVILIAN_SHUTTLE.h,
       type:'story-civil-transport',routeId:'story-civil-transport'});
+    // The rendering state is derived from the SAME currently occupied road
+    // that owns actual vehicle motion. Check it during every world sync, too:
+    // other existing scene updates can rebuild this object after the car
+    // motion tick, and an old save must regain a correct brake-light state.
+    const body=obstacles.find(o=>o.routeId==='story-civil-transport');
+    const boarded=!hasOwn(v,'driverZ')||
+      v.driverZ<=CIVILIAN_SHUTTLE.boardZ+1e-8;
+    const ahead=Math.min(CIVILIAN_SHUTTLE.endZ,
+      v.z+CIVILIAN_SHUTTLE.speed/60);
+    const swept={x:CIVILIAN_SHUTTLE.x,z:(ahead+v.z)/2,
+      w:CIVILIAN_SHUTTLE.w,d:CIVILIAN_SHUTTLE.d+ahead-v.z};
+    const physicallyHeld=!v.arrived&&boarded&&body&&ahead>v.z+1e-8&&
+      !civilianVehiclePathClear(state,swept,body);
     state.world.transportVan={x:CIVILIAN_SHUTTLE.x,z:v.z,arrived:v.arrived,
-      yielding:!v.arrived&&Number.isFinite(v.pauseUntil)&&v.pauseUntil>state.world.elapsed};
+      yielding:!v.arrived&&
+        ((Number.isFinite(v.pauseUntil)&&v.pauseUntil>state.world.elapsed)||
+         physicallyHeld)};
   }
   function gateOpen(state) {
     return state.choice==='verification' && state.world.elapsed>=state.gateReadyAt;
@@ -1243,9 +1258,8 @@
           state.message='현지 운송 차량 실제 도착 · 수송 및 철수 완료를 의미하지 않음';
         }
         syncCivilianShuttle(state);
-        if(state.world.transportVan)
-          state.world.transportVan.yielding=
-            !clear||(v.pauseUntil>state.world.elapsed);
+        // syncCivilianShuttle derives actual road occupation consistently
+        // for this frame and also for restored/rewritten world snapshots.
       }
     }
     // A brief contextual announcement is triggered by the captain's actual
