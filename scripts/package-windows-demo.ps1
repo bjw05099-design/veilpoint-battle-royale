@@ -62,7 +62,7 @@ VEILPOINT WINDOWS OFFLINE EXE - CANDIDATE
 2. Double-click VEILPOINT.Demo.exe. CH01 STORY opens FIRST. Keep the
    game/ folder and all companion files beside the EXE. BR and original
    terrain preview remain optional buttons for the combined developer demo.
-   To block alternate mode navigation, launch VEILPOINT.Demo.exe --story-only
+   To block alternate mode navigation, launch .\VEILPOINT.Demo.exe --story-only
    from PowerShell. This reuses the same combined payload, not a UE5 build.
 3. Requires Windows 10/11 x64 AND an installed Microsoft Edge WebView2
    Evergreen runtime. Windows 11 typically includes the runtime; if absent,
