@@ -59,7 +59,7 @@ test('11m wide centre aisle is continuously walkable from southern to northern p
    'centre aisle becomes physically obstructed near '+z);
  }
  const feet={x:110,z:-48};
- for(let tick=0;tick<300;tick++)
+ for(let tick=0;tick<220;tick++)
   Sim.moveEntity(feet,0,6,1/60,state.world.obstacles);
  assert.ok(feet.z>-27.5,'movement must traverse the actual public court on foot');
  assert.equal(feet.x,110);
@@ -112,4 +112,20 @@ test('existing v2 story save schema retains original version and the court is no
  assert.ok(restored.world.obstacles.some(o=>o.id===Court.SOLIDS[0].id));
  assert.doesNotMatch(serialized,/publicCourt|courtActor|courtVisited/);
  assert.equal(Story.markers(restored).some(m=>m.id.startsWith('court')),false);
+});
+
+test('local courtyard feedback and footfalls are grounded in actual player feet, not world-wide scene flags',()=>{
+ const Footfall=require('../src/story-footfall.js');
+ const state=Story.createState();
+ assert.equal(Court.withinCourt(state.world.player),false);
+ assert.notEqual(Footfall.surfaceAt(state),'stone');
+ state.world.player.x=110;state.world.player.z=-37;
+ assert.equal(Court.withinCourt(state.world.player),true);
+ assert.equal(Footfall.surfaceAt(state),'stone');
+ state.world.player.x=110;state.world.player.z=-53;
+ assert.equal(Court.withinCourt(state.world.player),false);
+ const app=read('src/story-app.js');
+ assert.match(app,/PublicCourt\?\.withinCourt\(state\.world\.player\)/);
+ assert.match(app,/주민 인원 확인 전/);
+ assert.match(read('src/story-footfall.js'),/Court\?\.withinCourt\(p\)/);
 });
