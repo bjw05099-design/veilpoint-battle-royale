@@ -397,6 +397,13 @@ class SoftwareRenderer {
    polygon([proj(-12,.06,-17.4),proj(-12+2.3*f,.06,-17.4),
     proj(-12+2.3*f,.06,-17.15),proj(-12,.06,-17.15)],'#d6c28b');
   }
+  // Draw actual grate bars, rim, pavement edge and remaining debris from
+  // the SAME public CH01 drain model used in WebGL. Nothing here is a collider.
+  for(const d of global.VeilpointStreetFlood?.details?.(wet)||[]){
+   const y=d.y+d.h;
+   polygon([proj(d.x-d.w/2,y,d.z-d.d/2),proj(d.x+d.w/2,y,d.z-d.d/2),
+    proj(d.x+d.w/2,y,d.z+d.d/2),proj(d.x-d.w/2,y,d.z+d.d/2)],d.canvas);
+  }
  }
  // Four public ground-level district surfaces are original walkable
  // street dressing. They use the SAME authored coordinates as the
@@ -1307,6 +1314,10 @@ class Renderer {
    const progress=Math.max(0,Math.min(1,wet.repairProgress));
    mesh.box(-12+1.15*progress,.062,-17.3,2.3*progress,.02,.28,[.79,.66,.37]);
   }
+  // Only locally authored map props, not extra 60Hz solids. Fixing the
+  // drain actually removes the visible leaves without creating new assets.
+  for(const d of global.VeilpointStreetFlood?.details?.(wet)||[])
+   mesh.box(d.x,d.y,d.z,d.w,d.h,d.d,d.rgb);
  }
  if(state.scene==='nahrin'&&!state.aidPickedUp){
   mesh.box(-7,.25,-47,.62,.5,.48,[.46,.40,.31]);

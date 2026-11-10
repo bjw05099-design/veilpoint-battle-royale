@@ -50,6 +50,26 @@
         gateOpen?'현지 구조단의 동쪽 통제문 개방 확인. 현장 중계 기록은 직접 열람해야 한다.':
         '동쪽 통제문 개방 요청 접수. 현지 구조단의 현장 개방 작업이 끝나기 전에는 통과할 수 없다.');
     }
+    // These two optional public-street outcomes are earned by actually
+    // completing a local 60Hz interaction. Merely beginning drain clearing
+    // or speaking to a resident MUST NOT claim that the street is restored
+    // or that a resident reached the other curb. No new save fields or tasks.
+    if(state&&state.drainCleared===true)
+      note('streetDrain','공공 보행로 배수구 정리',
+        '낙엽과 가벼운 잔해를 현장에서 직접 치웠다. 얕은 물과 젖은 노면은 남아 있으며 도시 전체의 배수 상태는 확인되지 않았다.');
+    if(state&&['records','decision','exit','complete'].includes(state.phase)&&
+       state.civicCrossing?.disrupted===true&&state.civicCrossing?.assisted===true){
+      const crossing=state.civicCrossing,
+        reached=crossing.civilian&&crossing.destination&&
+          [crossing.civilian.x,crossing.civilian.z,
+           crossing.destination.x,crossing.destination.z].every(Number.isFinite)&&
+          Math.hypot(crossing.civilian.x-crossing.destination.x,
+            crossing.civilian.z-crossing.destination.z)<1e-6;
+      note('civicCrossing','현지 주민의 도로 횡단',
+        reached
+          ?'안전 여부를 현장에서 함께 확인한 뒤, 해당 주민 한 명이 실제로 건너편 보행로에 도착했다. 다른 인원의 상황은 미확인이다.'
+          :'해당 주민에게 현장에서 길을 안내했다. 주민의 실제 건너편 도착은 아직 확인되지 않았다.');
+    }
     if(state&&state.dispatchReviewed)note('dispatch','남쪽 구조단 접수 장부',
       '현장에서 직접 읽은 접수 장부: 비상 물품 요청은 접수됐지만 인수 서명란은 비어 있다. 실제 현장 인계 여부는 별도로 확인해야 한다.');
     if(state&&state.transportContact>0)note('transport','현지 운송 담당자 대면 면담',
