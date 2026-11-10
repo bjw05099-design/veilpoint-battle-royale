@@ -970,9 +970,15 @@
   // The historical F interaction remains supported for saved game sessions.
   function finishAtExit(state){
     state.phase='complete';state.world.status='won';
+    // Route completion proves only that the captain reached a physically
+    // authorized exit. It cannot turn a skipped, optional coordinator
+    // interview into a verified civilian headcount or remote spoken line.
+    // Use existing witnessed V2 flags: no new save data or completion gate.
     state.subtitle=state.choice==='verification'
-      ?'나디아: 동쪽 통로가 개방됐어. 기록 시각이 다른 원인은 아직 확인 중이야.'
-      :'유수프: 남쪽 안뜰의 대피 인원을 확인했어. 동쪽 통제소는 아직 닫혀 있어.';
+      ?'이수혁 대위: 동쪽 통로가 실제로 열렸다. 기록 시각이 다른 원인은 아직 확인되지 않았다.'
+      :state.musterConfirmed===true
+        ?'이수혁 대위: 남쪽 구조단 담당자와 직접 협의했다. 확인되지 않은 주민의 이동까지 완료로 보고하지 않겠다.'
+        :'이수혁 대위: 남쪽 안뜰에 실제로 도착했다. 주민 접수 인원과 현장 이송 결과는 아직 확인하지 못했다.';
     state.message='CH01 완료 · 첫 번째 신호가 복구되었습니다.';
   }
   function step(state, dt, input={}) {
