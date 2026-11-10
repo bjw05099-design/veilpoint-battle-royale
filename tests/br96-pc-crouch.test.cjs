@@ -7,7 +7,8 @@ test('BR96 PC crouch is visible and transmitted only as a held movement intent',
  assert.match(html,/C 낮은 자세 이동/);
  assert.match(client,/keys\.has\('KeyC'\)/);
  assert.match(client,/await request\('\/pace',\{sprint:newSprint,crouch:newCrouch\}\)/);
- assert.match(client,/if\(newSprint!==lastSprint\|\|newCrouch!==lastCrouch\)/);
+ assert.match(client,/stanceChanged=newSprint!==lastSprint\|\|newCrouch!==lastCrouch/);
+ assert.match(client,/if\(stanceChanged\)\{/);
  assert.match(client,/lastSprint=null;lastCrouch=null/);
  assert.match(client,/w\.self\.crouched/);
  assert.doesNotMatch(client,/\/move'\s*,\s*\{[^}]*crouch/s);
