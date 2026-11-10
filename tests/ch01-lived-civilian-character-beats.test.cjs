@@ -20,8 +20,9 @@ test('CH01 crew voices react to already spoken civilian eyewitness testimony, no
  assert.equal(Comms.briefing(s).speaker,'이수혁 대위');
  assert.match(Comms.briefing(s).message,/한 곳/);
  s.waterReportFiled=true;
- assert.equal(Comms.briefing(s).speaker,'유수프 라할');
- assert.match(Comms.briefing(s).message,/접수했다/);
+ assert.equal(Comms.briefing(s).speaker,'이수혁 대위');
+ assert.match(Comms.briefing(s).message,/직접 인계/);
+ assert.doesNotMatch(Comms.briefing(s).message,/도시 전체의 급수 복구를 확인했다/);
 });
 test('nearby witnessed arrival is not reported by a remote or uninformed observer',()=>{
  const s=Story.createState();s.phase='exit';s.choice='evacuation';
@@ -29,6 +30,8 @@ test('nearby witnessed arrival is not reported by a remote or uninformed observe
  let spoken=Comms.briefing(s);
  assert.match(spoken.message,/도착했는지 확인하지 않고/);
  s.civilianWalker.arrived=true;
+ // Match the actual 60Hz walking destination, not a boolean alone.
+ s.civilianWalker.x=-4;s.civilianWalker.z=-58;
  s.world.player.x=140;s.world.player.z=140;
  spoken=Comms.briefing(s);
  assert.doesNotMatch(spoken.message,/실제로 도착한 것을 봤다/);
