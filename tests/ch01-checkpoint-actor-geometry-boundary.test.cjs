@@ -4,7 +4,17 @@ const assert=require('node:assert/strict');
 const Story=require('../src/story-slice.js');
 const Recovery=require('../src/checkpoint-recovery.js');
 
-const playable=()=>Story.restore(Story.serialize(Story.createState()));
+// Exercise a real CH01 transition: no adversarial NPCs exist in the
+// pre-escalation terminal state, and spawning synthetic fixtures here would
+// conceal mistakes in the playable incident lifecycle.
+const playable=()=>{
+  const state=Story.createState();
+  state.world.player.x=Story.POINTS.terminal.x;
+  state.world.player.z=Story.POINTS.terminal.z;
+  Story.interact(state);
+  assert.equal(state.phase,'engagement','the physical terminal interaction starts the incident');
+  return Story.restore(Story.serialize(state));
+};
 
 test('CH01 resumed checkpoint refuses broken actor coordinates and collision extents, keeping the prior generation',()=>{
   const good=playable();
