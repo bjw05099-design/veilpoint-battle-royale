@@ -12,6 +12,7 @@ function movementHarness(){
  assert.ok(action.includes("request('/heartbeat',{})"));
  const calls=[],context=vm.createContext({
   Date:{now:()=>context.now},now:1000,
+  token:'session-a',state:{roundNumber:1},
   keys:new Set(),sprintIntent:false,lastSprint:null,lastCrouch:null,
   seq:0,stanceSeq:0,moveBusy:false,consecutiveErrors:0,
   active:()=>true,dir:{dx:0,dz:0},direction(){return context.dir;},

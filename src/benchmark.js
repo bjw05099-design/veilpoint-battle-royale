@@ -19,6 +19,9 @@
      !Number.isInteger(warmupMs)||warmupMs<0||warmupMs>30000)throw new RangeError('Invalid benchmark duration');
   let state='idle',reason=null,metadata=null,startedAt=null,lastFrameAt=null,measuredMs=0;
   let intervals=[],cpuDraw=[],gpuTimer=[],scales=[],gpuInvalidated=false;
+  // Each WebGL query belongs to exactly one issued render frame. Duplicate
+  // callback delivery cannot inflate the reported GPU sample count or P95.
+  const acceptedGpuFrameTimes=new Set();
   let canvasRange=null,canvasSamples=0;
   function arm(settings={}){
    if(state==='running'||state==='armed')throw new Error('Benchmark already active');
@@ -27,6 +30,7 @@
    metadata=JSON.parse(JSON.stringify(settings));
    state='armed';reason=null;startedAt=null;lastFrameAt=null;measuredMs=0;
    intervals=[];cpuDraw=[];gpuTimer=[];scales=[];gpuInvalidated=false;
+   acceptedGpuFrameTimes.clear();
    canvasRange=null;canvasSamples=0;
   }
   function finalize(why){
@@ -88,7 +92,8 @@
    // misattributed merely because it was polled during this run.
    if(!Number.isFinite(issuedAt)||issuedAt<startedAt+warmupMs||
       issuedAt>startedAt+warmupMs+durationMs)return false;
-   if(!Number.isFinite(ms)||ms<=0||ms>10000)return false;
+   if(!Number.isFinite(ms)||ms<=0||ms>10000||acceptedGpuFrameTimes.has(issuedAt))return false;
+   acceptedGpuFrameTimes.add(issuedAt);
    gpuTimer.push(ms);return true;
   }
   function invalidateGpu(){gpuInvalidated=true;gpuTimer=[];}
@@ -129,7 +134,7 @@
     webglGpuTimerMs:gpuInvalidated?stats([]):stats(gpuTimer),gpuTimerInvalidated:gpuInvalidated,
     stutterThresholdMs:threshold,stutterIntervals:intervals.filter(ms=>ms>threshold).length,
     stutterMethod:'rendered callback interval > 2 selected FPS-cap frame budgets (50ms fallback); not GPU frametime or input latency',
-    gpuTimerSampleNote:'WebGL timer queries are asynchronous; re-export after pending results resolve. Sample count is not guaranteed to match rendered frames.',
+    gpuTimerSampleNote:'WebGL timer queries are asynchronous; re-export after pending results resolve. At most one valid result is accepted for each issued render timestamp. Sample count is not guaranteed to match rendered frames.',
     effectiveRenderScale:scales.length?{min:Math.min(...scales),max:Math.max(...scales)}:null,
     canvasBackingPixels:canvasRange?{...canvasRange,samples:canvasSamples}:null
    };

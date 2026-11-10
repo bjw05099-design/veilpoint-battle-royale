@@ -514,13 +514,18 @@ async function join(){
 }
 async function command(path,body,statusText){
  if(!token)return;
+ const ownToken=token;
  try{
   const data=await request(path,body);
+  // A leave/rejoin can complete while the old HTTP request is still
+  // pending. Never apply its private roster or command status to a new seat.
+  if(token!==ownToken)return null;
   if(data.state)apply(data.state);
   if(data.world&&state)apply({...state,world:data.world});
   if(statusText)message(statusText);
   return data;
  }catch(error){
+  if(token!==ownToken)return null;
   if(error.message==='unknown_session'){cleanSession();message('세션 만료 · 새로 입장하세요.');}
   else message('서버 응답: '+error.message);
   return null;
@@ -827,6 +832,8 @@ function direction(){
 }
 async function movement(){
  if(!active()||moveBusy)return;
+ const ownToken=token,ownRound=state?.roundNumber;
+ const stillCurrent=()=>token===ownToken&&state?.roundNumber===ownRound;
  const dir=direction(),newSprint=sprintIntent||keys.has('ShiftLeft')||keys.has('ShiftRight'),
   newCrouch=keys.has('KeyC'),
   // Changing sprint/crouch while not actually moving is still an intentional
@@ -841,11 +848,13 @@ async function movement(){
    // The first neutral move after the keys stop releases the server lease.
    // Do not predict actor position or move the 60Hz world in the browser.
    await request('/move',{...dir,seq:++seq});
+   if(!stillCurrent())return;
    lastSubmittedDirection={dx:dir.dx,dz:dir.dz};
    lastIdleHeartbeatAt=Date.now();
   }
   if(stanceChanged){
    await request('/pace',{sprint:newSprint,crouch:newCrouch,seq:++stanceSeq});
+   if(!stillCurrent())return;
    lastSprint=newSprint;lastCrouch=newCrouch;
    lastIdleHeartbeatAt=Date.now();
   }
@@ -853,9 +862,13 @@ async function movement(){
    // An authenticated server heartbeat is a liveness hint, NOT a move,
    // extra participant, new session, or score-affecting time update.
    await request('/heartbeat',{});
+   if(!stillCurrent())return;
    lastIdleHeartbeatAt=Date.now();
   }
  }catch(error){
+  // A late rejection from an abandoned session cannot warn or reset a new
+  // authenticated player. The new round owns its own sequence and HUD.
+  if(!stillCurrent())return;
   // Retry a failed zero-vector handoff next cycle. If a request was
   // already accepted, a duplicate neutral frame has no displacement.
   consecutiveErrors++;
@@ -899,9 +912,16 @@ async function loadPublicGeometry(){
 }
 async function poll(){
  if(!token||pollBusy)return;
+ const ownToken=token;
  pollBusy=true;
- try{apply(await request('/state'));if(currentWorld())connectPrivateWorldStream();}
+ try{
+  const snapshot=await request('/state');
+  if(token!==ownToken)return;
+  apply(snapshot);
+  if(currentWorld())connectPrivateWorldStream();
+ }
  catch(error){
+  if(token!==ownToken)return;
   consecutiveErrors++;
   if(error.message==='unknown_session'){cleanSession();message('세션이 유효하지 않습니다. 다시 참가하세요.');}
   else if(consecutiveErrors>=2)message('서버 응답 지연 · 재연결을 확인하세요.');
