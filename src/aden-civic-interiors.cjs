@@ -44,7 +44,7 @@ function createInteriors(quarter){
      d:depth,h:height,finish,solid}));
   }
   const roomSpan=w/2-CLEAR_HALF_WIDTH-.55;
-  const roomX=CLEAR_HALF_WIDTH+roomSpan/2+.18;
+  const roomX=CLEAR_HALF_WIDTH+roomSpan/2+.10;
   // Real walls divide each side into public work/display alcoves without
   // closing off the entire central south-to-north pedestrian aisle.
   cube('west-alcove-divider',-roomX,.8,base,roomSpan,.20,2.25,'salt-plaster');
