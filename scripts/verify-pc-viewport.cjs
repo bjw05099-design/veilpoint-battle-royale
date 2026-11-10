@@ -650,10 +650,11 @@ async function run(){
  async function startBrowser(){
   userDir=fs.mkdtempSync(path.join(os.tmpdir(),'vp-geometry-'));
   stderr='';
-  // On Windows use the DevTools HTTP readiness endpoint instead of relying
-  // on a profile-file notification that may never arrive on hosted runners.
-  // Linux retains the already-validated ephemeral Chrome port-file path.
-  const windowsProbe=process.platform==='win32';
+  // Both Linux and Windows use an explicitly reserved loopback port and
+  // HTTP /json/version readiness. Linux ephemeral DevToolsActivePort may be
+  // missing even after Chrome logs a listening websocket (CI transport race).
+  // This is a transport-only change: the full geometry audit still runs.
+  const windowsProbe=true;
   const port=windowsProbe?await reserveLoopbackPort():0;
   child=spawn(activeChrome,['--headless=new','--no-sandbox','--disable-gpu',
    '--disable-dev-shm-usage','--disable-background-networking',
@@ -690,7 +691,7 @@ async function run(){
    await sleep(100);
   }
   throw new Error('Chromium DevTools not ready ('+
-   (windowsProbe?'Windows HTTP probe':'Linux port file')+', port='+port+
+   'HTTP readiness probe'+', port='+port+
    ', pid='+child.pid+', exit='+child.exitCode+', signal='+child.signalCode+
    '): '+stderr.slice(-900));
  }
