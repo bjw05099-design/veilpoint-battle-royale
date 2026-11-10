@@ -56,7 +56,8 @@ test('active directional changes remain 180ms-authoritative, key release sends e
   'a standstill stance change never moves an actor');
  ctx.now=5000;await movement();
  assert.equal(calls.at(-1).url,'/heartbeat');
- assert.equal(ctx.seq,4);\n assert.equal(ctx.stanceSeq,2);
+ assert.equal(ctx.seq,4);
+ assert.equal(ctx.stanceSeq,2);
 });
 test('after reconnect or round replay, the first frame resynchronizes movement once without stale input',async()=>{
  const {ctx,calls,movement}=movementHarness();
