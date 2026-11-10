@@ -95,6 +95,7 @@ test('CH01 optional wet-street action reaches the journal only after the actual 
 test('CH01 civic crossing journal separates an earned on-site conversation from a physically completed pedestrian crossing',()=>{
  const state=Story.createState(),before=Story.serialize(state);
  assert.equal(Journal.entries(state).some(x=>x.id==='civicCrossing'),false);
+ state.phase='records';
  // This is the actual authored civilian pedestrian's 60Hz controller,
  // not a synthetic teleport or a status flag awarded by the UI.
  state.civicCrossing=Civic.step(state.civicCrossing,{
