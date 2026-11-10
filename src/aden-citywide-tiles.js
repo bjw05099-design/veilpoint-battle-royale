@@ -226,33 +226,33 @@
   if(!Number.isInteger(radius)||radius<0||radius>6||
     !Number.isInteger(maxLoaded)||maxLoaded<1||maxLoaded>169)
    throw new RangeError('Invalid tile streaming budget');
-  const desired=[];
-  for(const [key,tile] of registry){
-   const ring=Math.max(Math.abs(tile.tx-origin.tx),Math.abs(tile.tz-origin.tz));
-   if(ring<=radius)desired.push({key,tile,ring});
-  }
+  // Window streaming must scale with the visible tile RADIUS, not the size
+  // of the full-city registry. Walking one block must not scan potentially
+  // 25,000 licensed height tiles on every rendered frame.
+  const desired=[],unresolved=[];
+  for(let ring=0;ring<=radius;ring++)
+   for(let dx=-ring;dx<=ring;dx++)
+    for(let dz=-ring;dz<=ring;dz++)
+     if(Math.max(Math.abs(dx),Math.abs(dz))===ring){
+      const tx=origin.tx+dx,tz=origin.tz+dz;
+      const key=tileKey(tx,tz),tile=registry.get(key);
+      if(tile)desired.push({key,tile,ring});
+      else unresolved.push(key);
+     }
+  // Preserve deterministic spatial priority across reloads. A budget-limited
+  // tile is DEFERRED, never mislabeled as missing geography or surveyed data.
   desired.sort((a,b)=>a.ring-b.ring||
     Math.hypot(a.tile.tx-origin.tx,a.tile.tz-origin.tz)-
     Math.hypot(b.tile.tx-origin.tx,b.tile.tz-origin.tz)||
     a.key.localeCompare(b.key));
   const active=desired.slice(0,maxLoaded).map(o=>o.key),set=new Set(active),
-   existing=new Set(loadedKeys);
-  // Report missing coverage explicitly. A blank tile MUST remain unknown,
-  // rather than being silently filled with a made-up surveyed street.
-  const unresolved=[];
-  for(let ring=0;ring<=radius;ring++)
-   for(let dx=-ring;dx<=ring;dx++)
-    for(let dz=-ring;dz<=ring;dz++)
-     if(Math.max(Math.abs(dx),Math.abs(dz))===ring){
-      const key=tileKey(origin.tx+dx,origin.tz+dz);
-      if(!registry.has(key))unresolved.push(key);
-     }
+   existing=new Set(loadedKeys),deferred=desired.slice(maxLoaded).map(o=>o.key);
   return Object.freeze({origin:origin.key,
    active:Object.freeze(active),load:Object.freeze(active.filter(k=>!existing.has(k))),
    keep:Object.freeze(active.filter(k=>existing.has(k))),
    unload:Object.freeze([...existing].filter(k=>!set.has(k)).sort()),
-   unresolved:Object.freeze(unresolved),
-   completeCity:false, // Do not infer full-city coverage from a finite registry.
+   unresolved:Object.freeze(unresolved),deferred:Object.freeze(deferred),
+   completeCity:false, // Even a full local window is not whole-city coverage.
    streamedWorldMetresPerUnit:METRES_PER_UNIT});
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
