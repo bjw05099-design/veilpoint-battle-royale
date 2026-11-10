@@ -49,5 +49,6 @@ test('optional urban environment and physical awning clearance change dialogue w
  assert.equal(Comms.localCharacterBeat({...s,phase:'terminal'}),null);
  assert.equal(Comms.localCharacterBeat({...s,phase:'failed'}),null);
  const source=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
- assert.match(source,/Comms\.briefing\(state\)/,'actual CH01 HUD must consume this script');
+ assert.match(source,/Comms\.fieldRadio\(state,Story\.localPublicAddress\(state\)\)/,
+  'actual CH01 HUD must select physically witnessed character lines before public PA');
 });
