@@ -57,7 +57,8 @@
     if(state&&state.drainCleared===true)
       note('streetDrain','공공 보행로 배수구 정리',
         '낙엽과 가벼운 잔해를 현장에서 직접 치웠다. 얕은 물과 젖은 노면은 남아 있으며 도시 전체의 배수 상태는 확인되지 않았다.');
-    if(state&&state.civicCrossing?.assisted===true){
+    if(state&&['records','decision','exit','complete'].includes(state.phase)&&
+       state.civicCrossing?.disrupted===true&&state.civicCrossing?.assisted===true){
       const crossing=state.civicCrossing,
         reached=crossing.civilian&&crossing.destination&&
           [crossing.civilian.x,crossing.civilian.z,
