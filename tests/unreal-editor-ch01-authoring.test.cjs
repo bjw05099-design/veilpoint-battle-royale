@@ -33,7 +33,11 @@ test('UE5 CH01 map authoring binds native GameMode, player spawn and actual edit
  assert.match(source,/unreal\.PlayerStart, unreal\.Vector\(0, 0, 160\)/);
  assert.match(source,/unreal\.DirectionalLight/);
  assert.match(source,/unreal\.SkyLight/);
- assert.match(source,/if not spawn or not sunlight or not ambient:/);
+ assert.match(source,/if not player_start or not sun or not skylight:/);
+ assert.match(source,/EXPECTED_PUBLIC_PIECES = 11/);
+ assert.match(source,/mesh\.set_collision_enabled\(/);
+ assert.match(source,/unreal\.StaticMeshActor/);
+ assert.match(source,/CH01_MAP_READY\.json/);
  assert.match(source,/if not levels\.save_current_level\(\) or not os\.path\.isfile\(MAP_FILE\):/);
  assert.match(nativeMode,/SpawnActor<AVPStoryWorldBootstrap>/);
  assert.match(nativeMode,/SpawnActor<AVPStoryMarker>/);
