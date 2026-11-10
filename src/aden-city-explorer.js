@@ -136,9 +136,13 @@
   const lod=state.zoom>=1.2?1:state.zoom>=.45?2:4;
   for(const key of plan.active){
    const slot=cache.get(key);
-   if(!slot||slot.lod!==lod)
-   {const mesh=Tiles.buildTerrainMesh(registry.get(key),lod);
-    cache.set(key,{lod,mesh,shoreline:shorelineSegments(mesh)});}
+   const sourceTile=registry.get(key);
+   // A new licensed/local DEM may reuse the same tile ID and LOD as an
+   // earlier artist fixture. Geometry MUST be rebuilt from the new validated
+   // source, not silently taken from a cache keyed only by coordinates.
+   if(!slot||slot.lod!==lod||slot.sourceTile!==sourceTile)
+   {const mesh=Tiles.buildTerrainMesh(sourceTile,lod);
+    cache.set(key,{lod,sourceTile,mesh,shoreline:shorelineSegments(mesh)});}
   }
   ctx.fillStyle='#183139';ctx.fillRect(0,0,w,h);
   // Never display triangles for an unresolved tile: missing geodata remains
@@ -219,7 +223,12 @@
    ctx.fillRect(px-ww/2,pz-dd/2-facadeHeight,ww,Math.max(1,state.zoom));
    houses++;
   }
-  const origin=Tiles.tileFor(state.x,state.z);
+  const origin=Tiles.tileFor(state.x,state.z),centerTile=registry.get(origin.key);
+  // Height is the live source tile's LOCAL metre value at the reticle,
+  // NEVER an automatically verified absolute elevation above sea level.
+  // Missing tiles must not inherit a cached number or invented zero metre.
+  const centerElevationMetres=centerTile
+   ?Math.round(Tiles.heightAt(centerTile,state.x,state.z)*100)/100:null;
   const axis=toScreen(state.x,state.z);
   ctx.strokeStyle='#ffe2a0';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(axis[0]-7,axis[1]);ctx.lineTo(axis[0]+7,axis[1]);
@@ -227,6 +236,7 @@
   return Object.freeze({origin:origin.key,active:visible,triangles,
    housesVisible:houses,shorelineSegments:shoreline,
    unresolved:plan.unresolved.length,lodStep:lod,
+   centerElevationMetres,localElevationOnly:true,
    zoom:state.zoom,relief:state.relief,showContours:state.showContours,
    provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
    realAdenTilesLoaded:0});
@@ -253,11 +263,14 @@
    const zoomState={...state,zoom:state.zoom*dpr};
    const stats=draw(canvas,registry,zoomState,cache,{
     imported:!!activeDataset,showFictionalBuildings:!activeDataset});
+   const inspectedElevation=stats.centerElevationMetres===null
+    ?'중심 표고 자료 없음'
+    :'중심 로컬 표고 '+stats.centerElevationMetres.toFixed(2)+'m (현지 해발 미검증)';
    info.textContent=(activeDataset?
     '로컬 자료 입력 (출처·권리·정확도 외부 검증 전): '+activeDataset.title+
     ' / '+activeDataset.tilesImported+'개 타일 · ':
     '원본: 창작 아트 테스트 (실측 아덴 0타일) · ')+
-    stats.origin+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
+    stats.origin+' · '+inspectedElevation+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
     '개 · 1:1 미터 좌표 · 삼각형 '+stats.triangles+'개 · 실제 아덴 검증 0타일';
   }
   function action(which){
