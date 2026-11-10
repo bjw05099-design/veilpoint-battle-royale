@@ -60,7 +60,10 @@ test('audio is only a reflection of server-public round clock, never hidden play
  }
  assert.equal(f.calls.filter(x=>x==='start').length,0);
  assert.equal(audio.sync(null),null);
- assert.equal(audio.sync({round:{id:1},phase:'playing'}),'start');
+ assert.equal(audio.sync({round:{id:1},phase:'playing'}),null,
+   'a stale older round may not replay its start sound');
+ assert.equal(audio.sync({round:{id:5},phase:'lobby'}),null);
+ assert.equal(audio.sync({round:{id:5},phase:'playing'}),'start');
  assert.equal(audio.sync({round:{id:-1},phase:'ended'}),null);
 });
 test('sound controller graceful fallback when WebAudio unsupported',()=>{
