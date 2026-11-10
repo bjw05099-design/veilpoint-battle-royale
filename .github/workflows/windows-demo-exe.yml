@@ -90,6 +90,20 @@ jobs:
           $env:CHROME_BIN = $chrome
           node scripts/verify-pc-viewport.cjs --output dist/windows-exe/pc-ui-geometry-win64.json
           if ($LASTEXITCODE -ne 0) { throw 'Win64 viewport controls/clipping gate failed' }
+      - name: Package independent BR-free Story CH01 Windows EXE
+        shell: pwsh
+        run: |
+          ./scripts/package-windows-story-demo.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Story-only Win64 package failed' }
+      - name: Upload independent Story CH01 Windows EXE candidate + SHA-256
+        uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-story-windows-exe-candidate
+          path: |
+            dist/windows-story-exe/veilpoint-story-windows-exe.zip
+            dist/windows-story-exe/veilpoint-story-windows-exe.zip.sha256
+          if-no-files-found: error
+          retention-days: 45
       - name: Upload unsigned Windows EXE demo candidate + SHA-256
         uses: actions/upload-artifact@v4
         with:

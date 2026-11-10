@@ -75,22 +75,52 @@ extract the release ZIP; open `VEILPOINT.Demo.exe` from its extracted folder.
   package. The host hides the other navigation buttons **and** blocks both
   top-level navigation and new-window requests to their pages, including
   in-page links.
-- **This is not a separately compiled UE5 game or a BR-free distribution
-  archive.** The same combined WebView2 asset payload remains bundled.
-  The mixed host retains its existing `%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2`
-  profile; `--story-only` uses a distinct `...\DemoHost\StoryOnly`
-  profile to avoid importing development BR session state into the
-  story-only launch. Checkpoints do not auto-migrate between the profiles.
-  Only `veilpoint-story-preview.zip` is packaged without the BR entrypoint;
-  a native story-only Windows game still needs a separate build and playtest.
+- This `--story-only` switch on the **mixed** archive retains the
+  combined WebView2 asset payload, but uses a distinct
+  `%LOCALAPPDATA%\VEILPOINT\DemoHost\StoryOnly` checkpoint profile
+  (mixed development profile: `...\DemoHost\WebView2`).
+  It does not migrate prior combined-session saves.
+
+## Separate BR-free Windows CH01 candidate
+
+The second packaging track uses the **verified story-only source ZIP** rather
+than the combined BR package. After the ordinary Win64 host build, execute:
+
+```powershell
+.\scripts\package-windows-demo.ps1
+.\scripts\package-windows-story-demo.ps1
+```
+
+- Result: `dist/windows-story-exe/veilpoint-story-windows-exe.zip` and
+  `.zip.sha256`. The Windows CI artifact is
+  **`veilpoint-story-windows-exe-candidate`**, separate from the mixed host.
+- The physical `game/` directory excludes `src/app.js`, `br96.html`,
+  `terrain.html` and other BR entrypoint scripts. The EXE detects that
+  restricted package and **automatically opens CH01 in story-only mode**
+  even when double-clicked without command-line arguments.
+- The same compiled .NET 10 WebView2 host binary is reused, but its
+  file-manifest validation has **distinct required and prohibited files**
+  for each distribution. Windows CI executes the packaged PE with
+  `--verify-package`, corrupts `src/story-app.js` in a disposable copy
+  to confirm rejection, restores it and verifies again.
+- Keep every companion DLL and file alongside the EXE. Windows 10/11
+  still requires an installed Microsoft Edge WebView2 runtime.
+
+**This is a BR-free Windows browser-host CH01 preview candidate—not a
+native UE5 Windows game, a finished 12-hour campaign, or a signed
+publisher-certified release.** Visual launch, human playthrough and RTX 3070
+frame timing still require actual Windows hardware testing.
 
 ## Offline runtime and saves
 
 The wrapper maps only local extracted `game/` assets to a fixed local virtual
 host `https://veilpoint.local/` inside WebView2, without starting an HTTP
-server. The combined host permits only `story.html`, `index.html` and `terrain.html`; the `--story-only` mode permits only `story.html`;
-external HTTP(S) subresource requests are blocked, new windows are blocked,
-and developer tools are disabled. These measures reduce accidental remote
+server. The combined host permits only `story.html`, `index.html` and
+`terrain.html`. The mixed-archive `--story-only` mode permits only
+`story.html`; the separately packaged BR-free story EXE also permits
+its **own generated story landing** `index.html` (never the original BR
+menu). External HTTP(S) subresources are blocked, pop-up windows are
+blocked, and developer tools are disabled. These measures reduce accidental remote
 resource loads; they are not a security audit or anti-cheat solution.
 
 The mixed WebView2 host keeps checkpoints in
