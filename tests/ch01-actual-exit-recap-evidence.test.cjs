@@ -23,7 +23,9 @@ test('CH01 south exit never invents a civilian headcount or a remotely heard coo
  assert.match(s.subtitle,/아직 확인하지 못했다/);
  assert.doesNotMatch(s.subtitle,/대피 인원을 확인했어|유수프:/);
  const loaded=Story.restore(Story.serialize(s));
- assert.equal(loaded.subtitle,s.subtitle,'V2 completion is durable across reload');
+ assert.equal(loaded.phase,'complete');
+ assert.equal(loaded.world.status,'won');
+ assert.match(loaded.subtitle,/CH01 완료/,'V2 restore intentionally replaces transient dialogue with a load notice');
 });
 test('real in-person muster consultation changes CH01 closing line without unlocking a new task',()=>{
  const s=route('evacuation');
@@ -33,7 +35,10 @@ test('real in-person muster consultation changes CH01 closing line without unloc
  assert.match(s.subtitle,/구조단 담당자와 직접 협의/);
  assert.match(s.subtitle,/확인되지 않은 주민/);
  assert.equal(Story.debrief(s).campaignUnlocked,false);
- assert.equal(Story.restore(Story.serialize(s)).subtitle,s.subtitle);
+ const loaded=Story.restore(Story.serialize(s));
+ assert.equal(loaded.phase,'complete');
+ assert.equal(loaded.musterConfirmed,true,'witnessed coordinator evidence survives V2 restore');
+ assert.match(loaded.subtitle,/CH01 완료/);
 });
 test('verified east passage reports only its physically opened corridor, not unseen paperwork',()=>{
  const s=route('verification');
