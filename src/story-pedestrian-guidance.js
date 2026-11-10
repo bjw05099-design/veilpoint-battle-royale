@@ -24,12 +24,12 @@
   target.id.length>0&&[target.x,target.z].every(Number.isFinite);
  function targetFor(player,markers,selectedId=null,preferredId=null,escortBlocked=false){
   if(!player||!Array.isArray(markers)||!markers.length)return null;
-  const manual=markers.find(p=>p.id===selectedId&&publicTarget(p));
+  const manual=markers.find(p=>publicTarget(p)&&p.id===selectedId);
   if(manual)return manual;
   // An unresolved escort should never advertise a generic distant exit as
   // a verified walking route when its actual civilian is out of sight.
   if(escortBlocked)return null;
-  const preferred=markers.find(p=>p.id===preferredId&&publicTarget(p));
+  const preferred=markers.find(p=>publicTarget(p)&&p.id===preferredId);
   if(preferred)return preferred;
   let best=null,meters=Infinity;
   for(const p of markers){
