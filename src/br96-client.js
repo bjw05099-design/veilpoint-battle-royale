@@ -285,7 +285,10 @@ function render(){
     (w.self.stepOverProgress!==null&&w.self.stepOverProgress!==undefined?
       '\n보행 장애물 통과: '+Math.round(w.self.stepOverProgress*100)+'% · 서버 60Hz':'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
-    (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
+    (w.handcart?'\\n항구 손수레: '+(w.handcart.heldBySelf?'직접 밀기 조작 중 · F 놓기':
+      w.handcart.handoffAvailable?'가까운 분대원에게서 F로 조작 인계 가능':
+      w.handcart.squadOperatorSlot?'분대 '+w.handcart.squadOperatorSlot+'번 조작 중':
+      '현장 접근 시 조작 가능'):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
