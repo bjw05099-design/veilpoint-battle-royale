@@ -14,10 +14,12 @@
   root.VeilpointAdenPreviewDistricts||
   (typeof module==='object'&&module.exports?require('./aden-preview-districts.js'):null),
   root.VeilpointAdenWalkingProbe||
-  (typeof module==='object'&&module.exports?require('./aden-city-walking-probe.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-city-walking-probe.js'):null),
+  root.VeilpointCivilianWalkRoute||
+  (typeof module==='object'&&module.exports?require('./aden-civilian-walk-route.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts,Walk){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts,Walk,Routes){
  'use strict';
  if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
@@ -399,13 +401,13 @@
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
    walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
-  let publicRoomCursor=0;
+  let publicRoomCursor=0,footpath=null;
   function invalidateWalking(){
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
    walkFrame=0;
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
-   held.clear();walkClock=null;walkAccum=0;
+   footpath=null;held.clear();walkClock=null;walkAccum=0;
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
   }
@@ -444,6 +446,18 @@
     showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors});
    if(walk){
     const ctx=canvas.getContext('2d');
+    // Read-only original public walking preview; drawing never changes
+    // the fixed-step pedestrian or campaign story checkpoint.
+    if(footpath?.status==='planned'&&footpath.points.length>1){
+     ctx.strokeStyle='#f2d282';ctx.lineWidth=Math.max(2,2*dpr);
+     ctx.beginPath();
+     footpath.points.forEach((p,i)=>{
+      const [px,pz]=Relief.project([p.x,p.y,p.z],zoomState,
+       canvas.width,canvas.height,zoomState.zoom,zoomState.relief);
+      if(i===0)ctx.moveTo(px,pz);else ctx.lineTo(px,pz);
+     });
+     ctx.stroke();
+    }
     const [px,pz]=Relief.project([walk.x,walk.y,walk.z],zoomState,
      canvas.width,canvas.height,zoomState.zoom,zoomState.relief);
     ctx.fillStyle='#f5d388';ctx.fillRect(px-5,pz-5,10,10);
@@ -464,7 +478,10 @@
     (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
      'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':'')+
      (insideRoom?' · 창작 공공 실내: '+insideRoom.district:'')+
-     (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':''):'');
+     (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':'')+
+     (footpath?.status==='planned'?' · 창작 공공실 경로 '+footpath.distanceMetres.toFixed(1)+'m':
+      footpath?.status==='door-closed'?' · 공공실 문 닫힘 — 보행 경로 없음':
+      footpath?.status==='unreachable'?' · 보행 가능 경로 없음':''):'');
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
@@ -504,6 +521,15 @@
     zoom:Math.max(1.2,state.zoom)});
    refresh();return room.id;
   }
+  function planPublicFootpath(){
+   if(!walk||activeDataset||!Routes)return null;
+   // Route is a preview only; no control input, AI auto-motion or save.
+   refresh();
+   const world=worldForWalking();
+   if(!world)return null;
+   footpath=Routes.plan(world,walk);
+   refresh();return footpath;
+  }
   function toggleNearbyDoor(){
    if(!walk||activeDataset||!Districts||!Walk)return false;
    const nearest=Districts.PUBLIC_INTERIORS.map(room=>({
@@ -522,7 +548,7 @@
     if(!Walk.probe(candidate,walk.x,walk.z))return false;
     closedDoors.add(room.id);
    }
-   walkWorld=null;walkWorldKey='';
+   walkWorld=null;walkWorldKey='';footpath=null;
    refresh();return true;
   }
   function walkStep(intent,frames=1){
@@ -637,6 +663,8 @@
   if(walkButton)walkButton.addEventListener('click',toggleWalking);
   const roomTourButton=doc.getElementById('publicRoomTour');
   if(roomTourButton)roomTourButton.addEventListener('click',focusNextPublicRoom);
+  const pathButton=doc.getElementById('publicFootpath');
+  if(pathButton)pathButton.addEventListener('click',planPublicFootpath);
   for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
@@ -669,8 +697,8 @@
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
-   getClosedDoors:()=>Object.freeze([...closedDoors].sort()),
-   action,refresh,toggleWalking,toggleNearbyDoor,focusNextPublicRoom,walkStep,
+   getClosedDoors:()=>Object.freeze([...closedDoors].sort()),getFootpath:()=>footpath,
+   action,refresh,toggleWalking,toggleNearbyDoor,focusNextPublicRoom,planPublicFootpath,walkStep,
    loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
