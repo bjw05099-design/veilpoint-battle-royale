@@ -52,17 +52,34 @@
    throw new RangeError('Invalid terrain contour request');
   const min=Math.min(a[1],b[1],c[1]),
    max=Math.max(a[1],b[1],c[1]);
-  const result=[],vertices=[a,b,c];
+  const result=[],vertices=[a,b,c],edges=[[0,1],[1,2],[2,0]];
   for(let level=Math.ceil(min/interval)*interval;
    level<=max&&result.length<12;level+=interval){
+   const on=p=>Math.abs(p[1]-level)<1e-10;
+   // When an entire triangle is level, no unique isoline can be drawn.
+   if(vertices.every(on))continue;
+   // Two vertices exactly on one contour form a real physical edge, not a
+   // vanished crossing. The previous t>=1 test silently omitted that edge.
+   const levelEdge=edges.find(([i,j])=>on(vertices[i])&&on(vertices[j]));
+   if(levelEdge){
+    // Zero-height coastline is rendered from the same terrain triangles by
+    // shorelineSegments(); emitting it again as a 25m contour duplicates the
+    // sea-level boundary. Other exact-level edges remain genuine isohypses.
+    if(level===0)continue;
+    const from=vertices[levelEdge[0]],to=vertices[levelEdge[1]];
+    if(Math.hypot(from[0]-to[0],from[2]-to[2])>.0001)
+     result.push(Object.freeze({level,from:Object.freeze([...from]),to:Object.freeze([...to])}));
+    continue;
+   }
    const hits=[];
-   for(const [i,j] of [[0,1],[1,2],[2,0]]){
+   for(const [i,j] of edges){
     const p=vertices[i],q=vertices[j],delta=q[1]-p[1];
     if(Math.abs(delta)<1e-10)continue;
     const t=(level-p[1])/delta;
-    if(t<0||t>=1)continue;
-    hits.push(Object.freeze([
-     p[0]+t*(q[0]-p[0]),level,p[2]+t*(q[2]-p[2])]));
+    if(t<0||t>1)continue;
+    const hit=Object.freeze([p[0]+t*(q[0]-p[0]),level,p[2]+t*(q[2]-p[2])]);
+    // Endpoint intersections belong to two edges; draw a vertex only once.
+    if(!hits.some(v=>Math.hypot(v[0]-hit[0],v[2]-hit[2])<1e-9))hits.push(hit);
    }
    if(hits.length===2&&Math.hypot(
     hits[0][0]-hits[1][0],hits[0][2]-hits[1][2])>.0001)
