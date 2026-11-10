@@ -19,7 +19,7 @@ test('public CH01 editor scene is original, metre-coherent, bounded and not decl
  assert.equal(layout.includesRealFacilityLayout,false);
  assert.equal(layout.runtimeStoryBootstrapGeometryUnchanged,true);
  assert.equal(layout.entryEndsRemainOpen,true);
- assert.deepEqual(layout.courtCentreCm,[6800,-6600]);
+ assert.deepEqual(layout.courtCentreCm,[11000,-3700]);
  assert.ok(layout.minClearCentreAisleCm>=650);
  assert.equal(layout.pieces.length,11);
  const ids=new Set();
@@ -34,8 +34,8 @@ test('public CH01 editor scene is original, metre-coherent, bounded and not decl
   for(const key of ['xCm','yCm','zCm','widthCm','depthCm','heightCm'])
    assert.ok(Number.isFinite(item[key]),'non-finite actor dimension '+key);
   assert.ok(item.widthCm>0&&item.depthCm>0&&item.heightCm>0);
-  assert.ok(item.xCm>=5000&&item.xCm<=8200);
-  assert.ok(item.yCm>=-8000&&item.yCm<=-5200);
+  assert.ok(item.xCm>=9200&&item.xCm<=12800);
+  assert.ok(item.yCm>=-5200&&item.yCm<=-2300);
  }
  assert.equal(layout.pieces.filter(x=>x.solid).length,9);
 });
@@ -53,7 +53,7 @@ test('native public-court collision leaves 650cm-wide centre aisle and story mar
   if(!p.solid)continue;
   const bottom=z-h/2;
   if(bottom>=260)continue; // honest raised canopy, not an invisible ground wall
-  const overlapsAisle=Math.abs(x-6800)<w/2+325&&Math.abs(y+6600)<d/2+550;
+  const overlapsAisle=Math.abs(x-11000)<w/2+325&&Math.abs(y+3700)<d/2+550;
   assert.equal(overlapsAisle,false,'ground solid blocks the central passage: '+p.id);
  }
  const roof=layout.pieces.find(p=>p.kind==='raised-canopy');

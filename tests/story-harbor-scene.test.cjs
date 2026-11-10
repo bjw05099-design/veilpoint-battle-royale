@@ -6,6 +6,7 @@ const vm=require('node:vm');
 const Sim=require('../src/simulation.js');
 const Story=require('../src/story-slice.js');
 const Hall=require('../src/aden-public-hall.js');
+const Court=require('../src/story-public-court.js');
 const Graphics=require('../src/graphics.js');
 const Perf=require('../src/performance.js');
 const Visibility=require('../src/visibility.js');
@@ -18,12 +19,16 @@ function fakeGl(){
 test('authored Nahrin buildings are physically blocked and avoid all objective/exit points',()=>{
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
- assert.equal(buildings.filter(o=>!o.id?.startsWith('harbor-hall-')).length,21,
+ const historic=buildings.filter(o=>!o.id?.startsWith('harbor-hall-')&&
+  !o.id?.startsWith('public-court-'));
+ assert.equal(historic.length,21,
   'all 21 historical harbor structures remain exactly present');
  assert.equal(buildings.filter(o=>o.id?.startsWith('harbor-hall-')).length,Hall.PARTS.length,
   'new accessible public hall adds exactly its seven real collision objects');
- assert.equal(buildings.length,21+Hall.PARTS.length,
-  'never replace historic scene colliders or create a fictitious dispatch-case object');
+ assert.equal(buildings.filter(o=>o.id?.startsWith('public-court-')).length,Court.SOLIDS.length,
+  'eight newly authored CH01 court columns/furniture are separate real colliders');
+ assert.equal(buildings.length,21+Hall.PARTS.length+Court.SOLIDS.length,
+  'retain historic collision, existing public hall and new courtyard independently');
  assert.equal(buildings.filter(o=>o.type==='story-dispatch-case').length,0);
  assert.equal(buildings.filter(o=>o.type==='story-office-wall').length,5);
  assert.equal(buildings.filter(o=>o.type==='story-office-desk').length,1);

@@ -43,9 +43,12 @@ def read_original_court():
             or data.get("includesRealFacilityLayout") is not False
             or data.get("runtimeStoryBootstrapGeometryUnchanged") is not True
             or data.get("entryEndsRemainOpen") is not True
-            or data.get("courtCentreCm") != [6800, -6600]
+            or data.get("courtCentreCm") != [11000, -3700]
             or data.get("minClearCentreAisleCm") < 650):
         raise RuntimeError("Unapproved or misrepresented original CH01 geometry")
+    # Keep the authored court away from the existing world-collision cluster:
+    # the old 68m/-66m centre overlapped a 15m x 27m building at 70m/-78m.
+    # The new 110m/-37m walkable plaza has its own clearance verification.
     pieces = data.get("pieces")
     if not isinstance(pieces, list) or len(pieces) != EXPECTED_PUBLIC_PIECES:
         raise RuntimeError("The original CH01 public-court actors are incomplete")
@@ -73,7 +76,7 @@ def read_original_court():
                 raise RuntimeError("Nonfinite original court geometry")
         x, y, z = item["xCm"], item["yCm"], item["zCm"]
         w, d, h = item["widthCm"], item["depthCm"], item["heightCm"]
-        if (not 5000 <= x <= 8200 or not -8000 <= y <= -5200
+        if (not 9200 <= x <= 12800 or not -5200 <= y <= -2300
                 or not 0 <= z <= 500 or not 1 <= h <= 350
                 or not 10 <= w <= 2600 or not 10 <= d <= 1800):
             # Thin purely decorative markings are deliberately 1cm high.
@@ -89,7 +92,7 @@ def read_original_court():
         # Overhead canopy is legitimate if its underside exceeds 260cm.
         floor_height = z - h / 2
         if item["solid"] and floor_height < 260:
-            if abs(x - 6800) < (w / 2 + 325) and abs(y + 6600) < (d / 2 + 550):
+            if abs(x - 11000) < (w / 2 + 325) and abs(y + 3700) < (d / 2 + 550):
                 raise RuntimeError("Solid geometry blocks the central walkable aisle")
     return data, hashlib.sha256(raw).hexdigest()
 

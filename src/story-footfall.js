@@ -10,10 +10,12 @@
   require('./ch01-street-flood.js'):root.VeilpointStreetFlood;
  const ambience=typeof module==='object'&&module.exports?
   require('./story-harbor-ambience.js'):root.VeilpointStoryHarborAmbience;
- const api=factory(sim,flood,ambience);
+ const court=typeof module==='object'&&module.exports?
+  require('./story-public-court.js'):root.VeilpointStoryPublicCourt;
+ const api=factory(sim,flood,ambience,court);
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointStoryFootfall=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Sim,Flood,Ambience){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Sim,Flood,Ambience,Court){
  'use strict';
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const MATERIALS=Object.freeze({
@@ -28,6 +30,9 @@
    return 'unavailable';
   if(Ambience?.indoors?.(p,world.obstacles))return 'interior';
   if((Flood?.exposure?.(story.phase,p.x,p.z)||0)>.12)return 'wet';
+  // Same actual non-colliding stone pavement as the original UE5 CH01 court.
+  // This is grounded local foot contact, not an audio cue for distant actors.
+  if(Court?.withinCourt(p))return 'stone';
   const apron=Sim?.WET_LOADING_PAD;
   if(apron&&Math.abs(p.x-apron.x)<=apron.width/2&&
      Math.abs(p.z-apron.z)<=apron.depth/2)return 'wet';

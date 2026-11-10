@@ -8,6 +8,7 @@ const V3=(x,y,z)=>[x,y,z];
 const Visibility=global.VeilpointVisibility;
 const PublicFootpaths=global.VeilpointPublicFootpaths;
 const HallLights=global.VeilpointHallLights;
+const StoryCourt=global.VeilpointStoryPublicCourt;
 // Three fictional, human-scale civic ceilings enrich the SAME walkable
 // neighborhoods in BR and CH01. Roofs are ABOVE the walking capsule: they
 // never create collision blocks, require new saves or reproduce a real site.
@@ -450,6 +451,19 @@ class SoftwareRenderer {
      proj(floor.x-hw,.09,floor.z+hd)],floor.color);
   }
  }
+ // Story-first public court: ground markings are non-solid, while eight
+ // original columns/benches/shelves come from real 60Hz story obstacles.
+ // This is a LOCAL fictional plaza, not the historical Aden street plan.
+ if(harborNight&&StoryCourt&&
+    state.obstacles.some(o=>o.id==='public-court-west-north-column')){
+  const f=StoryCourt.FLOOR,m=StoryCourt.CENTRE_MARK;
+  polygon([proj(f.x-f.w/2,.04,f.z-f.d/2),proj(f.x+f.w/2,.04,f.z-f.d/2),
+   proj(f.x+f.w/2,.04,f.z+f.d/2),proj(f.x-f.w/2,.04,f.z+f.d/2)],'#8b806c');
+  polygon([proj(m.x-m.w/2,.065,m.z-m.d/2),
+   proj(m.x+m.w/2,.065,m.z-m.d/2),
+   proj(m.x+m.w/2,.065,m.z+m.d/2),
+   proj(m.x-m.w/2,.065,m.z+m.d/2)],'#b0a184');
+ }
  // Hall light pools share the saved physical circuit with WebGL and are
  // painted on the real interior floor, not through surrounding facade walls.
  if(HallLights?.level(state)>0){
@@ -491,6 +505,7 @@ class SoftwareRenderer {
      o.type==='story-public-hall-wall'?'story-public-hall-wall':
      o.type==='story-public-hall-counter'?'story-public-hall-counter':
      o.type==='story-public-hall-seat'?'story-public-hall-seat':
+     o.type.startsWith('story-public-court-')?o.type:
      o.type==='story-fallen-awning'?'story-fallen-awning':
      o.type==='story-water-kiosk'?'story-water-kiosk':
      o.type==='story-drydock-hull'?'story-drydock-hull':
@@ -498,6 +513,13 @@ class SoftwareRenderer {
      o.type==='volcanic-outcrop'?'volcanic-outcrop':
      o.type==='story-desk'?'report-desk':o.type==='yard-gate'?'yard-gate':
      o.type==='yard-fence'?'yard-fence':'building'});
+ }
+ if(harborNight&&StoryCourt&&
+    state.obstacles.some(o=>o.id==='public-court-west-north-column')){
+  const roof=StoryCourt.CANOPY;
+  objects.push({x:roof.x,z:roof.z,w:roof.w,d:roof.d,
+    h:roof.h,roofY:roof.y-roof.h/2,type:'shared-public-canopy',
+    canvas:'#9b8b6c'});
  }
  if(!harborNight){
   // The roof is an elevated surface, not a fictitious ground-level cube.
@@ -635,6 +657,8 @@ class SoftwareRenderer {
    o.type==='aden-craft-court-seat'?'#8b7862':
    o.type==='aden-fishhall-wall'?'#afa18d':o.type==='aden-fishhall-counter'?'#79634d':
    o.type==='aden-ferry-hall-wall'?'#a89a83':o.type==='aden-ferry-hall-bench'?'#857668':o.type==='aden-ferry-hall-notice'?'#756754':
+   o.type==='story-public-court-column'?'#bba98d':
+   o.type==='story-public-court-furniture'?'#7f705e':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
@@ -1228,7 +1252,27 @@ class Renderer {
        [.72,.65,.50]);
     }
    }
+  // One authored source drives the native-editor and browser scene. Floor,
+  // painted centre and roof never acquire phantom ground-level AABBs.
+  if(StoryCourt&&this.sceneObstacles.some(o=>o.id==='public-court-west-north-column')){
+   const f=StoryCourt.FLOOR,mark=StoryCourt.CENTRE_MARK,roof=StoryCourt.CANOPY;
+   m.box(f.x,.001,f.z,f.w,.026,f.d,[.52,.47,.39]);
+   m.box(mark.x,.028,mark.z,mark.w,.012,mark.d,[.73,.65,.50]);
+   m.box(roof.x,roof.y-roof.h/2,roof.z,roof.w,roof.h,roof.d,[.57,.49,.38]);
+   m.box(roof.x,roof.y+roof.h*.40,roof.z,
+     roof.w+.2,.045,roof.d+.2,[.66,.57,.44]);
+  }
   for(const o of this.sceneObstacles){
+   if(o.type==='story-public-court-column'){
+    m.box(o.x,0,o.z,o.w,o.h,o.d,[.69,.62,.51]);
+    m.box(o.x,o.h-.18,o.z,o.w+.08,.18,o.d+.08,[.79,.71,.57]);
+    continue;
+   }
+   if(o.type==='story-public-court-furniture'){
+    m.box(o.x,0,o.z,o.w,o.h,o.d,[.43,.35,.27]);
+    m.box(o.x,o.h-.11,o.z,o.w+.08,.11,o.d+.08,[.64,.53,.40]);
+    continue;
+   }
    if(o.type==='story-public-hall-wall'){
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.64,.53,.41]);
     m.box(o.x,o.h-.20,o.z,o.w,.22,o.d,[.77,.65,.51]);

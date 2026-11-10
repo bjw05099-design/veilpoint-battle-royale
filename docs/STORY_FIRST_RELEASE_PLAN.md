@@ -64,6 +64,21 @@ preferably map+story while bringing BR forward only where shared foundations ben
   12-hour playable campaign or internet 96-human match can be asserted from
   Node/browser contract tests alone.
 
+## CH01 authoring parity: real local civic walking space
+
+The first authored **11-piece civilian public court** at local (110m, -37m)
+now has its original floor/roof + eight body-height colliders in both the
+UE5 Editor authoring source and browser CH01. The browser uses the same
+eight real 60Hz wall/furniture AABBs for movement, with exactly aligned
+WebGL and Canvas silhouettes. The physical north–south passage remains
+walkable, while a raised canopy never becomes an invisible 2D wall.
+Story-only spatial audio and on-site location text follow actual foot position,
+not a global quest flag.
+
+This is a CH01 environmental gameplay and map increment, NOT a new
+12-hour chapter, UE5 PIE success, BR96 collision rollout, surveyed Aden
+coverage, or RTX 3070 benchmark. Existing BR/BR96 game states remain intact.
+
 ## Every PR's proof
 Verify latest main/head; distinct tested source and independent regressions;
 Linux Node + real Chromium at 2560×1440, 1366×768, 1280×720 and 1024×600;
