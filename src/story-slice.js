@@ -2413,9 +2413,10 @@
             const c=crossing.civilian,init=Civic.initial();
             return crossing.tick>86400*60||
               (crossing.assisted&&crossing.tick===0)||
-              (!crossing.assisted&&c.x!==init.civilian.x)||
+              (!crossing.assisted&&(c.x!==init.civilian.x||c.z!==init.civilian.z))||
               (crossing.disrupted&&data.phase==='terminal')||
-              c.x<init.civilian.x||c.x>init.destination.x||c.z!==init.civilian.z||
+              c.x<init.civilian.x||c.x>init.destination.x||
+              c.z<init.civilian.z-2.4-1e-8||c.z>init.civilian.z+2.4+1e-8||
               crossing.destination.x!==init.destination.x||
               crossing.destination.z!==init.destination.z||
               (crossing.assisted&&!['records','decision','exit','complete'].includes(data.phase));
