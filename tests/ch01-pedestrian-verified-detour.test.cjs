@@ -101,8 +101,10 @@ test('story PC route uses one verified target for both text and minimap, and is 
  assert.match(app,/Pedestrian\.plan\(state\.world\.player/);
  assert.match(app,/Pedestrian\.instruction\(walkRoute\)/);
  assert.match(app,/minimap\(walkRoute\)/);
- assert.match(app,/walkRoute\?\.kind==='detour'/);
- assert.match(app,/ctx\.setLineDash\?\.\(\[4,3\]\)/);
+ const map=read('src/story-local-minimap.js');
+ assert.match(map,/walkRoute\?\.kind==='detour'/);
+ assert.match(map,/ctx\.setLineDash\?\.\(\[4,3\]\)/);
+ assert.match(app,/LocalMinimap\.draw\(ctx,c,/);
  const packed=storyEntries().map(x=>x.name);
  assert.ok(packed.includes('src/story-pedestrian-guidance.js'),
   'verified story standalone archive must include navigation code');
