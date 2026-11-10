@@ -47,6 +47,29 @@ preferably map+story while bringing BR forward only where shared foundations ben
   matchmaking, an Unreal native game, a 12-hour campaign or real hardware
   performance evidence into existence.
 
+## CH01 player-following PC neighbourhood map (2026-11-10)
+
+A prior CH01 minimap incorrectly fixed its global world window to
+`x=[-75,+75]` and `z=[-90,+40]`. The original civilian public court was
+subsequently placed at `(110m,-37m)`, so both the on-site player and verified
+footpath could disappear outside the minimap even while the level remained
+physically playable.
+
+`src/story-local-minimap.js` now projects a **player-following 120m-wide
+fictional neighbourhood** at uniform real-world x/z metre scale, preserving
+canvas aspect ratio at 240×150 and larger Windows/QHD layouts. It clips
+buildings and checked pedestrian route segments to the visible window,
+anchors grid lines to fixed world metres, culls remote objective markers,
+and draws only an escort already locally witnessed under 20m and direct
+line-of-sight rules. It does not show hidden civilians, opponents, other
+squads, surveys, or live real-world georeferenced data. Its output remains
+read-only and does not change CH01 v2 saves or BR/BR96 game state.
+
+Nine tests check the far public-court player position, dynamic recentering,
+equivalent metre scale, obstacle and route clipping, no distant actor leakage,
+story-only ZIP dependency closure, and save compatibility. Real graphics
+evidence and native UE5 hardware tests remain separate release gates.
+
 ## CH01 public-footpath directions from the real collision world (2026-11-10)
 
 The CH01 PC HUD now distinguishes **straight-line distance** from an actual
