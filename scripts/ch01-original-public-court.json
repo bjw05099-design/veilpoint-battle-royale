@@ -1,0 +1,138 @@
+{
+  "format": "veilpoint-ch01-original-public-court-v1",
+  "coordinateSystem": "unreferenced-native-ue-centimetres",
+  "authoring": "original fictional public civilian space",
+  "actualAdenCoverageVerified": false,
+  "restrictedOperationalSites": false,
+  "includesRealFacilityLayout": false,
+  "runtimeStoryBootstrapGeometryUnchanged": true,
+  "courtCentreCm": [
+    6800,
+    -6600
+  ],
+  "minClearCentreAisleCm": 650,
+  "entryEndsRemainOpen": true,
+  "pieces": [
+    {
+      "id": "public-court-stone-paving",
+      "kind": "walkable-paving",
+      "xCm": 6800,
+      "yCm": -6600,
+      "zCm": 1.5,
+      "widthCm": 2400,
+      "depthCm": 1600,
+      "heightCm": 3,
+      "solid": false
+    },
+    {
+      "id": "public-court-west-north-column",
+      "kind": "structural-column",
+      "xCm": 5700,
+      "yCm": -7200,
+      "zCm": 155,
+      "widthCm": 38,
+      "depthCm": 38,
+      "heightCm": 310,
+      "solid": true
+    },
+    {
+      "id": "public-court-west-south-column",
+      "kind": "structural-column",
+      "xCm": 5700,
+      "yCm": -6000,
+      "zCm": 155,
+      "widthCm": 38,
+      "depthCm": 38,
+      "heightCm": 310,
+      "solid": true
+    },
+    {
+      "id": "public-court-east-north-column",
+      "kind": "structural-column",
+      "xCm": 7900,
+      "yCm": -7200,
+      "zCm": 155,
+      "widthCm": 38,
+      "depthCm": 38,
+      "heightCm": 310,
+      "solid": true
+    },
+    {
+      "id": "public-court-east-south-column",
+      "kind": "structural-column",
+      "xCm": 7900,
+      "yCm": -6000,
+      "zCm": 155,
+      "widthCm": 38,
+      "depthCm": 38,
+      "heightCm": 310,
+      "solid": true
+    },
+    {
+      "id": "public-court-high-canopy",
+      "kind": "raised-canopy",
+      "xCm": 6800,
+      "yCm": -6600,
+      "zCm": 328,
+      "widthCm": 2240,
+      "depthCm": 1240,
+      "heightCm": 18,
+      "solid": true
+    },
+    {
+      "id": "public-court-west-bench",
+      "kind": "street-furniture",
+      "xCm": 6100,
+      "yCm": -6600,
+      "zCm": 42,
+      "widthCm": 120,
+      "depthCm": 200,
+      "heightCm": 84,
+      "solid": true
+    },
+    {
+      "id": "public-court-east-bench",
+      "kind": "street-furniture",
+      "xCm": 7500,
+      "yCm": -6600,
+      "zCm": 42,
+      "widthCm": 120,
+      "depthCm": 200,
+      "heightCm": 84,
+      "solid": true
+    },
+    {
+      "id": "public-court-west-side-shelf",
+      "kind": "street-furniture",
+      "xCm": 5900,
+      "yCm": -6400,
+      "zCm": 58,
+      "widthCm": 140,
+      "depthCm": 60,
+      "heightCm": 116,
+      "solid": true
+    },
+    {
+      "id": "public-court-east-side-shelf",
+      "kind": "street-furniture",
+      "xCm": 7700,
+      "yCm": -6400,
+      "zCm": 58,
+      "widthCm": 140,
+      "depthCm": 60,
+      "heightCm": 116,
+      "solid": true
+    },
+    {
+      "id": "public-court-marked-centre",
+      "kind": "nonblocking-surface",
+      "xCm": 6800,
+      "yCm": -6600,
+      "zCm": 2.5,
+      "widthCm": 250,
+      "depthCm": 800,
+      "heightCm": 1,
+      "solid": false
+    }
+  ]
+}

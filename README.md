@@ -71,6 +71,27 @@ Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on th
 - PC mouse/keyboard controls, adaptive no-scroll UI, synthesized local UI sound, no remote calls.
 - Core simulation unit tests and GitHub Actions CI recipe.
 
+### Native UE5 CH01 map authoring — Windows development gate (2026-11-10)
+
+For the installed Unreal Engine **5.8** plus Windows C++ build tools,
+`scripts/prepare-native-ch01-win64.ps1` checks the engine version, compiles
+`VeilpointEditor`, executes the actual editor map-generation script and
+verifies a SHA-256 receipt for `CH01_Coast.umap` before setting it as the
+startup map. A small original civilian public courtyard adds **11 actual
+authored editor meshes**, with open pedestrian access and physical collision.
+The original 2015 Aden geography and fully built city are **not verified**.
+
+```powershell
+.\scripts\prepare-native-ch01-win64.ps1 -EngineRoot 'C:\Program Files\Epic Games\UE_5.8' -PreflightOnly
+.\scripts\prepare-native-ch01-win64.ps1 -EngineRoot 'C:\Program Files\Epic Games\UE_5.8'
+```
+
+This code has **not been executed in Unreal on the owner's PC**. It is not
+a prebuilt native game or a certification of the C++ compile, playable map
+or RTX3070 performance. The standalone story-only WebView2 EXE is a
+separate verified distribution **candidate**. See
+[UE5 Windows CH01 authoring/build gate](docs/UE5_WIN64_BUILD_GATE.md).
+
 ### Engine / fidelity direction
 
 The `Unreal/Veilpoint/` directory contains the **UE5.8 source scaffold** with Unreal camera, replicated player state, server-authoritative tagging and pickup interaction, shrinking zone and procedural graybox bootstrap. It was prepared without Unreal Engine installed in the development environment. **It has not been compiled, opened in UE Editor, packaged, benchmarked, or visually validated in UE.** It is a starting point for PC photorealism, not a runnable production build.
