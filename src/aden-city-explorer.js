@@ -8,10 +8,12 @@
  const api=factory(root.VeilpointAdenCityTiles||
   (typeof module==='object'&&module.exports?require('./aden-citywide-tiles.js'):null),
   root.VeilpointAdenRelief||
-  (typeof module==='object'&&module.exports?require('./aden-map-relief.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-map-relief.js'):null),
+  root.VeilpointAdenPreviewStreets||
+  (typeof module==='object'&&module.exports?require('./aden-preview-streets.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets){
  'use strict';
  if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
@@ -230,6 +232,21 @@
     }
    }
   }
+  // Actually draw street ribbons over local 512m terrain using current LOD
+  // vertices, not fake flat decals, and never over unknown imported tiles.
+  // This visual-only original street network has no gameplay collision.
+  let roadTriangles=0;
+  if(Streets&&options.showFictionalBuildings!==false){
+   for(const road of Streets.triangulate(registry,cache,renderedKeys)){
+    const verts=road.vertices.map(p=>toScreen(p[0],p[2],p[1]));
+    if(verts.every(p=>p[0]<-10)||verts.every(p=>p[0]>w+10)||
+       verts.every(p=>p[1]<-10)||verts.every(p=>p[1]>h+10))continue;
+    ctx.fillStyle='#6f6960';
+    ctx.beginPath();ctx.moveTo(...verts[0]);ctx.lineTo(...verts[1]);
+    ctx.lineTo(...verts[2]);ctx.closePath();ctx.fill();
+    roadTriangles++;
+   }
+  }
   // Visual-only conceptual civic building shells. They do not participate
   // in the existing arena, BR96 authoritative world or legacy save format.
   let houses=0;
@@ -274,7 +291,7 @@
    ctx.moveTo(axis[0],axis[1]-7);ctx.lineTo(axis[0],axis[1]+7);ctx.stroke();
   }
   return Object.freeze({origin:origin.key,active:plan.active.length,triangles,
-   visibleTiles:visible,culledTiles,
+   visibleTiles:visible,culledTiles,roadTriangles,
    housesVisible:houses,shorelineSegments:shoreline,
    unresolved:plan.unresolved.length,lodStep:lod,
    centerElevationMetres,centerSlopeDegrees,localElevationOnly:true,centerElevationSurface:'painted-triangle',
@@ -312,10 +329,12 @@
   let state=viewState(),fileSelectionRevision=0;
   function refresh(){
    const legend=doc.getElementById('mapLegendTitle'),
-    houses=doc.getElementById('fictionalHouseLegend');
+    houses=doc.getElementById('fictionalHouseLegend'),
+    roads=doc.getElementById('fictionalStreetLegend');
    if(legend)legend.textContent=activeDataset?
     '입력한 로컬 고도 · 출처 외부 검증 전':'원본 창작 지형 · 축척 검증';
    if(houses)houses.hidden=!!activeDataset;
+   if(roads)roads.hidden=!!activeDataset;
    const width=Math.max(320,canvas.clientWidth||canvas.width||960),
      height=Math.max(200,canvas.clientHeight||canvas.height||600);
    const dpr=Math.max(1,Math.min(2,(typeof devicePixelRatio==='number'?devicePixelRatio:1)));
@@ -332,7 +351,8 @@
     ' / '+activeDataset.tilesImported+'개 타일 · '+(activeDataset.filesImported||1)+'개 파일 · ':
     '원본: 창작 아트 테스트 (실측 아덴 0타일) · ')+
     stats.origin+' · '+inspectedElevation+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
-    '개 · 1:1 미터 좌표 · 삼각형 '+stats.triangles+'개 · 실제 아덴 검증 0타일';
+    '개 · 1:1 미터 좌표 · 지형 삼각형 '+stats.triangles+
+    '개 · 창작 도로 삼각형 '+stats.roadTriangles+'개 · 실제 아덴 검증 0타일';
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
