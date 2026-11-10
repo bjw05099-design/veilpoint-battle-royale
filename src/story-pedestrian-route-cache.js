@@ -35,8 +35,8 @@
   return copy;
  }
  function routeFrom(player,marker,obstacles,previous){
-  if(!previous||previous.kind!=='detour'||!Array.isArray(previous.points)||
-      previous.points.length<2)return null;
+  if(!previous||!Array.isArray(previous.points)||previous.points.length<2)
+   return null;
   const p={x:player.x,z:player.z},goal={x:marker.x,z:marker.z};
   if(Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
      Sim.blocked(goal.x,goal.z,CLEARANCE,obstacles))return null;
@@ -49,6 +49,10 @@
     distance,segment:distance,heading:Navigation.direction(player,goal),
     terrainVerified:true,peopleVerified:false});
   }
+  // A formerly clear street can become occluded from a new player position.
+  // Such a direct route must be replanned rather than falsely recast as
+  // the old two-point "detour".
+  if(previous.kind!=='detour')return null;
   const inflated=obstacles.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
   // Rejoin only a FORWARD segment that is clear for a real player body.
   // Never skip a physical wall, and never reuse the previous world position
