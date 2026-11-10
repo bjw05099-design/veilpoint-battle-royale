@@ -225,10 +225,23 @@ function atmosphereDensity(state){
  // player position or wall occlusion. Default offline BR haze is unchanged.
  const coastal=state&&state.coastalWeather;
  if(coastal&&typeof coastal==='object'){
-  if(coastal.code==='sea-haze')return .035;
-  if(coastal.code==='gusty')return .021;
-  if(coastal.code==='clearing')return .013;
-  if(coastal.code==='clear')return .009;
+  const target=coastal.code==='sea-haze'?.035:
+    coastal.code==='gusty'?.021:
+    coastal.code==='clearing'?.009:
+    coastal.code==='clear'?.009:null;
+  if(target!==null){
+   // A new 60Hz server weather stage is gradual, rather than one frame
+   // abruptly increasing the rendered fog density. The shader and Canvas
+   // fallback both read this exact interpolated value. Older offline
+   // snapshots without a transition retain their previous visual contract.
+   const previous=coastal.code==='sea-haze'?.009:
+     coastal.code==='gusty'?.035:
+     coastal.code==='clearing'?.021:.009;
+   const progress=coastal.transitionProgress;
+   if(Number.isFinite(progress)&&progress>=0&&progress<=1)
+    return previous+(target-previous)*progress;
+   return coastal.code==='clearing'?.013:target;
+  }
  }
  const elapsed=state&&state.elapsed;
  return Number.isFinite(elapsed)&&elapsed>=0
