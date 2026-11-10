@@ -47,6 +47,32 @@ preferably map+story while bringing BR forward only where shared foundations ben
   matchmaking, an Unreal native game, a 12-hour campaign or real hardware
   performance evidence into existence.
 
+## CH01 collision-current pedestrian route cache (2026-11-10)
+
+The existing local route planner can run bounded A* repeatedly at each HUD
+refresh (~180ms) while the captain stands still in front of a building.
+`src/story-pedestrian-route-cache.js` now reuses a previously verified
+public walking path without touching the 60Hz simulation or V2 checkpoint.
+
+Its acceptance gate compares the exact public marker id/coordinates and
+**every** current static/dynamic collision AABB's x/z/w/d, even when the
+same obstacle array is mutated in place. It checks actual current player
+position (maximum 6m since the last full path search), refuses a blocked
+character footprint, recomputes the first leg against clearance-inflated
+obstacles and only reuses **forward** route segments that remain clear.
+If the target/geometry changes or the actual first leg is blocked, the
+existing bounded A* planner is run anew. Unreachable-route results are
+reused only within 0.2m of the previously tested real position; no
+estimated pedestrian arrival or virtual routing through walls is allowed.
+Moving people remain **unverified** and are never represented as safe
+passage, and the game doesn't track enemies or infer civilian rescue.
+
+The shared module is loaded in `story.html` and included in the
+independent story-only ZIP/Windows WebView2 package. Existing BR/BR96
+network physics and the CH01 V2 save payload are unchanged. Node tests
+assert exact collision mutation invalidation, real re-anchored waypoints,
+bounded negative results and no remote objective leakage.
+
 ## CH01 player-following PC neighbourhood map (2026-11-10)
 
 A prior CH01 minimap incorrectly fixed its global world window to

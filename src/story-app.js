@@ -8,6 +8,7 @@
   const Navigation=global.VeilpointNavigation;
   const LocalMinimap=global.VeilpointStoryLocalMinimap;
   const Pedestrian=global.VeilpointStoryPedestrianGuidance;
+  const PedestrianCache=global.VeilpointStoryPedestrianRouteCache;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
@@ -26,6 +27,8 @@
   global.VeilpointInput=input;
   let stillRequested=false;
   let state=Story.createState(),renderer=null,running=false,graphicsContextLost=false,last=performance.now(),lastHud=0;
+  // UI-only: route reuse cannot mutate 60Hz actor state or V2 checkpoints.
+  const pedestrianRouteCache=PedestrianCache?.create();
   // G is reserved by the PC input binder. It focuses the existing story
   // settings inside the pause menu without permitting any 60Hz world step.
   let graphicsMenuFocused=false;
@@ -1605,8 +1608,15 @@
     // No new quest, AI target tracking or checkpoint field is created.
     const walkTarget=Pedestrian?.targetFor(state.world.player,publicMarkers,
       guidanceId,primaryTarget,escortIncomplete&&!preferGuide&&guidanceId===null);
-    const walkRoute=walkTarget?Pedestrian.plan(state.world.player,
-      walkTarget,state.world.obstacles):null;
+    // A* is expensive at PC HUD refresh frequency; reuse only after checking
+    // every mutable obstacle AABB, public target identity and live first leg.
+    // A changed/blocked segment triggers a fresh bounded search immediately.
+    if(!walkTarget)pedestrianRouteCache?.clear();
+    const walkRoute=walkTarget
+      ?(pedestrianRouteCache
+        ?pedestrianRouteCache.get(state.world.player,walkTarget,state.world.obstacles)
+        :Pedestrian.plan(state.world.player,walkTarget,state.world.obstacles))
+      :null;
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
       state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
       state.world.obstacles,primaryTarget,escortHint)+
