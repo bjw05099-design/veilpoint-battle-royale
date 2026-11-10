@@ -34,6 +34,14 @@ public:
         meta=(ClampMin="1",ClampMax="8"))
     int32 SampleStride=8;
 
+    // Native mesh section/collision cooking can be expensive. Spread tile
+    // authoring over actor ticks instead of processing nine tiles at once.
+    // A budget of one favors responsiveness; at most three can be selected
+    // for isolated editor/PIE inspection, not production performance claims.
+    UPROPERTY(EditAnywhere, Category="VEILPOINT|Civil Terrain",
+        meta=(ClampMin="1",ClampMax="3"))
+    int32 MaxTileBuildsPerTick=1;
+
     UPROPERTY(EditAnywhere, Category="VEILPOINT|Civil Terrain")
     bool bCreateTerrainCollision=true;
 
@@ -71,6 +79,9 @@ private:
     TSet<FIntPoint> RejectedTiles;
     FIntPoint LastOrigin=FIntPoint(MAX_int32,MAX_int32);
     int32 LastRadius=-1;
+    // Do not return early at the same tile origin while an incremental
+    // construction queue still has valid geometry to build.
+    bool bPendingTileBuilds=false;
     float HeightStepMetres=0.f;
     float MidpointMetres=0.f;
     float SampleSpacingCm=0.f;
