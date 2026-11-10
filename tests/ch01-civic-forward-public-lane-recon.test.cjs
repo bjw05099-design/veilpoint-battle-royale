@@ -57,3 +57,26 @@ test('an entirely closed crossing still safely waits, without an invented escape
  assert.equal(state.assisted,true);
  assert.ok(state.civilian.x<state.destination.x);
 });
+
+test('distant objects after the resident rejoins the centre are not false detour blockers',()=>{
+ const blockedDistant=(x,z)=>(
+  x>=4.6&&x<=6.4&&z>=-17.1&&z<=-14.9
+ )||(
+  x>=8.8&&x<=9.2&&(z<=-18.1||z>=-13.9)
+ );
+ let s=Civic.step(Civic.initial(),{
+  disruption:true,assist:true,player:{x:6,z:-16}
+ });
+ let steppedAside=false;
+ for(let i=0;i<1050;i++){
+  const prior=s.civilian;
+  s=Civic.step(s,{blocked:blockedDistant,player:far});
+  const next=s.civilian;
+  assert.equal(blockedDistant(next.x,next.z),false);
+  assert.ok(Math.hypot(next.x-prior.x,next.z-prior.z)<=1.1/60+1e-8);
+  if(Math.abs(next.z+16)>.3)steppedAside=true;
+ }
+ assert.ok(steppedAside,'nearby obstacle still triggers a real detour');
+ assert.deepEqual(s.civilian,s.destination,
+  'an unrelated curb object after the rejoin point cannot soft-lock the crossing');
+});

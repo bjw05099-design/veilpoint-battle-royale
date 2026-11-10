@@ -37,9 +37,21 @@
        // crossing, not merely an empty square beside the resident. A curb
        // that looks clear *here* but ends at a solid farther ahead must not
        // trap the pedestrian against the central obstruction.
+       // Find the far edge of the *next* contiguous centre obstruction.
+       // A distant curb-side object beyond the place where the resident
+       // safely rejoins the original path must not prevent this detour.
+       let seenCentreBlock=false,lastCentreBlock=civilian.x;
+       for(let x=civilian.x;;x=Math.min(destination.x,x+.25)){
+         if(blockedAt(x,destination.z)){
+           seenCentreBlock=true;lastCentreBlock=x;
+         }else if(seenCentreBlock&&x-lastCentreBlock>.5)break;
+         if(x>=destination.x)break;
+       }
+       const until=Math.min(destination.x,
+         seenCentreBlock?lastCentreBlock+.85:civilian.x+2.4);
        const clearForwardLane=z=>{
          if(blockedAt(civilian.x,z))return false;
-         const length=Math.max(0,destination.x-civilian.x);
+         const length=Math.max(0,until-civilian.x);
          const samples=Math.max(1,Math.ceil(length/.4));
          for(let i=1;i<=samples;i++){
            const x=civilian.x+length*i/samples;
