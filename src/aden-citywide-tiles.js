@@ -186,6 +186,35 @@
    ?h00*(1-u-v)+h10*u+h01*v
    :h10*(1-v)+h01*(1-u)+h11*(u+v-1);
  }
+ // Per-point physical slope from the EXACT triangle mesh currently drawn
+ // at the active LOD, not a bilinear DEM slope or speculative GPS estimate.
+ // Produces local metre geometry only; it is not surveyed Aden topography.
+ function terrainSurface(mesh,x,z){
+  const elevationMetres=heightOnTerrainMesh(mesh,x,z);
+  const n=Math.sqrt(mesh.vertexCount),
+   {tx,tz}=parseTileKey(mesh.key),b=tileBounds(tx,tz);
+  const u=Math.max(0,Math.min(n-1,(x-b.minX)/TILE_METRES*(n-1))),
+   v=Math.max(0,Math.min(n-1,(z-b.minZ)/TILE_METRES*(n-1))),
+   ix=Math.min(n-2,Math.floor(u)),iz=Math.min(n-2,Math.floor(v));
+  const indices=u-ix+v-iz<=1
+   ?[[iz,ix],[iz,ix+1],[iz+1,ix]]
+   :[[iz,ix+1],[iz+1,ix+1],[iz+1,ix]];
+  const p=indices.map(([row,col])=>
+   mesh.positions.slice((row*n+col)*3,(row*n+col+1)*3));
+  const ab=p[1].map((v,i)=>v-p[0][i]),
+   ac=p[2].map((v,i)=>v-p[0][i]);
+  let nx=ab[1]*ac[2]-ab[2]*ac[1],
+   ny=ab[2]*ac[0]-ab[0]*ac[2],
+   nz=ab[0]*ac[1]-ab[1]*ac[0];
+  const magnitude=Math.hypot(nx,ny,nz);
+  if(!Number.isFinite(magnitude)||magnitude<1e-10)
+   throw new RangeError('Degenerate terrain surface triangle');
+  if(ny<0){nx=-nx;ny=-ny;nz=-nz;}
+  const slopeDegrees=Math.atan2(Math.hypot(nx,nz),ny)*180/Math.PI;
+  return Object.freeze({elevationMetres,slopeDegrees,
+   normal:Object.freeze({x:nx/magnitude,y:ny/magnitude,z:nz/magnitude}),
+   meshKey:mesh.key,lodStep:mesh.lodStep});
+ }
  function createRegistry(tiles){
   if(!Array.isArray(tiles)||tiles.length>25000)throw new RangeError('Invalid city tile registry');
   const map=new Map();
@@ -293,5 +322,5 @@
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
   DISTRICTS,SOURCE_SCOPE,point,tileKey,parseTileKey,tileFor,tileBounds,
-  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,heightOnTerrainMesh,createRegistry,planStreaming});
+  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,heightOnTerrainMesh,terrainSurface,createRegistry,planStreaming});
 });
