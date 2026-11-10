@@ -77,7 +77,7 @@ test('many valid batches cumulatively extend a larger local window beyond 49 til
  assert.ok(all.seamMaxGapMetres<1e-7);
  const view=Tiles.planStreaming(50*512+12,120,all.registry,[],{radius:2,maxLoaded:9});
  assert.equal(view.completeCity,false);
- assert.equal(view.active.length,9);
+ assert.equal(view.active.length,5,'only the five sourced tiles on this one-row map are resident');
  assert.equal(view.streamedWorldMetresPerUnit,1);
  assert.equal(all.registry.get('aden:97:0').quality,'blockout');
  assert.equal(all.geographicAccuracyVerified,false);
