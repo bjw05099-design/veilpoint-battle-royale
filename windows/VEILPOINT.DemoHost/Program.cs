@@ -18,12 +18,15 @@ internal static class Program
     {
         // Windows CI can execute the actual published PE without opening a
         // GUI. Nonzero means that its bundled game assets are not loadable.
+        var gameFolder = Path.Combine(AppContext.BaseDirectory, "game");
+        var storyPayload = File.Exists(Path.Combine(gameFolder, "src", "story-app.js")) &&
+                           !File.Exists(Path.Combine(gameFolder, "src", "app.js"));
         if (args.Length == 1 && args[0] == "--verify-package")
         {
             try
             {
-                OfflinePayloadVerifier.Verify(
-                    Path.Combine(AppContext.BaseDirectory, "game"));
+                if (storyPayload) OfflinePayloadVerifier.VerifyStoryOnly(gameFolder);
+                else OfflinePayloadVerifier.Verify(gameFolder);
                 return 0;
             }
             catch
@@ -35,7 +38,9 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         // Preserve the existing mixed-mode developer host, but allow an
         // explicitly story-only Windows launch without exposing BR navigation.
-        if (args.Length == 1 && args[0] == "--story-only")
+        if (storyPayload)
+            Application.Run(new DemoWindow(storyOnly: true, storyPayload: true));
+        else if (args.Length == 1 && args[0] == "--story-only")
             Application.Run(new DemoWindow(storyOnly: true));
         else
             Application.Run(new DemoWindow());
@@ -46,6 +51,7 @@ internal static class Program
 internal sealed class DemoWindow : Form
 {
     private readonly bool storyOnly;
+    private readonly bool storyPayload;
     private const string VirtualHost = "veilpoint.local";
     private const string BaseUri = "https://" + VirtualHost + "/";
     private readonly WebView2 browser = new() { Dock = DockStyle.Fill };
@@ -75,9 +81,10 @@ internal sealed class DemoWindow : Form
         Text = "Original Terrain Lab", Width = 176, Height = 34, Enabled = false
     };
 
-    public DemoWindow(bool storyOnly = false)
+    public DemoWindow(bool storyOnly = false, bool storyPayload = false)
     {
         this.storyOnly = storyOnly;
+        this.storyPayload = storyPayload;
         Text = storyOnly
             ? "VEILPOINT | Story CH01 offline preview (WebView2 host)"
             : "VEILPOINT | Story-first + BR prototype (WebView2 host)";
@@ -139,7 +146,10 @@ internal sealed class DemoWindow : Form
             // Never fall back to file://, a development HTTP server, or an
             // Internet URL when the bundled game files are missing.
             var gameFolder = Path.Combine(AppContext.BaseDirectory, "game");
-            OfflinePayloadVerifier.Verify(gameFolder); // Fail before loading any unverified JS.
+            // Verify the exact expected launch contract before WebView2 runs:
+            // the story archive omits BR/terrain, while the mixed preview keeps it.
+            if (storyPayload) OfflinePayloadVerifier.VerifyStoryOnly(gameFolder);
+            else OfflinePayloadVerifier.Verify(gameFolder); // Fail closed on changed JS.
 
             // A stable, private virtual origin allows localStorage checkpoints
             // to survive EXE restarts. These are separate from file:// saves.
