@@ -162,7 +162,17 @@
   const mag=Math.hypot(east,south),distance=SPEED_METRES_PER_SECOND/TICKS_PER_SECOND;
   const dx=mag>0?east/mag*distance:0,
    dz=mag>0?south/mag*distance:0;
-  let x=state.x,z=state.z,y=state.y,blocked=false;
+  // V1 walk state can outlive a streamed tile or a terrain LOD refresh.
+  // Before the NEXT fixed-step move, re-check the present foot position
+  // against the currently active mesh and buildings. A missing tile, new
+  // solid, or large elevation discontinuity must not permit walking through
+  // unloaded space or silently stepping up a newly loaded cliff.
+  const support=probe(world,state.x,state.z);
+  if(!support||Math.abs(support.y-state.y)>MAX_TICK_STEP_METRES)
+   return Object.freeze({...state,tick:state.tick+1,blocked:true});
+  // Small mesh-resampling differences are grounded without changing the
+  // checkpoint/state contract or granting extra horizontal displacement.
+  let x=state.x,z=state.z,y=support.y,blocked=false;
   const trySegment=(sx,sz,tx,tz)=>{
    const length=Math.hypot(tx-sx,tz-sz);
    if(length===0)return {x:sx,z:sz,y,valid:true};
