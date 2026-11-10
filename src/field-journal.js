@@ -8,6 +8,17 @@
     recordA:Object.freeze({title:'항구 중계 기록',time:'04:12',detail:'서부 해안도로의 신호가 먼저 끊겼다고 기록되어 있다.'}),
     recordB:Object.freeze({title:'대피소 수신 기록',time:'04:07',detail:'해안도로의 통신 두절을 이미 다섯 분 전에 보고했다.'})
   });
+  // Only the actual completed metre-space crossing can enter the journal.
+  // Reuse this predicate for the local note and final debrief, so a spoken
+  // offer to assist cannot later become a fictitious arrival.
+  function civicArrived(crossing){
+    return !!(crossing&&crossing.disrupted===true&&crossing.assisted===true&&
+      crossing.civilian&&crossing.destination&&
+      [crossing.civilian.x,crossing.civilian.z,
+       crossing.destination.x,crossing.destination.z].every(Number.isFinite)&&
+      Math.hypot(crossing.civilian.x-crossing.destination.x,
+        crossing.civilian.z-crossing.destination.z)<1e-6);
+  }
   function entries(state){
     const found=Array.isArray(state&&state.found)?state.found:[];
     const rows=Object.keys(evidence).map(id=>Object.freeze({
@@ -39,7 +50,9 @@
     // chapter or invented mission result is revealed in the field notebook.
     const note=(id,title,detail)=>rows.push(Object.freeze({id,unlocked:true,title,detail}));
     if(state&&state.choice==='evacuation')note('route','선택 경로 / 남쪽 대피',
-      '유수프 구조단이 남쪽 대피 통로를 확보했다. 집결지 확인과 물품 인계 및 안내원 동행은 현장 선택 과제다.');
+      state.phase==='complete'&&state.world?.status==='won'
+        ?'남쪽 안뜰의 실제 출구를 통과했다. 다른 주민들의 이동과 도시 전체의 안전 여부는 확인되지 않았다.'
+        :'남쪽 안뜰 경로를 선택했다. 모든 통로의 현장 확보는 아직 확인되지 않았다. 집결지 확인과 물품 인계 및 안내원 동행은 현장 선택 과제다.');
     else if(state&&state.choice==='verification'){
       const elapsed=state.world&&state.world.elapsed;
       // Only the existing authored local gate clock may confirm opening. The
@@ -59,12 +72,7 @@
         '낙엽과 가벼운 잔해를 현장에서 직접 치웠다. 얕은 물과 젖은 노면은 남아 있으며 도시 전체의 배수 상태는 확인되지 않았다.');
     if(state&&['records','decision','exit','complete'].includes(state.phase)&&
        state.civicCrossing?.disrupted===true&&state.civicCrossing?.assisted===true){
-      const crossing=state.civicCrossing,
-        reached=crossing.civilian&&crossing.destination&&
-          [crossing.civilian.x,crossing.civilian.z,
-           crossing.destination.x,crossing.destination.z].every(Number.isFinite)&&
-          Math.hypot(crossing.civilian.x-crossing.destination.x,
-            crossing.civilian.z-crossing.destination.z)<1e-6;
+      const reached=civicArrived(state.civicCrossing);
       note('civicCrossing','현지 주민의 도로 횡단',
         reached
           ?'안전 여부를 현장에서 함께 확인한 뒤, 해당 주민 한 명이 실제로 건너편 보행로에 도착했다. 다른 인원의 상황은 미확인이다.'
@@ -106,11 +114,18 @@
           state.dispatchReviewed?'접수 장부 현장 열람 완료':'접수 장부 현장 미열람',
           state.transportVan?.arrived?'운송 차량 승차 지점 실제 도착 · 탑승 미확인':state.transportVan?'운송 차량 이동 중 · 승차 지점 미도착':state.transportContact===2?'운송 담당자 현장 면담 완료':state.transportContact===1?'운송 담당자 진술 재확인 전':'운송 담당자 면담 미진행',
           state.aidDelivered?'비상 물품 인계 완료':'비상 물품 인계 미완료',
-          state.guide?.arrived?'안내원 안뜰 도착':
-            state.guide?.released?'안내원 구조단 인계 완료':'안내원 동행 선택 미완료']
+          state.guide?.released?'안내원 구조단 인계 완료':
+            state.guide?.arrived?'안내원 안뜰 도착 · 구조단 인계 미완료':
+              state.guide?.active?(state.guide.waiting?
+                '안내원 현장 대기 · 목적지 미도착':'안내원 동행 중 · 목적지 미도착'):
+                '안내원 동행 선택 미완료']
         :['동쪽 추가 확인 경로 완료',
           state.gateLogReviewed?'현장 중계 로그 열람 완료':'현장 중계 로그 미열람',
           state.logHandedOff?'현장 기록 전달 완료':'현장 기록 미전달'];
+      if(state.civicCrossing?.disrupted===true&&state.civicCrossing?.assisted===true)
+        facts.push(civicArrived(state.civicCrossing)
+          ?'현지 주민 한 명이 실제로 건너편 보행로에 도착 · 다른 인원 미확인'
+          :'현지 주민 횡단 안내 완료 · 실제 건너편 도착 미확인');
       note('debrief','CH01 현장 종료 보고',facts.join(' · '));
     }
     return Object.freeze(rows);

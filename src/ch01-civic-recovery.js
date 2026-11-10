@@ -33,9 +33,35 @@
      const centerObstructed=[.6,1.2,2.4].some(offset=>
        blockedAt(Math.min(destination.x,civilian.x+offset),destination.z));
      if(centerObstructed&&civilian.x<destination.x){
-       // Prefer the original curb-side lane, then the opposite public lane.
-       // A corridor unavailable at the current location is not forced.
-       const lanes=[-18.4,-13.6].filter(z=>!blockedAt(civilian.x,z));
+       // Select a physically passable public lane for the remaining street
+       // crossing, not merely an empty square beside the resident. A curb
+       // that looks clear *here* but ends at a solid farther ahead must not
+       // trap the pedestrian against the central obstruction.
+       // Find the far edge of the *next* contiguous centre obstruction.
+       // A distant curb-side object beyond the place where the resident
+       // safely rejoins the original path must not prevent this detour.
+       let seenCentreBlock=false,lastCentreBlock=civilian.x;
+       for(let x=civilian.x;;x=Math.min(destination.x,x+.25)){
+         if(blockedAt(x,destination.z)){
+           seenCentreBlock=true;lastCentreBlock=x;
+         }else if(seenCentreBlock&&x-lastCentreBlock>.5)break;
+         if(x>=destination.x)break;
+       }
+       const until=Math.min(destination.x,
+         seenCentreBlock?lastCentreBlock+.85:civilian.x+2.4);
+       const clearForwardLane=z=>{
+         if(blockedAt(civilian.x,z))return false;
+         const length=Math.max(0,until-civilian.x);
+         const samples=Math.max(1,Math.ceil(length/.4));
+         for(let i=1;i<=samples;i++){
+           const x=civilian.x+length*i/samples;
+           if(blockedAt(x,z))return false;
+         }
+         return true;
+       };
+       // Preserve the established curb-side preference if both are clear,
+       // without adding an invisible waypoint or changing the V2 save shape.
+       const lanes=[-18.4,-13.6].filter(clearForwardLane);
        const lane=lanes.find(z=>Math.abs(z-civilian.z)<.05)||lanes[0];
        if(lane!==undefined){
          if(Math.abs(civilian.z-lane)>1e-8)
