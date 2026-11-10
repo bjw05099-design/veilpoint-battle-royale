@@ -37,7 +37,7 @@ test('roof cutaway reveals only the actually entered public room in authored blo
 });
 test('map UI clearly declares original 2.5D public rooms rather than complete surveyed interiors',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../terrain.html'),'utf8');
- assert.match(html,/공공실 1곳: 남향 열린 출입구·내부 바닥/);
+ assert.match(html,/공공실 1곳: 남향 출입구·내부 바닥/);
  assert.match(html,/실측 아덴 아님/);
  assert.match(html,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  assert.equal(Districts.verifiedAdenCityBuildings,0);
