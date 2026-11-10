@@ -401,13 +401,13 @@
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
    walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
-  let publicRoomCursor=0,footpath=null;
+  let publicRoomCursor=0,footpath=null,footpathWorld=null;
   function invalidateWalking(){
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
    walkFrame=0;
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
-   footpath=null;held.clear();walkClock=null;walkAccum=0;
+   footpath=null;footpathWorld=null;held.clear();walkClock=null;walkAccum=0;
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
   }
@@ -420,6 +420,11 @@
     walkWorld=Walk.createWorld(registry,cache,new Set(keys),
      [...CIVIC_SHELLS,...Districts.PLAN.buildings],closedDoors);
     walkWorldKey=signature;walkRegistry=registry;
+    // A route is certified against the precise loaded mesh revision and
+    // door configuration. Rebuilding the world invalidates old elevations.
+    if(footpathWorld&&footpathWorld!==walkWorld){
+     footpath=null;footpathWorld=null;
+    }
    }
    return walkWorld;
   }
@@ -444,6 +449,7 @@
    const stats=draw(canvas,registry,zoomState,cache,{
     imported:!!activeDataset,showFictionalBuildings:!activeDataset,
     showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors});
+   if(walk&&footpathWorld)worldForWalking();
    if(walk){
     const ctx=canvas.getContext('2d');
     // Read-only original public walking preview; drawing never changes
@@ -528,6 +534,7 @@
    const world=worldForWalking();
    if(!world)return null;
    footpath=Routes.plan(world,walk);
+   footpathWorld=world;
    refresh();return footpath;
   }
   function toggleNearbyDoor(){
@@ -548,7 +555,7 @@
     if(!Walk.probe(candidate,walk.x,walk.z))return false;
     closedDoors.add(room.id);
    }
-   walkWorld=null;walkWorldKey='';footpath=null;
+   walkWorld=null;walkWorldKey='';footpath=null;footpathWorld=null;
    refresh();return true;
   }
   function walkStep(intent,frames=1){

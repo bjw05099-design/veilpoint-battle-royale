@@ -99,14 +99,14 @@ test('offline delivery has an independent local terrain page, a clear non-survey
  const files=collectFiles().map(x=>x.name);
  for(const name of ['terrain.html','src/aden-citywide-tiles.js',
    'src/aden-map-relief.js','src/aden-preview-streets.js',
-   'src/aden-preview-districts.js','src/aden-city-walking-probe.js','src/aden-city-explorer.js',
+   'src/aden-preview-districts.js','src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-city-explorer.js',
    'src/aden-city-explorer-init.js']){
   assert.ok(files.includes(name),'bundled: '+name);
  }
  assert.deepEqual(referencedAssets('terrain.html',html),[
   'src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
-  'src/aden-city-walking-probe.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js']);
+  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js']);
  assert.doesNotMatch(html,/<script>(?!<\/script>)/);
 });
 test('browser global setup loads from local assets without network access or browser-specific APIs',()=>{
