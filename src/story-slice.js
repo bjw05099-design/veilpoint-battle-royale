@@ -2318,8 +2318,8 @@
         ?'현장 기록을 추가 확인했습니다. 남쪽 대피 지원과 동쪽 통로 현장 확인 중 선택하세요.'
         :'두 경로 모두 선택할 수 있습니다. 동쪽 통로는 현지 통제소의 실제 개방을 기다려야 하며 기록 검토는 선택 사항입니다.';
       case 'exit':return state.choice==='verification'
-        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)로 이동해 E를 누르세요.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 F로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 F로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
-        :'남쪽 안전한 안뜰(초록 표식)로 이동해 E를 누르세요.'+
+        ?(gateOpen(state)?'동쪽 추가 확인 경로(파란 표식)의 실제 통로를 걸어서 통과하세요. 가까운 표식은 F로 직접 확인할 수도 있습니다.'+(state.gateLogReviewed?(state.logHandedOff?' 현장 중계 기록을 현지 통제소에 전달했습니다.':' 선택: 기록 접수대(파란 표식)에 F로 확인 결과를 전달할 수 있습니다.'):' 선택: 동쪽 기록함(파란 표식)을 F로 확인해 시각 차이를 검증할 수 있습니다.'):state.gateObstructed?'동쪽 통제문 안전 정지 · 이동 경로에서 벗어나세요.':'동쪽 통제소 개방 작업 중 · 약 '+Math.ceil(state.gateReadyAt-state.world.elapsed)+'초 후 통과 가능합니다.')
+        :'남쪽 안뜰(초록 표식) 뒤의 실제 출구를 걸어서 통과하세요. 가까운 표식은 F로 직접 확인할 수도 있습니다.'+
           (state.world.carryingAid?' 운반 중인 비상 물품은 구조단에 인계하거나 임시 적재대에 내려놓아야 출구를 통과할 수 있습니다.':'')+
           (state.musterConfirmed?' 집결지 구조단 담당자와 현장 협의 완료.':' 선택: 집결지의 유수프 구조단 담당자에게 직접 접근해 F로 협의할 수 있습니다.')+
           (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 구조단 접수소에 현장 인계했습니다.':' 안내원은 집결지 구조단에 현장 인계했습니다.'):state.guide.arrived?' 안내원 안뜰 도착 확인.':state.guide.active
