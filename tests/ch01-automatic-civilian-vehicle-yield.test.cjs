@@ -8,7 +8,9 @@ function localVehicleFixture(){
  s.phase='exit';s.choice='evacuation';s.combat.cleared=true;
  s.world.player.x=0;s.world.player.z=-54;
  s.transportContact=1;
- s.transportVan={z:-82,arrived:false,driverZ:-79.4};
+ // A real legacy (already-boarded) transport state isolates ROAD travel from
+ // the separately tested on-foot driver's boarding animation.
+ s.transportVan={z:-82,arrived:false};
  s.world.obstacles.push({x:10,z:-82,w:2.4,d:3.8,h:1.45,
    type:'story-civil-transport',routeId:'story-civil-transport'});
  return s;
