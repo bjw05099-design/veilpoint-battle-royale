@@ -55,7 +55,7 @@ test('CH01 original radio script is bundled before PC HUD and shown as plain tex
  assert.match(html,/src="src\/story-comms\.js"/);
  assert.ok(html.indexOf('src/story-comms.js')<html.indexOf('src/story-app.js'));
  assert.match(app,/const Comms=global\.VeilpointStoryComms/);
- assert.match(app,/Comms\.briefing\(state\)/);
+ assert.match(app,/Comms\.fieldRadio\(state,Story\.localPublicAddress\(state\)\)/);
  assert.match(app,/\$\('fieldRadio'\)\.textContent/);
  assert.doesNotMatch(app.slice(app.indexOf('if(Comms&&'),app.indexOf("const lampKey=")),/innerHTML/);
 });

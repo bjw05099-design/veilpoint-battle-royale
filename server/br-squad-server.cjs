@@ -45,19 +45,25 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    liveStreams.delete(token);res.end();
   }
  };
- const advanceWorld=()=>{
-  if(!world)return;
-  const beforeTick=world.tick;
-  world.step();
-  // Ended rounds stop their 60Hz simulation clock. If the last live tick
-  // happens to be a 15-tick boundary, publishing without this check would
-  // repeatedly emit the *same* terminal frame 60 times per second to 96
-  // connections. Only a genuinely advanced tick may emit an SSE frame.
-  if(world.tick===beforeTick||world.tick%15!==0)return;
+ const broadcastPrivateWorld=()=>{
   for(const [token,res] of liveStreams){
    try {publishSnapshot(token,res);}
    catch(_){liveStreams.delete(token);res.destroy();}
   }
+ };
+ const advanceWorld=()=>{
+  if(!world)return;
+  const beforeTick=world.tick,beforePhase=world.phase;
+  world.step();
+  // A genuine final outcome must reach all authenticated spectators once,
+  // even when it happens between two 4Hz publications. A stopped clock
+  // must never replay that terminal state sixty times per second.
+  if(beforePhase==='moving'&&world.phase==='finished'&&
+     (world.tick===beforeTick||world.tick%15!==0)){
+   broadcastPrivateWorld();return;
+  }
+  if(world.tick===beforeTick||world.tick%15!==0)return;
+  broadcastPrivateWorld();
  };
  const advance=createFixedStepClock(advanceWorld);
  let timer=null;
@@ -337,7 +343,13 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     if(!body||typeof body!=='object'||Array.isArray(body)||
        Object.keys(body).length!==0)
        return send(res,400,{error:'invalid_withdraw'});
+    const phaseBefore=world.phase;
     const result=world.withdraw(token);
+    // A real human can finish the round outside the 60Hz tick loop.
+    // Without an immediate single update, all SSE listeners stay on a
+    // stale moving screen until their independent polling wakes up.
+    if(result.ok&&phaseBefore==='moving'&&world.phase==='finished')
+      broadcastPrivateWorld();
     return send(res,result.ok?200:409,{
       ...result,...(result.ok?{world:world.snapshot(token)}:{})
     });
