@@ -96,7 +96,7 @@ test('Windows one-command CH01 native preparation is fail-closed and only sets s
   'Get-FileHash -LiteralPath $layout -Algorithm SHA256',
   'actualAdenCoverageVerified','Native Editor C++ build failed',
   'Editor exited without BOTH a real CH01 .umap',
-  'Saved','GameDefaultMap=/Game/Maps/CH01_Coast','-PreflightOnly','-PackageNative'
+  'Saved','GameDefaultMap=/Game/Maps/CH01_Coast','$PreflightOnly','$PackageNative'
  ])assert.ok(prepare.includes(needle),'missing real Windows authoring protection: '+needle);
  assert.match(prepare,/if \(\$env:OS -ne 'Windows_NT'\)/);
  assert.match(prepare,/if \(Test-Path -LiteralPath \$map\)/);
