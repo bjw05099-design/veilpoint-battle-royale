@@ -612,8 +612,8 @@
        !state.combat?.cleared||
        !['records','decision','exit'].includes(state.phase)||
        !(state.aidDelivered||state.guide.released||
-         state.civilianWalker?.arrived||state.civicCrossing?.assisted||
-         state.workerInterviewed||state.mara?.arrived||state.logHandedOff))
+         state.civicCrossing?.assisted||
+         state.workerInterviewed||state.logHandedOff))
       return [];
     const p=state.world.player,k=state.kimJiyoon;
     if(Math.hypot(p.x-k.x,p.z-k.z)>5.5||
@@ -2477,8 +2477,8 @@
           (!['records','decision','exit','complete'].includes(data.phase)||
            !data.kimJiyoon||
            !(data.aidDelivered||data.guide?.released||
-             data.civilianWalker?.arrived||data.civicCrossing?.assisted||
-             data.workerInterviewed||data.mara?.arrived||data.logHandedOff)))))||
+             data.civicCrossing?.assisted||
+             data.workerInterviewed||data.logHandedOff)))))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
