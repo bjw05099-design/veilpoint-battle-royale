@@ -433,11 +433,13 @@ class BrSquadWorld {
     if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
     const cart=this.handcart,body=cart.body;
     if(cart.operator===actor){cart.operator=null;return {ok:true,action:'release'};}
-    const handoff=this.cartHandoffAvailable(actor);
-    if(cart.operator&&!handoff)return {ok:false,reason:'in_use'};
+    // Validate the physical handle before even reporting occupancy. A remote
+    // client must not learn another human's cart-grip state by probing F.
     const dx=body.x-actor.x,dz=body.z-actor.z,dist=Math.hypot(dx,dz);
     if(dist<1.45||dist>2.6||Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
        this.obstacles.filter(o=>o!==body)))return {ok:false,reason:'out_of_reach'};
+    const handoff=this.cartHandoffAvailable(actor);
+    if(cart.operator&&!handoff)return {ok:false,reason:'in_use'};
     // The actor's actual approach determines the push axis, never a user
     // supplied destination. The handle stays solid throughout the action.
     const alongX=Math.abs(dx)>=Math.abs(dz);
