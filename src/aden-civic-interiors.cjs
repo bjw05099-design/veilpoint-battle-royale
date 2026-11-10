@@ -43,12 +43,19 @@ function createInteriors(quarter){
      owner:id,role,x:x+dx,z:z+dz,y:bottom+height/2,w:width,
      d:depth,h:height,finish,solid}));
   }
-  const roomSpan=w/2-CLEAR_HALF_WIDTH-.55;
-  const roomX=CLEAR_HALF_WIDTH+roomSpan/2+.10;
-  // Real walls divide each side into public work/display alcoves without
-  // closing off the entire central south-to-north pedestrian aisle.
-  cube('west-alcove-divider',-roomX,.8,base,roomSpan,.20,2.25,'salt-plaster');
-  cube('east-alcove-divider', roomX,.8,base,roomSpan,.20,2.25,'salt-plaster');
+  // Four short solid partitions produce TWO distinct room openings of 1.9m,
+  // rather than trapping the entire west/east rear rooms behind solid walls.
+  // The south-to-north central aisle itself stays at least 3.1m wide.
+  const innerEdge=CLEAR_HALF_WIDTH+.10,outerEdge=w/2-.45;
+  const alcoveOpen=1.9,partitionLength=(outerEdge-innerEdge-alcoveOpen)/2;
+  if(partitionLength<.45)throw new RangeError('Public side-room entrance too narrow');
+  for(const side of [-1,1]){
+   const prefix=side<0?'west':'east';
+   cube(prefix+'-alcove-inner-divider',side*(innerEdge+partitionLength/2),.8,
+     base,partitionLength,.20,2.25,'salt-plaster');
+   cube(prefix+'-alcove-outer-divider',side*(outerEdge-partitionLength/2),.8,
+     base,partitionLength,.20,2.25,'salt-plaster');
+  }
   for(const side of [-1,1]){
    const sideName=side<0?'west':'east';
    const shelfX=side*(w/2-1.2);
