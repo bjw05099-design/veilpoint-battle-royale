@@ -618,7 +618,7 @@ async function sendSquadChat(){
  render();
  try{
   const result=await command('/squad-chat',{text},null);
-  if(!result?.ok||token!==ownerToken||state?.roundNumber!==ownerRound)return;
+  if(!result?.ok||token!==ownerToken||(state?.roundNumber??1)!==ownerRound)return;
   // Never erase a new draft typed while an older request was in flight.
   if(chatGuard?.shouldClear(ownerToken,ownerRound,input.value))input.value='';
   message('우리 분대에만 메시지가 전달됐습니다.');
