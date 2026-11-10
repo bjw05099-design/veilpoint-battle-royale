@@ -67,7 +67,7 @@ test('invalid or out-of-range imported dataset preserves the previous playable l
   /Duplicate tile/);
  assert.equal(viewer.getState(),previous);
  assert.equal(viewer.getRegistry(),oldRegistry);
- assert.throws(()=>viewer.loadDataset(dataset([tile(2048,2048)])),
+ assert.throws(()=>viewer.loadDataset(dataset([tile(1953,1953)])),
   /outside the viewable local coordinates/);
  assert.equal(viewer.getState(),previous);
  assert.equal(viewer.getRegistry(),oldRegistry);
