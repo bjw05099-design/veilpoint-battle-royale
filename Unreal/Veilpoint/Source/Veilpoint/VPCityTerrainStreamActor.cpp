@@ -100,6 +100,7 @@ void AVPCityTerrainStreamActor::EndPlay(const EEndPlayReason::Type EndPlayReason
     LoadedHeightBytes.Empty();
     RejectedTiles.Empty();
     SourceTiles.Empty();
+    bPendingTileBuilds=false;
     Super::EndPlay(EndPlayReason);
 }
 
@@ -305,7 +306,8 @@ void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
 {
     const FIntPoint Center=VPCityTileGrid::TileFromWorldCentimetres(WorldLocation);
     const int32 Radius=FMath::Clamp(LoadRadiusTiles,0,2);
-    if(Center==LastOrigin&&Radius==LastRadius)return;
+    const bool bOriginChanged=Center!=LastOrigin||Radius!=LastRadius;
+    if(!bOriginChanged&&!bPendingTileBuilds)return;
     LastOrigin=Center;
     LastRadius=Radius;
     // CandidateTiles is ordered by ring. Choose the closest AVAILABLE
@@ -330,12 +332,29 @@ void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
             It.RemoveCurrent();
         }
     }
+    // Construct only a bounded number of costly procedural/collision sections
+    // during this actor tick. Continue at the SAME origin next tick; the old
+    // origin-only early return would strand the remaining desired tiles.
+    const int32 BuildBudget=FMath::Clamp(MaxTileBuildsPerTick,1,3);
+    int32 BuiltThisTick=0;
+    bool bRejectedThisTick=false;
     for(const FIntPoint& Candidate : Candidates)
     {
         if(TileMeshes.Num()>=TileBudget)break;
-        if(Desired.Contains(Candidate)&&!TileMeshes.Contains(Candidate))
-            CreateTileMesh(Candidate);
+        if(BuiltThisTick>=BuildBudget)break;
+        if(!Desired.Contains(Candidate)||TileMeshes.Contains(Candidate)||
+            RejectedTiles.Contains(Candidate))continue;
+        if(CreateTileMesh(Candidate))++BuiltThisTick;
+        else if(RejectedTiles.Contains(Candidate))bRejectedThisTick=true;
     }
-    UE_LOG(LogTemp,Display,TEXT("[VEILPOINT terrain] Native R16 tiles visible: %d/%d at (%d,%d); fictional/unverified region not filled."),
-        TileMeshes.Num(),SourceTiles.Num(),Center.X,Center.Y);
+    // Recompute candidates after any failure on the NEXT tick so a rejected
+    // source can never consume a permanent slot in the nine-tile budget.
+    bPendingTileBuilds=bRejectedThisTick;
+    for(const FIntPoint& Candidate : Desired)
+        if(!TileMeshes.Contains(Candidate)&&!RejectedTiles.Contains(Candidate))
+            bPendingTileBuilds=true;
+    if(bOriginChanged||BuiltThisTick>0||bRejectedThisTick)
+        UE_LOG(LogTemp,Display,TEXT("[VEILPOINT terrain] Native R16 tiles visible: %d/%d at (%d,%d); built this tick %d; pending=%d; unverified region not filled."),
+            TileMeshes.Num(),SourceTiles.Num(),Center.X,Center.Y,
+            BuiltThisTick,bPendingTileBuilds?1:0);
 }

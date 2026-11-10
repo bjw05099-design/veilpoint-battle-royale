@@ -57,7 +57,14 @@ test('nine-slot native streaming chooses new center and evicts obsolete cells, e
  assert.match(c,/if\(!Desired\.Contains\(It\.Key\(\)\)\)/);
  assert.match(c,/LoadedHeightBytes\.Remove\(It\.Key\(\)\)/);
  assert.match(c,/if\(TileMeshes\.Num\(\)>=TileBudget\)break/);
- assert.match(native,/if\(Center==LastOrigin&&Radius==LastRadius\)return/);
+ // Incremental native mesh creation must continue at a stationary camera.
+ // An origin-only return would leave eight source tiles unbuilt forever.
+ assert.match(c,/const bool bOriginChanged=Center!=LastOrigin\|\|Radius!=LastRadius/);
+ assert.match(c,/if\(!bOriginChanged&&!bPendingTileBuilds\)return/);
+ assert.match(c,/bPendingTileBuilds=bRejectedThisTick/);
+ assert.match(c,/if\(BuiltThisTick>=BuildBudget\)break/);
+ assert.match(header,/bool bPendingTileBuilds=false/);
+ assert.doesNotMatch(c,/if\(Center==LastOrigin&&Radius==LastRadius\)return/);
  assert.match(header,/int32 LastRadius=-1/);
  assert.match(grid,/for\s*\(int32 Ring=0;\s*Ring<=Radius;\s*\+\+Ring\)/);
  const available=new Set();
