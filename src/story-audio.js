@@ -21,7 +21,7 @@
     function play(kind) {
       const cue=Object.prototype.hasOwnProperty.call(CUES,kind)?CUES[kind]:null;
       if(!on||volume<=0||!cue||typeof AudioContextClass!=='function'||active>=6)return false;
-      let oscillator=null,gain=null,registered=false;
+      let oscillator=null,gain=null,registered=false,finalized=false;
       const currentGeneration=generation;
       try {
         if(!context)context=new AudioContextClass();
@@ -38,6 +38,8 @@
         oscillator.connect(gain);gain.connect(context.destination);
         active++;registered=true;
         oscillator.onended=()=>{
+          if(finalized)return;
+          finalized=true;
           if(currentGeneration===generation)active=Math.max(0,active-1);
           try{oscillator.disconnect();}catch(_){}
           try{gain.disconnect();}catch(_){}
@@ -48,7 +50,8 @@
       } catch (_) {
         // A partially created Web Audio graph must not steal a concurrency
         // slot from other cues or leak its nodes after an audio-device error.
-        if(registered&&currentGeneration===generation)active=Math.max(0,active-1);
+        if(registered&&!finalized&&currentGeneration===generation)active=Math.max(0,active-1);
+        finalized=true;
         try{oscillator?.disconnect();}catch(_){}
         try{gain?.disconnect();}catch(_){}
         return false;
