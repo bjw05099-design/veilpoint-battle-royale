@@ -30,5 +30,42 @@
    return 1-(drained===true?.08:.28)*exposure(phase,x,z);
  }
  function visible(phase){return phase!=='terminal';}
- return Object.freeze({PATCH,DRAIN,CLEAR_TICKS,exposure,mobility,visible});
+ // Tiny original public street fixtures are visual ground dressing only:
+ // never feed them into 60Hz obstacles or change the original walkable route.
+ // The metal drain is an actual drawn object, rather than a HUD-only marker.
+ // No photographed/surveyed Aden geometry is asserted.
+ const streetPart=(id,x,z,w,d,h,y,rgb,canvas)=>Object.freeze({
+   id,x,z,w,d,h,y,rgb:Object.freeze(rgb),canvas
+ });
+ const BASE_DETAILS=Object.freeze([
+   streetPart('drain-rim',DRAIN.x,DRAIN.z,1.22,.82,.016,.055,
+     [.31,.32,.33],'#52585a'),
+   streetPart('drain-inset',DRAIN.x,DRAIN.z,1.00,.59,.008,.069,
+     [.075,.105,.12],'#222f33'),
+   ...[-.38,-.23,-.08,.07,.22,.37].map((dx,i)=>
+     streetPart('drain-bar-'+i,DRAIN.x+dx,DRAIN.z,.043,.54,.014,.078,
+       [.29,.31,.31],'#687071')),
+   streetPart('drain-road-edge-west',PATCH.x-PATCH.w/2+.08,PATCH.z,
+     .12,PATCH.d,.011,.04,[.31,.36,.35],'#53615f'),
+   streetPart('drain-road-edge-east',PATCH.x+PATCH.w/2-.08,PATCH.z,
+     .12,PATCH.d,.011,.04,[.31,.36,.35],'#53615f')
+ ]);
+ const LEAF_DETAILS=Object.freeze([
+   streetPart('drain-leaf-1',DRAIN.x-.26,DRAIN.z-.14,.27,.11,.006,.092,
+     [.34,.27,.14],'#75633b'),
+   streetPart('drain-leaf-2',DRAIN.x+.12,DRAIN.z+.14,.20,.17,.006,.092,
+     [.26,.27,.13],'#5d603b'),
+   streetPart('drain-leaf-3',DRAIN.x+.34,DRAIN.z-.08,.22,.10,.006,.092,
+     [.39,.27,.12],'#867044')
+ ]);
+ const DETAIL_STAGES=Object.freeze(Array.from({length:4},(_,stage)=>
+   Object.freeze([...BASE_DETAILS,...LEAF_DETAILS.slice(0,3-stage)])));
+ function details(wet){
+   if(!wet||wet.x!==PATCH.x||wet.z!==PATCH.z||
+      wet.w!==PATCH.w||wet.d!==PATCH.d)return Object.freeze([]);
+   const progress=wet.cleared===true?1:
+     Number.isFinite(wet.repairProgress)?Math.min(1,Math.max(0,wet.repairProgress)):0;
+   return DETAIL_STAGES[Math.min(3,Math.floor(progress*3))];
+ }
+ return Object.freeze({PATCH,DRAIN,CLEAR_TICKS,exposure,mobility,visible,details});
 });
