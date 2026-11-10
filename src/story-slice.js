@@ -2347,6 +2347,20 @@
     const rememberedSouth=state.workerInterviewed
       ?' 작업자의 가족은 통일과 전쟁을 서로 다르게 기억했습니다. 그 가족의 말을 도시 전체의 목소리로 적지 않겠습니다.'
       :'';
+    // Closing dialogue reports only existing, physically earned civic events.
+
+    const drainOutcome=state.drainCleared===true
+
+      ?' 공공 배수구의 잔해는 제거했지만 노면이 즉시 마른 것은 아닙니다.':'';
+
+    const crossingOutcome=civicCrossingReached(state)
+
+      ?' 한 주민이 실제로 건널목 반대편에 도착했습니다. 다른 주민의 이동은 미확인입니다.'
+
+      :state.civicCrossing?.assisted===true
+
+        ?' 주민의 건널목 이동을 도왔지만 목적지 도착은 확인하지 못했습니다.':'';
+
     const yieldedVan=state.transportVan&&hasOwn(state.transportVan,'pauseUntil')
       ?' 나딤 운송 담당자가 요청받은 위치에서 차량을 잠시 멈춰 현장 통행을 양보했습니다. 승객 수송 및 철수 완료는 확인되지 않았습니다.'
       :'';
@@ -2367,7 +2381,7 @@
         '이수혁 대위: 한국에서 받은 지시는 그대로입니다. 달라진 건 이곳의 상황입니다. 우리가 확인한 것과 모르는 것, 주민이 스스로 결정한 일을 분리해 보고하겠습니다. 복귀는 다시 승인받아야 합니다.'+
         (street?' '+street:'')+
         (state.mara?.arrived?' 마라는 통행 공간이 열린 뒤 자신이 고른 공용 골목까지 걸었습니다. 다른 주민의 이동은 미확인입니다.':'')+
-        (workerReport||'')+yieldedVan+rememberedSouth]),
+        (workerReport||'')+yieldedVan+rememberedSouth+drainOutcome+crossingOutcome]),
       // This durable follow-up thread is derived exclusively from the existing
       // validated V2 CH01 world. It is not a second campaign chapter or a
       // fabricated civilian headcount, and never gates the existing exit.
@@ -2396,6 +2410,9 @@
       harborWorkerReachedShelter:!!state.worker&&state.worker.z>=WORKER_PATH.safeZ-1e-6,
       civilianVehicleYieldRequested:!!state.transportVan&&hasOwn(state.transportVan,'pauseUntil'),
       kimAftercareWitnessed:state.kimAftercareReviewed===true,
+      publicStreetDrainCleared:state.drainCleared===true,
+      civicCrossingAssisted:state.civicCrossing?.assisted===true,
+      civicCrossingReached:civicCrossingReached(state),
       // Read-only dramatic consequences: character memory never alters v2 saves,
       // unobserved civilian counts, the player's original orders or mission gates.
       southernFamilyPerspectiveHeard:state.workerInterviewed,
@@ -2430,7 +2447,10 @@
         (state.passageWarningHeard?' 원래 귀환 일정과 현재 지역 이동 여건이 달라졌으며, 현지 담당자의 추가 확인이 필요합니다.':'')+
         (state.civicVisited?' 항구에서 도심 주민 공동 안뜰까지 직접 이동해 현장을 확인했으나 추가 주민 접수 결과는 미확인입니다.':'')+
         (state.waterReportFiled?' 공동 급수대 상태를 직접 확인해 현지 구조단에 현장 기록을 인계했습니다. 복구 완료 여부는 미확인입니다.':
-          state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')
+          state.waterSurveyed?' 공동 급수대의 현장 상태를 확인했으나 구조단에 아직 인계하지 않았습니다.':'')+
+        (state.drainCleared===true?' 공공 배수구의 장애물을 정리했지만 도로의 물기가 모두 마른 것은 아닙니다.':'')+
+        (civicCrossingReached(state)?' 건널목을 건넌 주민 한 명이 실제로 도착했습니다. 다른 주민의 이동은 미확인입니다.':
+          state.civicCrossing?.assisted===true?' 주민의 건널목 이동은 도왔지만 도착까지 확인하지는 못했습니다.':'')
     });
   }
   // The real E-key target decides which locally staffed option is playable.
