@@ -15,7 +15,7 @@
  const api=factory(sim,flood,ambience,court);
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointStoryFootfall=api;
-])(typeof globalThis!=='undefined'?globalThis:this,function(Sim,Flood,Ambience,Court){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Sim,Flood,Ambience,Court){
  'use strict';
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const MATERIALS=Object.freeze({
