@@ -15,13 +15,13 @@ function observedState(){
 test('real local human reaction is heard before an ordinary powered public announcement',()=>{
  const s=observedState(),publicPA=Object.freeze({
   speaker:'현지 구조단 안내 방송',message:'현장 공개 안내'});
- const before=Story.serialize(s);
+ const before=JSON.stringify(s);
  const line=Comms.fieldRadio(s,publicPA);
  assert.equal(line.speaker,'이수혁 대위');
  assert.match(line.message,/한 주민/);
  assert.notEqual(line,publicPA);
  assert.deepEqual(Comms.onsiteWitness(s),line);
- assert.equal(Story.serialize(s),before,'radio cannot change gameplay, checkpoint or 60Hz world');
+ assert.equal(JSON.stringify(s),before,'radio cannot change gameplay, checkpoint or 60Hz world');
  assert.ok(Object.isFrozen(line));
 });
 test('distant civilians or obstructed visual path never displace real public announcements',()=>{
