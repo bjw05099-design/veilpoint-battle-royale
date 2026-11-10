@@ -74,8 +74,9 @@ internal static class OfflinePayloadVerifier
         }
 
         foreach (var required in new[] {
-            "index.html", "story.html", "src/app.js", "src/story-app.js",
-            "src/story-slice.js", "QUICK_START.txt"
+            "index.html", "story.html", "terrain.html", "src/app.js",
+            "src/story-app.js", "src/story-slice.js",
+            "src/aden-city-explorer.js", "QUICK_START.txt"
         })
             if (!seen.Contains(required))
                 throw new InvalidDataException("Required offline asset omitted: " + required);
