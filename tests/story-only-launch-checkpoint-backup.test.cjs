@@ -50,6 +50,7 @@ test('missing or denied checkpoint storage never blocks actual story start',()=>
  assert.match(Story.INDEX,/id="launch" href="story\.html"/);
  assert.match(Story.INDEX,/overflow:hidden/);
  assert.doesNotMatch(Story.INDEX,/overflow:auto|overflow:scroll/);
+ assert.match(Story.INDEX,/@media\(max-height:680px\)/,'compact screen-fit mode is defined for 1024x600');
  assert.doesNotMatch(Story.INDEX,/<script\s+src=/);
 });
 
