@@ -6,6 +6,7 @@
   const $=id=>document.getElementById(id);
   const Story=global.VeilpointStorySlice;
   const Navigation=global.VeilpointNavigation;
+  const Pedestrian=global.VeilpointStoryPedestrianGuidance;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
   const Audio=global.VeilpointStoryAudio;
@@ -1558,7 +1559,7 @@
     return Story.markers(state).filter(marker=>
       local.has(marker.id)||marker.id===guidanceId);
   }
-  function minimap(){
+  function minimap(walkRoute=null){
     const c=$('minimap'),ctx=c.getContext('2d');
     if(!ctx)return;
     const w=c.width,h=c.height,tx=x=>(x+75)/150*w,tz=z=>(z+90)/130*h;
@@ -1567,6 +1568,15 @@
     for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(w*i/6,0);ctx.lineTo(w*i/6,h);ctx.stroke();}
     for(const o of state.world.obstacles){
       ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
+    }
+    // Exactly the verified fictional street collision segments; no
+    // arrow through buildings, hidden civilian locations or server telemetry.
+    if(walkRoute?.kind==='detour'&&walkRoute.points.length>=2){
+      ctx.strokeStyle='#d2e5a9';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.moveTo(tx(walkRoute.points[0].x),tz(walkRoute.points[0].z));
+      for(const point of walkRoute.points.slice(1))
+        ctx.lineTo(tx(point.x),tz(point.z));
+      ctx.stroke();ctx.setLineDash([]);
     }
     for(const m of visibleMissionMarkers()){
       ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
@@ -1610,9 +1620,17 @@
         state.choice==='evacuation'?'exitEvac':'exitVerify'
       :null;
     const escortHint=escortIncomplete?situation.guideStatus:null;
+    // Reuse the same SELECTED public marker as the text compass, with a
+    // bounded actual A* street check only when the straight line is blocked.
+    // No new quest, AI target tracking or checkpoint field is created.
+    const walkTarget=Pedestrian?.targetFor(state.world.player,publicMarkers,
+      guidanceId,primaryTarget,escortIncomplete&&!preferGuide&&guidanceId===null);
+    const walkRoute=walkTarget?Pedestrian.plan(state.world.player,
+      walkTarget,state.world.obstacles):null;
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
       state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
       state.world.obstacles,primaryTarget,escortHint)+
+      (walkRoute?.kind==='detour'?Pedestrian.instruction(walkRoute):'')+
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
@@ -1724,7 +1742,7 @@
       :interactPrompt+' '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz'+(renderer&&renderer.lastStaticVisibilityStats?' · 정적 지형 '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스':'');
-    minimap();
+    minimap(walkRoute);
   }
   function frame(now){
     global.requestAnimationFrame(frame);
