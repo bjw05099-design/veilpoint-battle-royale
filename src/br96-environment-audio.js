@@ -63,17 +63,24 @@
    // Weather never exceeds the prior .015 peak gain safety ceiling.
    const base=active?.015:wet?.012:.009;
    const level=Math.min(.015,base+(gust?.0015:haze?-.0008:0));
-   low.frequency.setTargetAtTime(lower,time,.22);
-   high.frequency.setTargetAtTime(upper,time,.3);
+   // A disconnected or replaced Windows audio output can throw while a
+   // WebAudio parameter is scheduled. Do not crash the BR96 render loop:
+   // retire this graph, allow a fresh explicit player-gesture enable later.
+   try{
+    low.frequency.setTargetAtTime(lower,time,.22);
+    high.frequency.setTargetAtTime(upper,time,.3);
+    master.gain.setTargetAtTime(level*volume,time,.3);
+   }catch(_){clear();return false;}
    lastBase=level;
-   master.gain.setTargetAtTime(level*volume,time,.3);
    return true;
   }
   function setVolume(value){
    if(!Number.isFinite(value)||value<0||value>1)throw new RangeError('invalid_audio_volume');
    volume=value;
-   if(enabled&&master&&context&&Number.isFinite(context.currentTime))
-    master.gain.setTargetAtTime(lastBase*volume,context.currentTime,.08);
+   if(enabled&&master&&context&&Number.isFinite(context.currentTime)){
+    try{master.gain.setTargetAtTime(lastBase*volume,context.currentTime,.08);}
+    catch(_){clear();}
+   }
    return volume;
   }
   return Object.freeze({enable,update,setVolume,volume:()=>volume,disable:clear,dispose:clear,
