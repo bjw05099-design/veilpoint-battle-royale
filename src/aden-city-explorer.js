@@ -10,10 +10,12 @@
   root.VeilpointAdenRelief||
   (typeof module==='object'&&module.exports?require('./aden-map-relief.js'):null),
   root.VeilpointAdenPreviewStreets||
-  (typeof module==='object'&&module.exports?require('./aden-preview-streets.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-preview-streets.js'):null),
+  root.VeilpointAdenPreviewDistricts||
+  (typeof module==='object'&&module.exports?require('./aden-preview-districts.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts){
  'use strict';
  if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
@@ -237,7 +239,10 @@
   // This visual-only original street network has no gameplay collision.
   let roadTriangles=0;
   if(Streets&&options.showFictionalBuildings!==false){
-   for(const road of Streets.triangulate(registry,cache,renderedKeys)){
+   const original=Streets.triangulate(registry,cache,renderedKeys);
+   const extended=Districts?Streets.triangulate(registry,cache,renderedKeys,
+    Districts.visibleStreets(renderedKeys)):[];
+   for(const road of [...original,...extended]){
     const verts=road.vertices.map(p=>toScreen(p[0],p[2],p[1]));
     if(verts.every(p=>p[0]<-10)||verts.every(p=>p[0]>w+10)||
        verts.every(p=>p[1]<-10)||verts.every(p=>p[1]>h+10))continue;
@@ -270,6 +275,45 @@
    ctx.fillRect(px-ww/2,pz-dd/2-facadeHeight,ww,Math.max(1,state.zoom));
    houses++;
   }
+  // Eight additional original neighborhood plans (6 x 5 parcels per block,
+  // two open public-court plots each). Never paint fictional geometry on
+  // externally imported DEMs, unknown tiles or underwater/cliff edges.
+  let districtBuildingsVisible=0;
+  const visibleDistricts=new Set();
+  if(Districts&&options.showFictionalBuildings!==false){
+   for(const building of Districts.PLAN.buildings){
+    const foundation=Districts.buildingFoundation(
+     building,registry,cache,renderedKeys);
+    if(!foundation)continue;
+    const [px,py]=toScreen(building.x,building.z,foundation.baseMetres),
+     ww=building.w*state.zoom,dd=building.d*state.zoom,
+     facade=building.h*state.zoom*state.relief;
+    if(px+ww/2<0||px-ww/2>w||py+dd/2<0||py-dd/2-facade>h)continue;
+    // The visible plinth links the house facade to its full topographic
+    // footprint rather than positioning a 2D rectangle at arbitrary sea.
+    const step=Math.max(0,foundation.plinthMetres*state.zoom*state.relief);
+    ctx.fillStyle='#4d4b43';
+    ctx.fillRect(px-ww/2,py-dd/2,ww,dd+step);
+    ctx.fillStyle='#74695e';
+    ctx.fillRect(px-ww/2,py-dd/2-facade,ww,facade+dd);
+    ctx.fillStyle=building.color;
+    ctx.fillRect(px-ww/2,py-dd/2-facade,ww,dd);
+    ctx.fillStyle=building.roofStyle==='parapet'?'#ece0c9':'#ddd1b9';
+    ctx.fillRect(px-ww/2,py-dd/2-facade,ww,Math.max(1,state.zoom));
+    // Readable simple shaded window recesses at high zoom; still unlit
+    // illustration and not a high-fidelity or enterable 3D interior.
+    if(state.zoom>=.55&&ww>=8){
+     ctx.fillStyle='#5a5b53';
+     const unit=Math.max(1,ww*.1);
+     ctx.fillRect(px-ww*.26,py-dd/2-facade+dd*.38,unit,
+      Math.max(1,dd*.15));
+     ctx.fillRect(px+ww*.17,py-dd/2-facade+dd*.38,unit,
+      Math.max(1,dd*.15));
+    }
+    districtBuildingsVisible++;
+    visibleDistricts.add(building.district);
+   }
+  }
   const origin=Tiles.tileFor(state.x,state.z),centerTile=registry.get(origin.key);
   // The UI reticle must sample exactly the TRIANGLE we just painted,
   // not bilinear source samples when the chosen LOD is a coarse planar mesh.
@@ -292,7 +336,8 @@
   }
   return Object.freeze({origin:origin.key,active:plan.active.length,triangles,
    visibleTiles:visible,culledTiles,roadTriangles,
-   housesVisible:houses,shorelineSegments:shoreline,
+   housesVisible:houses,districtBuildingsVisible,
+   districtsVisible:visibleDistricts.size,shorelineSegments:shoreline,
    unresolved:plan.unresolved.length,lodStep:lod,
    centerElevationMetres,centerSlopeDegrees,localElevationOnly:true,centerElevationSurface:'painted-triangle',
    zoom:state.zoom,relief:state.relief,showContours:state.showContours,
@@ -330,11 +375,13 @@
   function refresh(){
    const legend=doc.getElementById('mapLegendTitle'),
     houses=doc.getElementById('fictionalHouseLegend'),
-    roads=doc.getElementById('fictionalStreetLegend');
+    roads=doc.getElementById('fictionalStreetLegend'),
+    districts=doc.getElementById('fictionalDistrictLegend');
    if(legend)legend.textContent=activeDataset?
     '입력한 로컬 고도 · 출처 외부 검증 전':'원본 창작 지형 · 축척 검증';
    if(houses)houses.hidden=!!activeDataset;
    if(roads)roads.hidden=!!activeDataset;
+   if(districts)districts.hidden=!!activeDataset;
    const width=Math.max(320,canvas.clientWidth||canvas.width||960),
      height=Math.max(200,canvas.clientHeight||canvas.height||600);
    const dpr=Math.max(1,Math.min(2,(typeof devicePixelRatio==='number'?devicePixelRatio:1)));
@@ -352,7 +399,9 @@
     '원본: 창작 아트 테스트 (실측 아덴 0타일) · ')+
     stats.origin+' · '+inspectedElevation+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
     '개 · 1:1 미터 좌표 · 지형 삼각형 '+stats.triangles+
-    '개 · 창작 도로 삼각형 '+stats.roadTriangles+'개 · 실제 아덴 검증 0타일';
+    '개 · 창작 도로 삼각형 '+stats.roadTriangles+
+    '개 · 창작 확장건물 '+stats.districtBuildingsVisible+
+    '개 · 실제 아덴 검증 0타일';
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
