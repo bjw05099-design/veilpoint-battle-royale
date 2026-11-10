@@ -53,9 +53,21 @@
    nextButton.focus({preventScroll:true});
   }
   function onKeydown(event){
-   // Modal Escape is an actual keyboard exit, not another story objective.
-   if(controller&&event.key==='Escape'){
+   if(!controller)return;
+   // This is a true single-button PC dialog. Focus must not escape into
+   // hidden game/menu controls when Shift+Tab or Tab is pressed. Otherwise
+   // Space/Enter may activate a hidden button behind the opening scene.
+   if(event.key==='Tab'){
     event.preventDefault();
+    event.stopPropagation?.();
+    host.querySelector('[data-opening-next]')?.focus({preventScroll:true});
+    return;
+   }
+   // Escape belongs solely to this optional briefing. Suppress propagation
+   // to the window's gameplay Escape handler as the menu becomes visible.
+   if(event.key==='Escape'){
+    event.preventDefault();
+    event.stopPropagation?.();
     close();
    }
   }
