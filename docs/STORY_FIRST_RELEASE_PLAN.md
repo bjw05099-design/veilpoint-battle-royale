@@ -47,6 +47,26 @@ preferably map+story while bringing BR forward only where shared foundations ben
   matchmaking, an Unreal native game, a 12-hour campaign or real hardware
   performance evidence into existence.
 
+## CH01 public-footpath directions from the real collision world (2026-11-10)
+
+The CH01 PC HUD now distinguishes **straight-line distance** from an actual
+walking detour through the fictional civilian city. When an *already known,
+visible-or-explicitly-selected* public mission marker is obscured by physical
+walls, `src/story-pedestrian-guidance.js` attempts a bounded pedestrian path
+against the same 60Hz AABB geometry. A successful local plan displays the
+**first segment direction, segment metres and total approximate walking
+metres** and draws its exact waypoints on the PC minimap.
+
+This is read-only navigation, never character teleportation, a new objective,
+a remote camera view, enemy location data, a save-field schema change or an
+authoritative guarantee about people and moving traffic. The output is limited
+to local 75-metre, non-georeferenced city gameplay and an explicit A* budget.
+An unresolved civilian escort cannot be bypassed by a false route arrow. If
+the planner has no checked route, the existing direct-line-obstructed warning
+remains visible without pretending a verified walking path exists. Both
+Windows WebView2 and independent story-only ZIP include the new module as an
+explicit `story.html` dependency.
+
 ## Authoring and asset reuse
 
 - Story-first world content may be staged behind its own module, e.g.
