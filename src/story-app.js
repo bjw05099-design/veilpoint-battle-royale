@@ -1623,7 +1623,7 @@
     const urgentReload=state.world.player.reloadHesitation && /안정되면/.test(state.subtitle);
     $('subtitle').textContent=controlText(urgentReload?state.subtitle:(opening?opening.subtitle:state.subtitle));
     if(Comms&&$('fieldRadio')){
-      const radio=Story.localPublicAddress(state)||Comms.briefing(state);
+      const radio=Comms.fieldRadio(state,Story.localPublicAddress(state));
       // Text-only original dialogue. Never interpolate user data into HTML.
       $('fieldRadio').textContent=radio.speaker+' / '+radio.message;
       $('fieldRadio').title=$('fieldRadio').textContent;
