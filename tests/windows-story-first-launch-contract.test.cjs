@@ -7,6 +7,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const host=read('windows/VEILPOINT.DemoHost/Program.cs');
 const manual=read('docs/WINDOWS_EXE_DEMO.md');
 const winPackage=read('scripts/package-windows-demo.ps1');
+const viewport=read('scripts/verify-pc-viewport.cjs');
 const readme=read('README.md');
 const first=host.indexOf('private async Task InitializeHostAsync()');
 const launch=host.slice(first);
@@ -52,4 +53,14 @@ test('current quick start cannot advertise obsolete E as CH01 default or touch a
  assert.match(latest,/PC-only|Windows PC only/i);
  assert.doesNotMatch(latest,/E interact|E collect resources|press \*\*E\*\*/i);
  assert.match(latest,/2026-11-10/);
+});
+
+test('CDP runner gives slow Chrome a bounded chance but never turns failed startup into passing geometry',()=>{
+ assert.match(viewport,/const startupDeadline=Date\.now\(\)\+20000/);
+ assert.match(viewport,/for\(let tries=0;Date\.now\(\)<startupDeadline;tries\+\+\)/);
+ assert.match(viewport,/AbortSignal\.timeout\(1000\)/);
+ assert.match(viewport,/for\(startupAttempts=1;startupAttempts<=2;startupAttempts\+\+\)/);
+ assert.match(viewport,/throw new Error\('Chromium DevTools not ready/);
+ assert.match(viewport,/Viewport geometry gate failed:/);
+ assert.match(viewport,/records\.length\+'\/'\+SIZES\.length/);
 });
