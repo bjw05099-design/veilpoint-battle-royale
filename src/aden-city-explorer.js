@@ -88,6 +88,42 @@
  function setContours(state,showContours){
   return viewState({...state,showContours});
  }
+ // The waterline is derived from the very SAME streamed triangle samples
+ // used by the terrain painter, not a cartographic guess or global overlay.
+ // Exact-zero edges are included and deduplicated; all-zero triangles have
+ // no uniquely defined shoreline and must not draw misleading polylines.
+ function shorelineSegments(mesh,seaLevel=0){
+  if(!Number.isFinite(seaLevel)||!mesh||!mesh.positions||!mesh.triangles||
+    mesh.positions.length%3!==0||mesh.triangles.length%3!==0)
+   throw new RangeError('Invalid shoreline mesh or sea level');
+  const p=mesh.positions,indices=mesh.triangles,segments=[];
+  for(let i=0;i<indices.length;i+=3){
+   const v=[indices[i],indices[i+1],indices[i+2]];
+   if(v.some(index=>!Number.isSafeInteger(index)||index<0||index*3+2>=p.length))
+    throw new RangeError('Invalid shoreline mesh triangle');
+   const heights=v.map(index=>p[index*3+1]-seaLevel);
+   if(heights.every(h=>Math.abs(h)<1e-10))continue;
+   const cuts=[];
+   const add=(x,z)=>{
+    if(!Number.isFinite(x)||!Number.isFinite(z))throw new RangeError('Invalid shoreline coordinates');
+    if(!cuts.some(q=>Math.hypot(q[0]-x,q[1]-z)<1e-8))cuts.push([x,z]);
+   };
+   for(let e=0;e<3;e++){
+    const a=v[e]*3,b=v[(e+1)%3]*3,ha=heights[e],hb=heights[(e+1)%3];
+    if(![p[a],p[a+1],p[a+2],p[b],p[b+1],p[b+2]].every(Number.isFinite))
+     throw new RangeError('Nonfinite shoreline vertex');
+    if(Math.abs(ha)<1e-10)add(p[a],p[a+2]);
+    if(Math.abs(hb)<1e-10)add(p[b],p[b+2]);
+    if((ha<0&&hb>0)||(ha>0&&hb<0)){
+     const t=ha/(ha-hb);
+     add(p[a]+(p[b]-p[a])*t,p[a+2]+(p[b+2]-p[a+2])*t);
+    }
+   }
+   if(cuts.length===2&&Math.hypot(cuts[0][0]-cuts[1][0],cuts[0][1]-cuts[1][1])>1e-7)
+    segments.push(cuts);
+  }
+  return segments;
+ }
  function draw(canvas,registry,state,cache=new Map(),options={}){
   if(!canvas||typeof canvas.getContext!=='function'||!(registry instanceof Map))
    throw new TypeError('Invalid terrain canvas/registry');
@@ -101,7 +137,8 @@
   for(const key of plan.active){
    const slot=cache.get(key);
    if(!slot||slot.lod!==lod)
-    cache.set(key,{lod,mesh:Tiles.buildTerrainMesh(registry.get(key),lod)});
+   {const mesh=Tiles.buildTerrainMesh(registry.get(key),lod);
+    cache.set(key,{lod,mesh,shoreline:shorelineSegments(mesh)});}
   }
   ctx.fillStyle='#183139';ctx.fillRect(0,0,w,h);
   // Never display triangles for an unresolved tile: missing geodata remains
@@ -148,6 +185,20 @@
     ul[0],ul[1],br[0]-ul[0],br[1]-ul[1]);
    visible++;
   }
+  // Render only contours from LOADED triangles. Unknown and missing tiles
+  // have no shoreline, and the contour toggle retains its existing meaning.
+  let shoreline=0;
+  if(state.showContours){
+   ctx.strokeStyle='#9bd3dc';ctx.lineWidth=Math.max(.7,state.zoom*1.5);
+   for(const key of paintOrder){
+    const slot=cache.get(key);
+    for(const [a,b] of slot.shoreline){
+     const from=toScreen(a[0],a[1],0),to=toScreen(b[0],b[1],0);
+     ctx.beginPath();ctx.moveTo(...from);ctx.lineTo(...to);ctx.stroke();
+     shoreline++;
+    }
+   }
+  }
   // Visual-only conceptual civic building shells. They do not participate
   // in the existing arena, BR96 authoritative world or legacy save format.
   let houses=0;
@@ -174,7 +225,8 @@
   ctx.beginPath();ctx.moveTo(axis[0]-7,axis[1]);ctx.lineTo(axis[0]+7,axis[1]);
   ctx.moveTo(axis[0],axis[1]-7);ctx.lineTo(axis[0],axis[1]+7);ctx.stroke();
   return Object.freeze({origin:origin.key,active:visible,triangles,
-   housesVisible:houses,unresolved:plan.unresolved.length,lodStep:lod,
+   housesVisible:houses,shorelineSegments:shoreline,
+   unresolved:plan.unresolved.length,lodStep:lod,
    zoom:state.zoom,relief:state.relief,showContours:state.showContours,
    provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
    realAdenTilesLoaded:0});
@@ -264,5 +316,5 @@
    getDataset:()=>activeDataset,action,refresh,loadDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
-  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,draw,attach});
+  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,draw,attach});
 });

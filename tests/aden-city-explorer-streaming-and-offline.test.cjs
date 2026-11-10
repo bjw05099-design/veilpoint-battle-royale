@@ -116,3 +116,32 @@ test('browser global setup loads from local assets without network access or bro
  assert.equal(context.VeilpointAdenCityTiles.TILE_METRES,512);
  assert.equal(context.VeilpointAdenCityExplorer.createPreviewRegistry().size,25);
 });
+
+test('physical shoreline follows actual locally loaded 512m terrain triangles and never invents missing coastline',()=>{
+ const tile=Tiles.createHeightTile({tx:0,tz:0,gridSize:17,source:Explorer.SOURCE,
+  samples:Array.from({length:17*17},(_,i)=>i%17-7.5)});
+ const mesh=Tiles.buildTerrainMesh(tile,1);
+ const segments=Explorer.shorelineSegments(mesh);
+ assert.ok(segments.length>0);
+ for(const [a,b] of segments)for(const [x,z] of [a,b]){
+  assert.ok(x>=0&&x<=512&&z>=0&&z<=512);
+  assert.ok(Math.abs(x-240)<.00001,'interpolated physical coast must follow equal-height x coordinate');
+ }
+ assert.throws(()=>Explorer.shorelineSegments(mesh,NaN),/shoreline mesh or sea level/);
+ const zero=Tiles.createHeightTile({tx:0,tz:0,gridSize:17,source:Explorer.SOURCE,
+  samples:Array(17*17).fill(0)});
+ assert.equal(Explorer.shorelineSegments(Tiles.buildTerrainMesh(zero,1)).length,0,
+  'all-zero triangles are not a fabricated closed shoreline');
+ const {canvas}=fakeCanvas();
+ const registry=Explorer.createPreviewRegistry(),cache=new Map();
+ const near=Explorer.draw(canvas,registry,Explorer.viewState({x:-768,z:0}),cache);
+ assert.ok(near.shorelineSegments>0);
+ assert.equal(near.realAdenTilesLoaded,0);
+ const switched=Explorer.draw(canvas,registry,Explorer.setContours(
+  Explorer.viewState({x:-768,z:0}),false),cache);
+ assert.equal(switched.shorelineSegments,0);
+ assert.equal(cache.get('aden:-2:0').shoreline.length>0,true);
+ const far=Explorer.draw(canvas,new Map(),Explorer.viewState({x:-768,z:0}));
+ assert.equal(far.shorelineSegments,0,'unresolved local tile cannot fake a coast');
+ assert.equal(far.unresolved>0,true);
+});
