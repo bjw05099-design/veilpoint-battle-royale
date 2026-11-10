@@ -271,7 +271,7 @@ class BrSquadWorld {
         options.push({kind:'gate',distance});
     }
     const cart=this.handcart.body;
-    if(cart&&!this.handcart.operator){
+    if(cart&&(!this.handcart.operator||this.cartHandoffAvailable(actor))){
       const distance=Math.hypot(actor.x-cart.x,actor.z-cart.z);
       if(distance>=1.45&&distance<=2.6 &&
          !Sim.lineBlocked(actor.x,actor.z,cart.x,cart.z,
@@ -400,13 +400,26 @@ class BrSquadWorld {
   }
   // One real human interacts at arm's reach. No client-positioned cart, speed
   // boost, magic carrying or remote mutation of another team's world state.
+  // A stationary teammate can voluntarily take over a public handcart when
+  // the original human pusher has stopped issuing movement for a full input
+  // lease. No client can transfer another person's grip remotely, no vote or
+  // opponent identity is exposed, and the cart never moves on its own.
+  cartHandoffAvailable(actor){
+    const owner=this.handcart.operator;
+    return !!owner&&owner!==actor&&owner.team===actor.team&&
+      owner.eligible&&actor.eligible&&
+      this.phase==='moving'&&
+      this.tick-owner.lastMoveTick>LEASE_TICKS&&
+      Math.hypot(owner.direction.x,owner.direction.z)<1e-8;
+  }
   operateHandcart(token){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
     if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
     const cart=this.handcart,body=cart.body;
     if(cart.operator===actor){cart.operator=null;return {ok:true,action:'release'};}
-    if(cart.operator)return {ok:false,reason:'in_use'};
+    const handoff=this.cartHandoffAvailable(actor);
+    if(cart.operator&&!handoff)return {ok:false,reason:'in_use'};
     const dx=body.x-actor.x,dz=body.z-actor.z,dist=Math.hypot(dx,dz);
     if(dist<1.45||dist>2.6||Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
        this.obstacles.filter(o=>o!==body)))return {ok:false,reason:'out_of_reach'};
@@ -415,13 +428,27 @@ class BrSquadWorld {
     const alongX=Math.abs(dx)>=Math.abs(dz);
     const dirX=alongX?Math.sign(dx):0,dirZ=alongX?0:Math.sign(dz);
     cart.operator=actor;cart.dirX=dirX;cart.dirZ=dirZ;
+    if(handoff){
+      // A previous movement vector must NOT accidentally move an unattended
+      // cart on the same tick as the F-key handoff. Explicit fresh input is
+      // required from the new operator before the shared collider advances.
+      actor.direction={x:0,z:0};
+      actor.lastMoveTick=this.tick-LEASE_TICKS-1;
+      actor.sprintHeld=false;
+    }
     actor.lastPresenceTick=this.tick;
-    return {ok:true,action:'grip',cart:this.handcartSnapshot(token)};
+    return {ok:true,action:handoff?'handoff':'grip',
+      cart:this.handcartSnapshot(token)};
   }
   handcartSnapshot(token){
     const body=this.handcart.body;
+    const viewer=this.actors.get(token),owner=this.handcart.operator;
     return {x:body.x,z:body.z,w:body.w,d:body.d,h:body.h,
-      heldBySelf:this.handcart.operator===this.actors.get(token),
+      heldBySelf:owner===viewer,
+      // Readable only to your own six-person squad. No rival's operator ID,
+      // session token, exact coordinates or private movement is leaked.
+      squadOperatorSlot:viewer&&owner&&viewer.team===owner.team?owner.slot+1:null,
+      handoffAvailable:viewer?this.cartHandoffAvailable(viewer):false,
       moving:false};
   }
   // The handcart and its human pusher move in lockstep at a bounded walking
