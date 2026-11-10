@@ -20,8 +20,7 @@ test('real local human reaction is heard before an ordinary powered public annou
  assert.equal(line.speaker,'이수혁 대위');
  assert.match(line.message,/한 주민/);
  assert.notEqual(line,publicPA);
- assert.strictEqual(Comms.onsiteWitness(s),line===Comms.onsiteWitness(s)?
-  line:null);
+ assert.deepEqual(Comms.onsiteWitness(s),line);
  assert.equal(Story.serialize(s),before,'radio cannot change gameplay, checkpoint or 60Hz world');
  assert.ok(Object.isFrozen(line));
 });
