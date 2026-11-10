@@ -582,9 +582,35 @@ class BrSquadWorld {
           this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
-      if(nearbyBodies.nearby(next.x,next.z,2*RADIUS).some(other=>other!==actor&&
-        Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
-        next.x=actor.x;next.z=actor.z;
+      const peers=nearbyBodies.nearby(next.x,next.z,2*RADIUS)
+        .filter(other=>other!==actor&&
+          Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)
+        .sort((a,b)=>Math.hypot(a.x-next.x,a.z-next.z)-
+          Math.hypot(b.x-next.x,b.z-next.z)||a.id-b.id);
+      if(peers.length){
+        // The original head-on rejection could leave two real human bodies
+        // pressing forward indefinitely in a wide civilian square. Try ONE
+        // radius-safe lateral foot placement instead of a teleport, push, or
+        // client-authored collision override. Nonwalking bench/cart motions
+        // remain subject to their existing authoritative physics.
+        const other=peers[0],dx=next.x-actor.x,dz=next.z-actor.z;
+        const stride=Math.hypot(dx,dz);
+        const separationX=actor.x-other.x,separationZ=actor.z-other.z;
+        const separation=Math.hypot(separationX,separationZ);
+        const slide={x:actor.x,z:actor.z};
+        if(!actor.stepping&&actor!==cartPusher&&stride>1e-8&&
+           separation>=2*RADIUS-.05){
+          const tangentX=-separationZ/separation,tangentZ=separationX/separation;
+          const natural=dx*tangentX+dz*tangentZ;
+          const sign=natural<0?-1:1;
+          Sim.moveEntity(slide,sign*tangentX*stride/STEP,
+            sign*tangentZ*stride/STEP,STEP,this.obstacles,RADIUS);
+        }
+        const safeSlide=Math.hypot(slide.x-actor.x,slide.z-actor.z)>1e-8&&
+          nearbyBodies.nearby(slide.x,slide.z,2*RADIUS).every(peer=>
+            peer===actor||Math.hypot(peer.x-slide.x,peer.z-slide.z)>=2*RADIUS-1e-8);
+        next.x=safeSlide?slide.x:actor.x;
+        next.z=safeSlide?slide.z:actor.z;
       }
       return {actor,next,running:actor.stepping?false:running,
         wantsMove:actor.stepping?true:Math.hypot(direction.x,direction.z)>1e-8,
