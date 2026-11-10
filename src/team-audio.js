@@ -11,7 +11,7 @@
   finish:Object.freeze({hz:275,duration:.20,type:'sine',gain:.026})
  });
  function create({AudioContextClass=null}={}){
-  let context=null,enabled=false,lastPhase=null,lastRoundId=null,lastOvertime=false;
+  let context=null,enabled=false,lastPhase=null,lastRoundId=null,lastOvertime=false,lastTick=null;
   const playing=new Set();
   function sound(kind){
    const cue=Object.prototype.hasOwnProperty.call(TONES,kind)?TONES[kind]:null;
@@ -55,13 +55,25 @@
    const id=snapshot.round?.id;
    if(!Number.isSafeInteger(id)||id<0)return null;
    const phase=snapshot.phase,overtime=snapshot.round?.suddenDeathActive===true;
+   const tick=Number.isSafeInteger(snapshot.tick)&&snapshot.tick>=0?snapshot.tick:null;
+   // A 400ms snapshot may arrive after the match has already advanced via
+   // another poll. Never roll back generation, phase, tick or overtime audio.
+   // The host reuses the previous round ID in its post-match lobby, so that
+   // phase is deliberately silent until the next genuine round increments ID.
+   const phaseOrder={lobby:0,playing:1,ended:2};
+   if(lastRoundId!==null&&(
+      id<lastRoundId ||
+      (id===lastRoundId&&phaseOrder[phase]<phaseOrder[lastPhase]) ||
+      (id===lastRoundId&&tick!==null&&lastTick!==null&&tick<lastTick) ||
+      (id===lastRoundId&&phase==='playing'&&lastOvertime&&!overtime)
+   ))return null;
    let emitted=null;
    if(lastRoundId!==null){
     if(phase==='playing'&&(lastPhase!=='playing'||id!==lastRoundId))emitted='start';
     else if(phase==='playing'&&overtime&&!lastOvertime&&id===lastRoundId)emitted='overtime';
     else if(phase==='ended'&&lastPhase==='playing'&&id===lastRoundId)emitted='finish';
    }
-   lastRoundId=id;lastPhase=phase;lastOvertime=overtime;
+   lastRoundId=id;lastPhase=phase;lastOvertime=overtime;lastTick=tick;
    if(emitted)sound(emitted);
    return emitted;
   }
