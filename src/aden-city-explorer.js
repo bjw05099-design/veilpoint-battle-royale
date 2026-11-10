@@ -302,8 +302,7 @@
     ctx.fillRect(px-ww/2,py-dd/2-facade,ww,dd);
     ctx.fillStyle=building.roofStyle==='parapet'?'#ece0c9':'#ddd1b9';
     ctx.fillRect(px-ww/2,py-dd/2-facade,ww,Math.max(1,state.zoom));
-    // Readable simple shaded window recesses at high zoom; still unlit
-    // illustration and not a high-fidelity or enterable 3D interior.
+    // Readable simple shaded window recesses, not PBR or full 3D architecture.
     if(state.zoom>=.55&&ww>=8){
      ctx.fillStyle='#5a5b53';
      const unit=Math.max(1,ww*.1);
@@ -311,6 +310,25 @@
       Math.max(1,dd*.15));
      ctx.fillRect(px+ww*.17,py-dd/2-facade+dd*.38,unit,
       Math.max(1,dd*.15));
+    }
+    if(building.publicInterior){
+     // Physically authored 3m public entrance faces its open courtyard.
+     // The threshold is painted at ground level matching wall collision.
+     const doorWidth=3*state.zoom,doorDepth=Math.max(1,state.zoom*.9);
+     ctx.fillStyle='#292e2c';
+     ctx.fillRect(px-doorWidth/2,py+dd/2-doorDepth,
+      doorWidth,doorDepth*2);
+     if(options.showPublicRoom===building.id){
+      // Roof cutaway reveals a single grounded original public room only
+      // when the walker is already physically inside its doorway.
+      const padding=Math.max(1,.35*state.zoom);
+      ctx.fillStyle='#bdab8d';
+      ctx.fillRect(px-ww/2+padding,py-dd/2+padding,
+       Math.max(0,ww-2*padding),Math.max(0,dd-2*padding));
+      ctx.strokeStyle='#574f43';ctx.lineWidth=Math.max(1,padding);
+      ctx.strokeRect(px-ww/2+padding,py-dd/2+padding,
+       Math.max(0,ww-2*padding),Math.max(0,dd-2*padding));
+     }
     }
     districtBuildingsVisible++;
     visibleDistricts.add(building.district);
@@ -413,8 +431,11 @@
    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
    // State in world metres, zoom in CSS pixels => convert to bitmap pixels.
    const zoomState={...state,zoom:state.zoom*dpr};
+   const insideRoom=walk&&Districts?
+    Districts.publicRoomAt(walk.x,walk.z):null;
    const stats=draw(canvas,registry,zoomState,cache,{
-    imported:!!activeDataset,showFictionalBuildings:!activeDataset});
+    imported:!!activeDataset,showFictionalBuildings:!activeDataset,
+    showPublicRoom:insideRoom?.id||null});
    if(walk){
     const ctx=canvas.getContext('2d');
     const [px,pz]=Relief.project([walk.x,walk.y,walk.z],zoomState,
@@ -435,7 +456,8 @@
     '개 · 창작 확장건물 '+stats.districtBuildingsVisible+
     '개 · 실제 아덴 검증 0타일'+
     (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
-     'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':''):'');
+     'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':'')+
+     (insideRoom?' · 창작 공공 실내: '+insideRoom.district:''):'');
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
