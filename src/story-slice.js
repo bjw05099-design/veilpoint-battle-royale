@@ -748,7 +748,7 @@
       syncMarkers(state);
       return;
     }
-    for(const id of ['guideControl','harborWorker','residentRoute']){
+    for(const id of ['guideControl','harborWorker','residentRoute','kimAftercare']){
       const i=visible.findIndex(marker=>marker.id===id);
       if(i<0)continue;
       rendered[i].x=visible[i].x;
