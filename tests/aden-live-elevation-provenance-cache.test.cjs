@@ -63,7 +63,7 @@ test('public terrain UI reports actual center local elevation and refuses to cal
   return buttons.get(id);
  }};
  const app=Explorer.attach(doc);
- assert.match(status.textContent,/중심 로컬 표고/);
+ assert.match(status.textContent,/현재 메시 표면/);
  assert.match(status.textContent,/현지 해발 미검증/);
  const source={provider:'Original civilian elevation fixture',observedDate:'2026-11-09',
    license:'CC-BY-4.0',reference:'local user-provided public DEM fixture',
@@ -73,12 +73,12 @@ test('public terrain UI reports actual center local elevation and refuses to cal
   tiles:[{tx:0,tz:0,gridSize:17,samples:Array(17*17).fill(35.75),source}]};
  app.loadDataset(dataset);
  assert.equal(app.getDataset().tilesImported,1);
- assert.match(status.textContent,/중심 로컬 표고 35\.75m/);
+ assert.match(status.textContent,/현재 메시 표면 35\.75m/);
  assert.match(status.textContent,/현지 해발 미검증/);
  assert.match(status.textContent,/실제 아덴 검증 0타일/);
  app.action('east');app.action('east');app.action('east');app.action('east');
  assert.match(status.textContent,/중심 표고 자료 없음/);
- assert.doesNotMatch(status.textContent,/중심 로컬 표고 35\.75m/,
+ assert.doesNotMatch(status.textContent,/현재 메시 표면 35\.75m/,
   'pan into an unregistered tile must not reuse a prior valid elevation label');
  app.resetSample();
  assert.match(status.textContent,/원본: 창작 아트 테스트/);

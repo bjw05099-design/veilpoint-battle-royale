@@ -224,11 +224,14 @@
    houses++;
   }
   const origin=Tiles.tileFor(state.x,state.z),centerTile=registry.get(origin.key);
-  // Height is the live source tile's LOCAL metre value at the reticle,
-  // NEVER an automatically verified absolute elevation above sea level.
-  // Missing tiles must not inherit a cached number or invented zero metre.
-  const centerElevationMetres=centerTile
-   ?Math.round(Tiles.heightAt(centerTile,state.x,state.z)*100)/100:null;
+  // The UI reticle must sample exactly the TRIANGLE we just painted,
+  // not bilinear source samples when the chosen LOD is a coarse planar mesh.
+  // This keeps the displayed physical elevation continuous with the current
+  // actual geometry and never invents absolute/georeferenced Aden heights.
+  const paintedCentre=centerTile&&cache.get(origin.key)?.sourceTile===centerTile
+   ?cache.get(origin.key).mesh:null;
+  const centerElevationMetres=paintedCentre
+   ?Math.round(Tiles.heightOnTerrainMesh(paintedCentre,state.x,state.z)*100)/100:null;
   const axis=toScreen(state.x,state.z);
   ctx.strokeStyle='#ffe2a0';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(axis[0]-7,axis[1]);ctx.lineTo(axis[0]+7,axis[1]);
@@ -236,7 +239,7 @@
   return Object.freeze({origin:origin.key,active:visible,triangles,
    housesVisible:houses,shorelineSegments:shoreline,
    unresolved:plan.unresolved.length,lodStep:lod,
-   centerElevationMetres,localElevationOnly:true,
+   centerElevationMetres,localElevationOnly:true,centerElevationSurface:'painted-triangle',
    zoom:state.zoom,relief:state.relief,showContours:state.showContours,
    provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
    realAdenTilesLoaded:0});
@@ -285,7 +288,7 @@
     imported:!!activeDataset,showFictionalBuildings:!activeDataset});
    const inspectedElevation=stats.centerElevationMetres===null
     ?'중심 표고 자료 없음'
-    :'중심 로컬 표고 '+stats.centerElevationMetres.toFixed(2)+'m (현지 해발 미검증)';
+    :'현재 메시 표면 '+stats.centerElevationMetres.toFixed(2)+'m (로컬 미터 · 현지 해발 미검증)';
    info.textContent=(activeDataset?
     '로컬 자료 입력 (출처·권리·정확도 외부 검증 전): '+activeDataset.title+
     ' / '+activeDataset.tilesImported+'개 타일 · ':

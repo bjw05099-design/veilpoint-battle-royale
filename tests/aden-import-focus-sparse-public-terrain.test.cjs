@@ -39,7 +39,7 @@ test('imported terrain auto-focuses on actual sparse local tile rather than the 
  assert.equal(state.x,8*Tiles.TILE_METRES+Tiles.TILE_METRES/2);
  assert.equal(state.z,-6*Tiles.TILE_METRES+Tiles.TILE_METRES/2);
  assert.equal(Tiles.tileFor(state.x,state.z).key,'aden:8:-6');
- assert.match(doc.nodes.tileStatus.textContent,/중심 로컬 표고 42\.00m/);
+ assert.match(doc.nodes.tileStatus.textContent,/현재 메시 표면 42\.00m/);
  assert.match(doc.nodes.tileStatus.textContent,/실제 아덴 검증 0타일/);
  assert.equal(doc.nodes.fictionalHouseLegend.hidden,true);
  viewer.resetSample();

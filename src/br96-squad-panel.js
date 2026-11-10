@@ -38,5 +38,28 @@
   const label=world?(world.phase==='finished'?'우리 분대 · 최종 상태':'우리 분대 · 실시간 참가 상태'):'우리 분대 · 준비 명단';
   return label+'\n'+lines.join('\n');
  }
- return Object.freeze({COUNT,roster});
+ // PC chat is an actual six-person human channel. Keep a user's draft
+ // intact while a slow server response is in flight, and never let a prior
+ // session/round acknowledgement consume text typed by a new participant.
+ // A bounded single-flight guard avoids submitting the same Enter+click twice.
+ function createDraftGuard(){
+  let pending=null;
+  const same=(a,b)=>!!a&&!!b&&a.token===b.token&&a.round===b.round;
+  function begin(token,round,draft){
+   if(pending||typeof token!=='string'||!token||
+      !Number.isSafeInteger(round)||round<1||
+      typeof draft!=='string'||!draft.trim())return false;
+   pending=Object.freeze({token,round,draft});return true;
+  }
+  function shouldClear(token,round,editValue){
+   return same(pending,{token,round})&&editValue===pending.draft;
+  }
+  function finish(token,round){
+   if(!same(pending,{token,round}))return false;
+   pending=null;return true;
+  }
+  return Object.freeze({begin,shouldClear,finish,
+   pending:()=>pending!==null,reset:()=>{pending=null;}});
+ }
+ return Object.freeze({COUNT,roster,createDraftGuard});
 });

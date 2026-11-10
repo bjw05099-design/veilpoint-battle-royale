@@ -11,6 +11,7 @@ const SESSION='veilpoint.br96.tabSession';
 // synthesized locally from the authenticated player's own environment only.
 const mapCamera=window.VeilpointBR96MapCamera;
 const squadPanel=window.VeilpointBR96SquadPanel;
+const chatGuard=squadPanel?.createDraftGuard?.()||null;
 const harborAudio=window.VeilpointBR96Audio?.create({
  AudioContextClass:window.AudioContext||window.webkitAudioContext||null
 })||null;
@@ -63,6 +64,7 @@ let dismissedJourneyRound=null; // local UI only; server remains authoritative
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
+ chatGuard?.reset();
  stopPrivateStream();
  harborAudio?.disable();
  token=null;state=null;seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
@@ -96,6 +98,7 @@ function apply(next){
  if(state&&Number.isInteger(state.roundNumber)&&Number.isInteger(next.roundNumber)){
   if(next.roundNumber<state.roundNumber)return;
   if(next.roundNumber>state.roundNumber){
+   chatGuard?.reset();
    stopPrivateStream();liveRetryAt=0;
    seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
@@ -251,7 +254,8 @@ function render(){
  el('withdraw').disabled=!active();
  const canChat=!!token&&(state?.phase==='assembling'||active());
  el('squadChatInput').disabled=!canChat;
- el('sendSquadChat').disabled=!canChat;
+ el('sendSquadChat').disabled=!canChat||!!chatGuard?.pending();
+ el('sendSquadChat').textContent=chatGuard?.pending()?'전송 중':'보내기';
  const messages=state?.phase==='assembling'?state?.lobbyChat:w?.squadChat;
  el('squadChatLine').textContent=(messages?.length
   ?messages.slice(-2).map(entry=>entry.slot+'번: '+entry.text).join(' · ')
@@ -605,12 +609,23 @@ async function signal(kind){
 }
 async function sendSquadChat(){
  if(!token||!(state?.phase==='assembling'||active()))return;
- const input=el('squadChatInput'),text=input.value.trim();
+ const input=el('squadChatInput'),draft=input.value,text=draft.trim();
  if(!text)return;
- // Input focus is excluded from the game's movement handler, so typing
- // never moves an actor or triggers a field action.
- const result=await command('/squad-chat',{text},null);
- if(result?.ok){input.value='';message('우리 분대에만 메시지가 전달됐습니다.');}
+ const ownerToken=token,ownerRound=state?.roundNumber||1;
+ // Once the first Enter/click submits, block a duplicate until its real
+ // server acknowledgement. Continue allowing the human to TYPE a new draft.
+ if(chatGuard&&!chatGuard.begin(ownerToken,ownerRound,draft))return;
+ render();
+ try{
+  const result=await command('/squad-chat',{text},null);
+  if(!result?.ok||token!==ownerToken||(state?.roundNumber??1)!==ownerRound)return;
+  // Never erase a new draft typed while an older request was in flight.
+  if(chatGuard?.shouldClear(ownerToken,ownerRound,input.value))input.value='';
+  message('우리 분대에만 메시지가 전달됐습니다.');
+ }finally{
+  chatGuard?.finish(ownerToken,ownerRound);
+  render();
+ }
 }
 
 function toggleStreetView(){
