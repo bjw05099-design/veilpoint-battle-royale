@@ -188,7 +188,8 @@ internal sealed class DemoWindow : Form
                 // about:blank is WebView2's own initial empty document.
                 if (e.Uri.Equals("about:blank", StringComparison.OrdinalIgnoreCase) ||
                     (IsAllowedPage(e.Uri) &&
-                     (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))) return;
+                     (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html" ||
+                      (storyPayload && new Uri(e.Uri).AbsolutePath == "/index.html")))) return;
                 e.Cancel = true;
                 status.Text = storyOnly
                     ? "Navigation blocked: story-only mode allows CH01 only."
@@ -198,9 +199,13 @@ internal sealed class DemoWindow : Form
             {
                 e.Handled = true;
                 if (IsAllowedPage(e.Uri) &&
-                    (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))
+                    (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html" ||
+                      (storyPayload && new Uri(e.Uri).AbsolutePath == "/index.html")))
                     core.Navigate(e.Uri);
             };
+            // A BR-free story package contains its own synthetic index.html
+            // landing page. Allow that local page only for this package; the
+            // combined --story-only mode must still block the BR index.html.
             // Top-level NavigationStarting does not cover every iframe. The
             // restricted launch never embeds a second game mode in a frame.
             core.FrameNavigationStarting += (_, e) =>
