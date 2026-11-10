@@ -183,19 +183,25 @@
    const time=context.currentTime;
    if(!Number.isFinite(time)||time<0)return false;
    const values=profile(state),level=foreground?values.level:0;
-   low.frequency.setTargetAtTime(values.lowHz,time,.28);
-   high.frequency.setTargetAtTime(values.highHz,time,.28);
-   panner?.pan?.setTargetAtTime(values.pan,time,.22);
-   lastLevel=level;
-   gain.gain.setTargetAtTime(level*volume,time,.36);
-   return true;
+   // Device removal or a stale WebAudio node must not crash the 60Hz story
+   // render loop. Tear down once; a new user gesture may re-enable audio.
+   try{
+    low.frequency.setTargetAtTime(values.lowHz,time,.28);
+    high.frequency.setTargetAtTime(values.highHz,time,.28);
+    panner?.pan?.setTargetAtTime(values.pan,time,.22);
+    gain.gain.setTargetAtTime(level*volume,time,.36);
+    lastLevel=level;
+    return true;
+   }catch(_){disable();return false;}
   }
   function setVolume(value){
    if(!Number.isFinite(value)||value<0||value>1)
     throw new RangeError('invalid_ambience_volume');
    volume=value;
-   if(enabled&&context&&gain)
-    gain.gain.setTargetAtTime(lastLevel*volume,context.currentTime,.12);
+   if(enabled&&context&&gain){
+    try{gain.gain.setTargetAtTime(lastLevel*volume,context.currentTime,.12);}
+    catch(_){disable();}
+   }
    return volume;
   }
   return Object.freeze({available,enable,update,setVolume,volume:()=>volume,
