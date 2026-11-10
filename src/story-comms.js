@@ -25,9 +25,9 @@
     !Sim.lineBlocked(p.x,p.z,person.x,person.z,obstacles);
   if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
      observed(state.civilianWalker,7))
-   return line('이수혁 대위','한 주민이 스스로 선택한 남쪽 길 끝에 도착하는 걸 직접 봤다. 다른 사람들의 이동 상태까지 확인한 것은 아니다.');
+   return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
   if(state.mara?.arrived===true&&observed(state.mara,8))
-   return line('마라','제가 걸어 나온 곳까지는 확인했어요. 다른 주민이 어디에 있는지는 저도 알 수 없어요.');
+   return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
   return null;
  }
  // All these exchanges follow already saved, physically witnessed events.
