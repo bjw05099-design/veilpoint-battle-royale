@@ -191,6 +191,12 @@ internal sealed class DemoWindow : Form
                     (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))
                     core.Navigate(e.Uri);
             };
+            // Top-level NavigationStarting does not cover every iframe. The
+            // restricted launch never embeds a second game mode in a frame.
+            core.FrameNavigationStarting += (_, e) =>
+            {
+                if (storyOnly) e.Cancel = true;
+            };
             core.NavigationCompleted += (_, e) =>
             {
                 if (e.IsSuccess)
