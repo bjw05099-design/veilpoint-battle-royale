@@ -81,6 +81,10 @@ test('enterable community room delivers truthful optional environmental story wi
  assert.match(Comms.onsitePublicHall(s).message,/확인되지 않았다/);
  s.musterConfirmed=true;
  assert.match(Comms.onsitePublicHall(s).message,/남쪽에서 확인했다/);
+ // The branch above only tests dialogue selection. This in-memory fixture
+ // has not physically met Yusuf, so do not serialize forged mission progress.
+ // Production V2 saves require an actual evacuation route + in-person muster.
+ s.musterConfirmed=false;
  at(s,0,12);
  assert.equal(Comms.onsitePublicHall(s),null);
  const early=Story.createState();at(early,28,34);
