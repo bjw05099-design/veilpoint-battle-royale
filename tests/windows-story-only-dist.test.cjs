@@ -20,7 +20,7 @@ test('BR-free Windows story distribution is detected before opening game window 
  assert.match(host,/Application\.Run\(new DemoWindow\(\)\)/);
  assert.match(host,/private readonly bool storyPayload;/);
  assert.match(host,/storyOnly \? "StoryOnly" : "WebView2"/);
- assert.match(host,/storyPayload && new Uri\\(e\\.Uri\\)\\.AbsolutePath == "\\/index\\.html"/,
+ assert.match(host,/storyPayload && new Uri\(e\.Uri\)\.AbsolutePath == "\/index\.html"/,
   'only the verified BR-free distribution may navigate to its own story landing page');
  assert.match(host,/FrameNavigationStarting/,
   'story-only iframe navigation remains disabled');
