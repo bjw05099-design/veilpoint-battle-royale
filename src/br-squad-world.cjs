@@ -448,12 +448,14 @@ class BrSquadWorld {
     const body=this.handcart.body;
     const viewer=this.actors.get(token),owner=this.handcart.operator;
     return {x:body.x,z:body.z,w:body.w,d:body.d,h:body.h,
-      heldBySelf:owner===viewer,
-      // Readable only to your own six-person squad. No rival's operator ID,
-      // session token, exact coordinates or private movement is leaked.
-      squadOperatorSlot:viewer&&owner&&viewer.team===owner.team?owner.slot+1:null,
-      handoffAvailable:viewer?this.cartHandoffAvailable(viewer):false,
-      moving:false};
+      heldBySelf:owner===viewer,moving:false,
+      // Keep the existing empty-cart snapshot byte/shape-compatible with
+      // older clients and the canonical 60Hz map geometry contract. The new
+      // private ownership metadata exists ONLY while a real owner is present.
+      ...(owner?{
+        squadOperatorSlot:viewer&&viewer.team===owner.team?owner.slot+1:null,
+        handoffAvailable:viewer?this.cartHandoffAvailable(viewer):false
+      }:{})};
   }
   // The handcart and its human pusher move in lockstep at a bounded walking
   // speed on the next fixed tick. Both the swept cart and actor destination
