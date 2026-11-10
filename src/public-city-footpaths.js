@@ -34,7 +34,13 @@
  function segmentClear(a,b,inflated){
   return !Sim.lineBlocked(a.x,a.z,b.x,b.z,inflated);
  }
- function plan(from,to,obstacles){
+ function plan(from,to,obstacles,options={}){
+  // An NPC's 60Hz update cannot spend an unbounded A* search budget on a
+  // remote or fully blocked destination. Normal city preview links retain
+  // the original full budget; story companions request a smaller budget.
+  const maxVisits=options?.maxVisits??MAX_VISITS;
+  if(!Number.isSafeInteger(maxVisits)||maxVisits<1||maxVisits>MAX_VISITS)
+   throw new RangeError('Invalid pedestrian search budget');
   if(!from||!to||!Array.isArray(obstacles)||
      ![from.x,from.z,to.x,to.z].every(Number.isFinite))return null;
   if(Sim.blocked(from.x,from.z,CLEARANCE,obstacles)||
@@ -53,7 +59,7 @@
   const open=[];heapPush(open,start);
   scores.set(key(0,0),0);points.set(key(0,0),{...start,prev:null});
   let visited=0,goal=null;
-  while(open.length&&visited++<MAX_VISITS){
+  while(open.length&&visited++<maxVisits){
    const n=heapPop(open),id=key(n.i,n.j);
    if(closed.has(id))continue;
    closed.add(id);

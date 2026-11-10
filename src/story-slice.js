@@ -8,10 +8,11 @@
     root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null),
     root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null),
     root.VeilpointStreetFlood || (typeof module === 'object' && module.exports ? require('./ch01-street-flood.js') : null),
-    root.VeilpointPublicHall || (typeof module === 'object' && module.exports ? require('./aden-public-hall.js') : null));
+    root.VeilpointPublicHall || (typeof module === 'object' && module.exports ? require('./aden-public-hall.js') : null),
+    root.VeilpointPublicFootpaths || (typeof module === 'object' && module.exports ? require('./public-city-footpaths.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood, Hall) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood, Hall, Footpaths) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   // Older embedded CH01 clients omit optional history; never block the game.
@@ -1115,8 +1116,29 @@
             state.guide:null].filter(Boolean)
           .map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
         const solids=state.world.obstacles.concat(actorBlockers(state),others);
-        const pace=Math.min(keepNear?followSpeed:1.8,distance/t);
-        Sim.moveEntity(w,dx/distance*pace,dz/distance*pace,t,solids,.55);
+        // Story companion steering first checks real building colliders.
+        // An obstacle between him and the captain means walking around it,
+        // never walking straight into the facade forever or teleporting.
+        // Recompute from saved 60Hz poses each step: no hidden route cache
+        // or new v2 checkpoint fields that change replay after Continue.
+        // Keep each search deliberately bounded for an offline PC frame.
+        let target=goal;
+        if(Footpaths&&distance>2){
+          const widened=state.world.obstacles.map(o=>({
+            x:o.x,z:o.z,w:o.w+1.1,d:o.d+1.1
+          }));
+          if(Sim.lineBlocked(w.x,w.z,goal.x,goal.z,widened)){
+            const path=Footpaths.plan(w,goal,state.world.obstacles,{maxVisits:420});
+            if(path&&path.length>1)target=path[1];
+          }
+        }
+        const stepX=target.x-w.x,stepZ=target.z-w.z,
+          steerDistance=Math.hypot(stepX,stepZ);
+        if(steerDistance>1e-8){
+          const pace=Math.min(keepNear?followSpeed:1.8,steerDistance/t);
+          Sim.moveEntity(w,stepX/steerDistance*pace,stepZ/steerDistance*pace,
+            t,solids,.55);
+        }
       }
       if(state.world.kimJiyoon){
         state.world.kimJiyoon.x=w.x;
