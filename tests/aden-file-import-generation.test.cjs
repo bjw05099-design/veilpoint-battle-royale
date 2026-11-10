@@ -87,3 +87,18 @@ test('terrain preview I/O remains isolated from the real CH01 V2 checkpoint',asy
  app.resetSample();
  assert.equal(Story.serialize(Story.restore(original)),original);
 });
+
+test('bad provenance reports the current file error and never restores an older delayed selection',async()=>{
+ const {app,events,status}=harness(),older=deferred();
+ app.loadDataset(JSON.parse(fixture(1)));
+ const lastGood=app.getDataset(),readOld=change(events,older.promise);
+ const invalid=JSON.parse(fixture(7));
+ invalid.tiles[0].source.license='';
+ await change(events,Promise.resolve(JSON.stringify(invalid)));
+ assert.match(status.textContent,/지형 입력 거부/);
+ assert.match(status.textContent,/source/);
+ assert.strictEqual(app.getDataset(),lastGood);
+ older.resolve(fixture(3));await readOld;
+ assert.strictEqual(app.getDataset(),lastGood);
+ assert.equal(app.getRegistry().has('aden:3:0'),false);
+});

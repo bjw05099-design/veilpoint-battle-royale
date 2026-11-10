@@ -116,20 +116,21 @@
  function storyHintText(text,bindings){
   const map=bindings&&typeof bindings==='object'?bindings:DEFAULT_BINDINGS;
   const label=action=>keyLabel(map[action]);
-  return String(text??'')
-   // Native and browser CH01 now author F by default, but a player may
-   // explicitly remap the action (e.g. T). Show that actual saved key.
-   .replaceAll('F키',label('interact')+'키')
-   .replaceAll('F로',label('interact')+'로')
-   .replaceAll('F를',label('interact')+'를')
-   .replaceAll('F 누르',label('interact')+' 누르')
-   .replaceAll('E로',label('interact')+'로')
-   .replaceAll('E를',label('interact')+'를')
-   .replaceAll('E 누르',label('interact')+' 누르')
-   .replaceAll('R키',label('reload')+'키')
-   .replaceAll('R 재장전',label('reload')+' 재장전')
-   .replaceAll('Q 상황 보고',label('support')+' 상황 보고')
-   .replaceAll('SPACE 발사',label('fire')+' 발사');
+  const replacement={
+   'F키':['interact','키'],'F로':['interact','로'],
+   'F를':['interact','를'],'F 누르':['interact',' 누르'],
+   'E로':['interact','로'],'E를':['interact','를'],
+   'E 누르':['interact',' 누르'],
+   'R키':['reload','키'],'R 재장전':['reload',' 재장전'],
+   'Q 상황 보고':['support',' 상황 보고'],
+   'SPACE 발사':['fire',' 발사']
+  };
+  // One pass over the original text: if F was remapped to R, a second
+  // replacement must not mislabel that interaction as the reload binding.
+  return String(text??'').replace(
+   /F키|F로|F를|F 누르|E로|E를|E 누르|R키|R 재장전|Q 상황 보고|SPACE 발사/g,
+   original=>{const [action,suffix]=replacement[original];return label(action)+suffix;}
+  );
  }
  // Browser/OS command chords are never gameplay input, even if their final
  // physical key is remapped to an action. Ordinary Shift remains playable.

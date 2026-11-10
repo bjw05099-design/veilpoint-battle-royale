@@ -309,10 +309,10 @@
    if(which==='contours')state=setContours(state,!state.showContours);
    refresh();
   }
-  function loadDataset(value){
-   // A newer explicit load (even when invalid) cancels unfinished file reads.
-   // Parsing failure still keeps the last complete, renderable terrain.
-   fileSelectionRevision++;
+  // Commit validated local tiles without touching the selection revision.
+  // File input already reserved its revision before async File.text(). An
+  // additional increment here would suppress the user's validation error.
+  function commitDataset(value){
    const parsed=Tiles.importHeightDataset(value);
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
@@ -320,6 +320,11 @@
    registry=parsed.registry;activeDataset=parsed;
    state=centered;cache.clear();refresh();
    return parsed;
+  }
+  function loadDataset(value){
+   // External API imports cancel any pending File.text(), even when invalid.
+   fileSelectionRevision++;
+   return commitDataset(value);
   }
   function resetSample(){
    // Reset is a newer user decision, not an intermediate render. Never let
@@ -341,7 +346,7 @@
     // File I/O completes out of order. Never replace a newer dataset or
     // a reset view, including when the older file was perfectly valid.
     if(selection!==fileSelectionRevision)return;
-    loadDataset(JSON.parse(contents));
+    commitDataset(JSON.parse(contents));
    }catch(error){
     if(selection===fileSelectionRevision)
      info.textContent='지형 입력 거부: '+error.message;
