@@ -61,6 +61,13 @@ internal sealed class DemoWindow : Form
     {
         Text = "Story CH01", Width = 150, Height = 34, Enabled = false
     };
+    // The ZIP already ships the optional terrain viewer. The Windows host
+    // previously hid that real local content behind the BR/CH01-only toolbar.
+    // This is the ORIGINAL synthetic preview, NOT the complete Aden map.
+    private readonly Button terrainLab = new()
+    {
+        Text = "Original Terrain Lab", Width = 176, Height = 34, Enabled = false
+    };
 
     public DemoWindow()
     {
@@ -79,11 +86,13 @@ internal sealed class DemoWindow : Form
         };
         header.Controls.Add(battleRoyale);
         header.Controls.Add(story);
+        header.Controls.Add(terrainLab);
         Controls.Add(browser);
         Controls.Add(status);
         Controls.Add(header);
         battleRoyale.Click += (_, _) => NavigateTo("index.html");
         story.Click += (_, _) => NavigateTo("story.html");
+        terrainLab.Click += (_, _) => NavigateTo("terrain.html");
         Shown += async (_, _) => await InitializeHostAsync();
     }
 
@@ -98,12 +107,12 @@ internal sealed class DemoWindow : Form
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
         if (!IsLocalHost(uri)) return false;
-        return uri.AbsolutePath is "/index.html" or "/story.html";
+        return uri.AbsolutePath is "/index.html" or "/story.html" or "/terrain.html";
     }
 
     private void NavigateTo(string page)
     {
-        // Only two reviewed entry pages can become top-level windows.
+        // Only three reviewed, manifest-verified offline pages can be top level.
         // Other local files may still be loaded as same-origin subresources.
         if (browser.CoreWebView2 is null) return;
         var destination = BaseUri + page;
@@ -157,7 +166,7 @@ internal sealed class DemoWindow : Form
                 if (e.Uri.Equals("about:blank", StringComparison.OrdinalIgnoreCase) ||
                     IsAllowedPage(e.Uri)) return;
                 e.Cancel = true;
-                status.Text = "Navigation blocked: only bundled BR and CH01 pages are allowed.";
+                status.Text = "Navigation blocked: only bundled BR, CH01 and original terrain pages are allowed.";
             };
             core.NewWindowRequested += (_, e) =>
             {
@@ -174,6 +183,7 @@ internal sealed class DemoWindow : Form
 
             battleRoyale.Enabled = true;
             story.Enabled = true;
+            terrainLab.Enabled = true;
             NavigateTo("index.html");
         }
         catch (Exception ex)
