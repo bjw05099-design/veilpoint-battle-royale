@@ -34,7 +34,7 @@ document.addEventListener('keydown',event=>{
 },true);
 
 const keys=new Set();
-let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
+let token=null,state=null,seq=0,stanceSeq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
 // Idle clients previously posted a full /move world snapshot every 180ms,
@@ -65,7 +65,7 @@ function message(value){if(value!==lastStatus){lastStatus=value;el('status').tex
 function cleanSession(){
  stopPrivateStream();
  harborAudio?.disable();
- token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
+ token=null;state=null;seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
  lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
@@ -97,7 +97,7 @@ function apply(next){
   if(next.roundNumber<state.roundNumber)return;
   if(next.roundNumber>state.roundNumber){
    stopPrivateStream();liveRetryAt=0;
-   seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
+   seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
    streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
@@ -111,6 +111,8 @@ function apply(next){
    // a freshly loaded page must not be trapped sending stale seq=1 forever.
    if(Number.isSafeInteger(next.world.self?.seq))
      seq=Math.max(seq,next.world.self.seq);
+   if(Number.isSafeInteger(next.world.self?.stanceSeq))
+     stanceSeq=Math.max(stanceSeq,next.world.self.stanceSeq);
  }
  state=next;consecutiveErrors=0;
  render();
@@ -834,7 +836,7 @@ async function movement(){
    lastIdleHeartbeatAt=Date.now();
   }
   if(stanceChanged){
-   await request('/pace',{sprint:newSprint,crouch:newCrouch});
+   await request('/pace',{sprint:newSprint,crouch:newCrouch,seq:++stanceSeq});
    lastSprint=newSprint;lastCrouch=newCrouch;
    lastIdleHeartbeatAt=Date.now();
   }
