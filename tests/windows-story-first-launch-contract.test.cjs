@@ -46,6 +46,7 @@ test('optional story-only host blocks BR and terrain navigation at every entry p
  assert.match(host,/Application\.Run\(new DemoWindow\(\)\)/,
   'mixed dev host must remain accessible to later BR development');
  assert.match(manual,/--story-only/);
+ assert.match(manual,/\\VEILPOINT\.Demo\.exe --story-only/);
  assert.match(winPackage,/CH01 STORY opens FIRST/);
  assert.match(winPackage,/VEILPOINT\.Demo\.exe --story-only/);
  assert.doesNotMatch(manual,/story-only.*native UE5 game/i);
