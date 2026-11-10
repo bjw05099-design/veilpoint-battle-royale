@@ -48,6 +48,7 @@ test('missing or denied checkpoint storage never blocks actual story start',()=>
  assert.equal(denied.elements.backupPrevious.disabled,true);
  assert.match(denied.elements.backupStatus.textContent,/저장소 접근이 제한/);
  assert.match(Story.INDEX,/id="launch" href="story\.html"/);
+ assert.match(Story.INDEX,/Story CH01 Preview/,'the compiled Windows story host has a fixed positive identification marker');
  assert.match(Story.INDEX,/overflow:hidden/);
  assert.doesNotMatch(Story.INDEX,/overflow:auto|overflow:scroll/);
  assert.match(Story.INDEX,/@media\(max-height:680px\)/,'compact screen-fit mode is defined for 1024x600');
