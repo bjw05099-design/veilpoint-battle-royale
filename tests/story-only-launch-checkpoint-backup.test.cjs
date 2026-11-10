@@ -49,6 +49,7 @@ test('missing or denied checkpoint storage never blocks actual story start',()=>
  assert.match(denied.elements.backupStatus.textContent,/저장소 접근이 제한/);
  assert.match(Story.INDEX,/id="launch" href="story\.html"/);
  assert.match(Story.INDEX,/overflow:hidden/);
+ assert.doesNotMatch(Story.INDEX,/overflow:auto|overflow:scroll/);
  assert.doesNotMatch(Story.INDEX,/<script\s+src=/);
 });
 
