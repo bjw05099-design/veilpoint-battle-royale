@@ -38,6 +38,21 @@ jobs:
           cd dist
           sha256sum -c veilpoint-offline-demo.zip.sha256
           unzip -t veilpoint-offline-demo.zip
+      - name: Build and certify independent Story CH01-only offline ZIP
+        run: |
+          npm run package:story-preview
+          cd dist/story-first
+          sha256sum -c veilpoint-story-preview.zip.sha256
+          unzip -t veilpoint-story-preview.zip
+      - name: Upload story-only browser candidate (no Battle Royale)
+        uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-story-only-browser-candidate
+          path: |
+            dist/story-first/veilpoint-story-preview.zip
+            dist/story-first/veilpoint-story-preview.zip.sha256
+            dist/story-first/START_HERE.txt
+          if-no-files-found: error
       - name: Verify both CH01 endings and record checkpoint evidence
         run: node scripts/verify-ch01-routes.cjs --output dist/ch01-route-evidence.json
       - name: Upload offline demo ZIP and checksum
