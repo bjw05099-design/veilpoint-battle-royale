@@ -59,7 +59,8 @@ test('BR96 distant, opponent, blocked and active owner grips never become remote
  const wall={x:cart.x,z:cart.z-1,w:2,d:.45,h:2,type:'test-visible-wall'};
  world.obstacles.push(wall);
  assert.equal(world.snapshot(token(1)).handcart.handoffAvailable,false);
- assert.equal(world.operateHandcart(token(1)).reason,'in_use');
+ assert.equal(world.operateHandcart(token(1)).reason,'out_of_reach',
+   'a wall hides both a takeover option and who is currently operating the cart');
  world.obstacles.pop();
  assert.equal(world.operateHandcart(token(1)).action,'handoff');
  assert.equal(world.handcart.operator,mate);
