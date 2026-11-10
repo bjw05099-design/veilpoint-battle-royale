@@ -18,23 +18,44 @@
    const disrupted=state.disrupted||disruption===true;
    const assisted=state.assisted||(disrupted&&assist===true&&near);
    const civilian={...state.civilian};
-   // A face-to-face F interaction records intent; walking starts on the
-  // NEXT 60Hz world tick, not by mutating coordinates inside a UI click.
-  if(disrupted&&state.assisted){
-     const dx=state.destination.x-civilian.x,dz=state.destination.z-civilian.z;
-     const distance=Math.hypot(dx,dz);
-     const travel=Math.min(distance,SPEED/60);
-     if(distance>0){
-      const nextX=civilian.x+dx/distance*travel;
-      const nextZ=civilian.z+dz/distance*travel;
-      // A person cannot pass through the captain or an authored solid wall.
-      // Wait in place until the actual route is physically passable.
-      const occupied=!!player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
-        Math.hypot(nextX-player.x,nextZ-player.z)<1.1;
-      if(!occupied&&!(typeof blocked==='function'&&blocked(nextX,nextZ))){
-       civilian.x=nextX;civilian.z=nextZ;
-      }
-    }
+   // An ordinary resident can walk around a short fictional street obstruction
+   // instead of freezing forever on a single straight line. The local detour
+   // is rebuilt from the current saved metre-space pose on every fixed tick:
+   // no unseen teleport, new checkpoint field or remote route command.
+   if(disrupted&&state.assisted){
+     const travel=SPEED/60;
+     const destination=state.destination;
+     const blockedAt=(x,z)=>typeof blocked==='function'&&blocked(x,z);
+     const occupied=(x,z)=>!!player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
+       Math.hypot(x-player.x,z-player.z)<1.1;
+     let nx=civilian.x,nz=civilian.z;
+     const ahead=Math.min(destination.x,civilian.x+2.4);
+     const centerObstructed=[.6,1.2,2.4].some(offset=>
+       blockedAt(Math.min(destination.x,civilian.x+offset),destination.z));
+     if(centerObstructed&&civilian.x<destination.x){
+       // Prefer the original curb-side lane, then the opposite public lane.
+       // A corridor unavailable at the current location is not forced.
+       const lanes=[-18.4,-13.6].filter(z=>!blockedAt(civilian.x,z));
+       const lane=lanes.find(z=>Math.abs(z-civilian.z)<.05)||lanes[0];
+       if(lane!==undefined){
+         if(Math.abs(civilian.z-lane)>1e-8)
+           nz+=Math.sign(lane-civilian.z)*Math.min(travel,Math.abs(lane-civilian.z));
+         else nx=Math.min(destination.x,civilian.x+travel);
+       }
+     }else{
+       const dx=destination.x-civilian.x,dz=destination.z-civilian.z;
+       const length=Math.hypot(dx,dz);
+       if(length>0){
+         const distance=Math.min(length,travel);
+         nx+=dx/length*distance;nz+=dz/length*distance;
+       }
+     }
+     // The same CH01 solid obstacles and the actual player's capsule retain
+     // final authority. Failure to fit means this 60Hz tick simply waits.
+     if(nx>=2&&nx<=destination.x&&nz>=-18.4&&nz<=-13.6&&
+        !occupied(nx,nz)&&!blockedAt(nx,nz)){
+       civilian.x=nx;civilian.z=nz;
+     }
    }
    return {version:1,tick:state.tick+1,disrupted,assisted,civilian,destination:{...state.destination}};
  }
