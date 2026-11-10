@@ -7,10 +7,11 @@
     root.VeilpointSim || (typeof module === 'object' && module.exports ? require('./simulation.js') : null),
     root.VeilpointStoryConsequences || (typeof module === 'object' && module.exports ? require('./story-consequences.js') : null),
     root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null),
-    root.VeilpointStreetFlood || (typeof module === 'object' && module.exports ? require('./ch01-street-flood.js') : null));
+    root.VeilpointStreetFlood || (typeof module === 'object' && module.exports ? require('./ch01-street-flood.js') : null),
+    root.VeilpointPublicHall || (typeof module === 'object' && module.exports ? require('./aden-public-hall.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood, Hall) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   // Older embedded CH01 clients omit optional history; never block the game.
@@ -64,7 +65,11 @@
     // A grounded local records counter: visible geometry matches fixed collision.
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
-    {x:-24,z:-55,w:1.6,d:.8,h:1.05,type:'story-desk'}
+    {x:-24,z:-55,w:1.6,d:.8,h:1.05,type:'story-desk'},
+    // Story-first accessible civilian hall. The map's ordinary solid walls,
+    // desk and seat share a single data module with the future BR authoring
+    // pipeline. Do not insert them into already serialized BR matches.
+    ...(Hall?Hall.PARTS:[])
   ]);
   // A loose civilian market awning comes down during the unplanned escalation.
   // It creates one short physical walking detour, never a collectable or another
