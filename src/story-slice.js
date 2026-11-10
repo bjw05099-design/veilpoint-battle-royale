@@ -469,7 +469,7 @@
       civicCrossing:Civic?Civic.initial():null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
-      aidPickedUp:false,aidDelivered:false,aidStaged:false,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
+      aidPickedUp:false,aidDelivered:false,aidStaged:false,drainCleared:false,drainClearTicks:0,worker:newWorker(),workerInterviewed:false,civilianWalker:newCivilianWalker(),guide:{active:false,arrived:false,released:false,waiting:false,x:GUIDE_START.x,z:GUIDE_START.z},gateReadyAt:0,gateClearanceDuration:GATE_CLEARANCE_SECONDS,gateObstructed:false,world:createWorld(weaponId),
       combat:{started:false,cleared:false,supportUsed:false,supplyUsed:false,supplyRemaining:12,nextPulseAt:0},
       subtitle:'김도겸 중사(무전): 대위님, 한국에서 출국하기 전에 받은 파견 지시는 현지 연락망 확인과 구호 인력 지원이었습니다. 우리가 도착한 뒤 내전이 예상보다 빠르게 번졌고, 귀환 경로도 불확실해졌습니다. 유수프 구조단이 주민 대피 지원을 요청하고 있습니다.',message:'CH01 / 마지막 방송 · 예상 밖 내전 격화'};
     state.world.carryingAid=false;state.world.aidStaged=false;
@@ -593,6 +593,15 @@
       ?[{id:'maraConversation',x:m.x,z:m.z,kind:'objective',
         label:'마라와 현장에서 직접 대화'}]:[];
   }
+  // This is a nearby, *optional* civic action only after the crisis. It does
+  // not add a global objective or change either existing exit requirement.
+  function streetDrainMarkers(state) {
+    if(!StreetFlood||!state.combat?.cleared||state.drainCleared||
+       state.drainClearTicks>0||!['records','decision','exit'].includes(state.phase))return [];
+    const p=state.world.player,m=StreetFlood.DRAIN;
+    return Math.hypot(p.x-m.x,p.z-m.z)<5&&
+      !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles)?[m]:[];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
@@ -601,13 +610,13 @@
       POINTS.decision,
       ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
-      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...officeMarkers(state),
+      ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -696,7 +705,10 @@
     // Derive the same public street-water patch after a witnessed disruption.
     // v2 saves need no new checkpoint field: their validated phase persists.
     state.world.streetFlood=StreetFlood&&StreetFlood.visible(state.phase)
-      ?StreetFlood.PATCH:null;
+      ?(state.drainCleared?{...StreetFlood.PATCH,cleared:true}:
+        state.drainClearTicks>0?{...StreetFlood.PATCH,
+          repairProgress:state.drainClearTicks/StreetFlood.CLEAR_TICKS}:
+          StreetFlood.PATCH):null;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
     // Preserve the authored marker identity separately from the renderer's
@@ -938,7 +950,7 @@
     const speed=(input.crouch?(paced?1.6:3.1):sprint?9.5:6.1)*
       Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1)*
-      (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z):1);
+      (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z,state.drainCleared):1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     // A real actor blocks walking through their position. Historic saves
     // starting in an overlap can still move out of the footprint.
@@ -988,6 +1000,33 @@
     p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
+    // Repair takes three REAL seconds beside a reachable public drain.
+    // Walking away, carrying the large aid crate or leaving the active scene
+    // cancels progress. The player never repairs anything remotely or at pause.
+    if(StreetFlood&&state.drainClearTicks>0&&!state.drainCleared){
+      const m=StreetFlood.DRAIN;
+      const near=Math.hypot(p.x-m.x,p.z-m.z)<=m.radius&&
+        !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles);
+      if(!near||state.world.carryingAid||
+         !['records','decision','exit'].includes(state.phase)){
+        state.drainClearTicks=0;
+      }else{
+        state.drainClearTicks=Math.min(StreetFlood.CLEAR_TICKS,
+          state.drainClearTicks+Math.max(1,Math.round(t*60)));
+        if(state.drainClearTicks===StreetFlood.CLEAR_TICKS){
+          state.drainClearTicks=0;state.drainCleared=true;
+          state.subtitle='현지 주민: 막혔던 배수구가 정리됐어요. 물이 모두 마른 것은 아니지만 이제 바닥이 덜 미끄럽겠네요.';
+          state.message='공공 보행로 배수구 정리 완료 · 젖은 노면은 남아 있음';
+          syncMarkers(state);
+        }
+      }
+    }
+    // The renderer reads the same 60Hz progress as gameplay, never a
+    // cosmetic independent countdown. A cancelled repair clears its preview.
+    if(StreetFlood&&!state.drainCleared&&StreetFlood.visible(state.phase))
+      state.world.streetFlood=state.drainClearTicks>0
+        ?{...StreetFlood.PATCH,repairProgress:state.drainClearTicks/StreetFlood.CLEAR_TICKS}
+        :StreetFlood.PATCH;
     if(Civic&&state.civicCrossing){
       state.civicCrossing=Civic.step(state.civicCrossing,{
         disruption:state.phase!=='terminal',player:p,
@@ -1628,6 +1667,15 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='streetDrain'&&!state.drainCleared&&
+       state.drainClearTicks===0&&StreetFlood){
+      if(state.world.carryingAid)return {ok:false,reason:'hands_occupied'};
+      state.drainClearTicks=1;
+      state.subtitle='이수혁 대위: 주민이 지목한 배수구의 낙엽과 가벼운 잔해를 치우겠습니다. 잠시 이 자리에서 정리하겠습니다.';
+      state.message='공공 보행로 배수구 정리 중 · 3초간 가까이 머무르세요';
+      syncMarkers(state);
+      return {ok:true,event:'street_drain_started',phase:state.phase};
+    }
     if(marker.id==='civicCrossing'&&Civic&&state.civicCrossing?.disrupted&&
        !state.civicCrossing.assisted){
       state.civicCrossing=Civic.step(state.civicCrossing,{
@@ -2352,6 +2400,7 @@
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
         ...(hasOwn(state.transportVan,'pauseUntil')?{pauseUntil:state.transportVan.pauseUntil}:{})}:null,
       aidPickedUp:state.aidPickedUp,aidDelivered:state.aidDelivered,aidStaged:state.aidStaged,
+      drainCleared:state.drainCleared,drainClearTicks:state.drainClearTicks,
       workerInterviewed:state.workerInterviewed,
       worker:state.worker?{x:state.worker.x,z:state.worker.z,direction:state.worker.direction}:null,
       civilianWalker:state.civilianWalker?{x:state.civilianWalker.x,z:state.civilianWalker.z,arrived:state.civilianWalker.arrived}:null,
@@ -2378,8 +2427,8 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+35||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing').includes(k))||
+      Object.keys(data).length>expectedKeys.length+37||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','drainCleared','drainClearTicks','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing').includes(k))||
       (hasOwn(data,'awningFallen')&&
         (typeof data.awningFallen!=='boolean'||
          (data.awningFallen&&data.phase==='terminal')||
@@ -2484,6 +2533,15 @@
        (hasOwn(data,'passageWarningHeard')&&
          (typeof data.passageWarningHeard!=='boolean'||
            (data.passageWarningHeard&&!['exit','complete'].includes(data.phase))))||
+       (hasOwn(data,'drainCleared')!==hasOwn(data,'drainClearTicks'))||
+       (hasOwn(data,'drainCleared')&&(
+         typeof data.drainCleared!=='boolean'||
+         !Number.isSafeInteger(data.drainClearTicks)||
+         data.drainClearTicks<0||data.drainClearTicks>=(StreetFlood?.CLEAR_TICKS||180)||
+         (data.drainCleared&&data.drainClearTicks!==0)||
+         ((data.drainCleared||data.drainClearTicks>0)&&
+           !['records','decision','exit','complete'].includes(data.phase))||
+         (data.drainClearTicks>0&&data.phase==='complete'))) ||
        (hasOwn(data,'waterSurveyed')&&
          (typeof data.waterSurveyed!=='boolean'||
           (data.waterSurveyed&&(data.civicVisited!==true||
@@ -2748,6 +2806,8 @@
     state.aidPickedUp=hasOwn(data,'aidPickedUp')?data.aidPickedUp:false;
     state.aidDelivered=hasOwn(data,'aidDelivered')?data.aidDelivered:false;
     state.aidStaged=hasOwn(data,'aidStaged')?data.aidStaged:false;
+    state.drainCleared=hasOwn(data,'drainCleared')?data.drainCleared:false;
+    state.drainClearTicks=hasOwn(data,'drainClearTicks')?data.drainClearTicks:0;
     state.worker=hasOwn(data,'worker')?(data.worker===null?null:{...data.worker}):null;
     state.workerInterviewed=hasOwn(data,'workerInterviewed')?data.workerInterviewed:false;
     state.civilianWalker=hasOwn(data,'civilianWalker')?{...data.civilianWalker}:newCivilianWalker();
