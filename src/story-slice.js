@@ -1003,7 +1003,7 @@
     // Repair takes three REAL seconds beside a reachable public drain.
     // Walking away, carrying the large aid crate or leaving the active scene
     // cancels progress. The player never repairs anything remotely or at pause.
-    if(state.drainClearTicks>0&&!state.drainCleared){
+    if(StreetFlood&&state.drainClearTicks>0&&!state.drainCleared){
       const m=StreetFlood.DRAIN;
       const near=Math.hypot(p.x-m.x,p.z-m.z)<=m.radius&&
         !Sim.lineBlocked(p.x,p.z,m.x,m.z,state.world.obstacles);
@@ -2537,7 +2537,7 @@
        (hasOwn(data,'drainCleared')&&(
          typeof data.drainCleared!=='boolean'||
          !Number.isSafeInteger(data.drainClearTicks)||
-         data.drainClearTicks<0||data.drainClearTicks>=StreetFlood.CLEAR_TICKS||
+         data.drainClearTicks<0||data.drainClearTicks>=(StreetFlood?.CLEAR_TICKS||180)||
          (data.drainCleared&&data.drainClearTicks!==0)||
          ((data.drainCleared||data.drainClearTicks>0)&&
            !['records','decision','exit','complete'].includes(data.phase))||
