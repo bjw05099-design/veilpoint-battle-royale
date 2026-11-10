@@ -20,7 +20,16 @@ internal static class OfflinePayloadVerifier
         @"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.[A-Za-z0-9]+$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    public static void Verify(string gameFolder)
+    public static void Verify(string gameFolder) =>
+        VerifyInternal(gameFolder, storyOnlyPackage: false);
+
+    // Only the story-specific ZIP closure is accepted. A corrupted mixed
+    // package cannot be silently relabeled because every manifest entry and
+    // required-mode entry is still independently checked.
+    public static void VerifyStoryOnly(string gameFolder) =>
+        VerifyInternal(gameFolder, storyOnlyPackage: true);
+
+    private static void VerifyInternal(string gameFolder, bool storyOnlyPackage)
     {
         var root = Path.GetFullPath(gameFolder);
         if (!Directory.Exists(root))
@@ -73,13 +82,32 @@ internal static class OfflinePayloadVerifier
                 throw new InvalidDataException("Offline asset checksum mismatch: " + relative);
         }
 
-        foreach (var required in new[] {
-            "index.html", "story.html", "terrain.html", "src/app.js",
-            "src/story-app.js", "src/story-slice.js",
-            "src/aden-city-explorer.js", "QUICK_START.txt"
-        })
+        var requiredFiles = storyOnlyPackage
+            ? new[] { "index.html", "story.html", "src/story-app.js",
+                      "src/story-slice.js", "QUICK_START.txt" }
+            : new[] { "index.html", "story.html", "terrain.html", "src/app.js",
+                      "src/story-app.js", "src/story-slice.js",
+                      "src/aden-city-explorer.js", "QUICK_START.txt" };
+        foreach (var required in requiredFiles)
             if (!seen.Contains(required))
                 throw new InvalidDataException("Required offline asset omitted: " + required);
+        if (storyOnlyPackage)
+        {
+            foreach (var forbidden in new[] {
+                "src/app.js", "src/br96-client.js", "src/br96-squad-panel.js",
+                "terrain.html", "br96.html", "team.html"
+            })
+                if (seen.Contains(forbidden))
+                    throw new InvalidDataException("Non-story entry in story-only package: " + forbidden);
+            // The source packager creates a distinct story landing page,
+            // never a second browser shortcut to the excluded battle royale.
+            if (!File.ReadAllText(Path.Combine(root, "index.html"), Encoding.UTF8)
+                   .Contains("Story CH01 Preview", StringComparison.Ordinal))
+                throw new InvalidDataException("Invalid story-only landing page.");
+            if (!File.ReadAllText(Path.Combine(root, "NOTICE.txt"), Encoding.UTF8)
+                   .Contains("story-only browser preview", StringComparison.Ordinal))
+                throw new InvalidDataException("Story-only release notice missing.");
+        }
 
         if (!File.Exists(Path.Combine(root, "NOTICE.txt")))
             throw new InvalidDataException("Offline release limitation notice missing.");
