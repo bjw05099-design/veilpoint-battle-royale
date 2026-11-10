@@ -30,7 +30,12 @@
       world.obstacles.every(o=>o&&typeof o==='object'&&!Array.isArray(o)&&
         ['x','z','w','d'].every(key=>Number.isFinite(o[key]))&&o.w>0&&o.d>0)&&
       world.bots.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&
-        ['x','z','health'].every(key=>Number.isFinite(b[key])));
+        ['x','z','health'].every(key=>Number.isFinite(b[key])))&&
+      // Corrupt negative dimensions and duplicate actor references are not
+      // repaired here: the decoder owns schema validation. The recovery
+      // boundary rejects a non-playable player before a 60Hz tick begins.
+      player.health>=0&&player.stamina>=0&&player.charges>=0&&
+      world.bots.every(b=>b.health>=0);
   }
   function retryBackup(backup,restorePair){
     if(backup==null)return null;
