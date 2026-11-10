@@ -127,6 +127,22 @@
   }
   return Object.freeze(output);
  }
+ // Conservative view-cone broadphase. A public AABB is bounded by its
+ // enclosing circle; only genuinely outside-cone boxes are excluded from
+ // CPU wall-ray tests. Unlike distance-only culling, this cannot erase a
+ // nearby facade whose edge (rather than its center) crosses the screen.
+ // No hidden actor or private client location is consulted.
+ function visibleRaySolids(subject,yaw,solids){
+  const angle=wrap(yaw),half=FOV/2+FOV/COLUMNS;
+  return solids.filter(box=>{
+   const dx=box.x-subject.x,dz=box.z-subject.z;
+   const distance=Math.hypot(dx,dz),radius=Math.hypot(box.w,box.d)/2;
+   if(distance<=radius+.05)return true;
+   const center=wrap(Math.atan2(dx,-dz)-angle);
+   return Math.abs(center)<=half+
+     Math.asin(Math.min(1,(radius+.05)/distance));
+  });
+ }
  function frame({subject,yaw=0,pitch=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
   if(!subject||![subject.x,subject.z].every(Number.isFinite))
@@ -143,13 +159,16 @@
   // never by the once-per-round immutable public geometry cache.
   if(handcart&&[handcart.x,handcart.z,handcart.w,handcart.d].every(Number.isFinite)&&
      handcart.w>0&&handcart.d>0)solids.push({...handcart,type:'dock-handcart'});
+  // Filter public WORLD geometry, never the authenticated people list.
+  // The 210-ray reference remains exactly the same at every visible hit.
+  const rayCandidates=visibleRaySolids(subject,angle,solids);
   // Fixed equal-angle ray columns: depth and sprite masking are read-only.
   const rays=Array.from({length:COLUMNS},(_,index)=>{
    const alpha=((index+.5)/COLUMNS-.5)*FOV;
    const heading=angle+alpha;
    const direction={x:Math.sin(heading),z:-Math.cos(heading)};
    let best=Infinity,object=null;
-   for(const solid of solids){
+   for(const solid of rayCandidates){
     const d=rayBox(subject,direction,solid);
     if(d<best){best=d;object=solid;}
    }
@@ -187,6 +206,7 @@
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
     angle,pitch:clampPitch(pitch),heading:viewHeading(angle),columns:COLUMNS,maxDistance,
+    rayCandidateCount:rayCandidates.length,
     eyeHeight:subject.benchResting===true?EYE_SEATED:
       subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
@@ -285,5 +305,5 @@
   return model;
  }
  return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,
-  civicGroundPolygons,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+  civicGroundPolygons,visibleRaySolids,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
 });
