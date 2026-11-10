@@ -30,16 +30,24 @@ test('3 genuinely distinct original civic public interiors expose collision-awar
   assert.equal(scene.coordinateSystem,'local-metre-unreferenced');
   assert.equal(scene.sourceR16Sha256,quarter.sourceR16Sha256);
   assert.equal(scene.interiors.length,3);
-  assert.equal(scene.parts.length,54);
-  assert.equal(new Set(scene.parts.map(p=>p.id)).size,54);
+  assert.equal(scene.parts.length,60);
+  assert.equal(new Set(scene.parts.map(p=>p.id)).size,60);
   assert.equal(new Set(scene.interiors.map(p=>p.kind)).size,3);
   for(const building of quarter.buildings){
    const parts=scene.parts.filter(p=>p.owner===building.id);
-   assert.equal(parts.length,18);
+   assert.equal(parts.length,20);
    assert.equal(scene.interiors.find(p=>p.id===building.id).walkableCentreAisleMetres,3.1);
-   assert.ok(parts.some(p=>p.role==='west-alcove-divider'&&p.solid));
-   assert.ok(parts.some(p=>p.role==='east-alcove-divider'&&p.solid));
+   assert.ok(parts.some(p=>p.role==='west-alcove-inner-divider'&&p.solid));
+   assert.ok(parts.some(p=>p.role==='east-alcove-outer-divider'&&p.solid));
    assert.ok(parts.some(p=>p.role.startsWith('ceiling-light')&&!p.solid));
+   for(const side of ['west','east']){
+    const pair=parts.filter(p=>p.role.startsWith(side+'-alcove-')&&p.solid);
+    assert.equal(pair.length,2,'both alcoves are divided by two separate physical walls');
+    const left=pair[0],right=pair[1];
+    const [a,b]=[left,right].sort((x,y)=>x.x-y.x);
+    const opening=b.x-b.w/2-(a.x+a.w/2);
+    assert.ok(opening>=1.9-1e-7,'real walkable side room entrance remains open');
+   }
    for(const part of parts){
     assert.equal(intersectsWalkAisle(part,building),false,
      'no furnished shelf, partition or table can block walk-in route: '+part.id);
@@ -54,12 +62,12 @@ test('actual original 505x505 R16 terrain pack must verify before writing public
  withSyntheticTiles(dir=>{
   const one=Prep.build(dir),two=Prep.build(dir);
   assert.deepEqual(one,two);
-  assert.equal(one.parts.length,54);
+  assert.equal(one.parts.length,60);
   assert.equal(one.terrainSourceTile,'aden:0:0');
   assert.equal(one.actualAdenCoverageVerified,false);
   assert.match(one.sourceR16Sha256,/^[a-f0-9]{64}$/);
   const result=Prep.write(dir);
-  assert.equal(result.interiors,3);assert.equal(result.parts,54);
+  assert.equal(result.interiors,3);assert.equal(result.parts,60);
   const written=JSON.parse(fs.readFileSync(result.filename,'utf8'));
   assert.deepEqual(written,one);
   assert.throws(()=>Prep.write(dir),/already authored/);
