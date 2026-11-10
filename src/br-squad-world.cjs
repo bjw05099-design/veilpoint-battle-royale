@@ -107,7 +107,7 @@ class BrSquadWorld {
         if(!point)throw new Error('no_room_for_96_real_bodies');
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
-          direction:{x:0,z:0},facing:0,moving:false,seq:-1,lastMoveTick:0,eligible:true,
+          direction:{x:0,z:0},facing:0,moving:false,seq:-1,stanceSeq:-1,lastMoveTick:0,eligible:true,
           // Monotonic server clock only; no client-reported survival time.
           eliminatedAtTick:null,eliminationReason:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
@@ -178,15 +178,25 @@ class BrSquadWorld {
     if(this.phase!=='moving'||!actor.eligible)
       return {ok:false,reason:'out_of_round'};
     if(!command||typeof command!=='object'||Array.isArray(command)||
-       !['sprint','crouch,sprint'].includes(Object.keys(command).sort().join(','))||
+       !['sprint','crouch,sprint','seq,sprint','crouch,seq,sprint'].includes(Object.keys(command).sort().join(','))||
        typeof command.sprint!=='boolean'||
-       (command.crouch!==undefined&&typeof command.crouch!=='boolean'))
+       (command.crouch!==undefined&&typeof command.crouch!=='boolean')||
+       (command.seq!==undefined&&(!Number.isSafeInteger(command.seq)||
+        command.seq<0||command.seq>2147483647)))
       throw new RangeError('invalid_pace');
+    // A delayed HTTP request from an earlier input frame must not restore
+    // sprint/crouch AFTER a newer neutral input. Legacy clients without a
+    // sequence are accepted only until a sequenced PC command is observed.
+    if(command.seq===undefined&&actor.stanceSeq>=0)
+      return {ok:false,reason:'stance_sequence_required'};
+    if(command.seq!==undefined&&command.seq<=actor.stanceSeq)
+      return {ok:false,reason:'stale_stance'};
     actor.sprintHeld=command.sprint;
     actor.crouchHeld=command.crouch===true;
+    if(command.seq!==undefined)actor.stanceSeq=command.seq;
     actor.lastPresenceTick=this.tick;
     return {ok:true,sprintHeld:actor.sprintHeld,crouched:actor.crouchHeld,
-      stamina:Math.round(actor.stamina*100)/100};
+      stanceSeq:actor.stanceSeq,stamina:Math.round(actor.stamina*100)/100};
   }
   // No client-supplied power, timer, or rival discovery.
   headlamp(token){
@@ -859,7 +869,7 @@ class BrSquadWorld {
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
-        x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        x:me.x,z:me.z,seq:me.seq,stanceSeq:me.stanceSeq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
         headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
         waving:me.eligible&&me.waveUntilTick>this.tick,
