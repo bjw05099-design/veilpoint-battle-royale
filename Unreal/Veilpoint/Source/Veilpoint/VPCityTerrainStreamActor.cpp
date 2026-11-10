@@ -340,7 +340,8 @@ void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
     bool bRejectedThisTick=false;
     for(const FIntPoint& Candidate : Candidates)
     {
-        if(TileMeshes.Num()>=TileBudget||BuiltThisTick>=BuildBudget)break;
+        if(TileMeshes.Num()>=TileBudget)break;
+        if(BuiltThisTick>=BuildBudget)break;
         if(!Desired.Contains(Candidate)||TileMeshes.Contains(Candidate)||
             RejectedTiles.Contains(Candidate))continue;
         if(CreateTileMesh(Candidate))++BuiltThisTick;
