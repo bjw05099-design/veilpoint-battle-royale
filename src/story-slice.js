@@ -210,6 +210,24 @@
     world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }
+  // The fictional civilian minibus and its on-foot driver must yield to ALL
+  // existing living civilians and companions, not only the player/worker.
+  // Bodies are read from this 60Hz world: no remote NPC detection, new quest,
+  // extra F action, hidden route marker or client-supplied collision override.
+  function localPublicPedestrians(state){
+    return [state.world.player,state.worker,state.mara,state.kimJiyoon,
+      state.world.liaison,state.civilianWalker,
+      state.civicCrossing?.civilian,
+      state.choice==='evacuation'&&state.musterConfirmed?state.guide:null]
+      .filter(a=>a&&Number.isFinite(a.x)&&Number.isFinite(a.z));
+  }
+  function civilianVehiclePathClear(state,swept,van){
+    return !state.world.obstacles.filter(o=>o!==van).some(o=>
+        Math.abs(o.x-swept.x)*2<o.w+swept.w&&
+        Math.abs(o.z-swept.z)*2<o.d+swept.d)&&
+      localPublicPedestrians(state).every(a=>
+        !Sim.blocked(a.x,a.z,.9,[swept]));
+  }
   function syncCivilianShuttle(state){
     const v=state.transportVan,obstacles=state.world.obstacles;
     const i=obstacles.findIndex(o=>o.routeId==='story-civil-transport');
@@ -1197,8 +1215,7 @@
           v.driverZ-CIVILIAN_SHUTTLE.driverWalkSpeed*t);
         const swept={x:CIVILIAN_SHUTTLE.x,z:(next+v.driverZ)/2,
           w:1.10,d:Math.abs(next-v.driverZ)+1.10};
-        const bystanders=[p,state.worker,state.civilianWalker,
-          state.choice==='evacuation'&&state.musterConfirmed?state.guide:null].filter(Boolean);
+        const bystanders=localPublicPedestrians(state);
         // Face-to-face interaction starts with the player next to this
         // human. They can walk AWAY from that original overlap; only newly
         // entered pedestrian footprints block future swept travel.
@@ -1215,10 +1232,10 @@
         const next=Math.min(CIVILIAN_SHUTTLE.endZ,v.z+CIVILIAN_SHUTTLE.speed*t);
         const sweep={x:CIVILIAN_SHUTTLE.x,z:(next+v.z)/2,
           w:CIVILIAN_SHUTTLE.w,d:CIVILIAN_SHUTTLE.d+next-v.z};
-        const peers=[p,state.worker,state.choice==='evacuation'&&state.musterConfirmed?state.guide:null].filter(Boolean);
-        const clear=!state.world.obstacles.filter(o=>o!==body).some(o=>
-          Math.abs(o.x-sweep.x)*2<o.w+sweep.w&&Math.abs(o.z-sweep.z)*2<o.d+sweep.d)&&
-          peers.every(a=>!Sim.blocked(a.x,a.z,.9,[sweep]));
+        const clear=civilianVehiclePathClear(state,sweep,body);
+        // Unlike a remote player's explicit 5s hold, spontaneous yielding to
+        // an observed living pedestrian is purely physical and ends when that
+        // person walks out of the swept body footprint. No global timer.
         if(clear&&!(v.pauseUntil>state.world.elapsed))v.z=next;
         if(v.z>=CIVILIAN_SHUTTLE.endZ-1e-7){
           v.z=CIVILIAN_SHUTTLE.endZ;v.arrived=true;state.transportContact=2;
@@ -1226,6 +1243,9 @@
           state.message='현지 운송 차량 실제 도착 · 수송 및 철수 완료를 의미하지 않음';
         }
         syncCivilianShuttle(state);
+        if(state.world.transportVan)
+          state.world.transportVan.yielding=
+            !clear||(v.pauseUntil>state.world.elapsed);
       }
     }
     // A brief contextual announcement is triggered by the captain's actual
