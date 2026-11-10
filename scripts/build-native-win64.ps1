@@ -57,6 +57,30 @@ elseif ($map -match '^/Game/([A-Za-z0-9_/]+)$') {
     if (!(Test-Path -LiteralPath $mapFile -PathType Leaf)) {
         Fail "Configured game map is missing: $mapFile"
     }
+    # CH01's editor-generated map must carry its source-bound, byte-exact
+    # authoring receipt. A renamed/corrupted .umap must never pass cook gate.
+    if ($map -eq '/Game/Maps/CH01_Coast') {
+        $proofPath=Join-Path $repo 'Unreal/Veilpoint/Saved/CH01_MAP_READY.json'
+        $layout=Join-Path $repo 'scripts/ch01-original-public-court.json'
+        if (!(Test-Path -LiteralPath $proofPath -PathType Leaf) -or
+            !(Test-Path -LiteralPath $layout -PathType Leaf)) {
+            Fail 'CH01 map is missing its UE5 editor authoring receipt and original geometry.'
+        }
+        $proof=Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
+        $mapDigest=(Get-FileHash -LiteralPath $mapFile -Algorithm SHA256).Hash.ToLowerInvariant()
+        $layoutDigest=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
+            $proof.mapPackage -ne $map -or
+            $proof.mapSha256 -cne $mapDigest -or
+            $proof.sourceLayoutSha256 -cne $layoutDigest -or
+            [int64]$proof.mapBytes -ne (Get-Item -LiteralPath $mapFile).Length -or
+            [int]$proof.authoredCivilianActors -ne 11 -or
+            $proof.authoringMode -ne '/Script/Veilpoint.VPStoryGameMode' -or
+            $proof.actualAdenCoverageVerified -ne $false -or
+            $proof.nativePIEVerified -ne $false) {
+            Fail 'CH01 authored map receipt mismatch. Refusing cook/package of unverified level.'
+        }
+    }
 }
 else { Fail "GameDefaultMap is not a supported authored /Game/ map: $map" }
 
