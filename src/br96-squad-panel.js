@@ -46,9 +46,13 @@
   let pending=null;
   const same=(a,b)=>!!a&&!!b&&a.token===b.token&&a.round===b.round;
   function begin(token,round,draft){
-   if(pending||typeof token!=='string'||!token||
+   if(typeof token!=='string'||!token||
       !Number.isSafeInteger(round)||round<1||
       typeof draft!=='string'||!draft.trim())return false;
+   // An in-flight request belongs to its original authenticated session.
+   // A new session/round must not inherit a permanently locked composer if
+   // that request never settles (e.g. offline host or transport loss).
+   if(pending&&same(pending,{token,round}))return false;
    pending=Object.freeze({token,round,draft});return true;
   }
   function shouldClear(token,round,editValue){
