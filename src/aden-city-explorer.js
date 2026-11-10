@@ -243,7 +243,7 @@
  }
  // Focus a newly imported local DEM on an ACTUALLY LOADED tile, not on
  // the fictional (0,0) sample. Sparse data can leave its bounding-box center
- // empty; choose the nearest real tile instead. This runs only at import time.
+ // empty; choose the nearest real tile when local files are loaded.
  function importedTerrainFocus(registry){
   if(!(registry instanceof Map)||registry.size===0)
    throw new TypeError('No imported terrain tiles to focus');
