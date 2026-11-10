@@ -11,13 +11,64 @@ This is an **executable PowerShell build/preflight workflow**, not a supplied Wi
 
 ## Author the first native CH01 map in Unreal Editor (not yet executed here)
 
-The repository now includes `scripts/ue5-author-ch01-map.py`. This is an **Editor-only asset generator**, not a checked-in `.umap` or a proof of an Unreal 5.8 build. After installing the matching engine and compiling the C++ native module, open the project in the **Unreal Editor** and use **Tools → Execute Python Script** to run the file. The project explicitly enables `PythonScriptPlugin` for Editor only. Epic documents `LevelEditorSubsystem.new_level`, actor spawning and `save_current_level` in its Editor API:
+The repository now includes `scripts/ue5-author-ch01-map.py` and a Windows native Editor execution gate. The Python file remains an **Editor-only asset generator**, not a checked-in `.umap` or a proof of an Unreal 5.8 build. After installing the matching engine and compiling the C++ native module, open the project in the **Unreal Editor** and use **Tools → Execute Python Script** to run the file. The project explicitly enables `PythonScriptPlugin` for Editor only. Epic documents `LevelEditorSubsystem.new_level`, actor spawning and `save_current_level` in its Editor API:
 https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/LevelEditorSubsystem
 https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Editor/UnrealEd/UEditorActorSubsystem/SpawnActorFromClass
 
 The script refuses to overwrite an existing `Content/Maps/CH01_Coast.umap`, requires the compiled `VPStoryGameMode`, creates a non-partitioned `/Game/Maps/CH01_Coast` map, assigns the CH01 native mode to its world settings, adds one real `PlayerStart` and simple lighting, then checks that the new `.umap` was actually saved. The existing C++ mode spawns the deterministic coastal blockout and seven physical mission markers during native gameplay. **No final textures, civilians, narrative sequences, measured RTX 3070 frame rate or UE5 launch are implied.**
 
-Once `Unreal/Veilpoint/Content/Maps/CH01_Coast.umap` has been created and reviewed in the editor, set `GameDefaultMap=/Game/Maps/CH01_Coast` in `Unreal/Veilpoint/Config/DefaultEngine.ini` for the standalone CH01 test. Do not change BR's default map in source until both modes have separate launch/menu paths. Check the saved map, physical interactions and CH01 HUD in PIE, and only then run the native Win64 preflight. The script deliberately leaves the current source default map unchanged to prevent a missing asset from breaking the browser demo or native build gate. If an Editor action fails after creating an empty map, examine/delete the incomplete asset manually before rerunning; the script never overwrites it automatically.
+Once `Unreal/Veilpoint/Content/Maps/CH01_Coast.umap` has been created and reviewed in the editor, the new Windows preparation gate can set `GameDefaultMap=/Game/Maps/CH01_Coast` in `Unreal/Veilpoint/Config/DefaultEngine.ini` **only after** verifying the source-bound receipt. Do not change BR's default map in source until both modes have separate launch/menu paths. Check the saved map, physical interactions and CH01 HUD in PIE, and only then run the native Win64 preflight. The script deliberately leaves the current source default map unchanged to prevent a missing asset from breaking the browser demo or native build gate. If an Editor action fails after creating an empty map, examine/delete the incomplete asset manually before rerunning; the script never overwrites it automatically.
+
+## Automated editor compile + genuinely saved CH01 map gate (2026-11-10)
+
+A new Windows-only opt-in preparation path is available. Unlike a README
+instruction alone, it **actually invokes UnrealBuildTool for VeilpointEditor**
+and then Epic's documented `UnrealEditor-Cmd.exe -ExecutePythonScript` interface.
+Only an installed and matching UE5.8 toolchain can execute these operations.
+
+Run from PowerShell at the repository root on your own UE5.8/Visual Studio
+equipped Windows development machine:
+
+```powershell
+.\scripts\prepare-native-ch01-win64.ps1 -EngineRoot 'C:\Program Files\Epic Games\UE_5.8' -PreflightOnly
+.\scripts\prepare-native-ch01-win64.ps1 -EngineRoot 'C:\Program Files\Epic Games\UE_5.8'
+```
+
+The first command checks prerequisites **without building or altering files**.
+The second command runs the native C++ Editor build, then:
+1. Checks `scripts/ch01-original-public-court.json`, an original fictional
+   and non-georeferenced **11-piece public civic space** with a walkable aisle,
+   colliding supports and raised canopy; no real active-conflict facility maps.
+2. Calls `scripts/ue5-author-ch01-map.py` inside the installed Unreal Editor
+   to create a **real `Content/Maps/CH01_Coast.umap`**, with PlayerStart,
+   daylight, skylight, and 11 actual StaticMeshActors. The story GameMode
+   continues to spawn its existing nonduplicated mission runtime geometry.
+3. Writes `Saved/CH01_MAP_READY.json` only after checking the saved .umap
+   bytes and their SHA256. It records source layout hash, game mode, actor
+   count, and explicitly `nativePIEVerified: false` and
+   `actualAdenCoverageVerified: false`. A failed editor run, missing or
+   modified source layout, or mismatched receipt cannot change startup.
+4. Saves the old `Config/DefaultEngine.ini` to an ignored backup under
+   `Saved/`, then changes **only** the `GameDefaultMap` entry to
+   `GameDefaultMap=/Game/Maps/CH01_Coast`. The BR mode code remains in the
+   repository; the editor-authored level overrides its own default game mode.
+5. A later `scripts/build-native-win64.ps1` independently rechecks both
+   SHA256 values **before cook/package**. It refuses an unreceipted or
+   altered story map, even when a .umap filename is present.
+
+To attempt the full native Windows Development **package candidate** in the
+same operation, use `-PackageNative` instead of assuming Editor authoring
+equals a playable EXE. The build script still reports
+`PACKAGED_NOT_RUNTIME_TESTED` after UAT returns successfully.
+
+**Fail-closed and non-destructive:** Neither authoring script overwrites an
+existing CH01 map or silently deletes saved work. If Editor fails after
+creating a partial .umap, inspect it in the real Editor; the script refuses
+to overwrite the partial asset. No GUI run, collision/PIE gameplay check,
+RTX3070 performance, licensing certification, whole Aden map or finished
+12-hour story is asserted by source tests or this receipt. On a successful
+authoring machine, record the UBT log, editor log, .umap receipt, Win64 UAT
+log and actual playable launch separately.
 
 ## Local Windows checks
 
