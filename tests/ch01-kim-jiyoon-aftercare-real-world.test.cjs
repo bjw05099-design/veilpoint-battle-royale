@@ -69,10 +69,13 @@ test('CH01 v2 saved aftercare refuses forged progress and accepts historical sav
  assert.equal(old.kimAftercareReviewed,false);
  assert.equal(Story.serialize(Story.restore(Story.serialize(old))),Story.serialize(old));
  assert.throws(()=>Story.restore(JSON.stringify({...historic,
-   kimAftercareReviewed:true})),/Invalid story checkpoint/);
+   kimAftercareReviewed:true})),RangeError,
+   'unwitnessed true event must not restore as observed aftercare');
  assert.throws(()=>Story.restore(JSON.stringify({...historic,
-   kimAftercareReviewed:'true'})),/Invalid story checkpoint/);
+   kimAftercareReviewed:'true'})),RangeError,
+   'malformed saved flag must not bypass strict V2 checkpoint validation');
  const forged={...historic,workerInterviewed:true,kimJiyoon:null,
    kimAftercareReviewed:true};
- assert.throws(()=>Story.restore(JSON.stringify(forged)),/Invalid story checkpoint/);
+ assert.throws(()=>Story.restore(JSON.stringify(forged)),RangeError,
+   'a missing physical companion cannot have made the face-to-face report');
 });
