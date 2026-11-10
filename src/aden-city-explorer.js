@@ -364,7 +364,7 @@
   }
   function commitAppendDataset(value){
    const parsed=Tiles.importHeightDataset(value);
-   // Do not silently combine a source-declared local import with the 25
+   // Do not silently combine source-declared local DEM tiles with the 25
    // automatically generated fictional preview tiles.
    if(!activeDataset)return commitParsedDataset(parsed);
    const combined=Tiles.mergeHeightRegistries(registry,parsed.registry);
