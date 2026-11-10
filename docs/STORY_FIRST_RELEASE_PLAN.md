@@ -34,6 +34,19 @@ preferably map+story while bringing BR forward only where shared foundations ben
    guaranteed full 12-hour story launch or a simultaneous BR release.
    A Windows browser-host EXE is not a native Unreal packaged game.
 
+## Two independent Windows WebView2 candidate archives
+
+- Combined developer preview: `veilpoint-windows-demo-exe.zip` opens CH01
+  first and retains optional BR/terrain debug entrypoints.
+- BR-free story candidate: `veilpoint-story-windows-exe.zip` contains only
+  the certified `veilpoint-story-preview.zip` asset closure and a separately
+  validated Windows host. Double-clicking its EXE chooses story-only mode
+  automatically. Corrupt/missing assets fail its native PE preflight.
+- CI must verify both outputs at the exact PR head and upload independently
+  checksum-covered artifacts. The story-only archive does not bring public
+  matchmaking, an Unreal native game, a 12-hour campaign or real hardware
+  performance evidence into existence.
+
 ## Authoring and asset reuse
 
 - Story-first world content may be staged behind its own module, e.g.
