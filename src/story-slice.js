@@ -1148,7 +1148,15 @@
         const stepX=target.x-w.x,stepZ=target.z-w.z,
           steerDistance=Math.hypot(stepX,stepZ);
         if(steerDistance>1e-8){
-          const pace=Math.min(keepNear?followSpeed:1.8,steerDistance/t);
+          // The companion stands on the same shallow civilian street as the
+          // captain. His independent walking must respect that terrain too:
+          // otherwise an NPC glides at dry-ground pace through the flooded
+          // patch while the player is physically slowed. This reads the
+          // existing 60Hz drain state and adds no checkpoint or quest flag.
+          const footing=StreetFlood
+            ?StreetFlood.mobility(state.phase,w.x,w.z,state.drainCleared):1;
+          const pace=Math.min((keepNear?followSpeed:1.8)*footing,
+            steerDistance/t);
           Sim.moveEntity(w,stepX/steerDistance*pace,stepZ/steerDistance*pace,
             t,solids,.55);
         }
