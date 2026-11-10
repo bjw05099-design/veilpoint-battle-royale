@@ -13,7 +13,7 @@ function movementHarness(){
  const calls=[],context=vm.createContext({
   Date:{now:()=>context.now},now:1000,
   keys:new Set(),sprintIntent:false,lastSprint:null,lastCrouch:null,
-  seq:0,moveBusy:false,consecutiveErrors:0,
+  seq:0,stanceSeq:0,moveBusy:false,consecutiveErrors:0,
   active:()=>true,dir:{dx:0,dz:0},direction(){return context.dir;},
   request:async (url,body)=>{calls.push({url,body});return {ok:true};},
   message(){},
@@ -51,12 +51,12 @@ test('active directional changes remain 180ms-authoritative, key release sends e
  ctx.now=1640;ctx.sprintIntent=true;await movement();
  assert.equal(calls.at(-1).url,'/pace');
  assert.deepEqual(JSON.stringify(calls.at(-1).body),
-  JSON.stringify({sprint:true,crouch:false}));
+  JSON.stringify({sprint:true,crouch:false,seq:2}));
  assert.equal(calls.filter(c=>c.url==='/move').length,4,
   'a standstill stance change never moves an actor');
  ctx.now=5000;await movement();
  assert.equal(calls.at(-1).url,'/heartbeat');
- assert.equal(ctx.seq,4);
+ assert.equal(ctx.seq,4);\n assert.equal(ctx.stanceSeq,2);
 });
 test('after reconnect or round replay, the first frame resynchronizes movement once without stale input',async()=>{
  const {ctx,calls,movement}=movementHarness();
