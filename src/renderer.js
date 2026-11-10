@@ -7,6 +7,7 @@
 const V3=(x,y,z)=>[x,y,z];
 const Visibility=global.VeilpointVisibility;
 const PublicFootpaths=global.VeilpointPublicFootpaths;
+const HallLights=global.VeilpointHallLights;
 // Three fictional, human-scale civic ceilings enrich the SAME walkable
 // neighborhoods in BR and CH01. Roofs are ABOVE the walking capsule: they
 // never create collision blocks, require new saves or reproduce a real site.
@@ -244,7 +245,7 @@ precision highp float;
 in vec3 vNormal,vColor,vWorld;
 in float vDistance;
 uniform vec3 uSun,uFog;
-uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uCivicOn,uBeaconOn,uFlashOn,uFogDensity;
+uniform float uExposure,uTime,uEffects,uNight,uRelayOn,uCivicOn,uBeaconOn,uHallOn,uFlashOn,uFogDensity;
 uniform vec3 uFlashEye,uFlashDir;
 out vec4 outColor;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -276,6 +277,22 @@ if(uNight>.5&&uRelayOn>.5){
   float distanceToLamp=length(delta);
   float attenuation=1./(1.+.035*distanceToLamp*distanceToLamp);
   diffuse+=vColor*vec3(1.,.74,.43)*max(dot(N,normalize(delta)),0.)*2.*attenuation;
+ }
+}
+// Four wall-mounted lights illuminate only the physical civilian hall after
+// the player restores this particular local low-voltage circuit. The shader
+// has no shadow map: bound the contribution to the existing interior walls.
+if(uNight>.5&&uHallOn>.5){
+ vec3 hallLamps[4]=vec3[4](
+  vec3(20.34,2.76,30.5),vec3(20.34,2.76,38.4),
+  vec3(35.66,2.76,30.5),vec3(35.66,2.76,38.4));
+ for(int i=0;i<4;i++){
+  vec3 delta=hallLamps[i]-vWorld;
+  float d=length(delta);
+  float room=step(21.,vWorld.x)*step(vWorld.x,35.)*
+   step(26.,vWorld.z)*step(vWorld.z,42.);
+  diffuse+=vColor*vec3(1.,.84,.63)*max(dot(N,normalize(delta)),0.)*
+   (1.25/(1.+.16*d*d))*room;
  }
 }
 // A manually enabled, facade-mounted warning light has a small local pool
@@ -397,8 +414,8 @@ class SoftwareRenderer {
    polygon([proj(-12,.06,-17.4),proj(-12+2.3*f,.06,-17.4),
     proj(-12+2.3*f,.06,-17.15),proj(-12,.06,-17.15)],'#d6c28b');
   }
-  // Draw actual grate bars, rim, pavement edge and remaining debris from
-  // the SAME public CH01 drain model used in WebGL. Nothing here is a collider.
+  // This code was independently merged as PR #787. Preserve its visible
+  // metal grate and locally earned leaf clearing across this map/lighting rebase.
   for(const d of global.VeilpointStreetFlood?.details?.(wet)||[]){
    const y=d.y+d.h;
    polygon([proj(d.x-d.w/2,y,d.z-d.d/2),proj(d.x+d.w/2,y,d.z-d.d/2),
@@ -431,6 +448,15 @@ class SoftwareRenderer {
      proj(floor.x+hw,.09,floor.z-hd),
      proj(floor.x+hw,.09,floor.z+hd),
      proj(floor.x-hw,.09,floor.z+hd)],floor.color);
+  }
+ }
+ // Hall light pools share the saved physical circuit with WebGL and are
+ // painted on the real interior floor, not through surrounding facade walls.
+ if(HallLights?.level(state)>0){
+  for(const f of HallLights.FIXTURES){
+   const x=f.x<28?22.25:33.75,z=f.z,hw=1.15,hd=1.10;
+   polygon([proj(x-hw,.09,z-hd),proj(x+hw,.09,z-hd),
+    proj(x+hw,.09,z+hd),proj(x-hw,.09,z+hd)],'#766d54');
   }
  }
  // The software renderer shows the same two finite civic light pools as
@@ -486,6 +512,8 @@ class SoftwareRenderer {
  // collision world. No invisible replacement building is introduced.
  for(const part of storyStreetFrontage(state))
   objects.push({...part,type:'story-shop-frontage'});
+ for(const part of HallLights?.visibleFixtures(state)||[])
+  objects.push({...part,h:.28,w:.12,d:.38,type:'story-hall-luminaire'});
  if(state.terrainRevision===1){
   for(const roof of SHARED_PUBLIC_CANOPIES)objects.push(roof);
   for(const roof of CRAFT_PUBLIC_CANOPIES)objects.push(roof);
@@ -527,6 +555,16 @@ class SoftwareRenderer {
   const bot=proj(x,0,z),top=proj(x,o.h,z);if(!bot||!top)continue;
   const width=Math.max(1,bot[1]-top[1]);ctx.strokeStyle='#28332b';ctx.lineWidth=Math.max(1,width*.028);ctx.beginPath();ctx.moveTo(bot[0],bot[1]);ctx.lineTo(top[0],top[1]+width*.48);ctx.stroke();
   ctx.fillStyle=d>55?'#385248':'#31583d';ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(top[0]-width*.22,top[1]+width*.6);ctx.lineTo(top[0]+width*.22,top[1]+width*.6);ctx.closePath();ctx.fill();continue;
+ }
+ if(o.type==='story-hall-luminaire'){
+  // Behind a solid wall, the indoor fitting is not a remote luminous marker.
+  const sim=global.VeilpointSim;
+  if(sim?.lineBlocked?.(p.x,p.z,x,z,state.obstacles))continue;
+  const y=o.y,half=o.d/2;
+  polygon([proj(x,y-.14,z-half),proj(x,y-.14,z+half),
+   proj(x,y+.14,z+half),proj(x,y+.14,z-half)],
+   o.lit?'#e2c991':'#5e615d');
+  continue;
  }
  if(o.type==='story-shop-frontage'){
   // Painted panel lies directly on the existing solid building facade.
@@ -682,7 +720,7 @@ class SoftwareRenderer {
  }
 }
 class Renderer {
- constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),civicOn:g.getUniformLocation(this.prog,'uCivicOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
+ constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),civicOn:g.getUniformLocation(this.prog,'uCivicOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),hallOn:g.getUniformLocation(this.prog,'uHallOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
  // Fully procedural ground: physically plausible earth palette, fine geometry.
  const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
@@ -1182,6 +1220,13 @@ class Renderer {
     m.box(center.x,3.81,center.z,16.4,.18,16.4,[.40,.39,.35]);
     m.box(center.x,.003,center.z,15.1,.006,15.1,[.43,.41,.36]);
     m.box(center.x,3.33,26,8.0,.24,.18,[.72,.60,.48]);
+    // Fittings are visual-only. All five original collision walls and the
+    // unobstructed south entrance remain exactly the same as before.
+    for(const f of HallLights?.FIXTURES||[]){
+     m.box(f.x,f.y,f.z,.15,.32,.41,[.41,.42,.38]);
+     m.box(f.x+(f.x<28?.07:-.07),f.y,f.z,.045,.23,.30,
+       [.72,.65,.50]);
+    }
    }
   for(const o of this.sceneObstacles){
    if(o.type==='story-public-hall-wall'){
@@ -1314,8 +1359,7 @@ class Renderer {
    const progress=Math.max(0,Math.min(1,wet.repairProgress));
    mesh.box(-12+1.15*progress,.062,-17.3,2.3*progress,.02,.28,[.79,.66,.37]);
   }
-  // Only locally authored map props, not extra 60Hz solids. Fixing the
-  // drain actually removes the visible leaves without creating new assets.
+  // Preserve PR #787's physical drain housing and remaining debris renderer.
   for(const d of global.VeilpointStreetFlood?.details?.(wet)||[])
    mesh.box(d.x,d.y,d.z,d.w,d.h,d.d,d.rgb);
  }
@@ -1558,6 +1602,7 @@ class Renderer {
  g.uniform1f(l.relayOn,night&&state.relayRestored?1:0);
  g.uniform1f(l.civicOn,civicStreetLampLevel(state));
  g.uniform1f(l.beaconOn,night?beaconLightLevel(state):0);
+ g.uniform1f(l.hallOn,night?(HallLights?.level(state)||0):0);
  g.uniform1f(l.flashOn,(night&&state.flashlightOn&&state.flashlightTicks>0)||
     (dusk&&state.brHeadlamp?.on&&state.brHeadlamp.ticks>0)?1:0);
  g.uniform3f(l.flashEye,eye[0],eye[1],eye[2]);
@@ -1579,6 +1624,7 @@ class Renderer {
  this.buildDynamic(state);this.dynamic.draw(g,l);if(timerStarted)this.gpuTimer.end();
  }
 }
+global.VeilpointHallLightLevel=state=>HallLights?.level(state)||0;
 global.VeilpointCivicStreetLamp=civicStreetLampLevel;
 global.VeilpointSharedPublicCanopies=SHARED_PUBLIC_CANOPIES;
 global.VeilpointStaticChunker=Object.freeze({partitionStaticTriangles});
