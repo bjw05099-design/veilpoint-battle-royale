@@ -79,8 +79,12 @@ test('unloaded or stale terrain yields no fake route and the planner fails close
  const onlyOne=new Set([Tiles.tileFor(0,0).key]);
  const missing=Walk.createWorld(registry,cache,onlyOne,
   [...Explorer.CIVIC_SHELLS,...Districts.PLAN.buildings]);
- const start=Walk.initial(missing,0,0);
+ // A 0.45m pedestrian straddling the 0,0 tile corner correctly has
+ // no fully loaded footprint. The fixture must begin *inside* that tile.
+ const start=Walk.initial(missing,60,60);
  assert.equal(Route.plan(missing,start).status,'no-nearby-public-room');
+ assert.equal(Walk.probe(missing,0,0),null,
+  'unknown adjacent tile at the origin remains non-walkable');
  const real=world(),room=Districts.PUBLIC_INTERIORS[0];
  const solid=Districts.PLAN.buildings.find(b=>!b.publicInterior);
  assert.equal(Route.plan(real,{x:solid.x,z:solid.z}).status,'invalid-start',
