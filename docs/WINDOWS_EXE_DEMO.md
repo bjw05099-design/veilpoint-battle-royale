@@ -76,10 +76,13 @@ extract the release ZIP; open `VEILPOINT.Demo.exe` from its extracted folder.
   top-level navigation and new-window requests to their pages, including
   in-page links.
 - **This is not a separately compiled UE5 game or a BR-free distribution
-  archive.** The same combined WebView2 payload and separate save origins
-  remain in use. Only the independent `veilpoint-story-preview.zip` artifact
-  is packaged without the BR browser entry; a native story-only Windows game
-  still requires a separate build and manual launch tests.
+  archive.** The same combined WebView2 asset payload remains bundled.
+  The mixed host retains its existing \`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2\`
+  profile; \`--story-only\` uses a distinct \`...\DemoHost\StoryOnly\`
+  profile to avoid importing development BR session state into the
+  story-only launch. Checkpoints do not auto-migrate between the profiles.
+  Only \`veilpoint-story-preview.zip\` is packaged without the BR entrypoint;
+  a native story-only Windows game still needs a separate build and playtest.
 
 ## Offline runtime and saves
 
@@ -90,11 +93,13 @@ external HTTP(S) subresource requests are blocked, new windows are blocked,
 and developer tools are disabled. These measures reduce accidental remote
 resource loads; they are not a security audit or anti-cheat solution.
 
-WebView2 stores localStorage checkpoints under the user's
-`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2` profile. This is intentionally
-separate from `file://` Chrome/Edge browser checkpoints. Moving the release
-folder does not change the virtual origin, but clearing the profile deletes
-the wrapper's stored progress. BR and CH01 keep their own existing keys.
+The mixed WebView2 host keeps checkpoints in
+\`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2\`. The optional \`--story-only\`
+mode uses \`%LOCALAPPDATA%\VEILPOINT\DemoHost\StoryOnly\` instead.
+Both are separate from \`file://\` browser checkpoints. Moving a release
+folder does not change the virtual origin, but clearing its corresponding
+profile deletes that host's stored progress; story and BR keys remain
+independent in the mixed profile.
 
 ## Honest release gates
 
