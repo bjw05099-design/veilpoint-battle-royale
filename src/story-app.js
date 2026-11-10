@@ -1572,11 +1572,11 @@
     // Exactly the verified fictional street collision segments; no
     // arrow through buildings, hidden civilian locations or server telemetry.
     if(walkRoute?.kind==='detour'&&walkRoute.points.length>=2){
-      ctx.strokeStyle='#d2e5a9';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+      ctx.strokeStyle='#d2e5a9';ctx.lineWidth=2;ctx.setLineDash?.([4,3]);
       ctx.beginPath();ctx.moveTo(tx(walkRoute.points[0].x),tz(walkRoute.points[0].z));
       for(const point of walkRoute.points.slice(1))
         ctx.lineTo(tx(point.x),tz(point.z));
-      ctx.stroke();ctx.setLineDash([]);
+      ctx.stroke();ctx.setLineDash?.([]);
     }
     for(const m of visibleMissionMarkers()){
       ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
