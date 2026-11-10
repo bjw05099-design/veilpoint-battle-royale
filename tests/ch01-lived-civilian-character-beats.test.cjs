@@ -4,13 +4,14 @@ const fs=require('node:fs'),path=require('node:path');
 const Story=require('../src/story-slice.js');
 const Comms=require('../src/story-comms.js');
 
-test('CH01 crew voices react to already spoken civilian eyewitness testimony, no extra inquiry gate',()=>{
+test('CH01 captain recalls a directly heard civilian testimony without remote crew impersonation',()=>{
  const s=Story.createState();s.phase='records';
  const baseline=Comms.briefing(s);
  assert.equal(baseline.speaker,'김지윤');
  s.workerInterviewed=true;
  const saved=JSON.stringify(s),spoken=Comms.briefing(s);
- assert.equal(spoken.speaker,'조현지');
+ assert.equal(spoken.speaker,'이수혁 대위','a saved interview cannot place Jo next to the player');
+ assert.match(spoken.message,/시각이 미확인된 별도 진술/);
  assert.match(spoken.message,/1990년/);
  assert.match(spoken.message,/1994년/);
  assert.match(spoken.message,/그가 직접 말한 경험/);
