@@ -16,7 +16,7 @@ test('standalone offline map loads terrain, relief, original road mesh and viewe
  const html=fs.readFileSync(path.resolve(__dirname,'../terrain.html'),'utf8');
  const names=['src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
-  'src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
+  'src/aden-city-walking-probe.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
  const indices=names.map(p=>html.indexOf('src="'+p+'"'));
  assert.ok(indices.every(i=>i>0));
  assert.deepEqual(indices,[...indices].sort((a,b)=>a-b));
@@ -27,7 +27,7 @@ test('standalone offline map loads terrain, relief, original road mesh and viewe
  assert.match(html,/창작 도로망 \(충돌 없음\)/);
  assert.match(html,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  const context=vm.createContext({});
- for(const p of names.slice(0,5))
+ for(const p of names.slice(0,6))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+p),'utf8'),context);
  assert.equal(context.VeilpointAdenPreviewStreets.ROUTES.length,32);
  assert.equal(context.VeilpointAdenPreviewStreets.hasGameCollision,false);

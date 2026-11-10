@@ -378,6 +378,9 @@
    walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set();
   function invalidateWalking(){
+   if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
+    window.cancelAnimationFrame(walkFrame);
+   walkFrame=0;
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
    held.clear();walkClock=null;walkAccum=0;
    const btn=doc.getElementById('walkProbe');
