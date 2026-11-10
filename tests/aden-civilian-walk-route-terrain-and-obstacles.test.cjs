@@ -82,8 +82,9 @@ test('unloaded or stale terrain yields no fake route and the planner fails close
  const start=Walk.initial(missing,0,0);
  assert.equal(Route.plan(missing,start).status,'no-nearby-public-room');
  const real=world(),room=Districts.PUBLIC_INTERIORS[0];
- assert.equal(Route.plan(real,{x:room.x,z:room.z}).status,'invalid-start',
-  'a solid or unverifiable starting point cannot authorize a route');
+ const solid=Districts.PLAN.buildings.find(b=>!b.publicInterior);
+ assert.equal(Route.plan(real,{x:solid.x,z:solid.z}).status,'invalid-start',
+  'an occupied solid or unverifiable starting point cannot authorize a route');
  assert.throws(()=>Route.plan(real,{x:Infinity,z:0}),/Invalid fictional civilian route/);
  assert.throws(()=>Route.plan(real,null),/Invalid fictional civilian route/);
  assert.throws(()=>Route.plan(real,Walk.initial(real,0,0),{}),
