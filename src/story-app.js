@@ -6,6 +6,7 @@
   const $=id=>document.getElementById(id);
   const Story=global.VeilpointStorySlice;
   const Navigation=global.VeilpointNavigation;
+  const LocalMinimap=global.VeilpointStoryLocalMinimap;
   const Pedestrian=global.VeilpointStoryPedestrianGuidance;
   const Graphics=global.VeilpointGraphics;
   const Sim=global.VeilpointSim;
@@ -1561,39 +1562,18 @@
   }
   function minimap(walkRoute=null){
     const c=$('minimap'),ctx=c.getContext('2d');
-    if(!ctx)return;
-    const w=c.width,h=c.height,tx=x=>(x+75)/150*w,tz=z=>(z+90)/130*h;
-    ctx.fillStyle='#0b2326';ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle='#3c5552';ctx.lineWidth=1;
-    for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(w*i/6,0);ctx.lineTo(w*i/6,h);ctx.stroke();}
-    for(const o of state.world.obstacles){
-      ctx.fillStyle='#637874';ctx.fillRect(tx(o.x-o.w/2),tz(o.z-o.d/2),o.w/150*w,o.d/130*h);
-    }
-    // Exactly the verified fictional street collision segments; no
-    // arrow through buildings, hidden civilian locations or server telemetry.
-    if(walkRoute?.kind==='detour'&&walkRoute.points.length>=2){
-      ctx.strokeStyle='#d2e5a9';ctx.lineWidth=2;ctx.setLineDash?.([4,3]);
-      ctx.beginPath();ctx.moveTo(tx(walkRoute.points[0].x),tz(walkRoute.points[0].z));
-      for(const point of walkRoute.points.slice(1))
-        ctx.lineTo(tx(point.x),tz(point.z));
-      ctx.stroke();ctx.setLineDash?.([]);
-    }
-    for(const m of visibleMissionMarkers()){
-      ctx.fillStyle=m.kind==='evac'?'#91f0ad':(m.kind==='evidence'||m.kind==='verify')?'#8ec6ff':'#ffcb7c';
-      ctx.beginPath();ctx.arc(tx(m.x),tz(m.z),4.5,0,Math.PI*2);ctx.fill();
-    }
-    // The local walking guide is a known companion, but only shown when the
-    // captain can directly observe them; never plot unseen opponents or actors.
-    const escort=state.world.guide,player=state.world.player;
-    if(escort&&Math.hypot(escort.x-player.x,escort.z-player.z)<20&&
-       !Sim.lineBlocked(player.x,player.z,escort.x,escort.z,state.world.obstacles)){
-      ctx.fillStyle='#c6d4de';ctx.beginPath();ctx.arc(tx(escort.x),tz(escort.z),3.6,0,Math.PI*2);ctx.fill();
-    }
-    // Map depicts accessible objectives and the player's location, not unseen opponents.
-    const p=state.world.player;
-    ctx.fillStyle='#faffd4';ctx.beginPath();ctx.arc(tx(p.x),tz(p.z),4,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='#faffd4';ctx.beginPath();ctx.moveTo(tx(p.x),tz(p.z));
-    ctx.lineTo(tx(p.x)+Math.sin(p.yaw)*12,tz(p.z)-Math.cos(p.yaw)*12);ctx.stroke();
+    if(!ctx||!LocalMinimap)return;
+    const player=state.world.player;
+    // Only an actually visible, physically nearby known guide can appear;
+    // no distant or unobserved civilian/hostile entity is introduced.
+    const guide=state.world.guide;
+    const observedGuide=guide&&Math.hypot(guide.x-player.x,guide.z-player.z)<20&&
+      !Sim.lineBlocked(player.x,player.z,guide.x,guide.z,state.world.obstacles)
+      ?guide:null;
+    LocalMinimap.draw(ctx,c,{
+      player,obstacles:state.world.obstacles,
+      markers:visibleMissionMarkers(),walkRoute,escort:observedGuide
+    });
   }
   function updateHud(){
     const bindings=desktopUi.get().bindings;
