@@ -2348,19 +2348,12 @@
       ?' 작업자의 가족은 통일과 전쟁을 서로 다르게 기억했습니다. 그 가족의 말을 도시 전체의 목소리로 적지 않겠습니다.'
       :'';
     // Closing dialogue reports only existing, physically earned civic events.
-
     const drainOutcome=state.drainCleared===true
-
       ?' 공공 배수구의 잔해는 제거했지만 노면이 즉시 마른 것은 아닙니다.':'';
-
     const crossingOutcome=civicCrossingReached(state)
-
       ?' 한 주민이 실제로 건널목 반대편에 도착했습니다. 다른 주민의 이동은 미확인입니다.'
-
       :state.civicCrossing?.assisted===true
-
         ?' 주민의 건널목 이동을 도왔지만 목적지 도착은 확인하지 못했습니다.':'';
-
     const yieldedVan=state.transportVan&&hasOwn(state.transportVan,'pauseUntil')
       ?' 나딤 운송 담당자가 요청받은 위치에서 차량을 잠시 멈춰 현장 통행을 양보했습니다. 승객 수송 및 철수 완료는 확인되지 않았습니다.'
       :'';
