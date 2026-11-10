@@ -62,6 +62,10 @@
    // vanished crossing. The previous t>=1 test silently omitted that edge.
    const levelEdge=edges.find(([i,j])=>on(vertices[i])&&on(vertices[j]));
    if(levelEdge){
+    // Zero-height coastline is rendered from the same terrain triangles by
+    // shorelineSegments(); emitting it again as a 25m contour duplicates the
+    // sea-level boundary. Other exact-level edges remain genuine isohypses.
+    if(level===0)continue;
     const from=vertices[levelEdge[0]],to=vertices[levelEdge[1]];
     if(Math.hypot(from[0]-to[0],from[2]-to[2])>.0001)
      result.push(Object.freeze({level,from:Object.freeze([...from]),to:Object.freeze([...to])}));

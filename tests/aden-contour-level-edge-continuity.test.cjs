@@ -29,3 +29,11 @@ test('fully level and zero-length triangle edges do not invent contours',()=>{
   .filter(s=>s.level===25),[]);
  assert.throws(()=>Relief.contours(P(0,0,0),P(0,25,0),P(0,50,0),0),/contour/);
 });
+test('sea-level flat edges are reserved for the separate physical shoreline painter',()=>{
+ const a=P(0,0,0),b=P(20,0,0),c=P(0,50,20);
+ const lines=Relief.contours(a,b,c,25);
+ assert.equal(lines.filter(s=>s.level===0).length,0,
+  'do not double draw a sea-level boundary already represented as shoreline');
+ assert.equal(lines.filter(s=>s.level===25).length,1,
+  'interior genuine 25m contour must survive the shoreline exception');
+});
