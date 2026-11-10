@@ -145,7 +145,7 @@ internal sealed class DemoWindow : Form
             // to survive EXE restarts. These are separate from file:// saves.
             var userDataFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "VEILPOINT", "DemoHost", "WebView2");
+                "VEILPOINT", "DemoHost", storyOnly ? "StoryOnly" : "WebView2");
             Directory.CreateDirectory(userDataFolder);
             var environment = await CoreWebView2Environment.CreateAsync(
                 userDataFolder: userDataFolder);
@@ -180,7 +180,9 @@ internal sealed class DemoWindow : Form
                     (IsAllowedPage(e.Uri) &&
                      (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))) return;
                 e.Cancel = true;
-                status.Text = "Navigation blocked: only bundled BR, CH01 and original terrain pages are allowed.";
+                status.Text = storyOnly
+                    ? "Navigation blocked: story-only mode allows CH01 only."
+                    : "Navigation blocked: only bundled BR, CH01 and original terrain pages are allowed.";
             };
             core.NewWindowRequested += (_, e) =>
             {
