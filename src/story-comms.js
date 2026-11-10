@@ -25,7 +25,11 @@
     Number.isFinite(person.z)&&
     Math.hypot(p.x-person.x,p.z-person.z)<=reach&&
     !Sim.lineBlocked(p.x,p.z,person.x,person.z,obstacles);
+  // Only a physically arrived walker may be reported as an eyewitness
+  // outcome. Old/restored flags alone cannot substitute for the actual
+  // authored civilian destination in the 60Hz world.
   if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
+     state.civilianWalker.z===-58&&
      observed(state.civilianWalker,7))
    return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
   if(state.mara?.arrived===true&&observed(state.mara,8))
@@ -103,9 +107,11 @@
   if(!state||!['records','decision','exit'].includes(state.phase))return null;
   const witnessed=onsiteWitness(state);
   if(witnessed)return witnessed;
-  const p=state.world?.player;
+  // A filed report is a fact, not proof that a remote coordinator can be
+  // heard speaking here. Without a physically nearby character or an
+  // authenticated radio transmission, narrate the captain's own observation.
   if(state.waterReportFiled===true)
-   return line('유수프 라할','직접 확인한 급수대 현장 보고는 접수했다. 이걸로 도시 전체의 물 공급이 복구됐다고 판단하지는 않겠다.');
+   return line('이수혁 대위','급수대 한 곳의 현장 보고를 구조단에 직접 인계했다. 접수 사실만 확인했고 도시 전체의 급수 복구는 아직 확인하지 못했다.');
   if(state.waterSurveyed===true)
    return line('이수혁 대위','공용 급수대 한 곳의 상태만 직접 확인했다. 주민 전체의 생활이 복구됐는지는 현지 구조단 확인이 필요하다.');
   if(state.workerInterviewed===true)
