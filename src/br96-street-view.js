@@ -61,6 +61,21 @@
   // When inside a room the far face should be visible, not an infinite wall.
   return tNear>0.03?tNear:tFar>0.03?tFar:Infinity;
  }
+ // Determine the exact public wall face already intersected by an existing
+ // ray. This does not generate new collision geometry, players or remote data.
+ // For an eye inside a room, rayBox returns the outward exit face.
+ function wallFace(eye,dir,box,distance){
+  if(!box||!Number.isFinite(distance)||distance<=0)return null;
+  const hitX=eye.x+dir.x*distance,hitZ=eye.z+dir.z*distance;
+  const candidates=[
+   ['west',Math.abs(hitX-(box.x-box.w/2))],
+   ['east',Math.abs(hitX-(box.x+box.w/2))],
+   ['north',Math.abs(hitZ-(box.z-box.d/2))],
+   ['south',Math.abs(hitZ-(box.z+box.d/2))]
+  ];
+  candidates.sort((a,b)=>a[1]-b[1]);
+  return candidates[0][0];
+ }
  // Public round weather is used only for color/visibility. No synthetic
  // sensors, out-of-range humans or bonus target acquisition are introduced.
  function weatherFogFraction(depth,visibleDistance,weatherCode='clear'){
@@ -71,12 +86,20 @@
   return fraction*(weatherCode==='sea-haze'?.90:
     weatherCode==='gusty'?.70:weatherCode==='clearing'?.50:.38);
  }
- function shade(type,depth,visibleDistance=95,weatherCode='clear',lampLit=false){
+ function shade(type,depth,visibleDistance=95,weatherCode='clear',lampLit=false,surfaceFace=null){
   const tint=String(type||'');
   const base=tint.includes('warehouse')||tint.includes('building')?[113,127,126]:
     tint.includes('wall')||tint.includes('shutter')?[118,130,128]:
     tint.includes('bench')||tint.includes('counter')?[158,139,108]:[113,119,111];
-  const factor=Math.max(.36,1-depth/135)*(lampLit&&depth<24?1+.42*(1-depth/24):1),
+  // Directional surface illumination is fixed in this *fictional* street
+  // coordinate system, independent of client camera rotation. Adjacent
+  // brick faces can finally have different brightness without changing
+  // range, hit geometry or server-authorized visibility.
+  const exposure=surfaceFace==='east'?1.07:
+    surfaceFace==='west'?.79:surfaceFace==='north'?.93:
+    surfaceFace==='south'?1.13:1;
+  const factor=Math.max(.36,1-depth/135)*exposure*
+    (lampLit&&depth<24?1+.42*(1-depth/24):1),
      fog=weatherFogFraction(depth,visibleDistance,weatherCode);
   const horizon=weatherCode==='sea-haze'?[102,123,126]:
     weatherCode==='gusty'?[107,127,134]:[112,139,146];
@@ -175,7 +198,8 @@
    const distance=best*Math.cos(alpha);
    return Object.freeze({distance:distance<=maxDistance?distance:Infinity,
      height:object&&Number.isFinite(object.h)?Math.max(.2,Math.min(18,object.h)):2.7,
-     type:object?.type||'building'});
+     type:object?.type||'building',
+     face:distance<=maxDistance?wallFace(subject,direction,object,best):null});
   });
   // The server decides who is visible at all. This view only narrows the
   // FOV and hides occluded sprites: it never adds a person to that snapshot.
@@ -248,7 +272,7 @@
    // in the local forward cone; it never grants seeing an unseen rival.
    const lit=subject.headlampOn===true&&d<24&&
      Math.abs((i+.5)/model.columns-.5)<.22;
-   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit);
+   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit,ray.face);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
@@ -305,5 +329,5 @@
   return model;
  }
  return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,
-  civicGroundPolygons,visibleRaySolids,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+  civicGroundPolygons,visibleRaySolids,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,wallFace,frame,draw});
 });
