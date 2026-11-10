@@ -40,9 +40,10 @@
   const p={x:player.x,z:player.z},goal={x:marker.x,z:marker.z};
   if(Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
      Sim.blocked(goal.x,goal.z,CLEARANCE,obstacles))return null;
-  // A changed player position can make the destination directly visible,
-  // but only an actual collision check may remove the previous detour.
-  if(!Navigation.directLineBlocked(p,goal,obstacles)){
+  // The planner and cache must agree on FULL standing-body clearance.
+  // Centerline visibility alone cannot authorize a cached straight route.
+  const inflated=obstacles.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
+  if(!Sim.lineBlocked(p.x,p.z,goal.x,goal.z,inflated)){
    const distance=Math.hypot(p.x-goal.x,p.z-goal.z);
    return Object.freeze({id:marker.id,kind:'direct',
     points:Object.freeze([Object.freeze(p),Object.freeze(goal)]),
@@ -53,7 +54,6 @@
   // Such a direct route must be replanned rather than falsely recast as
   // the old two-point "detour".
   if(previous.kind!=='detour')return null;
-  const inflated=obstacles.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
   // Rejoin only a FORWARD segment that is clear for a real player body.
   // Never skip a physical wall, and never reuse the previous world position
   // as an immovable route start while the captain is actually walking.
