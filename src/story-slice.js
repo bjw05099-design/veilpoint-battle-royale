@@ -705,7 +705,10 @@
     // Derive the same public street-water patch after a witnessed disruption.
     // v2 saves need no new checkpoint field: their validated phase persists.
     state.world.streetFlood=StreetFlood&&StreetFlood.visible(state.phase)
-      ?(state.drainCleared?{...StreetFlood.PATCH,cleared:true}:StreetFlood.PATCH):null;
+      ?(state.drainCleared?{...StreetFlood.PATCH,cleared:true}:
+        state.drainClearTicks>0?{...StreetFlood.PATCH,
+          repairProgress:state.drainClearTicks/StreetFlood.CLEAR_TICKS}:
+          StreetFlood.PATCH):null;
     state.world.gateLogReviewed=state.gateLogReviewed;
     state.world.logHandedOff=state.logHandedOff;
     // Preserve the authored marker identity separately from the renderer's
@@ -1018,6 +1021,12 @@
         }
       }
     }
+    // The renderer reads the same 60Hz progress as gameplay, never a
+    // cosmetic independent countdown. A cancelled repair clears its preview.
+    if(StreetFlood&&!state.drainCleared&&StreetFlood.visible(state.phase))
+      state.world.streetFlood=state.drainClearTicks>0
+        ?{...StreetFlood.PATCH,repairProgress:state.drainClearTicks/StreetFlood.CLEAR_TICKS}
+        :StreetFlood.PATCH;
     if(Civic&&state.civicCrossing){
       state.civicCrossing=Civic.step(state.civicCrossing,{
         disruption:state.phase!=='terminal',player:p,
