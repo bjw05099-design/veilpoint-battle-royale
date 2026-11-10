@@ -6,8 +6,14 @@ const Flood=require('../src/ch01-street-flood.js');
 const Sim=require('../src/simulation.js');
 function onsite(){
  const state=Story.createState();
+ // Start the actual authored CH01 incident before constructing an already-
+ // cleared, internally valid post-crisis test fixture for checkpoint QA.
+ state.world.player.x=Story.POINTS.terminal.x;
+ state.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(state).phase,'engagement');
+ state.world.bots.forEach(body=>{body.health=0;body.alive=false;});
  state.phase='records';
- state.combat.started=true;state.combat.cleared=true;
+ state.combat.cleared=true;
  state.world.player.x=Flood.DRAIN.x;
  state.world.player.z=Flood.DRAIN.z;
  state.world.player.yaw=0;
@@ -22,8 +28,9 @@ test('CH01 optional civic drain action runs 180 real fixed ticks near the same p
  assert.equal(state.drainCleared,false);
  assert.equal(state.drainClearTicks,1);
  assert.equal(Story.markers(state).some(m=>m.id==='streetDrain'),false);
- // The synthetic post-combat fixture intentionally bypasses full combat history;
- // its 60Hz mechanics are tested here, while valid save round-trips are below.
+ const inProgress=Story.serialize(state);
+ assert.equal(Story.serialize(Story.restore(inProgress)),inProgress,
+  'a legitimate mid-repair checkpoint resumes with the same progress');
  for(let n=0;n<95;n++)Story.step(state,1/60,{});
  assert.equal(state.drainCleared,false);
  assert.ok(state.world.streetFlood.repairProgress>0&&
@@ -37,6 +44,8 @@ test('CH01 optional civic drain action runs 180 real fixed ticks near the same p
  assert.ok(Flood.mobility('records',Flood.PATCH.x,Flood.PATCH.z,true)<1,
   'the street remains damp rather than drying instantaneously');
  assert.equal(state.drainClearTicks,0);
+ const completed=Story.serialize(state);
+ assert.equal(Story.serialize(Story.restore(completed)),completed);
 });
 test('CH01 leaving the drain or carrying a bulky crate cancels work without repairing remotely',()=>{
  const state=onsite();
