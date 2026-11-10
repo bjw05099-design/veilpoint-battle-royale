@@ -29,9 +29,9 @@ button{background:#2c474c;border:1px solid #92b3a7;color:white;
  border-radius:4px;min-height:34px;padding:6px 11px;cursor:pointer;font-weight:600}
 button:hover,button:focus-visible,header a:focus-visible,
 input:focus-visible{outline:2px solid #d4e8a6}
-#importFileLabel{font-size:11px;color:#e2e6d2}
-#heightFile{font-size:10px;max-width:min(250px,65vw);color:#ecf7f2}
-#heightFile::file-selector-button{padding:6px;border:1px solid #89a89d;
+#importFileLabel,#appendFileLabel{font-size:11px;color:#e2e6d2}
+#heightFile,#appendHeightFile{font-size:10px;max-width:min(190px,55vw);color:#ecf7f2}
+#heightFile::file-selector-button,#appendHeightFile::file-selector-button{padding:6px;border:1px solid #89a89d;
  border-radius:4px;background:#2c474c;color:#fff;cursor:pointer}
 #tileStatus{min-width:0;overflow-wrap:anywhere}
 #tileStatus{font-size:clamp(10px,1.5vw,12px);color:#d9e7d4;
@@ -70,9 +70,12 @@ input:focus-visible{outline:2px solid #d4e8a6}
   <button id="contours" type="button">등고선 전환</button>
   <button id="resetSample" type="button">창작 지형 복원</button>
  </div>
- <label id="importFileLabel" for="heightFile">로컬 고도 JSON 파일
+ <label id="importFileLabel" for="heightFile">지형 교체 JSON
  <input id="heightFile" type="file" accept=".json,application/json"
- aria-label="로컬 파일 선택 (외부 전송 없음)"></label>
+ aria-label="로컬 지형 전체 교체 (외부 전송 없음)"></label>
+ <label id="appendFileLabel" for="appendHeightFile">새 타일 추가 JSON
+ <input id="appendHeightFile" type="file" accept=".json,application/json"
+ aria-label="기존 로컬 지형 유지하고 512m 타일 추가 (외부 전송 없음)"></label>
  <output id="tileStatus" role="status" aria-live="polite">지형 타일 준비 중</output>
 </footer>
 </main>

@@ -329,7 +329,7 @@
     :'현재 메시 표면 '+stats.centerElevationMetres.toFixed(2)+'m · 경사 '+stats.centerSlopeDegrees.toFixed(1)+'° (로컬 미터 · 현지 해발 미검증)';
    info.textContent=(activeDataset?
     '로컬 자료 입력 (출처·권리·정확도 외부 검증 전): '+activeDataset.title+
-    ' / '+activeDataset.tilesImported+'개 타일 · ':
+    ' / '+activeDataset.tilesImported+'개 타일 · '+(activeDataset.filesImported||1)+'개 파일 · ':
     '원본: 창작 아트 테스트 (실측 아덴 0타일) · ')+
     stats.origin+' · '+inspectedElevation+' · 불러온 '+stats.active+'개 / 누락 '+stats.unresolved+
     '개 · 1:1 미터 좌표 · 삼각형 '+stats.triangles+'개 · 실제 아덴 검증 0타일';
@@ -347,22 +347,45 @@
    if(which==='contours')state=setContours(state,!state.showContours);
    refresh();
   }
-  // Commit validated local tiles without touching the selection revision.
-  // File input already reserved its revision before async File.text(). An
-  // additional increment here would suppress the user's validation error.
-  function commitDataset(value){
-   const parsed=Tiles.importHeightDataset(value);
+  // A batch replaces sample art or a previous imported world only when
+  // its local coordinates, source declarations and all internal seams pass.
+  // File.text() handlers reserve the generation themselves; no extra token
+  // may be incremented when the already selected batch is committed.
+  function commitParsedDataset(parsed){
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
-   // Failed imports do not replace the previous registry or current view.
-   registry=parsed.registry;activeDataset=parsed;
+   const dataset=Object.freeze({...parsed,filesImported:1});
+   registry=parsed.registry;activeDataset=dataset;
    state=centered;cache.clear();refresh();
-   return parsed;
+   return dataset;
+  }
+  function commitDataset(value){
+   return commitParsedDataset(Tiles.importHeightDataset(value));
+  }
+  function commitAppendDataset(value){
+   const parsed=Tiles.importHeightDataset(value);
+   // Do not silently combine source-declared local DEM tiles with the 25
+   // automatically generated fictional preview tiles.
+   if(!activeDataset)return commitParsedDataset(parsed);
+   const combined=Tiles.mergeHeightRegistries(registry,parsed.registry);
+   const dataset=Object.freeze({
+    ...activeDataset,registry:combined.registry,
+    tilesImported:combined.tilesTotal,seams:combined.seams,
+    filesImported:(activeDataset.filesImported||1)+1
+   });
+   // All validations succeeded; commit exactly once. Existing tile objects
+   // and their cached current-LOD meshes remain valid and camera stays put.
+   registry=combined.registry;activeDataset=dataset;refresh();
+   return dataset;
   }
   function loadDataset(value){
-   // External API imports cancel any pending File.text(), even when invalid.
+   // An explicit API call, even invalid, cancels any older pending File.text.
    fileSelectionRevision++;
    return commitDataset(value);
+  }
+  function appendDataset(value){
+   fileSelectionRevision++;
+   return commitAppendDataset(value);
   }
   function resetSample(){
    // Reset is a newer user decision, not an intermediate render. Never let
@@ -371,25 +394,30 @@
    registry=createPreviewRegistry();activeDataset=null;
    state=viewState();cache.clear();refresh();
   }
-  const fileInput=doc.getElementById('heightFile');
-  if(fileInput)fileInput.addEventListener('change',async event=>{
-   const selection=++fileSelectionRevision;
-   const file=event.target?.files?.[0];
-   if(!file)return;
-   if(file.size>4*1024*1024){
-    info.textContent='입력 실패: 파일은 4MB 이하만 허용합니다';return;
-   }
-   try{
-    const contents=await file.text();
-    // File I/O completes out of order. Never replace a newer dataset or
-    // a reset view, including when the older file was perfectly valid.
-    if(selection!==fileSelectionRevision)return;
-    commitDataset(JSON.parse(contents));
-   }catch(error){
-    if(selection===fileSelectionRevision)
-     info.textContent='지형 입력 거부: '+error.message;
-   }
-  });
+  // Replace and append inputs share ONE revision. A delayed read from
+  // either control must never overwrite a newer replace, append or reset.
+  for(const [id,append] of [['heightFile',false],['appendHeightFile',true]]){
+   const fileInput=doc.getElementById(id);
+   if(!fileInput)continue;
+   fileInput.addEventListener('change',async event=>{
+    const selection=++fileSelectionRevision;
+    const file=event.target?.files?.[0];
+    if(!file)return;
+    if(file.size>4*1024*1024){
+     info.textContent='입력 실패: 파일은 4MB 이하만 허용합니다';return;
+    }
+    try{
+     const contents=await file.text();
+     // Recheck generation AFTER asynchronous local read but BEFORE any
+     // validation or mutation, regardless of which input originated it.
+     if(selection!==fileSelectionRevision)return;
+     (append?commitAppendDataset:commitDataset)(JSON.parse(contents));
+    }catch(error){
+     if(selection===fileSelectionRevision)
+      info.textContent='지형 입력 거부: '+error.message;
+    }
+   });
+  }
   const resetButton=doc.getElementById('resetSample');
   if(resetButton)resetButton.addEventListener('click',resetSample);
   for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
@@ -410,7 +438,7 @@
   }
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
-   getDataset:()=>activeDataset,action,refresh,loadDataset,resetSample});
+   getDataset:()=>activeDataset,action,refresh,loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,

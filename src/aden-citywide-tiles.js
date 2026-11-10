@@ -282,6 +282,30 @@
    }
   return Object.freeze({pass,edgesChecked,maxGapMetres,toleranceMetres});
  }
+ // Incrementally extend a local, non-georeferenced city registry. Entire
+ // batches are validated BEFORE committing any tile: the old Map and its
+ // existing source tiles are never changed on duplicate IDs, mixed-density
+ // seams, illegal metadata or height mismatches. This verifies only the
+ // declared local geometry, NOT a real-world survey or source licence.
+ function mergeHeightRegistries(existing,incoming,toleranceMetres=.15){
+  if(!(existing instanceof Map)||!(incoming instanceof Map)||incoming.size===0)
+   throw new TypeError('Two validated terrain registries are required');
+  if(!validFinite(toleranceMetres)||toleranceMetres<0||toleranceMetres>1)
+   throw new RangeError('Invalid registry seam audit');
+  for(const [key,tile] of existing)
+   if(!tile||tile.key!==key)throw new TypeError('Invalid existing tile registry key');
+  for(const [key,tile] of incoming){
+   if(!tile||tile.key!==key)throw new TypeError('Invalid incoming tile registry key');
+   if(existing.has(key))throw new RangeError('Duplicate imported terrain tile '+key);
+  }
+  const registry=createRegistry([...existing.values(),...incoming.values()]);
+  const seamAudit=auditRegistrySeams(registry,toleranceMetres);
+  if(!seamAudit.pass)throw new RangeError('Heightfield tile boundary mismatch');
+  return Object.freeze({registry,tilesAdded:incoming.size,
+   tilesTotal:registry.size,seams:seamAudit.edgesChecked,
+   seamMaxGapMetres:seamAudit.maxGapMetres,
+   localOnly:true,geographicAccuracyVerified:false});
+ }
  function planStreaming(x,z,registry,loadedKeys=[],options={}){
   const origin=tileFor(x,z);
   if(!(registry instanceof Map)||!Array.isArray(loadedKeys)||
@@ -322,5 +346,5 @@
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
   DISTRICTS,SOURCE_SCOPE,point,tileKey,parseTileKey,tileFor,tileBounds,
-  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,heightOnTerrainMesh,terrainSurface,createRegistry,planStreaming});
+  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,heightOnTerrainMesh,terrainSurface,createRegistry,mergeHeightRegistries,planStreaming});
 });
