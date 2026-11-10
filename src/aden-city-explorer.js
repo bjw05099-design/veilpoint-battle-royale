@@ -124,6 +124,29 @@
   }
   return segments;
  }
+ // The vertical displacement is bounded by the actual streamed mesh
+ // elevation extrema. Culling just the sea-level tile rectangle would hide
+ // elevated cliffs that still project into the camera viewport.
+ function terrainTileVisible(mesh,state,width,height,margin=70){
+  if(!mesh||!Array.isArray(mesh.positions)||!Number.isFinite(width)||
+     !Number.isFinite(height)||width<=0||height<=0||
+     !Number.isFinite(margin)||margin<0)
+   throw new TypeError('Invalid terrain visibility request');
+  const p=mesh.positions;
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,
+      minY=Infinity,maxY=-Infinity;
+  for(let i=0;i<p.length;i+=3){
+   minX=Math.min(minX,p[i]);maxX=Math.max(maxX,p[i]);
+   minY=Math.min(minY,p[i+1]);maxY=Math.max(maxY,p[i+1]);
+   minZ=Math.min(minZ,p[i+2]);maxZ=Math.max(maxZ,p[i+2]);
+  }
+  const x0=width/2+(minX-state.x)*state.zoom,
+        x1=width/2+(maxX-state.x)*state.zoom;
+  const y0=height/2+(minZ-state.z)*state.zoom-maxY*state.zoom*state.relief,
+        y1=height/2+(maxZ-state.z)*state.zoom-minY*state.zoom*state.relief;
+  return !(x1 < -margin || x0 > width+margin ||
+           y1 < -margin || y0 > height+margin);
+ }
  function draw(canvas,registry,state,cache=new Map(),options={}){
   if(!canvas||typeof canvas.getContext!=='function'||!(registry instanceof Map))
    throw new TypeError('Invalid terrain canvas/registry');
@@ -147,7 +170,8 @@
   ctx.fillStyle='#183139';ctx.fillRect(0,0,w,h);
   // Never display triangles for an unresolved tile: missing geodata remains
   // a distinctly unknown region, not invented "verified" topology.
-  let triangles=0,visible=0;
+  let triangles=0,visible=0,culledTiles=0;
+  const renderedKeys=new Set();
   const toScreen=(x,z,elevation=0)=>Relief.project(
    [x,elevation,z],state,w,h,state.zoom,state.relief);
   // Draw distant/northern relief before lower/southern terrain. Streaming
@@ -159,6 +183,8 @@
   });
   for(const key of paintOrder){
    const mesh=cache.get(key).mesh,p=mesh.positions,indices=mesh.triangles;
+   if(!terrainTileVisible(mesh,state,w,h)){culledTiles++;continue;}
+   renderedKeys.add(key);
    for(let i=0;i<indices.length;i+=3){
     const a=indices[i]*3,b=indices[i+1]*3,c=indices[i+2]*3,
      va=[p[a],p[a+1],p[a+2]],vb=[p[b],p[b+1],p[b+2]],
@@ -195,6 +221,7 @@
   if(state.showContours){
    ctx.strokeStyle='#9bd3dc';ctx.lineWidth=Math.max(.7,state.zoom*1.5);
    for(const key of paintOrder){
+    if(!renderedKeys.has(key))continue;
     const slot=cache.get(key);
     for(const [a,b] of slot.shoreline){
      const from=toScreen(a[0],a[1],0),to=toScreen(b[0],b[1],0);
@@ -209,8 +236,11 @@
   for(const home of options.showFictionalBuildings===false?[]:CIVIC_SHELLS){
    const key=Tiles.tileFor(home.x,home.z).key;
    if(!plan.active.includes(key))continue;
-   const tile=registry.get(key),
-    elevation=tile?Tiles.heightAt(tile,home.x,home.z):0,
+   // Ground every conceptual facade on the same painted triangle used
+   // by terrain, not a different bilinear grid interpolation.
+   const mesh=cache.get(key)?.mesh;
+   if(!mesh)continue;
+   const elevation=Tiles.heightOnTerrainMesh(mesh,home.x,home.z),
     [px,pz]=toScreen(home.x,home.z,elevation),
     ww=home.w*state.zoom,dd=home.d*state.zoom,
     facadeHeight=home.h*state.zoom*state.relief;
@@ -230,16 +260,24 @@
   // actual geometry and never invents absolute/georeferenced Aden heights.
   const paintedCentre=centerTile&&cache.get(origin.key)?.sourceTile===centerTile
    ?cache.get(origin.key).mesh:null;
-  const centerElevationMetres=paintedCentre
-   ?Math.round(Tiles.heightOnTerrainMesh(paintedCentre,state.x,state.z)*100)/100:null;
-  const axis=toScreen(state.x,state.z);
-  ctx.strokeStyle='#ffe2a0';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(axis[0]-7,axis[1]);ctx.lineTo(axis[0]+7,axis[1]);
-  ctx.moveTo(axis[0],axis[1]-7);ctx.lineTo(axis[0],axis[1]+7);ctx.stroke();
-  return Object.freeze({origin:origin.key,active:visible,triangles,
+  const surface=paintedCentre
+   ?Tiles.terrainSurface(paintedCentre,state.x,state.z):null;
+  const centerElevationMetres=surface
+   ?Math.round(surface.elevationMetres*100)/100:null;
+  const centerSlopeDegrees=surface
+   ?Math.round(surface.slopeDegrees*10)/10:null;
+  // Unknown source tiles must not fabricate a surveyed ground reticle.
+  if(surface){
+   const axis=toScreen(state.x,state.z,surface.elevationMetres);
+   ctx.strokeStyle='#ffe2a0';ctx.lineWidth=2;
+   ctx.beginPath();ctx.moveTo(axis[0]-7,axis[1]);ctx.lineTo(axis[0]+7,axis[1]);
+   ctx.moveTo(axis[0],axis[1]-7);ctx.lineTo(axis[0],axis[1]+7);ctx.stroke();
+  }
+  return Object.freeze({origin:origin.key,active:plan.active.length,triangles,
+   visibleTiles:visible,culledTiles,
    housesVisible:houses,shorelineSegments:shoreline,
    unresolved:plan.unresolved.length,lodStep:lod,
-   centerElevationMetres,localElevationOnly:true,centerElevationSurface:'painted-triangle',
+   centerElevationMetres,centerSlopeDegrees,localElevationOnly:true,centerElevationSurface:'painted-triangle',
    zoom:state.zoom,relief:state.relief,showContours:state.showContours,
    provenance:options.imported?'source-declared-unreviewed':'artist-blockout',
    realAdenTilesLoaded:0});
@@ -288,7 +326,7 @@
     imported:!!activeDataset,showFictionalBuildings:!activeDataset});
    const inspectedElevation=stats.centerElevationMetres===null
     ?'중심 표고 자료 없음'
-    :'현재 메시 표면 '+stats.centerElevationMetres.toFixed(2)+'m (로컬 미터 · 현지 해발 미검증)';
+    :'현재 메시 표면 '+stats.centerElevationMetres.toFixed(2)+'m · 경사 '+stats.centerSlopeDegrees.toFixed(1)+'° (로컬 미터 · 현지 해발 미검증)';
    info.textContent=(activeDataset?
     '로컬 자료 입력 (출처·권리·정확도 외부 검증 전): '+activeDataset.title+
     ' / '+activeDataset.tilesImported+'개 타일 · ':
@@ -375,6 +413,6 @@
    getDataset:()=>activeDataset,action,refresh,loadDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
-  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,draw,
+  CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
   importedTerrainFocus,attach});
 });
