@@ -11,21 +11,42 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(Sim){
  'use strict';
  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
- function indoors(player){
+ function indoors(player,obstacles=[]){
   if(!player||![player.x,player.z].every(Number.isFinite))return false;
   const {x,z}=player;
-  // Three physically walk-in PUBLIC rooms already authored in CH01.
-  return (x>=80&&x<=94&&z>=17&&z<=33) ||
+  // Legacy public rooms retain their original acoustics. New story-first
+  // halls have to exist as ACTUAL collision bodies, not a magic coordinate:
+  // old checkpoint/world revisions may not contain that venue.
+  const oldPublicInterior=(x>=80&&x<=94&&z>=17&&z<=33) ||
     (x>=-56&&x<=-34&&z>=125&&z<=145) ||
     (x>=-164&&x<=-144&&z>=112&&z<=130);
+  if(oldPublicInterior)return true;
+  if(!Array.isArray(obstacles))return false;
+  const walls=['west','east','north','southwest','southeast']
+    .map(part=>obstacles.find(o=>o?.id==='harbor-hall-'+part&&
+      o.type==='story-public-hall-wall'&&
+      [o.x,o.z,o.w,o.d].every(Number.isFinite)));
+  if(walls.some(o=>!o))return false;
+  const [west,east,north,southwest,southeast]=walls;
+  // Genuine inner standing space bounded by the real 60Hz wall extents;
+  // an exterior player beside a facade must not hear enclosed room sound.
+  return x>west.x+west.w/2&&x<east.x-east.w/2&&
+    z>Math.max(southwest.z+southwest.d/2,southeast.z+southeast.d/2)&&
+    z<north.z-north.d/2&&
+    !obstacles.some(o=>{
+      if(!o||![o.x,o.z,o.w,o.d].every(Number.isFinite))return false;
+      const dx=Math.max(0,Math.abs(x-o.x)-o.w/2),
+            dz=Math.max(0,Math.abs(z-o.z)-o.d/2);
+      return dx*dx+dz*dz<.65*.65;
+    });
  }
  // The same PUBLIC harbor approach is encountered before and after the
  // unexpected escalation.  Distinct *synthetic* harmonic beds communicate
  // local environmental change; these are not licensed recordings or a claim
  // to faithfully reproduce real Aden.  Coordinates only select sound near
  // the player, never reveal distant actors or generate story objectives.
- function acousticArea(player){
-  if(indoors(player))return 'interior';
+ function acousticArea(player,obstacles){
+  if(indoors(player,obstacles))return 'interior';
   const distance=(x,z)=>Math.hypot(player.x-x,player.z-z);
   if(distance(-12,-60)<15)return 'relief-courtyard';
   if(distance(24,-35)<19)return 'market';
@@ -54,12 +75,32 @@
     !!Sim?.lineBlocked?.(player.x,player.z,source.x,source.z,solids);
   return Object.freeze({occluded,pan});
  }
+ // Existing on-foot CH01 dialogue (including the newly authored civilian
+ // hall) has priority over atmosphere ONLY while a real person can speak at
+ // close range without a solid wall in between. This does not change story
+ // facts, invent NPC locations or require a new save field.
+ function witnessedSpeech(state){
+  if(!state?.combat?.cleared||!['records','decision','exit'].includes(state.phase))
+   return false;
+  const p=state.world?.player,solids=state.world?.obstacles;
+  if(!p||![p.x,p.z].every(Number.isFinite)||!Array.isArray(solids))
+   return false;
+  const audible=(person,range)=>person&&[person.x,person.z].every(Number.isFinite)&&
+   Math.hypot(p.x-person.x,p.z-person.z)<=range&&
+   !Sim?.lineBlocked?.(p.x,p.z,person.x,person.z,solids);
+  return !!(audible(state.world.liaison,5)||
+   audible(state.world.kimJiyoon,5)||
+   (state.mara?.arrived===true&&audible(state.mara,8))||
+   (state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
+    audible(state.civilianWalker,7)));
+ }
  function profile(state){
   if(!state||!state.world||!state.world.player||
      ![state.world.player.x,state.world.player.z].every(Number.isFinite))
    return Object.freeze({lowHz:54,highHz:96,level:0,indoors:false,
      area:'unavailable',moment:'silent',occluded:false,pan:0});
-  const phase=state.phase,player=state.world.player,area=acousticArea(player);
+  const phase=state.phase,player=state.world.player,
+        area=acousticArea(player,state.world.obstacles);
   const inside=area==='interior',active=phase!=='failed'&&phase!=='complete';
   // One original, observable incident changes an already visited street.
   // "After" does not claim the whole fictional city is destroyed or safe.
@@ -69,7 +110,9 @@
   const base=!active?0:phase==='engagement'?.0028:
     phase==='terminal'?.0043:.0062;
   const spatial=spatialResponse(state,area);
-  const level=clamp(base*(inside?.40:1)*(spatial.occluded?.52:1),0,.008);
+  const speechPriority=witnessedSpeech(state);
+  const level=clamp(base*(inside?.40:1)*(spatial.occluded?.52:1)*
+    (speechPriority?.58:1),0,.008);
   let lowHz=inside?51:58,highHz=96;
   if(area==='market'){
    lowHz=moment==='ordinary'?65:moment==='silent'?58:47;
@@ -92,7 +135,7 @@
     area==='relief-courtyard'&&moment==='changed-street';
   if(witnessedAid){lowHz=56;highHz=119;}
   return Object.freeze({lowHz,highHz,level,indoors:inside,area,moment,
-    witnessedAid,occluded:spatial.occluded,pan:spatial.pan});
+    witnessedAid,speechPriority,occluded:spatial.occluded,pan:spatial.pan});
  }
  function create({AudioContextClass=null}={}){
   let context=null,low=null,high=null,gain=null,panner=null,enabled=false,volume=1,lastLevel=0;
@@ -158,5 +201,5 @@
   return Object.freeze({available,enable,update,setVolume,volume:()=>volume,
    enabled:()=>enabled,disable,dispose:disable});
  }
- return Object.freeze({profile,create});
+ return Object.freeze({profile,create,indoors,witnessedSpeech});
 });
