@@ -30,6 +30,21 @@
    return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
   if(state.mara?.arrived===true&&observed(state.mara,8))
    return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
+  // The same civilian already visible in the 60Hz world reacts to assistance
+  // ONLY within ordinary conversational range and unobstructed sight.
+  // A crossing request is not proof of arrival; actual saved metre-space
+  // destination and person positions determine the two different outcomes.
+  const crossing=state.civicCrossing;
+  if(crossing?.disrupted===true&&crossing.assisted===true&&
+     observed(crossing.civilian,6)){
+    const arrived=[crossing.civilian.x,crossing.civilian.z,
+      crossing.destination?.x,crossing.destination?.z].every(Number.isFinite)&&
+      Math.hypot(crossing.civilian.x-crossing.destination.x,
+       crossing.civilian.z-crossing.destination.z)<1e-6;
+    return arrived
+      ?line('현지 주민','건너편 보행로에 직접 도착했어요. 다른 주민들이 어디 있는지까지는 저도 알 수 없어요.')
+      :line('현지 주민','길을 안내해 주셔서 고맙습니다. 아직 반대편에 도착하지 않았으니 여기서 움직임을 확인할게요.');
+  }
   return null;
  }
  // Three local, non-omniscient dramatic beats rely on actual 60Hz actor
