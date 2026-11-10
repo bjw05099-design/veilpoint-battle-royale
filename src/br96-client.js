@@ -290,6 +290,12 @@ function render(){
       w.handcart.squadOperatorSlot?'분대 '+w.handcart.squadOperatorSlot+'번 조작 중':
       '현장 접근 시 조작 가능'):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
+    // Only this participant's authenticated six-person server timeline is
+    // rendered; opponent sessions, identities and coordinates never appear.
+    (w.squadTimeline?.length?'\n분대 실제 퇴장 '+w.squadTimeline.length+'/6 · 최근 '+
+      w.squadTimeline.at(-1).slot+'번 ('+
+      (w.squadTimeline.at(-1).reason==='voluntary_withdrawal'?'자발적 종료':
+       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':'서버 확인')+')':'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined

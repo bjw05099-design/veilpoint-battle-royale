@@ -68,6 +68,10 @@ class BrSquadWorld {
     // transitions change this scorecard; ties cannot be invented by the HUD.
     this.phase='moving';this.activeSquads=SQUADS;
     this.placements=Array(SQUADS).fill(null);
+    // Real 60Hz squad exits are independently authored by the server. One
+    // event per actual retiring human, bounded to exactly six per squad; no
+    // rival identities, coordinates, authentication tokens or vote fiction.
+    this.squadTimeline=Array.from({length:SQUADS},()=>[]);
     this.finishReason=null;
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
@@ -541,6 +545,16 @@ class BrSquadWorld {
   // Later elimination sources must live behind the game server, not a client
   // command naming another actor. There is deliberately no arbitrary
   // "eliminate opponent" HTTP endpoint or hidden remote interaction.
+  recordSquadDeparture(actor){
+    const log=this.squadTimeline[actor.team];
+    if(log.length>=SQUAD_SIZE||
+       log.some(event=>event.slot===actor.slot+1))
+      throw new Error('duplicate_server_squad_departure');
+    const remaining=[...this.actors.values()].filter(a=>
+      a.team===actor.team&&a.eligible).length;
+    log.push(Object.freeze({slot:actor.slot+1,tick:this.tick,
+      reason:actor.eliminationReason,remainingMembers:remaining}));
+  }
   withdraw(token){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -550,6 +564,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
+    this.recordSquadDeparture(actor);
     actor.headlampOn=false;actor.stepping=null;
     actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
@@ -737,6 +752,12 @@ class BrSquadWorld {
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
       }
+      // The entire batch retires at one server tick before publishing any
+      // same-tick timeline event. No iteration-order advantage or invented
+      // intermediate squad placement is reported.
+      for(const actor of expired.slice().sort((a,b)=>
+        a.team-b.team||a.slot-b.slot))
+        this.recordSquadDeparture(actor);
       const surviving=Array(SQUADS).fill(0);
       for(const actor of this.actors.values())if(actor.eligible)surviving[actor.team]++;
       const eliminated=[];
@@ -906,6 +927,7 @@ class BrSquadWorld {
       handcart:this.handcartSnapshot(token),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadChat:this.squadChat[me.team].map(message=>({...message})),
+      squadTimeline:this.squadTimeline[me.team].map(event=>({...event})),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
         x:watched.x,z:watched.z,automaticFallback:!!fallback}:null,
