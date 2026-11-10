@@ -12,10 +12,12 @@
   root.VeilpointAdenPreviewStreets||
   (typeof module==='object'&&module.exports?require('./aden-preview-streets.js'):null),
   root.VeilpointAdenPreviewDistricts||
-  (typeof module==='object'&&module.exports?require('./aden-preview-districts.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-preview-districts.js'):null),
+  root.VeilpointAdenWalkingProbe||
+  (typeof module==='object'&&module.exports?require('./aden-city-walking-probe.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts,Walk){
  'use strict';
  if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
@@ -372,6 +374,26 @@
   let registry=createPreviewRegistry(),activeDataset=null;
   const cache=new Map();
   let state=viewState(),fileSelectionRevision=0;
+  let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
+   walkClock=null,walkAccum=0,walkFrame=0;
+  const held=new Set();
+  function invalidateWalking(){
+   walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
+   held.clear();walkClock=null;walkAccum=0;
+   const btn=doc.getElementById('walkProbe');
+   if(btn)btn.setAttribute?.('aria-pressed','false');
+  }
+  function worldForWalking(){
+   if(activeDataset||!Walk||!Districts)return null;
+   const keys=[...cache.keys()].sort();
+   const signature=keys.map(key=>key+':'+cache.get(key).lod).join('|');
+   if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry){
+    walkWorld=Walk.createWorld(registry,cache,new Set(keys),
+     [...CIVIC_SHELLS,...Districts.PLAN.buildings]);
+    walkWorldKey=signature;walkRegistry=registry;
+   }
+   return walkWorld;
+  }
   function refresh(){
    const legend=doc.getElementById('mapLegendTitle'),
     houses=doc.getElementById('fictionalHouseLegend'),
@@ -390,6 +412,13 @@
    const zoomState={...state,zoom:state.zoom*dpr};
    const stats=draw(canvas,registry,zoomState,cache,{
     imported:!!activeDataset,showFictionalBuildings:!activeDataset});
+   if(walk){
+    const ctx=canvas.getContext('2d');
+    const [px,pz]=Relief.project([walk.x,walk.y,walk.z],zoomState,
+     canvas.width,canvas.height,zoomState.zoom,zoomState.relief);
+    ctx.fillStyle='#f5d388';ctx.fillRect(px-5,pz-5,10,10);
+    ctx.strokeStyle='#241e1a';ctx.lineWidth=2;ctx.strokeRect(px-5,pz-5,10,10);
+   }
    const inspectedElevation=stats.centerElevationMetres===null
     ?'중심 표고 자료 없음'
     :'현재 메시 표면 '+stats.centerElevationMetres.toFixed(2)+'m · 경사 '+stats.centerSlopeDegrees.toFixed(1)+'° (로컬 미터 · 현지 해발 미검증)';
@@ -401,7 +430,9 @@
     '개 · 1:1 미터 좌표 · 지형 삼각형 '+stats.triangles+
     '개 · 창작 도로 삼각형 '+stats.roadTriangles+
     '개 · 창작 확장건물 '+stats.districtBuildingsVisible+
-    '개 · 실제 아덴 검증 0타일';
+    '개 · 실제 아덴 검증 0타일'+
+    (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
+     'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':''):'');
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
@@ -416,6 +447,51 @@
    if(which==='contours')state=setContours(state,!state.showContours);
    refresh();
   }
+  function toggleWalking(){
+   if(walk){invalidateWalking();refresh();return false;}
+   if(activeDataset||!Walk)return false;
+   // Use currently drawn mesh and its exact LOD at the camera centre.
+   refresh();
+   const world=worldForWalking();
+   if(!world)return false;
+   try{walk=Walk.initial(world,state.x,state.z);}
+   catch(error){info.textContent='보행 시작 불가: 현재 지형/건물 경계 확인 필요';return false;}
+   const button=doc.getElementById('walkProbe');
+   if(button)button.setAttribute?.('aria-pressed','true');
+   refresh();return true;
+  }
+  function walkStep(intent,frames=1){
+   if(!walk||!Number.isInteger(frames)||frames<1||frames>120)
+    return false;
+   const world=worldForWalking();
+   if(!world){invalidateWalking();return false;}
+   for(let i=0;i<frames;i++)walk=Walk.step(world,walk,intent);
+   state=viewState({...state,x:walk.x,z:walk.z});
+   refresh();return true;
+  }
+  function walkFrameStep(time){
+   walkFrame=0;
+   if(!walk||held.size===0)return;
+   if(typeof time!=='number')return;
+   if(walkClock===null)walkClock=time;
+   walkAccum+=Math.max(0,Math.min(.09,(time-walkClock)/1000));
+   walkClock=time;
+   const fixed=1/Walk.TICKS_PER_SECOND,ticks=Math.min(5,Math.floor(walkAccum/fixed));
+   if(ticks){
+    walkAccum-=ticks*fixed;
+    walkStep({east:Number(held.has('d'))-Number(held.has('a')),
+     south:Number(held.has('s'))-Number(held.has('w'))},ticks);
+   }
+   if(walk&&held.size>0&&typeof window!=='undefined'&&
+      typeof window.requestAnimationFrame==='function')
+    walkFrame=window.requestAnimationFrame(walkFrameStep);
+  }
+  function scheduleWalk(){
+   if(walkFrame||!walk||!held.size||typeof window==='undefined'||
+      typeof window.requestAnimationFrame!=='function')return;
+   walkClock=null;walkAccum=0;
+   walkFrame=window.requestAnimationFrame(walkFrameStep);
+  }
   // A batch replaces sample art or a previous imported world only when
   // its local coordinates, source declarations and all internal seams pass.
   // File.text() handlers reserve the generation themselves; no extra token
@@ -424,6 +500,7 @@
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
    const dataset=Object.freeze({...parsed,filesImported:1});
+   invalidateWalking();
    registry=parsed.registry;activeDataset=dataset;
    state=centered;cache.clear();refresh();
    return dataset;
@@ -444,6 +521,7 @@
    });
    // All validations succeeded; commit exactly once. Existing tile objects
    // and their cached current-LOD meshes remain valid and camera stays put.
+   invalidateWalking();
    registry=combined.registry;activeDataset=dataset;refresh();
    return dataset;
   }
@@ -460,6 +538,7 @@
    // Reset is a newer user decision, not an intermediate render. Never let
    // an older File.text() promise resurrect an imported dataset afterward.
    fileSelectionRevision++;
+   invalidateWalking();
    registry=createPreviewRegistry();activeDataset=null;
    state=viewState();cache.clear();refresh();
   }
@@ -489,25 +568,38 @@
   }
   const resetButton=doc.getElementById('resetSample');
   if(resetButton)resetButton.addEventListener('click',resetSample);
+  const walkButton=doc.getElementById('walkProbe');
+  if(walkButton)walkButton.addEventListener('click',toggleWalking);
   for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
   }
   if(typeof window!=='undefined'){
    window.addEventListener('keydown',event=>{
-    if(event.altKey||event.ctrlKey||event.metaKey||
+    if(event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
        /^(input|textarea|select)$/i.test(event.target?.tagName||''))return;
-    const key=event.key.toLowerCase(),
-     which={arrowup:'north',w:'north',arrowdown:'south',s:'south',
+    const key=typeof event.key==='string'?event.key.toLowerCase():'';
+    if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
+    if(walk&&['w','a','s','d'].includes(key)){
+     event.preventDefault();held.add(key);scheduleWalk();return;
+    }
+    const which={arrowup:'north',w:'north',arrowdown:'south',s:'south',
       arrowleft:'west',a:'west',arrowright:'east',d:'east',
       '+':'zoomIn','=':'zoomIn','-':'zoomOut',r:'reset',h:'relief',c:'contours'}[key];
     if(which){event.preventDefault();action(which);}
    });
+   window.addEventListener('keyup',event=>{
+    const key=typeof event.key==='string'?event.key.toLowerCase():'';
+    held.delete(key);
+    if(!held.size){walkClock=null;walkAccum=0;}
+   });
+   window.addEventListener('blur',()=>{held.clear();walkClock=null;walkAccum=0;});
    window.addEventListener('resize',refresh);
   }
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
-   getDataset:()=>activeDataset,action,refresh,loadDataset,appendDataset,resetSample});
+   getDataset:()=>activeDataset,getWalk:()=>walk,
+   action,refresh,toggleWalking,walkStep,loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
