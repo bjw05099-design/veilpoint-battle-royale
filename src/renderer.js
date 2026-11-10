@@ -1166,6 +1166,16 @@ class Renderer {
    // collision; the middle of the south facade stays open for entry.
    m.box(87,4.02,25,14,.20,16,[.43,.40,.35]);
    m.box(87,.004,25,13.2,.008,15.2,[.35,.34,.30]);
+   // Optional story-first hall has a REAL open 8m southern doorway in
+   // fixed-step collision. Only its overhead roof, floor and lintel are
+   // visual: adding a full-height fake shell would trap the player.
+   const hall=global.VeilpointPublicHall;
+   if(hall&&this.sceneObstacles.some(o=>o.id==='harbor-hall-north')){
+    const center=hall.INNER_COURT;
+    m.box(center.x,3.81,center.z,16.4,.18,16.4,[.40,.39,.35]);
+    m.box(center.x,.003,center.z,15.1,.006,15.1,[.43,.41,.36]);
+    m.box(center.x,3.33,26,8.0,.24,.18,[.72,.60,.48]);
+   }
   for(const o of this.sceneObstacles){
    if(o.type==='story-public-hall-wall'){
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.64,.53,.41]);
