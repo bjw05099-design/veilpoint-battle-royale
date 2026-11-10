@@ -17,9 +17,33 @@
  const TICKS_PER_SECOND=60,SPEED_METRES_PER_SECOND=1.7,RADIUS_METRES=.45;
  const MAX_SLOPE_DEGREES=35,MAX_TICK_STEP_METRES=.35;
  const EPS=1e-7;
- function createWorld(registry,cache,activeKeys,buildings){
+ // Build a local immutable-by-closure broadphase for civilian geometry.
+ // Colliders are still tested using the original exact circle-vs-AABB rule;
+ // only obviously distant homes are skipped. This reduces the per-tick
+ // search cost while maintaining the same swept movement and V1 walk state.
+ const CELL_METRES=32,MAX_CELLS_PER_SOLID=256,SPATIAL=new WeakMap();
+ const cell=x=>Math.floor(x/CELL_METRES);
+ function createIndex(solids){
+  const cells=new Map(),large=[];
+  for(let i=0;i<solids.length;i++){
+   const b=solids[i],left=cell(b.minX),right=cell(b.maxX),
+    top=cell(b.minZ),bottom=cell(b.maxZ);
+   const span=(right-left+1)*(bottom-top+1);
+   if(!Number.isSafeInteger(span)||span>MAX_CELLS_PER_SOLID){
+    large.push(i);continue;
+   }
+   for(let gx=left;gx<=right;gx++)for(let gz=top;gz<=bottom;gz++){
+    const id=gx+':'+gz;
+    if(!cells.has(id))cells.set(id,[]);
+    cells.get(id).push(i);
+   }
+  }
+  return {cells,large};
+ }
+ function createWorld(registry,cache,activeKeys,buildings,closedDoors=new Set()){
   if(!(registry instanceof Map)||!(cache instanceof Map)||
-   !(activeKeys instanceof Set)||!Array.isArray(buildings)||buildings.length>3000)
+   !(activeKeys instanceof Set)||!Array.isArray(buildings)||buildings.length>3000||
+   !(closedDoors instanceof Set)||closedDoors.size>3000)
    throw new TypeError('Invalid local 60Hz civilian walk world');
   const solids=[],rooms=[];
   const solid=(id,minX,maxX,minZ,maxZ,lowestGround)=>
@@ -45,22 +69,51 @@
     solids.push(solid(id+':east',maxX-thickness,maxX,minZ,maxZ,foundation.lowMetres));
     solids.push(solid(id+':south-left',minX,doorLeft,maxZ-thickness,maxZ,foundation.lowMetres));
     solids.push(solid(id+':south-right',doorRight,maxX,maxZ-thickness,maxZ,foundation.lowMetres));
+    if(closedDoors.has(id)){
+     // The closed timber door is a real narrow slab across the previously
+     // open threshold; collision checks still include the avatar radius.
+     solids.push(solid(id+':door',doorLeft,doorRight,
+      maxZ-thickness,maxZ,foundation.lowMetres));
+    }
     rooms.push(interior);
    }else{
     solids.push(solid(id,minX,maxX,minZ,maxZ,foundation.lowMetres));
    }
   }
-  return Object.freeze({registry,cache,activeKeys,
+  const index=createIndex(solids);
+  const world=Object.freeze({registry,cache,activeKeys,
    solids:Object.freeze(solids),rooms:Object.freeze(rooms),
+   broadphase:Object.freeze({cellMetres:CELL_METRES,
+    occupiedCells:index.cells.size,largeColliders:index.large.length,
+    indexedColliders:solids.length-index.large.length}),
    metresPerWorldUnit:1,
    surveyedAden:false,storyCollisionConnected:false,brCollisionConnected:false});
+  SPATIAL.set(world,index);
+  return world;
+ }
+ function intersects(b,x,z,radius){
+  const nearX=Math.max(b.minX,Math.min(x,b.maxX)),
+   nearZ=Math.max(b.minZ,Math.min(z,b.maxZ));
+  return Math.hypot(nearX-x,nearZ-z)<radius-EPS;
  }
  function collide(world,x,z,radius){
-  return world.solids.some(b=>{
-   const nearX=Math.max(b.minX,Math.min(x,b.maxX)),
-    nearZ=Math.max(b.minZ,Math.min(z,b.maxZ));
-   return Math.hypot(nearX-x,nearZ-z)<radius-EPS;
-  });
+  const index=SPATIAL.get(world);
+  if(!index)return world.solids.some(b=>intersects(b,x,z,radius));
+  const seen=new Set();
+  for(let gx=cell(x-radius);gx<=cell(x+radius);gx++)
+   for(let gz=cell(z-radius);gz<=cell(z+radius);gz++){
+    const hits=index.cells.get(gx+':'+gz);
+    if(!hits)continue;
+    for(const id of hits){
+     if(seen.has(id))continue;
+     seen.add(id);
+     if(intersects(world.solids[id],x,z,radius))return true;
+    }
+   }
+  // Very large, but valid original solids are checked without truncation.
+  for(const id of index.large)
+   if(!seen.has(id)&&intersects(world.solids[id],x,z,radius))return true;
+  return false;
  }
  function localHeight(world,x,z){
   if(!Number.isFinite(x)||!Number.isFinite(z))return null;
@@ -140,5 +193,6 @@
   return Object.freeze({version:1,tick:state.tick+1,x,z,y,blocked});
  }
  return Object.freeze({TICKS_PER_SECOND,SPEED_METRES_PER_SECOND,RADIUS_METRES,
-  MAX_SLOPE_DEGREES,MAX_TICK_STEP_METRES,createWorld,probe,initial,step});
+  MAX_SLOPE_DEGREES,MAX_TICK_STEP_METRES,CELL_METRES,
+  createWorld,probe,initial,step});
 });

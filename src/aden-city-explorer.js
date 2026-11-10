@@ -318,6 +318,10 @@
      ctx.fillStyle='#292e2c';
      ctx.fillRect(px-doorWidth/2,py+dd/2-doorDepth,
       doorWidth,doorDepth*2);
+     if(options.closedDoorIds?.has(building.id)){
+      ctx.fillStyle='#a17d52';
+      ctx.fillRect(px-doorWidth/2,py+dd/2-doorDepth,doorWidth,doorDepth*2);
+     }
      if(options.showPublicRoom===building.id){
       // Roof cutaway reveals a single grounded original public room only
       // when the walker is already physically inside its doorway.
@@ -394,7 +398,7 @@
   let state=viewState(),fileSelectionRevision=0;
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
    walkClock=null,walkAccum=0,walkFrame=0;
-  const held=new Set();
+  const held=new Set(),closedDoors=new Set();
   function invalidateWalking(){
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
@@ -407,10 +411,11 @@
   function worldForWalking(){
    if(activeDataset||!Walk||!Districts)return null;
    const keys=[...cache.keys()].sort();
-   const signature=keys.map(key=>key+':'+cache.get(key).lod).join('|');
+   const signature=keys.map(key=>key+':'+cache.get(key).lod).join('|')+
+    '|doors:'+([...closedDoors].sort().join(','));
    if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry){
     walkWorld=Walk.createWorld(registry,cache,new Set(keys),
-     [...CIVIC_SHELLS,...Districts.PLAN.buildings]);
+     [...CIVIC_SHELLS,...Districts.PLAN.buildings],closedDoors);
     walkWorldKey=signature;walkRegistry=registry;
    }
    return walkWorld;
@@ -435,7 +440,7 @@
     Districts.publicRoomAt(walk.x,walk.z):null;
    const stats=draw(canvas,registry,zoomState,cache,{
     imported:!!activeDataset,showFictionalBuildings:!activeDataset,
-    showPublicRoom:insideRoom?.id||null});
+    showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors});
    if(walk){
     const ctx=canvas.getContext('2d');
     const [px,pz]=Relief.project([walk.x,walk.y,walk.z],zoomState,
@@ -457,7 +462,8 @@
     '개 · 실제 아덴 검증 0타일'+
     (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
      'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':'')+
-     (insideRoom?' · 창작 공공 실내: '+insideRoom.district:''):'');
+     (insideRoom?' · 창작 공공 실내: '+insideRoom.district:'')+
+     (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':''):'');
   }
   function action(which){
    const speed=Tiles.TILE_METRES/4;
@@ -483,6 +489,27 @@
    catch(error){info.textContent='보행 시작 불가: 현재 지형/건물 경계 확인 필요';return false;}
    const button=doc.getElementById('walkProbe');
    if(button)button.setAttribute?.('aria-pressed','true');
+   refresh();return true;
+  }
+  function toggleNearbyDoor(){
+   if(!walk||activeDataset||!Districts||!Walk)return false;
+   const nearest=Districts.PUBLIC_INTERIORS.map(room=>({
+    room,distance:Math.hypot(walk.x-room.x,
+     walk.z-(room.z+room.d/2))
+   })).sort((a,b)=>a.distance-b.distance)[0];
+   if(!nearest||nearest.distance>2.5)return false;
+   const room=nearest.room;
+   if(closedDoors.has(room.id))closedDoors.delete(room.id);
+   else{
+    // A door cannot be closed THROUGH the pedestrian who currently
+    // occupies its swing/threshold. Reject without mutating any state.
+    const next=new Set(closedDoors);next.add(room.id);
+    const candidate=Walk.createWorld(registry,cache,new Set(cache.keys()),
+     [...CIVIC_SHELLS,...Districts.PLAN.buildings],next);
+    if(!Walk.probe(candidate,walk.x,walk.z))return false;
+    closedDoors.add(room.id);
+   }
+   walkWorld=null;walkWorldKey='';
    refresh();return true;
   }
   function walkStep(intent,frames=1){
@@ -525,7 +552,7 @@
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
    const dataset=Object.freeze({...parsed,filesImported:1});
-   invalidateWalking();
+   invalidateWalking();closedDoors.clear();
    registry=parsed.registry;activeDataset=dataset;
    state=centered;cache.clear();refresh();
    return dataset;
@@ -546,7 +573,7 @@
    });
    // All validations succeeded; commit exactly once. Existing tile objects
    // and their cached current-LOD meshes remain valid and camera stays put.
-   invalidateWalking();
+   invalidateWalking();closedDoors.clear();
    registry=combined.registry;activeDataset=dataset;refresh();
    return dataset;
   }
@@ -563,7 +590,7 @@
    // Reset is a newer user decision, not an intermediate render. Never let
    // an older File.text() promise resurrect an imported dataset afterward.
    fileSelectionRevision++;
-   invalidateWalking();
+   invalidateWalking();closedDoors.clear();
    registry=createPreviewRegistry();activeDataset=null;
    state=viewState();cache.clear();refresh();
   }
@@ -605,6 +632,9 @@
        /^(input|textarea|select)$/i.test(event.target?.tagName||''))return;
     const key=typeof event.key==='string'?event.key.toLowerCase():'';
     if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
+    if(walk&&key==='f'&&!event.repeat){
+     event.preventDefault();toggleNearbyDoor();return;
+    }
     if(walk&&['w','a','s','d'].includes(key)){
      event.preventDefault();held.add(key);scheduleWalk();return;
     }
@@ -624,7 +654,9 @@
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
-   action,refresh,toggleWalking,walkStep,loadDataset,appendDataset,resetSample});
+   getClosedDoors:()=>Object.freeze([...closedDoors].sort()),
+   action,refresh,toggleWalking,toggleNearbyDoor,walkStep,
+   loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
