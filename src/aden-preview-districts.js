@@ -48,6 +48,9 @@
     buildings.push(Object.freeze({id:id+'-house-'+i,district:id,
      x:px,z:pz,w:width,d:depth,h:height,color:palette[(i+n)%4],
      kind:quarter.kind,roofStyle:(i+n)%3===0?'parapet':'flat',
+     // One modest public ground-floor room faces the empty central court
+     // in each fictional district. No real buildings or tactical interiors.
+     publicInterior:row===1&&col===2,
      actualAdenArchitectureVerified:false}));
    }
    for(let row=0;row<4;row++){
@@ -71,6 +74,16 @@
    streets:Object.freeze(streets),courtyards:Object.freeze(courtyards)});
  }
  const PLAN=createPlan();
+ const PUBLIC_INTERIORS=Object.freeze(PLAN.buildings.filter(b=>b.publicInterior)
+  .map(b=>Object.freeze({id:b.id,district:b.district,
+   x:b.x,z:b.z,w:b.w,d:b.d,doorWidth:3,
+   wallThickness:.35,entrance:'south',isSurveyed:false})));
+ function publicRoomAt(x,z){
+  if(!Number.isFinite(x)||!Number.isFinite(z))return null;
+  return PUBLIC_INTERIORS.find(room=>
+   Math.abs(x-room.x)<room.w/2-room.wallThickness&&
+   Math.abs(z-room.z)<room.d/2-room.wallThickness)||null;
+ }
  // Sample all four foundation corners plus centre on the currently loaded
  // triangle mesh. If a corner is under water or unknown, the whole building
  // is omitted rather than painted as a floating structure across tile gaps.
@@ -114,7 +127,7 @@
     maxZ>=r.minZ&&minZ<=r.maxZ);
   });
  }
- return Object.freeze({NEIGHBORHOODS,PLAN,buildingFoundation,
-  visibleStreets,verifiedAdenCityBuildings:0,
+ return Object.freeze({NEIGHBORHOODS,PLAN,PUBLIC_INTERIORS,publicRoomAt,
+  buildingFoundation,visibleStreets,verifiedAdenCityBuildings:0,
   authoredOnly:true,collisionAuthored:false});
 });

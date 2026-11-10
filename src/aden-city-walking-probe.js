@@ -21,20 +21,37 @@
   if(!(registry instanceof Map)||!(cache instanceof Map)||
    !(activeKeys instanceof Set)||!Array.isArray(buildings)||buildings.length>3000)
    throw new TypeError('Invalid local 60Hz civilian walk world');
-  const solids=[];
+  const solids=[],rooms=[];
+  const solid=(id,minX,maxX,minZ,maxZ,lowestGround)=>
+   Object.freeze({id,minX,maxX,minZ,maxZ,lowestGround});
   for(const b of buildings){
    if(!b||typeof b.x!=='number'||typeof b.z!=='number'||
       !Number.isFinite(b.w)||!Number.isFinite(b.d)||
       b.w<=0||b.d<=0)throw new TypeError('Invalid civilian home footprint');
    const foundation=Districts.buildingFoundation(b,registry,cache,activeKeys);
    if(!foundation)continue;
-   solids.push(Object.freeze({id:b.id||'original-civic-home',
-    minX:b.x-b.w/2,maxX:b.x+b.w/2,
-    minZ:b.z-b.d/2,maxZ:b.z+b.d/2,
-    lowestGround:foundation.lowMetres}));
+   const id=b.id||'original-civic-home',minX=b.x-b.w/2,
+    maxX=b.x+b.w/2,minZ=b.z-b.d/2,maxZ=b.z+b.d/2;
+   const interior=b.publicInterior&&Districts.PUBLIC_INTERIORS.find(room=>
+    room.id===id);
+   if(interior){
+    const thickness=interior.wallThickness,
+     doorLeft=b.x-interior.doorWidth/2,
+     doorRight=b.x+interior.doorWidth/2;
+    // Four perimeter walls plus a physically open 3m court-facing entry.
+    // A zero-width magic "enter" action would not be a real doorway.
+    solids.push(solid(id+':north',minX,maxX,minZ,minZ+thickness,foundation.lowMetres));
+    solids.push(solid(id+':west',minX,minX+thickness,minZ,maxZ,foundation.lowMetres));
+    solids.push(solid(id+':east',maxX-thickness,maxX,minZ,maxZ,foundation.lowMetres));
+    solids.push(solid(id+':south-left',minX,doorLeft,maxZ-thickness,maxZ,foundation.lowMetres));
+    solids.push(solid(id+':south-right',doorRight,maxX,maxZ-thickness,maxZ,foundation.lowMetres));
+    rooms.push(interior);
+   }else{
+    solids.push(solid(id,minX,maxX,minZ,maxZ,foundation.lowMetres));
+   }
   }
   return Object.freeze({registry,cache,activeKeys,
-   solids:Object.freeze(solids),
+   solids:Object.freeze(solids),rooms:Object.freeze(rooms),
    metresPerWorldUnit:1,
    surveyedAden:false,storyCollisionConnected:false,brCollisionConnected:false});
  }
