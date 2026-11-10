@@ -410,7 +410,11 @@ class BrSquadWorld {
       owner.eligible&&actor.eligible&&
       this.phase==='moving'&&
       this.tick-owner.lastMoveTick>LEASE_TICKS&&
-      Math.hypot(owner.direction.x,owner.direction.z)<1e-8;
+      Math.hypot(owner.direction.x,owner.direction.z)<1e-8&&
+      Math.hypot(actor.x-this.handcart.body.x,actor.z-this.handcart.body.z)>=1.45&&
+      Math.hypot(actor.x-this.handcart.body.x,actor.z-this.handcart.body.z)<=2.6&&
+      !Sim.lineBlocked(actor.x,actor.z,this.handcart.body.x,this.handcart.body.z,
+        this.obstacles.filter(o=>o!==this.handcart.body));
   }
   operateHandcart(token){
     const actor=this.actors.get(token);
