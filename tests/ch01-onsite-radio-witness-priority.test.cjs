@@ -37,8 +37,8 @@ test('distant civilians or obstructed visual path never displace real public ann
  s.world.obstacles.pop();
  s.civilianWalker.arrived=false;
  assert.strictEqual(Comms.fieldRadio(s,publicPA),publicPA);
- assert.equal(Comms.fieldRadio(s,null).speaker,'김지윤',
-  'without a witnessed civilian or public PA, use the existing nonblocking briefing');
+ assert.equal(Comms.fieldRadio(s,null).speaker,'이수혁 대위',
+  'without a live arrival or public PA, retain the established unconfirmed route report');
 });
 test('a nearby independently arrived Mara has agency and no hidden-tracking radio',()=>{
  const s=Story.createState();s.phase='records';
