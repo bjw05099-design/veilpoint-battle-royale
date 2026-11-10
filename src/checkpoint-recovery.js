@@ -22,7 +22,15 @@
     // checkpoint. Never hand an incomplete actor or clock to the renderer.
     return player!==null&&typeof player==='object'&&!Array.isArray(player)&&
       ['x','z','yaw','pitch','stamina','health','charges'].every(
-        key=>Number.isFinite(player[key]));
+        key=>Number.isFinite(player[key]))&&
+      // The 60Hz collision and AI steps consume these arrays immediately on
+      // Continue. A plausible player alone cannot make a malformed world
+      // playable: invalid obstacle extents or actor coordinates propagate NaN
+      // into collision, movement and rendering on the very first frame.
+      world.obstacles.every(o=>o&&typeof o==='object'&&!Array.isArray(o)&&
+        ['x','z','w','d'].every(key=>Number.isFinite(o[key]))&&o.w>0&&o.d>0)&&
+      world.bots.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&
+        ['x','z','health'].every(key=>Number.isFinite(b[key])));
   }
   function retryBackup(backup,restorePair){
     if(backup==null)return null;

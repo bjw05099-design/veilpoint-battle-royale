@@ -100,6 +100,7 @@ void AVPCityTerrainStreamActor::EndPlay(const EEndPlayReason::Type EndPlayReason
     LoadedHeightBytes.Empty();
     RejectedTiles.Empty();
     SourceTiles.Empty();
+    bPendingTileBuilds=false;
     Super::EndPlay(EndPlayReason);
 }
 
@@ -264,10 +265,22 @@ bool AVPCityTerrainStreamActor::CreateTileMesh(const FIntPoint& TileIndex)
             Normals.Add(FVector(-Dx,-Dy,1.f).GetSafeNormal());
             UV0.Add(FVector2D(float(Col)/Last,float(Row)/Last));
             const float Metres=Height/100.f;
-            Colors.Add(Metres<=0?FLinearColor(.11f,.29f,.34f):
+            // The original preview terrain no longer paints an identical
+            // tan surface on a walkable gentle slope and a steep ridge.
+            // Use the true R16 physical slope (rise/run), NOT elevation alone.
+            // It is a procedural vertex-colour visualization of the locally
+            // generated tiles; it makes NO claim about observed Aden geology.
+            const float RisePerRun=FMath::Sqrt(Dx*Dx+Dy*Dy);
+            const float RockCoverage=FMath::Clamp(
+                (RisePerRun-0.32f)/0.95f,0.f,1.f);
+            const FLinearColor LowGround=Metres<=0?
+                FLinearColor(.11f,.29f,.34f):
                 Metres>110?FLinearColor(.37f,.33f,.29f):
                 Metres>35?FLinearColor(.49f,.42f,.34f):
-                           FLinearColor(.63f,.54f,.39f));
+                           FLinearColor(.63f,.54f,.39f);
+            const FLinearColor ExposedRock(.42f,.36f,.32f);
+            Colors.Add(LowGround*(1.f-RockCoverage)+
+                ExposedRock*RockCoverage);
         }
     for(int32 Row=0;Row<Side-1;++Row)
         for(int32 Col=0;Col<Side-1;++Col)
@@ -305,7 +318,8 @@ void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
 {
     const FIntPoint Center=VPCityTileGrid::TileFromWorldCentimetres(WorldLocation);
     const int32 Radius=FMath::Clamp(LoadRadiusTiles,0,2);
-    if(Center==LastOrigin&&Radius==LastRadius)return;
+    const bool bOriginChanged=Center!=LastOrigin||Radius!=LastRadius;
+    if(!bOriginChanged&&!bPendingTileBuilds)return;
     LastOrigin=Center;
     LastRadius=Radius;
     // CandidateTiles is ordered by ring. Choose the closest AVAILABLE
@@ -330,12 +344,29 @@ void AVPCityTerrainStreamActor::StreamAround(const FVector& WorldLocation)
             It.RemoveCurrent();
         }
     }
+    // Construct only a bounded number of costly procedural/collision sections
+    // during this actor tick. Continue at the SAME origin next tick; the old
+    // origin-only early return would strand the remaining desired tiles.
+    const int32 BuildBudget=FMath::Clamp(MaxTileBuildsPerTick,1,3);
+    int32 BuiltThisTick=0;
+    bool bRejectedThisTick=false;
     for(const FIntPoint& Candidate : Candidates)
     {
         if(TileMeshes.Num()>=TileBudget)break;
-        if(Desired.Contains(Candidate)&&!TileMeshes.Contains(Candidate))
-            CreateTileMesh(Candidate);
+        if(BuiltThisTick>=BuildBudget)break;
+        if(!Desired.Contains(Candidate)||TileMeshes.Contains(Candidate)||
+            RejectedTiles.Contains(Candidate))continue;
+        if(CreateTileMesh(Candidate))++BuiltThisTick;
+        else if(RejectedTiles.Contains(Candidate))bRejectedThisTick=true;
     }
-    UE_LOG(LogTemp,Display,TEXT("[VEILPOINT terrain] Native R16 tiles visible: %d/%d at (%d,%d); fictional/unverified region not filled."),
-        TileMeshes.Num(),SourceTiles.Num(),Center.X,Center.Y);
+    // Recompute candidates after any failure on the NEXT tick so a rejected
+    // source can never consume a permanent slot in the nine-tile budget.
+    bPendingTileBuilds=bRejectedThisTick;
+    for(const FIntPoint& Candidate : Desired)
+        if(!TileMeshes.Contains(Candidate)&&!RejectedTiles.Contains(Candidate))
+            bPendingTileBuilds=true;
+    if(bOriginChanged||BuiltThisTick>0||bRejectedThisTick)
+        UE_LOG(LogTemp,Display,TEXT("[VEILPOINT terrain] Native R16 tiles visible: %d/%d at (%d,%d); built this tick %d; pending=%d; unverified region not filled."),
+            TileMeshes.Num(),SourceTiles.Num(),Center.X,Center.Y,
+            BuiltThisTick,bPendingTileBuilds?1:0);
 }

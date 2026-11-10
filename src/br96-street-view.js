@@ -61,6 +61,21 @@
   // When inside a room the far face should be visible, not an infinite wall.
   return tNear>0.03?tNear:tFar>0.03?tFar:Infinity;
  }
+ // Determine the exact public wall face already intersected by an existing
+ // ray. This does not generate new collision geometry, players or remote data.
+ // For an eye inside a room, rayBox returns the outward exit face.
+ function wallFace(eye,dir,box,distance){
+  if(!box||!Number.isFinite(distance)||distance<=0)return null;
+  const hitX=eye.x+dir.x*distance,hitZ=eye.z+dir.z*distance;
+  const candidates=[
+   ['west',Math.abs(hitX-(box.x-box.w/2))],
+   ['east',Math.abs(hitX-(box.x+box.w/2))],
+   ['north',Math.abs(hitZ-(box.z-box.d/2))],
+   ['south',Math.abs(hitZ-(box.z+box.d/2))]
+  ];
+  candidates.sort((a,b)=>a[1]-b[1]);
+  return candidates[0][0];
+ }
  // Public round weather is used only for color/visibility. No synthetic
  // sensors, out-of-range humans or bonus target acquisition are introduced.
  function weatherFogFraction(depth,visibleDistance,weatherCode='clear'){
@@ -71,12 +86,20 @@
   return fraction*(weatherCode==='sea-haze'?.90:
     weatherCode==='gusty'?.70:weatherCode==='clearing'?.50:.38);
  }
- function shade(type,depth,visibleDistance=95,weatherCode='clear',lampLit=false){
+ function shade(type,depth,visibleDistance=95,weatherCode='clear',lampLit=false,surfaceFace=null){
   const tint=String(type||'');
   const base=tint.includes('warehouse')||tint.includes('building')?[113,127,126]:
     tint.includes('wall')||tint.includes('shutter')?[118,130,128]:
     tint.includes('bench')||tint.includes('counter')?[158,139,108]:[113,119,111];
-  const factor=Math.max(.36,1-depth/135)*(lampLit&&depth<24?1+.42*(1-depth/24):1),
+  // Directional surface illumination is fixed in this *fictional* street
+  // coordinate system, independent of client camera rotation. Adjacent
+  // brick faces can finally have different brightness without changing
+  // range, hit geometry or server-authorized visibility.
+  const exposure=surfaceFace==='east'?1.07:
+    surfaceFace==='west'?.79:surfaceFace==='north'?.93:
+    surfaceFace==='south'?1.13:1;
+  const factor=Math.max(.36,1-depth/135)*exposure*
+    (lampLit&&depth<24?1+.42*(1-depth/24):1),
      fog=weatherFogFraction(depth,visibleDistance,weatherCode);
   const horizon=weatherCode==='sea-haze'?[102,123,126]:
     weatherCode==='gusty'?[107,127,134]:[112,139,146];
@@ -127,6 +150,22 @@
   }
   return Object.freeze(output);
  }
+ // Conservative view-cone broadphase. A public AABB is bounded by its
+ // enclosing circle; only genuinely outside-cone boxes are excluded from
+ // CPU wall-ray tests. Unlike distance-only culling, this cannot erase a
+ // nearby facade whose edge (rather than its center) crosses the screen.
+ // No hidden actor or private client location is consulted.
+ function visibleRaySolids(subject,yaw,solids){
+  const angle=wrap(yaw),half=FOV/2+FOV/COLUMNS;
+  return solids.filter(box=>{
+   const dx=box.x-subject.x,dz=box.z-subject.z;
+   const distance=Math.hypot(dx,dz),radius=Math.hypot(box.w,box.d)/2;
+   if(distance<=radius+.05)return true;
+   const center=wrap(Math.atan2(dx,-dz)-angle);
+   return Math.abs(center)<=half+
+     Math.asin(Math.min(1,(radius+.05)/distance));
+  });
+ }
  function frame({subject,yaw=0,pitch=0,obstacles=[],civicGate=null,handcart=null,
    squad=[],visible=[],visibilityMeters=95}={}){
   if(!subject||![subject.x,subject.z].every(Number.isFinite))
@@ -143,20 +182,24 @@
   // never by the once-per-round immutable public geometry cache.
   if(handcart&&[handcart.x,handcart.z,handcart.w,handcart.d].every(Number.isFinite)&&
      handcart.w>0&&handcart.d>0)solids.push({...handcart,type:'dock-handcart'});
+  // Filter public WORLD geometry, never the authenticated people list.
+  // The 210-ray reference remains exactly the same at every visible hit.
+  const rayCandidates=visibleRaySolids(subject,angle,solids);
   // Fixed equal-angle ray columns: depth and sprite masking are read-only.
   const rays=Array.from({length:COLUMNS},(_,index)=>{
    const alpha=((index+.5)/COLUMNS-.5)*FOV;
    const heading=angle+alpha;
    const direction={x:Math.sin(heading),z:-Math.cos(heading)};
    let best=Infinity,object=null;
-   for(const solid of solids){
+   for(const solid of rayCandidates){
     const d=rayBox(subject,direction,solid);
     if(d<best){best=d;object=solid;}
    }
    const distance=best*Math.cos(alpha);
    return Object.freeze({distance:distance<=maxDistance?distance:Infinity,
      height:object&&Number.isFinite(object.h)?Math.max(.2,Math.min(18,object.h)):2.7,
-     type:object?.type||'building'});
+     type:object?.type||'building',
+     face:distance<=maxDistance?wallFace(subject,direction,object,best):null});
   });
   // The server decides who is visible at all. This view only narrows the
   // FOV and hides occluded sprites: it never adds a person to that snapshot.
@@ -187,6 +230,7 @@
   }).filter(Boolean).sort((a,b)=>b.depth-a.depth);
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
     angle,pitch:clampPitch(pitch),heading:viewHeading(angle),columns:COLUMNS,maxDistance,
+    rayCandidateCount:rayCandidates.length,
     eyeHeight:subject.benchResting===true?EYE_SEATED:
       subject.crouched===true?EYE_CROUCH:EYE_STANDING});
  }
@@ -228,7 +272,7 @@
    // in the local forward cone; it never grants seeing an unseen rival.
    const lit=subject.headlampOn===true&&d<24&&
      Math.abs((i+.5)/model.columns-.5)<.22;
-   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit);
+   ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit,ray.face);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
   }
@@ -285,5 +329,5 @@
   return model;
  }
  return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,
-  civicGroundPolygons,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,frame,draw});
+  civicGroundPolygons,visibleRaySolids,clampPitch,wrap,viewHeading,relativeMovement,weatherFogFraction,shade,rayBox,wallFace,frame,draw});
 });

@@ -86,7 +86,7 @@ test('Windows Chrome DevTools uses a reserved local HTTP endpoint without changi
 });
 
 test('failed Windows Chrome startup preserves launch evidence and fails the release gate',()=>{
- for(const detail of ['pid=', 'exit=', 'signal=', 'Windows HTTP probe'])
+ for(const detail of ['pid=', 'exit=', 'signal=', 'HTTP readiness probe'])
   assert.ok(verifier.includes(detail),'startup diagnostic missing: '+detail);
  assert.ok(verifier.includes("transportFailure?[transportFailure.message]:[]"));
  assert.ok(verifier.includes("throw new Error('Viewport geometry gate failed:"));

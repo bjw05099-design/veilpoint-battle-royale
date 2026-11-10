@@ -34,9 +34,21 @@ document.addEventListener('keydown',event=>{
 },true);
 
 const keys=new Set();
-let token=null,state=null,seq=0,moveBusy=false,pollBusy=false;
+let token=null,state=null,seq=0,stanceSeq=0,moveBusy=false,pollBusy=false;
 let sprintIntent=false,lastSprint=null,lastCrouch=null,lastWorldTick=-1,lastStatus='';
 let consecutiveErrors=0;
+// Idle clients previously posted a full /move world snapshot every 180ms,
+// even with no keyboard movement (roughly 530 unnecessary requests/sec for
+// 96 stationary players). A zero-vector handoff releases movement once;
+// real 3s authenticated /heartbeat calls preserve observable presence while
+// the authoritative 60Hz world and 4Hz private stream remain unchanged.
+let lastSubmittedDirection=null,lastIdleHeartbeatAt=0;
+const IDLE_HEARTBEAT_MS=3000;
+function needMovementFrame(direction){
+ if(direction.dx!==0||direction.dz!==0)return true;
+ return lastSubmittedDirection===null||
+   lastSubmittedDirection.dx!==0||lastSubmittedDirection.dz!==0;
+}
 // Each streamed snapshot is already filtered by the server for this player.
 // EventSource cannot authenticate by custom headers; never put tokens in URLs.
 let liveAbort=null,lastLiveAt=0,liveRetryAt=0,pollCount=0;
@@ -53,7 +65,8 @@ function message(value){if(value!==lastStatus){lastStatus=value;el('status').tex
 function cleanSession(){
  stopPrivateStream();
  harborAudio?.disable();
- token=null;state=null;seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
+ token=null;state=null;seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;keys.clear();
+ lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
  streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
@@ -84,7 +97,8 @@ function apply(next){
   if(next.roundNumber<state.roundNumber)return;
   if(next.roundNumber>state.roundNumber){
    stopPrivateStream();liveRetryAt=0;
-   seq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
+   seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
+   lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
    streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
@@ -97,6 +111,8 @@ function apply(next){
    // a freshly loaded page must not be trapped sending stale seq=1 forever.
    if(Number.isSafeInteger(next.world.self?.seq))
      seq=Math.max(seq,next.world.self.seq);
+   if(Number.isSafeInteger(next.world.self?.stanceSeq))
+     stanceSeq=Math.max(stanceSeq,next.world.self.stanceSeq);
  }
  state=next;consecutiveErrors=0;
  render();
@@ -269,8 +285,17 @@ function render(){
     (w.self.stepOverProgress!==null&&w.self.stepOverProgress!==undefined?
       '\n보행 장애물 통과: '+Math.round(w.self.stepOverProgress*100)+'% · 서버 60Hz':'')+
     (w.civicGate?'\n여객 문: '+w.civicGate.state:'')+
-    (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'밀기 조작 중':'현장 접근 시 조작 가능'):'')+
+    (w.handcart?'\n항구 손수레: '+(w.handcart.heldBySelf?'직접 밀기 조작 중 · F 놓기':
+      w.handcart.handoffAvailable?'가까운 분대원에게서 F로 조작 인계 가능':
+      w.handcart.squadOperatorSlot?'분대 '+w.handcart.squadOperatorSlot+'번 조작 중':
+      '현장 접근 시 조작 가능'):'')+
     (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
+    // Only this participant's authenticated six-person server timeline is
+    // rendered; opponent sessions, identities and coordinates never appear.
+    (w.squadTimeline?.length?'\n분대 실제 퇴장 '+w.squadTimeline.length+'/6 · 최근 '+
+      w.squadTimeline.at(-1).slot+'번 ('+
+      (w.squadTimeline.at(-1).reason==='voluntary_withdrawal'?'자발적 종료':
+       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':'서버 확인')+')':'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -802,18 +827,37 @@ function direction(){
 }
 async function movement(){
  if(!active()||moveBusy)return;
+ const dir=direction(),newSprint=sprintIntent||keys.has('ShiftLeft')||keys.has('ShiftRight'),
+  newCrouch=keys.has('KeyC'),
+  // Changing sprint/crouch while not actually moving is still an intentional
+  // PC action. Send pace to authoritative server without fake displacement.
+  stanceChanged=newSprint!==lastSprint||newCrouch!==lastCrouch;
+ const needsMove=needMovementFrame(dir),now=Date.now(),
+  needsHeartbeat=!needsMove&&now-lastIdleHeartbeatAt>=IDLE_HEARTBEAT_MS;
+ if(!needsMove&&!stanceChanged&&!needsHeartbeat)return;
  moveBusy=true;
  try{
-  const dir=direction();
-  await request('/move',{...dir,seq:++seq});
-  const newSprint=sprintIntent||keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const newCrouch=keys.has('KeyC');
-  if(newSprint!==lastSprint||newCrouch!==lastCrouch){
-   // A stance is a server-owned movement intent, not client-set velocity.
-   await request('/pace',{sprint:newSprint,crouch:newCrouch});
+  if(needsMove){
+   // The first neutral move after the keys stop releases the server lease.
+   // Do not predict actor position or move the 60Hz world in the browser.
+   await request('/move',{...dir,seq:++seq});
+   lastSubmittedDirection={dx:dir.dx,dz:dir.dz};
+   lastIdleHeartbeatAt=Date.now();
+  }
+  if(stanceChanged){
+   await request('/pace',{sprint:newSprint,crouch:newCrouch,seq:++stanceSeq});
    lastSprint=newSprint;lastCrouch=newCrouch;
+   lastIdleHeartbeatAt=Date.now();
+  }
+  if(needsHeartbeat&&!needsMove&&!stanceChanged){
+   // An authenticated server heartbeat is a liveness hint, NOT a move,
+   // extra participant, new session, or score-affecting time update.
+   await request('/heartbeat',{});
+   lastIdleHeartbeatAt=Date.now();
   }
  }catch(error){
+  // Retry a failed zero-vector handoff next cycle. If a request was
+  // already accepted, a duplicate neutral frame has no displacement.
   consecutiveErrors++;
   if(consecutiveErrors>=2)message('이동 서버 연결 확인 필요 · 입력을 재시도합니다.');
  }finally{moveBusy=false;}

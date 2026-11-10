@@ -388,7 +388,15 @@ class SoftwareRenderer {
  if(harborNight&&state.streetFlood){
   const wet=state.streetFlood,hw=wet.w/2,hd=wet.d/2;
   polygon([proj(wet.x-hw,.025,wet.z-hd),proj(wet.x+hw,.025,wet.z-hd),
-   proj(wet.x+hw,.025,wet.z+hd),proj(wet.x-hw,.025,wet.z+hd)],'#426d74');
+   proj(wet.x+hw,.025,wet.z+hd),proj(wet.x-hw,.025,wet.z+hd)],
+   wet.cleared?'#596966':'#426d74');
+  // True 60Hz repair progress remains local to the visible drain, not
+  // a mission waypoint or magical instant-dry surface.
+  if(wet.repairProgress>0){
+   const f=Math.max(0,Math.min(1,wet.repairProgress));
+   polygon([proj(-12,.06,-17.4),proj(-12+2.3*f,.06,-17.4),
+    proj(-12+2.3*f,.06,-17.15),proj(-12,.06,-17.15)],'#d6c28b');
+  }
  }
  // Four public ground-level district surfaces are original walkable
  // street dressing. They use the SAME authored coordinates as the
@@ -1264,10 +1272,17 @@ class Renderer {
  }
  if(state.scene==='nahrin'&&state.streetFlood){
   const wet=state.streetFlood;
-  mesh.box(wet.x,.027,wet.z,wet.w,.012,wet.d,[.20,.36,.41]);
-  // Thin, ground-level sheen conveys changed footing without a false collider.
+  mesh.box(wet.x,.027,wet.z,wet.w,.012,wet.d,
+    wet.cleared?[.31,.38,.36]:[.20,.36,.41]);
+  // Drain clearing leaves a thin damp sheen rather than magically drying a
+  // city street. No new invisible colliders or texture dependencies.
   for(const xOffset of [-3.1,0,3.1])
-   mesh.box(wet.x+xOffset,.046,wet.z+.9,.4,.005,wet.d*.58,[.34,.48,.52]);
+   mesh.box(wet.x+xOffset,.046,wet.z+.9,.4,.005,wet.d*.58,
+    wet.cleared?[.39,.44,.43]:[.34,.48,.52]);
+  if(wet.repairProgress>0){
+   const progress=Math.max(0,Math.min(1,wet.repairProgress));
+   mesh.box(-12+1.15*progress,.062,-17.3,2.3*progress,.02,.28,[.79,.66,.37]);
+  }
  }
  if(state.scene==='nahrin'&&!state.aidPickedUp){
   mesh.box(-7,.25,-47,.62,.5,.48,[.46,.40,.31]);

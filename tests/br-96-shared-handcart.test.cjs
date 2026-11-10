@@ -17,7 +17,8 @@ test('one authenticated human pushes a single real shared handcart in 60Hz ticks
  const before={x:cart.x,z:cart.z,actorZ:a.z};
  assert.equal(world.operateHandcart(token(1)).reason,'out_of_reach');
  assert.equal(world.operateHandcart(token(0)).action,'grip');
- assert.equal(world.operateHandcart(token(6)).reason,'in_use');
+ assert.equal(world.operateHandcart(token(6)).reason,'out_of_reach',
+   'a distant rival has no access to operator state or shared handle');
  assert.equal(world.move(token(0),{dx:0,dz:-1,seq:0}).ok,true);
  for(let i=0;i<12;i++)world.step();
  assert.ok(cart.z<before.z,'handcart advances only through real fixed steps');

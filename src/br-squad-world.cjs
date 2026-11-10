@@ -68,6 +68,10 @@ class BrSquadWorld {
     // transitions change this scorecard; ties cannot be invented by the HUD.
     this.phase='moving';this.activeSquads=SQUADS;
     this.placements=Array(SQUADS).fill(null);
+    // Real 60Hz squad exits are independently authored by the server. One
+    // event per actual retiring human, bounded to exactly six per squad; no
+    // rival identities, coordinates, authentication tokens or vote fiction.
+    this.squadTimeline=Array.from({length:SQUADS},()=>[]);
     this.finishReason=null;
     // Map marker is emitted by the authoritative actor's OWN feet.
     // No client-supplied coordinates or opponent identities are accepted.
@@ -107,7 +111,7 @@ class BrSquadWorld {
         if(!point)throw new Error('no_room_for_96_real_bodies');
         occupied.push(point);
         this.actors.set(token,{id:player.id,team,slot,x:point.x,z:point.z,
-          direction:{x:0,z:0},facing:0,moving:false,seq:-1,lastMoveTick:0,eligible:true,
+          direction:{x:0,z:0},facing:0,moving:false,seq:-1,stanceSeq:-1,lastMoveTick:0,eligible:true,
           // Monotonic server clock only; no client-reported survival time.
           eliminatedAtTick:null,eliminationReason:null,
           lastSignalTick:-SIGNAL_COOLDOWN_TICKS,lastPresenceTick:0,
@@ -178,15 +182,25 @@ class BrSquadWorld {
     if(this.phase!=='moving'||!actor.eligible)
       return {ok:false,reason:'out_of_round'};
     if(!command||typeof command!=='object'||Array.isArray(command)||
-       !['sprint','crouch,sprint'].includes(Object.keys(command).sort().join(','))||
+       !['sprint','crouch,sprint','seq,sprint','crouch,seq,sprint'].includes(Object.keys(command).sort().join(','))||
        typeof command.sprint!=='boolean'||
-       (command.crouch!==undefined&&typeof command.crouch!=='boolean'))
+       (command.crouch!==undefined&&typeof command.crouch!=='boolean')||
+       (command.seq!==undefined&&(!Number.isSafeInteger(command.seq)||
+        command.seq<0||command.seq>2147483647)))
       throw new RangeError('invalid_pace');
+    // A delayed HTTP request from an earlier input frame must not restore
+    // sprint/crouch AFTER a newer neutral input. Legacy clients without a
+    // sequence are accepted only until a sequenced PC command is observed.
+    if(command.seq===undefined&&actor.stanceSeq>=0)
+      return {ok:false,reason:'stance_sequence_required'};
+    if(command.seq!==undefined&&command.seq<=actor.stanceSeq)
+      return {ok:false,reason:'stale_stance'};
     actor.sprintHeld=command.sprint;
     actor.crouchHeld=command.crouch===true;
+    if(command.seq!==undefined)actor.stanceSeq=command.seq;
     actor.lastPresenceTick=this.tick;
     return {ok:true,sprintHeld:actor.sprintHeld,crouched:actor.crouchHeld,
-      stamina:Math.round(actor.stamina*100)/100};
+      stanceSeq:actor.stanceSeq,stamina:Math.round(actor.stamina*100)/100};
   }
   // No client-supplied power, timer, or rival discovery.
   headlamp(token){
@@ -261,7 +275,7 @@ class BrSquadWorld {
         options.push({kind:'gate',distance});
     }
     const cart=this.handcart.body;
-    if(cart&&!this.handcart.operator){
+    if(cart&&(!this.handcart.operator||this.cartHandoffAvailable(actor))){
       const distance=Math.hypot(actor.x-cart.x,actor.z-cart.z);
       if(distance>=1.45&&distance<=2.6 &&
          !Sim.lineBlocked(actor.x,actor.z,cart.x,cart.z,
@@ -278,7 +292,18 @@ class BrSquadWorld {
     options.sort((a,b)=>a.distance-b.distance||
       ['gate','handcart','bench'].indexOf(a.kind)-
       ['gate','handcart','bench'].indexOf(b.kind));
-    if(!options.length)return {ok:false,reason:'no_reachable_interaction'};
+    if(!options.length){
+      // A nearby player can see the real cart but cannot forcefully steal
+      // a currently operated handle. Give the actual physical reason rather
+      // than misleadingly saying that nothing is within reach.
+      const occupied=this.handcart.operator&&cart&&!this.cartHandoffAvailable(actor)&&
+        Math.hypot(actor.x-cart.x,actor.z-cart.z)>=1.45&&
+        Math.hypot(actor.x-cart.x,actor.z-cart.z)<=2.6&&
+        !Sim.lineBlocked(actor.x,actor.z,cart.x,cart.z,
+          this.obstacles.filter(o=>o!==cart));
+      return occupied?{kind:'handcart',ok:false,reason:'in_use'}:
+        {ok:false,reason:'no_reachable_interaction'};
+    }
     const chosen=options[0].kind;
     const result=chosen==='gate'?this.operateCivicGate(token):
       chosen==='handcart'?this.operateHandcart(token):this.benchRest(token);
@@ -390,29 +415,64 @@ class BrSquadWorld {
   }
   // One real human interacts at arm's reach. No client-positioned cart, speed
   // boost, magic carrying or remote mutation of another team's world state.
+  // A stationary teammate can voluntarily take over a public handcart when
+  // the original human pusher has stopped issuing movement for a full input
+  // lease. No client can transfer another person's grip remotely, no vote or
+  // opponent identity is exposed, and the cart never moves on its own.
+  cartHandoffAvailable(actor){
+    const owner=this.handcart.operator;
+    return !!owner&&owner!==actor&&owner.team===actor.team&&
+      owner.eligible&&actor.eligible&&
+      this.phase==='moving'&&
+      this.tick-owner.lastMoveTick>LEASE_TICKS&&
+      Math.hypot(owner.direction.x,owner.direction.z)<1e-8&&
+      Math.hypot(actor.x-this.handcart.body.x,actor.z-this.handcart.body.z)>=1.45&&
+      Math.hypot(actor.x-this.handcart.body.x,actor.z-this.handcart.body.z)<=2.6&&
+      !Sim.lineBlocked(actor.x,actor.z,this.handcart.body.x,this.handcart.body.z,
+        this.obstacles.filter(o=>o!==this.handcart.body));
+  }
   operateHandcart(token){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
     if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
     const cart=this.handcart,body=cart.body;
     if(cart.operator===actor){cart.operator=null;return {ok:true,action:'release'};}
-    if(cart.operator)return {ok:false,reason:'in_use'};
+    // Validate the physical handle before even reporting occupancy. A remote
+    // client must not learn another human's cart-grip state by probing F.
     const dx=body.x-actor.x,dz=body.z-actor.z,dist=Math.hypot(dx,dz);
     if(dist<1.45||dist>2.6||Sim.lineBlocked(actor.x,actor.z,body.x,body.z,
        this.obstacles.filter(o=>o!==body)))return {ok:false,reason:'out_of_reach'};
+    const handoff=this.cartHandoffAvailable(actor);
+    if(cart.operator&&!handoff)return {ok:false,reason:'in_use'};
     // The actor's actual approach determines the push axis, never a user
     // supplied destination. The handle stays solid throughout the action.
     const alongX=Math.abs(dx)>=Math.abs(dz);
     const dirX=alongX?Math.sign(dx):0,dirZ=alongX?0:Math.sign(dz);
     cart.operator=actor;cart.dirX=dirX;cart.dirZ=dirZ;
+    if(handoff){
+      // A previous movement vector must NOT accidentally move an unattended
+      // cart on the same tick as the F-key handoff. Explicit fresh input is
+      // required from the new operator before the shared collider advances.
+      actor.direction={x:0,z:0};
+      actor.lastMoveTick=this.tick-LEASE_TICKS-1;
+      actor.sprintHeld=false;
+    }
     actor.lastPresenceTick=this.tick;
-    return {ok:true,action:'grip',cart:this.handcartSnapshot(token)};
+    return {ok:true,action:handoff?'handoff':'grip',
+      cart:this.handcartSnapshot(token)};
   }
   handcartSnapshot(token){
     const body=this.handcart.body;
+    const viewer=this.actors.get(token),owner=this.handcart.operator;
     return {x:body.x,z:body.z,w:body.w,d:body.d,h:body.h,
-      heldBySelf:this.handcart.operator===this.actors.get(token),
-      moving:false};
+      heldBySelf:owner===viewer,moving:false,
+      // Keep the existing empty-cart snapshot byte/shape-compatible with
+      // older clients and the canonical 60Hz map geometry contract. The new
+      // private ownership metadata exists ONLY while a real owner is present.
+      ...(owner?{
+        squadOperatorSlot:viewer&&viewer.team===owner.team?owner.slot+1:null,
+        handoffAvailable:viewer?this.cartHandoffAvailable(viewer):false
+      }:{})};
   }
   // The handcart and its human pusher move in lockstep at a bounded walking
   // speed on the next fixed tick. Both the swept cart and actor destination
@@ -485,6 +545,16 @@ class BrSquadWorld {
   // Later elimination sources must live behind the game server, not a client
   // command naming another actor. There is deliberately no arbitrary
   // "eliminate opponent" HTTP endpoint or hidden remote interaction.
+  recordSquadDeparture(actor){
+    const log=this.squadTimeline[actor.team];
+    if(log.length>=SQUAD_SIZE||
+       log.some(event=>event.slot===actor.slot+1))
+      throw new Error('duplicate_server_squad_departure');
+    const remaining=[...this.actors.values()].filter(a=>
+      a.team===actor.team&&a.eligible).length;
+    log.push(Object.freeze({slot:actor.slot+1,tick:this.tick,
+      reason:actor.eliminationReason,remainingMembers:remaining}));
+  }
   withdraw(token){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -494,6 +564,7 @@ class BrSquadWorld {
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
     actor.eliminationReason='voluntary_withdrawal';
+    this.recordSquadDeparture(actor);
     actor.headlampOn=false;actor.stepping=null;
     actor.direction={x:0,z:0};actor.moving=false;
     if(this.squadSignals.get(actor.team)?.authorId===actor.id)
@@ -582,9 +653,35 @@ class BrSquadWorld {
           this.obstacles,RADIUS);
       // A near-neighbor body query needs no short-lived 96x96 collider
       // allocation on each server tick; moveEntity already swept all walls.
-      if(nearbyBodies.nearby(next.x,next.z,2*RADIUS).some(other=>other!==actor&&
-        Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)){
-        next.x=actor.x;next.z=actor.z;
+      const peers=nearbyBodies.nearby(next.x,next.z,2*RADIUS)
+        .filter(other=>other!==actor&&
+          Math.hypot(other.x-next.x,other.z-next.z)<2*RADIUS-1e-8)
+        .sort((a,b)=>Math.hypot(a.x-next.x,a.z-next.z)-
+          Math.hypot(b.x-next.x,b.z-next.z)||a.id-b.id);
+      if(peers.length){
+        // The original head-on rejection could leave two real human bodies
+        // pressing forward indefinitely in a wide civilian square. Try ONE
+        // radius-safe lateral foot placement instead of a teleport, push, or
+        // client-authored collision override. Nonwalking bench/cart motions
+        // remain subject to their existing authoritative physics.
+        const other=peers[0],dx=next.x-actor.x,dz=next.z-actor.z;
+        const stride=Math.hypot(dx,dz);
+        const separationX=actor.x-other.x,separationZ=actor.z-other.z;
+        const separation=Math.hypot(separationX,separationZ);
+        const slide={x:actor.x,z:actor.z};
+        if(!actor.stepping&&actor!==cartPusher&&stride>1e-8&&
+           separation>=2*RADIUS-.05){
+          const tangentX=-separationZ/separation,tangentZ=separationX/separation;
+          const natural=dx*tangentX+dz*tangentZ;
+          const sign=natural<0?-1:1;
+          Sim.moveEntity(slide,sign*tangentX*stride/STEP,
+            sign*tangentZ*stride/STEP,STEP,this.obstacles,RADIUS);
+        }
+        const safeSlide=Math.hypot(slide.x-actor.x,slide.z-actor.z)>1e-8&&
+          nearbyBodies.nearby(slide.x,slide.z,2*RADIUS).every(peer=>
+            peer===actor||Math.hypot(peer.x-slide.x,peer.z-slide.z)>=2*RADIUS-1e-8);
+        next.x=safeSlide?slide.x:actor.x;
+        next.z=safeSlide?slide.z:actor.z;
       }
       return {actor,next,running:actor.stepping?false:running,
         wantsMove:actor.stepping?true:Math.hypot(direction.x,direction.z)>1e-8,
@@ -655,6 +752,12 @@ class BrSquadWorld {
         if(this.squadSignals.get(actor.team)?.authorId===actor.id)
           this.squadSignals.delete(actor.team);
       }
+      // The entire batch retires at one server tick before publishing any
+      // same-tick timeline event. No iteration-order advantage or invented
+      // intermediate squad placement is reported.
+      for(const actor of expired.slice().sort((a,b)=>
+        a.team-b.team||a.slot-b.slot))
+        this.recordSquadDeparture(actor);
       const surviving=Array(SQUADS).fill(0);
       for(const actor of this.actors.values())if(actor.eligible)surviving[actor.team]++;
       const eliminated=[];
@@ -824,6 +927,7 @@ class BrSquadWorld {
       handcart:this.handcartSnapshot(token),
       squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
       squadChat:this.squadChat[me.team].map(message=>({...message})),
+      squadTimeline:this.squadTimeline[me.team].map(event=>({...event})),
       squadLandmarks,
       spectatorView:watched?{playerId:watched.id,slot:watched.slot+1,
         x:watched.x,z:watched.z,automaticFallback:!!fallback}:null,
@@ -833,7 +937,7 @@ class BrSquadWorld {
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
-        x:me.x,z:me.z,seq:me.seq,eligible:me.eligible,
+        x:me.x,z:me.z,seq:me.seq,stanceSeq:me.stanceSeq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,
         headlampOn:me.eligible&&me.headlampOn,headlampTicks:me.headlampTicks,
         waving:me.eligible&&me.waveUntilTick>this.tick,

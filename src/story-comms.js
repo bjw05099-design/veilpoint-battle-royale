@@ -11,21 +11,34 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(Sim){
  'use strict';
  const line=(speaker,message)=>Object.freeze({speaker,message});
+ // A physically nearby civilian can speak directly; location, blocked sight
+ // and actual arrived poses are all from the saved, 60Hz simulation.
+ // A public speaker cannot drown out the human standing beside the player.
+ function onsiteWitness(state){
+  if(!state||!['records','decision','exit'].includes(state.phase))return null;
+  const p=state.world?.player,obstacles=state.world?.obstacles;
+  if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z)||
+     !Array.isArray(obstacles))return null;
+  const observed=(person,reach)=>person&&Number.isFinite(person.x)&&
+    Number.isFinite(person.z)&&
+    Math.hypot(p.x-person.x,p.z-person.z)<=reach&&
+    !Sim.lineBlocked(p.x,p.z,person.x,person.z,obstacles);
+  if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
+     observed(state.civilianWalker,7))
+   return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
+  if(state.mara?.arrived===true&&observed(state.mara,8))
+   return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
+  return null;
+ }
  // All these exchanges follow already saved, physically witnessed events.
  // They never add a quest arrow, rewrite the chapter state or infer distant
  // civilians from a private network/sensor. One human's recollection remains
  // an individual's voice, not a claim about every Yemeni resident.
  function localCharacterBeat(state){
   if(!state||!['records','decision','exit'].includes(state.phase))return null;
+  const witnessed=onsiteWitness(state);
+  if(witnessed)return witnessed;
   const p=state.world?.player;
-  // The captain can directly observe one person finishing a short street
-  // walk only from nearby unobstructed positions; being saved as arrived
-  // alone does not grant an omniscient radio report.
-  if(state.civilianRerouted===true&&state.civilianWalker?.arrived===true&&
-     p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&
-     Math.hypot(p.x-state.civilianWalker.x,p.z-state.civilianWalker.z)<=7){
-   return line('이수혁 대위','한 주민이 스스로 고른 남쪽 접근로에 실제로 도착한 것을 봤다. 다른 주민이 모두 도착했다는 뜻은 아니다.');
-  }
   if(state.waterReportFiled===true)
    return line('유수프 라할','직접 확인한 급수대 현장 보고는 접수했다. 이걸로 도시 전체의 물 공급이 복구됐다고 판단하지는 않겠다.');
   if(state.waterSurveyed===true)
@@ -34,10 +47,7 @@
    return line('조현지','항구 작업자가 들려준 1990년 통일과 1994년 전쟁의 기억은 같은 가족 안에서도 달랐습니다. 우리가 판단할 수 있는 것은 그가 직접 말한 경험까지이며, 당시 시각이 미확인된 별도 진술로 기록합니다.');
   if(state.civilianRerouted===true)
    return line('이수혁 대위','주민이 자기 판단으로 남쪽 접근로를 택했다. 도착했는지 확인하지 않고 완료로 보고하지 않겠다.');
-  if(state.mara?.arrived===true && p &&
-     Math.hypot(p.x-state.mara.x,p.z-state.mara.z)<=8 &&
-     !Sim.lineBlocked(p.x,p.z,state.mara.x,state.mara.z,state.world.obstacles))
-   return line('마라','통로가 실제로 비어서 제 판단으로 걸어 나왔어요. 나머지 주민은 제가 확인하지 못했고, 이동 결정은 각자가 해야 합니다.');
+
   if(state.awningShift>=1&&state.combat?.cleared===true)
    return line('마라','쓰러진 차양을 길 가장자리로 옮긴 건 확인했어. 그렇다고 골목 전체가 안전해졌다고 보장할 수는 없어.');
   return null;
@@ -123,5 +133,11 @@
   if(phase==='failed')return line('현장 통신','신호가 중단됐습니다. 재시작 후 확인된 기록만 다시 보고합니다.');
   return line('현장 통신','임무 진행 상태를 확인 중입니다.');
  }
- return Object.freeze({briefing,localCharacterBeat});
+ // The actual HUD previously selected localPublicAddress first. That made
+ // real characters invisible whenever the player could hear a relay nearby.
+ // No persistent gameplay state changes; old v2 checkpoints still work.
+ function fieldRadio(state,publicAddress=null){
+  return onsiteWitness(state)||publicAddress||briefing(state);
+ }
+ return Object.freeze({briefing,localCharacterBeat,onsiteWitness,fieldRadio});
 });
