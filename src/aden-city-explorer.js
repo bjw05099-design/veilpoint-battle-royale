@@ -271,7 +271,7 @@
   if(!canvas||!info)return null;
   let registry=createPreviewRegistry(),activeDataset=null;
   const cache=new Map();
-  let state=viewState();
+  let state=viewState(),fileSelectionRevision=0;
   function refresh(){
    const legend=doc.getElementById('mapLegendTitle'),
     houses=doc.getElementById('fictionalHouseLegend');
@@ -310,6 +310,9 @@
    refresh();
   }
   function loadDataset(value){
+   // A newer explicit load (even when invalid) cancels unfinished file reads.
+   // Parsing failure still keeps the last complete, renderable terrain.
+   fileSelectionRevision++;
    const parsed=Tiles.importHeightDataset(value);
    const focus=importedTerrainFocus(parsed.registry);
    const centered=viewState({x:focus.x,z:focus.z});
@@ -319,18 +322,30 @@
    return parsed;
   }
   function resetSample(){
+   // Reset is a newer user decision, not an intermediate render. Never let
+   // an older File.text() promise resurrect an imported dataset afterward.
+   fileSelectionRevision++;
    registry=createPreviewRegistry();activeDataset=null;
    state=viewState();cache.clear();refresh();
   }
   const fileInput=doc.getElementById('heightFile');
   if(fileInput)fileInput.addEventListener('change',async event=>{
+   const selection=++fileSelectionRevision;
    const file=event.target?.files?.[0];
    if(!file)return;
    if(file.size>4*1024*1024){
     info.textContent='입력 실패: 파일은 4MB 이하만 허용합니다';return;
    }
-   try{loadDataset(JSON.parse(await file.text()));}
-   catch(error){info.textContent='지형 입력 거부: '+error.message;}
+   try{
+    const contents=await file.text();
+    // File I/O completes out of order. Never replace a newer dataset or
+    // a reset view, including when the older file was perfectly valid.
+    if(selection!==fileSelectionRevision)return;
+    loadDataset(JSON.parse(contents));
+   }catch(error){
+    if(selection===fileSelectionRevision)
+     info.textContent='지형 입력 거부: '+error.message;
+   }
   });
   const resetButton=doc.getElementById('resetSample');
   if(resetButton)resetButton.addEventListener('click',resetSample);
