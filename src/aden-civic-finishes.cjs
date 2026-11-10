@@ -30,7 +30,11 @@ function applyCivilFinishes(scene){
   const variants=FINISHES[p.finish];
   const digest=createHash('sha256').update(p.id+'|'+p.finish).digest();
   const variant=digest[0]%variants.length;
-  const roughness=Number((.63+digest[1]/255*.25).toFixed(4));
+  // Three per-finish material assets reuse the same native UE5 shader.
+  // A per-part random scalar would require 181 separate material assets just
+  // to convey imperceptible roughness jitter, wasting editor/game resources.
+  const finishDigest=createHash('sha256').update(p.finish+'|'+variant).digest();
+  const roughness=Number((.63+finishDigest[0]/255*.25).toFixed(4));
   return Object.freeze({partId:p.id,baseFinish:p.finish,
    variant,baseColor:Object.freeze([...variants[variant]]),
    roughness,metallic:0,emissive:false,
