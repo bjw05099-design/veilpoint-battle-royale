@@ -9,10 +9,11 @@
     root.VeilpointCivicRecovery || (typeof module === 'object' && module.exports ? require('./ch01-civic-recovery.js') : null),
     root.VeilpointStreetFlood || (typeof module === 'object' && module.exports ? require('./ch01-street-flood.js') : null),
     root.VeilpointPublicHall || (typeof module === 'object' && module.exports ? require('./aden-public-hall.js') : null),
-    root.VeilpointPublicFootpaths || (typeof module === 'object' && module.exports ? require('./public-city-footpaths.js') : null));
+    root.VeilpointPublicFootpaths || (typeof module === 'object' && module.exports ? require('./public-city-footpaths.js') : null),
+     root.VeilpointStoryPublicCourt || (typeof module === 'object' && module.exports ? require('./story-public-court.js') : null));
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.VeilpointStorySlice = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood, Hall, Footpaths) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim, Consequences, Civic, StreetFlood, Hall, Footpaths, Court) {
   'use strict';
   if (!Sim) throw new Error('VeilpointSim is required for story slice');
   // Older embedded CH01 clients omit optional history; never block the game.
@@ -70,7 +71,11 @@
     // Story-first accessible civilian hall. The map's ordinary solid walls,
     // desk and seat share a single data module with the future BR authoring
     // pipeline. Do not insert them into already serialized BR matches.
-    ...(Hall?Hall.PARTS:[])
+    ...(Hall?Hall.PARTS:[]),
+    // Eight REAL colliders in the relocated original public court. Above-
+    // head canopy and decorative paving are VISUAL only in this 2D AABB world;
+    // the same eight solids are authored as UE5 editor meshes at equal metres.
+    ...(Court?Court.SOLIDS:[])
   ]);
   // A loose civilian market awning comes down during the unplanned escalation.
   // It creates one short physical walking detour, never a collectable or another
