@@ -664,11 +664,16 @@ async function run(){
   child.stderr.on('data',part=>{stderr+=part.toString();});
   child.on('error',error=>{stderr+='\nChrome spawn: '+String(error);});
   const active=path.join(userDir,'DevToolsActivePort');
-  for(let tries=0;tries<120;tries++){
+  // Under concurrent Linux GitHub runners Chrome can emit its websocket
+  // address before loopback HTTP is responsive. Permit up to 20 real seconds
+  // with a 1s individual probe instead of 120 short 300ms probes. A stalled
+  // browser still fails closed; no geometry check, error, or viewport is skipped.
+  const startupDeadline=Date.now()+20000;
+  for(let tries=0;Date.now()<startupDeadline;tries++){
    if(windowsProbe){
     try{
      const response=await fetch('http://127.0.0.1:'+port+'/json/version',
-      {signal:AbortSignal.timeout(300)});
+      {signal:AbortSignal.timeout(1000)});
      if(response.ok){
       const version=await response.json();
       if(version.webSocketDebuggerUrl)return port;

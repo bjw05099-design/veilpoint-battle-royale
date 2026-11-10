@@ -10,7 +10,12 @@ test('actual Win64 WebView2 buttons expose separately verifiable BR, CH01 and sy
  assert.match(program,/Text = "Original Terrain Lab"/);
  assert.match(program,/header\.Controls\.Add\(terrainLab\)/);
  assert.match(program,/terrainLab\.Click \+= \(_, _\) => NavigateTo\("terrain\.html"\)/);
- assert.match(program,/terrainLab\.Enabled = true/);
+ assert.match(program,/terrainLab\.Enabled = !storyOnly/,
+  'mixed-mode host still enables the original terrain preview');
+ assert.match(program,/terrainLab\.Visible = !storyOnly/,
+  'story-only host hides the non-story terrain preview');
+ assert.match(program,/battleRoyale\.Enabled = !storyOnly/,
+  'ordinary developer launch retains BR, restricted launch disables it');
  assert.match(program,/return uri\.AbsolutePath is "\/index\.html" or "\/story\.html" or "\/terrain\.html"/);
  assert.match(program,/OfflinePayloadVerifier\.Verify\(gameFolder\)/);
  assert.match(program,/SetVirtualHostNameToFolderMapping\(/);

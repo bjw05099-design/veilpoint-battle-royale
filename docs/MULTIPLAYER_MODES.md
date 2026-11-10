@@ -1,11 +1,18 @@
 # VEILPOINT — Multiplayer and Battle Royale Specification
-**Design 0.1 · Planned features, NOT live multiplayer**
+**Design 0.1; 2026-11-10 release-order correction.** The first release
+is the standalone Windows **single-player story**, and Battle Royale is a
+**later release**. The BR96 target is **16 squads of 6 (96 humans)**; the
+local 96-seat 2D server/test UI is not a 96-human gameplay load test,
+internet FPS or finished public Battle Royale. This supersedes the older
+24-player fallback concepts below. See
+[story-first release plan](STORY_FIRST_RELEASE_PLAN.md) and
+[local BR96 test constraints](BR96_BROWSER_PLAYTEST.md).
 
 ## Modes
 | Mode | Target launch configuration | Primary player experience | Implementation truth |
 |---|---|---|---|
 | **DISTRICT CONTROL** | 6v6 objective teams, smaller 2v2 test server first | Cooperate to secure publicly signaled district services; readable scoring and respawns | Partial localhost-only Node 2-client objective proof (not native FPS or public online multiplayer); production backend and network QA still planned |
-| **LAST SIGNAL / Battle Royale** | 24 players after network tests; larger matches only if measured viable | Drop, explore, collect, survive changing boundaries, place/win/return to lobby | Browser currently has **offline simulation vs bots**, not internet multiplayer |
+| **LAST SIGNAL / Battle Royale** | **Future target: 16 squads × 6 players = 96 real participants**, subject to real concurrency/performance proof | Publicly fair shared-world competitive rounds after story release | Separate offline bot prototype plus localhost-only 96-seat/2D movement server; **not** a complete 96-person network FPS or public Battle Royale |
 | **RELAY RUN** | 4v4 or 6v6 rotating relay objectives | Relays briefly change environment state; emphasis on awareness and fairness | Planned original objective mode |
 | **CIVIC RELAY Co-op** | 2–4 player story-linked session, post-core optional | Short joint PvE narrative chapter for cooperative players | Future stretch; do not block basic story + multiplayer + BR delivery |
 
@@ -38,7 +45,7 @@ Authoritative server owns match phase, countdowns, scores, player positions vali
 - A shrinking area remains clear in both environment and accessible HUD; delays and late join rules must be specified before production.
 - Shared rendering, movement, input, cosmetics, environment art and profile settings are reusable with campaign but **progression and rule state are isolated**.
 - Server profiling should focus on replication relevancy/interest management, network payload bounds, physics and rendering bottlenecks.
-- Test progression initially with tiny host-local lobbies, then named client/server configurations. Do not claim a 24/100-player match based on a simulation using bots.
+- Test progression initially with tiny host-local lobbies, then named client/server configurations and measured concurrent clients. Do not claim a verified **96-human** session based on 96 empty seats, browser bots or a theoretical 60Hz world clock.
 
 ## Technical minimum acceptance
 - Automated server-side rule tests: join/leave, phase, score, objective reset, authoritative inventory and invalid client command.

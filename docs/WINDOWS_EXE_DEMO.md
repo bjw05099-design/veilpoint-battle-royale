@@ -3,8 +3,8 @@
 ## Deliverable classification
 
 **Windows EXE demo (WebView2 wrapper, candidate):** `VEILPOINT.Demo.exe`
-is a real Windows x64 desktop application with buttons to run the **existing**
-offline BR and CH01 HTML/JS demos. It uses the installed Microsoft Edge WebView2
+is a real Windows x64 desktop application that **starts CH01 first** while
+retaining separate optional BR and original terrain preview buttons. It uses the installed Microsoft Edge WebView2
 Evergreen runtime for rendering and game input. It is **not** UE5-native, an
 independent game renderer, a native gameplay port, or the 2027-04-27 final target.
 
@@ -18,7 +18,7 @@ Tool/RunUAT is a later milestone and is not supplied by the wrapper.
 
 ## Local Windows build
 
-Prerequisites: Windows 10/11 x64, Node.js 22, .NET SDK 8, Internet access
+Prerequisites: Windows 10/11 x64, Node.js 22, .NET SDK **10**, Internet access
 during build for .NET and NuGet package restore. The built package itself does
 not require the Internet to run; it DOES require an installed Microsoft Edge
 WebView2 Evergreen runtime. Build dependencies and Microsoft runtime licensing
@@ -65,29 +65,51 @@ If its entire job succeeds, download the artifact named
 extract the release ZIP; open `VEILPOINT.Demo.exe` from its extracted folder.
 **Do not move or delete the `game/` folder or native loader DLLs.**
 
+## Story-first startup and optional restricted mode
+
+- Ordinary `VEILPOINT.Demo.exe` opens `story.html` immediately; the BR and
+  original synthetic terrain buttons remain available in this **combined
+  development preview** for regression work.
+- To launch CH01 without any BR/terrain navigation, use
+  `.\VEILPOINT.Demo.exe --story-only` in PowerShell after extracting the
+  package. The host hides the other navigation buttons **and** blocks both
+  top-level navigation and new-window requests to their pages, including
+  in-page links.
+- **This is not a separately compiled UE5 game or a BR-free distribution
+  archive.** The same combined WebView2 asset payload remains bundled.
+  The mixed host retains its existing `%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2`
+  profile; `--story-only` uses a distinct `...\DemoHost\StoryOnly`
+  profile to avoid importing development BR session state into the
+  story-only launch. Checkpoints do not auto-migrate between the profiles.
+  Only `veilpoint-story-preview.zip` is packaged without the BR entrypoint;
+  a native story-only Windows game still needs a separate build and playtest.
+
 ## Offline runtime and saves
 
 The wrapper maps only local extracted `game/` assets to a fixed local virtual
 host `https://veilpoint.local/` inside WebView2, without starting an HTTP
-server. Top-level navigation is restricted to `index.html` and `story.html`;
+server. The combined host permits only `story.html`, `index.html` and `terrain.html`; the `--story-only` mode permits only `story.html`;
 external HTTP(S) subresource requests are blocked, new windows are blocked,
 and developer tools are disabled. These measures reduce accidental remote
 resource loads; they are not a security audit or anti-cheat solution.
 
-WebView2 stores localStorage checkpoints under the user's
-`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2` profile. This is intentionally
-separate from `file://` Chrome/Edge browser checkpoints. Moving the release
-folder does not change the virtual origin, but clearing the profile deletes
-the wrapper's stored progress. BR and CH01 keep their own existing keys.
+The mixed WebView2 host keeps checkpoints in
+`%LOCALAPPDATA%\VEILPOINT\DemoHost\WebView2`. The optional `--story-only`
+mode uses `%LOCALAPPDATA%\VEILPOINT\DemoHost\StoryOnly` instead.
+Both are separate from `file://` browser checkpoints. Moving a release
+folder does not change the virtual origin, but clearing its corresponding
+profile deletes that host's stored progress; story and BR keys remain
+independent in the mixed profile.
 
 ## Honest release gates
 
-- [ ] Windows CI compiles the Win64 EXE at the exact PR HEAD and uploads a
-      release ZIP plus matching SHA-256 digest.
+- [ ] Windows CI compiles the Win64 EXE at the exact release HEAD and uploads a
+      release ZIP plus matching SHA-256 digest; retain the run URL and manifest.
 - [ ] A Windows 10 or 11 x64 device with WebView2 installed launches the EXE
       and renders the actual BR and CH01 menus offline.
-- [ ] End-to-end keyboard/mouse playthrough: BR start, movement, result and
-      replay; CH01 route decision, completion and restart.
+- [ ] End-to-end Windows keyboard/mouse playthrough: **CH01 launches first**, route
+      decision, completion and restart; verify the mixed host's BR entry and
+      the `--story-only` mode's blocked BR/terrain navigation separately.
 - [ ] 60Hz simulation unaffected by rendering cap; verify real pause/resume,
       pointer-lock release, GPU context interruption and save/restore.
 - [ ] App can restart without losing either mode's local checkpoint.

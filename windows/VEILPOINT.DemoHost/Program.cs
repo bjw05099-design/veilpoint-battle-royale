@@ -33,13 +33,19 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new DemoWindow());
+        // Preserve the existing mixed-mode developer host, but allow an
+        // explicitly story-only Windows launch without exposing BR navigation.
+        if (args.Length == 1 && args[0] == "--story-only")
+            Application.Run(new DemoWindow(storyOnly: true));
+        else
+            Application.Run(new DemoWindow());
         return 0;
     }
 }
 
 internal sealed class DemoWindow : Form
 {
+    private readonly bool storyOnly;
     private const string VirtualHost = "veilpoint.local";
     private const string BaseUri = "https://" + VirtualHost + "/";
     private readonly WebView2 browser = new() { Dock = DockStyle.Fill };
@@ -69,9 +75,12 @@ internal sealed class DemoWindow : Form
         Text = "Original Terrain Lab", Width = 176, Height = 34, Enabled = false
     };
 
-    public DemoWindow()
+    public DemoWindow(bool storyOnly = false)
     {
-        Text = "VEILPOINT | Offline BR + CH01 demo (WebView2 host)";
+        this.storyOnly = storyOnly;
+        Text = storyOnly
+            ? "VEILPOINT | Story CH01 offline preview (WebView2 host)"
+            : "VEILPOINT | Story-first + BR prototype (WebView2 host)";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(900, 600);
@@ -84,9 +93,12 @@ internal sealed class DemoWindow : Form
             Padding = new Padding(10, 5, 0, 0),
             BackColor = Color.FromArgb(27, 38, 48)
         };
-        header.Controls.Add(battleRoyale);
+        // CH01 is the first playable entry in the combined development demo.
         header.Controls.Add(story);
+        header.Controls.Add(battleRoyale);
         header.Controls.Add(terrainLab);
+        battleRoyale.Visible = !storyOnly;
+        terrainLab.Visible = !storyOnly;
         Controls.Add(browser);
         Controls.Add(status);
         Controls.Add(header);
@@ -116,7 +128,8 @@ internal sealed class DemoWindow : Form
         // Other local files may still be loaded as same-origin subresources.
         if (browser.CoreWebView2 is null) return;
         var destination = BaseUri + page;
-        if (IsAllowedPage(destination)) browser.CoreWebView2.Navigate(destination);
+        if (IsAllowedPage(destination) && (!storyOnly || page == "story.html"))
+            browser.CoreWebView2.Navigate(destination);
     }
 
     private async Task InitializeHostAsync()
@@ -132,7 +145,7 @@ internal sealed class DemoWindow : Form
             // to survive EXE restarts. These are separate from file:// saves.
             var userDataFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "VEILPOINT", "DemoHost", "WebView2");
+                "VEILPOINT", "DemoHost", storyOnly ? "StoryOnly" : "WebView2");
             Directory.CreateDirectory(userDataFolder);
             var environment = await CoreWebView2Environment.CreateAsync(
                 userDataFolder: userDataFolder);
@@ -164,27 +177,40 @@ internal sealed class DemoWindow : Form
             {
                 // about:blank is WebView2's own initial empty document.
                 if (e.Uri.Equals("about:blank", StringComparison.OrdinalIgnoreCase) ||
-                    IsAllowedPage(e.Uri)) return;
+                    (IsAllowedPage(e.Uri) &&
+                     (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))) return;
                 e.Cancel = true;
-                status.Text = "Navigation blocked: only bundled BR, CH01 and original terrain pages are allowed.";
+                status.Text = storyOnly
+                    ? "Navigation blocked: story-only mode allows CH01 only."
+                    : "Navigation blocked: only bundled BR, CH01 and original terrain pages are allowed.";
             };
             core.NewWindowRequested += (_, e) =>
             {
                 e.Handled = true;
-                if (IsAllowedPage(e.Uri)) core.Navigate(e.Uri);
+                if (IsAllowedPage(e.Uri) &&
+                    (!storyOnly || new Uri(e.Uri).AbsolutePath == "/story.html"))
+                    core.Navigate(e.Uri);
+            };
+            // Top-level NavigationStarting does not cover every iframe. The
+            // restricted launch never embeds a second game mode in a frame.
+            core.FrameNavigationStarting += (_, e) =>
+            {
+                if (storyOnly) e.Cancel = true;
             };
             core.NavigationCompleted += (_, e) =>
             {
                 if (e.IsSuccess)
-                    status.Text = "OFFLINE | WebView2 demo host | ESC: pause | BR and CH01 saves stay on this PC";
+                    status.Text = storyOnly
+                        ? "OFFLINE | CH01 story-only launch | ESC: pause | Local story save"
+                        : "OFFLINE | Story-first WebView2 demo | ESC: pause | Local story / BR saves";
                 else
                     status.Text = "The offline page did not load. Verify game/ assets and WebView2 runtime.";
             };
 
-            battleRoyale.Enabled = true;
             story.Enabled = true;
-            terrainLab.Enabled = true;
-            NavigateTo("index.html");
+            battleRoyale.Enabled = !storyOnly;
+            terrainLab.Enabled = !storyOnly;
+            NavigateTo("story.html");
         }
         catch (Exception ex)
         {

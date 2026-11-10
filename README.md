@@ -1,11 +1,13 @@
-# VEILPOINT — Battle Royale + Story CH01 browser prototypes
+# VEILPOINT — Story-first PC development · CH01 preview and future Battle Royale
 
-> **Status (2026-10-27): playable browser prototype + uncompiled UE5.8 source scaffold.**
+> **Status (2026-11-10): Windows PC story-first development; playable browser CH01 preview + uncompiled/untested native UE5.8 scaffold.**
 > No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
+
+**Active 2026-11-10 production rule:** allocate rolling development effort 35% map / 35% story / 20% future BR / 10% stability. Story ships first; November 27 is a **demo candidate target**, not a 12-hour or UE5-native release promise. Details: [story-first plan](docs/STORY_FIRST_RELEASE_PLAN.md).
 
 **World reference decision (2026-11-07):** VEILPOINT uses **Aden, southern Yemen (approximately 2015)** as its researched real-world geographic, coastal and architecture reference. **Nahrin / Sahir Coast** remains the original fictional story setting and named cast. Historical terrain and neighborhood/building character are requirements **not yet realized** in the procedural browser and uncompiled UE5 graybox. See [source-backed Aden reference and acceptance gates](docs/WORLD_REFERENCE_ADEN.md).
 
-VEILPOINT is a developing original first-person game with **three required final modes**: story campaign (~12h authored target), online team multiplayer, and battle royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The BR browser combat uses fictional firearm-class abstractions with finite carried ammunition; these are not verified real-world ballistics or production weapon assets. The project has no account system, telemetry, external assets, analytics or dependency downloads.
+VEILPOINT is a **Windows PC-only** game in development. The **single-player story campaign releases first**, with Battle Royale later reusing validated story environments and shared systems. Its final vision includes story (~12h authored target), later online team multiplayer and Battle Royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The BR browser combat uses fictional firearm-class abstractions with finite carried ammunition; these are not verified real-world ballistics or production weapon assets. The project has no account system, telemetry, external assets, analytics or dependency downloads.
 
 
 ## Windows offline demo EXE track (2026-11-27 delivery target)
@@ -13,7 +15,7 @@ VEILPOINT is a developing original first-person game with **three required final
 The Windows demo has **two distinct release paths**:
 
 - The existing verified offline **browser ZIP** remains the primary P0 regression and fallback launch path.
-- A separate **Windows x64 `.exe` candidate** is built from `windows/VEILPOINT.DemoHost/` using .NET 10 WinForms and Microsoft Edge WebView2. Its actual application window launches the locally bundled BR and CH01 pages. The self-contained .NET application requires an installed WebView2 Evergreen runtime (normally included with Windows 11); it is **not** an independent UE5 game.
+- A **Windows x64 `.exe` browser-host candidate** is built from `windows/VEILPOINT.DemoHost/` using .NET 10 WinForms and Microsoft Edge WebView2. It now **opens story CH01 first**, with separate BR and original terrain preview buttons for development. Launch `VEILPOINT.Demo.exe --story-only` to hide BR/terrain buttons and reject navigation to those pages; this mode still uses the same mixed offline asset package and is **not** a separately packaged 12-hour story game. WebView2 Evergreen runtime is required; this is **not** native UE5.
 
 For a Windows machine with Node 22 and the .NET 10 SDK, run `./scripts/package-windows-demo.ps1` in PowerShell. The script verifies the browser ZIP, actually compiles the Win64 EXE, bundles `game/` files, checks PE executable headers and the WebView2 native loader, re-extracts the release ZIP, and produces `dist/windows-exe/veilpoint-windows-demo-exe.zip` with its `.sha256` sidecar. The dedicated Windows GitHub Actions workflow uploads `veilpoint-windows-demo-exe-candidate` if every build/package gate passes. Extract **all** files from the release ZIP before running `VEILPOINT.Demo.exe`.
 
@@ -30,29 +32,29 @@ The match starts only when all 96 distinct local sessions have joined and
 are ready. See [BR96 local browser field test](docs/BR96_BROWSER_PLAYTEST.md).
 
 The browser story CH01 now also recognizes a genuinely traversed exit with
-the same existing cargo, companion and clearance constraints; manual E remains
-compatible. Both native UE5 world bootstraps include the same shared original
+the same existing cargo, companion and clearance constraints; the default
+physical interaction key is **F** (the player's remap is authoritative). Both native UE5 world bootstraps include the same shared original
 seafront market geometry as the browser game, but C++ compilation and UE5
 playtesting are still outstanding.
 
 ## Quick start
 
-Double-click `index.html` in a modern browser that allows local scripts, or run from the project root:
+For the current **story-first** Windows PC browser preview, open `story.html`. The optional combined development EXE opens CH01 first; `index.html` is the separate offline BR prototype. Alternatively, run from the project root:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080` in your browser. The 3D WebGL2 renderer has a Canvas2D software fallback for browsers or environments without WebGL2. Desktop: WASD movement, mouse look, left click to tag, SHIFT sprint, C crouch, E collect resources. iPad/touch devices: thumbstick, drag-to-look and on-screen action buttons. ESC unlocks pointer. If focus is lost, keyboard movement resets.
+Then open `http://localhost:8080/story.html` for CH01 or `http://localhost:8080/index.html` for the separate offline BR prototype. The renderer uses WebGL2 with a Canvas2D fallback. **Windows PC keyboard/mouse is the supported target**: WASD move, mouse look, Shift sprint, C crouch and **F physical interaction** (or the player's remapped key). Middle mouse click places a local position quickmark where supported; Escape pauses/unlocks the pointer. Legacy touch handlers are not a release acceptance target. Losing focus clears held movement.
 
 
 ### Playable CH01 story preview (new 2026-10-27)
 
 Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on the `index.html` landing menu. This is a short, original **first-person 3D browser mission** in the fictional Nahrin / Sahir Coast setting, *not* the finished 12-hour campaign.
 
-- **Playable path:** move to the relay terminal (gold marker) → press **E** → optionally investigate harbor/shelter records → approach the central decision console → choose immediate evacuation or (after both records) an alternative verification route → follow the color-coded destination → press **E** to finish. The main exit remains available even if clues are skipped.
+- **Playable path:** move to the relay terminal → press **F** (or the remapped interaction key) → optionally examine local harbor/shelter records → approach the choice area → choose evacuation or on-site verification when locally available → physically reach the permitted exit. The main ending must not require optional evidence; completion is driven by the validated mission state, not menu text alone.
 - **Story identity:** Signal Echo records show inconsistent times (04:12 vs 04:07); collecting both opens an alternative route. All writing and scene elements are fictional and original.
-- **Controls:** WASD / arrow keys move, mouse to look, SHIFT sprint, C crouch, E interact, ESC pause. Touch screens: drag the 3D view, directional pad, investigate and sprint buttons. Route choice can use on-screen buttons or number keys 1/2.
+- **Controls:** Windows PC keyboard and mouse: WASD / arrow keys move, mouse to look, Shift sprint, C crouch, **F interact**, Escape pause. Remapped keys use the saved PC profile. Route choices use visible buttons or number keys 1/2. No mobile/touch release is planned.
 - **Accessibility:** readable Korean captions, non-audio-dependent objectives, reduced-motion setting, visible objective markers and optional evidence. Story progress auto-saves to **localStorage** after interactions and can resume from the last saved interaction. BR and campaign progress are isolated; campaign choices do not change online competitiveness.
 - **Graphics:** uses the same renderer and persisted graphics presets as the BR prototype, with independent fixed **60 Hz** gameplay simulation and a selectable render cap. Browser 165 FPS/monitor performance is **not** validated.
 - **Tests:** `npm run verify` now checks both story source files and runs `tests/story-slice.test.cjs` with the existing deterministic test suite. GitHub Actions artifact includes `story.html`.
@@ -65,7 +67,7 @@ Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on th
 - Six-stage shrinking safe-zone logic, survival outside-zone damage, match timer and minimap.
 - Health without automatic recovery or shields, stamina and sprint, finite firearm ammunition, pickup inventory.
 - Third-party-free browser rendering: WebGL2 atmosphere/filmic tone mapping/fog + CPU Canvas2D fallback.
-- Mouse + touchscreen controls, adaptive UI, synthesized local UI sound, no remote calls.
+- PC mouse/keyboard controls, adaptive no-scroll UI, synthesized local UI sound, no remote calls.
 - Core simulation unit tests and GitHub Actions CI recipe.
 
 ### Engine / fidelity direction
