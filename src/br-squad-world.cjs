@@ -288,7 +288,18 @@ class BrSquadWorld {
     options.sort((a,b)=>a.distance-b.distance||
       ['gate','handcart','bench'].indexOf(a.kind)-
       ['gate','handcart','bench'].indexOf(b.kind));
-    if(!options.length)return {ok:false,reason:'no_reachable_interaction'};
+    if(!options.length){
+      // A nearby player can see the real cart but cannot forcefully steal
+      // a currently operated handle. Give the actual physical reason rather
+      // than misleadingly saying that nothing is within reach.
+      const occupied=this.handcart.operator&&cart&&!this.cartHandoffAvailable(actor)&&
+        Math.hypot(actor.x-cart.x,actor.z-cart.z)>=1.45&&
+        Math.hypot(actor.x-cart.x,actor.z-cart.z)<=2.6&&
+        !Sim.lineBlocked(actor.x,actor.z,cart.x,cart.z,
+          this.obstacles.filter(o=>o!==cart));
+      return occupied?{kind:'handcart',ok:false,reason:'in_use'}:
+        {ok:false,reason:'no_reachable_interaction'};
+    }
     const chosen=options[0].kind;
     const result=chosen==='gate'?this.operateCivicGate(token):
       chosen==='handcart'?this.operateHandcart(token):this.benchRest(token);
