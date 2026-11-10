@@ -115,9 +115,12 @@ frame timing still require actual Windows hardware testing.
 
 The wrapper maps only local extracted `game/` assets to a fixed local virtual
 host `https://veilpoint.local/` inside WebView2, without starting an HTTP
-server. The combined host permits only `story.html`, `index.html` and `terrain.html`; the `--story-only` mode permits only `story.html`;
-external HTTP(S) subresource requests are blocked, new windows are blocked,
-and developer tools are disabled. These measures reduce accidental remote
+server. The combined host permits only `story.html`, `index.html` and
+`terrain.html`. The mixed-archive `--story-only` mode permits only
+`story.html`; the separately packaged BR-free story EXE also permits
+its **own generated story landing** `index.html` (never the original BR
+menu). External HTTP(S) subresources are blocked, pop-up windows are
+blocked, and developer tools are disabled. These measures reduce accidental remote
 resource loads; they are not a security audit or anti-cheat solution.
 
 The mixed WebView2 host keeps checkpoints in
