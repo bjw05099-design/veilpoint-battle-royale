@@ -46,7 +46,9 @@ test('BR96 60Hz human bodies yield laterally instead of indefinitely freezing on
    'independent third-squad human cannot be moved by someone else steering');
  const self=world.snapshot(token(0)).self;
  assert.equal(self.moving,true);
- assert.ok(Math.abs(self.facing)>0,'real accepted sidestep changes server-owned avatar facing');
+ assert.ok(Math.abs(self.facing-
+   Math.atan2(a.x-(x-.86),-(a.z-z)))<1e-8,
+   'server-facing must derive from the actual accepted sideways displacement');
 });
 test('the BR96 crowd mechanic cannot change identity, eligibility, or the required 16x6 human roster',()=>{
  const world=fullWorld(),before=[...world.actors.values()]
