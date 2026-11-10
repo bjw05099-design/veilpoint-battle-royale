@@ -44,7 +44,11 @@ function deserialize(json){
  try{
   const value=JSON.parse(json),validated=validate(value);
   const preset=canonicalPreset(validated,value.preset);
-  if(preset===null)return fromPreset('hyperreal165');
+  // A newer or renamed preset ID is only stale metadata. If each saved
+  // numerical quality option is still valid, keep the player's actual PC
+  // settings instead of unexpectedly resetting to the 165Hz maximum.
+  // Malformed or out-of-policy numerical values still use safe defaults.
+  if(preset===null)return {...validated,preset:'custom'};
   return {...validated,preset};
  }catch(_){return fromPreset('hyperreal165');}
 }
@@ -53,6 +57,12 @@ function serialize(settings){
  return JSON.stringify({...validated,preset:preset===null?'custom':preset});
 }
 const FRAME_BUDGET_MS=1000/165;
-function frameBudgetStatus(ms){if(!Number.isFinite(ms)||ms<=0)return 'unmeasured';return ms<=FRAME_BUDGET_MS?'within-budget':'over-budget';}
+function frameBudgetStatus(ms,fpsCap=165){
+ if(!Number.isFinite(ms)||ms<=0||!FPS_OPTIONS.includes(fpsCap))
+  return 'unmeasured';
+ // Callback frame pacing versus the selected cap is observational only;
+ // neither the actual GPU frame time nor a 165Hz monitor is certified here.
+ return ms<=1000/fpsCap?'within-budget':'over-budget';
+}
 return {PRESETS,FPS_OPTIONS,RESOLUTION_OPTIONS,VEGETATION_OPTIONS,EFFECT_OPTIONS,FRAME_BUDGET_MS,validate,fromPreset,customize,deserialize,serialize,frameBudgetStatus};
 });
