@@ -150,6 +150,42 @@
    vertexCount:positions.length/3,triangleCount:triangles.length/3,
    positions:Object.freeze(positions),triangles:Object.freeze(triangles)});
  }
+ // Sample the EXACT visible triangle height for one locally loaded mesh.
+ // Raw DEM heightAt() intentionally stays bilinear for source inspections;
+ // a triangulated 17/33/65-grid LOD uses two planar faces per cell. A non-
+ // planar sample quad has a DIFFERENT bilinear height at its centre. UI and
+ // future non-operational pedestrian terrain probes must not claim the
+ // displayed surface is at the raw bilinear elevation.
+ function heightOnTerrainMesh(mesh,x,z){
+  if(!mesh||typeof mesh!=='object'||!Array.isArray(mesh.positions)||
+     !Number.isSafeInteger(mesh.vertexCount)||
+     mesh.vertexCount<4||mesh.positions.length!==mesh.vertexCount*3)
+   throw new TypeError('Invalid triangulated terrain mesh');
+  const n=Math.sqrt(mesh.vertexCount);
+  if(!Number.isSafeInteger(n)||n<2||n>65||
+     !Number.isSafeInteger(mesh.lodStep)||mesh.lodStep<1)
+   throw new RangeError('Invalid terrain mesh topology');
+  const {tx,tz}=parseTileKey(mesh.key);
+  point(x,z);
+  const b=tileBounds(tx,tz),eps=1e-7;
+  if(x<b.minX-eps||x>b.maxX+eps||z<b.minZ-eps||z>b.maxZ+eps)
+   throw new RangeError('Point outside loaded terrain mesh');
+  const ux=Math.max(0,Math.min(n-1,(x-b.minX)/TILE_METRES*(n-1))),
+    uz=Math.max(0,Math.min(n-1,(z-b.minZ)/TILE_METRES*(n-1))),
+    ix=Math.min(n-2,Math.floor(ux)),iz=Math.min(n-2,Math.floor(uz)),
+    u=ux-ix,v=uz-iz,values=mesh.positions;
+  const elevation=(row,col)=>{
+   const h=values[(row*n+col)*3+1];
+   if(!validFinite(h))throw new RangeError('Invalid terrain vertex elevation');
+   return h;
+  };
+  const h00=elevation(iz,ix),h10=elevation(iz,ix+1),
+    h01=elevation(iz+1,ix),h11=elevation(iz+1,ix+1);
+  // buildTerrainMesh() emits (00,01,10) and (10,01,11).
+  return u+v<=1
+   ?h00*(1-u-v)+h10*u+h01*v
+   :h10*(1-v)+h01*(1-u)+h11*(u+v-1);
+ }
  function createRegistry(tiles){
   if(!Array.isArray(tiles)||tiles.length>25000)throw new RangeError('Invalid city tile registry');
   const map=new Map();
@@ -257,5 +293,5 @@
  }
  return Object.freeze({METRES_PER_UNIT,TILE_METRES,UE_CENTIMETRES,
   DISTRICTS,SOURCE_SCOPE,point,tileKey,parseTileKey,tileFor,tileBounds,
-  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,createRegistry,planStreaming});
+  validateSource,createHeightTile,heightAt,auditSeam,auditRegistrySeams,importHeightDataset,buildTerrainMesh,heightOnTerrainMesh,createRegistry,planStreaming});
 });
