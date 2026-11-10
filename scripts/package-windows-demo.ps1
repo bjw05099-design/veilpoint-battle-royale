@@ -119,7 +119,30 @@ TRUST AND SCOPE
   if ($tampered.ExitCode -eq 0) {
     throw 'Actual Windows EXE preflight accepted corrupted game JavaScript'
   }
-  Write-Host '[VEILPOINT] PE preflight executed: clean=0, tampered=nonzero (correct)'
+  # A corrupted script must not be mistaken for the *next* negative
+  # test's cause. Restore the exact stage copy and certify it first.
+  Copy-Item -LiteralPath (Join-Path $stage 'game/src/app.js') -Destination (Join-Path $probe 'game/src/app.js') -Force
+  $restored=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($restored.ExitCode -ne 0) {
+    throw 'Actual Windows EXE preflight rejected clean bytes after restoring JS'
+  }
+  # An unreferenced directory junction to an empty folder contains no files,
+  # so recursive EnumerateFiles cannot detect it. The host must reject the
+  # link itself rather than traversing it or trusting only manifest paths.
+  $emptyTarget=Join-Path $out 'empty-reparse-probe'
+  New-Item -ItemType Directory -Path $emptyTarget -Force | Out-Null
+  $junction=Join-Path $probe 'game/unlisted-reparse-probe'
+  New-Item -ItemType Junction -Path $junction -Target $emptyTarget | Out-Null
+  try {
+    $unlistedJunction=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+    if ($unlistedJunction.ExitCode -eq 0) {
+      throw 'Actual Windows EXE preflight accepted an unlisted empty directory junction'
+    }
+  }
+  finally {
+    [IO.Directory]::Delete($junction)
+  }
+  Write-Host '[VEILPOINT] PE preflight executed: clean=0, tampered=nonzero, restored=0, empty-junction=nonzero (correct)'
   Write-Host "[VEILPOINT] Windows EXE package verified: $zip"
   Write-Host "[VEILPOINT] SHA256: $sha"
   Write-Host '[VEILPOINT] Windows CI build only. No interactive launch, UE5 build, signing or FPS benchmark.'

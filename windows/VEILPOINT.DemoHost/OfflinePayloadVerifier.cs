@@ -83,12 +83,33 @@ internal static class OfflinePayloadVerifier
 
         if (!File.Exists(Path.Combine(root, "NOTICE.txt")))
             throw new InvalidDataException("Offline release limitation notice missing.");
-        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        // Enumerate filesystem entries ourselves, not AllDirectories: the
+        // latter can follow an unlisted Windows junction even if no manifest
+        // entry references it. A junction to an EMPTY outside directory was
+        // previously invisible to EnumerateFiles and passed preflight.
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(root);
+        var inspectedDirectories = 0;
+        while (pendingDirectories.Count > 0)
         {
-            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            if (relative is "MANIFEST.sha256" or "NOTICE.txt") continue;
-            if (!seen.Contains(relative))
-                throw new InvalidDataException("Untracked file in offline game/: " + relative);
+            var directory = pendingDirectories.Pop();
+            if (++inspectedDirectories > MaxEntries + 1)
+                throw new InvalidDataException("Too many offline asset directories.");
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var relative = Path.GetRelativePath(root, entry).Replace('\\', '/');
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Reparse point in offline game/: " + relative);
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (!seen.Any(name => name.StartsWith(relative + "/", StringComparison.OrdinalIgnoreCase)))
+                        throw new InvalidDataException("Untracked directory in offline game/: " + relative);
+                    pendingDirectories.Push(entry);
+                }
+                else if (relative is not "MANIFEST.sha256" and not "NOTICE.txt" && !seen.Contains(relative))
+                    throw new InvalidDataException("Untracked file in offline game/: " + relative);
+            }
         }
     }
 }
