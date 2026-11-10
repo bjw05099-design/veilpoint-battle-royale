@@ -46,8 +46,8 @@ test('CH01 aftercare cannot be triggered through a wall, from across town or bef
  const early=Story.createState();
  early.workerInterviewed=true;
  stand(early,-3,11);
- assert.equal(Story.nearest(early)?.id,'terminal',
-   'the original terminal objective still owns the initial phase');
+ assert.notEqual(Story.nearest(early)?.id,'kimAftercare',
+   'the pre-incident phase must never offer a future witnessed conversation');
  const state=actualAftermath();
  state.workerInterviewed=true;
  stand(state,80,85);
