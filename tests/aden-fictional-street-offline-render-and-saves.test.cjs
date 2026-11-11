@@ -16,7 +16,7 @@ test('standalone offline map loads terrain, relief, original road mesh and viewe
  const html=fs.readFileSync(path.resolve(__dirname,'../terrain.html'),'utf8');
  const names=['src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
-  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
+  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-street-perspective.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
  const indices=names.map(p=>html.indexOf('src="'+p+'"'));
  assert.ok(indices.every(i=>i>0));
  assert.deepEqual(indices,[...indices].sort((a,b)=>a-b));
