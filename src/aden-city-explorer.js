@@ -71,6 +71,41 @@
   return Object.freeze(houses);
  }
  const CIVIC_SHELLS=civilianBlockout();
+ // A new source mesh may reuse the SAME registered tile ID and LOD.
+ // Snapshot references rather than trusting the string key/zoom signature.
+ function terrainRevision(cache){
+  return new Map([...cache].map(([key,entry])=>[key,
+   {sourceTile:entry?.sourceTile,mesh:entry?.mesh,lod:entry?.lod}]));
+ }
+ function terrainRevisionMatches(cache,revision){
+  if(!(cache instanceof Map)||!(revision instanceof Map)||cache.size!==revision.size)return false;
+  for(const [key,entry] of cache){
+   const prior=revision.get(key);
+   if(!entry||!prior||prior.sourceTile!==entry.sourceTile||
+      prior.mesh!==entry.mesh||prior.lod!==entry.lod)return false;
+  }
+  return true;
+ }
+ // Keys from nested controls belong to those controls, not the terrain
+ // walker's movement/interaction dispatcher.
+ function interactiveKeyTarget(target){
+  let node=target;const seen=new Set();
+  for(let depth=0;node&&depth<32;depth++){
+   if(typeof node!=='object'||seen.has(node))return false;
+   seen.add(node);
+   const tag=typeof node.tagName==='string'?node.tagName.toUpperCase():'';
+   if(['INPUT','TEXTAREA','SELECT','BUTTON','OPTION','SUMMARY'].includes(tag)||
+      node.isContentEditable===true)return true;
+   if(tag==='A'&&(typeof node.href==='string'||
+      (typeof node.hasAttribute==='function'&&node.hasAttribute('href'))))return true;
+   const role=typeof node.getAttribute==='function'?node.getAttribute('role'):node.role;
+   if(typeof role==='string'&&/^(button|link|textbox|searchbox|combobox|spinbutton|listbox|menuitem|option|slider|checkbox|radio|switch)$/.test(role.toLowerCase().trim()))return true;
+   const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
+   if(editable!=null&&editable!=='false')return true;
+   node=node.parentElement||node.parentNode||node.host||null;
+  }
+  return false;
+ }
  function viewState(options={}){
   const x=options.x??0,z=options.z??0,zoom=options.zoom??.63,
    relief=options.relief??.38,showContours=options.showContours??true;
@@ -399,15 +434,22 @@
   const cache=new Map();
   let state=viewState(),fileSelectionRevision=0;
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
-   walkClock=null,walkAccum=0,walkFrame=0;
+   walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
-  function invalidateWalking(){
+  function releaseHeldWalk(){
+   // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
+   // Cancel the pending callback, not just WASD: otherwise a fresh keypress
+   // cannot schedule a new loop until an obsolete frame eventually fires.
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
-   walkFrame=0;
+   walkFrame=0;held.clear();walkClock=null;walkAccum=0;
+  }
+  function invalidateWalking(){
+   releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
-   footpath=null;footpathWorld=null;held.clear();walkClock=null;walkAccum=0;
+   walkTerrainRevision=null;
+   footpath=null;footpathWorld=null;
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
   }
@@ -416,10 +458,12 @@
    const keys=[...cache.keys()].sort();
    const signature=keys.map(key=>key+':'+cache.get(key).lod).join('|')+
     '|doors:'+([...closedDoors].sort().join(','));
-   if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry){
+   if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry||
+      !terrainRevisionMatches(cache,walkTerrainRevision)){
     walkWorld=Walk.createWorld(registry,cache,new Set(keys),
      [...CIVIC_SHELLS,...Districts.PLAN.buildings],closedDoors);
     walkWorldKey=signature;walkRegistry=registry;
+    walkTerrainRevision=terrainRevision(cache);
     // A route is certified against the precise loaded mesh revision and
     // door configuration. Rebuilding the world invalidates old elevations.
     if(footpathWorld&&footpathWorld!==walkWorld){
@@ -676,10 +720,18 @@
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
   }
+  // Focusing a PC control must stop a previously held walk even when
+  // the last physical keyup was lost. A hidden tab is never driving gameplay.
+  doc.addEventListener?.('focusin',event=>{
+   if(interactiveKeyTarget(event.target))releaseHeldWalk();
+  });
+  doc.addEventListener?.('visibilitychange',()=>{
+   if(doc.hidden)releaseHeldWalk();
+  });
   if(typeof window!=='undefined'){
    window.addEventListener('keydown',event=>{
-    if(event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
-       /^(input|textarea|select)$/i.test(event.target?.tagName||''))return;
+    if(doc.hidden||event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
+       interactiveKeyTarget(event.target))return;
     const key=typeof event.key==='string'?event.key.toLowerCase():'';
     if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
     if(walk&&key==='f'&&!event.repeat){
@@ -698,7 +750,7 @@
     held.delete(key);
     if(!held.size){walkClock=null;walkAccum=0;}
    });
-   window.addEventListener('blur',()=>{held.clear();walkClock=null;walkAccum=0;});
+   window.addEventListener('blur',releaseHeldWalk);
    window.addEventListener('resize',refresh);
   }
   refresh();
@@ -710,5 +762,5 @@
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
-  importedTerrainFocus,attach});
+  importedTerrainFocus,terrainRevision,terrainRevisionMatches,interactiveKeyTarget,attach});
 });
