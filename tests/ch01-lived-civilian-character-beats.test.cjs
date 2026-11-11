@@ -10,10 +10,11 @@ test('CH01 crew voices react to already spoken civilian eyewitness testimony, no
  assert.equal(baseline.speaker,'김지윤');
  s.workerInterviewed=true;
  const saved=JSON.stringify(s),spoken=Comms.briefing(s);
- assert.equal(spoken.speaker,'조현지');
- assert.match(spoken.message,/1990년/);
- assert.match(spoken.message,/1994년/);
- assert.match(spoken.message,/그가 직접 말한 경험/);
+ assert.equal(spoken.speaker,'이수혁 대위',
+  'an archived interview cannot make a distant colleague appear on-site');
+ assert.match(spoken.message,/개인의 진술/);
+ assert.match(spoken.message,/시각은 미확인/);
+ assert.doesNotMatch(spoken.message,/모든 주민의 뜻|전국의 주민/);
  assert.equal(JSON.stringify(s),saved,'radio cannot advance an interaction or save flag');
  assert.ok(Object.isFrozen(spoken));
  s.waterSurveyed=true;
