@@ -17,8 +17,9 @@
  function mount(doc,raw,onFinish){
   const host=doc.getElementById('chapterOpening');
   if(!host)return null;
-  let view=snapshot(raw);
+  let view=snapshot(raw),destroyed=false,finishedNotified=false;
   function render(){
+   if(destroyed)return;
    host.hidden=!view.visible;
    host.classList.toggle('hidden',!view.visible);
    if(!view.visible)return;
@@ -26,18 +27,64 @@
    host.querySelector('[data-opening-speaker]').textContent=view.speaker;
    host.querySelector('[data-opening-line]').textContent=view.line;
   }
+  function notifyIfFinished(){
+   if(!view.visible&&!destroyed&&!finishedNotified){
+    finishedNotified=true;
+    if(typeof onFinish==='function')onFinish();
+   }
+  }
   const button=host.querySelector('[data-opening-next]');
-  const advance=()=>{view=next(view.state);render();if(!view.visible&&typeof onFinish==='function')onFinish();};
+  const advance=()=>{
+   if(destroyed||!view.visible)return;
+   view=next(view.state);render();notifyIfFinished();
+  };
   button.addEventListener('click',advance);
   render();
-  return {advance,tick(){view=tick(view.state);render();return view;},snapshot(){return view;},destroy(){button.removeEventListener('click',advance);host.hidden=true;host.classList.add('hidden');}};
+  return {
+   advance,
+   tick(){
+    if(!destroyed&&view.visible){view=tick(view.state);render();notifyIfFinished();}
+    return view;
+   },
+   snapshot(){return view;},
+   destroy(){
+    destroyed=true;
+    button.removeEventListener('click',advance);
+    host.hidden=true;host.classList.add('hidden');
+   }
+  };
  }
  function attachMenu(doc){
   const button=doc.getElementById('chapterOpeningShow'),menu=doc.getElementById('menu');
   const host=doc.getElementById('chapterOpening');
   if(!button||!menu||!host)return null;
-  let controller=null;
+  let controller=null,frameId=0,lastTime=null,carry=0;
+  function cancelPlayback(){
+   if(frameId&&typeof window!=='undefined'&&
+      typeof window.cancelAnimationFrame==='function')
+    window.cancelAnimationFrame(frameId);
+   frameId=0;lastTime=null;carry=0;
+  }
+  function frame(now){
+   frameId=0;
+   if(!controller||doc.hidden||!Number.isFinite(now))return;
+   if(lastTime!==null)
+    carry+=Math.max(0,Math.min(.1,(now-lastTime)/1000));
+   lastTime=now;
+   const ticks=Math.min(6,Math.floor(carry*Playback.TICKS_PER_SCENE/3));
+   if(ticks){
+    carry-=ticks*3/Playback.TICKS_PER_SCENE;
+    for(let i=0;i<ticks&&controller;i++)controller.tick();
+   }
+   if(controller)schedulePlayback();
+  }
+  function schedulePlayback(){
+   if(frameId||!controller||doc.hidden||typeof window==='undefined'||
+      typeof window.requestAnimationFrame!=='function')return;
+   frameId=window.requestAnimationFrame(frame);
+  }
   function close(){
+   cancelPlayback();
    if(!controller)return;
    controller.destroy();
    controller=null;
@@ -51,6 +98,7 @@
    menu.classList.add('hidden');
    const nextButton=host.querySelector('[data-opening-next]');
    nextButton.focus({preventScroll:true});
+   schedulePlayback();
   }
   function onKeydown(event){
    if(!controller)return;
@@ -73,6 +121,12 @@
   }
   button.addEventListener('click',show);
   doc.addEventListener('keydown',onKeydown);
+  doc.addEventListener?.('visibilitychange',()=>{
+   // A suspended tab may resume minutes later: never skip hundreds of
+   // story captions because the PC window was backgrounded.
+   if(doc.hidden)cancelPlayback();
+   else if(controller)schedulePlayback();
+  });
   return {show,close,active(){return !!controller;}};
  }
  if(typeof document!=='undefined'){
