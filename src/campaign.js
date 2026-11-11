@@ -116,7 +116,8 @@
         Array.isArray(progress.choices) || progress.completed.length > MISSIONS.length)
       throw new RangeError('Unsupported campaign progress');
     const choiceKeys = Object.keys(progress.choices);
-    if (choiceKeys.length !== progress.completed.length)
+    if (choiceKeys.length !== progress.completed.length ||
+        choiceKeys.some(key => !progress.completed.includes(key)))
       throw new RangeError('Campaign decisions and completed missions differ');
     for (let i = 0; i < progress.completed.length; i++) {
       const mission = MISSIONS[i];
