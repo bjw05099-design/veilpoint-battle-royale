@@ -19,7 +19,7 @@
    if(!member||!Number.isInteger(member.id))return seat+'. 빈 좌석';
    // Untrusted display names must never create fake roster rows or control the PC panel.
    const name=typeof member.name==='string'?
-    (member.name.replace(/[\x00-\x1f\x7f-\x9f]/g,' ').trim().slice(0,32)||'분대원'):'분대원';
+    (member.name.replace(/[\x00-\x1f\x7f-\x9f]/g,' ').replace(/\s+/g,' ').trim().slice(0,32)||'분대원'):'분대원';
    if(!world)return seat+'. '+name+' · '+(member.ready?'준비':'대기');
    const reported=visible.find(p=>p&&p.slot===seat&&p.id===member.id);
    if(!reported)return seat+'. '+name+' · 상태 확인 중';
