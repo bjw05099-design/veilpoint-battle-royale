@@ -10,12 +10,14 @@
   const EVENTS=Object.freeze({
     ARRIVED:'arrived',ESCALATION:'escalation',CONTACT_LOST:'contact_lost',
     LOCAL_GUIDE:'local_guide',SAFE_ROUTE:'safe_route',
-    LOCAL_AID_OBSERVED:'local_aid_observed',EXIT:'exit'
+    LOCAL_AID_OBSERVED:'local_aid_observed',
+    CIVILIAN_WALK_IN:'civilian_walk_in',EXIT:'exit'
   });
   const PREREQUISITES=Object.freeze({
     escalation:['arrived'],contact_lost:['escalation'],
     local_guide:['escalation'],safe_route:['local_guide'],
-    local_aid_observed:['safe_route'],exit:['contact_lost','safe_route']
+    local_aid_observed:['safe_route'],civilian_walk_in:['escalation'],
+    exit:['contact_lost','safe_route']
   });
   function newTimeline(){
     return {version:1,briefedBeforeDeparture:true,originalMandate:'civilian liaison and communications support',
@@ -24,7 +26,7 @@
   function restoreTimeline(raw){
     if(!raw||raw.version!==1||raw.briefedBeforeDeparture!==true||
        raw.originalMandate!=='civilian liaison and communications support'||
-       !Array.isArray(raw.events)||raw.events.length>7)throw new Error('Invalid story timeline');
+       !Array.isArray(raw.events)||raw.events.length>8)throw new Error('Invalid story timeline');
     let result=newTimeline();
     for(const event of raw.events){
       if(typeof event!=='string'||result.events.includes(event))throw new Error('Invalid event');
@@ -62,6 +64,16 @@
       return Object.freeze({...result,events:Object.freeze(result.events.slice())});
     result=advance(result,EVENTS.ESCALATION);
     result=advance(result,EVENTS.CONTACT_LOST);
+    // A resident can walk to the south civic approach WITHOUT the captain
+    // ordering an escort or choosing the evacuation branch. Preserve that
+    // individual agency as a causal observation only after the original
+    // 60Hz walker has physically reached a real, bounded destination.
+    // A bare forged 'arrived' flag or a remote story claim is insufficient.
+    const civilian=state.civilianWalker;
+    const witnessedWalkIn=state.combat.cleared===true&&civilian?.arrived===true&&
+      Number.isFinite(civilian.x)&&Number.isFinite(civilian.z)&&
+      civilian.x>=-4.6&&civilian.x<=-1.4&&Math.abs(civilian.z+58)<=.65;
+    if(witnessedWalkIn)result=advance(result,EVENTS.CIVILIAN_WALK_IN);
     // A real on-foot east route can now be completed without optional
     // documents. An actually reached corridor, a completed moving public
     // gate, and a confirmed CH01 exit prove locally authorized passage.
