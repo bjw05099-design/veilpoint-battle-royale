@@ -48,14 +48,19 @@ test('actual city PC loop clears held WASD when a text control gains focus witho
   const advanced=h.app.getWalk();
   assert.ok(advanced.x>0&&advanced.tick>0,'the real fixed-step input moved');
   h.documentEvents.get('focusin')({target:{tagName:'INPUT'}});
-  h.frameAt(1080);
+  assert.equal(h.frames.size,0,'focused form cancels the queued RAF immediately');
+  assert.ok(h.cancelled.length>0,'focus must actually cancel the stale frame ID');
   assert.equal(h.app.getWalk(),advanced,'focus cancels the held movement lease');
-  assert.equal(h.frames.size,0,'no background movement loop remains');
   const key=h.key('keydown','p',{tagName:'TEXTAREA'});
   assert.equal(key.prevented,undefined);
   assert.ok(h.app.getWalk(),'typing P must not change player mode');
   h.key('keydown','d',{tagName:'INPUT'});
   assert.equal(h.frames.size,0,'typing into input cannot resume movement');
+  h.key('keydown','d',{tagName:'DIV'});
+  assert.equal(h.frames.size,1,'new real play input gets a fresh RAF after focus');
+  h.frameAt(1080);h.frameAt(1114);
+  assert.ok(h.app.getWalk().x>advanced.x,
+   'the character resumes movement after returning focus to the scene');
  }finally{h.dispose();}
 });
 test('nested accessible controls and editable hosts never invoke F/arrow/P gameplay actions',()=>{
@@ -85,8 +90,14 @@ test('a hidden PC document suppresses an active 60Hz movement lease',()=>{
   const before=h.app.getWalk();
   h.doc.hidden=true;
   h.documentEvents.get('visibilitychange')();
-  h.frameAt(1068);
   assert.equal(h.app.getWalk(),before);
-  assert.equal(h.frames.size,0,'hidden document cannot keep a walking animation loop');
+  assert.equal(h.frames.size,0,'hidden document immediately cancels pending frames');
+  assert.ok(h.cancelled.length>0);
+  assert.equal(h.key('keydown','w').prevented,undefined,
+   'hidden-tab key events cannot manipulate the moving civilian walker');
+  assert.equal(h.frames.size,0);
+  h.doc.hidden=false;
+  h.key('keydown','w');h.frameAt(1068);h.frameAt(1102);
+  assert.ok(h.app.getWalk().tick>before.tick,'visible tab schedules a fresh 60Hz loop');
  }finally{h.dispose();}
 });
