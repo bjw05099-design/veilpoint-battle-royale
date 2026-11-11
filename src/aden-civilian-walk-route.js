@@ -39,17 +39,26 @@
    throw new TypeError('Invalid fictional civilian route request');
   const start=Walk.probe(world,walker.x,walker.z);
   if(!start)return frozen('invalid-start',{points:Object.freeze([])});
-  const nearest=rooms.map(room=>({
-    room,d:Math.hypot(walker.x-room.x,walker.z-room.z)
-   })).filter(p=>p.room&&Number.isFinite(p.d)&&p.d<=MAX_DISTANCE_METRES)
-    .sort((a,b)=>a.d-b.d||a.room.id.localeCompare(b.room.id))[0];
-  if(!nearest)return frozen('no-nearby-public-room',{points:Object.freeze([])});
-  const room=nearest.room,roomId=room.id,
-   target={x:room.x,z:room.z+room.d/2-1.6};
-  if(world.solids.some(b=>b.id===roomId+':door'))
-   return frozen('door-closed',{roomId,points:Object.freeze([])});
-  if(!Walk.probe(world,target.x,target.z))
-   return frozen('room-not-walkable',{roomId,points:Object.freeze([])});
+  // Search only a bounded shortlist. A closed or unreachable nearest hall
+  // cannot hide a second genuinely walkable civilian public entrance.
+  const candidates=rooms.map(room=>({
+    room,d:room&&Number.isFinite(room.x)&&Number.isFinite(room.z)?
+     Math.hypot(walker.x-room.x,walker.z-room.z):Infinity
+   })).filter(({room,d})=>room&&typeof room.id==='string'&&room.id.length>0&&
+     Number.isFinite(room.d)&&room.d>0&&Number.isFinite(d)&&d<=MAX_DISTANCE_METRES)
+    .sort((a,b)=>a.d-b.d||a.room.id.localeCompare(b.room.id)).slice(0,3);
+  if(!candidates.length)return frozen('no-nearby-public-room',{points:Object.freeze([])});
+  let firstFailure=null;
+  for(const {room} of candidates){
+   const roomId=room.id,target={x:room.x,z:room.z+room.d/2-1.6};
+   if(world.solids.some(b=>b.id===roomId+':door')){
+    firstFailure??=frozen('door-closed',{roomId,points:Object.freeze([])});
+    continue;
+   }
+   if(!Walk.probe(world,target.x,target.z)){
+    firstFailure??=frozen('room-not-walkable',{roomId,points:Object.freeze([])});
+    continue;
+   }
   const ix=Math.round((target.x-walker.x)/CELL_METRES),
    iz=Math.round((target.z-walker.z)/CELL_METRES);
   const heuristic=(x,z)=>Math.abs(ix-x)+Math.abs(iz-z);
@@ -85,8 +94,10 @@
     best.set(k,next);current.set(k,next);
    }
   }
-  if(!goal)return frozen('unreachable',{roomId,points:Object.freeze([]),
-   explored:expanded});
+  if(!goal){
+   firstFailure??=frozen('unreachable',{roomId,points:Object.freeze([]),explored:expanded});
+   continue;
+  }
   const reverse=[],end=Walk.probe(world,target.x,target.z);
   for(let node=goal;node;node=node.parent){
    const x=walker.x+node.i*CELL_METRES,
@@ -112,9 +123,11 @@
   for(let i=1;i<points.length;i++)
    distance+=Math.hypot(points[i].x-points[i-1].x,
     points[i].z-points[i-1].z);
-  return frozen('planned',{roomId,
-   points:Object.freeze(points),distanceMetres:distance,
-   explored:expanded,originTick:walker.tick});
+   return frozen('planned',{roomId,
+    points:Object.freeze(points),distanceMetres:distance,
+    explored:expanded,originTick:walker.tick});
+  }
+  return firstFailure;
  }
  return Object.freeze({CELL_METRES,MAX_DISTANCE_METRES,MAX_EXPANSIONS,
   segment,plan,geographyVerified:false,autoMove:false});
