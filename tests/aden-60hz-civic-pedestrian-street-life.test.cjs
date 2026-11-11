@@ -56,14 +56,16 @@ test('civic pedestrians re-ground or leave on streamed terrain changes, and disa
  app.walkStep({east:0},35);
  const before=app.getCivicWalkers();
  assert.ok(before.length>1);
- app.action('zoomOut');
+ app.action('zoomOut');app.action('zoomOut');
+ // Force a real new-LOD world build and one genuine fixed simulation tick.
+ assert.equal(app.walkStep({east:0,south:0},1),true);
  const next=app.getCivicWalkers();
  assert.ok(next.length<=8);
  for(const after of next){
   const earlier=before.find(x=>x.id===after.id);
   if(earlier){
-   assert.ok(Math.hypot(after.x-earlier.x,after.z-earlier.z)<1e-8,
-    'streamed LOD refresh must not teleport a living local pedestrian');
+   assert.ok(Math.hypot(after.x-earlier.x,after.z-earlier.z)<=1.7/60+1e-8,
+    'streamed LOD refresh may walk just one physical tick, never teleport');
    assert.ok(Math.abs(after.y-earlier.y)<=.35+1e-8);
   }
  }
@@ -83,4 +85,26 @@ test('civic residents are absent when a local imported DEM is unreviewed and can
  app.resetSample();
  assert.equal(app.toggleWalking(),true);
  assert.ok(app.getCivicWalkers().length>0);
+});
+
+
+test('original public-street residents and the player cannot walk through one another at 60Hz',()=>{
+ const {app}=ui(),room=Districts.PUBLIC_INTERIORS[0];
+ assert.equal(app.focusNextPublicRoom(),room.id);
+ assert.equal(app.toggleWalking(),true);
+ const id=room.id;
+ const actor=app.getCivicWalkers().find(x=>x.id===id);
+ assert.ok(actor,'the selected loaded original civic room has a local human');
+ assert.ok(actor.x>app.getWalk().x+3,'resident starts ahead on the sidewalk');
+ let closest=Infinity;
+ for(let i=0;i<260;i++){
+  app.walkStep({east:1,south:0},1);
+  const now=app.getCivicWalkers().find(x=>x.id===id);
+  if(!now)continue;
+  const distance=Math.hypot(now.x-app.getWalk().x,now.z-app.getWalk().z);
+  closest=Math.min(closest,distance);
+  assert.ok(distance>=.9-1e-7,
+   'neither 60Hz movement controller may overlap a physically present body');
+ }
+ assert.ok(closest<2.1,'the test really approached a civilian rather than checking empty space');
 });
