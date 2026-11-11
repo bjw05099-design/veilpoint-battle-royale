@@ -41,13 +41,23 @@
   if(!start)return frozen('invalid-start',{points:Object.freeze([])});
   // Search only a bounded shortlist. A closed or unreachable nearest hall
   // cannot hide a second genuinely walkable civilian public entrance.
-  const candidates=rooms.map(room=>({
+  const nearby=rooms.map(room=>({
     room,d:room&&Number.isFinite(room.x)&&Number.isFinite(room.z)?
      Math.hypot(walker.x-room.x,walker.z-room.z):Infinity
    })).filter(({room,d})=>room&&typeof room.id==='string'&&room.id.length>0&&
      Number.isFinite(room.d)&&room.d>0&&Number.isFinite(d)&&d<=MAX_DISTANCE_METRES)
-    .sort((a,b)=>a.d-b.d||a.room.id.localeCompare(b.room.id)).slice(0,3);
-  if(!candidates.length)return frozen('no-nearby-public-room',{points:Object.freeze([])});
+    .sort((a,b)=>a.d-b.d||a.room.id.localeCompare(b.room.id));
+  if(!nearby.length)
+   return frozen('no-nearby-public-room',{points:Object.freeze([])});
+  // A shut public room does not consume one of the THREE costly A* search
+  // attempts. The old nearest-three cutoff could hide the first genuinely
+  // accessible room behind three closed doors even in the same loaded block.
+  // Keep the original 3-search cap, while inspecting every local door first.
+  const doorClosed=id=>world.solids.some(b=>b.id===id+':door');
+  const candidates=nearby.filter(({room})=>!doorClosed(room.id)).slice(0,3);
+  if(!candidates.length)
+   return frozen('door-closed',{roomId:nearby[0].room.id,
+    points:Object.freeze([])});
   let firstFailure=null;
   for(const {room} of candidates){
    const roomId=room.id,target={x:room.x,z:room.z+room.d/2-1.6};
