@@ -31,7 +31,8 @@
  function current(raw){const state=restore(raw);return state.finished?null:Opening.SCENES[state.scene];}
  function forCheckpoint(chapterState,raw){
   // A checkpoint with meaningful CH01 progress must not be reset to the intro.
-  if(chapterState&&chapterState.phase&&chapterState.phase!=='arrival')return {...initial(),scene:Opening.SCENES.length,finished:true};
+  if(chapterState&&((chapterState.phase&&chapterState.phase!=='arrival')||chapterState.combat?.started===true))
+   return {...initial(),scene:Opening.SCENES.length,finished:true};
   return restore(raw);
  }
  return Object.freeze({TICKS_PER_SCENE,initial,restore,tick,skip,current,forCheckpoint});

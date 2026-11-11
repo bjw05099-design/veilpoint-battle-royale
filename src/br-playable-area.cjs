@@ -40,7 +40,11 @@ function positionInArea(area,x,z){
     !Number.isFinite(area.cx)||!Number.isFinite(area.cz)||
     !Number.isFinite(x)||!Number.isFinite(z))
   throw new RangeError('invalid_area_position');
- const margin=area.radius-Math.hypot(x-area.cx,z-area.cz);
+ const distance=Math.hypot(x-area.cx,z-area.cz);
+ // Finite input coordinates can still overflow a subtraction or hypot.
+ // Never publish an infinite distance to the match HUD or server clients.
+ if(!Number.isFinite(distance))throw new RangeError('invalid_area_position');
+ const margin=area.radius-distance;
  // A geometrical warning only; consequences are decided solely by the
  // server's actual consecutive outside tick count, never by this helper.
  return Object.freeze({outside:margin<0,

@@ -42,14 +42,28 @@ function createTelemetry(size=180){
 }
 // Timer queries are asynchronous. No gl.finish(), no synthetic GPU measurement.
 function createGpuTimer(gl,onSample,onInvalidated){
- const ext=gl&&gl.getExtension&&gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ let ext=null;
+ // A GPU context may disappear between renderer setup and extension query.
+ // Never let a failing WebGL driver tear down the actual PC frame loop.
+ try{ext=gl&&gl.getExtension&&gl.getExtension('EXT_disjoint_timer_query_webgl2');}
+ catch(_){ext=null;}
  if(!ext)return {supported:false,begin:()=>false,end:()=>{},poll:()=>{},dispose:()=>{}};
  let active=null,activeTag=null;const pending=[];let disposed=false,disjointActive=false;
+ // Driver/context errors invalidate ALL timing evidence, not the game frame.
+ // Recovered graphics must create a fresh timer with a fresh WebGL context.
+ function invalidateAndDispose(){
+  if(disposed)return;
+  dispose();
+  if(typeof onInvalidated==='function'){
+   try{onInvalidated();}catch(_){}
+  }
+ }
  // An unavailable WebGL result must not occupy the four-query ring forever.
  // A timeout only invalidates GPU evidence; it never fabricates a frame time.
  // Pass the draw clock from the renderer so age is measured in real milliseconds.
  function poll(nowMs=null){
   if(disposed)return;
+  try{
   const disjoint=!!gl.getParameter(ext.GPU_DISJOINT_EXT);
   if(disjoint){
    // A disjoint invalidates *every* query spanning the event, including one
@@ -82,18 +96,37 @@ function createGpuTimer(gl,onSample,onInvalidated){
    // Return the original draw's monotonic timestamp, not the later poll time.
    if(Number.isFinite(ns)&&ns>0&&typeof onSample==='function')onSample(ns/1e6,tag);
   }
+  }catch(_){invalidateAndDispose();}
  }
  function begin(tag=null){
   if(disposed||disjointActive||active||pending.length>=4)return false;
-  active=gl.createQuery();if(!active)return false;
-  activeTag=tag;
-  gl.beginQuery(ext.TIME_ELAPSED_EXT,active);return true;
+  try{
+   active=gl.createQuery();if(!active)return false;
+   activeTag=tag;
+   gl.beginQuery(ext.TIME_ELAPSED_EXT,active);return true;
+  }catch(_){invalidateAndDispose();return false;}
  }
- function end(){if(!active||disposed)return;gl.endQuery(ext.TIME_ELAPSED_EXT);pending.push({query:active,tag:activeTag});active=null;activeTag=null;}
+ function end(){
+  if(!active||disposed)return;
+  try{
+   gl.endQuery(ext.TIME_ELAPSED_EXT);
+   pending.push({query:active,tag:activeTag});active=null;activeTag=null;
+  }catch(_){invalidateAndDispose();}
+ }
  function dispose(){
   if(disposed)return;
-  if(active){gl.endQuery(ext.TIME_ELAPSED_EXT);gl.deleteQuery(active);active=null;activeTag=null;}
-  for(const {query} of pending)gl.deleteQuery(query);pending.length=0;disposed=true;
+  // On a lost context, endQuery/deleteQuery may themselves throw.
+  // Cleanup is best-effort; the external timer has already been retired.
+  disposed=true;
+  if(active){
+   try{gl.endQuery(ext.TIME_ELAPSED_EXT);}catch(_){}
+   try{gl.deleteQuery(active);}catch(_){}
+   active=null;activeTag=null;
+  }
+  for(const {query} of pending){
+   try{gl.deleteQuery(query);}catch(_){}
+  }
+  pending.length=0;
  }
  return {supported:true,begin,end,poll,dispose};
 }

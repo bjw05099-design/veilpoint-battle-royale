@@ -133,7 +133,14 @@
   const centre=localHeight(world,x,z);
   if(!centre||centre.elevationMetres<0||
      centre.slopeDegrees>MAX_SLOPE_DEGREES)return null;
-  const corners=[[radius,0],[-radius,0],[0,radius],[0,-radius]];
+  // A real circular foot/body footprint also contacts diagonal ground.
+  // Four cardinal probes alone can approve a terrain corner hanging over a
+  // steep/missing triangle while the visible 60Hz walker crosses it.
+  // Sample all eight compass directions at the SAME physical radius.
+  const diagonal=radius*Math.SQRT1_2;
+  const corners=[[radius,0],[-radius,0],[0,radius],[0,-radius],
+   [diagonal,diagonal],[diagonal,-diagonal],
+   [-diagonal,diagonal],[-diagonal,-diagonal]];
   let min=centre.elevationMetres,max=centre.elevationMetres;
   for(const [dx,dz] of corners){
    const s=localHeight(world,x+dx,z+dz);
