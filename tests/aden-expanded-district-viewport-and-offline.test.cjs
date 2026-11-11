@@ -64,7 +64,7 @@ test('local offline demo contains all new city district script sources and truth
  assert.match(page,/창작 추가 8구역/);
  assert.match(page,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  const context=vm.createContext({});
- for(const file of scripts.slice(0,7))
+ for(const file of scripts.slice(0,8))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+file),'utf8'),context);
  assert.equal(context.VeilpointAdenPreviewDistricts.PLAN.buildings.length,224);
  assert.equal(context.VeilpointAdenPreviewDistricts.verifiedAdenCityBuildings,0);
