@@ -350,7 +350,7 @@ class SoftwareRenderer {
  constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.ctx=canvas.getContext('2d');this.random=rand(5101);this.plants=Array.from({length:150},()=>({x:(this.random()-.5)*325,z:(this.random()-.5)*325,h:3+this.random()*5}));}
  resize(){const c=this.canvas;const ratio=this.adaptiveScale||(this.quality?this.quality.resolutionScale:1);const w=Math.max(1,Math.floor(c.clientWidth*ratio)),h=Math.max(1,Math.floor(c.clientHeight*ratio));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}return {w,h};}
  draw(state){const {w,h}=this.resize(),ctx=this.ctx,p=state.player;
- const plan=Visibility.planVisible(state,w/Math.max(h,1));this.lastVisibilityStats=plan.stats;
+ const plan=Visibility.planVisible(state,w/Math.max(h,1),this.verticalFov*Math.PI/180);this.lastVisibilityStats=plan.stats;
  const beaconLit=beaconLightLevel(state)>0.5;
  const horizon=h*(.51+Math.tan(p.pitch)*.5);const sky=ctx.createLinearGradient(0,0,0,horizon);const harborNight=state.scene==='nahrin';const dusk=!harborNight&&state.lighting==='dusk';
  sky.addColorStop(0,harborNight?'#192a35':dusk?'#46505e':'#536b70');
@@ -1459,7 +1459,7 @@ class Renderer {
   for(const x of [-42,42])mesh.box(x,3.08,-27.73,1.05,.15,.13,
     state.relayRestored?[1.45,1.12,.65]:[.16,.17,.17]);
  }
- const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1));
+ const plan=Visibility.planVisible(state,this.lastWidth/Math.max(this.lastHeight,1),this.verticalFov*Math.PI/180);
   // The moving civilian vehicle is never baked into the static mesh. Live
   // geometry derives directly from the world collision body's saved pose.
   if(state.scene==='nahrin'&&state.transportVan&&
@@ -1667,7 +1667,7 @@ class Renderer {
  g.uniform1f(l.time,state.elapsed);g.uniform1f(l.effects,this.effects);
  // One VBO with many conservative subranges. Chunk culling changes only
  // rasterization, never simulated cover, player physics or saved world state.
- const halfFov=Visibility.halfHorizontalFov(this.lastWidth/Math.max(this.lastHeight,1));
+ const halfFov=Visibility.halfHorizontalFov(this.lastWidth/Math.max(this.lastHeight,1),this.verticalFov*Math.PI/180);
  let submittedVertices=0,visibleChunks=0;
  if(this.static.bind(g,l)){
   for(const chunk of this.staticChunks){
