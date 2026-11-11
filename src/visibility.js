@@ -18,9 +18,14 @@ function actorViewDistance(weaponId){
   weaponId==='marksman'?MARKSMAN_VIEW_DISTANCE:MAX_DISTANCE;
 }
 const ZONE_SEGMENTS=128;
-function halfHorizontalFov(aspect){
+function halfHorizontalFov(aspect,verticalFov=VERTICAL_FOV){
  if(!Number.isFinite(aspect)||aspect<=0)throw new RangeError('Invalid viewport aspect');
- return Math.min(Math.PI/2-.01,Math.atan(Math.tan(VERTICAL_FOV/2)*aspect)+.12);
+ // The camera's CURRENT projection angle (including observation zoom) is
+ // authoritative for culling. A fixed 55-degree estimate removed objects
+ // actually visible in 78-degree PC mode at both 16:9 and narrow viewports.
+ if(!Number.isFinite(verticalFov)||verticalFov<=0||verticalFov>=Math.PI*.9)
+  throw new RangeError('Invalid vertical camera field of view');
+ return Math.min(Math.PI/2-.01,Math.atan(Math.tan(verticalFov/2)*aspect)+.12);
 }
 function inView(player,x,z,radius=1,maxDistance=MAX_DISTANCE,halfFov=halfHorizontalFov(16/9)){
  if(!player||![player.x,player.z,player.yaw,x,z,radius,maxDistance,halfFov].every(Number.isFinite)||radius<0||maxDistance<=0||halfFov<=0)return false;
@@ -75,9 +80,9 @@ function hasExposedSilhouette(player,entity,radius,obstacles){
   !rayBlocked(player.x,player.z,entity.x+sideX,entity.z+sideZ,obstacles)||
   !rayBlocked(player.x,player.z,entity.x-sideX,entity.z-sideZ,obstacles);
 }
-function planVisible(state,aspect=16/9){
+function planVisible(state,aspect=16/9,verticalFov=VERTICAL_FOV){
  if(!state||!state.player||!state.zone||!Array.isArray(state.bots)||!Array.isArray(state.loot)||!Array.isArray(state.effects))throw new TypeError('Invalid simulation state');
- const p=state.player,halfFov=halfHorizontalFov(aspect);
+ const p=state.player,halfFov=halfHorizontalFov(aspect,verticalFov);
  // Preserve the normal geometry budget for other classes. Only distant
  // low-LOD actors and their brief physical cues need the extended horizon.
  const actorDistance=actorViewDistance(p.weaponId);

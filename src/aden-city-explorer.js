@@ -71,6 +71,41 @@
   return Object.freeze(houses);
  }
  const CIVIC_SHELLS=civilianBlockout();
+ // A new source mesh may reuse the SAME registered tile ID and LOD.
+ // Snapshot references rather than trusting the string key/zoom signature.
+ function terrainRevision(cache){
+  return new Map([...cache].map(([key,entry])=>[key,
+   {sourceTile:entry?.sourceTile,mesh:entry?.mesh,lod:entry?.lod}]));
+ }
+ function terrainRevisionMatches(cache,revision){
+  if(!(cache instanceof Map)||!(revision instanceof Map)||cache.size!==revision.size)return false;
+  for(const [key,entry] of cache){
+   const prior=revision.get(key);
+   if(!entry||!prior||prior.sourceTile!==entry.sourceTile||
+      prior.mesh!==entry.mesh||prior.lod!==entry.lod)return false;
+  }
+  return true;
+ }
+ // Keys from nested controls belong to those controls, not the terrain
+ // walker's movement/interaction dispatcher.
+ function interactiveKeyTarget(target){
+  let node=target;const seen=new Set();
+  for(let depth=0;node&&depth<32;depth++){
+   if(typeof node!=='object'||seen.has(node))return false;
+   seen.add(node);
+   const tag=typeof node.tagName==='string'?node.tagName.toUpperCase():'';
+   if(['INPUT','TEXTAREA','SELECT','BUTTON','OPTION','SUMMARY'].includes(tag)||
+      node.isContentEditable===true)return true;
+   if(tag==='A'&&(typeof node.href==='string'||
+      (typeof node.hasAttribute==='function'&&node.hasAttribute('href'))))return true;
+   const role=typeof node.getAttribute==='function'?node.getAttribute('role'):node.role;
+   if(typeof role==='string'&&/^(button|link|textbox|searchbox|combobox|spinbutton|listbox|menuitem|option|slider|checkbox|radio|switch)$/.test(role.toLowerCase().trim()))return true;
+   const editable=typeof node.getAttribute==='function'?node.getAttribute('contenteditable'):null;
+   if(editable!=null&&editable!=='false')return true;
+   node=node.parentElement||node.parentNode||node.host||null;
+  }
+  return false;
+ }
  function viewState(options={}){
   const x=options.x??0,z=options.z??0,zoom=options.zoom??.63,
    relief=options.relief??.38,showContours=options.showContours??true;
@@ -399,27 +434,60 @@
   const cache=new Map();
   let state=viewState(),fileSelectionRevision=0;
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
-   walkClock=null,walkAccum=0,walkFrame=0;
+   walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0,
+   idlePaintTicks=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
-  function invalidateWalking(){
+  let civicWalkers=[];
+  function releaseHeldWalk(){
+   // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
+   // Cancel the pending callback, not just WASD: otherwise a fresh keypress
+   // cannot schedule a new loop until an obsolete frame eventually fires.
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
-   walkFrame=0;
+   walkFrame=0;held.clear();walkClock=null;walkAccum=0;idlePaintTicks=0;
+  }
+  function invalidateWalking(){
+   releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
-   footpath=null;footpathWorld=null;held.clear();walkClock=null;walkAccum=0;
+   walkTerrainRevision=null;
+   footpath=null;footpathWorld=null;civicWalkers=[];
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
+  }
+  // A handful of noncombat residents use original public-room pavements.
+  // Their positions are real 60Hz ground/collision states, never map pins.
+  // The source is synthetic artist geography, NOT the actual Aden population.
+  function civicActorsFor(world,previous=[]){
+   if(!world||!Districts||!Walk)return [];
+   const priorById=new Map(previous.map(a=>[a.id,a]));
+   const actors=[];
+   for(const room of Districts.PUBLIC_INTERIORS.slice(0,8)){
+    const baseX=room.x+3.5,baseZ=room.z+room.d/2+2.0,
+      prior=priorById.get(room.id),oldPose=prior?.pose;
+    const floor=Walk.probe(world,oldPose?.x??baseX,oldPose?.z??baseZ);
+    if(!floor||(oldPose&&Math.abs(floor.y-oldPose.y)>.35))continue;
+    try{
+     actors.push({id:room.id,minX:baseX,maxX:baseX+3.1,
+       direction:prior?.direction??1,
+       pose:oldPose?Object.freeze({...oldPose,y:floor.y}):
+        Walk.initial(world,baseX,baseZ)});
+    }catch(_){/* No person on an unsupported or blocked ground surface. */}
+   }
+   return actors;
   }
   function worldForWalking(){
    if(activeDataset||!Walk||!Districts)return null;
    const keys=[...cache.keys()].sort();
    const signature=keys.map(key=>key+':'+cache.get(key).lod).join('|')+
     '|doors:'+([...closedDoors].sort().join(','));
-   if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry){
+   if(!walkWorld||walkWorldKey!==signature||walkRegistry!==registry||
+      !terrainRevisionMatches(cache,walkTerrainRevision)){
     walkWorld=Walk.createWorld(registry,cache,new Set(keys),
      [...CIVIC_SHELLS,...Districts.PLAN.buildings],closedDoors);
     walkWorldKey=signature;walkRegistry=registry;
+    walkTerrainRevision=terrainRevision(cache);
+    civicWalkers=civicActorsFor(walkWorld,civicWalkers);
     // A route is certified against the precise loaded mesh revision and
     // door configuration. Rebuilding the world invalidates old elevations.
     if(footpathWorld&&footpathWorld!==walkWorld){
@@ -452,6 +520,14 @@
    if(walk&&footpathWorld)worldForWalking();
    if(walk){
     const ctx=canvas.getContext('2d');
+    // Render actual terrain-grounded footsteps beside public venues.
+    // These visible local civilians never reveal a live BR rival position.
+    for(const a of civicWalkers){
+     const [cx,cz]=Relief.project([a.pose.x,a.pose.y,a.pose.z],zoomState,
+       canvas.width,canvas.height,zoomState.zoom,zoomState.relief);
+     ctx.fillStyle='#9ad3c4';
+     ctx.fillRect(cx-3*dpr,cz-3*dpr,6*dpr,6*dpr);
+    }
     // Read-only original public walking preview; drawing never changes
     // the fixed-step pedestrian or campaign story checkpoint.
     if(footpath?.status==='planned'&&footpath.points.length>1){
@@ -482,7 +558,8 @@
     '개 · 창작 확장건물 '+stats.districtBuildingsVisible+
     '개 · 실제 아덴 검증 0타일'+
     (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
-     'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':'')+
+     'm / '+walk.tick+'틱 · 실제 보행자 '+civicWalkers.length+'명'+
+     (walk.blocked?' (통행 제한)':'')+
      (insideRoom?' · 창작 공공 실내: '+insideRoom.district:'')+
      (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':'')+
      (footpath?.status==='planned'?' · 창작 공공실 경로 '+footpath.distanceMetres.toFixed(1)+'m':
@@ -513,7 +590,11 @@
    catch(error){info.textContent='보행 시작 불가: 현재 지형/건물 경계 확인 필요';return false;}
    const button=doc.getElementById('walkProbe');
    if(button)button.setAttribute?.('aria-pressed','true');
-   refresh();return true;
+   refresh();
+   // Live local street life continues independently of the camera operator's
+   // WASD. Hidden/defocused tabs still cancel the fixed-step callback.
+   scheduleWalk();
+   return true;
   }
   function focusNextPublicRoom(){
    // Camera shortcut for touring eight distinct ORIGINAL public interiors.
@@ -558,34 +639,65 @@
    walkWorld=null;walkWorldKey='';footpath=null;footpathWorld=null;
    refresh();return true;
   }
-  function walkStep(intent,frames=1){
+  function walkStep(intent,frames=1,paint=true){
    if(!walk||!Number.isInteger(frames)||frames<1||frames>120)
     return false;
    const world=worldForWalking();
    if(!world){invalidateWalking();return false;}
-   for(let i=0;i<frames;i++)walk=Walk.step(world,walk,intent);
+   for(let i=0;i<frames;i++){
+    // The new civilian bodies are solid to the PLAYER as well as the other
+    // way around. A swept 60Hz proposed step may not enter a standing
+    // pedestrian's ordinary shared pavement footprint.
+    const proposed=Walk.step(world,walk,intent);
+    const occupied=civicWalkers.some(actor=>Math.hypot(
+      proposed.x-actor.pose.x,proposed.z-actor.pose.z)<
+      Walk.RADIUS_METRES*2+.10);
+    walk=occupied?Walk.step(world,walk,{east:0,south:0}):proposed;
+    for(const actor of civicWalkers){
+     if((actor.direction>0&&actor.pose.x>=actor.maxX-.04)||
+        (actor.direction<0&&actor.pose.x<=actor.minX+.04))
+       actor.direction*=-1;
+     const dx=actor.direction*Walk.SPEED_METRES_PER_SECOND/Walk.TICKS_PER_SECOND;
+     // Yield to the nearby player's real body, instead of gliding through
+     // it. The existing 60Hz terrain and building test checks every step.
+     const occupied=Math.hypot(actor.pose.x+dx-walk.x,
+       actor.pose.z-walk.z)<1.15;
+     const next=Walk.step(world,actor.pose,{east:occupied?0:actor.direction});
+     if(next.blocked)actor.direction*=-1;
+     actor.pose=next;
+    }
+   }
    state=viewState({...state,x:walk.x,z:walk.z});
-   refresh();return true;
+   if(paint)refresh();
+   return true;
   }
   function walkFrameStep(time){
    walkFrame=0;
-   if(!walk||held.size===0)return;
-   if(typeof time!=='number')return;
+   if(!walk||(!held.size&&!civicWalkers.length)||doc.hidden)return;
+   if(!Number.isFinite(time))return;
    if(walkClock===null)walkClock=time;
    walkAccum+=Math.max(0,Math.min(.09,(time-walkClock)/1000));
    walkClock=time;
    const fixed=1/Walk.TICKS_PER_SECOND,ticks=Math.min(5,Math.floor(walkAccum/fixed));
    if(ticks){
     walkAccum-=ticks*fixed;
+    const activeMove=held.size>0;
+    // Preserve the 60Hz civilian body simulation while repainting the
+    // expensive 25-tile Canvas only at 10Hz when the player is stationary.
+    idlePaintTicks=activeMove?0:idlePaintTicks+ticks;
+    const paint=activeMove||idlePaintTicks>=6;
+    if(paint)idlePaintTicks=0;
     walkStep({east:Number(held.has('d'))-Number(held.has('a')),
-     south:Number(held.has('s'))-Number(held.has('w'))},ticks);
+     south:Number(held.has('s'))-Number(held.has('w'))},ticks,paint);
    }
-   if(walk&&held.size>0&&typeof window!=='undefined'&&
+   if(walk&&(held.size>0||civicWalkers.length>0)&&!doc.hidden&&
+      typeof window!=='undefined'&&
       typeof window.requestAnimationFrame==='function')
     walkFrame=window.requestAnimationFrame(walkFrameStep);
   }
   function scheduleWalk(){
-   if(walkFrame||!walk||!held.size||typeof window==='undefined'||
+   if(walkFrame||!walk||doc.hidden||
+      (!held.size&&!civicWalkers.length)||typeof window==='undefined'||
       typeof window.requestAnimationFrame!=='function')return;
    walkClock=null;walkAccum=0;
    walkFrame=window.requestAnimationFrame(walkFrameStep);
@@ -676,10 +788,18 @@
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
   }
+  // Focusing a PC control must stop a previously held walk even when
+  // the last physical keyup was lost. A hidden tab is never driving gameplay.
+  doc.addEventListener?.('focusin',event=>{
+   if(interactiveKeyTarget(event.target))releaseHeldWalk();
+  });
+  doc.addEventListener?.('visibilitychange',()=>{
+   if(doc.hidden)releaseHeldWalk();
+  });
   if(typeof window!=='undefined'){
    window.addEventListener('keydown',event=>{
-    if(event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
-       /^(input|textarea|select)$/i.test(event.target?.tagName||''))return;
+    if(doc.hidden||event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
+       interactiveKeyTarget(event.target))return;
     const key=typeof event.key==='string'?event.key.toLowerCase():'';
     if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
     if(walk&&key==='f'&&!event.repeat){
@@ -698,17 +818,21 @@
     held.delete(key);
     if(!held.size){walkClock=null;walkAccum=0;}
    });
-   window.addEventListener('blur',()=>{held.clear();walkClock=null;walkAccum=0;});
+   window.addEventListener('blur',releaseHeldWalk);
    window.addEventListener('resize',refresh);
   }
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
    getClosedDoors:()=>Object.freeze([...closedDoors].sort()),getFootpath:()=>footpath,
+   getCivicWalkers:()=>Object.freeze(civicWalkers.map(a=>Object.freeze({
+    id:a.id,x:a.pose.x,z:a.pose.z,y:a.pose.y,tick:a.pose.tick,
+    blocked:a.pose.blocked,direction:a.direction
+   }))),
    action,refresh,toggleWalking,toggleNearbyDoor,focusNextPublicRoom,planPublicFootpath,walkStep,
    loadDataset,appendDataset,resetSample});
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
-  importedTerrainFocus,attach});
+  importedTerrainFocus,terrainRevision,terrainRevisionMatches,interactiveKeyTarget,attach});
 });

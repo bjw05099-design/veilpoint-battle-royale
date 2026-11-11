@@ -75,8 +75,10 @@ test('rejects unsupported georeferencing, facility metadata and silently mismatc
   /Duplicate tile/);
  assert.throws(()=>Tiles.importHeightDataset({...base,tiles:[testTile(0,0),testTile(1,0,2)]}),
   /boundary mismatch/);
- assert.throws(()=>Tiles.importHeightDataset({...base,tiles:[testTile(0,0),testTile(1,0,0,33)]}),
-  /same sampling density/);
+ const mixed=Tiles.importHeightDataset({...base,tiles:[testTile(0,0),testTile(1,0,0,33)]});
+ assert.equal(mixed.seams,1);
+ assert.equal(mixed.registry.get('aden:1:0').gridSize,33);
+ assert.equal(mixed.unreviewed,true,'mixed resolution does not certify external DEM provenance');
  assert.throws(()=>Tiles.importHeightDataset({...base,tiles:[]}),
   /Invalid offline heightfield document/);
  assert.throws(()=>Tiles.importHeightDataset({...base,tiles:Array(50).fill(testTile(0,0))}),

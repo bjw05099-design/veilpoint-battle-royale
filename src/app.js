@@ -1850,9 +1850,17 @@ function frame(now){requestAnimationFrame(frame);
  const scale=renderer?(renderer.adaptiveScale||(renderer.fallback&&renderer.fallback.adaptiveScale)||graphicsSettings.resolutionScale):graphicsSettings.resolutionScale;
  const timings=(label,stats)=>label+' (n='+stats.count+') P50/P95/P99: '+
    [stats.p50,stats.p95,stats.p99].map(fmt).join(' / ');
+ // Only a real, sufficiently sampled callback window can make a pacing
+ // statement. This is not the measured graphics-card FPS or panel refresh.
+ const pacing=raf.count>=30
+   ?graphics.frameBudgetStatus(raf.p95,graphicsSettings.fpsCap):'unmeasured';
+ const pacingText=pacing==='unmeasured'?'관측 부족':
+   pacing==='within-budget'?'설정된 예산 이내':'설정된 예산 초과';
+ const callbackBudget='표시 콜백 P95 / '+graphicsSettings.fpsCap+'FPS 설정: '+
+   pacingText+' (브라우저 측정값 · 모니터/실제 GPU FPS 미인증)';
  // These are browser callback/draw/timer-query samples, not end-to-end input latency.
  $('perfDetails').textContent=[timings('렌더 CPU',cpu),timings('GPU 타이머',gpu),
-   timings('표시 콜백 간격',raf),'현재 내부 렌더 배율: '+Math.round(scale*100)+'%'+
+   timings('표시 콜백 간격',raf),callbackBudget,'현재 내부 렌더 배율: '+Math.round(scale*100)+'%'+
    (renderer&&renderer.lastVisibilityStats?' · 동적 버텍스: '+renderer.lastVisibilityStats.estimatedDynamicVertices+' / 봇: '+renderer.lastVisibilityStats.botsVisible+'/'+renderer.lastVisibilityStats.botsTotal:'')].concat(renderer&&renderer.lastStaticVisibilityStats?['정적 지형 제출: '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스 · 화면 범위 청크 '+renderer.lastStaticVisibilityStats.visibleChunks+'/'+renderer.lastStaticVisibilityStats.totalChunks]:[]).join('\n');
  lastHud=now;}
 }

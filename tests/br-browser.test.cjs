@@ -676,7 +676,10 @@ test('BR graphics diagnostics report bounded P50/P95/P99 with missing GPU sample
  assert.match(details,/GPU 타이머 \(n=0\) P50\/P95\/P99: 측정 불가 \/ 측정 불가 \/ 측정 불가/);
  assert.match(details,/표시 콜백 간격 \(n=\d+\) P50\/P95\/P99:/);
  assert.match(details,/현재 내부 렌더 배율:/);
- assert.equal(details.split('\n').length,4);
+ assert.match(details,/표시 콜백 P95 \/ 165FPS 설정: 관측 부족/);
+ assert.match(details,/모니터\/실제 GPU FPS 미인증/);
+ assert.equal(details.split('\n').length,5,
+  'the extra evidence-gated callback budget line is part of the PC HUD');
 });
 
 test('PC BR remapped fire/reload keys and sensitivity persist without changing 60Hz simulation',()=>{
