@@ -138,6 +138,9 @@
   return !!event&&(!!event.ctrlKey||!!event.altKey||!!event.metaKey);
  }
  function actionFor(code,value){
+  // A detached or malformed PC profile can arrive during offline storage
+  // recovery. Never let a keyboard event terminate the active game loop.
+  if(typeof code!=='string'||!value||!value.bindings||typeof value.bindings!=='object')return null;
   const bindings=value.bindings;
   for(const action of ACTIONS)if(bindings[action]===code)return action;
   // Preserve original alternate PC movement keys until the primary key is remapped.
