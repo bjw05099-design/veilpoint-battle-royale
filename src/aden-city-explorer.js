@@ -434,7 +434,8 @@
   const cache=new Map();
   let state=viewState(),fileSelectionRevision=0;
   let walk=null,walkWorld=null,walkWorldKey='',walkRegistry=null,
-   walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0;
+   walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0,
+   idlePaintTicks=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
   let civicWalkers=[];
@@ -444,7 +445,7 @@
    // cannot schedule a new loop until an obsolete frame eventually fires.
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
-   walkFrame=0;held.clear();walkClock=null;walkAccum=0;
+   walkFrame=0;held.clear();walkClock=null;walkAccum=0;idlePaintTicks=0;
   }
   function invalidateWalking(){
    releaseHeldWalk();
@@ -589,7 +590,11 @@
    catch(error){info.textContent='보행 시작 불가: 현재 지형/건물 경계 확인 필요';return false;}
    const button=doc.getElementById('walkProbe');
    if(button)button.setAttribute?.('aria-pressed','true');
-   refresh();return true;
+   refresh();
+   // Live local street life continues independently of the camera operator's
+   // WASD. Hidden/defocused tabs still cancel the fixed-step callback.
+   scheduleWalk();
+   return true;
   }
   function focusNextPublicRoom(){
    // Camera shortcut for touring eight distinct ORIGINAL public interiors.
@@ -634,7 +639,7 @@
    walkWorld=null;walkWorldKey='';footpath=null;footpathWorld=null;
    refresh();return true;
   }
-  function walkStep(intent,frames=1){
+  function walkStep(intent,frames=1,paint=true){
    if(!walk||!Number.isInteger(frames)||frames<1||frames>120)
     return false;
    const world=worldForWalking();
@@ -663,27 +668,36 @@
     }
    }
    state=viewState({...state,x:walk.x,z:walk.z});
-   refresh();return true;
+   if(paint)refresh();
+   return true;
   }
   function walkFrameStep(time){
    walkFrame=0;
-   if(!walk||held.size===0)return;
-   if(typeof time!=='number')return;
+   if(!walk||(!held.size&&!civicWalkers.length)||doc.hidden)return;
+   if(!Number.isFinite(time))return;
    if(walkClock===null)walkClock=time;
    walkAccum+=Math.max(0,Math.min(.09,(time-walkClock)/1000));
    walkClock=time;
    const fixed=1/Walk.TICKS_PER_SECOND,ticks=Math.min(5,Math.floor(walkAccum/fixed));
    if(ticks){
     walkAccum-=ticks*fixed;
+    const activeMove=held.size>0;
+    // Preserve the 60Hz civilian body simulation while repainting the
+    // expensive 25-tile Canvas only at 10Hz when the player is stationary.
+    idlePaintTicks=activeMove?0:idlePaintTicks+ticks;
+    const paint=activeMove||idlePaintTicks>=6;
+    if(paint)idlePaintTicks=0;
     walkStep({east:Number(held.has('d'))-Number(held.has('a')),
-     south:Number(held.has('s'))-Number(held.has('w'))},ticks);
+     south:Number(held.has('s'))-Number(held.has('w'))},ticks,paint);
    }
-   if(walk&&held.size>0&&typeof window!=='undefined'&&
+   if(walk&&(held.size>0||civicWalkers.length>0)&&!doc.hidden&&
+      typeof window!=='undefined'&&
       typeof window.requestAnimationFrame==='function')
     walkFrame=window.requestAnimationFrame(walkFrameStep);
   }
   function scheduleWalk(){
-   if(walkFrame||!walk||!held.size||typeof window==='undefined'||
+   if(walkFrame||!walk||doc.hidden||
+      (!held.size&&!civicWalkers.length)||typeof window==='undefined'||
       typeof window.requestAnimationFrame!=='function')return;
    walkClock=null;walkAccum=0;
    walkFrame=window.requestAnimationFrame(walkFrameStep);

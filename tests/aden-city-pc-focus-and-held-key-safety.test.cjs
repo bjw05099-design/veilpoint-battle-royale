@@ -32,6 +32,9 @@ test('nested PC controls own P/F/WASD without stealing city walking or camera co
   assert.equal(ui.key('p').prevented,true);
   assert.ok(app.getWalk());
   const old=app.getState(),oldTick=app.getWalk().tick;
+  const idleFrames=ui.scheduled.size;
+  assert.equal(idleFrames,1,
+   'one independent city-life animation tick exists while the player is stationary');
   const nested={tagName:'SPAN',parentElement:{tagName:'BUTTON'}};
   for(const key of ['p','f','w','ArrowRight']){
    const event=ui.key(key,nested);
@@ -39,14 +42,16 @@ test('nested PC controls own P/F/WASD without stealing city walking or camera co
   }
   assert.equal(app.getWalk().tick,oldTick);
   assert.deepEqual([app.getState().x,app.getState().z],[old.x,old.z]);
-  assert.equal(ui.scheduled.size,0);
+  assert.equal(ui.scheduled.size,idleFrames,
+   'keyboard focus cannot start a second walking RAF or take over city controls');
   for(const target of [
    {tagName:'DIV',role:'textbox'},
    {tagName:'DIV',isContentEditable:true},
    {tagName:'SPAN',parentNode:{tagName:'TEXTAREA'}},
    {tagName:'A',href:'index.html'}
   ])assert.equal(ui.key('w',target).prevented,undefined);
-  assert.equal(ui.scheduled.size,0);
+  assert.equal(ui.scheduled.size,idleFrames,
+   'keyboard focus cannot start a second walking RAF or take over city controls');
  }finally{ui.close();}
 });
 test('focus transfer or hidden-tab event releases held walking intent and prevents phantom 60Hz steps',()=>{
