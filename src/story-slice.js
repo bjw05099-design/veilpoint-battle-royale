@@ -505,6 +505,41 @@
     p.x=candidates[0].x;p.z=candidates[0].z;
     return true;
   }
+  // Presentation-only 60Hz body orientation for existing visible civilians.
+  // Heading follows witnessed displacement; a stationary character turns
+  // toward a physically nearby, unobstructed captain only. A remote player
+  // never rotates an unseen person through a wall. This does not change
+  // authored decisions, body collision, quest markers or V2 save schema.
+  function syncVisibleCharacterFacing(state,dt){
+    const world=state.world,p=world.player;
+    const memory=world.civilianFacing||(world.civilianFacing=Object.create(null));
+    const roles=[
+      ['kimJiyoon',state.kimJiyoon,world.kimJiyoon],
+      ['mara',state.mara,world.mara],
+      ['liaison',world.liaison,world.liaison],
+      ['civicCrossing',state.civicCrossing?.civilian,world.civicCrossing]
+    ];
+    for(const [key,person,visible] of roles){
+      if(!person||!visible||!Number.isFinite(person.x)||!Number.isFinite(person.z))
+       continue;
+      const old=memory[key],dx=old?person.x-old.x:0,dz=old?person.z-old.z:0;
+      let target=old?old.yaw:0;
+      if(Math.hypot(dx,dz)>1e-4)
+       target=Math.atan2(dx,-dz);
+      else if(Math.hypot(person.x-p.x,person.z-p.z)<=4.8&&
+              !Sim.lineBlocked(person.x,person.z,p.x,p.z,world.obstacles))
+       target=Math.atan2(p.x-person.x,-(p.z-person.z));
+      const current=old?old.yaw:target;
+      const change=Math.atan2(Math.sin(target-current),Math.cos(target-current));
+      const maxTurn=3*Math.max(0,Math.min(dt,.05));
+      const yaw=Math.atan2(Math.sin(current+clamp(change,-maxTurn,maxTurn)),
+       Math.cos(current+clamp(change,-maxTurn,maxTurn)));
+      // Only the renderer's existing world clone receives an orientation.
+      // It is never added to the saved physical actor record.
+      visible.angle=yaw;
+      memory[key]={x:person.x,z:person.z,yaw};
+    }
+  }
   function createState(weaponId='carbine') {
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
@@ -1687,6 +1722,7 @@
         syncMarkers(state);
       }
     }
+    syncVisibleCharacterFacing(state,t);
     return state;
   }
   // Fictional, non-graphic hitscan encounter; finite ammunition and sight-gated hostile response.
