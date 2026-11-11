@@ -639,10 +639,15 @@ class SoftwareRenderer {
  }
  // Canvas fallback projects each *visible* bot's real direction in 3D,
  // matching the WebGL character and the 60Hz server/solo simulation.
- const heading=(o.type==='bot'||(Number.isFinite(o.angle)&&
-  ['liaison','market-resident','field-companion','crossing-resident'].includes(o.type)))
+ // Preserve BR's original bot orientation contract while making the
+ // original CH01 civilian body rotation a separate physically witnessed cue.
+ const heading=o.type==='bot'?actorFacing(o):null;
+ const civilianHeading=Number.isFinite(o.angle)&&
+  ['liaison','market-resident','field-companion','crossing-resident'].includes(o.type)
   ?actorFacing(o):null;
- const cc=heading?Math.cos(heading.yaw):1,ss=heading?Math.sin(heading.yaw):0;
+ const poseHeading=heading||civilianHeading;
+ const cc=poseHeading?Math.cos(poseHeading.yaw):1,
+  ss=poseHeading?Math.sin(poseHeading.yaw):0;
  const corner=(dx,dy,dz)=>proj(x+dx*cc-dz*ss,dy,z+dx*ss+dz*cc);
  const p000=corner(-ww,0,-dd),p100=corner(ww,0,-dd),
   p010=corner(-ww,o.h,-dd),p110=corner(ww,o.h,-dd),
