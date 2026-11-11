@@ -57,7 +57,7 @@ test('local offline demo contains all new city district script sources and truth
  const files=collectFiles().map(entry=>entry.name);
  const scripts=['src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
-  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
+  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-street-perspective.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
  assert.deepEqual(referencedAssets('terrain.html',page),scripts);
  assert.ok(scripts.every(p=>files.includes(p)));
  assert.match(page,/id="fictionalDistrictLegend"/);
