@@ -120,8 +120,9 @@
   // The painter sorts real view-space depths: distant ground/facades before
   // nearby ones. There is no world-depth stencil or WebGL timing claim.
   faces.sort((a,b)=>b.average-a.average);
+  // Missing terrain remains visibly empty sky. An artificial horizon
+  // rectangle would falsely claim ground where no local mesh is loaded.
   ctx.fillStyle='#b5c7cd';ctx.fillRect(0,0,width,height);
-  ctx.fillStyle='#87999d';ctx.fillRect(0,height*.56,width,height*.44);
   let visibleFaces=0;
   for(const f of faces){
    ctx.fillStyle=f.color;ctx.beginPath();
