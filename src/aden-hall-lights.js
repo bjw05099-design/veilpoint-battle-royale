@@ -47,7 +47,8 @@
     p.z<=26.7||p.z>=41.2)return false;
   // A listener embedded in a wall, desk or bench is not in a physical room.
   return !world.obstacles.some(o=>{
-   if(!o||![o.x,o.z,o.w,o.d].every(finite)||o.w<=0||o.d<=0)return false;
+   if(!o||o.blocksMovement===false||o.solid===false||
+      ![o.x,o.z,o.w,o.d].every(finite)||o.w<=0||o.d<=0)return false;
    const dx=Math.max(0,Math.abs(p.x-o.x)-o.w/2),
          dz=Math.max(0,Math.abs(p.z-o.z)-o.d/2);
    return dx*dx+dz*dz<.7*.7;
