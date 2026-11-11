@@ -49,7 +49,11 @@ test('witness statement persists in existing v2 saves without promoting it to ve
  s.world.player.x=18;s.world.player.z=-9;
  assert.equal(Story.interact(s).event,'harbor_worker_interview');
  s.found=['recordA','recordB'];
- assert.match(Comms.briefing(s).message,/시각이 미확인된 별도 진술/);
+ const archived=Comms.briefing(s);
+ assert.equal(archived.speaker,'이수혁 대위',
+  'the captain remembers a direct local interview rather than a remote voice');
+ assert.match(archived.message,/그 개인의 진술/);
+ assert.match(archived.message,/시각은 미확인/);
  const raw=Story.serialize(s),restored=Story.restore(raw);
  assert.equal(restored.workerInterviewed,true);
  assert.equal(Story.serialize(restored),raw);
