@@ -21,6 +21,11 @@
     let accumulator = 0;
     let totalSteps = 0;
     let discardedSeconds = 0;
+    // Keep diagnostic counters finite even after repeated extreme tab stalls.
+    function discard(seconds) {
+      if (seconds > 0) discardedSeconds = Math.min(Number.MAX_VALUE,
+        seconds >= Number.MAX_VALUE - discardedSeconds ? Number.MAX_VALUE : discardedSeconds + seconds);
+    }
     let advancing = false;
     let generation = 0;
 
@@ -32,7 +37,7 @@
       if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
       advancing = true;
       try {
-      if (elapsedSeconds > maxFrameSeconds) discardedSeconds += elapsedSeconds - maxFrameSeconds;
+      if (elapsedSeconds > maxFrameSeconds) discard(elapsedSeconds - maxFrameSeconds);
       accumulator += Math.min(elapsedSeconds, maxFrameSeconds);
       let executed = 0;
       while (accumulator + epsilon >= stepSeconds && executed < maxSteps) {
@@ -53,7 +58,7 @@
           // only the fractional remainder, exactly as for a normal long stall.
           if (accumulator >= stepSeconds) {
             const remainder = accumulator % stepSeconds;
-            discardedSeconds += accumulator - remainder;
+            discard(accumulator - remainder);
             accumulator = remainder;
           }
           throw error;
@@ -62,7 +67,7 @@
       // A stalled tab must not spend seconds replaying obsolete inputs.
       if (accumulator >= stepSeconds) {
         const remainder = accumulator % stepSeconds;
-        discardedSeconds += accumulator - remainder;
+        discard(accumulator - remainder);
         accumulator = remainder;
       }
       return executed;
