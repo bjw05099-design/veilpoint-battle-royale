@@ -3,10 +3,21 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const Story=require('../src/story-slice.js');
 
-test('Kim physically turns toward nearby captain with bounded 60Hz yaw; no remote actor knowledge',()=>{
+function readyStory(){
  const s=Story.createState();
- s.phase='records';s.combat.started=true;s.combat.cleared=true;
+ s.world.player.x=Story.POINTS.terminal.x;
+ s.world.player.z=Story.POINTS.terminal.z;
+ const started=Story.interact(s);
+ assert.equal(started.phase,'engagement');
+ for(const hostile of s.world.bots){hostile.alive=false;hostile.health=0;}
+ s.combat.cleared=true;
+ s.phase='records';
  s.kimWaiting=true;
+ return s;
+}
+
+test('Kim physically turns toward nearby captain with bounded 60Hz yaw; no remote actor knowledge',()=>{
+ const s=readyStory();
  s.world.player.x=s.kimJiyoon.x+3;s.world.player.z=s.kimJiyoon.z;
  const original=Story.serialize(s);
  Story.step(s,1/60,{});
@@ -28,9 +39,7 @@ test('Kim physically turns toward nearby captain with bounded 60Hz yaw; no remot
  assert.ok(!original.includes('civilianFacing'));
 });
 test('unseen civilians behind walls are not rotated toward a distant player',()=>{
- const s=Story.createState();
- s.phase='records';s.combat.started=true;s.combat.cleared=true;
- s.kimWaiting=true;
+ const s=readyStory();
  s.world.player.x=100;s.world.player.z=0;
  Story.step(s,1/60,{});
  const current=s.world.kimJiyoon.angle;
@@ -47,8 +56,7 @@ test('existing story renderer consumes 60Hz civilian headings in WebGL AND Canva
  const story=fs.readFileSync(path.join(__dirname,'../src/story-slice.js'),'utf8');
  assert.match(story,/syncVisibleCharacterFacing\(state,t\)/);
  assert.match(story,/Sim\.lineBlocked\(person\.x,person\.z,p\.x,p\.z,world\.obstacles\)/);
- const s=Story.createState();
- s.phase='records';s.combat.started=true;s.combat.cleared=true;s.kimWaiting=true;
+ const s=readyStory();
  s.world.player.x=s.kimJiyoon.x+2;s.world.player.z=s.kimJiyoon.z;
  Story.step(s,1/60,{});
  const save=Story.serialize(s);
