@@ -3,15 +3,16 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const Graphics=require('../src/graphics.js');
 const app=fs.readFileSync(path.resolve(__dirname,'../src/app.js'),'utf8');
-test('PC keeps independently valid visual choices when a renamed preset arrives from another build',()=>{
+test('PC retains valid custom and label-free legacy profiles but fails closed on unknown labels',()=>{
  const chosen=Graphics.customize(Graphics.fromPreset('balanced'),'fpsCap',60);
- const stored={...chosen,preset:'retired-visual-profile'};
- const restored=Graphics.deserialize(JSON.stringify(stored));
- assert.deepEqual(restored,{fpsCap:60,resolutionScale:.9,
-  vegetationDensity:.75,effects:.7,preset:'custom'});
- assert.equal(Graphics.deserialize(Graphics.serialize(restored)).preset,'custom');
- // An unknown label does not entitle an invalid GPU scale to bypass validation.
- assert.deepEqual(Graphics.deserialize(JSON.stringify({...stored,resolutionScale:1.99})),
+ assert.deepEqual(Graphics.deserialize(Graphics.serialize(chosen)),chosen);
+ const {preset,...legacy}=chosen;
+ assert.deepEqual(Graphics.deserialize(JSON.stringify(legacy)),chosen,
+  'all independently validated old graphics values survive upgrades');
+ assert.deepEqual(Graphics.deserialize(JSON.stringify({
+  ...chosen,preset:'retired-visual-profile'})),Graphics.fromPreset('hyperreal165'),
+  'an unrecognized explicit label is still untrusted, even with valid numeric fields');
+ assert.deepEqual(Graphics.deserialize(JSON.stringify({...chosen,resolutionScale:1.99})),
   Graphics.fromPreset('hyperreal165'));
  assert.deepEqual(Graphics.deserialize('not-json'),Graphics.fromPreset('hyperreal165'));
 });
