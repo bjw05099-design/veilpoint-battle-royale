@@ -7,6 +7,7 @@ const {SQUADS,SQUAD_SIZE,CAPACITY,ENTRY_CHOICES}=require('./br-squad-lobby.cjs')
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {assessPedestrianFlow}=require('./br96-pedestrian-flow.cjs');
+const {settleBodyProposals}=require('./br96-simultaneous-bodies.cjs');
 const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // Server-authored movement budget: sprint is faster but finite, with a
@@ -687,13 +688,10 @@ class BrSquadWorld {
         wantsMove:actor.stepping?true:Math.hypot(direction.x,direction.z)>1e-8,
         stepAdvance};
     });
-    for(let i=0;i<proposals.length;i++)for(let j=i+1;j<proposals.length;j++){
-      const a=proposals[i],b=proposals[j];
-      if(Math.hypot(a.next.x-b.next.x,a.next.z-b.next.z)<2*RADIUS-1e-8){
-        a.next={x:a.actor.x,z:a.actor.z};
-        b.next={x:b.actor.x,z:b.actor.z};
-      }
-    }
+    // A rollback triggered by a later neighbor can invalidate an EARLIER
+    // pair in the same tick. Resolve to a deterministic fixed point instead
+    // of allowing two living human bodies to overlap due to roster ordering.
+    settleBodyProposals(proposals,RADIUS);
     const area=brPlayableArea(this.tick);
     const expired=[];
     for(const {actor,next,running,wantsMove,stepAdvance} of proposals){

@@ -102,23 +102,38 @@
   return (h00*(1-a)+h10*a)*(1-beta)+(h01*(1-a)+h11*a)*beta;
  }
  function auditSeam(a,b,toleranceMetres=.15){
-  if(!a||!b||a.gridSize!==b.gridSize||
+  if(!a||!b||!GRIDS.includes(a.gridSize)||!GRIDS.includes(b.gridSize)||
     !validFinite(toleranceMetres)||toleranceMetres<0||toleranceMetres>1)
    throw new RangeError('Invalid tile seam audit');
   const dx=b.tx-a.tx,dz=b.tz-a.tz;
   if(Math.abs(dx)+Math.abs(dz)!==1)throw new RangeError('Tiles are not cardinal neighbors');
-  const n=a.gridSize,diffs=[];
-  for(let k=0;k<n;k++){
-   let ai,bi;
-   if(dx===1){ai=k*n+n-1;bi=k*n;}
-   else if(dx===-1){ai=k*n;bi=k*n+n-1;}
-   else if(dz===1){ai=(n-1)*n+k;bi=k;}
-   else {ai=k;bi=(n-1)*n+k;}
-   diffs.push(Math.abs(a.samples[ai]-b.samples[bi]));
-  }
-  const maxGap=Math.max(...diffs);
+  // Adjacent licensed/local tiles can legitimately have 17/33/65 samples.
+  // Compare the PIECEWISE-LINEAR elevation along their entire common edge,
+  // not just shared endpoints. For two linear segments the maximum mismatch
+  // is attained at a breakpoint, so their UNION of sample fractions proves
+  // the maximum seam gap without fabricating a resampled source tile.
+  const edge=(tile,side,k)=>{
+   const n=tile.gridSize;
+   if(side==='east')return tile.samples[k*n+n-1];
+   if(side==='west')return tile.samples[k*n];
+   if(side==='south')return tile.samples[(n-1)*n+k];
+   return tile.samples[k];
+  };
+  const aSide=dx===1?'east':dx===-1?'west':dz===1?'south':'north';
+  const bSide=dx===1?'west':dx===-1?'east':dz===1?'north':'south';
+  const at=(tile,side,t)=>{
+   const u=t*(tile.gridSize-1),i=Math.min(tile.gridSize-2,Math.floor(u));
+   const fraction=u-i;
+   return edge(tile,side,i)*(1-fraction)+edge(tile,side,i+1)*fraction;
+  };
+  const fractions=new Set();
+  for(let k=0;k<a.gridSize;k++)fractions.add(k/(a.gridSize-1));
+  for(let k=0;k<b.gridSize;k++)fractions.add(k/(b.gridSize-1));
+  let maxGap=0;
+  for(const t of fractions)
+   maxGap=Math.max(maxGap,Math.abs(at(a,aSide,t)-at(b,bSide,t)));
   return Object.freeze({pass:maxGap<=toleranceMetres,maxGapMetres:maxGap,
-   samplesChecked:n,left:a.key,right:b.key});
+   samplesChecked:fractions.size,left:a.key,right:b.key});
  }
  // Generate actual triangle geometry at 1:1 physical scale for an
  // imported public DEM heightfield. LODs are subgrids of the SAME samples,
@@ -274,8 +289,9 @@
    for(const [dx,dz] of [[1,0],[0,1]]){
     const neighbor=registry.get(tileKey(tile.tx+dx,tile.tz+dz));
     if(!neighbor)continue;
-    if(tile.gridSize!==neighbor.gridSize)throw new RangeError(
-      'Adjacent terrain tiles require the same sampling density');
+    // A validated mixed-density edge is safe when both interpolated
+    // profiles agree at every breakpoint. A discontinuity still fails
+    // before either registry or imported-world view can be mutated.
     const audit=auditSeam(tile,neighbor,toleranceMetres);
     edgesChecked++;maxGapMetres=Math.max(maxGapMetres,audit.maxGapMetres);
     if(!audit.pass)pass=false;

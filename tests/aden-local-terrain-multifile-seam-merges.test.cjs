@@ -45,18 +45,22 @@ test('separate 512m tile files extend the same original local-world map without 
   }
  }
 });
-test('malformed, duplicate, unlicensed, mismatched or mixed-density additions cannot mutate the old world',()=>{
+test('malformed, duplicate, unlicensed or mismatched additions cannot mutate the old world',()=>{
  const first=read([raw(0)]),before=first.get('aden:0:0');
  for(const candidate of [
   read([raw(0)]),
-  read([raw(1,0,1.2)]),
-  read([raw(1,0,0,33)])
+  read([raw(1,0,1.2)])
  ]){
   assert.throws(()=>Tiles.mergeHeightRegistries(first,candidate),
-   /Duplicate imported terrain tile|boundary mismatch|same sampling density/);
+   /Duplicate imported terrain tile|boundary mismatch/);
   assert.deepEqual([...first.keys()],['aden:0:0']);
   assert.strictEqual(first.get('aden:0:0'),before);
  }
+ const mixed=Tiles.mergeHeightRegistries(first,read([raw(1,0,0,33)]));
+ assert.equal(mixed.tilesTotal,2,'a genuinely matching sampled edge can load at mixed LOD');
+ assert.ok(mixed.seamMaxGapMetres<1e-7);
+ assert.strictEqual(first.get('aden:0:0'),before,
+  'the original source tile survives without interpolation or replacement');
  assert.throws(()=>read([{...raw(1),source:{...SOURCE,license:''}}]),
   /Unverified geographic source/);
  assert.throws(()=>Tiles.mergeHeightRegistries(first,new Map()),/validated terrain registries/);
