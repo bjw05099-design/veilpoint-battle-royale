@@ -17,7 +17,7 @@
   const lines=Array.from({length:COUNT},(_,index)=>{
    const seat=index+1,member=own[index];
    if(!member||!Number.isInteger(member.id))return seat+'. 빈 좌석';
-   const name=typeof member.name==='string'?member.name:'분대원';
+   // Untrusted display names must never create fake roster rows or control the PC panel.\n   const name=typeof member.name==='string'?\n    (member.name.replace(/[\\x00-\\x1f\\x7f-\\x9f]/g,' ').trim().slice(0,32)||'분대원'):'분대원';
    if(!world)return seat+'. '+name+' · '+(member.ready?'준비':'대기');
    const reported=visible.find(p=>p&&p.slot===seat&&p.id===member.id);
    if(!reported)return seat+'. '+name+' · 상태 확인 중';
