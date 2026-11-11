@@ -16,10 +16,12 @@ function assessPedestrianFlow(actor,all,blockedSight=()=>false,travel=null){
  const magnitude=moving?Math.hypot(travel.x,travel.z):0;
  const heading=magnitude>1e-8?{x:travel.x/magnitude,z:travel.z/magnitude}:null;
  let near=0;
+ const seen=new Set();
  for(const other of all){
   if(!other||other===actor||seen.has(other)||other.eligible===false||
      !Number.isFinite(other.x)||!Number.isFinite(other.z))continue;
-  seen.add(other);\n  const d=Math.hypot(other.x-actor.x,other.z-actor.z);
+  seen.add(other);
+  const d=Math.hypot(other.x-actor.x,other.z-actor.z);
   if(d<REACH&&
      // Include exact overlaps: a transient coincident avatar must never
      // become invisible to the congestion estimate.
