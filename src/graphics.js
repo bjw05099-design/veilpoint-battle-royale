@@ -44,11 +44,10 @@ function deserialize(json){
  try{
   const value=JSON.parse(json),validated=validate(value);
   const preset=canonicalPreset(validated,value.preset);
-  // A newer or renamed preset ID is only stale metadata. If each saved
-  // numerical quality option is still valid, keep the player's actual PC
-  // settings instead of unexpectedly resetting to the 165Hz maximum.
-  // Malformed or out-of-policy numerical values still use safe defaults.
-  if(preset===null)return {...validated,preset:'custom'};
+  // Unknown explicit preset labels are not a proven version migration.
+  // Retain the existing fail-closed fallback; the true custom preset and
+  // label-free legacy settings still round-trip their validated values.
+  if(preset===null)return fromPreset('hyperreal165');
   return {...validated,preset};
  }catch(_){return fromPreset('hyperreal165');}
 }
