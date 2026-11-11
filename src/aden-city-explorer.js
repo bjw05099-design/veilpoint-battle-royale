@@ -705,8 +705,13 @@
     const activeMove=held.size>0;
     // Preserve the 60Hz civilian body simulation while repainting the
     // expensive 25-tile Canvas only at 10Hz when the player is stationary.
-    idlePaintTicks=activeMove?0:idlePaintTicks+ticks;
-    const paint=activeMove||idlePaintTicks>=6;
+    // Eye-level software terrain traversal is deliberately repainted at
+    // no more than 12Hz. Actual collision/NPC motion still advances at the
+    // original deterministic 60Hz, independent of display refresh rate.
+    idlePaintTicks=eyeLevel?idlePaintTicks+ticks:
+      (activeMove?0:idlePaintTicks+ticks);
+    const paint=eyeLevel?idlePaintTicks>=5:
+      (activeMove||idlePaintTicks>=6);
     if(paint)idlePaintTicks=0;
     walkStep({east:Number(held.has('d'))-Number(held.has('a')),
      south:Number(held.has('s'))-Number(held.has('w'))},ticks,paint);
