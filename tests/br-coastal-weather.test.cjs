@@ -16,10 +16,11 @@ test('coastal weather follows four fixed tick phases and fully repeats without w
  assert.equal(PERIODS.length,4);
  assert.deepEqual(PERIODS.map(p=>p.code),['clear','sea-haze','gusty','clearing']);
  for(const [tick,code,range] of [
-  [0,'clear',18],[2699,'clear',18],[2700,'sea-haze',12],
-  [5399,'sea-haze',12],[5400,'gusty',15],[8099,'gusty',15],
-  [8100,'clearing',18],[10799,'clearing',18],[10800,'clear',18],
-  [13500,'sea-haze',12]
+  [0,'clear',18],[2699,'clear',18],[2700,'sea-haze',18],
+  [3600,'sea-haze',12],[5399,'sea-haze',12],[5400,'gusty',12],
+  [6300,'gusty',15],[8099,'gusty',15],[8100,'clearing',15],
+  [9000,'clearing',18],[10799,'clearing',18],[10800,'clear',18],
+  [13500,'sea-haze',18]
  ]){
   const weather=coastalWeatherAtTick(tick);
   assert.deepEqual([weather.code,weather.visibilityMeters],[code,range]);
@@ -50,7 +51,7 @@ test('server weather actually changes remote-opponent disclosure without modifyi
  assert.equal(initial.visible.some(p=>p.id===rival.id),true);
  assert.equal(w.snapshot(token(6)).coastalWeather.code,'clear',
   'all 96 members share a single authoritative round climate');
- w.tick=2700;
+ w.tick=3600;
  const haze=w.snapshot(token(0));
  assert.equal(haze.coastalWeather.code,'sea-haze');
  assert.equal(haze.visible.some(p=>p.id===rival.id),false,
@@ -58,7 +59,7 @@ test('server weather actually changes remote-opponent disclosure without modifyi
  assert.deepEqual({x:me.x,z:me.z},original,'weather does not teleport an actor');
  assert.equal(haze.squad.length,6,'team identities remain available to own members');
  assert.equal(haze.standings.length,16,'competitive state is independent of scenery');
- w.tick=5400;
+ w.tick=6300;
  assert.equal(w.snapshot(token(0)).visible.some(p=>p.id===rival.id),true,
   'opponent becomes eligible for display again when a clear line reopens');
  w.tick=8100;
