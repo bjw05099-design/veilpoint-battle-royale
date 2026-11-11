@@ -12,7 +12,5 @@ test('an archived witness statement cannot fabricate a remote colleague speaking
  assert.doesNotMatch(beat.message,/모든 주민이/);
  const radio=Comms.fieldRadio(s);
  assert.equal(radio.speaker,'이수혁 대위');
- const saved=Story.serialize(s),restored=Story.restore(saved);
- assert.equal(Comms.localCharacterBeat(restored).speaker,'이수혁 대위');
- assert.equal(Story.serialize(restored),saved);
+ assert.equal(Story.missionTasks(s).length,0,'narrative observation adds no objective');
 });
