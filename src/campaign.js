@@ -94,6 +94,10 @@
        Number.isFinite(seconds[key])&&seconds[key]>=0))
       throw new TypeError('Invalid measured activity durations');
     const total=categories.reduce((sum,key)=>sum+seconds[key],0);
+    // Individually finite telemetry can still overflow when accumulated.
+    // Reject the sample rather than publishing NaN/zero pacing percentages.
+    if(!Number.isFinite(total))
+      throw new RangeError('Measured activity duration total overflow');
     if(total===0)return Object.freeze({measuredSeconds:0,observedPercent:null});
     const observedPercent=Object.fromEntries(categories.map(key=>
       [key,seconds[key]/total*100]));
