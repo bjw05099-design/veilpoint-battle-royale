@@ -27,7 +27,7 @@ test('standalone offline map loads terrain, relief, original road mesh and viewe
  assert.match(html,/창작 도로망 \(충돌 없음\)/);
  assert.match(html,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  const context=vm.createContext({});
- for(const p of names.slice(0,7))
+ for(const p of names.slice(0,8))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+p),'utf8'),context);
  assert.equal(context.VeilpointAdenPreviewStreets.ROUTES.length,32);
  assert.equal(context.VeilpointAdenPreviewStreets.hasGameCollision,false);
