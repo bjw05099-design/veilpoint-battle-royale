@@ -11,7 +11,9 @@
  const CROSSING=Object.freeze({x:6,z:-16,radius:2.5});
  const SPEED=1.1;
  function initial(){return {version:1,tick:0,disrupted:false,assisted:false,civilian:{x:2,z:-16},destination:{x:10,z:-16}};}
- function step(state,{disruption=false,assist=false,player,blocked=null}={}){
+ function step(state,{disruption=false,assist=false,player,blocked=null,pedestrians=[]}={}){
+   if(!Array.isArray(pedestrians)||pedestrians.length>32)
+     throw new TypeError('invalid_local_pedestrians');
    if(!state||state.version!==1||!Number.isSafeInteger(state.tick)||state.tick<0)throw new TypeError('invalid_civic_state');
    const near=player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
      Math.hypot(player.x-CROSSING.x,player.z-CROSSING.z)<=CROSSING.radius;
@@ -26,16 +28,28 @@
      const travel=SPEED/60;
      const destination=state.destination;
      const blockedAt=(x,z)=>typeof blocked==='function'&&blocked(x,z);
-     const occupied=(x,z)=>!!player&&Number.isFinite(player.x)&&Number.isFinite(player.z)&&
-       Math.hypot(x-player.x,z-player.z)<1.1;
+     const occupied=(x,z)=>{
+       const bodies=[player,...pedestrians];
+       return bodies.some(person=>person&&Number.isFinite(person.x)&&
+         Number.isFinite(person.z)&&Math.hypot(x-person.x,z-person.z)<1.1);
+     };
      let nx=civilian.x,nz=civilian.z;
      const ahead=Math.min(destination.x,civilian.x+2.4);
-     const centerObstructed=[.6,1.2,2.4].some(offset=>
-       blockedAt(Math.min(destination.x,civilian.x+offset),destination.z));
+     const centerObstructed=[.6,1.2,2.4].some(offset=>{
+       const aheadX=Math.min(destination.x,civilian.x+offset);
+       return blockedAt(aheadX,destination.z)||occupied(aheadX,destination.z);
+     });
      if(centerObstructed&&civilian.x<destination.x){
        // Prefer the original curb-side lane, then the opposite public lane.
        // A corridor unavailable at the current location is not forced.
-       const lanes=[-18.4,-13.6].filter(z=>!blockedAt(civilian.x,z));
+       // Sample the prospective lane ahead rather than picking a corridor
+       // that is clear only at the current feet. The person owns this 60Hz
+       // choice; an unseen client cursor never creates a route or waypoint.
+       const lanes=[-18.4,-13.6].filter(z=>
+         [.6,1.2,2.4].every(offset=>{
+           const x=Math.min(destination.x,civilian.x+offset);
+           return !blockedAt(x,z)&&!occupied(x,z);
+         })&&!blockedAt(civilian.x,z)&&!occupied(civilian.x,z));
        const lane=lanes.find(z=>Math.abs(z-civilian.z)<.05)||lanes[0];
        if(lane!==undefined){
          if(Math.abs(civilian.z-lane)>1e-8)
