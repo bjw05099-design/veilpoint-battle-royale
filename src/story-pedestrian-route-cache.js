@@ -39,7 +39,9 @@
   if(!previous||!Array.isArray(previous.points)||previous.points.length<2)
    return null;
   const p={x:player.x,z:player.z},goal={x:marker.x,z:marker.z};
-  if(!Number.isFinite(Math.hypot(p.x-goal.x,p.z-goal.z))||\n     Math.hypot(p.x-goal.x,p.z-goal.z)>MAX_ROUTE_METRES||\n     Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
+  if(!Number.isFinite(Math.hypot(p.x-goal.x,p.z-goal.z))||
+     Math.hypot(p.x-goal.x,p.z-goal.z)>MAX_ROUTE_METRES||
+     Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
      Sim.blocked(goal.x,goal.z,CLEARANCE,obstacles))return null;
   // The planner and cache must agree on FULL standing-body clearance.
   // Centerline visibility alone cannot authorize a cached straight route.
