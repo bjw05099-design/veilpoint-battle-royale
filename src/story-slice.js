@@ -509,7 +509,7 @@
     const state={version:VERSION,phase:'terminal',found:[],choice:null,relayRestored:false,beaconEnabled:false,flashlightOn:false,flashlightTicks:HEADLAMP_TICKS,gateLogReviewed:false,logHandedOff:false,musterConfirmed:false,dispatchReviewed:false,transportContact:0,driverReportFiled:false,officeBoardRead:false,civicVisited:false,waterSurveyed:false,waterReportFiled:false,
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
       mara:newMarketMara(),liaisonZ:LIAISON_WALK.startZ,
-      kimJiyoon:newKimJiyoon(),kimAftercareReviewed:false,
+      kimJiyoon:newKimJiyoon(),kimAftercareReviewed:false,kimWaiting:false,
       civicCrossing:Civic?Civic.initial():null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
@@ -665,21 +665,34 @@
     return [{id:'kimAftercare',x:k.x,z:k.z,kind:'objective',
       label:'김지윤 · 확인한 민간 현장 상황 직접 공유'}];
   }
+  // A genuinely nearby companion can be asked to hold position and then
+  // resume walking. This is optional human coordination, not a global squad
+  // command, teleport, route gate or new campaign objective. Every prompt
+  // is grounded in actual body distance and an unobstructed local view.
+  function kimControlMarkers(state){
+    if(!state.kimJiyoon||!state.combat?.cleared||
+       !['records','decision','exit'].includes(state.phase))return [];
+    const p=state.world.player,k=state.kimJiyoon;
+    if(Math.hypot(p.x-k.x,p.z-k.z)>3.0||
+       Sim.lineBlocked(p.x,p.z,k.x,k.z,state.world.obstacles))return [];
+    return [{id:'kimControl',x:k.x,z:k.z,kind:'objective',
+      label:state.kimWaiting?'김지윤 · 현장 동행 재개':'김지윤 · 이 자리에서 대기 요청'}];
+  }
   function markers(state) {
     if (state.phase==='terminal') return [POINTS.terminal];
     if (state.phase==='engagement') return state.combat.supplyRemaining===0?[]:[POINTS.supply];
     if (state.phase==='records'||state.phase==='decision') return [
       ...(['recordA','recordB'].filter(id=>!state.found.includes(id)).map(id=>POINTS[id])),
       POINTS.decision,
-      ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),...kimAftercareMarkers(state),
+      ...coordinatorRequestMarkers(state),...eastLocalRequestMarkers(state),...onsiteLiaisonMarkers(state),...kimAftercareMarkers(state),...kimControlMarkers(state),
       ...(!state.relayRestored||state.phase==='decision'?[POINTS.relay]:[]),
       ...warningMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...officeMarkers(state),
       ...(state.combat.supplyRemaining>0?[POINTS.supply]:[])
     ];
     if (state.phase==='exit') return state.choice==='verification'
-      ?[POINTS.exitVerify,...kimAftercareMarkers(state),...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
+      ?[POINTS.exitVerify,...kimAftercareMarkers(state),...kimControlMarkers(state),...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.gateLogReviewed?[POINTS.decision]:[]),...(gateOpen(state)&&!state.gateLogReviewed?[POINTS.gateLog]:[]),
          ...(state.gateLogReviewed&&!state.logHandedOff?[POINTS.reportDesk]:[]),...warningMarkers(state),POINTS.relay]:
-      [POINTS.exitEvac,...kimAftercareMarkers(state),...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
+      [POINTS.exitEvac,...kimAftercareMarkers(state),...kimControlMarkers(state),...officeMarkers(state),...workerInterviewMarkers(state),...residentRouteMarkers(state),...civicCrossingMarkers(state),...localAwningMarker(state),...maraConversationMarkers(state),...streetDrainMarkers(state),...transportYieldMarkers(state),...(!state.dispatchReviewed&&!state.transportVan?[POINTS.dispatchLedger]:[]),
          ...((state.transportContact===0||(state.transportContact===1&&!state.transportVan))?[POINTS.transportDriver]:[]),
          ...(state.dispatchReviewed&&state.transportContact===2&&!state.driverReportFiled&&!state.transportVan?[POINTS.driverReportDesk]:[]),
          ...(state.combat.supplyRemaining>0?[POINTS.supply]:[]),...(!state.aidPickedUp&&!state.musterConfirmed&&state.found.length===2?[POINTS.decision]:[]),...(state.musterConfirmed?[]:[POINTS.muster]),
@@ -1123,7 +1136,7 @@
       const dx=goal.x-w.x,dz=goal.z-w.z,distance=Math.hypot(dx,dz);
       // No forced sprint toward an unobserved distant player.
       const followSpeed=distance>8?5:distance>3?3.3:1.8;
-      if(distance>.36&&distance<55){
+      if(!state.kimWaiting&&distance>.36&&distance<55){
         const others=[p,state.worker,state.mara,state.civilianWalker,
           state.world.liaison,state.choice==='evacuation'&&state.guide.active?
             state.guide:null].filter(Boolean)
@@ -1768,6 +1781,17 @@
     if(state.phase==='failed')return {ok:false,reason:'inactive'};
     const marker=nearest(state);
     if(!marker)return {ok:false,reason:'too_far'};
+    if(marker.id==='kimControl'&&kimControlMarkers(state).length){
+      state.kimWaiting=!state.kimWaiting;
+      state.subtitle=state.kimWaiting
+        ?'김지윤(국정원): 여기서 기다리겠습니다. 현장을 직접 확인하고 돌아오십시오. 다른 구역의 상황은 제가 단정할 수 없습니다.'
+        :'김지윤(국정원): 다시 함께 이동하겠습니다. 실제 걸을 수 있는 길로 따라가겠습니다.';
+      state.message=state.kimWaiting
+        ?'김지윤 현장 대기 · 직접 복귀해 F로 동행 재개'
+        :'김지윤 현장 동행 재개 · 실제 60Hz 이동';
+      syncMarkers(state);
+      return {ok:true,event:state.kimWaiting?'kim_wait':'kim_follow',phase:state.phase};
+    }
     if(marker.id==='kimAftercare'&&kimAftercareMarkers(state).length){
       state.kimAftercareReviewed=true;
       const known=state.aidDelivered
@@ -2531,7 +2555,7 @@
       mara:{x:state.mara.x,z:state.mara.z,arrived:state.mara.arrived},
       liaisonZ:state.liaisonZ,
       kimJiyoon:state.kimJiyoon?{x:state.kimJiyoon.x,z:state.kimJiyoon.z}:null,
-      kimAftercareReviewed:state.kimAftercareReviewed,
+      kimAftercareReviewed:state.kimAftercareReviewed,kimWaiting:state.kimWaiting,
       ...(state.civicCrossing?{civicCrossing:state.civicCrossing}:{}),
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
@@ -2564,8 +2588,13 @@
     const expectedKeys=['version','phase','found','choice','player','elapsed','combat'];
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
-      Object.keys(data).length>expectedKeys.length+38||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','drainCleared','drainClearTicks','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing','kimAftercareReviewed').includes(k))||
+      Object.keys(data).length>expectedKeys.length+39||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','drainCleared','drainClearTicks','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing','kimAftercareReviewed','kimWaiting').includes(k))||
+      (hasOwn(data,'kimWaiting')&&(
+        typeof data.kimWaiting!=='boolean'||
+        (data.kimWaiting&&(!data.kimJiyoon||
+          !['records','decision','exit','complete'].includes(data.phase)||
+          data.combat?.cleared!==true))))||
       (hasOwn(data,'kimAftercareReviewed')&&
         (typeof data.kimAftercareReviewed!=='boolean'||
          (data.kimAftercareReviewed&&
@@ -2938,6 +2967,8 @@
       (data.kimJiyoon?{...data.kimJiyoon}:null):null;
     state.kimAftercareReviewed=hasOwn(data,'kimAftercareReviewed')?
       data.kimAftercareReviewed:false;
+    // Existing V2 saves did not expose a companion pause/resume interaction.
+    state.kimWaiting=hasOwn(data,'kimWaiting')?data.kimWaiting:false;
     // Older v2 saves must not suddenly spawn a new resident at the crossing.
     state.civicCrossing=Civic&&hasOwn(data,'civicCrossing')?
       Civic.restore(data.civicCrossing):null;

@@ -29,8 +29,15 @@ test('ordinary pre-escalation worker walks; after escalation autonomously clears
  for(let n=0;n<480;n++)Story.step(state,1/60,{});
  assert.equal(w.x,stopped,'civilian cannot resume a casual back-and-forth immediately after fighting');
  assert.equal(w.z,-8,'the autonomous safe-lane walk ends at the actual street, not a teleport');
- assert.deepEqual(Story.markers(state).map(m=>m.id),markers,
-  'reactive civilian animation does not create extra investigation or paperwork objectives');
+ // Nearby human companion controls are intentionally optional, NOT civilian
+ // investigation objectives. The original evidence, records and route marker
+ // contract must remain identical as the worker moves autonomously.
+ const proceduralIds=ids=>ids.filter(id=>id!=='kimControl');
+ assert.deepEqual(proceduralIds(Story.markers(state).map(m=>m.id)),
+  proceduralIds(markers),
+  'reactive civilian movement never invents investigation or paperwork objectives');
+ assert.deepEqual(Story.missionTasks(state),[],
+  'optional on-site F companion controls do not add a chapter mission task');
  const checkpoint=Story.serialize(state),again=Story.restore(checkpoint);
  assert.equal(again.worker.x,28);
  assert.equal(again.worker.direction,1);
