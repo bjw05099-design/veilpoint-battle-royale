@@ -78,7 +78,7 @@ test('local browser ZIP includes the extra route planner in correct order withou
  assert.match(html,/id="publicFootpath"/);
  assert.match(html,/실제 아덴 길 안내 아님/);
  const context=vm.createContext({});
- for(const file of expected.slice(0,7))
+ for(const file of expected.slice(0,8))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+file),'utf8'),context);
  assert.equal(context.VeilpointCivilianWalkRoute.autoMove,false);
  assert.equal(context.VeilpointCivilianWalkRoute.geographyVerified,false);
