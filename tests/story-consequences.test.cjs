@@ -6,7 +6,7 @@ test('briefing precedes arrival; civil mandate never changes into combat deploym
  assert.deepEqual(C.nextAvailable(s),['arrived']);
  assert.throws(()=>C.advance(s,'contact_lost'),/prerequisite/);
  s=C.advance(s,'arrived');s=C.advance(s,'escalation');
- assert.deepEqual(C.nextAvailable(s),['contact_lost','local_guide']);
+ assert.deepEqual(C.nextAvailable(s),['contact_lost','local_guide','civilian_walk_in']);
  s=C.advance(s,'local_guide');s=C.advance(s,'contact_lost');
  assert.throws(()=>C.advance(s,'exit'),/prerequisite/);
  s=C.advance(s,'safe_route','courtyard');s=C.advance(s,'exit');
