@@ -640,7 +640,14 @@
    const world=worldForWalking();
    if(!world){invalidateWalking();return false;}
    for(let i=0;i<frames;i++){
-    walk=Walk.step(world,walk,intent);
+    // The new civilian bodies are solid to the PLAYER as well as the other
+    // way around. A swept 60Hz proposed step may not enter a standing
+    // pedestrian's ordinary shared pavement footprint.
+    const proposed=Walk.step(world,walk,intent);
+    const occupied=civicWalkers.some(actor=>Math.hypot(
+      proposed.x-actor.pose.x,proposed.z-actor.pose.z)<
+      Walk.RADIUS_METRES*2+.10);
+    walk=occupied?Walk.step(world,walk,{east:0,south:0}):proposed;
     for(const actor of civicWalkers){
      if((actor.direction>0&&actor.pose.x>=actor.maxX-.04)||
         (actor.direction<0&&actor.pose.x<=actor.minX+.04))
