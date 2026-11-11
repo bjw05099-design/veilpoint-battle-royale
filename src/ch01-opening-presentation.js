@@ -58,6 +58,7 @@
   const button=doc.getElementById('chapterOpeningShow'),menu=doc.getElementById('menu');
   const host=doc.getElementById('chapterOpening');
   if(!button||!menu||!host)return null;
+  const TICKS_PER_SECOND=60;
   let controller=null,frameId=0,lastTime=null,carry=0;
   function cancelPlayback(){
    if(frameId&&typeof window!=='undefined'&&
@@ -71,9 +72,9 @@
    if(lastTime!==null)
     carry+=Math.max(0,Math.min(.1,(now-lastTime)/1000));
    lastTime=now;
-   const ticks=Math.min(6,Math.floor(carry*Playback.TICKS_PER_SCENE/3));
+   const ticks=Math.min(6,Math.floor(carry*TICKS_PER_SECOND));
    if(ticks){
-    carry-=ticks*3/Playback.TICKS_PER_SCENE;
+    carry-=ticks/TICKS_PER_SECOND;
     for(let i=0;i<ticks&&controller;i++)controller.tick();
    }
    if(controller)schedulePlayback();
