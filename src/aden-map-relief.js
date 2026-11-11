@@ -38,7 +38,7 @@
  }
  function project(p,center,width,height,zoom,relief=.38){
   if(![...p,center.x,center.z,width,height,zoom,relief].every(finite)||
-    zoom<=0||relief<0||relief>1)
+    width<=0||height<=0||zoom<=0||relief<0||relief>1)
    throw new RangeError('Invalid terrain projection');
   return Object.freeze([width/2+(p[0]-center.x)*zoom,
    height/2+(p[2]-center.z)*zoom-p[1]*zoom*relief]);
