@@ -11,12 +11,14 @@
     ARRIVED:'arrived',ESCALATION:'escalation',CONTACT_LOST:'contact_lost',
     LOCAL_GUIDE:'local_guide',SAFE_ROUTE:'safe_route',
     LOCAL_AID_OBSERVED:'local_aid_observed',
-    CIVILIAN_WALK_IN:'civilian_walk_in',EXIT:'exit'
+    CIVILIAN_WALK_IN:'civilian_walk_in',
+    WORKER_REACHED_SIDE_LANE:'worker_reached_side_lane',EXIT:'exit'
   });
   const PREREQUISITES=Object.freeze({
     escalation:['arrived'],contact_lost:['escalation'],
     local_guide:['escalation'],safe_route:['local_guide'],
     local_aid_observed:['safe_route'],civilian_walk_in:['escalation'],
+    worker_reached_side_lane:['escalation','contact_lost'],
     exit:['contact_lost','safe_route']
   });
   function newTimeline(){
@@ -26,7 +28,7 @@
   function restoreTimeline(raw){
     if(!raw||raw.version!==1||raw.briefedBeforeDeparture!==true||
        raw.originalMandate!=='civilian liaison and communications support'||
-       !Array.isArray(raw.events)||raw.events.length>8)throw new Error('Invalid story timeline');
+       !Array.isArray(raw.events)||raw.events.length>Object.keys(EVENTS).length)throw new Error('Invalid story timeline');
     let result=newTimeline();
     for(const event of raw.events){
       if(typeof event!=='string'||result.events.includes(event))throw new Error('Invalid event');
@@ -64,6 +66,17 @@
       return Object.freeze({...result,events:Object.freeze(result.events.slice())});
     result=advance(result,EVENTS.ESCALATION);
     result=advance(result,EVENTS.CONTACT_LOST);
+    // The moving worker physically enters the south side lane under the
+    // ORIGINAL 60Hz actor simulation. Record only that single observed
+    // position in the optional causal debrief; do not imply every resident
+    // has reached safety or introduce an extra checkpoint/quest condition.
+    const worker=state.worker;
+    const workerAtSideLane=state.combat.cleared===true&&
+      Number.isFinite(worker?.x)&&Number.isFinite(worker?.z)&&
+      Math.abs(worker.x-28)<=.3&&
+      worker.z>=-8-1e-6&&worker.z<=-8+.3;
+    if(workerAtSideLane)
+      result=advance(result,EVENTS.WORKER_REACHED_SIDE_LANE);
     // A resident can walk to the south civic approach WITHOUT the captain
     // ordering an escort or choosing the evacuation branch. Preserve that
     // individual agency as a causal observation only after the original
