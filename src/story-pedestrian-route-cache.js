@@ -18,6 +18,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(Guidance,Sim,Footpaths,Navigation){
  'use strict';
  const MAX_REUSE_METRES=6,MAX_NEGATIVE_REUSE_METRES=.2;
+ const MAX_ROUTE_METRES=Guidance?.MAX_STRAIGHT_METRES||75;
  const CLEARANCE=Footpaths?.CLEARANCE||1.05;
  function geometryMatches(obstacles,saved){
   if(!Array.isArray(obstacles)||!Array.isArray(saved)||obstacles.length*4!==saved.length)
@@ -38,7 +39,9 @@
   if(!previous||!Array.isArray(previous.points)||previous.points.length<2)
    return null;
   const p={x:player.x,z:player.z},goal={x:marker.x,z:marker.z};
-  if(Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
+  if(!Number.isFinite(Math.hypot(p.x-goal.x,p.z-goal.z))||
+     Math.hypot(p.x-goal.x,p.z-goal.z)>MAX_ROUTE_METRES||
+     Sim.blocked(p.x,p.z,CLEARANCE,obstacles)||
      Sim.blocked(goal.x,goal.z,CLEARANCE,obstacles))return null;
   // The planner and cache must agree on FULL standing-body clearance.
   // Centerline visibility alone cannot authorize a cached straight route.
