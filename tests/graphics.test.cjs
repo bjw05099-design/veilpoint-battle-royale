@@ -43,5 +43,6 @@ test('graphics restores custom-adjusted values without falsely labeling them as 
   'older mismatched saved presets must retain the chosen quality and fps');
  assert.deepEqual(g.deserialize(g.serialize(g.fromPreset('balanced'))),g.fromPreset('balanced'));
  assert.deepEqual(g.deserialize(JSON.stringify({...altered,preset:'unknown'})),
-  {...altered,preset:'custom'},'an outdated preset ID does not discard valid saved PC quality');
+  g.fromPreset('hyperreal165'),
+  'unrecognized explicitly labeled configurations still fail closed');
 });
