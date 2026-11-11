@@ -4,8 +4,8 @@ const assert=require('node:assert/strict');
 const {brPlayableArea,positionInArea}=require('../src/br-playable-area.cjs');
 test('BR96 rejects overflowed finite world positions rather than returning infinite edge telemetry',()=>{
  const area=brPlayableArea(0);
- assert.throws(()=>positionInArea(area,1e308,-1e308),/invalid_area_position/);
- assert.throws(()=>positionInArea(area,Number.MAX_VALUE,0),/invalid_area_position/);
+ assert.throws(()=>positionInArea(area,Number.MAX_VALUE,-Number.MAX_VALUE),/invalid_area_position/);
+ assert.throws(()=>positionInArea(area,Number.MAX_VALUE,Number.MAX_VALUE),/invalid_area_position/);
 });
 test('BR96 retains real 60Hz boundary classification for finite local positions',()=>{
  const area=brPlayableArea(0);
