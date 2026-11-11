@@ -32,8 +32,12 @@
    // viewer's real 60Hz body. No private stamina or opponent observations.
    const nearby=reported.nearbyTeammate===true?
      (reported.moving===true?' · 주변에서 이동 중':' · 가까이 있음'):'';
+   // A local human hand gesture can be recognized in the real squad
+   // scene, but a distant roster entry is not a remote presence sensor.
+   const greeting=reported.nearbyTeammate===true&&reported.waving===true?
+     ' · 손짓 확인':'';
    return seat+'. '+name+' · '+(reported.connection==='stale'?'응답 대기':'참가 중')+
-     nearby;
+     nearby+greeting;
   });
   const label=world?(world.phase==='finished'?'우리 분대 · 최종 상태':'우리 분대 · 실시간 참가 상태'):'우리 분대 · 준비 명단';
   return label+'\n'+lines.join('\n');

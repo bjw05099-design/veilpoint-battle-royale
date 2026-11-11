@@ -818,16 +818,22 @@ class BrSquadWorld {
     const participants=[...this.actors.values()];
     for(const p of participants){
       if(p.eligible)active[p.team]++;
-      if(p.team===me.team)mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
+      if(p.team===me.team){
+        // Hand gestures are actual local body animations. A distant or
+        // wall-hidden squadmate cannot be observed merely because both
+        // humans share a server-owned six-person roster.
+        const localTeammate=p!==me&&p.eligible&&me.eligible&&
+          Math.hypot(p.x-me.x,p.z-me.z)<=12&&
+          !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles);
+        mates.push({id:p.id,x:p.x,z:p.z,slot:p.slot+1,eligible:p.eligible,
         facing:p.facing,moving:p.eligible&&p.moving,crouched:p.crouchHeld,
         // Only physical squad proximity is shared with this authenticated
         // player. Personal exertion and opponent information remain private.
-        nearbyTeammate:p!==me&&p.eligible&&me.eligible&&
-          Math.hypot(p.x-me.x,p.z-me.z)<=12&&
-          !Sim.lineBlocked(me.x,me.z,p.x,p.z,this.obstacles),
+        nearbyTeammate:localTeammate,
         benchResting:p.eligible&&p.benchResting,
         headlampOn:p.eligible&&p.headlampOn,
-        waving:p.eligible&&p.waveUntilTick>this.tick,
+        waving:p.eligible&&p.waveUntilTick>this.tick&&
+          (p===me||localTeammate),
         stepping:p.eligible&&!!p.stepping,
         stepOverProgress:p.eligible&&p.stepping?p.stepping.progress/STEP_OVER_TICKS:null,
         survivalTicks:survivingTicks(p),
@@ -837,6 +843,7 @@ class BrSquadWorld {
           positionInArea(playableArea,p.x,p.z).outside
             ?Math.max(0,BOUNDARY_GRACE_TICKS-p.outsideStreakTicks):BOUNDARY_GRACE_TICKS,
         connection:p.eligible&&this.tick-p.lastPresenceTick<PRESENCE_STALE_TICKS?'fresh':'stale'});
+      }
     }
     // A withdrawn viewer has no free-flying camera: they can inspect the
     // genuine live viewpoint of one eligible squad mate. Every rival shown

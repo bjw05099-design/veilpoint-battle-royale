@@ -1112,8 +1112,14 @@
         ?{...StreetFlood.PATCH,repairProgress:state.drainClearTicks/StreetFlood.CLEAR_TICKS}
         :StreetFlood.PATCH;
     if(Civic&&state.civicCrossing){
+      // Nearby people occupy the SAME physical pavement as this resident.
+      // Exclude the moving resident itself; positions come from the live
+      // story world, never from a remote NPC marker or client GPS.
+      const crossing=state.civicCrossing.civilian;
+      const pedestrians=localPublicPedestrians(state).filter(person=>
+        person!==p&&person!==crossing);
       state.civicCrossing=Civic.step(state.civicCrossing,{
-        disruption:state.phase!=='terminal',player:p,
+        disruption:state.phase!=='terminal',player:p,pedestrians,
         blocked:(x,z)=>Sim.blocked(x,z,.55,state.world.obstacles)
       });
       state.world.civicCrossing={
