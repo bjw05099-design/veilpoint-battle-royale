@@ -437,13 +437,19 @@
    walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
-  function invalidateWalking(){
+  function releaseHeldWalk(){
+   // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
+   // Cancel the pending callback, not just WASD: otherwise a fresh keypress
+   // cannot schedule a new loop until an obsolete frame eventually fires.
    if(walkFrame&&typeof window!=='undefined'&&typeof window.cancelAnimationFrame==='function')
     window.cancelAnimationFrame(walkFrame);
-   walkFrame=0;
+   walkFrame=0;held.clear();walkClock=null;walkAccum=0;
+  }
+  function invalidateWalking(){
+   releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
    walkTerrainRevision=null;
-   footpath=null;footpathWorld=null;held.clear();walkClock=null;walkAccum=0;
+   footpath=null;footpathWorld=null;
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
   }
@@ -717,16 +723,14 @@
   // Focusing a PC control must stop a previously held walk even when
   // the last physical keyup was lost. A hidden tab is never driving gameplay.
   doc.addEventListener?.('focusin',event=>{
-   if(interactiveKeyTarget(event.target)){
-    held.clear();walkClock=null;walkAccum=0;
-   }
+   if(interactiveKeyTarget(event.target))releaseHeldWalk();
   });
   doc.addEventListener?.('visibilitychange',()=>{
-   if(doc.hidden){held.clear();walkClock=null;walkAccum=0;}
+   if(doc.hidden)releaseHeldWalk();
   });
   if(typeof window!=='undefined'){
    window.addEventListener('keydown',event=>{
-    if(event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
+    if(doc.hidden||event.altKey||event.ctrlKey||event.metaKey||event.isComposing||
        interactiveKeyTarget(event.target))return;
     const key=typeof event.key==='string'?event.key.toLowerCase():'';
     if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
@@ -746,7 +750,7 @@
     held.delete(key);
     if(!held.size){walkClock=null;walkAccum=0;}
    });
-   window.addEventListener('blur',()=>{held.clear();walkClock=null;walkAccum=0;});
+   window.addEventListener('blur',releaseHeldWalk);
    window.addEventListener('resize',refresh);
   }
   refresh();
