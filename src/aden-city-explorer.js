@@ -437,6 +437,7 @@
    walkTerrainRevision=null,walkClock=null,walkAccum=0,walkFrame=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
+  let civicWalkers=[];
   function releaseHeldWalk(){
    // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
    // Cancel the pending callback, not just WASD: otherwise a fresh keypress
@@ -449,9 +450,30 @@
    releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
    walkTerrainRevision=null;
-   footpath=null;footpathWorld=null;
+   footpath=null;footpathWorld=null;civicWalkers=[];
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
+  }
+  // A handful of noncombat residents use original public-room pavements.
+  // Their positions are real 60Hz ground/collision states, never map pins.
+  // The source is synthetic artist geography, NOT the actual Aden population.
+  function civicActorsFor(world,previous=[]){
+   if(!world||!Districts||!Walk)return [];
+   const priorById=new Map(previous.map(a=>[a.id,a]));
+   const actors=[];
+   for(const room of Districts.PUBLIC_INTERIORS.slice(0,8)){
+    const baseX=room.x+3.5,baseZ=room.z+room.d/2+2.0,
+      prior=priorById.get(room.id),oldPose=prior?.pose;
+    const floor=Walk.probe(world,oldPose?.x??baseX,oldPose?.z??baseZ);
+    if(!floor||(oldPose&&Math.abs(floor.y-oldPose.y)>.35))continue;
+    try{
+     actors.push({id:room.id,minX:baseX,maxX:baseX+3.1,
+       direction:prior?.direction??1,
+       pose:oldPose?Object.freeze({...oldPose,y:floor.y}):
+        Walk.initial(world,baseX,baseZ)});
+    }catch(_){/* No person on an unsupported or blocked ground surface. */}
+   }
+   return actors;
   }
   function worldForWalking(){
    if(activeDataset||!Walk||!Districts)return null;
@@ -464,6 +486,7 @@
      [...CIVIC_SHELLS,...Districts.PLAN.buildings],closedDoors);
     walkWorldKey=signature;walkRegistry=registry;
     walkTerrainRevision=terrainRevision(cache);
+    civicWalkers=civicActorsFor(walkWorld,civicWalkers);
     // A route is certified against the precise loaded mesh revision and
     // door configuration. Rebuilding the world invalidates old elevations.
     if(footpathWorld&&footpathWorld!==walkWorld){
@@ -496,6 +519,14 @@
    if(walk&&footpathWorld)worldForWalking();
    if(walk){
     const ctx=canvas.getContext('2d');
+    // Render actual terrain-grounded footsteps beside public venues.
+    // These visible local civilians never reveal a live BR rival position.
+    for(const a of civicWalkers){
+     const [cx,cz]=Relief.project([a.pose.x,a.pose.y,a.pose.z],zoomState,
+       canvas.width,canvas.height,zoomState.zoom,zoomState.relief);
+     ctx.fillStyle='#9ad3c4';
+     ctx.fillRect(cx-3*dpr,cz-3*dpr,6*dpr,6*dpr);
+    }
     // Read-only original public walking preview; drawing never changes
     // the fixed-step pedestrian or campaign story checkpoint.
     if(footpath?.status==='planned'&&footpath.points.length>1){
@@ -526,7 +557,8 @@
     '개 · 창작 확장건물 '+stats.districtBuildingsVisible+
     '개 · 실제 아덴 검증 0타일'+
     (walk?' · 창작 보행 판정 '+walk.x.toFixed(1)+','+walk.z.toFixed(1)+
-     'm / '+walk.tick+'틱'+(walk.blocked?' (통행 제한)':'')+
+     'm / '+walk.tick+'틱 · 실제 보행자 '+civicWalkers.length+'명'+
+     (walk.blocked?' (통행 제한)':'')+
      (insideRoom?' · 창작 공공 실내: '+insideRoom.district:'')+
      (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':'')+
      (footpath?.status==='planned'?' · 창작 공공실 경로 '+footpath.distanceMetres.toFixed(1)+'m':
@@ -607,7 +639,22 @@
     return false;
    const world=worldForWalking();
    if(!world){invalidateWalking();return false;}
-   for(let i=0;i<frames;i++)walk=Walk.step(world,walk,intent);
+   for(let i=0;i<frames;i++){
+    walk=Walk.step(world,walk,intent);
+    for(const actor of civicWalkers){
+     if((actor.direction>0&&actor.pose.x>=actor.maxX-.04)||
+        (actor.direction<0&&actor.pose.x<=actor.minX+.04))
+       actor.direction*=-1;
+     const dx=actor.direction*Walk.SPEED_METRES_PER_SECOND/Walk.TICKS_PER_SECOND;
+     // Yield to the nearby player's real body, instead of gliding through
+     // it. The existing 60Hz terrain and building test checks every step.
+     const occupied=Math.hypot(actor.pose.x+dx-walk.x,
+       actor.pose.z-walk.z)<1.15;
+     const next=Walk.step(world,actor.pose,{east:occupied?0:actor.direction});
+     if(next.blocked)actor.direction*=-1;
+     actor.pose=next;
+    }
+   }
    state=viewState({...state,x:walk.x,z:walk.z});
    refresh();return true;
   }
@@ -757,6 +804,10 @@
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
    getClosedDoors:()=>Object.freeze([...closedDoors].sort()),getFootpath:()=>footpath,
+   getCivicWalkers:()=>Object.freeze(civicWalkers.map(a=>Object.freeze({
+    id:a.id,x:a.pose.x,z:a.pose.z,y:a.pose.y,tick:a.pose.tick,
+    blocked:a.pose.blocked,direction:a.direction
+   }))),
    action,refresh,toggleWalking,toggleNearbyDoor,focusNextPublicRoom,planPublicFootpath,walkStep,
    loadDataset,appendDataset,resetSample});
  }
