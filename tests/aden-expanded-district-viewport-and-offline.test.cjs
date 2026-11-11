@@ -57,14 +57,14 @@ test('local offline demo contains all new city district script sources and truth
  const files=collectFiles().map(entry=>entry.name);
  const scripts=['src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
-  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
+  'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js','src/aden-street-perspective.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
  assert.deepEqual(referencedAssets('terrain.html',page),scripts);
  assert.ok(scripts.every(p=>files.includes(p)));
  assert.match(page,/id="fictionalDistrictLegend"/);
  assert.match(page,/창작 추가 8구역/);
  assert.match(page,/실제 아덴 고도·해안선·건물 데이터는 아직 적용되지 않았습니다/);
  const context=vm.createContext({});
- for(const file of scripts.slice(0,7))
+ for(const file of scripts.slice(0,8))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+file),'utf8'),context);
  assert.equal(context.VeilpointAdenPreviewDistricts.PLAN.buildings.length,224);
  assert.equal(context.VeilpointAdenPreviewDistricts.verifiedAdenCityBuildings,0);

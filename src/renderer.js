@@ -564,13 +564,13 @@ class SoftwareRenderer {
   // The existing civilian/witness render contract stays unchanged. The
   // separately identified character takes a distinct visual branch.
   if(w.role==='jo-hyunji')
-   objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'liaison'});
+   objects.push({x:w.x,z:w.z,angle:w.angle,h:1.78,w:.55,d:.55,type:'liaison'});
   else if(w.role==='mara')
-   objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'market-resident'});
+   objects.push({x:w.x,z:w.z,angle:w.angle,h:1.78,w:.55,d:.55,type:'market-resident'});
   else if(w.role==='kim-jiyoon')
-   objects.push({x:w.x,z:w.z,h:1.8,w:.56,d:.55,type:'field-companion'});
+   objects.push({x:w.x,z:w.z,angle:w.angle,h:1.8,w:.56,d:.55,type:'field-companion'});
   else if(w.role==='civic-crossing-resident')
-   objects.push({x:w.x,z:w.z,h:1.73,w:.55,d:.55,type:'crossing-resident'});
+   objects.push({x:w.x,z:w.z,angle:w.angle,h:1.73,w:.55,d:.55,type:'crossing-resident'});
   else objects.push({x:w.x,z:w.z,h:1.78,w:.55,d:.55,type:'witness'});
  }
  for(const {entity:w} of plan.workers||[])objects.push({x:w.x,z:w.z,h:1.74,w:.55,d:.55,type:'worker'});
@@ -639,8 +639,15 @@ class SoftwareRenderer {
  }
  // Canvas fallback projects each *visible* bot's real direction in 3D,
  // matching the WebGL character and the 60Hz server/solo simulation.
+ // Preserve BR's original bot orientation contract while making the
+ // original CH01 civilian body rotation a separate physically witnessed cue.
  const heading=o.type==='bot'?actorFacing(o):null;
- const cc=heading?Math.cos(heading.yaw):1,ss=heading?Math.sin(heading.yaw):0;
+ const civilianHeading=Number.isFinite(o.angle)&&
+  ['liaison','market-resident','field-companion','crossing-resident'].includes(o.type)
+  ?actorFacing(o):null;
+ const poseHeading=heading||civilianHeading;
+ const cc=poseHeading?Math.cos(poseHeading.yaw):1,
+  ss=poseHeading?Math.sin(poseHeading.yaw):0;
  const corner=(dx,dy,dz)=>proj(x+dx*cc-dz*ss,dy,z+dx*ss+dz*cc);
  const p000=corner(-ww,0,-dd),p100=corner(ww,0,-dd),
   p010=corner(-ww,o.h,-dd),p110=corner(ww,o.h,-dd),
@@ -1538,10 +1545,17 @@ class Renderer {
  for(const {entity:w} of plan.witnesses||[]){
   const liaison=w.role==='jo-hyunji',marketResident=w.role==='mara',
     companion=w.role==='kim-jiyoon',crossing=w.role==='civic-crossing-resident';
-  mesh.box(w.x,.05,w.z,.56,1.20,.45,liaison?[.34,.42,.51]:
+  // Grounded civilian body orientation follows witnessed 60Hz movement.
+  // No offscreen marker or checkpoint-specific orientation is inferred.
+  const angle=Number.isFinite(w.angle)?w.angle:0;
+  mesh.boxYaw(w.x,.05,w.z,.56,1.20,.45,angle,liaison?[.34,.42,.51]:
     marketResident?[.57,.43,.27]:companion?[.37,.47,.53]:
     crossing?[.55,.46,.33]:[.42,.49,.38]);
-  mesh.box(w.x,1.39,w.z,.42,.42,.40,[.60,.48,.37]);
+  mesh.boxYaw(w.x,1.39,w.z,.42,.42,.40,angle,[.60,.48,.37]);
+  if(Number.isFinite(w.angle)){
+   const front=actorFacing(w).front;
+   mesh.boxYaw(front.x,.98,front.z,.24,.14,.07,angle,[.28,.30,.29]);
+  }
  }
  // Mobile street-life silhouette is drawn only from visible 60Hz CH01
  // physical coordinates; no radar marker or static ghost is left behind.

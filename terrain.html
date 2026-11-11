@@ -58,6 +58,7 @@ input:focus-visible{outline:2px solid #d4e8a6}
  <div>각 추가 구역의 공공실 1곳: 남향 출입구·내부 바닥 (창작 2.5D)</div>
  <div>보행 시험 중 F: 가까운 공공실 문 열기/닫기 (사람이 문에 있으면 닫힘 제한)</div>
  <div>보행 판정 P: 창작 도시에서만 사용 · 보행 중 WASD, 화살표는 카메라</div>
+ <div>보행 중 V: 실제 스트리밍 메시의 보행자 눈높이 시점 · 원본 창작 환경, UE5 영상 아님</div>
  <div>공공실 보행 경로: 직접 걷기 전용 미리보기 · 실제 아덴 길 안내 아님</div>
  <div>WASD/방향키: 128m 이동 · +/-: 배율 · R: 원점</div>
  <div>H: 입체 지형 · C: 실제 등고선 켜기/끄기</div>
@@ -76,6 +77,7 @@ input:focus-visible{outline:2px solid #d4e8a6}
   <button id="contours" type="button">등고선 전환</button>
   <button id="resetSample" type="button">창작 지형 복원</button>
   <button id="walkProbe" type="button" aria-pressed="false">보행 충돌 시험 (P)</button>
+  <button id="streetPerspective" type="button" aria-pressed="false">거리 시점 (V)</button>
   <button id="publicRoomTour" type="button">창작 공공실 찾기</button>
   <button id="publicFootpath" type="button">공공실 보행 경로</button>
  </div>
@@ -94,6 +96,7 @@ input:focus-visible{outline:2px solid #d4e8a6}
 <script src="src/aden-preview-districts.js"></script>
 <script src="src/aden-city-walking-probe.js"></script>
 <script src="src/aden-civilian-walk-route.js"></script>
+<script src="src/aden-street-perspective.js"></script>
 <script src="src/aden-city-explorer.js"></script>
 <script src="src/aden-city-explorer-init.js"></script>
 </body>

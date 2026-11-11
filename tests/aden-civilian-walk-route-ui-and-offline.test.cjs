@@ -72,13 +72,13 @@ test('local browser ZIP includes the extra route planner in correct order withou
  const expected=['src/aden-citywide-tiles.js','src/aden-map-relief.js',
   'src/aden-preview-streets.js','src/aden-preview-districts.js',
   'src/aden-city-walking-probe.js','src/aden-civilian-walk-route.js',
-  'src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
+  'src/aden-street-perspective.js','src/aden-city-explorer.js','src/aden-city-explorer-init.js'];
  assert.deepEqual(referencedAssets('terrain.html',html),expected);
  assert.ok(expected.every(p=>collectFiles().some(f=>f.name===p)));
  assert.match(html,/id="publicFootpath"/);
  assert.match(html,/실제 아덴 길 안내 아님/);
  const context=vm.createContext({});
- for(const file of expected.slice(0,7))
+ for(const file of expected.slice(0,8))
   vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../'+file),'utf8'),context);
  assert.equal(context.VeilpointCivilianWalkRoute.autoMove,false);
  assert.equal(context.VeilpointCivilianWalkRoute.geographyVerified,false);

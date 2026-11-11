@@ -62,7 +62,7 @@ test('the witness is an actual locally visible solid human and never an unseen w
  const render=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
  assert.match(render,/for\(const \{entity:w\} of plan\.witnesses\|\|\[\]\)/);
  assert.match(render,/type:'witness'/);
- assert.match(render,/mesh\.box\(w\.x,\.05,w\.z/);
+ assert.match(render,/mesh\.boxYaw\(w\.x,\.05,w\.z/);
  const before=Story.createState();
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>
@@ -135,7 +135,7 @@ test('the witness is an actual locally visible solid human and never an unseen w
  const render=fs.readFileSync(path.resolve(__dirname,'../src/renderer.js'),'utf8');
  assert.match(render,/for\(const \{entity:w\} of plan\.witnesses\|\|\[\]\)/);
  assert.match(render,/type:'witness'/);
- assert.match(render,/mesh\.box\(w\.x,\.05,w\.z/);
+ assert.match(render,/mesh\.boxYaw\(w\.x,\.05,w\.z/);
  const before=Story.createState();
  assert.equal(before.world.witness,null);
  assert.ok(Visibility.planVisible(before.world,16/9).witnesses.every(item=>

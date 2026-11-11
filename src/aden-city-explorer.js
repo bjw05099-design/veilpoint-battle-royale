@@ -16,10 +16,12 @@
   root.VeilpointAdenWalkingProbe||
   (typeof module==='object'&&module.exports?require('./aden-city-walking-probe.js'):null),
   root.VeilpointCivilianWalkRoute||
-  (typeof module==='object'&&module.exports?require('./aden-civilian-walk-route.js'):null));
+  (typeof module==='object'&&module.exports?require('./aden-civilian-walk-route.js'):null),
+  root.VeilpointAdenStreetPerspective||
+  (typeof module==='object'&&module.exports?require('./aden-street-perspective.js'):null));
  if(typeof module==='object'&&module.exports)module.exports=api;
  else root.VeilpointAdenCityExplorer=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts,Walk,Routes){
+})(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Relief,Streets,Districts,Walk,Routes,StreetEye){
  'use strict';
  if(!Tiles||!Relief)throw new Error('Requires city tile and terrain relief modules');
  const SOURCE=Object.freeze({
@@ -438,6 +440,7 @@
    idlePaintTicks=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
+  let eyeLevel=false,eyeYaw=0;
   let civicWalkers=[];
   function releaseHeldWalk(){
    // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
@@ -451,6 +454,9 @@
    releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
    walkTerrainRevision=null;
+   eyeLevel=false;eyeYaw=0;
+   const eyeButton=doc.getElementById('streetPerspective');
+   if(eyeButton)eyeButton.setAttribute?.('aria-pressed','false');
    footpath=null;footpathWorld=null;civicWalkers=[];
    const btn=doc.getElementById('walkProbe');
    if(btn)btn.setAttribute?.('aria-pressed','false');
@@ -518,7 +524,11 @@
     imported:!!activeDataset,showFictionalBuildings:!activeDataset,
     showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors});
    if(walk&&footpathWorld)worldForWalking();
-   if(walk){
+   if(walk&&eyeLevel&&StreetEye){
+    StreetEye.draw(canvas,registry,cache,walk,eyeYaw,
+     [...CIVIC_SHELLS,...(Districts?.PLAN?.buildings||[])]);
+   }
+   if(walk&&!eyeLevel){
     const ctx=canvas.getContext('2d');
     // Render actual terrain-grounded footsteps beside public venues.
     // These visible local civilians never reveal a live BR rival position.
@@ -562,6 +572,7 @@
      (walk.blocked?' (통행 제한)':'')+
      (insideRoom?' · 창작 공공 실내: '+insideRoom.district:'')+
      (closedDoors.size?' · 닫힌 공공실 문 '+closedDoors.size+'개':'')+
+     (eyeLevel?' · 보행자 눈높이 지형 시점 (V 전환)':'')+
      (footpath?.status==='planned'?' · 창작 공공실 경로 '+footpath.distanceMetres.toFixed(1)+'m':
       footpath?.status==='door-closed'?' · 공공실 문 닫힘 — 보행 경로 없음':
       footpath?.status==='unreachable'?' · 보행 가능 경로 없음':''):'');
@@ -608,6 +619,13 @@
     zoom:Math.max(1.2,state.zoom)});
    refresh();return room.id;
   }
+  function toggleStreetPerspective(){
+   if(!walk||activeDataset||!StreetEye)return false;
+   eyeLevel=!eyeLevel;
+   const button=doc.getElementById('streetPerspective');
+   if(button)button.setAttribute?.('aria-pressed',String(eyeLevel));
+   refresh();return eyeLevel;
+  }
   function planPublicFootpath(){
    if(!walk||activeDataset||!Routes)return null;
    // Route is a preview only; no control input, AI auto-motion or save.
@@ -642,6 +660,9 @@
   function walkStep(intent,frames=1,paint=true){
    if(!walk||!Number.isInteger(frames)||frames<1||frames>120)
     return false;
+   if(Number.isFinite(intent?.east)&&Number.isFinite(intent?.south)&&
+      Math.hypot(intent.east,intent.south)>1e-8)
+    eyeYaw=Math.atan2(intent.east,-intent.south);
    const world=worldForWalking();
    if(!world){invalidateWalking();return false;}
    for(let i=0;i<frames;i++){
@@ -684,8 +705,13 @@
     const activeMove=held.size>0;
     // Preserve the 60Hz civilian body simulation while repainting the
     // expensive 25-tile Canvas only at 10Hz when the player is stationary.
-    idlePaintTicks=activeMove?0:idlePaintTicks+ticks;
-    const paint=activeMove||idlePaintTicks>=6;
+    // Eye-level software terrain traversal is deliberately repainted at
+    // no more than 12Hz. Actual collision/NPC motion still advances at the
+    // original deterministic 60Hz, independent of display refresh rate.
+    idlePaintTicks=eyeLevel?idlePaintTicks+ticks:
+      (activeMove?0:idlePaintTicks+ticks);
+    const paint=eyeLevel?idlePaintTicks>=5:
+      (activeMove||idlePaintTicks>=6);
     if(paint)idlePaintTicks=0;
     walkStep({east:Number(held.has('d'))-Number(held.has('a')),
      south:Number(held.has('s'))-Number(held.has('w'))},ticks,paint);
@@ -784,6 +810,8 @@
   if(roomTourButton)roomTourButton.addEventListener('click',focusNextPublicRoom);
   const pathButton=doc.getElementById('publicFootpath');
   if(pathButton)pathButton.addEventListener('click',planPublicFootpath);
+  const eyeButton=doc.getElementById('streetPerspective');
+  if(eyeButton)eyeButton.addEventListener('click',toggleStreetPerspective);
   for(const id of ['north','south','east','west','zoomIn','zoomOut','reset','relief','contours']){
    const button=doc.getElementById(id);
    if(button)button.addEventListener('click',()=>action(id));
@@ -802,6 +830,9 @@
        interactiveKeyTarget(event.target))return;
     const key=typeof event.key==='string'?event.key.toLowerCase():'';
     if(key==='p'&&!event.repeat){event.preventDefault();toggleWalking();return;}
+    if(key==='v'&&walk&&!event.repeat){
+     event.preventDefault();toggleStreetPerspective();return;
+    }
     if(walk&&key==='f'&&!event.repeat){
      event.preventDefault();toggleNearbyDoor();return;
     }
@@ -824,6 +855,7 @@
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
+   getStreetPerspective:()=>eyeLevel,toggleStreetPerspective,
    getClosedDoors:()=>Object.freeze([...closedDoors].sort()),getFootpath:()=>footpath,
    getCivicWalkers:()=>Object.freeze(civicWalkers.map(a=>Object.freeze({
     id:a.id,x:a.pose.x,z:a.pose.z,y:a.pose.y,tick:a.pose.tick,
