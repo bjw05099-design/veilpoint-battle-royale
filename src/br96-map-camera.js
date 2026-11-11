@@ -18,7 +18,11 @@
    throw new RangeError('invalid_canvas_size');
   if(!Number.isInteger(zoomLevel)||zoomLevel<-1||zoomLevel>1)
    throw new RangeError('invalid_zoom_level');
-  const valid=subject&&Number.isFinite(subject.x)&&Number.isFinite(subject.z);
+  // Corrupt or unbounded spectator coordinates must never shift the whole
+  // map into an unusable off-screen transform. This is a display-only
+  // fallback; the server remains the sole authority over positions.
+  const valid=subject&&Number.isFinite(subject.x)&&Number.isFinite(subject.z)&&
+   Math.abs(subject.x)<=1e6&&Math.abs(subject.z)<=1e6;
   const nearby=follow===true&&!!valid;
   // The nearest view is read only from the caller's self/spectator snapshot.
   // No opponent, hidden teammate, client GPS or arbitrary camera target.
