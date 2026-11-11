@@ -28,16 +28,18 @@
      const travel=SPEED/60;
      const destination=state.destination;
      const blockedAt=(x,z)=>typeof blocked==='function'&&blocked(x,z);
-     const occupied=(x,z)=>{
-       const bodies=[player,...pedestrians];
-       return bodies.some(person=>person&&Number.isFinite(person.x)&&
-         Number.isFinite(person.z)&&Math.hypot(x-person.x,z-person.z)<1.1);
-     };
+     const bodyAt=(body,x,z)=>!!body&&Number.isFinite(body.x)&&
+       Number.isFinite(body.z)&&Math.hypot(x-body.x,z-body.z)<1.1;
+     const crowdOccupied=(x,z)=>pedestrians.some(body=>bodyAt(body,x,z));
+     const occupied=(x,z)=>bodyAt(player,x,z)||crowdOccupied(x,z);
      let nx=civilian.x,nz=civilian.z;
      const ahead=Math.min(destination.x,civilian.x+2.4);
      const centerObstructed=[.6,1.2,2.4].some(offset=>{
        const aheadX=Math.min(destination.x,civilian.x+offset);
-       return blockedAt(aheadX,destination.z)||occupied(aheadX,destination.z);
+       // Preserve the established player-controlled crossing: the captain
+       // physically standing in the way causes a wait, not an automatic
+       // detour that silently changes the existing CH01 escort outcome.
+       return blockedAt(aheadX,destination.z)||crowdOccupied(aheadX,destination.z);
      });
      if(centerObstructed&&civilian.x<destination.x){
        // Prefer the original curb-side lane, then the opposite public lane.
