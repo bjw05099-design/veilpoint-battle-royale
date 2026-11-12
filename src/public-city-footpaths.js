@@ -59,10 +59,12 @@
   const open=[];heapPush(open,start);
   scores.set(key(0,0),0);points.set(key(0,0),{...start,prev:null});
   let visited=0,goal=null;
-  while(open.length&&visited++<maxVisits){
+  while(open.length&&visited<maxVisits){
    const n=heapPop(open),id=key(n.i,n.j);
+   // Replaced heap entries are not distinct physical locations. Charge the
+   // bounded NPC search budget only for a genuinely expanded grid cell.
    if(closed.has(id))continue;
-   closed.add(id);
+   closed.add(id);visited++;
    if(Math.hypot(n.x-to.x,n.z-to.z)<=STEP*.75&&
       segmentClear(n,to,solids)){goal=id;break;}
    for(const [di,dj] of DIRECTIONS){
