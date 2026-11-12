@@ -44,9 +44,9 @@
  }
  function create({AudioContextClass=null}={}){
   let enabled=false,context=null,buffer=null,volume=1,track=null,distance=0,
-      lastSurface=null,leftFoot=false,cues=0;
+      lastSurface=null,leftFoot=false,cues=0,idleSeconds=0;
   const available=()=>typeof AudioContextClass==='function';
-  function reset(){track=null;distance=0;lastSurface=null;}
+  function reset(){track=null;distance=0;lastSurface=null;idleSeconds=0;}
   function disable(){
    enabled=false;reset();
    const prior=context;context=null;buffer=null;
@@ -109,9 +109,11 @@
    // Otherwise a nearly completed step can fire immediately on resuming
    // after a long stationary pause, despite no new foot contact.
    if(traveled<1e-6){
-    if(dt>=.12){distance=0;lastSurface=null;}
+    idleSeconds+=dt;
+    if(idleSeconds>=.12){distance=0;lastSurface=null;}
     return null;
    }
+   idleSeconds=0;
    const surface=surfaceAt(story);
    if(surface==='unavailable'){distance=0;lastSurface=null;return null;}
    // Never carry a previous surface's incomplete step into a new material.
