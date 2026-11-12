@@ -22,7 +22,18 @@ function assessPedestrianFlow(actor,all,blockedSight=()=>false,travel=null){
      !Number.isFinite(other.x)||!Number.isFinite(other.z))continue;
   seen.add(other);
   const d=Math.hypot(other.x-actor.x,other.z-actor.z);
-  if(d<REACH&&
+  // A pedestrian already walking in the SAME direction, with at least
+  // ordinary shoulder room, should not slow an entire six-person squad as
+  // though everyone were standing still. Opposing, stationary, crossing,
+  // overlapping and wall-visible close bodies still create real congestion.
+  // All body direction/motion fields are from the authoritative 60Hz roster.
+  const peerMotion=other.direction;
+  const peerSpeed=peerMotion&&Number.isFinite(peerMotion.x)&&
+    Number.isFinite(peerMotion.z)?Math.hypot(peerMotion.x,peerMotion.z):0;
+  const coWalking=!!heading&&other.moving===true&&peerSpeed>1e-8&&
+    (peerMotion.x*heading.x+peerMotion.z*heading.z)/peerSpeed>.92&&
+    d>=2.2;
+  if(d<REACH&&!coWalking&&
      // Include exact overlaps: a transient coincident avatar must never
      // become invisible to the congestion estimate.
      (!heading||(other.x-actor.x)*heading.x+
