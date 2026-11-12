@@ -135,6 +135,10 @@
   return Object.freeze({pass:maxGap<=toleranceMetres,maxGapMetres:maxGap,
    samplesChecked:fractions.size,left:a.key,right:b.key});
  }
+ // Weak source identity keeps a frozen tile's immutable meshes reusable even
+ // after it leaves and re-enters the camera window. The cache never retains a
+ // source tile on its own, and a replaced tile key cannot reuse old vertices.
+ const MESH_BY_SOURCE=new WeakMap();
  // Generate actual triangle geometry at 1:1 physical scale for an
  // imported public DEM heightfield. LODs are subgrids of the SAME samples,
  // so each distance tier retains the same tile corner elevations. Native
@@ -146,6 +150,11 @@
   if(!Number.isInteger(stride)||stride<1||
     (n-1)%stride!==0||(stride&(stride-1))!==0)
    throw new RangeError('Invalid terrain mesh LOD step');
+  // Only immutable validated source samples may be cached. Legacy callers
+  // passing mutable fixtures still get a fresh mesh after changing samples.
+  const cacheable=Object.isFrozen(tile)&&Object.isFrozen(tile.samples);
+  const previous=cacheable?MESH_BY_SOURCE.get(tile)?.get(stride):null;
+  if(previous)return previous;
   const columns=(n-1)/stride+1,
    positions=[],triangles=[],x0=tile.tx*TILE_METRES,z0=tile.tz*TILE_METRES,
    metresBetweenSamples=TILE_METRES/(n-1);
@@ -160,10 +169,16 @@
     const a=r*columns+c,b=a+1,d=(r+1)*columns+c,e=d+1;
     triangles.push(a,d,b,b,d,e);
    }
-  return Object.freeze({key:tile.key,lodStep:stride,
+  const mesh=Object.freeze({key:tile.key,lodStep:stride,
    metresPerWorldUnit:METRES_PER_UNIT,
    vertexCount:positions.length/3,triangleCount:triangles.length/3,
    positions:Object.freeze(positions),triangles:Object.freeze(triangles)});
+  if(cacheable){
+   let lods=MESH_BY_SOURCE.get(tile);
+   if(!lods){lods=new Map();MESH_BY_SOURCE.set(tile,lods);}
+   lods.set(stride,mesh);
+  }
+  return mesh;
  }
  // Sample the EXACT visible triangle height for one locally loaded mesh.
  // Raw DEM heightAt() intentionally stays bilinear for source inspections;
