@@ -13,6 +13,7 @@
   return {state,visible:!!scene,place:scene?scene.place:'',speaker:scene?scene.speaker:'',line:scene?scene.line:''};
  }
  function next(raw){return snapshot(Playback.skip(raw));}
+ function previous(raw){return snapshot(Playback.previous(raw));}
  function tick(raw){return snapshot(Playback.tick(raw));}
  function mount(doc,raw,onFinish){
   const host=doc.getElementById('chapterOpening');
@@ -38,10 +39,14 @@
    if(destroyed||!view.visible)return;
    view=next(view.state);render();notifyIfFinished();
   };
+  const rewind=()=>{
+   if(destroyed||!view.visible)return;
+   view=previous(view.state);render();
+  };
   button.addEventListener('click',advance);
   render();
   return {
-   advance,
+   advance,rewind,
    tick(){
     if(!destroyed&&view.visible){view=tick(view.state);render();notifyIfFinished();}
     return view;
@@ -130,6 +135,13 @@
    // This is a true single-button PC dialog. Focus must not escape into
    // hidden game/menu controls when Shift+Tab or Tab is pressed. Otherwise
    // Space/Enter may activate a hidden button behind the opening scene.
+   // Backspace revisits an already-presented scene; it does not affect
+   // game saves or browser history. Paused playback stays paused.
+   if(event.key==='Backspace'&&!event.repeat&&
+      !event.ctrlKey&&!event.altKey&&!event.metaKey){
+    event.preventDefault();event.stopPropagation?.();
+    controller.rewind();return;
+   }
    if(event.key==='Tab'){
     event.preventDefault();
     event.stopPropagation?.();
@@ -159,5 +171,5 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>attachMenu(document),{once:true});
   else attachMenu(document);
  }
- return Object.freeze({snapshot,next,tick,mount,attachMenu});
+ return Object.freeze({snapshot,next,previous,tick,mount,attachMenu});
 });
