@@ -43,8 +43,10 @@
   return Object.freeze([width/2+(p[0]-center.x)*zoom,
    height/2+(p[2]-center.z)*zoom-p[1]*zoom*relief]);
  }
- // Returns 0-2 line segments lying exactly at each 25m isohypse.
- // All computations are on actual height samples; no invented contour points.
+ // Draw at most twelve real isohypses per triangle. On very steep
+ // surfaces, spread the chosen contour levels across the WHOLE observed
+ // elevation range instead of drawing only the lowest twelve; every
+ // retained point still lies on an actual triangle edge.
  function contours(a,b,c,interval=25){
   if(!Array.isArray(a)||!Array.isArray(b)||!Array.isArray(c)||
     ![...a,...b,...c,interval].every(finite)||
@@ -53,8 +55,16 @@
   const min=Math.min(a[1],b[1],c[1]),
    max=Math.max(a[1],b[1],c[1]);
   const result=[],vertices=[a,b,c],edges=[[0,1],[1,2],[2,0]];
-  for(let level=Math.ceil(min/interval)*interval;
-   level<=max&&result.length<12;level+=interval){
+  const firstIndex=Math.ceil(min/interval),lastIndex=Math.floor(max/interval),
+   levels=lastIndex-firstIndex+1;
+  if(!Number.isSafeInteger(levels))
+   throw new RangeError('Terrain contour elevation range too large');
+  // The per-triangle twelve-contour render budget is stable even for a cliff.
+  // Subsampling level INDICES keeps the advertised interval exact and avoids
+  // an upper contour disappearing merely because its elevation is high.
+  const skip=levels>12?Math.ceil(levels/12):1;
+  for(let i=0;i<levels;i+=skip){
+   const level=(firstIndex+i)*interval;
    const on=p=>Math.abs(p[1]-level)<1e-10;
    // When an entire triangle is level, no unique isoline can be drawn.
    if(vertices.every(on))continue;
