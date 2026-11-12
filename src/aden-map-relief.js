@@ -48,7 +48,7 @@
  // elevation range instead of drawing only the lowest twelve; every
  // retained point still lies on an actual triangle edge.
  function contours(a,b,c,interval=25){
-  if(!Array.isArray(a)||!Array.isArray(b)||!Array.isArray(c)||
+  if(![a,b,c].every(p=>Array.isArray(p)&&p.length===3)||
     ![...a,...b,...c,interval].every(finite)||
     interval<5||interval>100)
    throw new RangeError('Invalid terrain contour request');

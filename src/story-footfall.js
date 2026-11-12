@@ -44,9 +44,9 @@
  }
  function create({AudioContextClass=null}={}){
   let enabled=false,context=null,buffer=null,volume=1,track=null,distance=0,
-      leftFoot=false,cues=0;
+      lastSurface=null,leftFoot=false,cues=0;
   const available=()=>typeof AudioContextClass==='function';
-  function reset(){track=null;distance=0;}
+  function reset(){track=null;distance=0;lastSurface=null;}
   function disable(){
    enabled=false;reset();
    const prior=context;context=null;buffer=null;
@@ -106,14 +106,16 @@
    }
    track=now;
    if(traveled<1e-6)return null;
+   const surface=surfaceAt(story);
+   if(surface==='unavailable'){distance=0;lastSurface=null;return null;}
+   // Never carry a previous surface's incomplete step into a new material.
+   if(lastSurface!==surface){distance=0;lastSurface=surface;}
    distance+=traveled;
    const stride=crouching?.92:sprinting?1.55:1.22;
    if(distance<stride)return null;
    distance-=stride;
    // A long frame cannot schedule a burst of artificial steps.
    if(distance>stride)distance=stride;
-   const surface=surfaceAt(story);
-   if(surface==='unavailable')return null;
    play(surface);
    return Object.freeze({surface,distance:traveled,elapsed:now.elapsed});
   }
