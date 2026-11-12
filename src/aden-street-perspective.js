@@ -9,9 +9,13 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
  const NEAR=.4,FAR=310,EYE_HEIGHT=1.65,FOV=Math.PI*72/180;
- function cameraPoint(eye,yaw,x,y,z){
+ function cameraPoint(eye,yaw,x,y,z,pitch=0){
   const dx=x-eye.x,dz=z-eye.z,s=Math.sin(yaw),c=Math.cos(yaw);
-  return {right:dx*c+dz*s,up:y-eye.y,depth:dx*s-dz*c};
+  const forward=dx*s-dz*c,vertical=y-eye.y;
+  const cp=Math.cos(pitch),sp=Math.sin(pitch);
+  // Rotate the real depth/up basis, never the terrain mesh or a fake horizon.
+  return {right:dx*c+dz*s,up:vertical*cp-forward*sp,
+   depth:forward*cp+vertical*sp};
  }
  function clipNear(vertices,near=NEAR){
   const out=[];
@@ -27,27 +31,29 @@
   }
   return out;
  }
- function project(eye,yaw,world,width,height,far=FAR){
+ function project(eye,yaw,world,width,height,far=FAR,pitch=0){
   if(!world||![eye?.x,eye?.y,eye?.z,yaw,world.x,world.y,world.z,
-    width,height,far].every(Number.isFinite)||width<=0||height<=0||far<=NEAR)
+    width,height,far,pitch].every(Number.isFinite)||width<=0||height<=0||
+    far<=NEAR||Math.abs(pitch)>Math.PI/3)
    return null;
-  const p=cameraPoint(eye,yaw,world.x,world.y,world.z);
+  const p=cameraPoint(eye,yaw,world.x,world.y,world.z,pitch);
   if(p.depth<NEAR||p.depth>far)return null;
   const focal=Math.min(width/(2*Math.tan(FOV/2)),height/(2*Math.tan(FOV/2)));
   return Object.freeze({x:width/2+p.right*focal/p.depth,
    y:height/2-p.up*focal/p.depth,depth:p.depth});
  }
- function draw(canvas,registry,cache,walker,yaw,buildings=[]){
+ function draw(canvas,registry,cache,walker,yaw,buildings=[],pitch=0){
   if(!canvas||typeof canvas.getContext!=='function'||
      !(registry instanceof Map)||!(cache instanceof Map)||
-     !walker||![walker.x,walker.y,walker.z,yaw].every(Number.isFinite)||
-     !Array.isArray(buildings))
+     !walker||![walker.x,walker.y,walker.z,yaw,pitch].every(Number.isFinite)||
+     Math.abs(pitch)>Math.PI/3||!Array.isArray(buildings))
    throw new TypeError('Invalid civilian street camera');
   const ctx=canvas.getContext('2d');
   if(!ctx)throw new TypeError('Canvas 2D unavailable');
   const width=canvas.width,height=canvas.height;
   if(!(width>0&&height>0))throw new RangeError('Invalid street viewport');
   const eye={x:walker.x,y:walker.y+EYE_HEIGHT,z:walker.z};
+  const camera=(x,y,z)=>cameraPoint(eye,yaw,x,y,z,pitch);
   const focal=Math.min(width,height)/(2*Math.tan(FOV/2));
   const faces=[],meshByKey=new Map();
   let terrainTiles=0,trianglesConsidered=0;
@@ -78,7 +84,7 @@
     trianglesConsidered++;
     const v=[index[i],index[i+1],index[i+2]];
     if(v.some(k=>!Number.isSafeInteger(k)||k<0||k*3+2>=p.length))continue;
-    const vertices=v.map(k=>cameraPoint(eye,yaw,p[k*3],p[k*3+1],p[k*3+2]));
+    const vertices=v.map(k=>camera(p[k*3],p[k*3+1],p[k*3+2]));
     const depth=vertices.map(t=>t.depth);
     if(Math.max(...depth)<NEAR||Math.min(...depth)>FAR)continue;
     const averageY=v.reduce((n,k)=>n+p[k*3+1],0)/3;
@@ -110,10 +116,10 @@
     [[minX,maxZ],[minX,minZ]]
    ];
    for(const [a,c] of walls){
-    face([cameraPoint(eye,yaw,a[0],y,a[1]),
-      cameraPoint(eye,yaw,c[0],y,c[1]),
-      cameraPoint(eye,yaw,c[0],y+b.h,c[1]),
-      cameraPoint(eye,yaw,a[0],y+b.h,a[1])],b.color||'#a99b84');
+    face([camera(a[0],y,a[1]),
+      camera(c[0],y,c[1]),
+      camera(c[0],y+b.h,c[1]),
+      camera(a[0],y+b.h,a[1])],b.color||'#a99b84');
    }
    civilianFacades++;
   }

@@ -19,10 +19,25 @@
     throw new RangeError('Invalid vehicle state');
   return v;
  }
+ // A valid endpoint is not evidence of a physically accessible seat. Walk
+ // the same local metre line at 20cm increments before accepting boarding
+ // or disembarking across an opaque solid barrier. No teleport or key bypass.
+ function clearAccess(ax,az,bx,bz,blocked){
+  const distance=Math.hypot(bx-ax,bz-az);
+  const steps=Math.max(1,Math.ceil(distance/.2));
+  for(let i=1;i<=steps;i++){
+   const t=i/steps;
+   if(blocked(ax+(bx-ax)*t,az+(bz-az)*t))return false;
+  }
+  return true;
+ }
  function enter(v,actor,blocked){
   validate(v);
-  if(v.occupied)return false;
-  if(Math.hypot(v.x-actor.x,v.z-actor.z)>2.8||blocked(v.x,v.z))return false;
+  if(v.occupied||!actor||!Number.isFinite(actor.x)||
+     !Number.isFinite(actor.z)||typeof blocked!=='function')return false;
+  if(Math.hypot(v.x-actor.x,v.z-actor.z)>2.8||
+     blocked(actor.x,actor.z)||
+     !clearAccess(actor.x,actor.z,v.x,v.z,blocked))return false;
   v.occupied=true;return true;
  }
  function exit(v,blocked){
@@ -31,7 +46,9 @@
   for(const [dx,dz] of [[-2.2,0],[2.2,0],[0,-3]]){
    const x=v.x+dx*Math.cos(v.yaw)+dz*Math.sin(v.yaw);
    const z=v.z-dx*Math.sin(v.yaw)+dz*Math.cos(v.yaw);
-   if(!blocked(x,z)){v.occupied=false;v.engineOn=false;return {x,z};}
+   if(clearAccess(v.x,v.z,x,z,blocked)){
+    v.occupied=false;v.engineOn=false;return {x,z};
+   }
   }
   return null;
  }
