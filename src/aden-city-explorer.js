@@ -198,8 +198,11 @@
   const ctx=canvas.getContext('2d');
   if(!ctx)throw new Error('Canvas 2D unavailable');
   const w=Math.max(1,canvas.width),h=Math.max(1,canvas.height);
+  // First-person public-street preview asks for a wider SOURCE window, but
+  // retains the same 25-mesh GPU/CPU budget and its guaranteed near 3×3.
+  const lookAhead=options.lookAhead;
   const plan=Tiles.planStreaming(state.x,state.z,registry,[...cache.keys()],
-   {radius:2,maxLoaded:25});
+   {radius:lookAhead?3:2,maxLoaded:25,lookAhead});
   for(const key of plan.unload)cache.delete(key);
   const lod=state.zoom>=1.2?1:state.zoom>=.45?2:4;
   for(const key of plan.active){
@@ -522,7 +525,8 @@
     Districts.publicRoomAt(walk.x,walk.z):null;
    const stats=draw(canvas,registry,zoomState,cache,{
     imported:!!activeDataset,showFictionalBuildings:!activeDataset,
-    showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors});
+    showPublicRoom:insideRoom?.id||null,closedDoorIds:closedDoors,
+    lookAhead:walk&&eyeLevel?{x:Math.sin(eyeYaw),z:-Math.cos(eyeYaw)}:undefined});
    if(walk&&footpathWorld)worldForWalking();
    if(walk&&eyeLevel&&StreetEye){
     StreetEye.draw(canvas,registry,cache,walk,eyeYaw,
