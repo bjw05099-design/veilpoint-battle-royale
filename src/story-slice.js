@@ -1069,7 +1069,7 @@
     const speed=(input.crouch?(paced?1.6:3.1):sprint?9.5:6.1)*
       Sim.FIREARMS[p.weaponId].mobility*
       Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1)*
-      (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z,state.drainCleared):1);
+      (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z,state.drainCleared||state.world.streetFlood):1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     // A real actor blocks walking through their position. Historic saves
     // starting in an overlap can still move out of the footprint.
@@ -1208,7 +1208,7 @@
           // patch while the player is physically slowed. This reads the
           // existing 60Hz drain state and adds no checkpoint or quest flag.
           const footing=StreetFlood
-            ?StreetFlood.mobility(state.phase,w.x,w.z,state.drainCleared):1;
+            ?StreetFlood.mobility(state.phase,w.x,w.z,state.drainCleared||state.world.streetFlood):1;
           const pace=Math.min((keepNear?followSpeed:1.8)*footing,
             steerDistance/t);
           Sim.moveEntity(w,stepX/steerDistance*pace,stepZ/steerDistance*pace,

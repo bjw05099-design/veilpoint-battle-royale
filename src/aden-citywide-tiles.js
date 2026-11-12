@@ -331,6 +331,20 @@
   if(!Number.isInteger(radius)||radius<0||radius>6||
     !Number.isInteger(maxLoaded)||maxLoaded<1||maxLoaded>169)
    throw new RangeError('Invalid tile streaming budget');
+  // In street-eye mode, keep the centre and the 8 immediately adjacent
+  // terrain tiles resident, then favour authored ground ahead of the camera.
+  // This is a streaming priority ONLY: it never fabricates missing source
+  // tiles or changes the measured elevation/60Hz collision contract.
+  const forward=options.lookAhead;
+  let facing=null;
+  if(forward!==undefined){
+   const length=forward&&typeof forward==='object'&&!Array.isArray(forward)?
+    Math.hypot(forward.x,forward.z):NaN;
+   if(!validFinite(forward?.x)||!validFinite(forward?.z)||
+      !validFinite(length)||length<1e-6)
+    throw new RangeError('Invalid civilian terrain look-ahead direction');
+   facing={x:forward.x/length,z:forward.z/length};
+  }
   // Window streaming must scale with the visible tile RADIUS, not the size
   // of the full-city registry. Walking one block must not scan potentially
   // 25,000 licensed height tiles on every rendered frame.
@@ -346,10 +360,26 @@
      }
   // Preserve deterministic spatial priority across reloads. A budget-limited
   // tile is DEFERRED, never mislabeled as missing geography or surveyed data.
-  desired.sort((a,b)=>a.ring-b.ring||
+  const forwardScore=tile=>{
+   const dx=tile.tx-origin.tx,dz=tile.tz-origin.tz;
+   return Math.hypot(dx,dz)-.7*(dx*facing.x+dz*facing.z);
+  };
+  desired.sort((a,b)=>{
+   if(facing){
+    // Preserve the local 3×3 60Hz walking footprint even if the viewer
+    // looks far across a still-unloaded original fictional district.
+    const nearbyA=a.ring<=1,nearbyB=b.ring<=1;
+    if(nearbyA!==nearbyB)return nearbyA?-1:1;
+    if(!nearbyA){
+     const directional=forwardScore(a.tile)-forwardScore(b.tile);
+     if(Math.abs(directional)>1e-12)return directional;
+    }
+   }
+   return a.ring-b.ring||
     Math.hypot(a.tile.tx-origin.tx,a.tile.tz-origin.tz)-
     Math.hypot(b.tile.tx-origin.tx,b.tile.tz-origin.tz)||
-    a.key.localeCompare(b.key));
+    a.key.localeCompare(b.key);
+  });
   const active=desired.slice(0,maxLoaded).map(o=>o.key),set=new Set(active),
    existing=new Set(loadedKeys),deferred=desired.slice(maxLoaded).map(o=>o.key);
   return Object.freeze({origin:origin.key,
