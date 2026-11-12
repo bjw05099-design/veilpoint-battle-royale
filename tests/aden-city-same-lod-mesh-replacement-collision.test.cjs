@@ -23,7 +23,21 @@ test('same tile keys and same LOD cannot certify replaced civilian height meshes
  const tile=registry.get('aden:0:0'),a={sourceTile:tile,lod:2,mesh:Tiles.buildTerrainMesh(tile,2)};
  const cache=new Map([['aden:0:0',a]]),remember=Explorer.terrainRevision(cache);
  assert.equal(Explorer.terrainRevisionMatches(cache,remember),true);
- const replacement={...a,mesh:Tiles.buildTerrainMesh(tile,2)};
+ // Rebuilding from one frozen source is now deliberately memoized. A
+ // repeated read of the exact same verified mesh is not a terrain revision.
+ const reused=Tiles.buildTerrainMesh(tile,2);
+ assert.strictEqual(reused,a.mesh,'same frozen source and LOD reuse actual vertices');
+ assert.equal(Explorer.terrainRevisionMatches(cache,remember),true);
+ // A genuinely different source tile with the same key and LOD must still
+ // invalidate collision and render caches; change an INTERIOR real sample.
+ const samples=Array.from(tile.samples),centre=Math.floor(tile.gridSize/2);
+ samples[centre*tile.gridSize+centre]+=2;
+ const updated=Tiles.createHeightTile({tx:tile.tx,tz:tile.tz,
+  gridSize:tile.gridSize,source:tile.source,samples});
+ const replacement={...a,sourceTile:updated,mesh:Tiles.buildTerrainMesh(updated,2)};
+ assert.notStrictEqual(replacement.mesh,a.mesh);
+ assert.notDeepEqual(replacement.mesh.positions,a.mesh.positions,
+  'replacement geometry differs at a loaded physical triangle');
  cache.set('aden:0:0',replacement);
  assert.equal(Explorer.terrainRevisionMatches(cache,remember),false,
   'same LOD + same tile ID cannot hide new triangle geometry');
