@@ -1084,7 +1084,8 @@
     const paced=!!input.crouch&&escortPaceAvailable(state);
     const speed=(input.crouch?(paced?1.6:3.1):sprint?9.5:6.1)*
       Sim.FIREARMS[p.weaponId].mobility*
-      Sim.injuryMobility(p)*(state.world.carryingAid ? 0.72 : 1)*
+      Sim.injuryMobility(p)*(state.world.carryingAid
+        ?0.72*(0.78+0.22*p.stamina/100):1)*
       (StreetFlood?StreetFlood.mobility(state.phase,p.x,p.z,state.drainCleared||state.world.streetFlood):1);
     const occupied=actorBlockers(state).filter(body=>!Sim.blocked(p.x,p.z,.85,[body]));
     // A real actor blocks walking through their position. Historic saves
@@ -1129,10 +1130,15 @@
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
     const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
-    // Keep CH01 fatigue consistent with the BR controller: a blocked forward
-    // sprint does not spend stamina or create exertion without actual travel.
-    const sprinting=sprint&&movedDistance>1e-7;
-    p.stamina=clamp(p.stamina+(sprinting?-20:13)*t,0,100);
+    // Carrying real relief supplies is tiring when ACTUALLY walking, but
+    // stopping anywhere lets the captain recover. The same server-clocked
+    // body displacement drives effort; pressing into a wall does not drain
+    // stamina, and crouching with the crate requires less sustained effort.
+    // This derives entirely from existing V2-stored stamina/cargo state.
+    const moving=movedDistance>1e-7,sprinting=sprint&&moving;
+    const loadedWalking=state.world.carryingAid&&moving;
+    const exertion=sprinting?-20:loadedWalking?(input.crouch?-3:-7):13;
+    p.stamina=clamp(p.stamina+exertion*t,0,100);
     Sim.updateStress(p,t,sprinting);
     state.world.elapsed+=t;
     // Repair takes three REAL seconds beside a reachable public drain.
