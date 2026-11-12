@@ -100,7 +100,7 @@
          traveled=Math.hypot(now.x-track.x,now.z-track.z);
    // Position changes without simulation time, a large jump, a new world or
    // a paused tab are NOT walking. Never turn a load/respawn into a footfall.
-   if(now.world!==track.world||dt<=0||dt>.3||traveled>3||
+   if(now.world!==track.world||!Number.isFinite(dt)||dt<=0||dt>.3||traveled>3||
       (traveled>0&&traveled/dt>14)){
     reset();track=now;return null;
    }
