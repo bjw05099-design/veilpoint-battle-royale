@@ -5,6 +5,14 @@
   else root.VeilpointCheckpointRecovery=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
+  // The CH01 fixed-step world shares the standalone simulation's 175 m
+  // boundary. A resumed capsule must stay inside it, not merely have finite
+  // coordinates that make the renderer look plausible for one frame.
+  const WORLD_EDGE_METRES=175,PLAYER_RADIUS_METRES=.85;
+  const inWorld=(actor,radius=0)=>Number.isFinite(actor?.x)&&
+    Number.isFinite(actor?.z)&&
+    Math.abs(actor.x)<=WORLD_EDGE_METRES-radius&&
+    Math.abs(actor.z)<=WORLD_EDGE_METRES-radius;
   function isPlayableGeneration(result,source){
     if(!result||result.source!==source)return false;
     const state=result.state;
@@ -23,6 +31,7 @@
     return player!==null&&typeof player==='object'&&!Array.isArray(player)&&
       ['x','z','yaw','pitch','stamina','health','charges'].every(
         key=>Number.isFinite(player[key]))&&
+      inWorld(player,PLAYER_RADIUS_METRES)&&
       // The 60Hz collision and AI steps consume these arrays immediately on
       // Continue. A plausible player alone cannot make a malformed world
       // playable: invalid obstacle extents or actor coordinates propagate NaN
@@ -30,7 +39,12 @@
       world.obstacles.every(o=>o&&typeof o==='object'&&!Array.isArray(o)&&
         ['x','z','w','d'].every(key=>Number.isFinite(o[key]))&&o.w>0&&o.d>0)&&
       world.bots.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&
-        ['x','z','health'].every(key=>Number.isFinite(b[key])))&&
+        // A restored animated NPC is consumed by the first 60Hz frame.
+        // Finite positions alone cannot recover an invalid facing or motion
+        // clock. Preserve dead NPCs, but reject unusable live/flag states.
+        ['x','z','health','angle','moveTime','actionTime'].every(
+          key=>Number.isFinite(b[key]))&&
+        inWorld(b)&&typeof b.alive==='boolean')&&
       // Corrupt negative dimensions and duplicate actor references are not
       // repaired here: the decoder owns schema validation. The recovery
       // boundary rejects a non-playable player before a 60Hz tick begins.
