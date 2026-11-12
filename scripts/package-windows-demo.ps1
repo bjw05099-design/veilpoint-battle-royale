@@ -129,6 +129,20 @@ TRUST AND SCOPE
   if ($restored.ExitCode -ne 0) {
     throw 'Actual Windows EXE preflight rejected clean bytes after restoring JS'
   }
+  # The notice is outside MANIFEST.sha256. Verify the *actual published EXE*
+  # rejects a falsified release/capability statement, not just corrupted JS.
+  # This modifies only the extracted test copy, never the release ZIP/stage.
+  $noticePath=Join-Path $probe 'game/NOTICE.txt'
+  Add-Content -LiteralPath $noticePath -Value 'Unsupported native build certification'
+  $badNotice=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($badNotice.ExitCode -eq 0) {
+    throw 'Actual Windows EXE preflight accepted a changed release limitation notice'
+  }
+  Copy-Item -LiteralPath (Join-Path $stage 'game/NOTICE.txt') -Destination $noticePath -Force
+  $goodNotice=Start-Process -FilePath $publishedExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($goodNotice.ExitCode -ne 0) {
+    throw 'Actual Windows EXE preflight rejected the restored release notice'
+  }
   # An unreferenced directory junction to an empty folder contains no files,
   # so recursive EnumerateFiles cannot detect it. The host must reject the
   # link itself rather than traversing it or trusting only manifest paths.

@@ -46,7 +46,8 @@ test('personal journey uses actual server 60Hz movement, never client reported d
  assert.ok(report.walkedMeters>0&&report.sprintedMeters>0);
  assert.ok(Math.abs(report.totalMeters-report.walkedMeters-report.sprintedMeters)<=.02);
  assert.equal(report.activeSeconds,Math.round(w.tick/60*100)/100);
- assert.equal(report.benchRestSeconds,0);
+ assert.equal(Object.hasOwn(report,'benchRestSeconds'),false,
+  'final match report deliberately excludes bench-rest duration while retaining movement stats');
  assert.equal(Object.isFrozen(report),true);
 });
 

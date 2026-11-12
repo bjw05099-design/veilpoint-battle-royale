@@ -16,6 +16,16 @@ internal static class OfflinePayloadVerifier
     private const int MaxEntries = 128;
     private const long MaxTotalBytes = 16 * 1024 * 1024;
     private const long MaxFileBytes = 2 * 1024 * 1024;
+    // NOTICE.txt is intentionally outside the file SHA manifest because the
+    // browser ZIP verifier compares it against the source packager's canonical
+    // release text. Match the SAME exact bytes in the Windows host too: a
+    // swapped notice must not silently claim a UE5 or 165 FPS certification.
+    private const string CombinedNotice =
+        "VEILPOINT browser offline prototype candidate. Source license: UNLICENSED.\n" +
+        "No Unreal executable, online multiplayer, licensed production assets, 165FPS or real-browser QA is claimed.\n";
+    private const string StoryOnlyNotice =
+        "VEILPOINT story-only browser preview. Source license: UNLICENSED.\n" +
+        "No full 12-hour campaign, UE5 native executable, 165 FPS, surveyed Aden coverage, or Battle Royale release is certified.\n";
     private static readonly Regex RelativeName = new(
         @"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.[A-Za-z0-9]+$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -104,13 +114,17 @@ internal static class OfflinePayloadVerifier
             if (!File.ReadAllText(Path.Combine(root, "index.html"), Encoding.UTF8)
                    .Contains("Story CH01 Preview", StringComparison.Ordinal))
                 throw new InvalidDataException("Invalid story-only landing page.");
-            if (!File.ReadAllText(Path.Combine(root, "NOTICE.txt"), Encoding.UTF8)
-                   .Contains("story-only browser preview", StringComparison.Ordinal))
-                throw new InvalidDataException("Story-only release notice missing.");
         }
 
-        if (!File.Exists(Path.Combine(root, "NOTICE.txt")))
+        var noticePath = Path.Combine(root, "NOTICE.txt");
+        if (!File.Exists(noticePath))
             throw new InvalidDataException("Offline release limitation notice missing.");
+        var expectedNotice = Encoding.UTF8.GetBytes(storyOnlyPackage
+            ? StoryOnlyNotice : CombinedNotice);
+        // An unmanifested but present notice is not a verified notice.
+        // Require byte-for-byte agreement for either immutable release mode.
+        if (!File.ReadAllBytes(noticePath).SequenceEqual(expectedNotice))
+            throw new InvalidDataException("Offline release limitation notice mismatch.");
         // Enumerate filesystem entries ourselves, not AllDirectories: the
         // latter can follow an unlisted Windows junction even if no manifest
         // entry references it. A junction to an EMPTY outside directory was
