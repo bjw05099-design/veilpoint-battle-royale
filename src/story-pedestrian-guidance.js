@@ -80,6 +80,30 @@
    heading:Navigation.direction(player,next),terrainVerified:true,
    peopleVerified:false});
  }
+ // A planned STATIC route cannot guarantee its first metres while real
+ // nearby civilians are occupying that public sidewalk. Evaluate their
+ // CURRENT on-foot positions without changing pathfinding, mission flags,
+ // save formats, or exposing the positions of distant/unobserved residents.
+ function firstLegOccupiedByCivilian(route,player,people,obstacles=[]){
+  if(!route||!Array.isArray(route.points)||route.points.length<2||
+     !player||![player.x,player.z].every(Number.isFinite)||
+     !Array.isArray(people)||!Array.isArray(obstacles))return false;
+  const next=route.points[1],dx=next?.x-player.x,dz=next?.z-player.z;
+  const len=Math.hypot(dx,dz);
+  if(!Number.isFinite(len)||len<.01)return false;
+  const look=Math.min(8,len),dirX=dx/len,dirZ=dz/len;
+  return people.some(person=>{
+   if(!person||![person.x,person.z].every(Number.isFinite))return false;
+   const x=person.x-player.x,z=person.z-player.z;
+   const ahead=x*dirX+z*dirZ;
+   if(ahead<.35||ahead>look)return false;
+   // Standing civilian body + player standing clearance; this is a
+   // short-lived local warning, NOT proof that the entire route is blocked.
+   const lateral=Math.abs(x*dirZ-z*dirX);
+   return lateral<=1.4&&Math.hypot(x,z)<=10&&
+    !Sim.lineBlocked(player.x,player.z,person.x,person.z,obstacles);
+  });
+ }
  function instruction(result){
   if(!result||result.kind!=='detour')return '';
   if(!result.heading||!Number.isFinite(result.distance))return '';
@@ -89,5 +113,6 @@
    ' 약 '+Math.ceil(result.segment)+'m · 전체 약 '+Math.ceil(result.distance)+
    'm · 이동 인원은 현장에서 확인';
  }
- return Object.freeze({MAX_STRAIGHT_METRES,MAX_VISITS,targetFor,plan,instruction});
+ return Object.freeze({MAX_STRAIGHT_METRES,MAX_VISITS,targetFor,plan,
+  firstLegOccupiedByCivilian,instruction});
 });

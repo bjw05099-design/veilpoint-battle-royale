@@ -103,6 +103,20 @@
    heights.push(y);
   }
   const high=Math.max(...heights),low=Math.min(...heights);
+  // Four EXTRA mid-edge foundation probes prevent an apparently supported
+  // house from bridging a narrow unmeasured gully or sudden local ridge.
+  // Keep the original five-point base convention for existing saved visual
+  // geometry; reject unsupported ground instead of inventing new plinths.
+  for(const [dx,dz] of [[0,-1],[0,1],[-1,0],[1,0]]){
+   const x=building.x+dx*building.w/2,
+    z=building.z+dz*building.d/2,key=Tiles.tileFor(x,z).key;
+   if(!visibleKeys.has(key))return null;
+   const tile=registry.get(key),slot=cache.get(key);
+   if(!tile||!slot||slot.sourceTile!==tile||!slot.mesh)return null;
+   const sample=Tiles.heightOnTerrainMesh(slot.mesh,x,z);
+   if(!Number.isFinite(sample)||sample<0||sample>high+.45||
+      sample<low-.65)return null;
+  }
   // No houses precariously pinned to near-vertical sampled cliff edges.
   if(high-low>6)return null;
   // An illustrated plinth joins the elevated entry level to the lowest
