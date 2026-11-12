@@ -43,11 +43,20 @@
    throw new RangeError('Invalid pedestrian search budget');
   if(!from||!to||!Array.isArray(obstacles)||
      ![from.x,from.z,to.x,to.z].every(Number.isFinite))return null;
-  if(Sim.blocked(from.x,from.z,CLEARANCE,obstacles)||
-     Sim.blocked(to.x,to.z,CLEARANCE,obstacles))return null;
+  // Visual-only canvas roofs, awnings and pavement have no physical body.
+  // An authored collision body without an explicit solid flag stays solid;
+  // ignore ONLY geometry explicitly marked non-solid. This prevents public
+  // pedestrians being routed around a drawable roof as if it were a wall.
+  const blockers=obstacles.filter(o=>o?.solid!==false);
+  // Fast straight-line paths must enforce the SAME player-circle world edge
+  // as the A* fallback, rather than returning a route outside the playable map.
+  const worldEdge=175-CLEARANCE;
+  if([from.x,from.z,to.x,to.z].some(n=>Math.abs(n)>worldEdge)||
+     Sim.blocked(from.x,from.z,CLEARANCE,blockers)||
+     Sim.blocked(to.x,to.z,CLEARANCE,blockers))return null;
   // Circle-body clearance also protects the swept width of the visible
   // paving; no painted route may cut through an existing playable wall.
-  const solids=obstacles.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
+  const solids=blockers.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
   if(segmentClear(from,to,solids))return Object.freeze([from,to].map(p=>Object.freeze({x:p.x,z:p.z})));
   const minX=Math.max(-169,Math.min(from.x,to.x)-32),
     maxX=Math.min(169,Math.max(from.x,to.x)+32),
@@ -71,7 +80,7 @@
     const i=n.i+di,j=n.j+dj,x=from.x+i*STEP,z=from.z+j*STEP,
       nextKey=key(i,j);
     if(x<minX||x>maxX||z<minZ||z>maxZ||closed.has(nextKey)||
-       Sim.blocked(x,z,CLEARANCE,obstacles))continue;
+       Sim.blocked(x,z,CLEARANCE,blockers))continue;
     if(!segmentClear(n,{x,z},solids))continue;
     const g=n.g+STEP*Math.hypot(di,dj);
     if(g>= (scores.get(nextKey)??Infinity)-1e-9)continue;

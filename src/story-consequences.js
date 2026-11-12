@@ -13,7 +13,8 @@
     LOCAL_AID_OBSERVED:'local_aid_observed',
     CIVILIAN_WALK_IN:'civilian_walk_in',
     CIVIC_CROSSING_REACHED:'civic_crossing_reached',
-    WORKER_REACHED_SIDE_LANE:'worker_reached_side_lane',EXIT:'exit'
+    WORKER_REACHED_SIDE_LANE:'worker_reached_side_lane',
+    CIVILIAN_SHUTTLE_ARRIVED:'civilian_shuttle_arrived',EXIT:'exit'
   });
   const PREREQUISITES=Object.freeze({
     escalation:['arrived'],contact_lost:['escalation'],
@@ -21,6 +22,7 @@
     local_aid_observed:['safe_route'],civilian_walk_in:['escalation'],
     civic_crossing_reached:['escalation','contact_lost'],
     worker_reached_side_lane:['escalation','contact_lost'],
+    civilian_shuttle_arrived:['safe_route'],
     exit:['contact_lost','safe_route']
   });
   function newTimeline(){
@@ -141,6 +143,19 @@
       // vehicle arrival do not prove that the local aid team received supplies.
       if(state.choice==='evacuation'&&state.aidDelivered===true)
         result=advance(result,EVENTS.LOCAL_AID_OBSERVED);
+      // The optional civilian van actually reaches a public passenger stop
+      // only when the authoritative 60Hz actor and its collision body agree.
+      // Merely requesting a ride, reporting an arrival or possessing an old
+      // checkpoint flag is not evidence of boarding or evacuation.
+      const van=state.transportVan;
+      const vanBody=Array.isArray(state.world.obstacles)
+        ?state.world.obstacles.find(o=>o.routeId==='story-civil-transport'):null;
+      if(state.choice==='evacuation'&&['exit','complete'].includes(state.phase)&&
+         van?.arrived===true&&Number.isFinite(van.z)&&
+         Math.abs(van.z+64)<1e-6&&
+         vanBody&&Number.isFinite(vanBody.x)&&Number.isFinite(vanBody.z)&&
+         Math.abs(vanBody.x-10)<1e-6&&Math.abs(vanBody.z-van.z)<1e-6)
+        result=advance(result,EVENTS.CIVILIAN_SHUTTLE_ARRIVED);
       if(state.phase==='complete'&&result.events.includes(EVENTS.SAFE_ROUTE))
         result=advance(result,EVENTS.EXIT);
     }
