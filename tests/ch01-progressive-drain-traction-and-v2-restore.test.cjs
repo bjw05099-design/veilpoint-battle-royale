@@ -7,7 +7,9 @@ function atPatch(ticks=0,cleared=false){
  const s=Story.createState();
  s.phase='records';s.combat.started=true;s.combat.cleared=true;
  s.drainClearTicks=ticks;s.drainCleared=cleared;
- s.world.bots=[];
+ // Keep the actual three signed-off CH01 actor records, matching the strict
+ // version-2 combat checkpoint; don't manufacture an impossible empty roster.
+ s.world.bots.forEach(b=>{b.health=0;b.alive=false;});
  s.world.player.x=Flood.PATCH.x;s.world.player.z=Flood.PATCH.z;
  s.world.player.yaw=0;s.world.player.pitch=0;
  s.world.streetFlood={...Flood.PATCH,...(cleared?{cleared:true}:

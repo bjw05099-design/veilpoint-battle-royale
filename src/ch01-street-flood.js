@@ -35,9 +35,14 @@
      drained.x===PATCH.x&&drained.z===PATCH.z&&
      drained.w===PATCH.w&&drained.d===PATCH.d;
    const cleared=drained===true||(isPatch&&drained.cleared===true);
-   const fraction=cleared?1:isPatch&&Number.isFinite(drained.repairProgress)
+   const wetness=exposure(phase,x,z);
+   // Keep the exact historic .92 cleared value; floating-point subtraction
+   // .28-.20 can otherwise yield .08000000000000002 and regress existing
+   // public-surface/companion physics contracts without any real change.
+   if(cleared)return 1-.08*wetness;
+   const fraction=isPatch&&Number.isFinite(drained.repairProgress)
      ?Math.max(0,Math.min(1,drained.repairProgress)):0;
-   return 1-(.28-.20*fraction)*exposure(phase,x,z);
+   return 1-(.28-.20*fraction)*wetness;
  }
  function visible(phase){return phase!=='terminal';}
  // Tiny original public street fixtures are visual ground dressing only:
