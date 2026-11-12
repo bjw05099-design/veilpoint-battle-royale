@@ -233,15 +233,20 @@
       .filter(a=>a&&Number.isFinite(a.x)&&Number.isFinite(a.z));
   }
   // All authored civilians share one physical standing-body constraint,
-  // not merely the captain and the chosen guide. A legacy checkpoint whose
-  // people already overlap may still WALK OUT: an existing overlap is not
-  // treated as a new unpassable wall. The 60Hz mover never teleports.
+  // not merely the captain and the chosen guide. The real player ALWAYS
+  // obstructs an NPC even when an older save starts them overlapped (the
+  // original liaison behavior). Other already-overlapped NPCs may walk OUT
+  // to avoid trapping old v2 checkpoints. No teleport or remote guidance.
   function localCivilianBodies(state,mover,radius){
-    const player=state.world.player;
-    return localPublicPedestrians(state).filter(person=>person!==mover)
-      .map(person=>({x:person.x,z:person.z,
-        w:person===player?1.7:1.1,d:person===player?1.7:1.1}))
-      .filter(body=>!Sim.blocked(mover.x,mover.z,radius,[body]));
+    const player=state.world.player,colliders=[];
+    for(const person of localPublicPedestrians(state)){
+      if(person===mover)continue;
+      const width=person===player?1.7:1.1;
+      const body={x:person.x,z:person.z,w:width,d:width};
+      if(person===player||!Sim.blocked(mover.x,mover.z,radius,[body]))
+        colliders.push(body);
+    }
+    return colliders;
   }
   function civilianVehiclePathClear(state,swept,van){
     return !state.world.obstacles.filter(o=>o!==van).some(o=>
