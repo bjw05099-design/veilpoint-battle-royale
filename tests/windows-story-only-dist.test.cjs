@@ -39,7 +39,11 @@ test('strict Windows verifier validates both payload types without creating a fa
  assert.match(verifier,/if \(storyOnlyPackage\)/);
  assert.match(verifier,/Non-story entry in story-only package:/);
  assert.match(verifier,/Invalid story-only landing page/);
- assert.match(verifier,/Story-only release notice missing/);
+ assert.match(verifier,/private const string StoryOnlyNotice/);
+ assert.match(verifier,/private const string CombinedNotice/);
+ assert.match(verifier,/File\.ReadAllBytes\(noticePath\)\.SequenceEqual\(expectedNotice\)/);
+ assert.match(verifier,/Offline release limitation notice mismatch/,
+  'Windows host must reject a changed story limitation notice, not just missing text');
  assert.match(verifier,/SHA256\.HashData/);
  assert.match(verifier,/FileAttributes\.ReparsePoint/);
  assert.match(verifier,/Untracked file in offline game/);
