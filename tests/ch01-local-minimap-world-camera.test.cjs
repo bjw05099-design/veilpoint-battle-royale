@@ -132,7 +132,9 @@ test('script dependencies and existing story-only closure contain the actual exe
  assert.ok(html.indexOf('src/story-local-minimap.js')<html.indexOf('src/story-app.js'));
  assert.match(app,/const LocalMinimap=global\.VeilpointStoryLocalMinimap/);
  assert.match(app,/LocalMinimap\.draw\(ctx,c,/);
- assert.match(app,/minimap\(walkRoute\)/);
+ assert.match(app,/minimap\(visibleWalkRoute\)/);
+ assert.match(app,/const visibleWalkRoute=pedestrianYield\?null:walkRoute/);
+ assert.match(app,/Pedestrian\?\.firstLegOccupiedByCivilian/);
  assert.doesNotMatch(app,/const w=c\.width,h=c\.height,tx=x=>\(x\+75\)\/150\*w/);
  const files=storyEntries().map(x=>x.name);
  assert.ok(files.includes('src/story-local-minimap.js'));

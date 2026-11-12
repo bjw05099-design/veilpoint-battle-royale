@@ -31,8 +31,15 @@ test('only a live authenticated participant gets a finite personal return hint; 
  w.tick=10200;me.x=135;me.z=0;
  const mine=w.snapshot(tok(0)),mate=w.snapshot(tok(1)),rival=w.snapshot(tok(6));
  assert.ok(mine.self.areaReturn&&mine.self.areaReturn.straightMetres>50);
- assert.equal(mate.self.areaReturn,null);
- assert.equal(rival.self.areaReturn,null);
+ // Any of 96 humans may actually start outside a late-stage 85m circle.
+ // Check each authenticated view against its OWN server-authoritative feet.
+ for(const [index,view] of [[1,mate],[6,rival]]){
+  const actor=w.actors.get(tok(index));
+  assert.deepEqual(view.self.areaReturn,
+    reentryGuidance(mine.playableArea,actor.x,actor.z),
+    'a participant must never inherit somebody else’s private return hint');
+ }
+ assert.notDeepEqual(mate.self.areaReturn,mine.self.areaReturn);
  assert.equal(mate.squad[0].areaReturn,undefined);
  assert.equal(JSON.stringify(rival).includes(tok(0)),false);
  me.x=mine.self.areaReturn.targetX;me.z=mine.self.areaReturn.targetZ;
