@@ -1052,10 +1052,17 @@
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
     if(!Number.isFinite(dt)||dt<=0)return state;
     const t=clamp(dt,0,.05),p=state.world.player;
-    // Battery drain follows simulation time, never render FPS or background time.
+    // Battery drain follows the ALREADY PERSISTED world clock's crossed 60Hz
+    // boundaries, not the number or size of render/frame callbacks.
+    // Four 1/240-second slices consume exactly one tick, just like one
+    // 1/60-second update; an interrupted V2 save retains the same phase with
+    // NO new checkpoint fields. Paused/off time never consumes the battery.
     if(state.flashlightOn){
       const previousBattery=state.flashlightTicks;
-      state.flashlightTicks=Math.max(0,state.flashlightTicks-Math.round(t*60));
+      const beforeTick=Math.floor(state.world.elapsed*60+1e-7);
+      const afterTick=Math.floor((state.world.elapsed+t)*60+1e-7);
+      const drain=Math.max(0,Math.min(3,afterTick-beforeTick));
+      state.flashlightTicks=Math.max(0,state.flashlightTicks-drain);
       // The battery has a finite, player-readable warning before exhaustion.
       // Crossing the threshold (rather than polling below it) prevents repeated
       // subtitles and remains deterministic after a checkpoint restore.

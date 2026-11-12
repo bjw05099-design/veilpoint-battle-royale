@@ -42,6 +42,36 @@
   return Object.freeze({x:width/2+p.right*focal/p.depth,
    y:height/2-p.up*focal/p.depth,depth:p.depth});
  }
+ // A facade is a real 3D volume: its FULL foundation, rather than just its
+ // centre, must be supported by the CURRENT streamed terrain triangles.
+ // This same 9-point ground audit is used by the overhead district painter.
+ // Never manufacture a house that hangs over unloaded world tiles or sea.
+ function groundedFacade(building,registry,meshByKey,Tile){
+  if(!Tile||!building||!(registry instanceof Map)||!(meshByKey instanceof Map)||
+     ![building.x,building.z,building.w,building.d,building.h].every(Number.isFinite)||
+     building.w<=0||building.d<=0||building.h<=0)return null;
+  const probes=[[0,0],[-1,-1],[-1,1],[1,-1],[1,1],
+   [0,-1],[0,1],[-1,0],[1,0]];
+  const heights=[];
+  for(const [dx,dz] of probes){
+   const x=building.x+dx*building.w/2,z=building.z+dz*building.d/2;
+   let tile;
+   try{tile=Tile.tileFor(x,z);}catch(_){return null;}
+   const surface=meshByKey.get(tile.key);
+   if(!registry.has(tile.key)||!surface)return null;
+   let y;
+   try{y=Tile.heightOnTerrainMesh(surface,x,z);}catch(_){return null;}
+   if(!Number.isFinite(y)||y<0)return null;
+   heights.push(y);
+  }
+  const footprint=heights.slice(0,5);
+  const high=Math.max(...footprint),low=Math.min(...footprint);
+  if(high-low>6)return null;
+  // Edge probes cannot conceal a narrow gully or an unsupported steep lip.
+  if(heights.slice(5).some(y=>y>high+.45||y<low-.65))return null;
+  return Object.freeze({baseMetres:high,lowMetres:low,
+   plinthMetres:high-low,actualSurveyVerified:false});
+ }
  function draw(canvas,registry,cache,walker,yaw,buildings=[],pitch=0){
   if(!canvas||typeof canvas.getContext!=='function'||
      !(registry instanceof Map)||!(cache instanceof Map)||
@@ -103,11 +133,9 @@
   for(const b of buildings){
    if(!b||![b.x,b.z,b.w,b.d,b.h].every(Number.isFinite)||
       b.w<=0||b.d<=0||b.h<=0||Math.hypot(b.x-eye.x,b.z-eye.z)>FAR+40)continue;
-   const key=Tile?.tileFor(b.x,b.z).key,mesh=meshByKey.get(key);
-   if(!mesh)continue;
-   let y;
-   try{y=Tile.heightOnTerrainMesh(mesh,b.x,b.z);}catch(_){continue;}
-   if(!Number.isFinite(y)||y<0)continue;
+   const foundation=groundedFacade(b,registry,meshByKey,Tile);
+   if(!foundation)continue;
+   const y=foundation.baseMetres;
    const minX=b.x-b.w/2,maxX=b.x+b.w/2,minZ=b.z-b.d/2,maxZ=b.z+b.d/2;
    const walls=[
     [[minX,minZ],[maxX,minZ]],
@@ -116,6 +144,13 @@
     [[minX,maxZ],[minX,minZ]]
    ];
    for(const [a,c] of walls){
+    if(foundation.plinthMetres>.05){
+     // The raised foundation is a visible base, not an invented floating
+     // first floor. Its full low-to-high face anchors the wall to terrain.
+     face([camera(a[0],foundation.lowMetres,a[1]),
+       camera(c[0],foundation.lowMetres,c[1]),
+       camera(c[0],y,c[1]),camera(a[0],y,a[1])],'#6a6256');
+    }
     face([camera(a[0],y,a[1]),
       camera(c[0],y,c[1]),
       camera(c[0],y+b.h,c[1]),
@@ -140,5 +175,5 @@
    eyeHeightMetres:EYE_HEIGHT,metresPerWorldUnit:1,
    geographicallyVerified:false,unrealNative:false,measuredGpuFps:null});
  }
- return Object.freeze({draw,project,clipNear,NEAR,FAR,EYE_HEIGHT});
+ return Object.freeze({draw,project,clipNear,groundedFacade,NEAR,FAR,EYE_HEIGHT});
 });
