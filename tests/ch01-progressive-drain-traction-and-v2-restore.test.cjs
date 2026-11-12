@@ -5,11 +5,16 @@ const Flood=require('../src/ch01-street-flood.js');
 const Sim=require('../src/simulation.js');
 function atPatch(ticks=0,cleared=false){
  const s=Story.createState();
- s.phase='records';s.combat.started=true;s.combat.cleared=true;
- s.drainClearTicks=ticks;s.drainCleared=cleared;
- // Keep the actual three signed-off CH01 actor records, matching the strict
- // version-2 combat checkpoint; don't manufacture an impossible empty roster.
+ // Walk the genuine existing CH01 terminal F interaction before promoting
+ // the fixture to records. This creates three original encounter actors;
+ // setting phase/combat flags alone cannot produce a valid V2 checkpoint.
+ s.world.player.x=Story.POINTS.terminal.x;
+ s.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(s).phase,'engagement');
+ assert.equal(s.world.bots.length,3);
  s.world.bots.forEach(b=>{b.health=0;b.alive=false;});
+ s.combat.cleared=true;s.phase='records';
+ s.drainClearTicks=ticks;s.drainCleared=cleared;
  s.world.player.x=Flood.PATCH.x;s.world.player.z=Flood.PATCH.z;
  s.world.player.yaw=0;s.world.player.pitch=0;
  s.world.streetFlood={...Flood.PATCH,...(cleared?{cleared:true}:
