@@ -31,6 +31,21 @@
   }
   return out;
  }
+
+ function clipFar(vertices,far=FAR){
+  const out=[];
+  for(let i=0;i<vertices.length;i++){
+   const a=vertices[i],b=vertices[(i+1)%vertices.length];
+   const ai=a.depth<=far,bi=b.depth<=far;
+   if(ai)out.push(a);
+   if(ai!==bi){
+    const t=(far-a.depth)/(b.depth-a.depth);
+    out.push({right:a.right+(b.right-a.right)*t,
+     up:a.up+(b.up-a.up)*t,depth:far});
+   }
+  }
+  return out;
+ }
  function project(eye,yaw,world,width,height,far=FAR,pitch=0){
   if(!world||![eye?.x,eye?.y,eye?.z,yaw,world.x,world.y,world.z,
     width,height,far,pitch].every(Number.isFinite)||width<=0||height<=0||
@@ -88,7 +103,7 @@
   const faces=[],meshByKey=new Map();
   let terrainTiles=0,trianglesConsidered=0;
   function face(vertices,color){
-   const clipped=clipNear(vertices);
+   const clipped=clipFar(clipNear(vertices));
    if(clipped.length<3||clipped.every(p=>p.depth>FAR))return;
    const projected=clipped.map(p=>({
     x:width/2+p.right*focal/p.depth,
@@ -175,5 +190,5 @@
    eyeHeightMetres:EYE_HEIGHT,metresPerWorldUnit:1,
    geographicallyVerified:false,unrealNative:false,measuredGpuFps:null});
  }
- return Object.freeze({draw,project,clipNear,groundedFacade,NEAR,FAR,EYE_HEIGHT});
+ return Object.freeze({draw,project,clipNear,clipFar,groundedFacade,NEAR,FAR,EYE_HEIGHT});
 });
