@@ -85,7 +85,7 @@
     source.onended=()=>{try{source.disconnect();lowpass.disconnect();gain.disconnect();}catch(_){}};
     source.start(now);source.stop(now+.09);
     leftFoot=!leftFoot;cues++;return true;
-   }catch(_){return false;}
+   }catch(_){disable();return false;}
   }
   function update(story,active,crouching=false,sprinting=false){
    const w=story?.world,p=w?.player;
@@ -116,7 +116,7 @@
    distance-=stride;
    // A long frame cannot schedule a burst of artificial steps.
    if(distance>stride)distance=stride;
-   play(surface);
+   if(!play(surface))return null;
    return Object.freeze({surface,distance:traveled,elapsed:now.elapsed});
   }
   function setVolume(v){
