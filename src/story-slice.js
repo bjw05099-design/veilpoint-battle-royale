@@ -232,6 +232,17 @@
       state.choice==='evacuation'&&state.musterConfirmed?state.guide:null]
       .filter(a=>a&&Number.isFinite(a.x)&&Number.isFinite(a.z));
   }
+  // All authored civilians share one physical standing-body constraint,
+  // not merely the captain and the chosen guide. A legacy checkpoint whose
+  // people already overlap may still WALK OUT: an existing overlap is not
+  // treated as a new unpassable wall. The 60Hz mover never teleports.
+  function localCivilianBodies(state,mover,radius){
+    const player=state.world.player;
+    return localPublicPedestrians(state).filter(person=>person!==mover)
+      .map(person=>({x:person.x,z:person.z,
+        w:person===player?1.7:1.1,d:person===player?1.7:1.1}))
+      .filter(body=>!Sim.blocked(mover.x,mover.z,radius,[body]));
+  }
   function civilianVehiclePathClear(state,swept,van){
     return !state.world.obstacles.filter(o=>o!==van).some(o=>
         Math.abs(o.x-swept.x)*2<o.w+swept.w&&
@@ -1252,9 +1263,7 @@
       const w=state.mara,dx=MARA_PATH.endX-w.x,dz=MARA_PATH.endZ-w.z;
       const distance=Math.hypot(dx,dz);
       if(distance>.001){
-        const pedestrians=[p,state.worker,state.civilianWalker,
-          state.world.liaison,state.choice==='evacuation'&&state.guide.active?state.guide:null]
-          .filter(Boolean).map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+        const pedestrians=localCivilianBodies(state,w,MARA_PATH.radius);
         Sim.moveEntity(w,dx/distance*MARA_PATH.speed,dz/distance*MARA_PATH.speed,
           t,state.world.obstacles.concat(actorBlockers(state),pedestrians),MARA_PATH.radius);
         w.x=clamp(w.x,MARA_PATH.startX,MARA_PATH.endX);
@@ -1281,9 +1290,7 @@
        ['records','decision','exit'].includes(state.phase)&&
        state.liaisonZ>LIAISON_WALK.endZ+1e-8){
       const actor=state.world.liaison;
-      const otherPeople=[p,state.worker,state.mara,state.civilianWalker,
-        state.choice==='evacuation'&&state.guide.active?state.guide:null]
-        .filter(Boolean).map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+      const otherPeople=localCivilianBodies(state,actor,LIAISON_WALK.radius);
       const colliders=state.world.obstacles.concat(actorBlockers(state),otherPeople);
       const speed=Math.min(LIAISON_WALK.speed,
         (state.liaisonZ-LIAISON_WALK.endZ)/t);
@@ -1424,7 +1431,7 @@
       const step=Math.max(0,Math.min((conflictActive?1.45:WORKER_PATH.speed)*t,toEnd));
       if(step>0){
         const solids=state.world.obstacles.concat(
-          {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
+          localCivilianBodies(state,w,WORKER_PATH.radius),actorBlockers(state));
         const start=w.x;
         Sim.moveEntity(w,w.direction*step/t,0,t,solids,WORKER_PATH.radius);
         // Never drift off the authored path due to floating point movement.
@@ -1442,7 +1449,7 @@
         // optional E interview does not unlock or command a civilian body.
         const before=w.z;
         const solids=state.world.obstacles.concat(
-          {x:p.x,z:p.z,w:1.7,d:1.7},actorBlockers(state));
+          localCivilianBodies(state,w,WORKER_PATH.radius),actorBlockers(state));
         Sim.moveEntity(w,0,Math.min(WORKER_PATH.shelterSpeed,
           (WORKER_PATH.safeZ-w.z)/t),t,solids,WORKER_PATH.radius);
         w.z=clamp(w.z,before,WORKER_PATH.safeZ);
@@ -1480,9 +1487,7 @@
       // The final frame must use only the remaining distance, rather than
       // adding a visible .04m snap after a full walking step.
       const pace=Math.min(CIVILIAN_WALK.speed,distance/t);
-      const bodies=[{x:p.x,z:p.z,w:1.7,d:1.7}];
-      if(state.choice==='evacuation'&&state.guide.active&&!state.guide.released)
-        bodies.push({x:state.guide.x,z:state.guide.z,w:1.1,d:1.1});
+      const bodies=localCivilianBodies(state,w,.55);
       const solids=state.world.obstacles.concat(bodies,actorBlockers(state));
       const previousX=w.x,previousZ=w.z;
       if(distance>1e-8)Sim.moveEntity(w,dx/distance*pace,
