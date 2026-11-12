@@ -26,6 +26,10 @@ const SIGNAL_TTL_TICKS=15*60, SIGNAL_COOLDOWN_TICKS=5*60;
 // Human-only squad text. It never contains authentication tokens or opponent
 // messages and is limited to a bounded history and 60Hz authoritative cadence.
 const CHAT_LIMIT=6, CHAT_MAX_CHARS=96, CHAT_INTERVAL_TICKS=180;
+// Preserve ordinary Korean/Arabic/Hebrew letters while rejecting invisible
+// bidirectional formatting overrides which can impersonate a sender or flip
+// a time-critical squad message's apparent order in the PC HUD.
+const CHAT_DIRECTION_CONTROLS=/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
 // A brief, grounded hand acknowledgement. Human-owned, non-scoring and
 // server-clock bounded; it never teleports a player or reveals a hidden rival.
 const WAVE_TICKS=2*60,WAVE_COOLDOWN_TICKS=5*60;
@@ -330,7 +334,8 @@ class BrSquadWorld {
     if(!actor)throw new RangeError('unknown_session');
     if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
     if(typeof raw!=='string'||raw!==raw.trim()||!raw||
-       Array.from(raw).length>CHAT_MAX_CHARS||/[\u0000-\u001f\u007f-\u009f]/.test(raw))
+       Array.from(raw).length>CHAT_MAX_CHARS||/[\u0000-\u001f\u007f-\u009f]/.test(raw)||
+       CHAT_DIRECTION_CONTROLS.test(raw))
       return {ok:false,reason:'invalid_chat'};
     if(this.tick-(actor.lastChatTick??-CHAT_INTERVAL_TICKS)<CHAT_INTERVAL_TICKS)
       return {ok:false,reason:'chat_cooldown'};
@@ -909,7 +914,8 @@ class BrSquadWorld {
       walkedMeters:Math.round((me.traveledMeters-me.sprintedMeters)*100)/100,
       sprintedMeters:Math.round(me.sprintedMeters*100)/100,
       totalMeters:Math.round(me.traveledMeters*100)/100,
-      benchRestSeconds:Math.round(me.benchRestTicks/60*100)/100,
+      // Rest still affects the authenticated 60Hz stamina simulation, but
+      // its duration is deliberately excluded from the final personal report.
       locationsVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
       ownSquadPlacement:this.placements[me.team],
       ownResult:me.eliminationReason||'active_at_finish'
