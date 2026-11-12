@@ -21,13 +21,20 @@
   // Corrupt or unbounded spectator coordinates must never shift the whole
   // map into an unusable off-screen transform. This is a display-only
   // fallback; the server remains the sole authority over positions.
+  // Only an actual server-authorized body inside the 350m playable world
+  // can own a follow camera. A corrupt spectator coordinate must not pan a
+  // convincing local map into unbounded empty space.
+  const HALF_WORLD=WORLD_SPAN/2;
   const valid=subject&&Number.isFinite(subject.x)&&Number.isFinite(subject.z)&&
-   Math.abs(subject.x)<=1e6&&Math.abs(subject.z)<=1e6;
+   Math.abs(subject.x)<=HALF_WORLD&&Math.abs(subject.z)<=HALF_WORLD;
   const nearby=follow===true&&!!valid;
-  // The nearest view is read only from the caller's self/spectator snapshot.
-  // No opponent, hidden teammate, client GPS or arbitrary camera target.
-  const centerX=nearby?subject.x:0,centerZ=nearby?subject.z:0;
   const span=nearby?ZOOM_SPANS[zoomLevel+1]:WORLD_SPAN;
+  // At the physical map edge, keep the entire 2D viewport over real world
+  // geometry. The player stays inside that view but need not remain centered:
+  // otherwise half the PC canvas becomes blank beyond the 60Hz world.
+  const limit=Math.max(0,(WORLD_SPAN-span)/2);
+  const bound=value=>Math.max(-limit,Math.min(limit,value));
+  const centerX=nearby?bound(subject.x):0,centerZ=nearby?bound(subject.z):0;
   const scale=Math.min(width,height)/span;
   const x=v=>width/2+(v-centerX)*scale;
   const z=v=>height/2+(v-centerZ)*scale;
