@@ -443,7 +443,7 @@
    idlePaintTicks=0;
   const held=new Set(),closedDoors=new Set();
   let publicRoomCursor=0,footpath=null,footpathWorld=null;
-  let eyeLevel=false,eyeYaw=0;
+  let eyeLevel=false,eyeYaw=0,eyePitch=0;
   let civicWalkers=[];
   function releaseHeldWalk(){
    // Focused or hidden tabs can indefinitely postpone their scheduled RAF.
@@ -457,7 +457,7 @@
    releaseHeldWalk();
    walk=null;walkWorld=null;walkWorldKey='';walkRegistry=null;
    walkTerrainRevision=null;
-   eyeLevel=false;eyeYaw=0;
+   eyeLevel=false;eyeYaw=0;eyePitch=0;
    const eyeButton=doc.getElementById('streetPerspective');
    if(eyeButton)eyeButton.setAttribute?.('aria-pressed','false');
    footpath=null;footpathWorld=null;civicWalkers=[];
@@ -530,7 +530,7 @@
    if(walk&&footpathWorld)worldForWalking();
    if(walk&&eyeLevel&&StreetEye){
     StreetEye.draw(canvas,registry,cache,walk,eyeYaw,
-     [...CIVIC_SHELLS,...(Districts?.PLAN?.buildings||[])]);
+     [...CIVIC_SHELLS,...(Districts?.PLAN?.buildings||[])],eyePitch);
    }
    if(walk&&!eyeLevel){
     const ctx=canvas.getContext('2d');
@@ -840,6 +840,16 @@
     if(walk&&key==='f'&&!event.repeat){
      event.preventDefault();toggleNearbyDoor();return;
     }
+    if(walk&&eyeLevel&&['arrowup','arrowdown','arrowleft','arrowright'].includes(key)){
+     // PC street-eye view looks without moving the physical pedestrian or
+     // scrolling the browser. WASD still owns the original 60Hz footsteps.
+     event.preventDefault();
+     if(key==='arrowup')eyePitch=Math.min(.55,eyePitch+.1);
+     if(key==='arrowdown')eyePitch=Math.max(-.55,eyePitch-.1);
+     if(key==='arrowleft')eyeYaw-=.12;
+     if(key==='arrowright')eyeYaw+=.12;
+     refresh();return;
+    }
     if(walk&&['w','a','s','d'].includes(key)){
      event.preventDefault();held.add(key);scheduleWalk();return;
     }
@@ -859,7 +869,9 @@
   refresh();
   return Object.freeze({getState:()=>state,getRegistry:()=>registry,
    getDataset:()=>activeDataset,getWalk:()=>walk,
-   getStreetPerspective:()=>eyeLevel,toggleStreetPerspective,
+   getStreetPerspective:()=>eyeLevel,
+   getStreetLook:()=>Object.freeze({yaw:eyeYaw,pitch:eyePitch}),
+   toggleStreetPerspective,
    getClosedDoors:()=>Object.freeze([...closedDoors].sort()),getFootpath:()=>footpath,
    getCivicWalkers:()=>Object.freeze(civicWalkers.map(a=>Object.freeze({
     id:a.id,x:a.pose.x,z:a.pose.z,y:a.pose.y,tick:a.pose.tick,
