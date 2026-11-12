@@ -41,6 +41,23 @@
     return {...result,route:raw.route};
   }
   function advance(timeline,event,route){
+    // Public callers may pass a restored or externally constructed timeline.
+    // Never let an impossible event history become a valid CH01 consequence.
+    if(!timeline||timeline.version!==1||
+       timeline.briefedBeforeDeparture!==true||
+       timeline.originalMandate!=='civilian liaison and communications support'||
+       !Array.isArray(timeline.events)||
+       timeline.events.length>Object.keys(EVENTS).length)
+      throw new Error('Invalid story timeline');
+    const seen=new Set();
+    for(const prior of timeline.events){
+      if(!Object.values(EVENTS).includes(prior)||seen.has(prior)||
+         !(PREREQUISITES[prior]||[]).every(required=>seen.has(required)))
+        throw new Error('Invalid causal event history');
+      seen.add(prior);
+    }
+    if(seen.has(EVENTS.SAFE_ROUTE)!==['courtyard','harbor'].includes(timeline.route))
+      throw new Error('Invalid local route history');
     if(!Object.values(EVENTS).includes(event))throw new Error('Unknown event');
     if(timeline.events.includes(event))return timeline;
     const required=PREREQUISITES[event]||[];
