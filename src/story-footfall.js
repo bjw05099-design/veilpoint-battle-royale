@@ -114,7 +114,9 @@
    if(distance>stride)distance=stride;
    const surface=surfaceAt(story);
    if(surface==='unavailable')return null;
-   play(surface);
+   // An unavailable audio device must not create a phantom audible step.
+   // Keep distance accounting deterministic while playback is unavailable.
+   if(!play(surface))return null;
    return Object.freeze({surface,distance:traveled,elapsed:now.elapsed});
   }
   function setVolume(v){
