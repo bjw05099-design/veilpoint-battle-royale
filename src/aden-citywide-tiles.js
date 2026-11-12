@@ -105,6 +105,15 @@
   if(!a||!b||!GRIDS.includes(a.gridSize)||!GRIDS.includes(b.gridSize)||
     !validFinite(toleranceMetres)||toleranceMetres<0||toleranceMetres>1)
    throw new RangeError('Invalid tile seam audit');
+  // A missing or malformed edge sample must never turn into NaN and silently
+  // pass a terrain seam. Audit only complete, finite, bounded source grids.
+  for(const tile of [a,b]){
+   if(!Array.isArray(tile.samples)||
+      tile.samples.length!==tile.gridSize*tile.gridSize||
+      !tile.samples.every(h=>validFinite(h)&&h>=-500&&h<=3000)||
+      tileKey(tile.tx,tile.tz)!==tile.key)
+    throw new RangeError('Invalid terrain source for seam audit');
+  }
   const dx=b.tx-a.tx,dz=b.tz-a.tz;
   if(Math.abs(dx)+Math.abs(dz)!==1)throw new RangeError('Tiles are not cardinal neighbors');
   // Adjacent licensed/local tiles can legitimately have 17/33/65 samples.
