@@ -1617,10 +1617,21 @@
         ?pedestrianRouteCache.get(state.world.player,walkTarget,state.world.obstacles)
         :Pedestrian.plan(state.world.player,walkTarget,state.world.obstacles))
       :null;
+    // A short displayed line must not pass straight through an actual
+    // civilian standing in front of the captain. This is a local read-only
+    // 60Hz-world observation, NOT an extra escort order or NPC radar.
+    const localPeople=[state.worker,state.mara,state.civilianWalker,
+      state.kimJiyoon,state.guide?.active?state.guide:null,
+      state.civicCrossing?.civilian].filter(person=>
+       person&&Number.isFinite(person.x)&&Number.isFinite(person.z));
+    const pedestrianYield=!!walkRoute&&!!Pedestrian?.firstLegOccupiedByCivilian?.(
+      walkRoute,state.world.player,localPeople,state.world.obstacles);
+    const visibleWalkRoute=pedestrianYield?null:walkRoute;
     if(Navigation&&$('navigation'))$('navigation').textContent=Navigation.story(
       state.world.player,publicMarkers,Navigation.markerIndex(publicMarkers,guidanceId),
       state.world.obstacles,primaryTarget,escortHint)+
-      (walkRoute?.kind==='detour'?Pedestrian.instruction(walkRoute):'')+
+      (visibleWalkRoute?.kind==='detour'?Pedestrian.instruction(visibleWalkRoute):'')+
+      (pedestrianYield?' · 가까운 보행자 통행 중 · 현장에서 양보 후 다시 확인':'')+
       (publicMarkers.length>1?' · ['+
          (Desktop.actionFor('KeyN',desktopUi.get())==='guidance'
            ?'N':Desktop.keyLabel(bindings.guidance))+
@@ -1732,7 +1743,7 @@
       :interactPrompt+' '+nearby.label+' 조사';
     const f=limiter.stats();
     $('fps').textContent='FPS: '+(f.actualFps||'--')+' / 상한 '+f.cap+' · 시뮬레이션 60Hz'+(renderer&&renderer.lastStaticVisibilityStats?' · 정적 지형 '+renderer.lastStaticVisibilityStats.submittedVertices+'/'+renderer.lastStaticVisibilityStats.totalVertices+' 버텍스':'');
-    minimap(walkRoute);
+    minimap(visibleWalkRoute);
   }
   function frame(now){
     global.requestAnimationFrame(frame);

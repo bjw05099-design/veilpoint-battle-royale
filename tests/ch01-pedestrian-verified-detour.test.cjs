@@ -99,8 +99,10 @@ test('story PC route uses one verified target for both text and minimap, and is 
  assert.match(app,/const Pedestrian=global\.VeilpointStoryPedestrianGuidance/);
  assert.match(app,/Pedestrian\?\.targetFor\(state\.world\.player,publicMarkers/);
  assert.match(app,/Pedestrian\.plan\(state\.world\.player/);
- assert.match(app,/Pedestrian\.instruction\(walkRoute\)/);
- assert.match(app,/minimap\(walkRoute\)/);
+ assert.match(app,/Pedestrian\.instruction\(visibleWalkRoute\)/);
+ assert.match(app,/minimap\(visibleWalkRoute\)/);
+ assert.match(app,/const visibleWalkRoute=pedestrianYield\?null:walkRoute/);
+ assert.match(app,/firstLegOccupiedByCivilian/);
  const map=read('src/story-local-minimap.js');
  assert.match(map,/walkRoute\?\.kind==='detour'/);
  assert.match(map,/ctx\.setLineDash\?\.\(\[4,3\]\)/);

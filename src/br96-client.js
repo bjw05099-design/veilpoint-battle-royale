@@ -282,6 +282,8 @@ function render(){
     '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.benchResting?' · 공공 벤치에서 휴식 중':w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.benchResting?'앉아서 휴식':w.self.crouched?'낮춘 자세':'서기')+(w.self.pedestrianFlow?.busy?' · 보행 혼잡 '+Math.round(w.self.pedestrianFlow.mobility*100)+'%':'')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
+    (w.self.areaReturn?' · 경계 복귀 약 '+Math.ceil(w.self.areaReturn.straightMetres)+
+       'm (직선 방향 · 장애물 경로 미검증)':'')+
     '\n우리 분대 발견 장소 '+(w.squadLandmarks?.length||0)+' · 전원 직접 방문 '+(w.squadLandmarks?.filter(site=>site.wholeSquadVisited).length||0)+
     (w.self.surface?.wet?('\n바닥: '+(w.self.surface.waveActive?'잔물결 유입':'젖은 적재장')+
       ' · 이동 효율 '+Math.round(w.self.surface.mobility*100)+'%'):'')+
@@ -489,6 +491,14 @@ function draw(w){
   dot(w.spectatorView,'#e9d093',9);
   ctx.strokeStyle='#f4e0a3';ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(x(w.spectatorView.x),z(w.spectatorView.z),13,0,Math.PI*2);ctx.stroke();
+ }
+ if(w.self.eligible&&w.self.areaReturn){
+  // Draw only the server-derived own-body-to-public-edge line. It is
+  // not a walkable route promise, rival tracker, or client teleport.
+  const returnTo=w.self.areaReturn;
+  ctx.strokeStyle='#e6c783';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x(w.self.x),z(w.self.z));
+  ctx.lineTo(x(returnTo.targetX),z(returnTo.targetZ));ctx.stroke();
  }
  dot(w.self,w.self.eligible?'#b7eca9':'#6f7e83',w.self.eligible?8:4);
  ctx.fillStyle='#d7e9e8';ctx.font='15px system-ui';

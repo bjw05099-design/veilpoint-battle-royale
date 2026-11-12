@@ -51,4 +51,25 @@ function positionInArea(area,x,z){
   metersToEdge:Math.round(Math.abs(margin)*100)/100,
   nearEdge:margin>=0&&margin<=12});
 }
-module.exports={brPlayableArea,positionInArea,TICKS_PER_SECOND,STAGES,CENTER_STAGES};
+// Direction to the *published* area boundary from the authenticated body's
+// current server position. The endpoint is 2m INSIDE the boundary; this is
+// geometric guidance, not obstacle-checked navigation, automatic movement,
+// an opponent tracker, or a client-authored location.
+function reentryGuidance(area,x,z,inset=2){
+ const reading=positionInArea(area,x,z);
+ if(!Number.isFinite(inset)||inset<0||inset>10||inset>=area.radius)
+  throw new RangeError('invalid_area_inset');
+ if(!reading.outside)return null;
+ const dx=area.cx-x,dz=area.cz-z,length=Math.hypot(dx,dz);
+ if(!Number.isFinite(length)||length<=0)throw new RangeError('invalid_area_position');
+ const nx=dx/length,nz=dz/length;
+ const targetRadius=area.radius-inset;
+ const targetX=area.cx-nx*targetRadius,
+  targetZ=area.cz-nz*targetRadius;
+ return Object.freeze({towardX:nx,towardZ:nz,
+  targetX,targetZ,
+  straightMetres:Math.round((length-targetRadius)*100)/100,
+  obstacleRouteVerified:false});
+}
+module.exports={brPlayableArea,positionInArea,reentryGuidance,
+ TICKS_PER_SECOND,STAGES,CENTER_STAGES};

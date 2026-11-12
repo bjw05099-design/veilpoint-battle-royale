@@ -8,7 +8,7 @@ const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
 const {BrSpatialIndex}=require('./br-spatial-index.cjs');
 const {assessPedestrianFlow}=require('./br96-pedestrian-flow.cjs');
 const {settleBodyProposals}=require('./br96-simultaneous-bodies.cjs');
-const {brPlayableArea,positionInArea}=require('./br-playable-area.cjs');
+const {brPlayableArea,positionInArea,reentryGuidance}=require('./br-playable-area.cjs');
 const STEP=1/60, RADIUS=.85, SPEED=4.5, LEASE_TICKS=45;
 // Server-authored movement budget: sprint is faster but finite, with a
 // recovery threshold that prevents instant exhaustion-toggle exploits.
@@ -956,6 +956,8 @@ class BrSquadWorld {
         benchResting:me.eligible&&me.benchResting,
         sprintHeld:me.sprintHeld,crouched:me.crouchHeld,sprintDepleted:me.sprintDepleted,
         area:positionInArea(playableArea,me.x,me.z),
+        // Local guidance only from this authenticated body; no hidden rivals.
+        areaReturn:me.eligible?reentryGuidance(playableArea,me.x,me.z):null,
         outsideAreaTicks:me.outsideAreaTicks,
         boundaryGraceTicksRemaining:me.eligible&&positionInArea(playableArea,me.x,me.z).outside
           ?Math.max(0,BOUNDARY_GRACE_TICKS-me.outsideStreakTicks):me.eligible?BOUNDARY_GRACE_TICKS:null,
