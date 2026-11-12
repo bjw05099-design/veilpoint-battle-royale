@@ -8,7 +8,8 @@ test('opening follows predeparture, arrival, escalation, decision at fixed 60Hz'
  assert.equal(Playback.current(s).id,'briefed-in-korea');
  for(let i=0;i<Playback.TICKS_PER_SCENE;i++)s=Playback.tick(s);
  assert.equal(Playback.current(s).id,'arrival');
- for(let i=0;i<Playback.TICKS_PER_SCENE*(Opening.SCENES.length-1);i++)s=Playback.tick(s);
+ for(let scene=1;scene<Opening.SCENES.length;scene++)
+  for(let i=0;i<Playback.sceneTicks(scene);i++)s=Playback.tick(s);
  assert.equal(s.finished,true);
  assert.equal(Playback.current(s),null);
  assert.deepEqual(Playback.tick(s),s);

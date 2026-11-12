@@ -1,6 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const Presentation=require('../src/ch01-opening-presentation.js');
+const Opening=require('../src/ch01-opening.js');
 
 function element(){
  const listeners=new Map(),classes=new Set();
@@ -67,7 +68,15 @@ test('manual next advances canonical chronology and automatically restores menu 
  f.next.click();
  assert.notEqual(f.line.textContent,first);
  assert.equal(ctl.active(),true);
- f.next.click();f.next.click();f.next.click();
+ const visited=[first,f.line.textContent];
+ for(let i=2;i<Opening.SCENES.length;i++){
+  f.next.click();
+  assert.equal(ctl.active(),true,'new CH01 scene must be shown before closing');
+  assert.equal(f.speaker.textContent,Opening.SCENES[i].speaker);
+  visited.push(f.line.textContent);
+ }
+ assert.equal(new Set(visited).size,Opening.SCENES.length,'every authored scene is visibly distinct');
+ f.next.click();
  assert.equal(ctl.active(),false);
  assert.equal(f.menu.classList.contains('hidden'),false);
  assert.equal(f.show.focused,true);

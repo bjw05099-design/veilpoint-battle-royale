@@ -9,17 +9,22 @@
  'use strict';
  if(!Opening)throw new Error('opening_required');
  const TICKS_PER_SCENE=180;
+ // Existing four opening beats remain at their original 180 ticks; new
+ // civilian consequences can hold a little longer without changing the 60Hz
+ // clock, adding a saved-game field, or using variable wall-clock timing.
+ const sceneTicks=index=>Opening.SCENES[index]?.durationTicks||TICKS_PER_SCENE;
  function initial(){return {version:1,scene:0,ticks:0,finished:false};}
  function restore(raw){
   if(!raw||typeof raw!=='object')return initial();
   const scene=Number.isInteger(raw.scene)?Math.max(0,Math.min(Opening.SCENES.length,raw.scene)):0;
-  const ticks=Number.isInteger(raw.ticks)?Math.max(0,Math.min(TICKS_PER_SCENE-1,raw.ticks)):0;
+  const maxTicks=scene===Opening.SCENES.length?1:sceneTicks(scene);
+  const ticks=Number.isInteger(raw.ticks)?Math.max(0,Math.min(maxTicks-1,raw.ticks)):0;
   return {version:1,scene,ticks:scene===Opening.SCENES.length?0:ticks,finished:scene===Opening.SCENES.length};
  }
  function tick(raw){
   const state=restore(raw);
   if(state.finished)return state;
-  if(state.ticks+1<TICKS_PER_SCENE)return {...state,ticks:state.ticks+1};
+  if(state.ticks+1<sceneTicks(state.scene))return {...state,ticks:state.ticks+1};
   return skip(state);
  }
  function skip(raw){
@@ -42,5 +47,5 @@
    return {...initial(),scene:Opening.SCENES.length,finished:true};
   return restore(raw);
  }
- return Object.freeze({TICKS_PER_SCENE,initial,restore,tick,skip,previous,current,forCheckpoint});
+ return Object.freeze({TICKS_PER_SCENE,sceneTicks,initial,restore,tick,skip,previous,current,forCheckpoint});
 });
