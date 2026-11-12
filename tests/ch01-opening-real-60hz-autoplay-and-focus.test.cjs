@@ -51,7 +51,7 @@ test('actual PC optional predeparture caption clock advances chronologically and
   assert.match(t.line.textContent,/출국 전/);
   const sceneCount=Opening.SCENES.length;
   assert.ok(sceneCount>=4);
-  const framesNeeded=sceneCount*Playback.TICKS_PER_SCENE;
+  const framesNeeded=Opening.SCENES.reduce((total,_scene,i)=>total+Playback.sceneTicks(i),0);
   let lastText=t.line.textContent,changes=0;
   for(let i=0;i<framesNeeded+20&&t.controller.active();i++){
    t.frame(1000+i*1000/60);
@@ -93,7 +93,8 @@ test('both timed completion and manual finish notify once; destroyed intro canno
  try{
   let done=0;
   const mounted=Presentation.mount(t.doc,undefined,()=>done++);
-  for(let i=0;i<Playback.TICKS_PER_SCENE*Opening.SCENES.length+15;i++)
+  const totalTicks=Opening.SCENES.reduce((total,_scene,i)=>total+Playback.sceneTicks(i),0);
+  for(let i=0;i<totalTicks+15;i++)
    mounted.tick();
   assert.equal(mounted.snapshot().visible,false);
   assert.equal(done,1);
