@@ -105,7 +105,13 @@
     reset();track=now;return null;
    }
    track=now;
-   if(traveled<1e-6)return null;
+   // Standing still for a meaningful interval ends the previous stride.
+   // Otherwise a nearly completed step can fire immediately on resuming
+   // after a long stationary pause, despite no new foot contact.
+   if(traveled<1e-6){
+    if(dt>=.12){distance=0;lastSurface=null;}
+    return null;
+   }
    const surface=surfaceAt(story);
    if(surface==='unavailable'){distance=0;lastSurface=null;return null;}
    // Never carry a previous surface's incomplete step into a new material.
