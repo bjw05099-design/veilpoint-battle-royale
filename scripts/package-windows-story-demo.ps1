@@ -86,6 +86,19 @@ No real Aden-city coverage or RTX 3070/165FPS claim has been verified.
   Copy-Item -LiteralPath (Join-Path $stage 'game/src/story-app.js') -Destination (Join-Path $probe 'game/src/story-app.js') -Force
   $restored=Start-Process -FilePath $probeExe -ArgumentList '--verify-package' -Wait -PassThru
   if ($restored.ExitCode -ne 0) { throw 'Story-only EXE rejected restored story script' }
+  # BR-free release promises are separate from the executable SHA manifest;
+  # verify the actual extracted PE rejects a changed story limitation notice.
+  $noticePath=Join-Path $probe 'game/NOTICE.txt'
+  Add-Content -LiteralPath $noticePath -Value 'Unsupported full-campaign certification'
+  $badNotice=Start-Process -FilePath $probeExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($badNotice.ExitCode -eq 0) {
+    throw 'Story-only EXE accepted a changed release limitation notice'
+  }
+  Copy-Item -LiteralPath (Join-Path $stage 'game/NOTICE.txt') -Destination $noticePath -Force
+  $goodNotice=Start-Process -FilePath $probeExe -ArgumentList '--verify-package' -Wait -PassThru
+  if ($goodNotice.ExitCode -ne 0) {
+    throw 'Story-only EXE rejected the restored release limitation notice'
+  }
   Write-Host '[VEILPOINT] Real story-only EXE preflight passed: clean=0, tampered=nonzero, restored=0.'
   Write-Host "[VEILPOINT] Independent story-only WebView2 ZIP verified: $zip"
   Write-Host "[VEILPOINT] SHA256: $sha"
