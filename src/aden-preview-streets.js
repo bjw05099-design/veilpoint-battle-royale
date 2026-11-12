@@ -70,11 +70,28 @@
   for(let i=0;i<nodes.length;i++){
    const p=nodes[i],a=nodes[Math.max(0,i-1)],
     b=nodes[Math.min(nodes.length-1,i+1)];
-   const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
-   if(len<.001)throw new RangeError('Invalid street tangent');
-   // One averaged tangent per station shares each road edge across
-   // adjoining triangles, including at ordinary civilian street corners.
-   const ox=-dz/len*half,oz=dx/len*half;
+   // The previous average-tangent offset pinched a 6m road to ~4.24m
+   // through a 90-degree bend. Intersect the actual offset edges instead:
+   // the corner's miter projects to half the width on BOTH road segments.
+   // Long hairpin miters are bounded so no pavement spikes cross homes.
+   const backX=p.x-a.x,backZ=p.z-a.z,
+    foreX=b.x-p.x,foreZ=b.z-p.z;
+   const backLen=Math.hypot(backX,backZ),foreLen=Math.hypot(foreX,foreZ);
+   const inX=backLen>=.001?backX/backLen:foreX/foreLen,
+    inZ=backLen>=.001?backZ/backLen:foreZ/foreLen,
+    outX=foreLen>=.001?foreX/foreLen:inX,
+    outZ=foreLen>=.001?foreZ/foreLen:inZ;
+   if(![inX,inZ,outX,outZ].every(Number.isFinite))
+    throw new RangeError('Invalid street tangent');
+   const normalIn={x:-inZ,z:inX},normalOut={x:-outZ,z:outX},
+    summedX=normalIn.x+normalOut.x,summedZ=normalIn.z+normalOut.z,
+    size=Math.hypot(summedX,summedZ);
+   if(size<.001)throw new RangeError('Reversing street segment');
+   const miterX=summedX/size,miterZ=summedZ/size,
+    projection=miterX*normalIn.x+miterZ*normalIn.z;
+   if(projection<.625)throw new RangeError('Street corner too sharp for physical width');
+   const offset=half/projection;
+   const ox=miterX*offset,oz=miterZ*offset;
    out.push(Object.freeze([
     Object.freeze({x:p.x+ox,z:p.z+oz}),
     Object.freeze({x:p.x-ox,z:p.z-oz})
