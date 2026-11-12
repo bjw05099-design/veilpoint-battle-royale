@@ -799,6 +799,11 @@
   }
   function interact(){
     if(!canAct()||state.phase==='complete')return;
+    // Capture the actually reachable local F target BEFORE the state changes.
+    // This is audio positioning only; gameplay authority and V2 saves still
+    // come exclusively from the original CH01 interaction transition.
+    const localSource=Story.nearest(state);
+    const listener={x:state.world.player.x,z:state.world.player.z};
     const result=Story.interact(state);
     if(!result.ok){
       // A physically blocked cargo exit changes the mission subtitle/message
@@ -807,7 +812,11 @@
       return;
     }
     guidanceId=null;
-    audio.play(state.phase==='complete'?'complete':'interact');
+    audio.play(state.phase==='complete'?'complete':'interact',
+      state.phase!=='complete'&&localSource?{
+        listener,source:{x:localSource.x,z:localSource.z},
+        obstacles:state.world.obstacles
+      }:null);
     persist();
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete')presentCompletion();

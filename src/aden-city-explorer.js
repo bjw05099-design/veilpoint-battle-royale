@@ -430,6 +430,20 @@
    a.key.localeCompare(b.key));
   return Object.freeze({x:tiles[0].x,z:tiles[0].z,key:tiles[0].key});
  }
+ // Shared human-sized occupancy test for the current streamed pedestrian
+ // preview. There is no network actor, teleporting, invisible wall or
+ // hidden civilian state. Every step checks the actual current people.
+ function civicPoseClear(pose,others,radius=Walk?.RADIUS_METRES||.55){
+  if(!pose||![pose.x,pose.z,radius].every(Number.isFinite)||radius<=0||
+     !Array.isArray(others))return false;
+  return others.every(other=>!other||![other.x,other.z].every(Number.isFinite)||
+    Math.hypot(pose.x-other.x,pose.z-other.z)>=2*radius+.10);
+ }
+ function publicDoorClear(world,people){
+  return !!Walk&&Array.isArray(people)&&people.every(person=>
+    person&&Number.isFinite(person.x)&&Number.isFinite(person.z)&&
+    !!Walk.probe(world,person.x,person.z));
+ }
  function attach(doc=typeof document!=='undefined'?document:null){
   if(!doc)return null;
   const canvas=doc.getElementById('terrainCanvas'),
@@ -655,7 +669,11 @@
     const next=new Set(closedDoors);next.add(room.id);
     const candidate=Walk.createWorld(registry,cache,new Set(cache.keys()),
      [...CIVIC_SHELLS,...Districts.PLAN.buildings],next);
-    if(!Walk.probe(candidate,walk.x,walk.z))return false;
+    // Closing a physical public door may not trap a REAL pedestrian whose
+    // body is in the threshold. Test the player AND every streamed resident
+    // against the prospective solid world before committing the door state.
+    if(!publicDoorClear(candidate,[walk,...civicWalkers.map(a=>a.pose)]))
+     return false;
     closedDoors.add(room.id);
    }
    walkWorld=null;walkWorldKey='';footpath=null;footpathWorld=null;
@@ -682,13 +700,14 @@
      if((actor.direction>0&&actor.pose.x>=actor.maxX-.04)||
         (actor.direction<0&&actor.pose.x<=actor.minX+.04))
        actor.direction*=-1;
-     const dx=actor.direction*Walk.SPEED_METRES_PER_SECOND/Walk.TICKS_PER_SECOND;
-     // Yield to the nearby player's real body, instead of gliding through
-     // it. The existing 60Hz terrain and building test checks every step.
-     const occupied=Math.hypot(actor.pose.x+dx-walk.x,
-       actor.pose.z-walk.z)<1.15;
-     const next=Walk.step(world,actor.pose,{east:occupied?0:actor.direction});
-     if(next.blocked)actor.direction*=-1;
+     // Probe the actual next fixed-step landing, then yield if either the
+     // captain or ANOTHER currently living pedestrian occupies it.
+     const proposedCivilian=Walk.step(world,actor.pose,{east:actor.direction});
+     const people=[walk,...civicWalkers.filter(other=>other!==actor)
+       .map(other=>other.pose)];
+     const occupied=!civicPoseClear(proposedCivilian,people);
+     const next=occupied?Walk.step(world,actor.pose,{east:0}):proposedCivilian;
+     if(!occupied&&next.blocked)actor.direction*=-1;
      actor.pose=next;
     }
    }
@@ -882,5 +901,6 @@
  }
  return Object.freeze({SOURCE,fictionalHeight,createPreviewRegistry,
   CIVIC_SHELLS,viewState,pan,setZoom,setRelief,setContours,shorelineSegments,terrainTileVisible,draw,
-  importedTerrainFocus,terrainRevision,terrainRevisionMatches,interactiveKeyTarget,attach});
+  importedTerrainFocus,terrainRevision,terrainRevisionMatches,
+  civicPoseClear,publicDoorClear,interactiveKeyTarget,attach});
 });
