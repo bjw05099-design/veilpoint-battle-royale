@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
+const {performance}=require('node:perf_hooks');
 // VEILPOINT BR / server-owned 96-human squad staging rules.
 // This is a real shared lobby model, NOT yet 96-player live world replication.
 const SQUADS = 16, SQUAD_SIZE = 6, CAPACITY = SQUADS * SQUAD_SIZE;
@@ -82,7 +83,7 @@ class BrSquadLobby {
     if(invite)return {ok:false,reason:'squad_full'};
     throw new Error('inconsistent_squad_roster');
   }
-  chat(token,raw,nowMs=Date.now()){
+  chat(token,raw,nowMs=Math.floor(performance.now())){
     const member=this.players.get(token);
     if(!member)throw new RangeError('unknown_session');
     if(this.phase!=='assembling')return {ok:false,reason:'roster_locked'};
@@ -92,6 +93,8 @@ class BrSquadLobby {
     if(!Number.isSafeInteger(nowMs)||nowMs<0)
       throw new RangeError('invalid_server_clock');
     const last=this.lobbyChatLast.get(token);
+    // Use a monotonic server clock by default. A wall-clock correction must
+    // not extend a player's 3s cooldown by minutes or hours.
     if(last!==undefined&&nowMs-last<3000)return {ok:false,reason:'chat_cooldown'};
     this.lobbyChatLast.set(token,nowMs);
     const event={id:++this.lobbyChatSerial,slot:member.slot+1,text:raw,authorId:member.id};
