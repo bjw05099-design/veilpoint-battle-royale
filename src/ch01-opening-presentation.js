@@ -59,7 +59,14 @@
   const host=doc.getElementById('chapterOpening');
   if(!button||!menu||!host)return null;
   const TICKS_PER_SECOND=60;
-  let controller=null,frameId=0,lastTime=null,carry=0;
+  let controller=null,frameId=0,lastTime=null,carry=0,paused=false;
+  function showPauseState(){
+   if(!controller)return;
+   const indicator=host.querySelector('[data-opening-pause-state]');
+   if(indicator)indicator.textContent=paused?
+    '자동 재생 일시정지 · P로 계속':'자동 재생 중 · P로 일시정지';
+   host.setAttribute?.('data-auto-paused',String(paused));
+  }
   function cancelPlayback(){
    if(frameId&&typeof window!=='undefined'&&
       typeof window.cancelAnimationFrame==='function')
@@ -68,7 +75,7 @@
   }
   function frame(now){
    frameId=0;
-   if(!controller||doc.hidden||!Number.isFinite(now))return;
+   if(!controller||doc.hidden||paused||!Number.isFinite(now))return;
    if(lastTime!==null)
     carry+=Math.max(0,Math.min(.1,(now-lastTime)/1000));
    lastTime=now;
@@ -80,12 +87,13 @@
    if(controller)schedulePlayback();
   }
   function schedulePlayback(){
-   if(frameId||!controller||doc.hidden||typeof window==='undefined'||
+   if(frameId||!controller||doc.hidden||paused||typeof window==='undefined'||
       typeof window.requestAnimationFrame!=='function')return;
    frameId=window.requestAnimationFrame(frame);
   }
   function close(){
    cancelPlayback();
+   paused=false;
    if(!controller)return;
    controller.destroy();
    controller=null;
@@ -97,12 +105,28 @@
    controller=mount(doc,undefined,close);
    if(!controller)return;
    menu.classList.add('hidden');
+   showPauseState();
    const nextButton=host.querySelector('[data-opening-next]');
    nextButton.focus({preventScroll:true});
    schedulePlayback();
   }
+  function togglePause(){
+   if(!controller)return false;
+   paused=!paused;
+   showPauseState();
+   if(paused)cancelPlayback();
+   else schedulePlayback();
+   return paused;
+  }
   function onKeydown(event){
    if(!controller)return;
+   // P pauses the optional dialogue without exiting or advancing it.
+   // Next / Enter remains usable while paused; gameplay keys stay isolated.
+   if(typeof event.key==='string'&&event.key.toLowerCase()==='p'&&
+      !event.repeat&&!event.ctrlKey&&!event.altKey&&!event.metaKey){
+    event.preventDefault();event.stopPropagation?.();
+    togglePause();return;
+   }
    // This is a true single-button PC dialog. Focus must not escape into
    // hidden game/menu controls when Shift+Tab or Tab is pressed. Otherwise
    // Space/Enter may activate a hidden button behind the opening scene.
@@ -128,7 +152,8 @@
    if(doc.hidden)cancelPlayback();
    else if(controller)schedulePlayback();
   });
-  return {show,close,active(){return !!controller;}};
+  return {show,close,active(){return !!controller;},
+   paused(){return !!controller&&paused;},togglePause};
  }
  if(typeof document!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>attachMenu(document),{once:true});
