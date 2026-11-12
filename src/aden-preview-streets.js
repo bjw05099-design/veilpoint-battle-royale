@@ -40,6 +40,11 @@
   return list;
  })());
  const ELEVATION_OFFSET=.045;
+ // The drawn ribbon must follow the actual loaded mesh, not appear as
+ // a false bridge across a missing surface or a cliff. This is a visual
+ // civilian-road constraint only; 60Hz collision still comes from terrain.
+ const MAX_ROAD_SLOPE_DEGREES=20;
+ const MAX_ROAD_GRADE=Math.tan(MAX_ROAD_SLOPE_DEGREES*Math.PI/180);
  function stations(path,step=6){
   if(!path||!Array.isArray(path.points)||path.points.length<2||
      !Number.isFinite(path.width)||path.width<3||path.width>12||
@@ -82,9 +87,26 @@
   if(!active.has(key))return null;
   const tile=registry.get(key),slot=cache.get(key);
   if(!tile||!slot||slot.sourceTile!==tile||!slot.mesh)return null;
-  const height=Tiles.heightOnTerrainMesh(slot.mesh,p.x,p.z);
-  if(height<0)return null; // no speculative road over sea or missing land
-  return Object.freeze([p.x,height+ELEVATION_OFFSET,p.z]);
+  const ground=Tiles.terrainSurface(slot.mesh,p.x,p.z);
+  if(ground.elevationMetres<0||ground.slopeDegrees>MAX_ROAD_SLOPE_DEGREES)
+   return null; // sea, missing mesh and steep cliffs never imply roads
+  return Object.freeze([p.x,ground.elevationMetres+ELEVATION_OFFSET,p.z]);
+ }
+ function supportedSegment(prev,next,registry,cache,active){
+  // Check the two physical road edges AND the centre between stations.
+  // A painted road whose endpoints alone are valid can otherwise bridge a
+  // missing terrain triangle or a severe change in height at the midpoint.
+  const a=prev[0],b=prev[1],c=next[0],d=next[1];
+  const grade=(u,v)=>Math.abs(u[1]-v[1])<=
+   Math.hypot(u[0]-v[0],u[2]-v[2])*MAX_ROAD_GRADE+1e-8;
+  if(!grade(a,b)||!grade(c,d)||!grade(a,c)||!grade(b,d))return false;
+  const midpoint={x:(a[0]+b[0]+c[0]+d[0])/4,
+   z:(a[2]+b[2]+c[2]+d[2])/4};
+  const ground=sample(midpoint,registry,cache,active);
+  if(!ground)return false;
+  // No floating slab: middle ground must agree with the corner footprint.
+  const expected=(a[1]+b[1]+c[1]+d[1])/4;
+  return Math.abs(ground[1]-expected)<=.65;
  }
  function triangulate(registry,cache,active,routes=ROUTES){
   if(!(registry instanceof Map)||!(cache instanceof Map)||
@@ -96,7 +118,8 @@
    let prev=null;
    for(const endpoints of path){
     const next=endpoints.map(p=>sample(p,registry,cache,active));
-    if(prev&&prev.every(Boolean)&&next.every(Boolean)){
+    if(prev&&prev.every(Boolean)&&next.every(Boolean)&&
+       supportedSegment(prev,next,registry,cache,active)){
      const a=prev[0],b=prev[1],c=next[0],d=next[1];
      out.push(Object.freeze({roadId:route.id,
       vertices:Object.freeze([a,b,c])}));
@@ -108,6 +131,7 @@
   }
   return Object.freeze(out);
  }
- return Object.freeze({QUARTERS,ROUTES,ELEVATION_OFFSET,stations,edges,triangulate,
+ return Object.freeze({QUARTERS,ROUTES,ELEVATION_OFFSET,MAX_ROAD_SLOPE_DEGREES,
+  stations,edges,triangulate,
   geographicAccuracyVerified:false,hasGameCollision:false});
 });

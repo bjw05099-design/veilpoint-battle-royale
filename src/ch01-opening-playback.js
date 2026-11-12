@@ -28,6 +28,13 @@
   const scene=state.scene+1;
   return {version:1,scene,ticks:0,finished:scene===Opening.SCENES.length};
  }
+ // An optional review moves to a scene already heard, resetting its local
+ // 60Hz caption clock. Never change active CH01 saves or turn back the game.
+ function previous(raw){
+  const state=restore(raw);
+  if(state.finished||state.scene===0)return state;
+  return {version:1,scene:state.scene-1,ticks:0,finished:false};
+ }
  function current(raw){const state=restore(raw);return state.finished?null:Opening.SCENES[state.scene];}
  function forCheckpoint(chapterState,raw){
   // A checkpoint with meaningful CH01 progress must not be reset to the intro.
@@ -35,5 +42,5 @@
    return {...initial(),scene:Opening.SCENES.length,finished:true};
   return restore(raw);
  }
- return Object.freeze({TICKS_PER_SCENE,initial,restore,tick,skip,current,forCheckpoint});
+ return Object.freeze({TICKS_PER_SCENE,initial,restore,tick,skip,previous,current,forCheckpoint});
 });
