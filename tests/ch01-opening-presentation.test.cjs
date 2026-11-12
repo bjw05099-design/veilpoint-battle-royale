@@ -8,6 +8,8 @@ test('briefing precedes arrival and escalation; scene advances by explicit actio
  s=Presentation.next(s.state);assert.match(s.place,/항구/);
  s=Presentation.next(s.state);assert.match(s.line,/충돌/);
  s=Presentation.next(s.state);assert.match(s.line,/원래 파견 임무/);
+ s=Presentation.next(s.state);assert.match(s.line,/직접 확인/);assert.equal(s.speaker,'조현지');
+ s=Presentation.next(s.state);assert.match(s.line,/아직 모르는/);assert.equal(s.speaker,'이수혁');
  s=Presentation.next(s.state);assert.equal(s.visible,false);
 });
 test('saved opening playback resumes without losing ticks',()=>{
