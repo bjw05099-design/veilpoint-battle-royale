@@ -12,12 +12,14 @@
     LOCAL_GUIDE:'local_guide',SAFE_ROUTE:'safe_route',
     LOCAL_AID_OBSERVED:'local_aid_observed',
     CIVILIAN_WALK_IN:'civilian_walk_in',
+    CIVIC_CROSSING_REACHED:'civic_crossing_reached',
     WORKER_REACHED_SIDE_LANE:'worker_reached_side_lane',EXIT:'exit'
   });
   const PREREQUISITES=Object.freeze({
     escalation:['arrived'],contact_lost:['escalation'],
     local_guide:['escalation'],safe_route:['local_guide'],
     local_aid_observed:['safe_route'],civilian_walk_in:['escalation'],
+    civic_crossing_reached:['escalation','contact_lost'],
     worker_reached_side_lane:['escalation','contact_lost'],
     exit:['contact_lost','safe_route']
   });
@@ -87,6 +89,20 @@
       Number.isFinite(civilian.x)&&Number.isFinite(civilian.z)&&
       civilian.x>=-4.6&&civilian.x<=-1.4&&Math.abs(civilian.z+58)<=.65;
     if(witnessedWalkIn)result=advance(result,EVENTS.CIVILIAN_WALK_IN);
+    // The CH01 60Hz crossing resident must personally arrive at the saved
+    // physical destination after receiving local help. An 'assisted' menu flag
+    // is not proof of arrival, and an unseen/invalid coordinate earns nothing.
+    // This is an optional observed consequence, never a new exit requirement.
+    const crossing=state.civicCrossing;
+    const crossingCoords=[crossing?.civilian?.x,crossing?.civilian?.z,
+      crossing?.destination?.x,crossing?.destination?.z];
+    const observedCrossing=state.combat.cleared===true&&
+      crossing?.disrupted===true&&crossing?.assisted===true&&
+      crossingCoords.every(Number.isFinite)&&
+      Math.hypot(crossing.civilian.x-crossing.destination.x,
+        crossing.civilian.z-crossing.destination.z)<1e-6;
+    if(observedCrossing)
+      result=advance(result,EVENTS.CIVIC_CROSSING_REACHED);
     // A real on-foot east route can now be completed without optional
     // documents. An actually reached corridor, a completed moving public
     // gate, and a confirmed CH01 exit prove locally authorized passage.

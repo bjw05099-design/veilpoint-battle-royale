@@ -34,13 +34,16 @@ test('nearest closed public entrance yields to a second physically available ent
  assert.equal(JSON.stringify(scene),before,'route is read-only and never opens a closed door');
  assert.equal(Route.autoMove,false);
 });
-test('a bounded search does not invent a fourth reachable entrance outside the candidate budget',()=>{
+test('closed entrances do not consume the three physically available candidate slots',()=>{
  const Route=routeWithLevelPublicGround();
  const scene=world([room('a',2),room('b',4),room('c',6),room('d',8)],
   ['a','b','c']);
  const result=Route.plan(scene,pedestrian);
- assert.equal(result.status,'door-closed');
- assert.equal(result.roomId,'a');
- assert.equal(result.points.length,0);
+ assert.equal(result.status,'planned');
+ assert.equal(result.roomId,'d');
+ assert.equal(result.points.at(-1).x,8);
+ assert.ok(result.points.length>=2);
+ for(let i=1;i<result.points.length;i++)
+  assert.equal(Route.segment(scene,result.points[i-1],result.points[i]),true);
  assert.equal(Route.plan(world([room('a',2)],['a']),pedestrian).status,'door-closed');
 });
