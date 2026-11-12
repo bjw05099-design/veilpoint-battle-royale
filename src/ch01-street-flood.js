@@ -27,7 +27,22 @@
  // Remaining damp ground still has mild traction loss; there is no instant
  // magical drying or whole-city climate effect.
  function mobility(phase,x,z,drained=false){
-   return 1-(drained===true?.08:.28)*exposure(phase,x,z);
+   // Cleaning the real drain gradually frees the existing walking surface:
+   // the same saved 60Hz work ticks already fade the leaves in both renderers.
+   // A boolean is retained for old callers; the optional world-owned patch
+   // carries the *same* progress as the current playable F interaction.
+   const isPatch=drained&&typeof drained==='object'&&
+     drained.x===PATCH.x&&drained.z===PATCH.z&&
+     drained.w===PATCH.w&&drained.d===PATCH.d;
+   const cleared=drained===true||(isPatch&&drained.cleared===true);
+   const wetness=exposure(phase,x,z);
+   // Keep the exact historic .92 cleared value; floating-point subtraction
+   // .28-.20 can otherwise yield .08000000000000002 and regress existing
+   // public-surface/companion physics contracts without any real change.
+   if(cleared)return 1-.08*wetness;
+   const fraction=isPatch&&Number.isFinite(drained.repairProgress)
+     ?Math.max(0,Math.min(1,drained.repairProgress)):0;
+   return 1-(.28-.20*fraction)*wetness;
  }
  function visible(phase){return phase!=='terminal';}
  // Tiny original public street fixtures are visual ground dressing only:
