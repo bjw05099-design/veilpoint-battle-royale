@@ -160,7 +160,7 @@
  }
  function step(world,state,intent={}){
   if(!state||state.version!==1||!Number.isSafeInteger(state.tick)||
-     state.tick<0||![state.x,state.z,state.y].every(Number.isFinite))
+     state.tick<0||state.tick>=Number.MAX_SAFE_INTEGER||![state.x,state.z,state.y].every(Number.isFinite))
    throw new TypeError('Invalid temporary civilian walk state');
   const east=intent.east??0,south=intent.south??0;
   if(!Number.isFinite(east)||!Number.isFinite(south)||
