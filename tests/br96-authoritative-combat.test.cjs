@@ -28,6 +28,8 @@ test('server computes hits, cadence and 96 independent private finite loadouts',
  assert.equal(target.weapon.health,0);assert.equal(target.eligible,false);
  assert.equal(target.eliminationReason,'combat');
  assert.equal(w.snapshot(token(6)).squadTimeline[0].reason,'combat');
+ assert.match(require('../src/br96-squad-panel.js').roster({
+  squad:[{id:target.id,name:'Teammate'}],world:w.snapshot(token(6))}),/교전으로 탈락/);
  assert.equal(w.fire(token(6),shot(1)).reason,'out_of_round');
  assert.equal(w.reload(token(6),{seq:2}).reason,'out_of_round');
  const view=w.snapshot(token(0));

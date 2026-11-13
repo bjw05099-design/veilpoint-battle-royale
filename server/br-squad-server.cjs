@@ -210,6 +210,9 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       return send(res,409,{error:'round_generation_required'});
     if(Number(generation)!==roundNumber)return send(res,409,{error:'stale_round'});
     const body=await readJson(req,160,bodyTimeoutMs);
+    // The other 96 requests may finish replay consent while this body streams.
+    // Recheck after the await so an old trigger cannot act in the new round.
+    if(Number(generation)!==roundNumber)return send(res,409,{error:'stale_round'});
     const before=world.phase;
     const result=url.pathname==='/fire'?world.fire(token,body):world.reload(token,body);
     if(before==='moving'&&world.phase==='finished')broadcastPrivateWorld();

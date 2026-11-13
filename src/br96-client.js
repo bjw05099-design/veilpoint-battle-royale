@@ -308,7 +308,8 @@ function render(){
     (w.squadTimeline?.length?'\n분대 실제 퇴장 '+w.squadTimeline.length+'/6 · 최근 '+
       w.squadTimeline.at(-1).slot+'번 ('+
       (w.squadTimeline.at(-1).reason==='voluntary_withdrawal'?'자발적 종료':
-       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':'서버 확인')+')':'')+
+       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':
+       w.squadTimeline.at(-1).reason==='combat'?'교전으로 탈락':'서버 확인')+')':'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -360,7 +361,8 @@ function renderJourney(w){
    '종료 당시 본인 상태: '+
      (personal.ownResult==='active_at_finish'?'경기 참가 중':
       personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
-      personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':'종료 사유 확인 필요')+
+      personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':
+      personal.ownResult==='combat'?'교전으로 탈락':'종료 사유 확인 필요')+
    (squad?'\n\n우리 6인 분대의 실제 이동 기록\n'+
       '움직인 인원: '+squad.participantsMoved+'/6명 · 종료 당시 참가 '+squad.activeMembersAtFinish+'/6명\n'+
       '분대 전체 이동 거리: '+n(squad.totalMeters)+'m\n'+

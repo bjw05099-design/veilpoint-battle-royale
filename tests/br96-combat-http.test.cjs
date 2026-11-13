@@ -41,5 +41,23 @@ test('authenticated HTTP combat validates its round, body and private authoritat
   assert.equal(after.self.weapon.loaded,12);assert.equal(after.self.weapon.reserve,35);
   const raw=JSON.stringify(after);
   for(const token of players)assert.equal(raw.includes(token),false);
+  // Exercise a genuinely in-flight body across unanimous next-round consent.
+  for(let i=6;i<96;i++)w.withdraw(players[i]);
+  assert.equal(w.phase,'finished');
+  const http=require('node:http'),body=JSON.stringify({seq:5,yaw:0,pitch:0});
+  let pending;
+  const delayed=new Promise((resolve,reject)=>{
+   pending=http.request(base+'/fire',{method:'POST',headers:{
+    'content-type':'application/json','content-length':Buffer.byteLength(body),
+    'x-player-token':players[0],'x-round-number':'1'}},res=>{
+     let raw='';res.on('data',chunk=>raw+=chunk);res.on('end',()=>resolve({status:res.statusCode,data:JSON.parse(raw)}));
+   });pending.on('error',reject);pending.write(body.slice(0,5));
+  });
+  await new Promise(resolve=>setTimeout(resolve,30));
+  for(const token of players)assert.equal((await post('/replay-consent',{ready:true},token)).status,200);
+  assert.notEqual(host.world,w);pending.end(body.slice(5));
+  const late=await delayed;assert.equal(late.status,409);assert.equal(late.data.error,'stale_round');
+  assert.equal(host.world.actors.get(players[0]).weapon.loaded,12);
+
  }finally{await host.close();}
 });
