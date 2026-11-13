@@ -71,6 +71,9 @@ async function verifyCombatBrowser({rpc,sleep}){
   assert.equal(own.weapon.seq,beforeSeq,'typing R in chat cannot reload');
   assert.equal(own.weapon.loaded,beforeAmmo);assert.deepEqual(own.direction,{x:0,z:0});
   await evaluate('document.getElementById("squadChatInput").blur();true');
+  // Honor Chromium's post-Escape relock cooldown. A subsequent trusted click
+  // is still required; never synthesize pointerLockElement or bypass policy.
+  await sleep(1500);
   await click(centre.x,centre.y);
   await until(()=>evaluate('document.pointerLockElement===document.getElementById("map")'),'reacquire mouse lock');
   await click(centre.x,centre.y);await until(()=>target.weapon.health===10,'second physical hit');

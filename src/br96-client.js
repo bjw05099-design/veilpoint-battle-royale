@@ -685,8 +685,16 @@ function toggleStreetView(){
  // Movement sends only bounded directions. A trigger separately submits bounded
  // view angles; the server alone chooses the origin, hit, ammunition and damage.
 canvas.addEventListener('click',()=>{
- if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
-  canvas.requestPointerLock?.();
+ if(streetView&&currentWorld()&&document.pointerLockElement!==canvas){
+  // Chromium can temporarily refuse a fresh lock immediately after Escape.
+  // Preserve the user's next click rather than emitting an unhandled promise
+  // rejection or silently firing while the browser still owns the pointer.
+  const denied=()=>{
+   if(streetView&&document.pointerLockElement!==canvas)
+    message('마우스 시야를 잠그지 못했습니다. 잠시 후 화면을 다시 클릭하세요.');
+  };
+  try{canvas.requestPointerLock?.()?.catch?.(denied);}catch(_){denied();}
+ }
 });
  // Middle button (pressing the wheel), not wheel scrolling or a keyboard E.
  // The server creates a quickmark at the authenticated actor's true feet.
