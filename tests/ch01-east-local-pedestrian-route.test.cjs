@@ -58,7 +58,10 @@ test('no distant, blocked or pre-escalation eastside E can grant a route',()=>{
 test('new field interaction leaves the PC HUD input, save format and original routes unchanged',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/story-app.js'),'utf8');
  assert.match(app,/const result=Story\.interact\(state\)/);
- assert.match(app,/audio\.play\(state\.phase==='complete'\?'complete':'interact'\)/);
+ assert.match(app,/audio\.play\(state\.phase==='complete'\?'complete':'interact',/);
+ assert.match(app,/const localSource=Story\.nearest\(state\)/);
+ assert.match(app,/state\.phase!=='complete'&&localSource\?\{/);
+ assert.match(app,/listener,source:\{x:localSource\.x,z:localSource\.z\}/);
  assert.match(app,/persist\(\)/);
  const s=afterUnexpectedEscalation();
  go(s,Story.POINTS.coordinatorRequest);

@@ -799,6 +799,11 @@
   }
   function interact(){
     if(!canAct()||state.phase==='complete')return;
+    // Capture the actually reachable local F target BEFORE the state changes.
+    // This is audio positioning only; gameplay authority and V2 saves still
+    // come exclusively from the original CH01 interaction transition.
+    const localSource=Story.nearest(state);
+    const listener={x:state.world.player.x,z:state.world.player.z,yaw:state.world.player.yaw};
     const result=Story.interact(state);
     if(!result.ok){
       // A physically blocked cargo exit changes the mission subtitle/message
@@ -807,7 +812,11 @@
       return;
     }
     guidanceId=null;
-    audio.play(state.phase==='complete'?'complete':'interact');
+    audio.play(state.phase==='complete'?'complete':'interact',
+      state.phase!=='complete'&&localSource?{
+        listener,source:{x:localSource.x,z:localSource.z},
+        obstacles:state.world.obstacles
+      }:null);
     persist();
     if(state.phase==='decision'||result.event==='reconsider'){showChoices();return;}
     if(state.phase==='complete')presentCompletion();
@@ -1705,7 +1714,7 @@
     if(combatActive){
       const p=state.world.player;
       $('touchAssist').textContent=p.reloadAssist?'장전 보조 ON':'장전 보조 OFF';
-      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 무장 대치자 '+state.world.bots.filter(b=>b.alive).length+'/3 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · '+reloadLabel+'/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':reportLabel+' 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 '+interactLabel+' 확보');
+      $('combatStatus').textContent='장비 '+Sim.FIREARMS[p.weaponId].label+' · 교전 중 · 탄창 '+p.loaded+' / 예비 '+(p.charges-p.loaded)+(p.reloadRemaining>0?(p.reloadHesitation?' · 장전 지연 · '+reloadLabel+'/장전 다시 눌러 복구':' · 재장전 중'):'')+' · 긴장 '+Math.round(p.stress||0)+' · 이동 능력 '+Math.round(Sim.injuryMobility(p)*100)+'% · 장전 보조 '+(p.reloadAssist?'켜짐':'꺼짐')+' · 동료 보고 '+(state.combat.supportUsed?'확인 완료':reportLabel+' 확인 가능')+' · 보급 '+(state.combat.supplyRemaining===0?'소진':p.charges>=p.maxCharges?'휴대 한도 도달 · 상자 잔량 '+state.combat.supplyRemaining+'발':'상자 잔량 '+state.combat.supplyRemaining+'발 · 접근 후 '+interactLabel+' 확보');
     }
     const entries=state.found.map(id=>Story.RECORDS[id]);
     $('records').textContent=entries.length
@@ -1770,7 +1779,17 @@
       ?state.world.bots.reduce((total,hostile)=>total+hostile.shots,0):0;
     if(canAct()&&state.phase!=='complete'&&state.phase!=='failed')clock.advance(dt,step=>{
       if(state.phase==='decision')return; // Freeze pending route choice during a catch-up frame.
+      const shotsBeforeStep=state.world.bots.map(hostile=>hostile.shots);
       Story.step(state,step,input);
+      // Sound only a newly spent finite round, including a miss. Compare
+      // within this actual 60Hz step so render frames, pause and checkpoint
+      // restoration cannot replay an old volley or reveal silent opponents.
+      for(let i=0;i<state.world.bots.length;i++){
+        const hostile=state.world.bots[i];
+        if(hostile.shots>shotsBeforeStep[i])audio.play('hostileShot',{
+          listener:state.world.player,source:hostile,obstacles:state.world.obstacles
+        });
+      }
       if(input.fireHeld&&state.phase==='engagement'&&Story.autoFire(state,true,input.crouch).ok){
         audio.play('shot');persistShot();
       }

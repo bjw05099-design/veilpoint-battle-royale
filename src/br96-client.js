@@ -799,9 +799,13 @@ async function cycleSpectator(){
   message(next+'번 분대원의 실제 시야를 관전합니다.');
  }
 }
+function textEntryFocused(target=document.activeElement){
+ return !!target&&(target.isContentEditable===true||
+   ['INPUT','TEXTAREA','SELECT'].includes(target.tagName));
+}
 function canUseKeyboard(event){
  return !event.ctrlKey&&!event.metaKey&&!event.altKey&&
-   !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
+   !textEntryFocused()&&!textEntryFocused(event.target);
 }
 document.addEventListener('keydown',event=>{
  if(!el('vpAudioPanel').hidden){
@@ -853,6 +857,14 @@ function resetKeys(){
  render();
 }
 window.addEventListener('blur',resetKeys);
+// Moving into squad chat must release a previously held W/Shift too. Merely
+// ignoring NEW keystrokes leaves the old server movement lease renewed while
+// the player types. Clear it on focus and send the ordinary neutral handoff.
+document.addEventListener('focusin',event=>{
+ if(!textEntryFocused(event.target))return;
+ resetKeys();
+ void movement();
+});
 window.addEventListener('pagehide',()=>{stopPrivateStream();harborAudio?.dispose();});
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden){resetKeys();stopPrivateStream();}
@@ -861,6 +873,7 @@ document.addEventListener('visibilitychange',()=>{
 function direction(){
  if(document.hidden||!document.hasFocus()||!el('standingsPanel').hidden)
   return {dx:0,dz:0};
+ if(textEntryFocused())return {dx:0,dz:0};
  if(!el('vpAudioPanel').hidden)return {dx:0,dz:0};
  const dx=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
  const dz=Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp'));

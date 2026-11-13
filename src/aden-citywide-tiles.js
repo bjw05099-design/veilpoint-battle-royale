@@ -24,6 +24,14 @@
   Object.freeze({id:'buraiqa',label:'Al Buraiqa / 서부 해안권',character:'western-coast'})
  ]);
  const validFinite=n=>typeof n==='number'&&Number.isFinite(n);
+ function validHeightGrid(samples,size){
+  if(!Array.isArray(samples)||samples.length!==size*size)return false;
+  // Array.every skips empty slots: a sparse source can otherwise pass import
+  // and break only after streaming a different LOD or auditing its edge.
+  for(const height of samples)
+   if(!validFinite(height)||height < -500||height > 3000)return false;
+  return true;
+ }
  function point(x,z){
   if(!validFinite(x)||!validFinite(z)||
     Math.abs(x)>MAX_ABS_COORD||Math.abs(z)>MAX_ABS_COORD)
@@ -73,9 +81,7 @@
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new TypeError('Invalid terrain tile');
   const {tx,tz,gridSize,samples,source}=raw;
   const key=tileKey(tx,tz);
-  if(!GRIDS.includes(gridSize)||!Array.isArray(samples)||
-    samples.length!==gridSize*gridSize||
-    !samples.every(n=>validFinite(n)&&n>=-500&&n<=3000))
+  if(!GRIDS.includes(gridSize)||!validHeightGrid(samples,gridSize))
    throw new RangeError('Invalid 1:1 metre height grid');
   const provenance=validateSource(source);
   if(provenance.scope!=='public-terrain')
@@ -105,6 +111,13 @@
   if(!a||!b||!GRIDS.includes(a.gridSize)||!GRIDS.includes(b.gridSize)||
     !validFinite(toleranceMetres)||toleranceMetres<0||toleranceMetres>1)
    throw new RangeError('Invalid tile seam audit');
+  // A missing or malformed edge sample must never turn into NaN and silently
+  // pass a terrain seam. Audit only complete, finite, bounded source grids.
+  for(const tile of [a,b]){
+   if(!validHeightGrid(tile.samples,tile.gridSize)||
+      tileKey(tile.tx,tile.tz)!==tile.key)
+    throw new RangeError('Invalid terrain source for seam audit');
+  }
   const dx=b.tx-a.tx,dz=b.tz-a.tz;
   if(Math.abs(dx)+Math.abs(dz)!==1)throw new RangeError('Tiles are not cardinal neighbors');
   // Adjacent licensed/local tiles can legitimately have 17/33/65 samples.
