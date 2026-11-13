@@ -6,10 +6,13 @@ const Story=require('../src/story-slice.js');
 const Ambience=require('../src/story-harbor-ambience.js');
 
 function localAftermath({aidDelivered=false,choice='evacuation',musterConfirmed=true,
- civilianWalker={arrived:false},transportVan=null}={}){
- return {world:{elapsed:120},phase:'complete',
-  choice,musterConfirmed,aidDelivered,civilianWalker,transportVan,
-  combat:{started:true}};
+ civilianWalker={arrived:false},transportVan=null,worldConfirmed=true}={}){
+ // Model both halves of the actual CH01 F-key handoff; a mission flag
+ // alone is never proof that the 60Hz world transferred the physical crate.
+ return {world:{elapsed:120,aidDelivered:aidDelivered&&worldConfirmed,
+   carryingAid:false},phase:'complete',
+  choice,musterConfirmed,aidPickedUp:aidDelivered,aidDelivered,
+  civilianWalker,transportVan,combat:{started:true}};
 }
 test('a physical local aid handoff creates an optional, causally ordered future thread',()=>{
  const witnessed=Consequences.fromMission(localAftermath({aidDelivered:true}));
@@ -35,9 +38,11 @@ test('verified aftercare never invents a guide for the east path or a civilian h
  assert.equal(east.events.includes('local_aid_observed'),false);
  assert.equal(east.events.includes('local_guide'),false);
  const noGuide=Consequences.fromMission(localAftermath({
-  choice:'evacuation',musterConfirmed:false,aidDelivered:true
+  choice:'evacuation',musterConfirmed:false,aidDelivered:true,
+  worldConfirmed:false
  }));
- assert.equal(noGuide.events.includes('local_aid_observed'),false);
+ assert.equal(noGuide.events.includes('local_aid_observed'),false,
+  'a claim without the matching physical world transfer is not witnessed');
 });
 test('only the real local relief yard changes its synthetic sound after the recorded handoff',()=>{
  const story=Story.createState();
