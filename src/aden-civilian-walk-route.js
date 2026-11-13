@@ -58,9 +58,14 @@
   if(!candidates.length)
    return frozen('door-closed',{roomId:nearby[0].room.id,
     points:Object.freeze([])});
-  let firstFailure=null;
+  let firstFailure=null,bestPlan=null;
   for(const {room} of candidates){
    const roomId=room.id,target={x:room.x,z:room.z+room.d/2-1.6};
+   // The nearest door on the map can require a much longer physical walk.
+   // Distance to the door is only a lower bound on the path length; skip
+   // expensive searches if an already verified path is strictly shorter.
+   if(bestPlan&&Math.hypot(walker.x-target.x,walker.z-target.z)>bestPlan.distanceMetres+1e-8)
+    continue;
    if(world.solids.some(b=>b.id===roomId+':door')){
     firstFailure??=frozen('door-closed',{roomId,points:Object.freeze([])});
     continue;
@@ -133,11 +138,17 @@
   for(let i=1;i<points.length;i++)
    distance+=Math.hypot(points[i].x-points[i-1].x,
     points[i].z-points[i-1].z);
-   return frozen('planned',{roomId,
+   const candidate=frozen('planned',{roomId,
     points:Object.freeze(points),distanceMetres:distance,
     explored:expanded,originTick:walker.tick});
+   // Rank only routes actually traversable by the current 60Hz standing
+   // body, never direct-line estimates across a solid wall or unloaded tile.
+   // Keep the at-most-three A* search bound and stable room-id tie break.
+   if(!bestPlan||candidate.distanceMetres<bestPlan.distanceMetres-1e-8||
+      (Math.abs(candidate.distanceMetres-bestPlan.distanceMetres)<=1e-8&&
+       candidate.roomId<bestPlan.roomId))bestPlan=candidate;
   }
-  return firstFailure;
+  return bestPlan||firstFailure;
  }
  return Object.freeze({CELL_METRES,MAX_DISTANCE_METRES,MAX_EXPANSIONS,
   segment,plan,geographyVerified:false,autoMove:false});

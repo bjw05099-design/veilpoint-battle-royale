@@ -153,11 +153,32 @@
    if(event.key==='Escape'){
     event.preventDefault();
     event.stopPropagation?.();
-    close();
+    close();return;
+   }
+   // Auto-repeat of the briefing's own P/Backspace shortcuts is inert.
+   // Consume propagation but preserve the established non-prevented key
+   // behavior for repeats; never advance or rewind a second caption.
+   if(event.repeat&&(event.key==='Backspace'||
+      typeof event.key==='string'&&event.key.toLowerCase()==='p')){
+    event.stopPropagation?.();return;
+   }
+   // The briefing is a real modal, not just a visual overlay. Capture
+   // gameplay keys before CH01's document/window movement and contextual F
+   // listeners can see them. Native Enter/Space on the focused Next button
+   // remains available to keyboard and assistive-technology users.
+   const nextButton=host.querySelector('[data-opening-next]');
+   const activatesNext=event.target===nextButton&&
+     (event.key==='Enter'||event.key===' '||event.key==='Spacebar')&&
+     !event.ctrlKey&&!event.altKey&&!event.metaKey;
+   if(!activatesNext){
+    event.preventDefault();
+    event.stopPropagation?.();
    }
   }
   button.addEventListener('click',show);
-  doc.addEventListener('keydown',onKeydown);
+  // Capture is essential: older gameplay listeners may be registered on
+  // document before this optional caption UI attaches on DOMContentLoaded.
+  doc.addEventListener('keydown',onKeydown,true);
   doc.addEventListener?.('visibilitychange',()=>{
    // A suspended tab may resume minutes later: never skip hundreds of
    // story captions because the PC window was backgrounded.
