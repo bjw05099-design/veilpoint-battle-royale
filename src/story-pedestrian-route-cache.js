@@ -36,7 +36,9 @@
   return copy;
  }
  function routeFrom(player,marker,obstacles,previous){
-  if(!previous||!Array.isArray(previous.points)||previous.points.length<2)
+  if(!previous||!Array.isArray(previous.points)||previous.points.length<2||
+     previous.points.length>512||previous.points.some(point=>
+      !point||!Number.isFinite(point.x)||!Number.isFinite(point.z)))
    return null;
   const p={x:player.x,z:player.z},goal={x:marker.x,z:marker.z};
   if(!Number.isFinite(Math.hypot(p.x-goal.x,p.z-goal.z))||
@@ -114,8 +116,12 @@
    target={id:marker.id,x:marker.x,z:marker.z};
    geometry=geometryCopy(obstacles);
    freshOrigin={x:player.x,z:player.z};
-   remembered=result;
-   return result;
+   // Do not cache malformed planner output as a traversable public route.
+   // A failed plan remains a legitimate short-lived negative result.
+   remembered=result&&Array.isArray(result.points)&&result.points.length>=2&&
+     result.points.length<=512&&result.points.every(point=>point&&
+      Number.isFinite(point.x)&&Number.isFinite(point.z))?result:null;
+   return remembered;
   }
   function stats(){return Object.freeze({searches,reuses});}
   return Object.freeze({get,clear,stats});
