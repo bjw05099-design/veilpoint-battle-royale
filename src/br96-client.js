@@ -349,15 +349,16 @@ function renderJourney(w){
    '실제 보행 거리: '+n(personal.walkedMeters)+'m\n'+
    '실제 달리기 거리: '+n(personal.sprintedMeters)+'m\n'+
    '전체 이동 거리: '+n(personal.totalMeters)+'m\n'+
-    '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
+   '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
    '종료 당시 본인 상태: '+
      (personal.ownResult==='active_at_finish'?'경기 참가 중':
       personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
       personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':'종료 사유 확인 필요')+
-   (squad?'\\n\\n우리 6인 분대의 실제 이동 기록\\n'+
-      '움직인 인원: '+squad.participantsMoved+'/6명 · 종료 당시 참가 '+squad.activeMembersAtFinish+'/6명\\n'+
-      '분대 전체 이동 거리: '+n(squad.totalMeters)+'m\\n'+
-      '분대 보행: '+n(squad.walkedMeters)+'m · 달리기: '+n(squad.sprintedMeters)+'m':'')+\n   '\\n※ 본인·분대의 서버 관측 이동만 합산하며 상대 위치, 개별 동료 이동 경로 또는 휴식 시간은 포함하지 않습니다.';
+   (squad?'\n\n우리 6인 분대의 실제 이동 기록\n'+
+      '움직인 인원: '+squad.participantsMoved+'/6명 · 종료 당시 참가 '+squad.activeMembersAtFinish+'/6명\n'+
+      '분대 전체 이동 거리: '+n(squad.totalMeters)+'m\n'+
+      '분대 보행: '+n(squad.walkedMeters)+'m · 달리기: '+n(squad.sprintedMeters)+'m':'')+
+   '\n※ 개인·분대의 서버 관측 이동만 집계하며 상대 위치, 동료별 이동 경로 및 휴식 시간은 제외합니다.';
  panel.hidden=false;
 }
 function renderStandings(w){
