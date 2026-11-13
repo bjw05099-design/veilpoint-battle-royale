@@ -32,7 +32,7 @@ test('BR96 public civic geometry is authenticated, stable and matches the 60Hz B
   // the cached once-per-round immutable public-building geometry.
   const expected=Sim.newMatch(20261108,0,'carbine').obstacles
    .filter(o=>o.routeId!=='br-dock-handcart')
-   .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,type:o.type}));
+   .map(o=>({x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type}));
   assert.deepEqual(data.obstacles,expected);
   assert.equal(data.obstacles.some(o=>o.type==='dock-handcart'),false,
     'a moving physical cart cannot be frozen at its initial cached position');

@@ -60,6 +60,7 @@ function stopPrivateStream(){
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
 let streetView=false,streetYaw=0,streetPitch=0; // camera-only, never part of movement POST
+let weaponSeq=0,weaponBusy=false;
 let dismissedJourneyRound=null; // local UI only; server remains authoritative
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
@@ -71,7 +72,7 @@ function cleanSession(){
  lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
- streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
+ streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;weaponSeq=0;
  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
@@ -83,7 +84,8 @@ async function request(path,payload=null,authenticated=true){
  try{
   const response=await fetch(path,{method:payload===null?'GET':'POST',
    headers:{...(payload===null?{}:{'content-type':'application/json'}),
-    ...(authenticated&&token?{'x-player-token':token}:{})},
+    ...(authenticated&&token?{'x-player-token':token}:{}),
+    ...((path==='/fire'||path==='/reload')?{'x-round-number':String(state?.roundNumber)}:{})},
    ...(payload===null?{}:{body:JSON.stringify(payload)}),signal:controller.signal,
    cache:'no-store'});
   const data=await response.json();
@@ -103,11 +105,16 @@ function apply(next){
    seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
-   streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
+   streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;weaponSeq=0;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
   }
  }
  if(next.world&&next.world.tick<lastWorldTick)return;
+ // A delayed response from BEFORE a shot must not restore old health/ammo
+ // merely because both snapshots happened during the same 60Hz tick.
+ if(next.world&&state?.world&&next.roundNumber===state.roundNumber&&
+   next.world.tick===state.world.tick&&Number.isSafeInteger(next.world.revision)&&
+   Number.isSafeInteger(state.world.revision)&&next.world.revision<state.world.revision)return;
  if(next.world){
    lastWorldTick=next.world.tick;
    // Recover the current server sequence after a legitimate tab reload:
@@ -413,6 +420,14 @@ function draw(w){
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather,
    pavements:publicEnvironment?.pavements||[]});
+  const weapon=w.self?.weapon;
+  if(weapon&&!w.spectatorView){
+   ctx.fillStyle='#0c171c';ctx.fillRect(8,height-36,Math.min(width-16,420),28);
+   ctx.fillStyle='#e7eee6';ctx.font='13px system-ui';
+   ctx.fillText('상태 '+weapon.health+' · 탄창 '+weapon.loaded+' / 예비 '+weapon.reserve+
+     (weapon.reloadTicksRemaining>0?' · 재장전 '+(weapon.reloadTicksRemaining/60).toFixed(1)+'초':
+       ' · 좌클릭 사격 / R 재장전'),16,height-17);
+  }
   return;
  }
  ctx.clearRect(0,0,width,height);
@@ -543,12 +558,13 @@ async function join(){
 }
 async function command(path,body,statusText){
  if(!token)return;
- const ownToken=token;
+ const ownToken=token,ownRound=state?.roundNumber;
  try{
   const data=await request(path,body);
   // A leave/rejoin can complete while the old HTTP request is still
   // pending. Never apply its private roster or command status to a new seat.
   if(token!==ownToken)return null;
+  if(state?.roundNumber!==ownRound)return null;
   if(data.state)apply(data.state);
   if(data.world&&state)apply({...state,world:data.world});
   if(statusText)message(statusText);
@@ -659,13 +675,13 @@ function toggleStreetView(){
  mapFollow=false;mapZoomLevel=0;
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
  if(!streetView){streetPitch=0;if(document.pointerLockElement===canvas)document.exitPointerLock?.();}
- message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD는 바라보는 방향으로 걷기 · Esc 해제 · P 지도':
+ message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD 이동 · 좌클릭 사격 · R 재장전 · Esc 해제 · P 지도':
   '2D 서버 진단 지도로 돌아왔습니다.');
  render();
 }
 // Desktop mouse look is an opt-in foreground gesture on the actual canvas.
- // No mouse coordinates are sent to the server; only a bounded normalized
- // walking direction reaches the authoritative 60Hz gameplay controller.
+ // Movement sends only bounded directions. A trigger separately submits bounded
+ // view angles; the server alone chooses the origin, hit, ammunition and damage.
 canvas.addEventListener('click',()=>{
  if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
   canvas.requestPointerLock?.();
@@ -704,10 +720,46 @@ function turnStreetPitch(delta){
 function turnStreetView(delta){
  if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
  streetYaw=window.VeilpointBR96StreetView.wrap(streetYaw+delta);
- // Heading is pure local rendering; do not send a fake look direction.
+ // Looking alone stays local; an actual trigger submits the current view angles.
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
  render();
 }
+// Weapon requests are serialized and carry angles only at a real trigger.
+// There is no queued fire after blur, chat focus, death, menu or lock release.
+function weaponInputAvailable(){
+ return active()&&streetView&&!document.hidden&&document.hasFocus()&&
+  document.pointerLockElement===canvas&&!textEntryFocused()&&
+  el('standingsPanel').hidden&&el('vpAudioPanel').hidden;
+}
+async function weaponAction(action){
+ if(!weaponInputAvailable()||weaponBusy)return;
+ const world=currentWorld(),weapon=world.self.weapon;
+ if(!weapon)return;
+ if(action==='fire'&&(weapon.loaded===0||weapon.reloadTicksRemaining>0))return;
+ weaponBusy=true;
+ const ownToken=token,ownRound=state.roundNumber;
+ weaponSeq=Math.max(weaponSeq,weapon.seq+1);
+ const payload=action==='fire'?{seq:weaponSeq++,yaw:streetYaw,pitch:streetPitch}:
+  {seq:weaponSeq++};
+ try{
+  const result=await command('/'+action,payload,null);
+  if(token!==ownToken||state?.roundNumber!==ownRound)return;
+  if(result?.ok&&action==='fire'&&weaponInputAvailable()){
+   harborAudio?.shot?.(audioControls?AudioPrefs.gain(audioControls.get(),'effects'):1);
+   // A local recoil impulse follows server acceptance; it cannot award a hit.
+   streetPitch=window.VeilpointBR96StreetView.clampPitch(streetPitch+.004);
+   render();
+  }
+ }finally{weaponBusy=false;}
+}
+canvas.addEventListener('mousedown',event=>{
+ if(event.button!==0||event.ctrlKey||event.altKey||event.metaKey||!weaponInputAvailable())return;
+ event.preventDefault();keys.add('MousePrimary');void weaponAction('fire');
+});
+document.addEventListener('mouseup',event=>{if(event.button===0)keys.delete('MousePrimary');});
+document.addEventListener('pointerlockchange',()=>{
+ if(document.pointerLockElement!==canvas)keys.delete('MousePrimary');
+});
 function toggleMapFollow(){
  if(!currentWorld())return;
  mapFollow=!mapFollow;
@@ -847,7 +899,8 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
- // F is the single default nearby interaction key; R/T are unbound
+ else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();void weaponAction('reload');}
+ // F is the single default nearby interaction key; R reloads
  // and E is free. Press the wheel to mark one's true server position.
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
@@ -938,7 +991,8 @@ async function loadPublicGeometry(){
   if(record.schema!=='veilpoint-br96-public-geometry-v1'||!Array.isArray(record.obstacles)||
      record.obstacles.length>4000)throw Error('invalid_public_world');
   const valid=record.obstacles.every(o=>o&&typeof o.type==='string'&&
-    [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0);
+    [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0&&
+    (o.h===undefined||(Number.isFinite(o.h)&&o.h>0&&o.h<=30)));
   const pad=record.environment?.wetLoadingPad;
   if(!valid||!pad||![pad.x,pad.z,pad.width,pad.depth].every(Number.isFinite)||
      pad.width<=0||pad.depth<=0||pad.width>350||pad.depth>350)
@@ -1022,4 +1076,5 @@ setInterval(()=>{
  if(!healthy||pollCount%8===0)poll();
 },400);
 setInterval(movement,180);
+setInterval(()=>{if(keys.has('MousePrimary'))void weaponAction('fire');},220);
 })();

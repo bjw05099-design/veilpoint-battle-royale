@@ -35,7 +35,7 @@
   // Keep the playable relay, evidence and two exits unobstructed.
   const STORY_STRUCTURES = Object.freeze([
     {x:-42,z:-38,w:15,d:20,h:8,type:'story-building'},
-    {x:42,z:-38,w:16,d:20,h:9,type:'story-building'},
+    ...Sim.harborPassage(42,-38,16,20,9),
     {x:-44,z:-73,w:20,d:12,h:6,type:'story-warehouse'},
     {x:47,z:-77,w:18,d:15,h:7,type:'story-warehouse'},
     {x:-63,z:-53,w:12,d:3,h:2.6,type:'story-container'},
@@ -882,13 +882,13 @@
     // CH01 uses the same bounded three-point standing silhouette as BR.
     // An exposed shoulder can be observed beside cover, but neither a wall
     // nor another standing person may reveal a completely concealed player.
-    // This is a finite 2D visibility proxy, not an aim or damage shortcut.
+    // Finite-height cover is sampled at the head/shoulders, not used as an aim shortcut.
     const sideX=-dz/distance*.85*.8,sideZ=dx/distance*.85*.8;
     const blockers=state.world.obstacles.concat(actorBlockers(state,hostile));
     const visible=(x,z)=>{
       const vx=x-hostile.x,vz=z-hostile.z,range=Math.hypot(vx,vz);
       if(range>sightRange||
-        Sim.lineBlocked(hostile.x,hostile.z,x,z,blockers))return false;
+        Sim.lineBlocked3D(hostile.x,1.64,hostile.z,x,p.crouched?1.2:1.75,z,blockers))return false;
       const bearing=Math.atan2(vx,-vz);
       const delta=Math.atan2(Math.sin(bearing-hostile.angle),Math.cos(bearing-hostile.angle));
       return Math.abs(delta)<=1.1;
@@ -1052,6 +1052,7 @@
     // A paused/invalid frame must never advance a hostile volley, route motor or RNG.
     if(!Number.isFinite(dt)||dt<=0)return state;
     const t=clamp(dt,0,.05),p=state.world.player;
+    p.crouched=!!input.crouch;
     // Battery drain follows the ALREADY PERSISTED world clock's crossed 60Hz
     // boundaries, not the number or size of render/frame callbacks.
     // Four 1/240-second slices consume exactly one tick, just like one
@@ -1137,6 +1138,14 @@
     Sim.moveEntity(p,(ix*Math.cos(p.yaw)+iz*Math.sin(p.yaw))*speed,
       (ix*Math.sin(p.yaw)-iz*Math.cos(p.yaw))*speed,t,state.world.obstacles.concat(occupied));
     const movedDistance=Math.hypot(p.x-beforeX,p.z-beforeZ);
+    // The captain reports an opening only after physically crossing this new
+    // hall's doorway during combat. No distant route discovery, mandatory
+    // investigation or new checklist: walking through the hall is sufficient.
+    if(state.phase==='engagement'&&Math.abs(p.x-42)<1.15&&
+      ((beforeZ>-27.75&&p.z<=-27.75)||(beforeZ<-48.25&&p.z>=-48.25))){
+      state.subtitle='이수혁 대위(무전): 창고 안쪽 통로가 열려 있다. 화물 뒤를 확인하며 반대편으로 이동한다.';
+      state.message='항구 창고 진입 · 반대편 출입구로 통과 가능';
+    }
     // Carrying real relief supplies is tiring when ACTUALLY walking, but
     // stopping anywhere lets the captain recover. The same server-clocked
     // body displacement drives effort; pressing into a wall does not drain
@@ -1707,8 +1716,8 @@
         if(forward>0&&lateral<0.85){
           const contact=forward-Math.sqrt(Math.max(0,0.85**2-lateral**2));
           if(contact>0&&contact<48&&
-             !Sim.lineBlocked(hostile.x,hostile.z,
-               hostile.x+rayX*contact,hostile.z+rayZ*contact,
+             !Sim.lineBlocked3D(hostile.x,1.64,hostile.z,
+               hostile.x+rayX*contact,p.crouched?.8:1.2,hostile.z+rayZ*contact,
                state.world.obstacles.concat(actorBlockers(state,hostile))))
             Sim.receiveDamage(state.world,4);
         }

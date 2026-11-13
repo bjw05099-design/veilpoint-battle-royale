@@ -189,7 +189,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
         id:p.id,x:p.x,z:p.z,w:p.w,d:p.d,canvas:p.canvas
       })),
       obstacles:world.obstacles.filter(o=>o.type!=='br96-civic-shutter'&&o.routeId!=='br-dock-handcart').map(o=>({
-        x:o.x,z:o.z,w:o.w,d:o.d,type:o.type
+        x:o.x,z:o.z,w:o.w,d:o.d,h:o.h,type:o.type
       }))});
    }
    if(req.method==='GET'&&url.pathname==='/world'){
@@ -201,6 +201,20 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     const body=await readJson(req,128,bodyTimeoutMs);
     const result=world.move(token,body);
     return send(res,result.ok?200:409,{...result,...(result.ok?{world:world.snapshot(token)}:{})});
+   }
+   if(req.method==='POST'&&(url.pathname==='/fire'||url.pathname==='/reload')){
+    lobby.snapshot(token);
+    if(!world)return send(res,409,{error:'round_not_started'});
+    const generation=req.headers['x-round-number'];
+    if(typeof generation!=='string'||!/^\d{1,9}$/.test(generation))
+      return send(res,409,{error:'round_generation_required'});
+    if(Number(generation)!==roundNumber)return send(res,409,{error:'stale_round'});
+    const body=await readJson(req,160,bodyTimeoutMs);
+    const before=world.phase;
+    const result=url.pathname==='/fire'?world.fire(token,body):world.reload(token,body);
+    if(before==='moving'&&world.phase==='finished')broadcastPrivateWorld();
+    return send(res,result.ok?200:409,{...result,
+      ...(result.ok?{world:world.snapshot(token)}:{})});
    }
    if(req.method==='POST'&&url.pathname==='/pace'){
     if(!world)return send(res,409,{error:'round_not_started'});
@@ -406,7 +420,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
    const reason=error instanceof RangeError?error.message:'server_error';
    const status=reason==='unknown_session'?401:
     ['invalid_session','invalid_display_name','invalid_ready','invalid_movement','invalid_signal_kind','invalid_json',
-     'invalid_join','invalid_entry_choice','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','invalid_resume_request','body_too_large','request_timeout'].includes(reason)?400:500;
+     'invalid_weapon_command','invalid_join','invalid_entry_choice','invalid_pace','invalid_spectator_slot','invalid_invite_code','invalid_invite_request','invalid_resume_request','body_too_large','request_timeout'].includes(reason)?400:500;
    return send(res,status,{error:reason});
   }
  });

@@ -82,7 +82,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 </style>
 </head>
 <body>
-<header><h1>VEILPOINT / 16 SQUADS × 6 PLAYERS</h1><small>Local server-authoritative movement preview · NOT production battle royale</small></header>
+<header><h1>VEILPOINT / 16 SQUADS × 6 PLAYERS</h1><small>Local server-authoritative movement + combat preview · NOT production battle royale</small></header>
 <main>
 <section id="mapPanel" aria-label="서버 소유 96인 월드의 자기·아군·실제로 보이는 상대 지도">
 <canvas id="map" width="700" height="700"></canvas>
@@ -116,7 +116,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <div class="standings-tile" data-squad="16"><strong>분대 16</strong><span>미확정</span></div>
  </div>
 </div>
-<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 (N으로 다음 분대원) · WASD 이동 / Shift 달리기 / C 낮은 자세 이동 / Q 내 위치 집결 제안 / 휠 클릭 위치 표시 / F 주변 상호작용(문·손수레·벤치) / H 헤드램프 / G 낮은 벤치 넘기 / V 결과표 / M 지도 확대 / P 1인칭 보기 / 화면 클릭 마우스 회전 / WASD 시야 방향 이동 / Esc 해제 / J·L 회전</div>
+<div id="legend">● 본인 · ● 아군 · ● 실제 시야에 확인된 상대 · ○ 공개 경기 경계 · 경기 포기 후 같은 분대 관전 (N으로 다음 분대원) · WASD 이동 / Shift 달리기 / C 낮은 자세 이동 / Q 내 위치 집결 제안 / 휠 클릭 위치 표시 / F 주변 상호작용(문·손수레·벤치) / H 헤드램프 / G 낮은 벤치 넘기 / V 결과표 / M 지도 확대 / P 1인칭 보기 / 화면 클릭 시야 잠금 / 좌클릭 사격 / R 재장전 / Esc 해제</div>
 </section>
 <section id="sidebar">
 <h2>접속 및 분대 편성</h2>
@@ -131,7 +131,7 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <div class="group" aria-label="6인 분대 전용 글자 통신"><input id="squadChatInput" maxlength="96" autocomplete="off" placeholder="우리 분대 메시지 (Enter)" aria-label="우리 분대 메시지" disabled><button id="sendSquadChat" disabled>보내기</button></div>
 <p id="squadChatLine" aria-label="우리 분대 최근 메시지" aria-live="polite">분대 전용 메시지 · 경기 시작 후 사용 가능</p>
 <pre id="roster" aria-label="우리 분대 실시간 참가 현황">대기실이 시작되면 분대 정보를 표시합니다.</pre>
-<p class="note">현재 2D 플레이테스트이며 실전 전투, 공용 인터넷 호스팅, 96인 네트워크 부하 검증은 별도 개발 항목입니다. 개인 인증 토큰은 이 탭의 세션 저장소에만 유지됩니다. 지도는 서버가 허용한 주변 인원만 표시합니다.</p>
+<p class="note">이동·기본 사격 시험판입니다. 공용 인터넷 호스팅과 실제 96인 부하 검증은 아직 진행하지 않았습니다. 개인 인증 토큰은 이 탭의 세션 저장소에만 유지됩니다. 지도는 서버가 허용한 주변 인원만 표시합니다.</p>
 </section>
 </main>
 <script src="/audio-preferences.js" defer></script>

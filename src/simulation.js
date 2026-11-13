@@ -66,6 +66,74 @@
     }
     return false;
   }
+  // Cover has a finite height; movement still uses its ground footprint.
+  // Older collision-only proxies without h remain opaque.
+  function segmentBox(origin,direction,limit,box){
+    let near=0,far=limit;
+    const base=Number.isFinite(box.y)?box.y:0;
+    const top=Number.isFinite(box.h)?base+box.h:Infinity;
+    for(const [p,v,min,max] of [
+      [origin.x,direction.x,box.x-box.w/2,box.x+box.w/2],
+      [origin.y,direction.y,base,top],
+      [origin.z,direction.z,box.z-box.d/2,box.z+box.d/2]
+    ]){
+      if(Math.abs(v)<1e-10){if(p<min||p>max)return Infinity;}
+      else{
+        let a=(min-p)/v,b=(max-p)/v;
+        if(a>b)[a,b]=[b,a];
+        near=Math.max(near,a);far=Math.min(far,b);
+        if(near>far)return Infinity;
+      }
+    }
+    return near<=far?near:Infinity;
+  }
+  function lineBlocked3D(ax,ay,az,bx,by,bz,obstacles){
+    const origin={x:ax,y:ay,z:az},direction={x:bx-ax,y:by-ay,z:bz-az};
+    return obstacles.some(o=>segmentBox(origin,direction,1,o)<=1);
+  }
+  // Original hitscan prototype; no penetration, drop or calibrated real data.
+  // Nearest finite body wins, including an intervening friendly body.
+  // Distance is horizontal metres, matching the existing class ranges.
+  function traceShot(origin,yaw,pitch,range,obstacles,actors){
+    const direction={x:Math.sin(yaw),y:Math.tan(pitch),z:-Math.cos(yaw)};
+    let best=range,target=null;
+    for(const box of obstacles)best=Math.min(best,segmentBox(origin,direction,range,box));
+    for(const actor of actors){
+      if(actor.alive===false||actor.eligible===false)continue;
+      const radius=actor.bodyRadius||ACTOR_RADIUS;
+      const vx=actor.x-origin.x,vz=actor.z-origin.z;
+      const forward=vx*direction.x+vz*direction.z;
+      const lateral=vx*direction.z-vz*direction.x;
+      if(Math.abs(lateral)>=radius)continue;
+      const half=Math.sqrt(radius*radius-lateral*lateral);
+      let near=Math.max(0,forward-half),far=Math.min(best,forward+half);
+      const low=.15,high=actor.crouched||actor.crouchHeld?1.25:1.9;
+      if(Math.abs(direction.y)<1e-10){if(origin.y<low||origin.y>high)continue;}
+      else{
+        let a=(low-origin.y)/direction.y,b=(high-origin.y)/direction.y;
+        if(a>b)[a,b]=[b,a];
+        near=Math.max(near,a);far=Math.min(far,b);
+      }
+      if(near<=far&&near<best&&far>0){target=actor;best=near;}
+    }
+    return target?{actor:target,distance:best,x:origin.x+direction.x*best,
+      y:origin.y+direction.y*best,z:origin.z+direction.z*best}:null;
+  }
+  // Shared walk-through loading hall. Every piece stays inside the former
+  // solid footprint, keeping old exterior saves clear of the new walls.
+  function harborPassage(x,z,w,d,h){
+    const wall=.5,door=4,wing=(w-door)/2;
+    const parts=[
+      {x:x-w/2+wall/2,z,w:wall,d,h},
+      {x:x+w/2-wall/2,z,w:wall,d,h},
+      ...[-1,1].flatMap(end=>[-1,1].map(side=>({
+        x:x+side*(door/2+wing/2),z:z+end*(d/2-wall/2),w:wing,d:wall,h
+      }))),
+      {x:x-w/2+2.4,z:z-2,w:2.4,d:3,h:1.3},
+      {x:x+w/2-2.4,z:z+2,w:2.4,d:3,h:1.3}
+    ];
+    return parts.map((part,i)=>({...part,type:i<6?'harbor-passage-wall':'harbor-passage-crate'}));
+  }
   // Finite, local sound awareness: walking is audible nearby, crouching quieter,
   // and sprinting farther. Sound-only memory is imprecise; cover attenuates the
   // authored hearing radius; this is a game abstraction, not an acoustic model.
@@ -107,7 +175,8 @@
     const rayVisible = (x, z) => {
       const vx = x - observer.x, vz = z - observer.z;
       const range = Math.hypot(vx, vz);
-      if (range >= sightRange || lineBlocked(observer.x, observer.z, x, z, obstacles)) return false;
+      if (range >= sightRange || lineBlocked3D(observer.x,observer.crouched?1.09:1.64,
+        observer.z,x,subject.crouched?1.2:1.75,z,obstacles)) return false;
       const bearing = Math.atan2(vx, -vz);
       if (Math.abs(normalizeAngle(bearing - observer.angle)) > 1.4) return false;
       if (actors && range > 1e-6) {
@@ -275,7 +344,8 @@
     ];
     clusters.forEach(([x,z], i) => {
       const horizontal = i % 2 === 0;
-      o.push({ x, z, w: horizontal ? 27 : 15, d: horizontal ? 15 : 27, h: 8 + i % 3 * 2, type: 'building' });
+      if(i===6&&terrainRevision===1)o.push(...harborPassage(x,z,27,15,8));
+      else o.push({ x, z, w: horizontal ? 27 : 15, d: horizontal ? 15 : 27, h: 8 + i % 3 * 2, type: 'building' });
       o.push({ x: x+30, z: z+14, w: 10, d: 9, h: 4.5, type: 'shed' });
       o.push({ x: x-24, z: z+23, w: 5, d: 12, h: 3, type: 'container' });
     });
@@ -1151,6 +1221,7 @@
     game.damageFlash=Math.max(0,game.damageFlash-dt*2.4);
     game.messageTime=Math.max(0,game.messageTime-dt);
     const {player:p,obstacles} = game;
+    p.crouched=!!input.crouch;
     let ix=Number(!!input.right)-Number(!!input.left), iz=Number(!!input.forward)-Number(!!input.back);
     const length=Math.hypot(ix,iz)||1; ix/=length; iz/=length;
     const driving=!!game.vehicle?.driver;
@@ -1397,7 +1468,8 @@
           if(forward>0&&lateral<ACTOR_RADIUS){
             const contact=forward-Math.sqrt(Math.max(0,ACTOR_RADIUS**2-lateral**2));
             if(contact>0&&contact<47&&
-               !lineBlocked(b.x,b.z,b.x+rayX*contact,b.z+rayZ*contact,
+               !lineBlocked3D(b.x,1.64,b.z,b.x+rayX*contact,
+                 target.crouched?.8:1.2,b.z+rayZ*contact,
                  obstacles.concat(actorObstacles(game,b,target,false)))){
               const damage=6+game.random()*8;
               if(target===p)receiveDamage(game,damage);
@@ -1445,33 +1517,10 @@
     if(p.loaded<=0) return {ok:false,reason:'reload_required'};
     if(game.elapsed-game.lastTagAt<firearm.fireInterval) return {ok:false,reason:'cooldown'};
     game.lastTagAt=game.elapsed;p.charges--;p.loaded--;
-    let target=null, best=firearm.range;
-    // Match the renderer's 1.64m standing / 1.09m crouched camera.
-    // The browser uses a finite-height actor proxy, not full 3D ballistics.
     const eyeHeight=crouching?1.09:1.64;
-    const dx=Math.sin(p.yaw), dz=-Math.cos(p.yaw);
-    for(const b of game.bots){
-      if(!b.alive)continue;
-      const vx=b.x-p.x,vz=b.z-p.z;
-      const forward=vx*dx+vz*dz;
-      const lateral=Math.abs(vx*dz-vz*dx);
-      // Physical contact must intersect the actor's finite body, not a
-      // distance-growing aim-assist cone that bends a shot into a nearby bot.
-      if(forward<=0||lateral>=ACTOR_RADIUS)continue;
-      const contact=forward-Math.sqrt(Math.max(0,ACTOR_RADIUS**2-lateral**2));
-      if(contact<=0||contact>=best)continue;
-      // An upward or downward ray must actually cross the standing actor's
-      // finite vertical silhouette at the horizontal contact point. The old
-      // fixed pitch cutoff could hit a 210m actor while aiming far above it.
-      const impactHeight=eyeHeight+Math.tan(p.pitch)*contact;
-      if(impactHeight<0.15||impactHeight>1.9)continue;
-      const hitX=p.x+dx*contact,hitZ=p.z+dz*contact;
-      // Trace cover and intervening bodies along the ACTUAL shot ray. A
-      // center-to-center visibility line can miss cover at a wall edge.
-      if(lineBlocked(p.x,p.z,hitX,hitZ,game.obstacles)||
-         lineBlocked(p.x,p.z,hitX,hitZ,actorObstacles(game,p,b,false)))continue;
-      target=b;best=contact;
-    }
+    p.crouched=!!crouching;
+    const target=traceShot({x:p.x,y:eyeHeight,z:p.z},p.yaw,p.pitch,
+      firearm.range,game.obstacles,game.bots)?.actor||null;
     // A missed round has no magical floating impact marker. A confirmed
     // contact gets only a brief, muted physical debris cue at the contact point.
     if(target)game.effects.push({x:target.x,z:target.z,t:0.2,type:'hit'});
@@ -2099,6 +2148,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {localDetourHeading,ENTRY_SITES,ADEN_GEOGRAPHIC_VISTA,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {traceShot,lineBlocked3D,harborPassage,localDetourHeading,ENTRY_SITES,ADEN_GEOGRAPHIC_VISTA,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });

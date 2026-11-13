@@ -113,5 +113,6 @@ jobs:
             dist/windows-exe/veilpoint-windows-demo-exe.zip.sha256
             dist/windows-exe/ch01-route-evidence-win64.json
             dist/windows-exe/pc-ui-geometry-win64.json
+            dist/windows-exe/br96-combat-browser.png
           if-no-files-found: error
           retention-days: 45

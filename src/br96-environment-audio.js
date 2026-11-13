@@ -76,7 +76,24 @@
     master.gain.setTargetAtTime(lastBase*volume,context.currentTime,.08);
    return volume;
   }
-  return Object.freeze({enable,update,setVolume,volume:()=>volume,disable:clear,dispose:clear,
+  // Short original synthesized placeholder, emitted only after an accepted
+  // local server shot. Effects volume is independent of ambience volume.
+  function shot(gain=1){
+   if(!enabled||!context||!Number.isFinite(gain)||gain<=0||gain>1)return false;
+   let tone=null,envelope=null;
+   try{
+    const now=context.currentTime;
+    tone=context.createOscillator();envelope=context.createGain();
+    tone.type='triangle';tone.frequency.setValueAtTime(190,now);
+    tone.frequency.exponentialRampToValueAtTime(52,now+.09);
+    envelope.gain.setValueAtTime(.06*gain,now);
+    envelope.gain.exponentialRampToValueAtTime(.0001,now+.12);
+    tone.connect(envelope);envelope.connect(context.destination);
+    tone.onended=()=>{try{tone.disconnect();envelope.disconnect();}catch(_){}};
+    tone.start(now);tone.stop(now+.13);return true;
+   }catch(_){try{tone?.disconnect();envelope?.disconnect();}catch(_){ }return false;}
+  }
+  return Object.freeze({enable,update,shot,setVolume,volume:()=>volume,disable:clear,dispose:clear,
    enabled:()=>enabled,available:usable});
  }
  return Object.freeze({create});

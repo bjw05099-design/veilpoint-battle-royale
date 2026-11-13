@@ -21,13 +21,15 @@ test('authored Nahrin buildings are physically blocked and avoid all objective/e
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
  const historic=buildings.filter(o=>!o.id?.startsWith('harbor-hall-')&&
   !o.id?.startsWith('public-court-'));
- assert.equal(historic.length,21,
-  'all 21 historical harbor structures remain exactly present');
+ assert.equal(historic.length,20,
+  'twenty prior structures remain; the east solid building is now a walk-through hall');
+ assert.equal(s.world.obstacles.filter(o=>o.type==='harbor-passage-wall'&&o.x<60).length,6);
+ assert.equal(Sim.blocked(42,-38,.85,s.world.obstacles),false);
  assert.equal(buildings.filter(o=>o.id?.startsWith('harbor-hall-')).length,Hall.PARTS.length,
   'new accessible public hall adds exactly its seven real collision objects');
  assert.equal(buildings.filter(o=>o.id?.startsWith('public-court-')).length,Court.SOLIDS.length,
   'eight newly authored CH01 court columns/furniture are separate real colliders');
- assert.equal(buildings.length,21+Hall.PARTS.length+Court.SOLIDS.length,
+ assert.equal(buildings.length,20+Hall.PARTS.length+Court.SOLIDS.length,
   'retain historic collision, existing public hall and new courtyard independently');
  assert.equal(buildings.filter(o=>o.type==='story-dispatch-case').length,0);
  assert.equal(buildings.filter(o=>o.type==='story-office-wall').length,5);
