@@ -216,6 +216,11 @@
    if(!Number.isFinite(distance)||distance<.4||distance>maxDistance||
       Math.abs(relative)>FOV/2||col<0||col>=COLUMNS||
       rays[col].distance<depth-.6)return null;
+   // An ultra-thin facade may lie BETWEEN the 210 diagnostic ray columns.
+   // Test the person's true centre line against actual public geometry too,
+   // rather than publishing a wall-hidden human silhouette/seat label.
+   const direct={x:dx/distance,z:dz/distance};
+   if(solids.some(solid=>rayBox(subject,direct,solid)<distance-.2))return null;
    // Only server-published, actually visible squadmates carry a local seat
    // label. Never infer a hidden rival's squad, identity or location.
    return Object.freeze({kind:p.kind,id:p.id,col,depth,

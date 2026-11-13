@@ -87,11 +87,43 @@
   return Object.freeze({baseMetres:high,lowMetres:low,
    plinthMetres:high-low,actualSurveyVerified:false});
  }
- function draw(canvas,registry,cache,walker,yaw,buildings=[],pitch=0){
+ // Render the same court-facing opening as the walking collision world.
+ // An unregistered building stays a solid shell; only actual public rooms
+ // supply door width. No new floor or collision is invented by the painter.
+ function facadePanels(b,foundation,room=null,closed=false){
+  const minX=b.x-b.w/2,maxX=b.x+b.w/2,minZ=b.z-b.d/2,maxZ=b.z+b.d/2,
+   low=foundation.lowMetres,base=foundation.baseMetres,top=base+b.h;
+  const panels=[];
+  const add=(ax,az,bx,bz,bottom,ceiling,color)=>{
+   if(ceiling<=bottom||Math.hypot(ax-bx,az-bz)<1e-8)return;
+   panels.push({vertices:[[ax,bottom,az],[bx,bottom,bz],
+     [bx,ceiling,bz],[ax,ceiling,az]],color});
+  };
+  const wall=(ax,az,bx,bz)=>{
+   add(ax,az,bx,bz,low,base,'#6a6256');
+   add(ax,az,bx,bz,base,top,b.color||'#a99b84');
+  };
+  wall(minX,minZ,maxX,minZ);wall(maxX,minZ,maxX,maxZ);
+  wall(minX,maxZ,minX,minZ);
+  const publicDoor=b.publicInterior===true&&room?.id===b.id&&
+   room.x===b.x&&room.z===b.z&&room.w===b.w&&room.d===b.d&&
+   Number.isFinite(room.doorWidth)&&room.doorWidth>0&&room.doorWidth<b.w;
+  if(!publicDoor){wall(maxX,maxZ,minX,maxZ);return panels;}
+  const left=b.x-room.doorWidth/2,right=b.x+room.doorWidth/2,
+   lintel=Math.min(top,base+2.4);
+  wall(minX,maxZ,left,maxZ);wall(right,maxZ,maxX,maxZ);
+  add(left,maxZ,right,maxZ,lintel,top,b.color||'#a99b84');
+  if(closed)add(left,maxZ,right,maxZ,low,lintel,'#594936');
+  return panels;
+ }
+ function draw(canvas,registry,cache,walker,yaw,buildings=[],pitch=0,
+   {publicRooms=[],closedDoorIds=new Set(),pedestrians=[]}={}){
   if(!canvas||typeof canvas.getContext!=='function'||
      !(registry instanceof Map)||!(cache instanceof Map)||
      !walker||![walker.x,walker.y,walker.z,yaw,pitch].every(Number.isFinite)||
-     Math.abs(pitch)>Math.PI/3||!Array.isArray(buildings))
+     Math.abs(pitch)>Math.PI/3||!Array.isArray(buildings)||
+     !Array.isArray(publicRooms)||!(closedDoorIds instanceof Set)||
+     !Array.isArray(pedestrians)||pedestrians.length>128)
    throw new TypeError('Invalid civilian street camera');
   const ctx=canvas.getContext('2d');
   if(!ctx)throw new TypeError('Canvas 2D unavailable');
@@ -150,28 +182,27 @@
       b.w<=0||b.d<=0||b.h<=0||Math.hypot(b.x-eye.x,b.z-eye.z)>FAR+40)continue;
    const foundation=groundedFacade(b,registry,meshByKey,Tile);
    if(!foundation)continue;
-   const y=foundation.baseMetres;
-   const minX=b.x-b.w/2,maxX=b.x+b.w/2,minZ=b.z-b.d/2,maxZ=b.z+b.d/2;
-   const walls=[
-    [[minX,minZ],[maxX,minZ]],
-    [[maxX,minZ],[maxX,maxZ]],
-    [[maxX,maxZ],[minX,maxZ]],
-    [[minX,maxZ],[minX,minZ]]
-   ];
-   for(const [a,c] of walls){
-    if(foundation.plinthMetres>.05){
-     // The raised foundation is a visible base, not an invented floating
-     // first floor. Its full low-to-high face anchors the wall to terrain.
-     face([camera(a[0],foundation.lowMetres,a[1]),
-       camera(c[0],foundation.lowMetres,c[1]),
-       camera(c[0],y,c[1]),camera(a[0],y,a[1])],'#6a6256');
-    }
-    face([camera(a[0],y,a[1]),
-      camera(c[0],y,c[1]),
-      camera(c[0],y+b.h,c[1]),
-      camera(a[0],y+b.h,a[1])],b.color||'#a99b84');
-   }
+   const room=publicRooms.find(room=>room?.id===b.id);
+   for(const panel of facadePanels(b,foundation,room,closedDoorIds.has(b.id)))
+    face(panel.vertices.map(v=>camera(...v)),panel.color);
    civilianFacades++;
+  }
+  // The same living people that stop the walking capsule must be visible
+  // at eye level too. Painter-sorted silhouettes use their actual grounded
+  // poses; no additional resident or network actor is spawned here.
+  let civilianBodies=0;
+  for(const person of pedestrians){
+   if(!person||![person.x,person.y,person.z].every(Number.isFinite)||
+      Math.hypot(person.x-eye.x,person.z-eye.z)>FAR)continue;
+   const panel=(halfWidth,bottom,top,color)=>{
+    const dx=Math.cos(yaw)*halfWidth,dz=Math.sin(yaw)*halfWidth;
+    face([camera(person.x-dx,person.y+bottom,person.z-dz),
+      camera(person.x+dx,person.y+bottom,person.z+dz),
+      camera(person.x+dx,person.y+top,person.z+dz),
+      camera(person.x-dx,person.y+top,person.z-dz)],color);
+   };
+   panel(.19,.05,.8,'#434e50');panel(.24,.65,1.43,'#73958b');
+   panel(.11,1.43,1.72,'#ba997b');civilianBodies++;
   }
   // The painter sorts real view-space depths: distant ground/facades before
   // nearby ones. There is no world-depth stencil or WebGL timing claim.
@@ -186,9 +217,9 @@
    ctx.closePath();ctx.fill();visibleFaces++;
   }
   return Object.freeze({mode:'original-street-perspective',terrainTiles,
-   trianglesConsidered,visibleFaces,civilianFacades,
+   trianglesConsidered,visibleFaces,civilianFacades,civilianBodies,
    eyeHeightMetres:EYE_HEIGHT,metresPerWorldUnit:1,
    geographicallyVerified:false,unrealNative:false,measuredGpuFps:null});
  }
- return Object.freeze({draw,project,clipNear,clipFar,groundedFacade,NEAR,FAR,EYE_HEIGHT});
+ return Object.freeze({draw,project,clipNear,clipFar,groundedFacade,facadePanels,NEAR,FAR,EYE_HEIGHT});
 });

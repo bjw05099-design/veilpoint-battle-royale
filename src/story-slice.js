@@ -1783,8 +1783,8 @@
       const remaining=state.world.bots.filter(b=>b.alive).length;
       // Only the captain can confirm a visible target he just engaged. The NIS
       // liaison receives his explicit radio report; she has no omniscient feed.
-      state.subtitle='이수혁 대위(무전): 현장에서 확인한 위협 인원 '+(3-remaining)+'/3. 상황을 계속 보고하겠습니다.';
-      state.message='무장 대치자 '+remaining+'기 남음';
+      state.subtitle='이수혁 대위(무전): 현장에서 확인한 교전 결과를 보고합니다. 주변 경계를 유지하며 상황을 계속 보고하겠습니다.';
+      state.message='현장 교전 결과 확인 · 주변 경계 유지';
       if(remaining===0){
         // BR's final-shot victory is not CH01 mission completion. The story
         // still requires player-led evidence, a route decision and an exit.
@@ -2574,7 +2574,7 @@
   function objective(state) {
     switch(state.phase){
       case 'terminal':return '현지 민간 통신 협력 임무를 이어가세요. 시민 중계기에 가까이 접근하면 현장 상황이 바뀝니다. F로 직접 점검할 수도 있습니다.';
-      case 'engagement':return '무장 대치자 3명을 제압하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
+      case 'engagement':return '무장 대치자와의 교전에 대응하세요. 클릭/SPACE 발사, R 재장전, Q 상황 보고.'+
         (state.combat.supplyRemaining===0?' 유한 보급은 이미 사용되어 소진되었습니다.':
         state.world.player.charges>=state.world.player.maxCharges
           ?' 보급 상자 잔량 '+state.combat.supplyRemaining+'발 · 휴대 한도에 도달했습니다.'

@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false,storageBlocked=false,checkpointReadFailures=0){
+function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointer=!touch,windows=false,storageBlocked=false,checkpointReadFailures=0,audioContext=null){
   const listeners=new Map(),nodes=new Map();
   let grantPointerLock=null;
   const ctx2d={fillRect(){},clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};
@@ -69,7 +69,7 @@ function boot(sharedStore=new Map(),touch=false,pointerLock='granted',finePointe
   let now=0,frameCallback=null;
   const navigations=[];
   const context={
-    document,localStorage:store,
+    document,localStorage:store,AudioContext:audioContext,
     location:{assign:url=>navigations.push(url)},
     performance:{now:()=>now},
     matchMedia:query=>({matches:query==='(any-pointer:fine)'?finePointer:touch}),
@@ -3850,4 +3850,35 @@ test('CH01 initial import to an empty save slot remains a single explicit Apply 
  app.element('checkpointApply').click();
  assert.equal(app.element('checkpointTransferPanel').classList.contains('hidden'),true);
  assert.equal(app.store.get('veilpoint.story.ch01'),raw);
+});
+
+test('real CH01 fixed-step missed shots sound once; pause and checkpoint reload never replay prior volleys',()=>{
+ const Story=require('../src/story-slice.js'),state=Story.createState(),played=[];
+ class Context{
+  constructor(){this.currentTime=1;this.destination={};this.state='running'}
+  createOscillator(){let frequency;return {frequency:{setValueAtTime(v){frequency=v}},
+   connect(){},disconnect(){},start(){played.push(frequency)},stop(){}}}
+  createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},
+   exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}
+ }
+ state.world.player.x=Story.POINTS.terminal.x;state.world.player.z=Story.POINTS.terminal.z;
+ assert.equal(Story.interact(state).ok,true);
+ for(const index of [0,2]){state.world.bots[index].health=0;state.world.bots[index].alive=false}
+ state.world.player.x=15;state.world.player.z=-18;state.combat.nextPulseAt=0;
+ const store=new Map([['veilpoint.story.ch01',Story.serialize(state)]]);
+ const app=boot(store,false,'granted',true,false,false,0,Context);
+ app.element('continue').click();assert.equal(played.length,0);
+ assert.doesNotMatch(app.element('combatStatus').textContent,/대치자\s+\d|\/3/,
+  'HUD must not expose the remaining global enemy count');
+ assert.doesNotMatch(app.element('objective').textContent,/대치자 3명/);
+ app.context.VeilpointInput.right=true;app.frame(1000/60);
+ const saved=JSON.parse(store.get('veilpoint.story.ch01'));
+ assert.equal(saved.player.health,100,'actual incoming round misses without any injury cue');
+ assert.equal(saved.combat.drones[1].shots,1);
+ assert.deepEqual(played,[160],'one new finite round has one audible cue');
+ app.frame(2000/60);app.frame(3000/60);assert.equal(played.length,1);
+ app.emit('keydown',{code:'Escape'});app.frame(1000);assert.equal(played.length,1);
+ const resumed=boot(store,false,'granted',true,false,false,0,Context);
+ resumed.element('continue').click();resumed.frame(1000/60);
+ assert.equal(played.length,1,'restored finite shot history is not a new sound event');
 });
