@@ -329,6 +329,17 @@ function renderJourney(w){
   panel.hidden=true;return;
  }
  const n=value=>Number.isFinite(value)&&value>=0?value.toFixed(2):'—';
+ // The verified 6-person aggregate exists only after server round completion.
+ // Old local protocol snapshots keep the historical personal-only report.
+ const group=w?.squadJourney;
+ const squad=group?.schema==='veilpoint-br96-squad-journey-v1'&&
+   group.squad===personal.squad&&group.members===6&&
+   group.ownSquadPlacement===personal.ownSquadPlacement&&
+   Number.isInteger(group.participantsMoved)&&group.participantsMoved>=0&&
+   group.participantsMoved<=6&&Number.isInteger(group.activeMembersAtFinish)&&
+   group.activeMembersAtFinish>=0&&group.activeMembersAtFinish<=6&&
+   [group.totalMeters,group.walkedMeters,group.sprintedMeters].every(x=>
+     Number.isFinite(x)&&x>=0)?group:null;
  const rank=Number.isInteger(personal.ownSquadPlacement)?
    personal.ownSquadPlacement+'위':'공동 순위';
  el('journeyText').textContent=
@@ -338,12 +349,16 @@ function renderJourney(w){
    '실제 보행 거리: '+n(personal.walkedMeters)+'m\n'+
    '실제 달리기 거리: '+n(personal.sprintedMeters)+'m\n'+
    '전체 이동 거리: '+n(personal.totalMeters)+'m\n'+
-    '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
+   '직접 방문한 지점: '+personal.locationsVisited+'개\n'+
    '종료 당시 본인 상태: '+
      (personal.ownResult==='active_at_finish'?'경기 참가 중':
       personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
       personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':'종료 사유 확인 필요')+
-   '\n※ 개인 활동 기록이며 공격·승리 점수나 실전 성능 분석이 아닙니다.';
+   (squad?'\n\n우리 6인 분대의 실제 이동 기록\n'+
+      '움직인 인원: '+squad.participantsMoved+'/6명 · 종료 당시 참가 '+squad.activeMembersAtFinish+'/6명\n'+
+      '분대 전체 이동 거리: '+n(squad.totalMeters)+'m\n'+
+      '분대 보행: '+n(squad.walkedMeters)+'m · 달리기: '+n(squad.sprintedMeters)+'m':'')+
+   '\n※ 개인·분대의 서버 관측 이동만 집계하며 상대 위치, 동료별 이동 경로 및 휴식 시간은 제외합니다.';
  panel.hidden=false;
 }
 function renderStandings(w){

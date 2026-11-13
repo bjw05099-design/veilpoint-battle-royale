@@ -130,7 +130,17 @@
       state.phase==='complete'&&state.passageWarningHeard===true&&
       Number.isFinite(state.gateReadyAt)&&state.gateReadyAt>0&&
       Number.isFinite(state.world.elapsed)&&state.world.elapsed>=state.gateReadyAt;
+    // The real F-key handoff at the staffed south aid drop is itself a
+    // witnessed civilian consultation. The optional muster conversation is
+    // not a mandatory prerequisite to recognizing an actually delivered crate.
+    // Require BOTH the mission record and its synced 60Hz world ownership:
+    // a forged loose flag must never fabricate a completed handoff.
+    const witnessedAidHandoff=state.choice==='evacuation'&&
+      ['exit','complete'].includes(state.phase)&&
+      state.aidPickedUp===true&&state.aidDelivered===true&&
+      state.world.aidDelivered===true&&state.world.carryingAid===false;
     const hasLocalConsultation=state.musterConfirmed===true||
+      witnessedAidHandoff||
       (state.choice==='verification'&&
         (state.gateLogReviewed===true||witnessedEastClearance));
     if(hasLocalConsultation){
@@ -141,7 +151,7 @@
       // Only an actual physical civilian aid handoff can author this optional
       // follow-up thread. Route selection, an unopened crate or a reported
       // vehicle arrival do not prove that the local aid team received supplies.
-      if(state.choice==='evacuation'&&state.aidDelivered===true)
+      if(witnessedAidHandoff)
         result=advance(result,EVENTS.LOCAL_AID_OBSERVED);
       // The optional civilian van actually reaches a public passenger stop
       // only when the authoritative 60Hz actor and its collision body agree.

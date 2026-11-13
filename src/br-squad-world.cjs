@@ -920,6 +920,24 @@ class BrSquadWorld {
       ownSquadPlacement:this.placements[me.team],
       ownResult:me.eliminationReason||'active_at_finish'
     }):null;
+    // A finished 6-person squad earns one aggregate physical journey record.
+    // All numbers come from the same server-owned 60Hz displacements as the
+    // personal recap. Never transfer CH01 progress, rival telemetry, private
+    // member distances, rest durations or inferred 96-player WAN performance.
+    const squadJourney=this.phase==='finished'?(()=>{
+      const total=ownSquad.reduce((metres,p)=>metres+p.traveledMeters,0);
+      const running=ownSquad.reduce((metres,p)=>metres+p.sprintedMeters,0);
+      const roundMetres=n=>Math.round(n*100)/100;
+      return Object.freeze({schema:'veilpoint-br96-squad-journey-v1',
+        squad:me.team+1,members:SQUAD_SIZE,
+        participantsMoved:ownSquad.filter(p=>p.traveledMeters>1e-7).length,
+        activeMembersAtFinish:ownSquad.filter(p=>p.eligible).length,
+        roundTicks:this.tick,
+        totalMeters:roundMetres(total),
+        walkedMeters:roundMetres(Math.max(0,total-running)),
+        sprintedMeters:roundMetres(running),
+        ownSquadPlacement:this.placements[me.team]});
+    })():null;
     const matchOutcome=this.phase==='finished'?Object.freeze({
       kind:champion===null?(this.placements[me.team]===1?'shared_tie':'squad_placed'):
         me.team+1===champion?'squad_win':'squad_placed',
@@ -929,7 +947,7 @@ class BrSquadWorld {
       ...(this.finishReason==='time_limit'?{reason:'time_limit'}:{})
     }):null;
     return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
-      matchOutcome,personalRecap,
+      matchOutcome,personalRecap,squadJourney,
       roundClock:Object.freeze({limitTicks:ROUND_LIMIT_TICKS,
         remainingTicks:Math.max(0,ROUND_LIMIT_TICKS-this.tick)}),
       coastalWeather:weather,
