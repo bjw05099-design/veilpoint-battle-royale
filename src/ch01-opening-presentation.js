@@ -155,6 +155,13 @@
     event.stopPropagation?.();
     close();return;
    }
+   // Auto-repeat of the briefing's own P/Backspace shortcuts is inert.
+   // Consume propagation but preserve the established non-prevented key
+   // behavior for repeats; never advance or rewind a second caption.
+   if(event.repeat&&(event.key==='Backspace'||
+      typeof event.key==='string'&&event.key.toLowerCase()==='p')){
+    event.stopPropagation?.();return;
+   }
    // The briefing is a real modal, not just a visual overlay. Capture
    // gameplay keys before CH01's document/window movement and contextual F
    // listeners can see them. Native Enter/Space on the focused Next button
