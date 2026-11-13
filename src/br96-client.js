@@ -742,7 +742,13 @@ function weaponInputAvailable(){
   el('standingsPanel').hidden&&el('vpAudioPanel').hidden;
 }
 async function weaponAction(action){
- if(!weaponInputAvailable()||weaponBusy)return;
+ if(!weaponInputAvailable())return;
+ if(weaponBusy){
+  // One deliberate reload may follow an in-flight shot acknowledgement.
+  // Never queue another shot. Ordinary input resets clear this intent too.
+  if(action==='reload')keys.add('ReloadPending');
+  return;
+ }
  const world=currentWorld(),weapon=world.self.weapon;
  if(!weapon)return;
  if(action==='fire'&&(weapon.loaded===0||weapon.reloadTicksRemaining>0))return;
@@ -760,7 +766,11 @@ async function weaponAction(action){
    streetPitch=window.VeilpointBR96StreetView.clampPitch(streetPitch+.004);
    render();
   }
- }finally{weaponBusy=false;}
+ }finally{
+  weaponBusy=false;
+  if(keys.delete('ReloadPending')&&token===ownToken&&state?.roundNumber===ownRound&&
+    weaponInputAvailable())void weaponAction('reload');
+ }
 }
 canvas.addEventListener('mousedown',event=>{
  if(event.button!==0||event.ctrlKey||event.altKey||event.metaKey||!weaponInputAvailable())return;
@@ -909,7 +919,9 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
- else if(!event.repeat&&key==='KeyR'&&active()){event.preventDefault();void weaponAction('reload');}
+ else if(!event.repeat&&key==='KeyR'&&active()){
+  event.preventDefault();keys.delete('MousePrimary');void weaponAction('reload');
+ }
  // F is the single default nearby interaction key; R reloads
  // and E is free. Press the wheel to mark one's true server position.
 });

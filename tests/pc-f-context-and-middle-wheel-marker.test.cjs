@@ -84,7 +84,7 @@ test('F is contextual in BR96, in CH01 remapping and UE5; middle click marks pos
  assert.match(br,/if\(event\.button!==1\)return;/);
  assert.match(br,/signal\('location'\);/);
  assert.doesNotMatch(br,/key==='KeyE'&&active\(\)/);
- assert.match(br,/key==='KeyR'&&active\(\)\)\{event.preventDefault\(\);void weaponAction\('reload'\)/,
+ assert.match(br,/key==='KeyR'&&active\(\)\)\{\s*event.preventDefault\(\);keys.delete\('MousePrimary'\);void weaponAction\('reload'\)/,
   'R reloads the real finite weapon; it is not a second interaction binding');
  assert.doesNotMatch(br,/key==='KeyT'&&active\(\)/);
  assert.match(html,/휠 클릭 · 위치 표시/);
