@@ -1,0 +1,14 @@
+{
+  "name": "veilpoint-game-development-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Build-time asset tools only; never bundled in the offline game",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "meshoptimizer": "1.3.0"
+  }
+}

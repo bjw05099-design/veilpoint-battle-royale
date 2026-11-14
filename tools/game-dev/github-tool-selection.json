@@ -1,0 +1,138 @@
+{
+  "schema": "veilpoint-github-tool-selection-v1",
+  "observedAt": "2026-11-14",
+  "method": "GitHub Trending and gamedev most-stars discovery, then live repository stars for this relevant shortlist; not a global rank",
+  "sources": [
+    "https://github.com/trending",
+    "https://github.com/topics/game-development",
+    "https://github.com/topics/mesh-processing"
+  ],
+  "repositories": [
+    {
+      "repo": "isl-org/Open3D",
+      "stars": 14209,
+      "updated": "2026-11-14T06:53:08Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/isl-org/Open3D",
+      "description": "Open3D: A Modern Library for 3D Data Processing"
+    },
+    {
+      "repo": "zeux/meshoptimizer",
+      "stars": 8854,
+      "updated": "2026-10-14T17:27:17Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/zeux/meshoptimizer",
+      "description": "Mesh optimization library that makes meshes smaller and faster to render"
+    },
+    {
+      "repo": "mikedh/trimesh",
+      "stars": 3721,
+      "updated": "2026-11-13T19:53:01Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/mikedh/trimesh",
+      "description": "Python library for loading and using triangular meshes."
+    },
+    {
+      "repo": "pyproj4/pyproj",
+      "stars": 1239,
+      "updated": "2026-11-02T22:08:53Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/pyproj4/pyproj",
+      "description": "Python interface to PROJ (cartographic projections and coordinate transformations library)"
+    },
+    {
+      "repo": "rasterio/rasterio",
+      "stars": 2592,
+      "updated": "2026-11-03T16:56:49Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/rasterio/rasterio",
+      "description": "Rasterio reads and writes geospatial raster datasets"
+    },
+    {
+      "repo": "jpcy/xatlas",
+      "stars": 2605,
+      "updated": "2024-06-16T22:20:33Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/jpcy/xatlas",
+      "description": "Mesh parameterization / UV unwrapping library"
+    },
+    {
+      "repo": "baldurk/renderdoc",
+      "stars": 11315,
+      "updated": "2026-11-13T15:15:12Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/baldurk/renderdoc",
+      "description": "RenderDoc is a stand-alone graphics debugging tool."
+    },
+    {
+      "repo": "wolfpld/tracy",
+      "stars": 17123,
+      "updated": "2026-11-12T11:30:37Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/wolfpld/tracy",
+      "description": "Frame profiler"
+    },
+    {
+      "repo": "FFmpeg/FFmpeg",
+      "stars": 67237,
+      "updated": "2026-11-14T10:04:34Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/FFmpeg/FFmpeg",
+      "description": "Mirror of https://git.ffmpeg.org/ffmpeg.git"
+    },
+    {
+      "repo": "assimp/assimp",
+      "stars": 13322,
+      "updated": "2026-11-13T18:55:32Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/assimp/assimp",
+      "description": "The official Open-Asset-Importer-Library Repository. Loads 40+ 3D-file-formats into one unified and clean data structure. "
+    },
+    {
+      "repo": "donmccurdy/glTF-Transform",
+      "stars": 2078,
+      "updated": "2026-10-20T11:41:51Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/donmccurdy/glTF-Transform",
+      "description": "glTF 2.0 SDK for JavaScript and TypeScript, on Web and Node.js."
+    },
+    {
+      "repo": "KhronosGroup/glTF-Validator",
+      "stars": 482,
+      "updated": "2026-10-06T19:02:48Z",
+      "archived": false,
+      "license": "Apache-2.0",
+      "url": "https://github.com/KhronosGroup/glTF-Validator",
+      "description": "Tool to validate glTF assets."
+    },
+    {
+      "repo": "mbloch/mapshaper",
+      "stars": 4209,
+      "updated": "2026-11-07T21:52:56Z",
+      "archived": false,
+      "license": "NOASSERTION",
+      "url": "https://github.com/mbloch/mapshaper",
+      "description": "Tools for editing Shapefile, GeoJSON, TopoJSON and CSV files"
+    },
+    {
+      "repo": "astral-sh/ruff",
+      "stars": 51230,
+      "updated": "2026-11-14T09:32:00Z",
+      "archived": false,
+      "license": "MIT",
+      "url": "https://github.com/astral-sh/ruff",
+      "description": "An extremely fast Python linter and code formatter, written in Rust."
+    }
+  ]
+}

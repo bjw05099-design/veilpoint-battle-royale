@@ -1,0 +1,81 @@
+{
+  "schema": "veilpoint-game-dev-toolchain-v1",
+  "reviewedAt": "2026-11-14",
+  "engine": {
+    "version": "5.8",
+    "license": "Epic Unreal Engine EULA; not open source",
+    "installation": "Epic Games Launcher; account/sign-in and license acceptance on the Windows PC"
+  },
+  "tools": {
+    "tracy": {
+      "version": "0.15.0",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/wolfpld/tracy",
+      "purpose": "Frame profiling capture/import tools; game instrumentation is a separate native build change",
+      "platforms": {
+        "linux-x64": {
+          "url": "https://github.com/wolfpld/tracy/releases/download/v0.15.0/linux-0.15.0.zip",
+          "sha256": "62e6208655d857659cc79e1bea24a190241b10fa88a7f7f88ae2d434725bce39",
+        "executable": "tracy-capture",
+        "executables": ["tracy-capture", "tracy-import-chrome", "tracy-csvexport", "tracy-update", "tracy-merge", "tracy-monitor", "tracy-capture-daemon", "tracy-import-fuchsia", "tracy-profiler-x86_64.AppImage"]
+        },
+        "windows-x64": {
+          "url": "https://github.com/wolfpld/tracy/releases/download/v0.15.0/windows-0.15.0.zip",
+          "sha256": "3549555e0ce253932b9e37dc2c2b72af9fe46f65c64391cbf1762a4a510f67c7",
+          "executable": "tracy-capture.exe"
+        }
+      }
+    },
+    "agent-desktop": {
+      "version": "1.3.1",
+      "license": "Apache-2.0",
+      "source": "https://github.com/vercel-labs/agent-desktop",
+      "sourceCommit": "b0b7277bea09b770ef9d1fb45aad667bc432cd57",
+      "purpose": "Local desktop observation/control; MCP stdio; does not itself connect this chat to a PC",
+      "platforms": {
+        "linux-x64": {
+          "url": "https://github.com/vercel-labs/agent-desktop/releases/download/v1.3.1/agent-desktop-v1.3.1-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "ca77b6b75034eeb12e537dd8c0a4f2a3424119253f38b7e6bd79ba0d2fef1264",
+          "executable": "agent-desktop"
+        },
+        "windows-x64": {
+          "url": "https://github.com/vercel-labs/agent-desktop/releases/download/v1.3.1/agent-desktop-v1.3.1-x86_64-pc-windows-msvc.tar.gz",
+          "sha256": "6ee4b1e078f4e78792e79f16e32e4a78b9919464aa3c55629b7e27ed53a08c13",
+          "executable": "agent-desktop.exe"
+        }
+      }
+    },
+    "blender": {
+      "version": "5.2.4",
+      "license": "GPL-3.0-or-later",
+      "source": "https://projects.blender.org/blender/blender",
+      "checksums": "https://download.blender.org/release/Blender5.2/blender-5.2.4.sha256",
+      "purpose": "Authoring, Blender Python, GLB/FBX export; standalone build tool, not a game runtime dependency",
+      "platforms": {
+        "linux-x64": {
+          "url": "https://download.blender.org/release/Blender5.2/blender-5.2.4-linux-x64.tar.xz",
+          "sha256": "2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86",
+          "executable": "blender-5.2.4-linux-x64/blender"
+        },
+        "windows-x64": {
+          "url": "https://download.blender.org/release/Blender5.2/blender-5.2.4-windows-x64.zip",
+          "sha256": "bbd78f8931dc940444da4ff2983374930f9f5c092ae0e330588e9760bb9d967c",
+          "executable": "blender-5.2.4-windows-x64/blender.exe"
+        }
+      }
+    },
+    "runner": {
+      "version": "2.338.2",
+      "license": "MIT",
+      "source": "https://github.com/actions/runner",
+      "purpose": "Optional private-repository Windows build runner; never registered by installing asset tools",
+      "platforms": {
+        "windows-x64": {
+          "url": "https://github.com/actions/runner/releases/download/v2.338.2/actions-runner-win-x64-2.338.2.zip",
+          "sha256": "a1f17aa987fc8158bc7521d284912267a0d01b7c2c4684b33c86783b5e8221cc",
+          "executable": "bin/Runner.Listener.exe"
+        }
+      }
+    }
+  }
+}
