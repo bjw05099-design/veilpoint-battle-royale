@@ -63,7 +63,7 @@ test('the standalone story-first navigation uses the public module already shipp
  assert.ok(html.indexOf('src/public-city-footpaths.js')>0);
  assert.ok(html.indexOf('src/public-city-footpaths.js')<html.indexOf('src/story-slice.js'));
  assert.match(source,/maxVisits:420/);
- assert.match(source,/Footpaths\.plan\(w,goal,state\.world\.obstacles/);
+ assert.match(source,/Footpaths\.plan\(w,goal,solids/);
  const start=Story.createState(),saved=Story.serialize(start);
  assert.equal(Story.serialize(Story.restore(saved)),saved,'story v2 and future BR saves remain isolated');
 });

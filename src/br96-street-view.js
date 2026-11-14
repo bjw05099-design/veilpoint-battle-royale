@@ -109,7 +109,7 @@
  // 1st-person horizon. Near-plane polygon clipping keeps the ground stable
  // even when a player stands ON the pavement. Never use it for actor sight.
  function civicGroundPolygons(subject,yaw,pitch,pavements,width,height,eyeHeight,
-   maxDistance=MAX_DISTANCE){
+   maxDistance=MAX_DISTANCE,surfaceY=0){
   if(!Array.isArray(pavements)||pavements.length>32)
    throw new RangeError('invalid_public_pavements');
   const angle=wrap(yaw),horizon=height*.52+Math.tan(clampPitch(pitch))*height*.68,
@@ -143,7 +143,7 @@
    if(clipped.length<3)continue;
    const points=clipped.map(v=>Object.freeze({
      x:Math.max(-width*4,Math.min(width*5,width/2+v.side*focal/v.depth)),
-     y:Math.max(horizon,Math.min(height*5,horizon+eyeHeight*focal/v.depth))
+     y:Math.max(-height*4,Math.min(height*5,horizon+(eyeHeight-surfaceY)*focal/v.depth))
    }));
    output.push(Object.freeze({id:ground.id||null,
      canvas:ground.canvas,points:Object.freeze(points)}));
@@ -253,7 +253,7 @@
     eyeHeight});
  }
  function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
-   visibilityMeters,weather,pavements=[],showLabels=true}={}){
+   visibilityMeters,weather,pavements=[],loadingHalls=[],showLabels=true}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
@@ -268,7 +268,22 @@
   // below existing raycast buildings, never painted OVER an opaque wall.
   const ground=civicGroundPolygons(subject,yaw,pitch,pavements,
     width,height,model.eyeHeight,model.maxDistance);
-  for(const patch of ground){
+  if(!Array.isArray(loadingHalls)||loadingHalls.length>8)
+    throw new RangeError('invalid_loading_halls');
+  // Public roofs are genuine horizontal surfaces, not walls rising from
+  // the floor. Near-plane clipping keeps the ceiling visible from INSIDE.
+  for(const room of loadingHalls){
+   if(!room||![room.x,room.z,room.w,room.d,room.h].every(Number.isFinite)||
+      room.w<8||room.w>60||room.d<8||room.d>60||room.h<3||room.h>30)
+    throw new RangeError('invalid_loading_hall');
+  }
+  const hallSurfaces=loadingHalls.flatMap(room=>[
+   ...civicGroundPolygons(subject,yaw,pitch,[{...room,w:room.w-1,canvas:'#706e64'}],
+     width,height,model.eyeHeight,model.maxDistance,.012),
+   ...civicGroundPolygons(subject,yaw,pitch,[{...room,canvas:'#595e5b'}],
+     width,height,model.eyeHeight,model.maxDistance,room.h)
+  ]);
+  for(const patch of [...ground,...hallSurfaces]){
    ctx.fillStyle=patch.canvas;ctx.beginPath();
    for(let i=0;i<patch.points.length;i++){
     const vertex=patch.points[i];

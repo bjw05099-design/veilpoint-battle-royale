@@ -422,7 +422,7 @@ function draw(w){
    subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather,
-   pavements:publicEnvironment?.pavements||[],showLabels:false});
+   pavements:publicEnvironment?.pavements||[],loadingHalls:publicEnvironment?.loadingHalls||[],showLabels:false});
   const weapon=w.self?.weapon;
   if(weapon&&!w.spectatorView){
    ctx.fillStyle='#0c171c';ctx.fillRect(8,height-36,Math.min(width-16,420),28);
@@ -1032,8 +1032,14 @@ async function loadPublicGeometry(){
       p.w>0&&p.d>0&&p.w<=60&&p.d<=60&&
       /^#[0-9a-f]{6}$/i.test(p.canvas||'')))
     throw Error('invalid_public_pavements');
+  const loadingHalls=record.loadingHalls??[];
+  if(!Array.isArray(loadingHalls)||loadingHalls.length>8||
+     !loadingHalls.every(room=>room&&[room.x,room.z,room.w,room.d,room.h].every(Number.isFinite)&&
+      Math.abs(room.x)<=175&&Math.abs(room.z)<=175&&room.w>=8&&room.w<=60&&
+      room.d>=8&&room.d<=60&&room.h>=3&&room.h<=30))
+    throw Error('invalid_public_loading_halls');
   publicGeometry=record.obstacles;
-  publicEnvironment={wetLoadingPad:pad,pavements};
+  publicEnvironment={wetLoadingPad:pad,pavements,loadingHalls};
   render();
  }catch(error){
   // The server may transition from lobby to world after the previous poll.

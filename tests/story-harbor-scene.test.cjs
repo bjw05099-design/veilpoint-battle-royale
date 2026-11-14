@@ -121,3 +121,19 @@ test('CH01 evacuation guide has real WebGL vertices only when exposed and never 
  const br=Sim.newMatch(20261105,1);
  assert.equal(Visibility.planVisible(br,16/9).guides.length,0);
 });
+
+test('loading-hall mesh has an elevated ceiling, flat floor and no decorative house inside its doorway',()=>{
+ const fake=fakeGl(),context=vm.createContext({VeilpointSim:Sim,VeilpointGraphics:Graphics,
+  VeilpointPerformance:Perf,VeilpointVisibility:Visibility,devicePixelRatio:1});
+ vm.runInContext(fs.readFileSync(__dirname+'/../src/renderer.js','utf8'),context);
+ const renderer=new context.VeilpointRenderer({clientWidth:640,clientHeight:360,
+  getContext:t=>t==='webgl2'?fake.gl:null});
+ const s=Story.createState();renderer.draw(s.world);
+ const mesh=fake.uploads.findLast(v=>v.length===renderer.static.count*9);
+ const points=[];for(let i=0;i<mesh.length;i+=9)points.push([mesh[i],mesh[i+1],mesh[i+2]]);
+ assert.ok(points.some(([x,y,z])=>Math.abs(x-34)<.001&&Math.abs(y-9)<.001&&Math.abs(z+28)<.001),
+  'the underside of the real roof is uploaded to WebGL');
+ assert.ok(points.some(([x,y,z])=>Math.abs(x-34.5)<.001&&Math.abs(y-.012)<.001&&Math.abs(z+28)<.001));
+ assert.equal(points.some(([x,y,z])=>x>40.15&&x<43.85&&z>-28.6&&z<-27.4&&y>.3&&y<2.6),false,
+  'generic house windows, doors, roof trim and random trees cannot seal the four-metre entry');
+});

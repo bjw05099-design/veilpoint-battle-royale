@@ -22,6 +22,7 @@
     (x>=-164&&x<=-144&&z>=112&&z<=130);
   if(oldPublicInterior)return true;
   if(!Array.isArray(obstacles))return false;
+  if(Sim?.harborPassageAt?.(player,obstacles))return true;
   const walls=['west','east','north','southwest','southeast']
     .map(part=>obstacles.find(o=>o?.id==='harbor-hall-'+part&&
       o.type==='story-public-hall-wall'&&
@@ -111,7 +112,9 @@
     phase==='terminal'?.0043:.0062;
   const spatial=spatialResponse(state,area);
   const speechPriority=witnessedSpeech(state);
-  const level=clamp(base*(inside?.40:1)*(spatial.occluded?.52:1)*
+  const passage=Sim?.harborPassageAt?.(player,state.world.obstacles);
+  const roomGain=passage?1-.60*passage.enclosure:inside?.40:1;
+  const level=clamp(base*roomGain*(spatial.occluded?.52:1)*
     (speechPriority?.58:1),0,.008);
   let lowHz=inside?51:58,highHz=96;
   if(area==='market'){

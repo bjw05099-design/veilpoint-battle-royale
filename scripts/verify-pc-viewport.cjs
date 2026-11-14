@@ -634,7 +634,7 @@ async function run(){
  let activeChrome=chrome;
  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  let child=null,userDir=null,stderr='',ws=null,transportFailure=null;
- let startupAttempts=0,combatBrowser=null;
+ let startupAttempts=0,combatBrowser=null,harborBrowser=null;
  async function stopBrowser(){
   if(child&&child.exitCode===null&&!child.signalCode){
    const closed=once(child,'close').catch(()=>{});
@@ -1030,9 +1030,21 @@ async function run(){
    fs.mkdirSync(path.dirname(dest),{recursive:true});
    fs.writeFileSync(path.join(path.dirname(dest),'br96-combat-browser.png'),
     Buffer.from(combatBrowser.screenshot,'base64'));
+   fs.writeFileSync(path.join(path.dirname(dest),'br96-loading-hall.png'),
+    Buffer.from(combatBrowser.hallScreenshot,'base64'));
   }
   delete combatBrowser.screenshot;
+  delete combatBrowser.hallScreenshot;
   process.stdout.write('Chromium BR96 combat: 96 loopback sessions, mouse fire, R reload, chat isolation and server elimination verified\n');
+  harborBrowser=await require('./verify-harbor-interior-browser.cjs').verifyHarborInterior({rpc});
+  if(dest){
+   fs.writeFileSync(path.join(path.dirname(dest),'ch01-loading-hall.png'),
+    Buffer.from(harborBrowser.primaryScreenshot,'base64'));
+   fs.writeFileSync(path.join(path.dirname(dest),'ch01-loading-hall-canvas.png'),
+    Buffer.from(harborBrowser.fallbackScreenshot,'base64'));
+  }
+  delete harborBrowser.primaryScreenshot;delete harborBrowser.fallbackScreenshot;
+  process.stdout.write('Chromium CH01 hall: '+harborBrowser.backend+' + Canvas2D, physical traversal and checkpoint verified\n');
  }catch(error){
   transportFailure={message:String(error&&error.stack||error),
    browserExitCode:child.exitCode,browserSignal:child.signalCode,
@@ -1042,7 +1054,7 @@ async function run(){
   await stopBrowser();
  }
  const result={schema:'veilpoint-pc-ui-geometry-v2',browser:path.basename(activeChrome),
-  combatBrowser,checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyOpeningChecks:openingRecords,storyJournalChecks:journalRecords,br96Checks:br96Records,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
+  combatBrowser,harborBrowser,checks:records,storyChecks:storyRecords,storyMenuChecks:menuRecords,storyOpeningChecks:openingRecords,storyJournalChecks:journalRecords,br96Checks:br96Records,keyboardChecks:keyboardRecords,transportFailure,startupAttempts,
   failures:[...records.flatMap(r=>r.errors.map(e=>
    r.requested.width+'x'+r.requested.height+': '+e)),
    ...storyRecords.flatMap(r=>r.errors.map(e=>
