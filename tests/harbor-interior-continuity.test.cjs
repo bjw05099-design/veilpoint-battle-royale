@@ -109,3 +109,14 @@ test('CH01 saves use their own open approach instead of the removed BR service-y
  assert.throws(()=>Story.restore(JSON.stringify(invalid)),/checkpoint world/,
   'real shared building collisions must still reject a forged checkpoint');
 });
+
+test('restoring an overlapping CH01 passage checkpoint recovers to a stable clear position',()=>{
+ for(const point of [{x:34.25,z:-38},{x:36.4,z:-40}]){
+  const s=Story.createState();Object.assign(s.world.player,point);
+  assert.equal(Sim.blocked(point.x,point.z,.85,s.world.obstacles),true);
+  const r=Story.restore(Story.serialize(s));
+  assert.equal(Sim.blocked(r.world.player.x,r.world.player.z,.85,r.world.obstacles),false);
+  assert.ok(Math.hypot(r.world.player.x-point.x,r.world.player.z-point.z)<5);
+  const raw=Story.serialize(r);assert.equal(Story.serialize(Story.restore(raw)),raw);
+ }
+});

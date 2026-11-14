@@ -362,7 +362,8 @@
     // Legacy checkpoints can overlap several newly authored solids at once.
     // Recover only at load time, with deterministic bounded candidates.
     const p=state.world.player;
-    const structures=state.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
+    const structures=state.world.obstacles.filter(o=>o.type&&
+      (o.type.startsWith('story-')||o.type.startsWith('harbor-passage-')));
     if(!structures.some(o=>Sim.blocked(p.x,p.z,.85,[o])))return false;
     const original={x:p.x,z:p.z},candidates=[];
     for(const building of structures){
