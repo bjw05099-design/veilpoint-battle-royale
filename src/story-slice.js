@@ -208,6 +208,8 @@
   const phases = ['terminal','engagement','records','decision','exit','complete','failed'];
   const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+  const sharedStoryObstacle=o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&
+    o.type!=='yard-service-vehicle'&&o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-');
   function createWorld(weaponId='carbine') {
     const world=Sim.newMatch(20261027,0,weaponId);
     world.status='playing';
@@ -217,7 +219,7 @@
     world.scene='nahrin';
     // BR's newly authored service-yard barrier exists only in the BR map.
     // CH01 has its own independent harbor checkpoint and authored route.
-    world.obstacles=world.obstacles.filter(o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-'));
+    world.obstacles=world.obstacles.filter(sharedStoryObstacle);
     world.obstacles.push(...STORY_STRUCTURES.map(o=>({...o})));
     return world;
   }
@@ -1219,7 +1221,8 @@
         const others=[p,state.worker,state.mara,state.civilianWalker,
           state.world.liaison,state.choice==='evacuation'&&state.guide.active?
             state.guide:null].filter(Boolean)
-          .map(person=>({x:person.x,z:person.z,w:1.1,d:1.1}));
+          .map(person=>({x:person.x,z:person.z,
+            w:person===p?1.7:1.1,d:person===p?1.7:1.1}));
         const solids=state.world.obstacles.concat(actorBlockers(state),others);
         // Story companion steering first checks real building colliders.
         // An obstacle between him and the captain means walking around it,
@@ -1229,11 +1232,16 @@
         // Keep each search deliberately bounded for an offline PC frame.
         let target=goal;
         if(Footpaths&&distance>2){
-          const widened=state.world.obstacles.map(o=>({
+          const widened=solids.map(o=>({
             x:o.x,z:o.z,w:o.w+1.1,d:o.d+1.1
           }));
           if(Sim.lineBlocked(w.x,w.z,goal.x,goal.z,widened)){
-            const path=Footpaths.plan(w,goal,state.world.obstacles,{maxVisits:420});
+            // A captain standing in the hall is a real body too. Planning
+            // only against walls deadlocked the companion on the near side
+            // whenever his follow position was beyond the player. Match
+            // this pedestrian's .55m body instead of wide public paving.
+            const path=Footpaths.plan(w,goal,solids,
+              {maxVisits:420,clearance:.55,step:1});
             if(path&&path.length>1)target=path[1];
           }
         }
@@ -2727,9 +2735,7 @@
         !Number.isFinite(data.kimJiyoon.z)||
         Math.abs(data.kimJiyoon.x)>180||Math.abs(data.kimJiyoon.z)>180||
         Sim.blocked(data.kimJiyoon.x,data.kimJiyoon.z,.55,
-          Sim.newMatch(20261027,0).obstacles.filter(o=>o.type!=='yard-gate'&&
-            o.type!=='yard-fence'&&o.type!=='yard-service-vehicle'&&
-            o.type!=='volcanic-outcrop'&&!o.type.startsWith('dock-'))
+          Sim.newMatch(20261027,0).obstacles.filter(sharedStoryObstacle)
           .concat(STORY_STRUCTURES)) ))||
       (hasOwn(data,'liaisonZ')&&
        (!Number.isFinite(data.liaisonZ)||
@@ -2912,7 +2918,8 @@
          p.reloadRemaining>firearm.reloadSeconds+(modern?Sim.RELOAD_HESITATION_SECONDS:0)||
         (p.reloadRemaining>0&&(p.charges<=p.loaded||p.loaded===firearm.magazine))))||
       p.pitch<-.34||p.pitch>.36||
-      Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,Sim.newMatch(20261027,0).obstacles))
+      Math.abs(p.yaw)>1e7||Sim.blocked(p.x,p.z,.85,
+        Sim.newMatch(20261027,0).obstacles.filter(sharedStoryObstacle)))
       throw new RangeError('Invalid checkpoint world state');
     const c=data.combat;
     if(!c||typeof c!=='object'||Array.isArray(c)||

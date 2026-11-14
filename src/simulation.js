@@ -89,7 +89,9 @@
   }
   function lineBlocked3D(ax,ay,az,bx,by,bz,obstacles){
     const origin={x:ax,y:ay,z:az},direction={x:bx-ax,y:by-ay,z:bz-az};
-    return obstacles.some(o=>segmentBox(origin,direction,1,o)<=1);
+    return obstacles.some(o=>segmentBox(origin,direction,1,o)<=1)||
+      harborPassageSpaces(obstacles).some(room=>
+        segmentBox(origin,direction,1,{...room,y:room.h,h:.18})<=1);
   }
   // Original hitscan prototype; no penetration, drop or calibrated real data.
   // Nearest finite body wins, including an intervening friendly body.
@@ -98,6 +100,8 @@
     const direction={x:Math.sin(yaw),y:Math.tan(pitch),z:-Math.cos(yaw)};
     let best=range,target=null;
     for(const box of obstacles)best=Math.min(best,segmentBox(origin,direction,range,box));
+    for(const room of harborPassageSpaces(obstacles))
+      best=Math.min(best,segmentBox(origin,direction,range,{...room,y:room.h,h:.18}));
     for(const actor of actors){
       if(actor.alive===false||actor.eligible===false)continue;
       const radius=actor.bodyRadius||ACTOR_RADIUS;
@@ -133,6 +137,42 @@
       {x:x+w/2-2.4,z:z+2,w:2.4,d:3,h:1.3}
     ];
     return parts.map((part,i)=>({...part,type:i<6?'harbor-passage-wall':'harbor-passage-crate'}));
+  }
+  // Recognize complete loading-hall kits from their ACTUAL six wall pieces.
+  // No coordinate-only interior, duplicate saved state or roof-sized ground
+  // collider: old terrain and a removed/incomplete kit have no invented room.
+  // The same bounds drive ceilings, shot cover, floor material and acoustics.
+  function harborPassageSpaces(obstacles){
+    if(!Array.isArray(obstacles))return [];
+    const walls=obstacles.filter(o=>o?.type==='harbor-passage-wall'&&
+      [o.x,o.z,o.w,o.d,o.h].every(Number.isFinite)&&
+      o.w>0&&o.d>0&&o.h>=3&&o.h<=30);
+    const spaces=[],close=(a,b)=>Math.abs(a-b)<1e-7;
+    for(const west of walls){
+      if(!close(west.w,.5)||west.d<8||west.d>60)continue;
+      for(const east of walls){
+        if(east.x<=west.x||!close(east.w,.5)||!close(east.z,west.z)||
+           !close(east.d,west.d)||!close(east.h,west.h))continue;
+        const room={x:(west.x+east.x)/2,z:west.z,w:east.x-west.x+.5,
+          d:west.d,h:west.h};
+        if(room.w<8||room.w>60)continue;
+        const expected=harborPassage(room.x,room.z,room.w,room.d,room.h).slice(2,6);
+        if(expected.every(part=>walls.some(o=>
+          ['x','z','w','d','h'].every(key=>close(o[key],part[key])))))spaces.push(room);
+      }
+    }
+    return spaces;
+  }
+  function harborPassageAt(point,obstacles){
+    if(!point||![point.x,point.z].every(Number.isFinite))return null;
+    const room=harborPassageSpaces(obstacles).find(r=>
+      Math.abs(point.x-r.x)<r.w/2-.5&&Math.abs(point.z-r.z)<r.d/2);
+    if(!room||blocked(point.x,point.z,.1,obstacles))return null;
+    // Near either genuine four-metre opening, outside ambience remains
+    // audible. It gradually quiets toward the sheltered interior.
+    const openingDistance=Math.hypot(Math.max(0,Math.abs(point.x-room.x)-2),
+      room.d/2-Math.abs(point.z-room.z));
+    return {...room,enclosure:clamp(openingDistance/6,0,1)};
   }
   // Finite, local sound awareness: walking is audible nearby, crouching quieter,
   // and sprinting farther. Sound-only memory is imprecise; cover attenuates the
@@ -2148,6 +2188,6 @@
       throw new RangeError('Invalid BR local result fields');
     return Object.freeze({...data});
   }
-  return {traceShot,lineBlocked3D,harborPassage,localDetourHeading,ENTRY_SITES,ADEN_GEOGRAPHIC_VISTA,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
+  return {traceShot,lineBlocked3D,harborPassage,harborPassageSpaces,harborPassageAt,localDetourHeading,ENTRY_SITES,ADEN_GEOGRAPHIC_VISTA,PUBLIC_CITY_DISTRICTS,PUBLIC_CITY_ADJACENCY,PUBLIC_CITY_PAVEMENTS,publicDistrictAt,LANDMARKS,visitedLandmarks,discoverLandmarks,BR_LIGHTING,BR_HEADLAMP_TICKS,toggleBrHeadlamp,YARD_SHUTTLE,shuttleStatus,operateYardShuttle,advanceYardShuttle,toggleTrailMarker,gateMotorActive,boundaryStatus,WORLD,ZONE_PHASES,DOCK_DEPOTS,
     DOCK_HANDCART,handcartStatus,operateHandcart,advanceHandcart,INSPECTION_SHELTER,WET_LOADING_PAD,wetApronFooting,harborWaveWash,FIREARMS,MAGAZINE_SIZE,RELOAD_SECONDS,RELOAD_HESITATION_SECONDS,STRESS_THRESHOLD,SPRINT_RECOVERY_STAMINA,canSprint,supplyLoadMobility,SERVICE_YARD,serviceGateStatus,operateServiceGate,advanceServiceGate,hearsFootsteps,hearsImpulse,approximateSoundPosition,newMatch,tick,tag,autoFire,reload,advanceReload,updateStress,injuryMobility,setReloadAssist,pickup,depositReserve,repositionCache,nearestRelocatableCache,canReachPickup,nearestReachablePickup,getAliveCount,getFinalPlacement,forfeitMatch,phaseAt,blocked,lineBlocked,moveEntity,rngFromSeed,receiveDamage,snapshotMatch,restoreMatch,restoreFieldBookmark,recoverMatch,createLastResult,restoreLastResult};
 });

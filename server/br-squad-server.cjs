@@ -182,6 +182,9 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
       // Public non-sensitive environmental region, shared by both modes.
       // Gameplay traction is calculated by the server on true actor poses.
       environment:{wetLoadingPad:{x,z,width,depth}},
+      // Elevated roofs/floors are derived from complete public wall kits.
+      // They never become full-footprint walking obstacles or actor data.
+      loadingHalls:Sim.harborPassageSpaces(world.obstacles),
       // Separate public district ground surfaces preserve the legacy
       // wet-loading-apron response contract for all existing clients.
       nearbyPavementIds:nearbyCivicSurfaces(world.actors.get(token),Sim.PUBLIC_CITY_PAVEMENTS),

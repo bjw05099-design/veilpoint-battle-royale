@@ -501,6 +501,7 @@ class SoftwareRenderer {
   if(o.routeId==='br-yard-shuttle'&&state.vehicle?.driver)continue;
   objects.push({x:o.x,z:o.z,h:o.h,w:o.w,d:o.d,
    type:o.type==='yard-service-vehicle'?'yard-service-vehicle':
+     o.type.startsWith('harbor-passage-')?o.type:
      o.type.startsWith('aden-laneshop-')?o.type:
      o.type.startsWith('aden-raincourt-')?o.type:
      o.type.startsWith('aden-craft-')?o.type:
@@ -577,7 +578,37 @@ class SoftwareRenderer {
  for(const {entity:l} of plan.loot)objects.push({x:l.x,z:l.z,h:l.fieldPouch ? .24 : .9,
   w:l.fieldPouch ? .4 : .75,d:l.fieldPouch ? .32 : .75,type:l.fieldPouch?'field-pouch':l.kind});
   if(harborNight)objects.push({x:27,z:-66,h:1.25,w:.9,d:.55,type:'gate-log'});
- for(const t of this.plants)objects.push({...t,type:'plant',w:.65,d:.65});
+ const loadingSpaces=global.VeilpointSim.harborPassageSpaces(state.obstacles);
+ for(const t of this.plants){
+  if(loadingSpaces.some(room=>Math.abs(t.x-room.x)<room.w/2+1&&
+    Math.abs(t.z-room.z)<room.d/2+1))continue;
+  objects.push({...t,type:'plant',w:.65,d:.65});
+ }
+ // Horizontal room surfaces are backgrounds; draw bodies and cargo after
+ // them so the local floor never paints over a person inside the same hall.
+ for(const room of loadingSpaces)
+ for(const o of [{...room,y:room.h,canvas:'#595e5b'},
+   {...room,w:room.w-1,y:.012,canvas:'#706e64'}]){
+  const x=o.x,z=o.z,ww=o.w/2,dd=o.d/2;
+  // Clip the real floor/ceiling at the camera near plane. Dropping a quad
+  // with corners behind the eye made ceilings disappear after walking in.
+  const vertices=[[-ww,-dd],[ww,-dd],[ww,dd],[-ww,dd]].map(([dx,dz])=>{
+   const rx=x+dx-p.x,rz=z+dz-p.z,side=rx*cos+rz*sin,
+     forward=rx*sin-rz*cos,vertical=o.y-eyeHeight;
+   return {side,up:vertical*Math.cos(p.pitch)-forward*Math.sin(p.pitch),
+     depth:forward*Math.cos(p.pitch)+vertical*Math.sin(p.pitch)};
+  });
+  const clipped=[];
+  for(let i=0;i<vertices.length;i++){
+   const a=vertices[i],b=vertices[(i+1)%vertices.length],
+     aIn=a.depth>=.3,bIn=b.depth>=.3;
+   if(aIn)clipped.push(a);
+   if(aIn!==bIn){const t=(.3-a.depth)/(b.depth-a.depth);
+    clipped.push({side:a.side+(b.side-a.side)*t,up:a.up+(b.up-a.up)*t,depth:.3});}
+  }
+  if(clipped.length>=3)polygon(clipped.map(v=>
+    [w*.5+v.side*focal/v.depth,h*.5-v.up*focal/v.depth]),o.canvas);
+ }
  objects.sort((a,b)=>(b.x-p.x)**2+(b.z-p.z)**2 - ((a.x-p.x)**2+(a.z-p.z)**2));
  for(const o of objects){const d=Math.hypot(o.x-p.x,o.z-p.z);
   // Keep distant precision silhouettes in the Canvas fallback as well as
@@ -655,6 +686,7 @@ class SoftwareRenderer {
   p011=corner(-ww,o.h,dd),p111=corner(ww,o.h,dd);
  let color=o.type==='aden-vista-building'?
    ['#afa394','#9e9b91','#b8a08a','#8c8b86'][o.tone]:
+   o.type==='harbor-passage-wall'?'#918a77':o.type==='harbor-passage-crate'?'#967b52':
    o.type==='yard-gate'?(global.VeilpointSim.gateMotorActive(state)?'#dca650':'#b6a16c'):o.type==='yard-fence'?'#596866':
    o.type==='aden-seafront-market-wall'?'#a28c77':o.type==='aden-seafront-market-counter'?'#8c6848':
    o.type==='aden-transit-court-wall'?'#aa9481':o.type==='aden-transit-court-bench'?'#867867':
@@ -763,11 +795,23 @@ class SoftwareRenderer {
  ctx.fillStyle='rgba(15,30,32,.08)';ctx.fillRect(0,0,w,h);
  }
 }
+function loadingPart(mesh,o){
+ const crate=o.type==='harbor-passage-crate';
+ mesh.box(o.x,0,o.z,o.w,o.h,o.d,crate?[.48,.39,.27]:[.53,.51,.45]);
+ mesh.box(o.x,o.h-.12,o.z,o.w,.12,o.d,crate?[.64,.53,.36]:[.65,.61,.52]);
+ if(crate)for(const side of [-1,1])
+  mesh.box(o.x+side*o.w*.3,.02,o.z,.10,o.h-.04,o.d,[.29,.31,.29]);
+}
 class Renderer {
  constructor(canvas){this.canvas=canvas;this.verticalFov=55;this.gl=canvas.getContext('webgl2',{antialias:true,alpha:true,powerPreference:'high-performance'});if(!this.gl){this.fallback=new SoftwareRenderer(canvas);return;}const g=this.gl;this.prog=program(g,VS,FS);g.useProgram(this.prog);this.loc={pos:g.getAttribLocation(this.prog,'aPosition'),normal:g.getAttribLocation(this.prog,'inNormal'),color:g.getAttribLocation(this.prog,'inColor'),view:g.getUniformLocation(this.prog,'uView'),projection:g.getUniformLocation(this.prog,'uProjection'),sun:g.getUniformLocation(this.prog,'uSun'),fog:g.getUniformLocation(this.prog,'uFog'),fogDensity:g.getUniformLocation(this.prog,'uFogDensity'),exposure:g.getUniformLocation(this.prog,'uExposure'),time:g.getUniformLocation(this.prog,'uTime'),effects:g.getUniformLocation(this.prog,'uEffects'),night:g.getUniformLocation(this.prog,'uNight'),relayOn:g.getUniformLocation(this.prog,'uRelayOn'),civicOn:g.getUniformLocation(this.prog,'uCivicOn'),beaconOn:g.getUniformLocation(this.prog,'uBeaconOn'),hallOn:g.getUniformLocation(this.prog,'uHallOn'),flashOn:g.getUniformLocation(this.prog,'uFlashOn'),flashEye:g.getUniformLocation(this.prog,'uFlashEye'),flashDir:g.getUniformLocation(this.prog,'uFlashDir')};g.enableVertexAttribArray(this.loc.pos);g.enableVertexAttribArray(this.loc.normal);g.enableVertexAttribArray(this.loc.color);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.enable(g.CULL_FACE);g.cullFace(g.BACK);this.static=new Mesh();this.dynamic=new Mesh();this.lastWidth=0;this.lastHeight=0;this.resolutionScale=1;this.vegetationDensity=1;this.effects=1;this.onGpuTime=null;this.onGpuInvalidated=null;this.gpuTimer=global.VeilpointPerformance.createGpuTimer(g,(ms,issuedAt)=>{if(this.onGpuTime)this.onGpuTime(ms,issuedAt);},()=>{if(this.onGpuInvalidated)this.onGpuInvalidated();});this.sceneMode='br';this.worldTerrainRevision=1;this.sceneObstacles=[];this.staticChunks=[];this.lastStaticVisibilityStats=null;this.generate();}
  generate(){const m=this.static,r=rand(19771),sz=175;
+ const sim=global.VeilpointSim.newMatch(1,0,'carbine',false,'central','day',this.worldTerrainRevision);
+ const loadingSpaces=global.VeilpointSim.harborPassageSpaces(
+   this.sceneMode==='nahrin'?this.sceneObstacles:sim.obstacles);
  // Fully procedural ground: physically plausible earth palette, fine geometry.
- const step=7;const height=(x,z)=>0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
+ const step=7;const height=(x,z)=>loadingSpaces.some(room=>
+   Math.abs(x-room.x)<room.w/2+step&&Math.abs(z-room.z)<room.d/2+step)
+   ?0:0.10*Math.sin(x*.12+z*.05)+0.13*Math.sin(z*.17-x*.08);
  for(let x=-sz;x<sz;x+=step){for(let z=-sz;z<sz;z+=step){const jitter=r()*.11,base=[.19+jitter,.235+jitter*.7,.177+jitter*.5];m.quad([x,height(x,z),z],[x,height(x,z+step),z+step],[x+step,height(x+step,z+step),z+step],[x+step,height(x+step,z),z],base);}}
  // Main surface paths, worn patches, concrete roads and runway.
  for(const v of [-2.2,2.2])m.box(0,-.025,v,350,.025,2.5,[.20,.21,.20]);
@@ -838,7 +882,6 @@ class Renderer {
     }
   }
  }
- const sim=global.VeilpointSim.newMatch(1,0,'carbine',false,'central','day',this.worldTerrainRevision);
  // Distinct civic districts become one pedestrian environment. Plan the
  // actual collision-clear route instead of drawing an implausible straight
  // connector through houses. BR and CH01 share identical base colliders.
@@ -864,6 +907,11 @@ class Renderer {
   }
  }
  sim.obstacles.forEach((o,i)=>{
+  if(o.type==='harbor-passage-wall'||o.type==='harbor-passage-crate'){
+   // One wall is not a tiny house. Keep trim inside the collision footprint;
+   // never grow generic windows, doors or sheds across the walkable opening.
+   loadingPart(m,o);return;
+  }
   // A sliding gate must not remain as a solid closed panel in the static mesh:
   // it is drawn once from the live world by the dynamic geometry planner.
   if(o.routeId==='br-service-gate'||o.routeId==='br-dock-handcart')return;
@@ -1207,6 +1255,8 @@ class Renderer {
   for(let i=0;i<Math.round(330*this.vegetationDensity);i++){
    const x=(r()-.5)*340,z=(r()-.5)*340;
    if(Math.abs(x)<15||Math.abs(z)<14)continue;
+   if(loadingSpaces.some(room=>Math.abs(x-room.x)<room.w/2+2&&
+     Math.abs(z-room.z)<room.d/2+2))continue;
    if(sim.obstacles.some(o=>Math.abs(x-o.x)<o.w/2+6&&Math.abs(z-o.z)<o.d/2+6))continue;
    const h=4+r()*9,leaf=[.085+r()*.08,.16+r()*.10,.12+r()*.05];
    m.tree(x,z,h,leaf);
@@ -1215,6 +1265,8 @@ class Renderer {
  for(let i=0;i<Math.round((this.sceneMode==='br'?260:500)*this.vegetationDensity);i++){
   const x=(r()-.5)*344,z=(r()-.5)*344;
   if(Math.abs(x)<4||Math.abs(z)<5)continue;
+  if(loadingSpaces.some(room=>Math.abs(x-room.x)<room.w/2+1&&
+    Math.abs(z-room.z)<room.d/2+1))continue;
   const h=r()*.23+.08;
   m.box(x,0,z,h*1.1,h,h*.6,[.25+r()*.08,.28+r()*.08,.20]);
  }
@@ -1283,6 +1335,12 @@ class Renderer {
      roof.w+.2,.045,roof.d+.2,[.66,.57,.44]);
   }
   for(const o of this.sceneObstacles){
+   if(o.type==='harbor-passage-wall'||o.type==='harbor-passage-crate'){
+    // Shared-city pieces were already drawn by the base pass above.
+    if(!sim.obstacles.some(base=>base.type===o.type&&base.x===o.x&&base.z===o.z))
+      loadingPart(m,o);
+    continue;
+   }
    if(o.type==='story-public-court-column'){
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.69,.62,.51]);
     m.box(o.x,o.h-.18,o.z,o.w+.08,.18,o.d+.08,[.79,.71,.57]);
@@ -1395,6 +1453,14 @@ class Renderer {
     }
    }
   }
+ }
+ for(const room of loadingSpaces){
+  m.box(room.x,room.h,room.z,room.w,.18,room.d,[.35,.37,.36]);
+  m.box(room.x,.004,room.z,room.w-1,.008,room.d,[.44,.43,.39]);
+  // Worn edge paint makes the physical four-metre passage readable; these
+  // millimetre-high surfaces do not become collision or objective markers.
+  for(const side of [-1,1])
+   m.box(room.x+side*1.65,.013,room.z,.08,.004,room.d-.5,[.63,.57,.39]);
  }
  const partitioned=partitionStaticTriangles(m.data);m.data=partitioned.packed;
  this.staticChunks=partitioned.chunks;
@@ -1652,7 +1718,9 @@ class Renderer {
  if(scene!==this.sceneMode||terrainRevision!==this.worldTerrainRevision){
   this.sceneMode=scene;
   this.worldTerrainRevision=terrainRevision;
-  this.sceneObstacles=scene==='nahrin'?state.obstacles.filter(o=>o.type&&o.type.startsWith('story-')&&o.routeId!=='story-civil-transport').map(o=>({...o})):[];
+  this.sceneObstacles=scene==='nahrin'?state.obstacles.filter(o=>o.type&&
+    (o.type.startsWith('story-')||o.type.startsWith('harbor-passage-'))&&
+    o.routeId!=='story-civil-transport').map(o=>({...o})):[];
   if(this.static.buffer)this.gl.deleteBuffer(this.static.buffer);
   this.static=new Mesh();this.generate();
  }

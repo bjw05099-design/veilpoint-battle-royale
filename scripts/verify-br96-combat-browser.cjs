@@ -3,6 +3,7 @@
 // are synthetic loopback test clients, never a claim of 96 human WAN testing.
 const assert=require('node:assert/strict');
 const {createBrSquadServer}=require('../server/br-squad-server.cjs');
+const Sim=require('../src/simulation.js');
 async function verifyCombatBrowser({rpc,sleep}){
  const host=createBrSquadServer({port:0,autoTick:false}),address=await host.listen();
  const base='http://127.0.0.1:'+address.port;
@@ -82,9 +83,38 @@ async function verifyCombatBrowser({rpc,sleep}){
   assert.equal(target.eliminationReason,'combat');assert.equal(own.weapon.loaded,10);
   await until(()=>evaluate('document.getElementById("details").textContent.includes("탄창 10 / 예비 35")'),'actual private ammo in sidebar');
   const screenshot=await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  // Reuse the actual public city hall, then exercise production keyboard
+  // movement through it. Do not replace floor/roof drawing with test sprites.
+  world.obstacles=Sim.newMatch(1,0).obstacles;
+  Object.assign(own,{x:114,z:20});world.revision++;
+  await rpc('Page.reload');await rpc('Page.bringToFront');
+  await until(()=>evaluate('document.readyState==="complete" && !!document.getElementById("streetToggle") && !document.getElementById("streetToggle").disabled'),'hall client reload');
+  await key('KeyP','p',80);
+  await sleep(1500);await click(centre.x,centre.y);
+  await until(()=>evaluate('document.pointerLockElement===document.getElementById("map")'),'hall mouse lock');
+  const publicHall=await fetch(base+'/world-geometry',{headers:{'x-player-token':players[0]}}).then(r=>r.json());
+  assert.deepEqual(publicHall.loadingHalls,[{x:114,z:10,w:27,d:15,h:8}]);
+  await rpc('Input.dispatchKeyEvent',{type:'keyDown',code:'KeyW',key:'w',windowsVirtualKeyCode:87});
+  await until(()=>own.direction.z<-.9,'hall physical W');
+  for(let n=0;n<480&&own.z>10;n++){
+   host.step();if(n%15===0)await sleep(60);
+  }
+  await key('KeyW','w',87);
+  await until(()=>own.direction.z===0,'hall release W');
+  assert.ok(own.z>8&&own.z<=10,'actual server body reaches the hall interior');
+  assert.ok(Sim.harborPassageAt(own,world.obstacles));
+  await sleep(400);
+  const hallScreenshot=await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await rpc('Input.dispatchKeyEvent',{type:'keyDown',code:'KeyW',key:'w',windowsVirtualKeyCode:87});
+  await until(()=>own.direction.z<-.9,'hall continue W');
+  for(let n=0;n<480&&own.z>1;n++){
+   host.step();if(n%15===0)await sleep(60);
+  }
+  await key('KeyW','w',87);assert.ok(own.z<=1,'body exits the other four-metre doorway');
   return {sessions:96,transport:'loopback',shots:3,firstShotTick,
    remainingRounds:own.weapon.rounds,reloadVerified:true,chatIsolationVerified:true,
-   combatEliminationVerified:true,screenshot:screenshot.data};
+   combatEliminationVerified:true,hallTraversalVerified:true,
+   screenshot:screenshot.data,hallScreenshot:hallScreenshot.data};
  }finally{
   if(preload?.identifier)await rpc('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.identifier});
   await rpc('Page.navigate',{url:'about:blank'}).catch(()=>{});

@@ -41,6 +41,10 @@
   const maxVisits=options?.maxVisits??MAX_VISITS;
   if(!Number.isSafeInteger(maxVisits)||maxVisits<1||maxVisits>MAX_VISITS)
    throw new RangeError('Invalid pedestrian search budget');
+  const clearance=options?.clearance??CLEARANCE,step=options?.step??STEP;
+  if(!Number.isFinite(clearance)||clearance<.55||clearance>CLEARANCE||
+     !Number.isFinite(step)||step<1||step>STEP)
+   throw new RangeError('Invalid pedestrian body or grid');
   if(!from||!to||!Array.isArray(obstacles)||
      ![from.x,from.z,to.x,to.z].every(Number.isFinite))return null;
   // Visual-only canvas roofs, awnings and pavement have no physical body.
@@ -50,13 +54,13 @@
   const blockers=obstacles.filter(o=>o?.solid!==false);
   // Fast straight-line paths must enforce the SAME player-circle world edge
   // as the A* fallback, rather than returning a route outside the playable map.
-  const worldEdge=175-CLEARANCE;
+  const worldEdge=175-clearance;
   if([from.x,from.z,to.x,to.z].some(n=>Math.abs(n)>worldEdge)||
-     Sim.blocked(from.x,from.z,CLEARANCE,blockers)||
-     Sim.blocked(to.x,to.z,CLEARANCE,blockers))return null;
+     Sim.blocked(from.x,from.z,clearance,blockers)||
+     Sim.blocked(to.x,to.z,clearance,blockers))return null;
   // Circle-body clearance also protects the swept width of the visible
   // paving; no painted route may cut through an existing playable wall.
-  const solids=blockers.map(o=>({...o,w:o.w+2*CLEARANCE,d:o.d+2*CLEARANCE}));
+  const solids=blockers.map(o=>({...o,w:o.w+2*clearance,d:o.d+2*clearance}));
   if(segmentClear(from,to,solids))return Object.freeze([from,to].map(p=>Object.freeze({x:p.x,z:p.z})));
   const minX=Math.max(-169,Math.min(from.x,to.x)-32),
     maxX=Math.min(169,Math.max(from.x,to.x)+32),
@@ -74,15 +78,15 @@
    // bounded NPC search budget only for a genuinely expanded grid cell.
    if(closed.has(id))continue;
    closed.add(id);visited++;
-   if(Math.hypot(n.x-to.x,n.z-to.z)<=STEP*.75&&
+   if(Math.hypot(n.x-to.x,n.z-to.z)<=step*.75&&
       segmentClear(n,to,solids)){goal=id;break;}
    for(const [di,dj] of DIRECTIONS){
-    const i=n.i+di,j=n.j+dj,x=from.x+i*STEP,z=from.z+j*STEP,
+    const i=n.i+di,j=n.j+dj,x=from.x+i*step,z=from.z+j*step,
       nextKey=key(i,j);
     if(x<minX||x>maxX||z<minZ||z>maxZ||closed.has(nextKey)||
-       Sim.blocked(x,z,CLEARANCE,blockers))continue;
+       Sim.blocked(x,z,clearance,blockers))continue;
     if(!segmentClear(n,{x,z},solids))continue;
-    const g=n.g+STEP*Math.hypot(di,dj);
+    const g=n.g+step*Math.hypot(di,dj);
     if(g>= (scores.get(nextKey)??Infinity)-1e-9)continue;
     scores.set(nextKey,g);
     const next={i,j,x,z,g,f:g+Math.hypot(to.x-x,to.z-z)};

@@ -66,6 +66,9 @@ jobs:
             dist/ch01-route-evidence.json
             dist/pc-ui-geometry.json
             dist/br96-combat-browser.png
+            dist/br96-loading-hall.png
+            dist/ch01-loading-hall.png
+            dist/ch01-loading-hall-canvas.png
       - name: Upload browser prototype
         uses: actions/upload-artifact@v4
         with:
