@@ -253,7 +253,7 @@
     eyeHeight});
  }
  function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
-   visibilityMeters,weather,pavements=[]}={}){
+   visibilityMeters,weather,pavements=[],showLabels=true}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
@@ -342,6 +342,9 @@
   ctx.strokeStyle='#d6e9e2';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(width/2-8,height*.52);ctx.lineTo(width/2+8,height*.52);
   ctx.moveTo(width/2,height*.52-8);ctx.lineTo(width/2,height*.52+8);ctx.stroke();
+  // The embedded PC screen already has controls and instructions around
+  // this canvas. Avoid painting duplicate diagnostics beneath those buttons.
+  if(showLabels){
   ctx.fillStyle='#f1f5ed';ctx.font='14px system-ui';
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
@@ -350,6 +353,7 @@
     subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
   ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
+  }
   return model;
  }
  return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,

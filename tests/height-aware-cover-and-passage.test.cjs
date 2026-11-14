@@ -55,11 +55,12 @@ test('BR street renders far walls above low cover and only the exposed part of a
  const hidden=Street.frame({subject:{id:9,x:0,z:0,crouched:true},
   obstacles:cover(1.3),visible:[{...standing,crouched:true}]});
  assert.equal(hidden.seen.length,0);
- const painted=[];let fill='';
+ const painted=[],labels=[];let fill='';
  const ctx={set fillStyle(x){fill=x},fillRect(x,y,w,h){painted.push({fill,x,y,w,h})},
-  fillText(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},closePath(){},fill(){}};
+  fillText(text){labels.push(text)},beginPath(){},moveTo(){},lineTo(){},stroke(){},closePath(){},fill(){}};
  const model=Street.draw(ctx,{width:700,height:480,yaw:0,subject:{id:9,x:0,z:0},
-  obstacles:walls,visible:[standing]});
+  obstacles:walls,visible:[standing],showLabels:false});
+ assert.equal(labels.length,0,'embedded controls do not overlap canvas diagnostic labels');
  const body=painted.filter(p=>p.fill==='#d4aa99');assert.ok(body.length>0);
  const person=model.seen[0],cut=480*.52+(model.eyeHeight-person.occludedBelowHeight)*480*.68/person.depth;
  assert.ok(body.every(p=>p.y+p.h<=cut+1e-8),'hidden legs are not painted on top of a crate');

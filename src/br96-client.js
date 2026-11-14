@@ -286,7 +286,8 @@ function render(){
      ' · 서버가 실제 출발 위치를 지정합니다.':'')+
    (w?'\n서버 틱 '+w.tick+' · 생존 '+Math.floor((w.self.survivalTicks||0)/60)+'초 · 남은 분대 '+w.remainingSquads+
     '\n경기 제한시간 · 서버 기준 '+Math.ceil((w.roundClock?.remainingTicks||0)/60)+'초 남음'+
-    '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
+    (w.self.weapon?'\n체력 '+w.self.weapon.health+' · 탄창 '+w.self.weapon.loaded+
+      ' / 예비 '+w.self.weapon.reserve:'\n체력/탄약 정보 확인 중')+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.benchResting?' · 공공 벤치에서 휴식 중':w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.benchResting?'앉아서 휴식':w.self.crouched?'낮춘 자세':'서기')+(w.self.pedestrianFlow?.busy?' · 보행 혼잡 '+Math.round(w.self.pedestrianFlow.mobility*100)+'%':'')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
     (w.self.areaReturn?' · 경계 복귀 약 '+Math.ceil(w.self.areaReturn.straightMetres)+
@@ -421,7 +422,7 @@ function draw(w){
    subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather,
-   pavements:publicEnvironment?.pavements||[]});
+   pavements:publicEnvironment?.pavements||[],showLabels:false});
   const weapon=w.self?.weapon;
   if(weapon&&!w.spectatorView){
    ctx.fillStyle='#0c171c';ctx.fillRect(8,height-36,Math.min(width-16,420),28);

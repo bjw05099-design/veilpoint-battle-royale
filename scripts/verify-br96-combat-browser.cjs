@@ -80,6 +80,7 @@ async function verifyCombatBrowser({rpc,sleep}){
   for(let i=0;i<15;i++)host.step();
   await click(centre.x,centre.y);await until(()=>!target.eligible,'third physical hit');
   assert.equal(target.eliminationReason,'combat');assert.equal(own.weapon.loaded,10);
+  await until(()=>evaluate('document.getElementById("details").textContent.includes("탄창 10 / 예비 35")'),'actual private ammo in sidebar');
   const screenshot=await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   return {sessions:96,transport:'loopback',shots:3,firstShotTick,
    remainingRounds:own.weapon.rounds,reloadVerified:true,chatIsolationVerified:true,
