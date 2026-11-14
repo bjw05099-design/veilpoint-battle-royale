@@ -27,6 +27,11 @@ jobs:
         run: python tests/test_game_tools_install.py
       - name: Install locked asset packages without lifecycle scripts
         run: npm ci --prefix tools/game-dev --ignore-scripts --no-fund --no-audit
+      - name: Install Linux native runtime libraries and audio tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1 ffmpeg
       - name: Install exact portable Blender, agent-desktop and Tracy
         run: python scripts/install-game-tools.py --tools agent-desktop blender tracy
       - name: Parse and test Windows setup/build guards

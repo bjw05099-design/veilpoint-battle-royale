@@ -59,7 +59,7 @@ GitHub CLI·Git·Node·Python 및 Epic Games Launcher·Visual Studio는 Windows 
 py -3.13 tools/game-dev/run-checks.py --install-python
 ```
 
-Linux에서는 `python scripts/install-game-tools.py --tools agent-desktop blender tracy --with-agent-source`, `npm ci --prefix tools/game-dev --ignore-scripts`, `python tools/game-dev/run-checks.py --install-python`을 순서대로 실행한다. 이미 설치한 Python 환경을 재사용할 때는 마지막 명령의 `--install-python`을 생략한다.
+Linux에서는 `python scripts/install-game-tools.py --tools agent-desktop blender tracy --with-agent-source`, `npm ci --prefix tools/game-dev --ignore-scripts`, `python tools/game-dev/run-checks.py --install-python`을 순서대로 실행한다. Ubuntu CI의 Open3D 실행에는 `libegl1 libgl1 libgomp1`, 음원 검사에는 `ffmpeg` 패키지가 필요하며 워크플로가 이를 설치한다. 이미 설치한 Python 환경을 재사용할 때는 마지막 명령의 `--install-python`을 생략한다.
 
 출력은 `dist/game-assets/harbor/`와 `dist/game-dev/`에 있다. 최초 Linux 검증에서는 삼각형 **984 → 388**, GLB **45,640 → 18,932 bytes**, glTF 오류·경고 **0**을 확인했다. 원본 구조물은 **16 × 20 × 9.18m**, 양쪽 출입구는 **4m**다. 이는 원본 프로토타입 자산이며 아덴 실측 건물이나 완성된 실사 아트라는 의미가 아니다. 지형 입출력과 좌표계 검사는 합성 데이터이며 실제 도시 지형 수집을 완료했다는 뜻도 아니다.
 

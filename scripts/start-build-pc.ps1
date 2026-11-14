@@ -3,6 +3,13 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'A connected Windows build PC is required.' }
+# A newly opened CMD can still inherit the launching shell's old environment.
+# Read the values persisted by CONNECT_BUILD_PC into this runner process.
+foreach ($key in @('VEILPOINT_TOOL_ROOT','VEILPOINT_UE_ROOT')) {
+    $saved=[Environment]::GetEnvironmentVariable($key,'User')
+    if ($saved) { [Environment]::SetEnvironmentVariable($key,$saved,'Process') }
+}
+if (!$env:VEILPOINT_UE_ROOT) { throw 'No engine path is configured. Run CONNECT_BUILD_PC.cmd first.' }
 $root=$env:VEILPOINT_TOOL_ROOT
 if (!$root) { $root=Join-Path $PSScriptRoot '../.tools' }
 $paths=Get-Content -LiteralPath (Join-Path $root 'paths.json') -Raw | ConvertFrom-Json

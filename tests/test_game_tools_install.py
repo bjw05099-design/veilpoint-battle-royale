@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import stat
 import tarfile
 import tempfile
@@ -70,7 +71,10 @@ class PortableInstallTests(unittest.TestCase):
             lock = self.fixture(root)
             with patch.object(installer.urllib.request, 'urlopen', side_effect=AssertionError('No network allowed')):
                 executable = Path(installer.install('fixture', root, 'linux-x64', lock))
-                self.assertTrue(executable.stat().st_mode & stat.S_IXUSR)
+                # NTFS/Python does not expose POSIX executable bits. Byte/hash,
+                # idempotence and tamper behavior are still checked on Windows.
+                if os.name != 'nt':
+                    self.assertTrue(executable.stat().st_mode & stat.S_IXUSR)
                 self.assertEqual(installer.install('fixture', root, 'linux-x64', lock), str(executable))
                 executable.write_bytes(b'changed')
                 with self.assertRaisesRegex(RuntimeError, 'executable changed'):
