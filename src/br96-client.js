@@ -778,7 +778,9 @@ canvas.addEventListener('mousedown',event=>{
 });
 document.addEventListener('mouseup',event=>{if(event.button===0)keys.delete('MousePrimary');});
 document.addEventListener('pointerlockchange',()=>{
- if(document.pointerLockElement!==canvas)keys.delete('MousePrimary');
+ if(document.pointerLockElement!==canvas){
+  keys.delete('MousePrimary');keys.delete('ReloadPending');
+ }
 });
 function toggleMapFollow(){
  if(!currentWorld())return;

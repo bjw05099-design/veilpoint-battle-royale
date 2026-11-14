@@ -57,15 +57,19 @@ test('request includes round generation and old same-tick health/ammo cannot rew
 });
 
 test('a fast R survives one pending shot acknowledgement but is discarded after input reset',async()=>{
- for(const cancel of [false,true]){
-  const {c,calls}=harness();let resolve;
+ for(const cancel of [false,'reset','unlock']){
+  const {c,calls,listeners}=harness();let resolve;
   c.command=(path,body)=>{
    calls.push({path,body});
    return path==='/fire'?new Promise(r=>{resolve=r}):Promise.resolve({ok:true});
   };
   const first=c.weaponAction('fire');await c.weaponAction('reload');await c.weaponAction('reload');
   assert.equal(calls.length,1);
-  if(cancel)c.keys.clear(); // same clearing used by blur/chat/menu/resetKeys
+  if(cancel==='reset')c.keys.clear(); // blur/chat/menu/resetKeys
+  if(cancel==='unlock'){
+   c.document.pointerLockElement=null;listeners.pointerlockchange();
+   c.document.pointerLockElement=c.canvas; // a new lock cannot revive the old intent
+  }
   resolve({ok:true});await first;await new Promise(setImmediate);
   assert.deepEqual(calls.filter(x=>x.path).map(x=>x.path),cancel?['/fire']:['/fire','/reload']);
   assert.equal(c.keys.has('ReloadPending'),false);
