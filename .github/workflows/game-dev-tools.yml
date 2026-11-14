@@ -1,0 +1,46 @@
+name: VEILPOINT game development tools
+on:
+  push:
+    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
+  pull_request:
+    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  asset-tools:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - name: Verify archive integrity and extraction behavior
+        run: python tests/test_game_tools_install.py
+      - name: Install locked asset packages without lifecycle scripts
+        run: npm ci --prefix tools/game-dev --ignore-scripts --no-fund --no-audit
+      - name: Install exact portable Blender, agent-desktop and Tracy
+        run: python scripts/install-game-tools.py --tools agent-desktop blender tracy
+      - name: Parse and test Windows setup/build guards
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/game-dev-powershell.ps1
+      - name: Exercise actual Blender, geometry, GIS and profiler tools
+        run: python tools/game-dev/run-checks.py --install-python
+      - name: Upload generated assets and tool evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: veilpoint-game-dev-tools-${{ runner.os }}
+          path: |
+            dist/game-assets/harbor/
+            dist/game-dev/
+          if-no-files-found: error
+          retention-days: 30

@@ -149,6 +149,13 @@ The browser prototype adds **opt-in GPU-timer-driven adaptive resolution** (when
 
 The browser renderer now conservatively skips off-camera dynamic geometry and reduces distant bot/loot mesh detail. This is **render-only**: the 60Hz simulation, AI, zone and collision are unchanged. The graphics panel shows visible bots and planned dynamic vertex counts. Run `npm run verify` and `npm run bench:visibility` for deterministic tests and a CPU-only microbenchmark. See [render culling design and limitations](docs/RENDER_CULLING.md). No GPU/165Hz benchmark or native UE compile is claimed.
 
+## Game development tools and Windows build PC
+
+See [the setup and connection guide](docs/GAME_DEV_TOOLCHAIN.md) for pinned Blender,
+agent-desktop, geometry/GIS/LOD tools and the separate private Windows build worker.
+Start with `SETUP_GAME_DEV.cmd` on the Windows development PC. Installation on a
+cloud/Linux host does not connect that PC or verify a native Unreal build.
+
 ## Local two-client team-objective prototype (development-only)
 
 Run `npm run team:server` from the repository root using Node.js 18+. Open **http://127.0.0.1:8765/** in two browser tabs, enter different names, press **Join**, then **Ready** in both tabs. Move with WASD/arrows or touch buttons; hold E/the capture button while inside the center objective. The 2D test client also supports **F/SPACE** to fire, **R** to reload, and touch buttons. The server determines sight/cover, shot cadence, finite ammunition (12 loaded + 24 carried), 90-tick reload and health; incapacitating the other player ends that round. No automatic healing, infinite ammo or client-authored hit/damage is permitted. The local server alone advances movement and scores; the first team to 3 uncontested captures wins. Both players can press Ready to replay. Run `npm run verify` for syntax, deterministic 60Hz rules, and two-client HTTP regression tests.

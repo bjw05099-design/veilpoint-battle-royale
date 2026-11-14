@@ -1,0 +1,61 @@
+name: VEILPOINT private Windows build PC
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [build-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: veilpoint-build-pc
+  cancel-in-progress: false
+jobs:
+  native:
+    if: github.event.repository.private == true && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Windows, X64, veilpoint-ue58]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: controller
+          persist-credentials: false
+      - name: Read the bounded build request
+        shell: powershell
+        run: |
+          $r=Get-Content controller/build-request.json -Raw | ConvertFrom-Json
+          if ($r.schema -ne 'veilpoint-pc-build-v1' -or $r.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $r.operation -notin @('preflight','compile','author-package')) { throw 'Invalid build request' }
+          "SOURCE_SHA=$($r.source_sha)" >> $env:GITHUB_ENV
+          "BUILD_OPERATION=$($r.operation)" >> $env:GITHUB_ENV
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: bjw05099-design/veilpoint-battle-royale
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+      - name: Require reviewed main history before running project code
+        shell: powershell
+        working-directory: source
+        run: |
+          git fetch origin main
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot verify main history' }
+          git merge-base --is-ancestor $env:SOURCE_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Only a commit already merged to the game main branch may execute on this PC' }
+          if ((git rev-parse HEAD) -cne $env:SOURCE_SHA) { throw 'Checkout does not match the requested commit' }
+      - name: Build with the locally installed Unreal Engine
+        shell: powershell
+        working-directory: source
+        run: |
+          ./scripts/run-native-pc-job.ps1 -EngineRoot $env:VEILPOINT_UE_ROOT -Operation $env:BUILD_OPERATION
+      - name: Preserve build evidence in this PRIVATE repository
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: veilpoint-native-build-evidence
+          path: |
+            source/dist/native-build-logs/
+            source/dist/native-win64/veilpoint-win64-manifest.json
+            source/dist/game-dev/native-job.json
+          if-no-files-found: warn
+          retention-days: 14

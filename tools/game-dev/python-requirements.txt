@@ -1,0 +1,9 @@
+# Reviewed development-only packages. Never added to the game runtime.
+trimesh==5.2.1
+open3d==0.20.0
+pyproj==3.8.0
+rasterio==1.5.2
+xatlas==0.0.11
+ruff==0.17.5
+cmake==4.4.4
+ninja==1.13.2
