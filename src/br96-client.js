@@ -60,6 +60,7 @@ function stopPrivateStream(){
 let publicGeometry=null,publicEnvironment=null,geometryBusy=false;
 let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0;
 let streetView=false,streetYaw=0,streetPitch=0; // camera-only, never part of movement POST
+let weaponSeq=0,weaponBusy=false;
 let dismissedJourneyRound=null; // local UI only; server remains authoritative
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
@@ -71,7 +72,7 @@ function cleanSession(){
  lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
  publicGeometry=null;publicEnvironment=null;geometryBusy=false;
  withdrawArmedUntil=0;watchOptionsSignature='';mapFollow=false;mapZoomLevel=0;
- streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
+ streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;weaponSeq=0;
  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
  el('standingsPanel').hidden=true;
  el('standingsToggle').setAttribute('aria-expanded','false');
@@ -83,7 +84,8 @@ async function request(path,payload=null,authenticated=true){
  try{
   const response=await fetch(path,{method:payload===null?'GET':'POST',
    headers:{...(payload===null?{}:{'content-type':'application/json'}),
-    ...(authenticated&&token?{'x-player-token':token}:{})},
+    ...(authenticated&&token?{'x-player-token':token}:{}),
+    ...((path==='/fire'||path==='/reload')?{'x-round-number':String(state?.roundNumber)}:{})},
    ...(payload===null?{}:{body:JSON.stringify(payload)}),signal:controller.signal,
    cache:'no-store'});
   const data=await response.json();
@@ -103,11 +105,16 @@ function apply(next){
    seq=0;stanceSeq=0;lastWorldTick=-1;lastSprint=null;lastCrouch=null;sprintIntent=false;
    lastSubmittedDirection=null;lastIdleHeartbeatAt=0;
    keys.clear();withdrawArmedUntil=0;mapFollow=false;mapZoomLevel=0;
-   streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;
+   streetView=false;streetYaw=0;streetPitch=0;dismissedJourneyRound=null;weaponSeq=0;
    message('전원 동의로 새 BR96 라운드가 시작됐습니다.');
   }
  }
  if(next.world&&next.world.tick<lastWorldTick)return;
+ // A delayed response from BEFORE a shot must not restore old health/ammo
+ // merely because both snapshots happened during the same 60Hz tick.
+ if(next.world&&state?.world&&next.roundNumber===state.roundNumber&&
+   next.world.tick===state.world.tick&&Number.isSafeInteger(next.world.revision)&&
+   Number.isSafeInteger(state.world.revision)&&next.world.revision<state.world.revision)return;
  if(next.world){
    lastWorldTick=next.world.tick;
    // Recover the current server sequence after a legitimate tab reload:
@@ -279,7 +286,8 @@ function render(){
      ' · 서버가 실제 출발 위치를 지정합니다.':'')+
    (w?'\n서버 틱 '+w.tick+' · 생존 '+Math.floor((w.self.survivalTicks||0)/60)+'초 · 남은 분대 '+w.remainingSquads+
     '\n경기 제한시간 · 서버 기준 '+Math.ceil((w.roundClock?.remainingTicks||0)/60)+'초 남음'+
-    '\n체력/탄약: 현재 BR96 이동 프로토타입에 없음'+
+    (w.self.weapon?'\n체력 '+w.self.weapon.health+' · 탄창 '+w.self.weapon.loaded+
+      ' / 예비 '+w.self.weapon.reserve:'\n체력/탄약 정보 확인 중')+
     '\n지구력 '+Math.round(w.self.stamina)+'/100'+(w.self.benchResting?' · 공공 벤치에서 휴식 중':w.self.resting?' · 휴식 회복 중':'')+' · 자세 '+(w.self.benchResting?'앉아서 휴식':w.self.crouched?'낮춘 자세':'서기')+(w.self.pedestrianFlow?.busy?' · 보행 혼잡 '+Math.round(w.self.pedestrianFlow.mobility*100)+'%':'')+' · 경계 '+w.playableArea.stage+
     (w.playableArea.changing?' · 다음 경계 '+Math.round(w.playableArea.ticksUntilChange/60)+'초 후':'')+
     (w.self.areaReturn?' · 경계 복귀 약 '+Math.ceil(w.self.areaReturn.straightMetres)+
@@ -301,7 +309,8 @@ function render(){
     (w.squadTimeline?.length?'\n분대 실제 퇴장 '+w.squadTimeline.length+'/6 · 최근 '+
       w.squadTimeline.at(-1).slot+'번 ('+
       (w.squadTimeline.at(-1).reason==='voluntary_withdrawal'?'자발적 종료':
-       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':'서버 확인')+')':'')+
+       w.squadTimeline.at(-1).reason==='area_expiry'?'경계 시간 만료':
+       w.squadTimeline.at(-1).reason==='combat'?'교전으로 탈락':'서버 확인')+')':'')+
     '\n현재 참가 '+(w.standings?.[self.squad-1]?.eligibleMembers??'?')+'/6'+
     (w.standings?.[self.squad-1]?.placement!==null&&
      w.standings?.[self.squad-1]?.placement!==undefined
@@ -353,7 +362,8 @@ function renderJourney(w){
    '종료 당시 본인 상태: '+
      (personal.ownResult==='active_at_finish'?'경기 참가 중':
       personal.ownResult==='voluntary_withdrawal'?'본인 선택으로 경기 포기':
-      personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':'종료 사유 확인 필요')+
+      personal.ownResult==='area_expiry'?'경기 경계 규칙으로 종료':
+      personal.ownResult==='combat'?'교전으로 탈락':'종료 사유 확인 필요')+
    (squad?'\n\n우리 6인 분대의 실제 이동 기록\n'+
       '움직인 인원: '+squad.participantsMoved+'/6명 · 종료 당시 참가 '+squad.activeMembersAtFinish+'/6명\n'+
       '분대 전체 이동 거리: '+n(squad.totalMeters)+'m\n'+
@@ -412,7 +422,15 @@ function draw(w){
    subject:litSubject,yaw:streetYaw,pitch:streetPitch,obstacles:publicGeometry,
    civicGate:w.civicGate,handcart:w.handcart,squad:w.squad||[],visible:w.visible||[],
    visibilityMeters:w.coastalWeather?.visibilityMeters,weather:w.coastalWeather,
-   pavements:publicEnvironment?.pavements||[]});
+   pavements:publicEnvironment?.pavements||[],showLabels:false});
+  const weapon=w.self?.weapon;
+  if(weapon&&!w.spectatorView){
+   ctx.fillStyle='#0c171c';ctx.fillRect(8,height-36,Math.min(width-16,420),28);
+   ctx.fillStyle='#e7eee6';ctx.font='13px system-ui';
+   ctx.fillText('상태 '+weapon.health+' · 탄창 '+weapon.loaded+' / 예비 '+weapon.reserve+
+     (weapon.reloadTicksRemaining>0?' · 재장전 '+(weapon.reloadTicksRemaining/60).toFixed(1)+'초':
+       ' · 좌클릭 사격 / R 재장전'),16,height-17);
+  }
   return;
  }
  ctx.clearRect(0,0,width,height);
@@ -543,12 +561,13 @@ async function join(){
 }
 async function command(path,body,statusText){
  if(!token)return;
- const ownToken=token;
+ const ownToken=token,ownRound=state?.roundNumber;
  try{
   const data=await request(path,body);
   // A leave/rejoin can complete while the old HTTP request is still
   // pending. Never apply its private roster or command status to a new seat.
   if(token!==ownToken)return null;
+  if(state?.roundNumber!==ownRound)return null;
   if(data.state)apply(data.state);
   if(data.world&&state)apply({...state,world:data.world});
   if(statusText)message(statusText);
@@ -659,16 +678,24 @@ function toggleStreetView(){
  mapFollow=false;mapZoomLevel=0;
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
  if(!streetView){streetPitch=0;if(document.pointerLockElement===canvas)document.exitPointerLock?.();}
- message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD는 바라보는 방향으로 걷기 · Esc 해제 · P 지도':
+ message(streetView?'1인칭 거리 시야 · 화면을 클릭해 마우스 시야 회전 · WASD 이동 · 좌클릭 사격 · R 재장전 · Esc 해제 · P 지도':
   '2D 서버 진단 지도로 돌아왔습니다.');
  render();
 }
 // Desktop mouse look is an opt-in foreground gesture on the actual canvas.
- // No mouse coordinates are sent to the server; only a bounded normalized
- // walking direction reaches the authoritative 60Hz gameplay controller.
+ // Movement sends only bounded directions. A trigger separately submits bounded
+ // view angles; the server alone chooses the origin, hit, ammunition and damage.
 canvas.addEventListener('click',()=>{
- if(streetView&&currentWorld()&&document.pointerLockElement!==canvas)
-  canvas.requestPointerLock?.();
+ if(streetView&&currentWorld()&&document.pointerLockElement!==canvas){
+  // Chromium can temporarily refuse a fresh lock immediately after Escape.
+  // Preserve the user's next click rather than emitting an unhandled promise
+  // rejection or silently firing while the browser still owns the pointer.
+  const denied=()=>{
+   if(streetView&&document.pointerLockElement!==canvas)
+    message('마우스 시야를 잠그지 못했습니다. 잠시 후 화면을 다시 클릭하세요.');
+  };
+  try{canvas.requestPointerLock?.()?.catch?.(denied);}catch(_){denied();}
+ }
 });
  // Middle button (pressing the wheel), not wheel scrolling or a keyboard E.
  // The server creates a quickmark at the authenticated actor's true feet.
@@ -704,10 +731,58 @@ function turnStreetPitch(delta){
 function turnStreetView(delta){
  if(!streetView||!Number.isFinite(delta)||!window.VeilpointBR96StreetView)return;
  streetYaw=window.VeilpointBR96StreetView.wrap(streetYaw+delta);
- // Heading is pure local rendering; do not send a fake look direction.
+ // Looking alone stays local; an actual trigger submits the current view angles.
  keys.clear();sprintIntent=false;lastSprint=null;lastCrouch=null;
  render();
 }
+// Weapon requests are serialized and carry angles only at a real trigger.
+// There is no queued fire after blur, chat focus, death, menu or lock release.
+function weaponInputAvailable(){
+ return active()&&streetView&&!document.hidden&&document.hasFocus()&&
+  document.pointerLockElement===canvas&&!textEntryFocused()&&
+  el('standingsPanel').hidden&&el('vpAudioPanel').hidden;
+}
+async function weaponAction(action){
+ if(!weaponInputAvailable())return;
+ if(weaponBusy){
+  // One deliberate reload may follow an in-flight shot acknowledgement.
+  // Never queue another shot. Ordinary input resets clear this intent too.
+  if(action==='reload')keys.add('ReloadPending');
+  return;
+ }
+ const world=currentWorld(),weapon=world.self.weapon;
+ if(!weapon)return;
+ if(action==='fire'&&(weapon.loaded===0||weapon.reloadTicksRemaining>0))return;
+ weaponBusy=true;
+ const ownToken=token,ownRound=state.roundNumber;
+ weaponSeq=Math.max(weaponSeq,weapon.seq+1);
+ const payload=action==='fire'?{seq:weaponSeq++,yaw:streetYaw,pitch:streetPitch}:
+  {seq:weaponSeq++};
+ try{
+  const result=await command('/'+action,payload,null);
+  if(token!==ownToken||state?.roundNumber!==ownRound)return;
+  if(result?.ok&&action==='fire'&&weaponInputAvailable()){
+   harborAudio?.shot?.(audioControls?AudioPrefs.gain(audioControls.get(),'effects'):1);
+   // A local recoil impulse follows server acceptance; it cannot award a hit.
+   streetPitch=window.VeilpointBR96StreetView.clampPitch(streetPitch+.004);
+   render();
+  }
+ }finally{
+  weaponBusy=false;
+  if(keys.delete('ReloadPending')&&token===ownToken&&state?.roundNumber===ownRound&&
+    weaponInputAvailable())void weaponAction('reload');
+ }
+}
+canvas.addEventListener('mousedown',event=>{
+ if(event.button!==0||event.ctrlKey||event.altKey||event.metaKey||!weaponInputAvailable())return;
+ event.preventDefault();keys.add('MousePrimary');void weaponAction('fire');
+});
+document.addEventListener('mouseup',event=>{if(event.button===0)keys.delete('MousePrimary');});
+document.addEventListener('pointerlockchange',()=>{
+ if(document.pointerLockElement!==canvas){
+  keys.delete('MousePrimary');keys.delete('ReloadPending');
+ }
+});
 function toggleMapFollow(){
  if(!currentWorld())return;
  mapFollow=!mapFollow;
@@ -847,7 +922,10 @@ document.addEventListener('keydown',event=>{
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
  else if(!event.repeat&&key==='KeyG'&&active()){event.preventDefault();stepOverBench();}
  else if(!event.repeat&&key==='KeyB'&&active()){event.preventDefault();wave();}
- // F is the single default nearby interaction key; R/T are unbound
+ else if(!event.repeat&&key==='KeyR'&&active()){
+  event.preventDefault();keys.delete('MousePrimary');void weaponAction('reload');
+ }
+ // F is the single default nearby interaction key; R reloads
  // and E is free. Press the wheel to mark one's true server position.
 });
 document.addEventListener('keyup',event=>{keys.delete(event.code);});
@@ -938,7 +1016,8 @@ async function loadPublicGeometry(){
   if(record.schema!=='veilpoint-br96-public-geometry-v1'||!Array.isArray(record.obstacles)||
      record.obstacles.length>4000)throw Error('invalid_public_world');
   const valid=record.obstacles.every(o=>o&&typeof o.type==='string'&&
-    [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0);
+    [o.x,o.z,o.w,o.d].every(Number.isFinite)&&o.w>0&&o.d>0&&
+    (o.h===undefined||(Number.isFinite(o.h)&&o.h>0&&o.h<=30)));
   const pad=record.environment?.wetLoadingPad;
   if(!valid||!pad||![pad.x,pad.z,pad.width,pad.depth].every(Number.isFinite)||
      pad.width<=0||pad.depth<=0||pad.width>350||pad.depth>350)
@@ -1022,4 +1101,5 @@ setInterval(()=>{
  if(!healthy||pollCount%8===0)poll();
 },400);
 setInterval(movement,180);
+setInterval(()=>{if(keys.has('MousePrimary'))void weaponAction('fire');},220);
 })();

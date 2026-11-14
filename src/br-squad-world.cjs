@@ -1,7 +1,7 @@
 'use strict';
 // A 96-human shared BR traversal slice. Every participant has an independently
-// simulated 60Hz body in the same physical map; combat, public hosting and the
-// full Aden-sized streaming world remain separate, unimplemented milestones.
+// simulated 60Hz body and finite-ammunition hitscan in the same physical map.
+// Public hosting, lag compensation and the full Aden world remain unverified.
 const Sim=require('./simulation.js');
 const {SQUADS,SQUAD_SIZE,CAPACITY,ENTRY_CHOICES}=require('./br-squad-lobby.cjs');
 const {coastalWeatherAtTick}=require('./br-coastal-weather.cjs');
@@ -68,7 +68,7 @@ class BrSquadWorld {
     // server bodies. Only one nearby participant may push it at a time.
     this.handcart={body:this.obstacles.find(o=>o.routeId==='br-dock-handcart'),operator:null};
     if(!this.handcart.body)throw new Error('missing_shared_dock_handcart');
-    this.actors=new Map();this.tick=0;
+    this.actors=new Map();this.tick=0;this.revision=0;
     // No client may author a squad result. Only real server-owned eligibility
     // transitions change this scorecard; ties cannot be invented by the HUD.
     this.phase='moving';this.activeSquads=SQUADS;
@@ -126,6 +126,9 @@ class BrSquadWorld {
           traveledMeters:0,sprintedMeters:0,benchRestTicks:0,
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
+          weapon:{health:100,loaded:Sim.FIREARMS.carbine.magazine,
+            rounds:Sim.FIREARMS.carbine.initialRounds,seq:-1,lastShotTick:-60,
+            reloadUntilTick:0},
           headlampOn:false,headlampTicks:HEADLAMP_TICKS,
           resting:false,benchResting:false,spectateSlot:null,stepping:null,
           lastWaveTick:-WAVE_COOLDOWN_TICKS,waveUntilTick:0});
@@ -561,15 +564,68 @@ class BrSquadWorld {
     log.push(Object.freeze({slot:actor.slot+1,tick:this.tick,
       reason:actor.eliminationReason,remainingMembers:remaining}));
   }
+  // The client supplies only a trigger and bounded view angles, never a target,
+  // position, damage, ammo count or timestamp. Replays share one ordered weapon
+  // sequence; all timing and geometry come from this authoritative world.
+  weaponCommand(token,command,action){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    const keys=action==='fire'?'pitch,seq,yaw':'seq';
+    if(!command||typeof command!=='object'||Array.isArray(command)||
+      Object.keys(command).sort().join(',')!==keys||
+      !Number.isSafeInteger(command.seq)||command.seq<0||command.seq>2147483647||
+      (action==='fire'&&(!Number.isFinite(command.yaw)||Math.abs(command.yaw)>Math.PI||
+        !Number.isFinite(command.pitch)||Math.abs(command.pitch)>.44)))
+      throw new RangeError('invalid_weapon_command');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    const weapon=actor.weapon,profile=Sim.FIREARMS.carbine;
+    if(command.seq<=weapon.seq)return {ok:false,reason:'stale_weapon_input'};
+    weapon.seq=command.seq;actor.lastPresenceTick=this.tick;this.revision++;
+    if(weapon.reloadUntilTick>this.tick)return {ok:false,reason:'reloading'};
+    if(actor.stepping||actor.benchResting||this.handcart.operator===actor||
+      (actor.sprintHeld&&actor.moving&&!actor.crouchHeld))
+      return {ok:false,reason:'hands_busy'};
+    if(action==='reload'){
+      if(weapon.loaded===profile.magazine||weapon.rounds<=weapon.loaded)
+        return {ok:false,reason:'no_reload_needed'};
+      weapon.reloadUntilTick=this.tick+Math.ceil(profile.reloadSeconds*60);
+      return {ok:true};
+    }
+    if(weapon.rounds<=0)return {ok:false,reason:'empty'};
+    if(weapon.loaded<=0)return {ok:false,reason:'reload_required'};
+    if(this.tick-weapon.lastShotTick<Math.ceil(profile.fireInterval*60))
+      return {ok:false,reason:'cooldown'};
+    weapon.loaded--;weapon.rounds--;weapon.lastShotTick=this.tick;
+    actor.facing=command.yaw;
+    const hit=Sim.traceShot({x:actor.x,y:actor.crouchHeld?.96:1.65,z:actor.z},
+      command.yaw,command.pitch,profile.range,this.obstacles,
+      [...this.actors.values()].filter(other=>other!==actor&&other.eligible));
+    // Friendly bodies physically stop a round. This prototype disables friendly
+    // damage explicitly; it never lets the shot continue through a teammate.
+    if(hit&&hit.actor.team!==actor.team){
+      hit.actor.weapon.health=Math.max(0,hit.actor.weapon.health-profile.damage);
+      if(hit.actor.weapon.health===0)this.retireActor(hit.actor,'combat');
+    }
+    // No target id/health/hit boolean: a trigger response is not a hidden-enemy
+    // oracle. The normal private snapshot exposes only one's own weapon state.
+    return {ok:true};
+  }
+  fire(token,command){return this.weaponCommand(token,command,'fire');}
+  reload(token,command){return this.weaponCommand(token,command,'reload');}
   withdraw(token){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
     if(!actor.eligible)return {ok:false,reason:'already_withdrawn'};
     if(this.phase!=='moving')return {ok:false,reason:'round_complete'};
+    return this.retireActor(actor,'voluntary_withdrawal');
+  }
+  retireActor(actor,reason){
+    this.revision++;
     if(this.handcart.operator===actor)this.handcart.operator=null;
     actor.eligible=false;
     actor.eliminatedAtTick=this.tick;
-    actor.eliminationReason='voluntary_withdrawal';
+    actor.eliminationReason=reason;
+    actor.weapon.reloadUntilTick=0;
     this.recordSquadDeparture(actor);
     actor.headlampOn=false;actor.stepping=null;
     actor.direction={x:0,z:0};actor.moving=false;
@@ -592,7 +648,14 @@ class BrSquadWorld {
   }
   step(){
     if(this.phase!=='moving')return;
-    this.tick++;
+    this.tick++;this.revision++;
+    for(const actor of this.actors.values()){
+      const weapon=actor.weapon;
+      if(actor.eligible&&weapon.reloadUntilTick>0&&this.tick>=weapon.reloadUntilTick){
+        weapon.loaded=Math.min(Sim.FIREARMS.carbine.magazine,weapon.rounds);
+        weapon.reloadUntilTick=0;
+      }
+    }
     // Advance independent lamps at the very same authoritative 60Hz clock.
     for(const actor of this.actors.values()){
       if(!actor.eligible||!actor.headlampOn)continue;
@@ -874,7 +937,8 @@ class BrSquadWorld {
       const nearby=new BrSpatialIndex(participants.filter(p=>p.eligible));
       for(const p of nearby.nearby(observer.x,observer.z,weather.visibilityMeters)){
         if(p.team===me.team||Math.hypot(p.x-observer.x,p.z-observer.z)>weather.visibilityMeters||
-          Sim.lineBlocked(observer.x,observer.z,p.x,p.z,this.obstacles))continue;
+          Sim.lineBlocked3D(observer.x,observer.crouchHeld?.96:1.65,observer.z,
+            p.x,p.crouchHeld?1.2:1.75,p.z,this.obstacles))continue;
         seen.push({id:p.id,x:p.x,z:p.z,facing:p.facing,
           moving:p.moving,crouched:p.crouchHeld,
           benchResting:p.benchResting,
@@ -946,7 +1010,7 @@ class BrSquadWorld {
       finishedTick:this.tick,
       ...(this.finishReason==='time_limit'?{reason:'time_limit'}:{})
     }):null;
-    return {mode:'br-96-traversal-prototype',phase:this.phase,tick:this.tick,
+    return {mode:'br-96-traversal-prototype',revision:this.revision,phase:this.phase,tick:this.tick,
       matchOutcome,personalRecap,squadJourney,
       roundClock:Object.freeze({limitTicks:ROUND_LIMIT_TICKS,
         remainingTicks:Math.max(0,ROUND_LIMIT_TICKS-this.tick)}),
@@ -966,6 +1030,10 @@ class BrSquadWorld {
       standings:active.map((count,i)=>({squad:i+1,eligibleMembers:count,
         placement:this.placements[i]})),
       self:{id:me.id,squad:me.team+1,slot:me.slot+1,
+        weapon:{id:'carbine',health:me.weapon.health,loaded:me.weapon.loaded,
+          reserve:me.weapon.rounds-me.weapon.loaded,seq:me.weapon.seq,
+          reloadTicksRemaining:me.eligible?Math.max(0,me.weapon.reloadUntilTick-this.tick):0,
+          lastShotTick:me.weapon.lastShotTick},
         landmarksVisited:Sim.LANDMARKS.filter((_,i)=>(me.landmarkMask&(1<<i))!==0).length,
         x:me.x,z:me.z,seq:me.seq,stanceSeq:me.stanceSeq,eligible:me.eligible,
         facing:me.facing,moving:me.eligible&&me.moving,

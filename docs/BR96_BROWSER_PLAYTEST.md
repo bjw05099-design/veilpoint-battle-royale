@@ -1,7 +1,7 @@
-# VEILPOINT local 16×6 BR movement playtest (November 8, 2026)
+# VEILPOINT local 16×6 BR movement and combat playtest (updated November 13, 2026)
 
-This is a **loopback-only, two-dimensional, authenticated multiplayer traversal and
-squad-staging test screen**. It is not the final FPS, a production battle
+This is a **loopback-only authenticated movement and basic hitscan combat prototype**,
+with a diagnostic map and a CPU-rendered first-person view. It is not the final FPS, a production battle
 royale, an Internet host or a 96-human load-test certificate.
 
 ## Launch
@@ -23,7 +23,7 @@ No simulated guests are inserted to manufacture a full lobby.
 
 Controls: WASD/arrow keys move the authenticated actor, Shift or the
 on-screen toggle requests finite sprint, Q sends a server-positioned private
-regroup signal and E sends a local-position signal. A faint public circle
+regroup signal. Press the mouse wheel for a local-position mark; F performs nearby interactions. A faint public circle
 represents the published play-area rule. The map shows the player, their
 six-person squad, physically observed rivals, and legitimately discovered
 public landmarks. No opponent identity, remote position or authentication
@@ -166,3 +166,33 @@ routing, selected gameplay requests, shared Unreal/browser market geometry,
 and CH01 arrival preconditions. An actual Windows playthrough, 96-browser
 concurrent test, Unreal UBT/PIE run, complete game rendering, and production
 performance measurements remain outstanding.
+
+## Server-owned basic combat (November 13)
+
+Press P for first-person view, click the scene to acquire mouse lock, then use
+left mouse (hold for repeated fire) and R to reload. Acquiring the lock does not
+fire. Escape, chat focus, menus and window blur release held fire. The HUD shows
+only your own health, loaded magazine and carried reserve. No automatic healing.
+
+The existing fictional carbine profile supplies 12 loaded / 36 reserve rounds,
+a 1.8-second reload and a 12-tick minimum shot interval at 60 Hz. These are
+prototype class parameters, **not verified specifications for a real weapon**.
+Friendly bodies stop shots; friendly damage is disabled in this prototype.
+The server resolves the nearest finite body and physical cover height. Three
+45-point hits retire a 100-point opponent and use the existing squad standings
+and same-squad spectating. Ammunition, health, cadence and sequence survive
+session rotation. No client-provided target, damage, position or timestamp is accepted.
+
+`POST /fire` accepts exactly `{seq,yaw,pitch}`; `POST /reload` exactly `{seq}`.
+Both require the normal `x-player-token` and `x-round-number` headers. View angles
+are bounded to ±π yaw / ±0.44 pitch; sequence is shared by fire and reload.
+Unknown fields, stale sequences, a stale round, busy hands and invalid aim are
+rejected. The fire response does not reveal a hit flag or enemy health. A
+monotonic world revision prevents delayed same-tick responses from restoring
+older health or ammunition in the client.
+
+The Chromium release gate runs 96 **synthetic loopback sessions**, physical mouse
+fire and keyboard reload, checks chat isolation and verifies a server elimination.
+That is not 96-human testing, WAN certification, lag compensation or a production
+anti-cheat. Other players' gunshot audio, richer weapon/animation assets, hit
+reactions and network prediction remain further work; the own-shot cue is synthesized.

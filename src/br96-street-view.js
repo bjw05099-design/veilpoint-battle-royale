@@ -1,4 +1,4 @@
-/* VEILPOINT BR96 — PC-first, local, non-combat street view.
+/* VEILPOINT BR96 — PC-first, local combat prototype street view.
  * All physical buildings come from the server's PUBLIC geometry. People are
  * drawn only from the authenticated snapshot, never from private 96-body data.
  * This is a simple CPU-rendered view, not an engine-quality FPS.
@@ -186,20 +186,22 @@
   // The 210-ray reference remains exactly the same at every visible hit.
   const rayCandidates=visibleRaySolids(subject,angle,solids);
   // Fixed equal-angle ray columns: depth and sprite masking are read-only.
+  const eyeHeight=subject.benchResting===true?EYE_SEATED:
+    subject.crouched===true?EYE_CROUCH:EYE_STANDING;
   const rays=Array.from({length:COLUMNS},(_,index)=>{
    const alpha=((index+.5)/COLUMNS-.5)*FOV;
    const heading=angle+alpha;
    const direction={x:Math.sin(heading),z:-Math.cos(heading)};
-   let best=Infinity,object=null;
+   const layers=[];
    for(const solid of rayCandidates){
-    const d=rayBox(subject,direction,solid);
-    if(d<best){best=d;object=solid;}
+    const contact=rayBox(subject,direction,solid),distance=contact*Math.cos(alpha);
+    if(distance<=maxDistance)layers.push(Object.freeze({distance,
+      height:Number.isFinite(solid.h)?Math.max(.2,Math.min(30,solid.h)):2.7,
+      type:solid.type||'building',face:wallFace(subject,direction,solid,contact)}));
    }
-   const distance=best*Math.cos(alpha);
-   return Object.freeze({distance:distance<=maxDistance?distance:Infinity,
-     height:object&&Number.isFinite(object.h)?Math.max(.2,Math.min(18,object.h)):2.7,
-     type:object?.type||'building',
-     face:distance<=maxDistance?wallFace(subject,direction,object,best):null});
+   layers.sort((a,b)=>a.distance-b.distance);
+   const nearest=layers[0]||{distance:Infinity,height:2.7,type:'building',face:null};
+   return Object.freeze({...nearest,layers:Object.freeze(layers)});
   });
   // The server decides who is visible at all. This view only narrows the
   // FOV and hides occluded sprites: it never adds a person to that snapshot.
@@ -214,16 +216,28 @@
    const col=Math.floor((relative/FOV+.5)*COLUMNS);
    const depth=distance*Math.cos(relative);
    if(!Number.isFinite(distance)||distance<.4||distance>maxDistance||
-      Math.abs(relative)>FOV/2||col<0||col>=COLUMNS||
-      rays[col].distance<depth-.6)return null;
+      Math.abs(relative)>FOV/2||col<0||col>=COLUMNS)return null;
    // An ultra-thin facade may lie BETWEEN the 210 diagnostic ray columns.
    // Test the person's true centre line against actual public geometry too,
    // rather than publishing a wall-hidden human silhouette/seat label.
    const direct={x:dx/distance,z:dz/distance};
-   if(solids.some(solid=>rayBox(subject,direct,solid)<distance-.2))return null;
+   let occludedBelowHeight=-Infinity;
+   for(const solid of solids){
+    const entry=rayBox(subject,direct,solid);
+    if(entry>=distance-.2)continue;
+    const exit=distance-rayBox(p,{x:-direct.x,z:-direct.z},solid);
+    const wallHeight=Number.isFinite(solid.h)?solid.h:2.7;
+    // The top projects highest from the near face above eye level, and
+    // from the far face below it. This also catches sub-column thin walls.
+    const edge=Math.max(.001,wallHeight>=eyeHeight?entry:exit);
+    occludedBelowHeight=Math.max(occludedBelowHeight,
+      eyeHeight+(wallHeight-eyeHeight)*distance/edge);
+   }
+   const bodyHeight=p.benchResting?.95:p.crouched?1.22:1.75;
+   if(occludedBelowHeight>=bodyHeight)return null;
    // Only server-published, actually visible squadmates carry a local seat
    // label. Never infer a hidden rival's squad, identity or location.
-   return Object.freeze({kind:p.kind,id:p.id,col,depth,
+   return Object.freeze({kind:p.kind,id:p.id,col,depth,occludedBelowHeight,
     // Pose is from the authenticated server movement snapshot, not the map.
     facing:Number.isFinite(p.facing)?wrap(p.facing):null,
     moving:p.moving===true,crouched:p.crouched===true,
@@ -236,11 +250,10 @@
   return Object.freeze({rays:Object.freeze(rays),seen:Object.freeze(seen),
     angle,pitch:clampPitch(pitch),heading:viewHeading(angle),columns:COLUMNS,maxDistance,
     rayCandidateCount:rayCandidates.length,
-    eyeHeight:subject.benchResting===true?EYE_SEATED:
-      subject.crouched===true?EYE_CROUCH:EYE_STANDING});
+    eyeHeight});
  }
  function draw(ctx,{width,height,subject,yaw,pitch=0,obstacles,civicGate,handcart,squad,visible,
-   visibilityMeters,weather,pavements=[]}={}){
+   visibilityMeters,weather,pavements=[],showLabels=true}={}){
   if(!ctx||!Number.isInteger(width)||!Number.isInteger(height)||
     width<200||height<120||width>8192||height>8192)
    throw new RangeError('invalid_street_view_canvas');
@@ -266,8 +279,7 @@
   }
   const strip=width/model.columns,focal=height*.68;
   for(let i=0;i<model.columns;i++){
-   const ray=model.rays[i];
-   if(!Number.isFinite(ray.distance))continue;
+   for(const ray of model.rays[i].layers.slice().reverse()){
    const d=Math.max(.3,ray.distance);
    // Project the visible wall relative to a standing/crouching eye plane.
    // A low wall becomes taller on screen when the authenticated body crouches.
@@ -280,6 +292,7 @@
    ctx.fillStyle=shade(ray.type,d,model.maxDistance,weather?.code,lit,ray.face);
    ctx.fillRect(i*strip,y,strip+1,wallHeight);
    ctx.fillStyle='#405158';ctx.fillRect(i*strip,y,strip+1,Math.max(1,wallHeight*.018));
+   }
   }
   for(const person of model.seen){
    const bodyHeight=person.benchResting?0.95:person.crouched?1.22:1.75;
@@ -292,27 +305,33 @@
    // landing arc, not a fabricated jump or client-invented actor altitude.
    const lift=person.stepOverProgress===null?0:
       .8*Math.sin(Math.PI*person.stepOverProgress);
+   const visibleBottom=Number.isFinite(person.occludedBelowHeight)
+     ?horizon+(model.eyeHeight-person.occludedBelowHeight)*focal/person.depth:Infinity;
+   const bodyRect=(x,y,w,h)=>{
+    const clipped=Math.min(y+h,visibleBottom)-y;
+    if(clipped>0)ctx.fillRect(x,y,w,clipped);
+   };
    const feetY=horizon+(model.eyeHeight-lift)*focal/person.depth;
    // Body shape is read-only; moving into a wall cannot rotate the server pose.
    const broadness=person.facing===null?.32:
      .23+.10*Math.abs(Math.cos(person.facing-model.angle));
-   ctx.fillRect(px-size*broadness/2,feetY-size*.78,size*broadness,size*.59);
-   ctx.fillRect(px-size*.10,feetY-size,size*.20,size*.20);
+   bodyRect(px-size*broadness/2,feetY-size*.78,size*broadness,size*.59);
+   bodyRect(px-size*.10,feetY-size,size*.20,size*.20);
    if(person.waving){
     // Deliberate human-scale arm movement without a bright floating icon.
     // The server owns the finite pose; FOV and wall ray masking remain intact.
-    ctx.fillRect(px+size*.15,feetY-size*.90,size*.085,size*.42);
-    ctx.fillRect(px+size*.15,feetY-size*1.10,size*.085,size*.25);
+    bodyRect(px+size*.15,feetY-size*.90,size*.085,size*.42);
+    bodyRect(px+size*.15,feetY-size*1.10,size*.085,size*.25);
    }
    if(person.benchResting){
     // Bend both feet beside the already-authoritative public bench; visual
     // comfort never moves the physical capsule inside solid furniture.
-    ctx.fillRect(px-size*.23,feetY-size*.15,size*.18,size*.15);
-    ctx.fillRect(px+size*.05,feetY-size*.15,size*.18,size*.15);
+    bodyRect(px-size*.23,feetY-size*.15,size*.18,size*.15);
+    bodyRect(px+size*.05,feetY-size*.15,size*.18,size*.15);
    }else if(person.moving){
-    ctx.fillRect(px-size*.13,feetY-size*.19,size*.09,size*.19);
-    ctx.fillRect(px+size*.04,feetY-size*.28,size*.09,size*.28);
-   }else ctx.fillRect(px-size*.11,feetY-size*.19,size*.22,size*.19);
+    bodyRect(px-size*.13,feetY-size*.19,size*.09,size*.19);
+    bodyRect(px+size*.04,feetY-size*.28,size*.09,size*.28);
+   }else bodyRect(px-size*.11,feetY-size*.19,size*.22,size*.19);
    ctx.globalAlpha=1;
    if(person.kind==='squad'&&person.slot!==null){
     ctx.fillStyle='#dff4eb';ctx.font='11px system-ui';
@@ -321,8 +340,11 @@
    }
   }
   ctx.strokeStyle='#d6e9e2';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(width/2-8,height/2);ctx.lineTo(width/2+8,height/2);
-  ctx.moveTo(width/2,height/2-8);ctx.lineTo(width/2,height/2+8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(width/2-8,height*.52);ctx.lineTo(width/2+8,height*.52);
+  ctx.moveTo(width/2,height*.52-8);ctx.lineTo(width/2,height*.52+8);ctx.stroke();
+  // The embedded PC screen already has controls and instructions around
+  // this canvas. Avoid painting duplicate diagnostics beneath those buttons.
+  if(showLabels){
   ctx.fillStyle='#f1f5ed';ctx.font='14px system-ui';
   ctx.fillText('LOCAL STREET VIEW · SERVER SNAPSHOT ONLY',14,25);
   ctx.font='12px system-ui';
@@ -331,6 +353,7 @@
     subject.crouched===true?'낮은 자세':'보통')+' · 관찰 높이 '+model.eyeHeight.toFixed(2)+'m',14,91);
   ctx.fillText(width<440?'시야 방향 '+model.heading.cardinal:
     '가상 지도 방향 '+model.heading.cardinal+' · '+model.heading.degrees+'°',14,69);
+  }
   return model;
  }
  return Object.freeze({FOV,MAX_DISTANCE,COLUMNS,EYE_STANDING,EYE_CROUCH,EYE_SEATED,MAX_PITCH,

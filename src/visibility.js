@@ -44,7 +44,7 @@ function lodForDistance(distance,near=45,mid=90){
 // an actor visible when a shoulder is exposed at an edge, while suppressing
 // wall-penetrating opponent models and shot flashes in the software fallback.
 // This is not a substitute for native depth testing or full 3D occlusion.
-function rayBlocked(ax,az,bx,bz,obstacles){
+function rayBlocked(ax,az,bx,bz,obstacles,fromY=null,toY=null){
  const dx=bx-ax,dz=bz-az;
  for(const o of obstacles){
   if(!o||!Number.isFinite(o.x)||!Number.isFinite(o.z)||
@@ -65,6 +65,15 @@ function rayBlocked(ax,az,bx,bz,obstacles){
    if(a>b){const tmp=a;a=b;b=tmp;}
    near=Math.max(near,a);far=Math.min(far,b);
   }
+  if(Number.isFinite(fromY)&&Number.isFinite(toY)&&Number.isFinite(o.h)){
+   const base=Number.isFinite(o.y)?o.y:0,dy=toY-fromY;
+   if(Math.abs(dy)<1e-8){if(fromY<base||fromY>base+o.h)continue;}
+   else{
+    let a=(base-fromY)/dy,b=(base+o.h-fromY)/dy;
+    if(a>b)[a,b]=[b,a];
+    near=Math.max(near,a);far=Math.min(far,b);
+   }
+  }
   // Only positive-length cover strictly between the camera and target counts.
   if(near<far-1e-8&&far>1e-6&&near<1-1e-6)return true;
  }
@@ -76,9 +85,10 @@ function hasExposedSilhouette(player,entity,radius,obstacles){
  const distance=Math.hypot(dx,dz);
  if(distance<1e-6)return true;
  const sideX=-dz/distance*radius,sideZ=dx/distance*radius;
- return !rayBlocked(player.x,player.z,entity.x,entity.z,obstacles)||
-  !rayBlocked(player.x,player.z,entity.x+sideX,entity.z+sideZ,obstacles)||
-  !rayBlocked(player.x,player.z,entity.x-sideX,entity.z-sideZ,obstacles);
+ const eye=player.crouched?1.09:1.64,head=entity.crouched?1.2:1.75;
+ return !rayBlocked(player.x,player.z,entity.x,entity.z,obstacles,eye,head)||
+  !rayBlocked(player.x,player.z,entity.x+sideX,entity.z+sideZ,obstacles,eye,head)||
+  !rayBlocked(player.x,player.z,entity.x-sideX,entity.z-sideZ,obstacles,eye,head);
 }
 function planVisible(state,aspect=16/9,verticalFov=VERTICAL_FOV){
  if(!state||!state.player||!state.zone||!Array.isArray(state.bots)||!Array.isArray(state.loot)||!Array.isArray(state.effects))throw new TypeError('Invalid simulation state');

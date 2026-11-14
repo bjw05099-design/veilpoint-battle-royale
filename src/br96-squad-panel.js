@@ -23,7 +23,8 @@
    if(!reported)return seat+'. '+name+' · 상태 확인 중';
    if(reported.eligible===false){
     const cause=reported.eliminationReason==='area_expiry'?'구역 밖 체류 만료':
-      reported.eliminationReason==='voluntary_withdrawal'?'본인 경기 포기':'종료 원인 확인 중';
+      reported.eliminationReason==='voluntary_withdrawal'?'본인 경기 포기':
+      reported.eliminationReason==='combat'?'교전으로 탈락':'종료 원인 확인 중';
     return seat+'. '+name+' · 경기 종료 ('+cause+')';
    }
    if(reported.eligible!==true)return seat+'. '+name+' · 상태 확인 중';
