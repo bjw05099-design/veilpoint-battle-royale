@@ -130,6 +130,17 @@ class DaylightTests(unittest.TestCase):
         self.assertEqual(result.yaw, 18)
         self.assertEqual(result.roll, 0)
 
+    def test_all_unreal_python_rotations_name_nonzero_axes(self):
+        for script in source.parent.glob("*.py"):
+            for node in ast.walk(ast.parse(script.read_text(encoding="utf-8"))):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == "unreal" and node.func.attr == "Rotator"):
+                    with self.subTest(script=script.name, line=node.lineno):
+                        self.assertTrue(all(isinstance(a, ast.Constant) and a.value == 0
+                                            for a in node.args),
+                                        "Name nonzero Python rotation axes; C++ has a different order")
+
 
 if __name__ == "__main__":
     unittest.main()
