@@ -9,7 +9,6 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "HAL/PlatformTime.h"
-#include "Engine/GameViewportClient.h"
 #include "Components/InputComponent.h"
 
 namespace
@@ -18,7 +17,9 @@ float ResolutionPercent(const UVPGameUserSettings* Settings)
 {
     float Normalized = 0.f, Current = 100.f, Minimum = 0.f, Maximum = 100.f;
     Settings->GetResolutionScaleInformationEx(Normalized, Current, Minimum, Maximum);
-    return Current;
+    // UE can store zero as its default-resolution sentinel. This project
+    // explicitly configures r.ScreenPercentage=100; it is not a 0% image.
+    return Current > 0.f && FMath::IsFinite(Current) ? Current : 100.f;
 }
 }
 
@@ -66,13 +67,11 @@ void AVPPlayerController::TickVisualSmoke()
         UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
         return;
     }
-    UGameViewportClient* Client = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
-    FViewport* Viewport = Client ? Client->Viewport : nullptr;
     const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : TEXT("field-mark");
-    const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(GetWorld(), Viewport, Name);
+    const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, Name);
     if (!Frame)
     {
-        UE_LOG(LogTemp, Error, TEXT("VEILPOINT visual smoke: actual viewport readback failed"));
+        UE_LOG(LogTemp, Error, TEXT("VEILPOINT visual smoke: scene/HUD render-target readback failed"));
         VisualSmokeReport->SetBoolField(TEXT("readbackSucceeded"), false);
         VPWriteVisualSmokeReport(VisualSmokeReport.ToSharedRef());
         VisualSmokeStep = -1;
@@ -102,6 +101,8 @@ void AVPPlayerController::TickVisualSmoke()
         {
             Settings->SetCustomResolutionPercent(float(VisualSmokeReport->GetNumberField(TEXT("originalRenderScale"))), false);
             Settings->ApplyVeilpointPreset(static_cast<EVPGraphicsPreset>(int32(VisualSmokeReport->GetNumberField(TEXT("originalPreset")))), false);
+            VisualSmokeReport->SetBoolField(TEXT("renderScaleRestored"),
+                FMath::IsNearlyEqual(ResolutionPercent(Settings), float(VisualSmokeReport->GetNumberField(TEXT("originalRenderScale"))), .1f));
         }
         FVector2D ResumeCentre;
         if (AVPHUD* HUD = Cast<AVPHUD>(GetHUD()); HUD && HUD->GetDesktopMenuRowCentre(0, ResumeCentre))
