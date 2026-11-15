@@ -1,5 +1,11 @@
 # Read the installed .NET Framework SDK, not the runtime or bundled dotnet SDK.
 # Both registry views are needed when the caller is 64-bit PowerShell.
+function Read-BuildPcNetFxSdkRegistration([string]$Version,[object]$Key) {
+    # InstallationFolder locates managed SDK tools. Native headers and import
+    # libraries are registered separately under KitsInstallationFolder.
+    [pscustomobject]@{Version=$Version;InstallationFolder=[string]$Key.GetValue('KitsInstallationFolder','')}
+}
+
 function Get-BuildPcNetFxSdkInstallations {
     foreach ($view in @([Microsoft.Win32.RegistryView]::Registry32,[Microsoft.Win32.RegistryView]::Registry64)) {
         $base=[Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,$view)
@@ -11,7 +17,7 @@ function Get-BuildPcNetFxSdkInstallations {
                     $versionKey=$sdkKey.OpenSubKey($name)
                     if ($null -eq $versionKey) { continue }
                     try {
-                        [pscustomobject]@{Version=$name;InstallationFolder=[string]$versionKey.GetValue('InstallationFolder','')}
+                        Read-BuildPcNetFxSdkRegistration -Version $name -Key $versionKey
                     } finally { $versionKey.Dispose() }
                 }
             } finally { $sdkKey.Dispose() }
