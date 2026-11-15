@@ -11,6 +11,8 @@ This documents the **native Unreal Engine 5 C++ prototype**, not the browser EXE
 5. The HUD shows `APP-FRAME JSON SAVED TO PROJECT SAVED/BENCHMARKS` when the local file write succeeds. Find `veilpoint-native-YYYYMMDD_HHMMSS.json` inside the Unreal project's `Saved/Benchmarks` folder.
 6. Share the **JSON output**, not local account paths or hardware serial numbers, for a future comparison.
 
+In a copied Windows package, recordings are under `Windows/Veilpoint/Saved/Benchmarks`. Finish choosing graphics before F9: opening the ESC menu cancels the current capture, so menu frames and changed-quality frames are not mixed into a gameplay result. Start a new capture after resuming.
+
 ## Fields and interpretation
 
 | Field | Meaning | What it **does not** prove |

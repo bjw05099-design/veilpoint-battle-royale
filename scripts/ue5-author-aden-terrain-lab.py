@@ -87,7 +87,7 @@ def author_terrain_lab():
         unreal.Rotator(0, 0, 0))
     sun = actors.spawn_actor_from_class(
         unreal.DirectionalLight, unreal.Vector(0, 0, 30000),
-        unreal.Rotator(-48, 20, 0))
+        unreal.Rotator(pitch=-48, yaw=20, roll=0))
     sky = actors.spawn_actor_from_class(
         unreal.SkyLight, unreal.Vector(0, 0, 13000),
         unreal.Rotator(0, 0, 0))

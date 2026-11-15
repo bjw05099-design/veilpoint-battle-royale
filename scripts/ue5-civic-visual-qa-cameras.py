@@ -120,7 +120,7 @@ def author():
         actor = subsystem.spawn_actor_from_class(
             unreal.CameraActor,
             unreal.Vector(x * 100, z * 100, ground_eye * 100),
-            unreal.Rotator(0, yaw, 0))
+            unreal.Rotator(pitch=0, yaw=yaw, roll=0))
         if not actor:
             raise RuntimeError("Camera spawn failed; do not save partial preview")
         actor.set_actor_label(PREFIX + str(index))
