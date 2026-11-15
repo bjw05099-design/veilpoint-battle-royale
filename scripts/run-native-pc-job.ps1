@@ -34,6 +34,16 @@ try {
     } elseif ($Operation -eq 'author-package') {
         & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PackageNative
         $report.status='PACKAGED_NOT_RUNTIME_TESTED'
+        try {
+            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
+            $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
+            $report.offscreenRenderVerified=$true
+            $report.humanInputVerified=$false
+            $report.gpuPerformanceVerified=$false
+        } catch {
+            $report.status='PACKAGED_VISUAL_SMOKE_FAILED'
+            throw
+        }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }
 } finally {
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $reportDir 'native-job.json') -Encoding UTF8

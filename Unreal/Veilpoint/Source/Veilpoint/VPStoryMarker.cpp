@@ -155,11 +155,25 @@ bool AVPStoryMarker::IsAvailable() const
     return !bUsed && State && State->IsAvailable(Action);
 }
 
-bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
+FString AVPStoryMarker::GetInteractionLabel() const
 {
-    if (!HasAuthority() || !IsValid(Player) || !Player->IsAlive() ||
-        !GetWorld() || !IsAvailable()) return false;
+    switch (Action)
+    {
+    case EVPStoryAction::RestoreRelay: return TEXT("Restore relay power");
+    case EVPStoryAction::ActivateBeacon: return TEXT("Toggle harbor signal");
+    case EVPStoryAction::ReadHarbor: return TEXT("Inspect harbor record");
+    case EVPStoryAction::ReadShelter: return TEXT("Inspect shelter record");
+    case EVPStoryAction::ChooseSouth: return TEXT("Choose the south route");
+    case EVPStoryAction::ChooseEast: return TEXT("Choose the east route");
+    case EVPStoryAction::ReachSouth: return TEXT("Enter the south courtyard");
+    case EVPStoryAction::ReachEast: return TEXT("Leave by the east exit");
+    default: return FString();
+    }
+}
 
+bool AVPStoryMarker::CanInteract(const AVPCharacter* Player) const
+{
+    if (!IsValid(Player) || !Player->IsAlive() || !GetWorld() || !IsAvailable()) return false;
     // A mission action requires an actual nearby, unobstructed marker.
     if (FVector::DistSquared(GetActorLocation(), Player->GetActorLocation()) >
         FMath::Square(275.f)) return false;
@@ -167,7 +181,15 @@ bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
     Params.AddIgnoredActor(this);
     if (GetWorld()->LineTraceTestByChannel(
         Player->GetPawnViewLocation(), GetActorLocation(), ECC_Visibility, Params)) return false;
+    const FVector ToTarget = GetActorLocation() - Player->GetPawnViewLocation();
+    // Never activate an object behind the player. Wide 60-degree cone allows
+    // natural near-field use while both client prompt and authority agree.
+    return FVector::DotProduct(Player->GetControlRotation().Vector(), ToTarget.GetSafeNormal()) >= .5f;
+}
 
+bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
+{
+    if (!HasAuthority() || !CanInteract(Player)) return false;
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State || !State->TryAdvance(Action)) return false;
     if (Action != EVPStoryAction::ActivateBeacon)

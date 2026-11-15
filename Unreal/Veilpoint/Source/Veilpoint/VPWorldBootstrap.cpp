@@ -6,6 +6,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 #include "Math/RandomStream.h"
+#include "Materials/MaterialInterface.h"
 
 AVPWorldBootstrap::AVPWorldBootstrap()
 {
@@ -134,6 +135,19 @@ void AVPWorldBootstrap::Tick(float DeltaSeconds)
 void AVPWorldBootstrap::BeginPlay()
 {
     Super::BeginPlay();
+    // The authored CH01 court references these saved materials so cooking
+    // includes them. Shared native street instances use the same finishes;
+    // the BR/fallback Entry world still works when no authored assets exist.
+    if (IsA(AVPStoryWorldBootstrap::StaticClass()))
+    {
+        if (UMaterialInterface* Paving = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_CH01_Paving.M_CH01_Paving")))
+        {
+            Ground->SetMaterial(0, Paving);
+            Vegetation->SetMaterial(0, Paving);
+        }
+        if (UMaterialInterface* Wall = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_CH01_Wall.M_CH01_Wall")))
+            Buildings->SetMaterial(0, Wall);
+    }
     // Build the same static world on the server AND every replicated client.
     // Never branch on authority here: doing so would leave multiplayer clients
     // walking through empty scenery even though server collision exists.

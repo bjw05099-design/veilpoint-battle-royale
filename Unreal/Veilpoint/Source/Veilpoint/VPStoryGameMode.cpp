@@ -13,7 +13,7 @@
 #include "Misc/Parse.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
-#include "Engine/SkyAtmosphere.h"
+#include "Components/SkyAtmosphereComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Misc/Paths.h"

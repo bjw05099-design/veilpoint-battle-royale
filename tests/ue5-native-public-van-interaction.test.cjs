@@ -70,5 +70,5 @@ test('PC native HUD observes only a real on-screen unobstructed civic vehicle, n
  assert.match(text,/F TO REQUEST YIELD/);
  assert.match(text,/F TO RELEASE/);
  assert.doesNotMatch(text,/EVACUATION COMPLETE|ALL CIVILIANS SAFE|SetActorLocation/);
- assert.match(hud,/CH01 PHYSICAL OBJECTIVE IN REACH \| F TO INTERACT/);
+ assert.match(hud,/NearestVisible->GetInteractionLabel\(\)/);
 });

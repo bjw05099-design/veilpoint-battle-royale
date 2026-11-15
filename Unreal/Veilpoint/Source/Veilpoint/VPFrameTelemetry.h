@@ -23,6 +23,13 @@ public:
         bCaptureRunning = true;
     }
     bool IsCapturing() const { return bCaptureRunning; }
+    void CancelCapture()
+    {
+        bCaptureRunning = false;
+        CaptureSamplesMs.Reset();
+        CaptureElapsedSeconds = 0.f;
+        Reset();
+    }
     float GetCaptureElapsedSeconds() const { return CaptureElapsedSeconds; }
     int32 GetCaptureSampleCount() const { return CaptureSamplesMs.Num(); }
     // Stop an early test if requested, but never label a one-second glance

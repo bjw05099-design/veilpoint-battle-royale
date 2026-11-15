@@ -145,6 +145,56 @@ def verify_saved_daylight(actors):
             "savedReloadVerified": True}
 
 
+def create_civic_finishes():
+    """Original opaque PBR blockout finishes, saved and referenced by the map."""
+    specs = {
+        "Paving": ((0.26, 0.21, 0.15), 0.9, 0.0),
+        "Wall": ((0.48, 0.43, 0.34), 0.78, 0.0),
+        "Metal": ((0.12, 0.16, 0.17), 0.45, 0.7),
+    }
+    result = {}
+    library = unreal.MaterialEditingLibrary
+    for name, (color, roughness, metallic) in specs.items():
+        asset_name = "M_CH01_" + name
+        asset_path = "/Game/Materials/" + asset_name
+        if unreal.EditorAssetLibrary.does_asset_exist(asset_path):
+            raise RuntimeError("Refusing to overwrite an existing civic material: " + asset_path)
+        material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            asset_name, "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
+        if not material:
+            raise RuntimeError("Cannot create civic finish: " + name)
+        base = library.create_material_expression(material, unreal.MaterialExpressionConstant3Vector)
+        base.set_editor_property("constant", unreal.LinearColor(*color, 1.0))
+        library.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+        for value, prop in ((roughness, unreal.MaterialProperty.MP_ROUGHNESS),
+                            (metallic, unreal.MaterialProperty.MP_METALLIC)):
+            scalar = library.create_material_expression(material, unreal.MaterialExpressionConstant)
+            scalar.set_editor_property("r", value)
+            library.connect_material_property(scalar, "", prop)
+        library.recompile_material(material)
+        if not unreal.EditorAssetLibrary.save_loaded_asset(material):
+            raise RuntimeError("Civic finish did not save: " + name)
+        result[name] = material
+    return result
+
+
+def verify_saved_finishes(actors, finishes):
+    count = 0
+    expected = {material.get_path_name() for material in finishes.values()}
+    for actor in actors:
+        if not actor.get_actor_label().startswith(LABEL_PREFIX):
+            continue
+        mesh = actor.get_component_by_class(unreal.StaticMeshComponent)
+        material = mesh.get_material(0) if mesh else None
+        if not material or material.get_path_name() not in expected:
+            raise RuntimeError("Saved civic actor lost its authored material")
+        count += 1
+    if count != EXPECTED_PUBLIC_PIECES:
+        raise RuntimeError("Saved civic material coverage is incomplete")
+    return {"savedActorsWithMaterials": count, "materials": sorted(expected),
+            "photorealArtVerified": False}
+
+
 def author_ch01():
     # Fail closed before spawning anything or changing the game's main map.
     if os.path.exists(MAP_FILE):
@@ -188,6 +238,7 @@ def author_ch01():
     skylight.set_actor_label("VP_CH01_AmbientSky")
     daylight = configure_daylight(sun, skylight, atmosphere)
     atmosphere.set_actor_label("VP_CH01_SkyAtmosphere")
+    finishes = create_civic_finishes()
 
     spawned = []
     for piece in layout["pieces"]:
@@ -202,6 +253,10 @@ def author_ch01():
         if not mesh:
             raise RuntimeError("Public court actor has no mesh/collision component")
         mesh.set_static_mesh(cube)
+        finish = ("Wall" if piece["kind"] == "structural-column"
+                  else "Metal" if piece["kind"] in {"raised-canopy", "street-furniture"}
+                  else "Paving")
+        mesh.set_material(0, finishes[finish])
         actor.set_actor_scale3d(unreal.Vector(
             piece["widthCm"] / 100.0,
             piece["depthCm"] / 100.0,
@@ -217,7 +272,9 @@ def author_ch01():
         raise RuntimeError("Real native CH01_Coast.umap did not save successfully")
     if not levels.load_level(MAP_PACKAGE):
         raise RuntimeError("Saved CH01 map could not be reloaded for daylight verification")
-    daylight = verify_saved_daylight(actors.get_all_level_actors())
+    saved_actors = actors.get_all_level_actors()
+    daylight = verify_saved_daylight(saved_actors)
+    finish_proof = verify_saved_finishes(saved_actors, finishes)
     with open(MAP_FILE, "rb") as stream:
         map_bytes = stream.read()
     if len(map_bytes) < 2048:
@@ -234,6 +291,7 @@ def author_ch01():
         "authoringMode": "/Script/Veilpoint.VPStoryGameMode",
         "fictionalGeometryOnly": True,
         "daylight": daylight,
+        "civicFinishes": finish_proof,
         "nativePIEVerified": False,
         "nativeWin64Packaged": False,
         "actualAdenCoverageVerified": False

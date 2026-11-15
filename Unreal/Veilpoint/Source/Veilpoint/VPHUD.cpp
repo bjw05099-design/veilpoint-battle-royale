@@ -1,5 +1,6 @@
 #include "VPHUD.h"
 #include "VPCharacter.h"
+#include "VPPlayerController.h"
 #include "VPZone.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
@@ -15,12 +16,91 @@
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 
+void AVPHUD::ClickDesktopMenu(FVector2D Position)
+{
+    AVPPlayerController* Desktop = Cast<AVPPlayerController>(PlayerOwner);
+    if (!Desktop || !Desktop->IsDesktopMenuOpen()) return;
+    for (int32 Index = 0; Index < DesktopMenuBounds.Num(); ++Index)
+        if (DesktopMenuBounds[Index].IsInside(Position))
+        {
+            Desktop->ClickMenuRow(Index);
+            return;
+        }
+}
+
+void AVPHUD::DrawDesktopMenu(AVPPlayerController* Desktop)
+{
+    const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1000.f, Canvas->ClipY / 700.f), .55f, 1.3f);
+    const float Width = FMath::Min(620.f * Scale, Canvas->ClipX - 24.f);
+    const float Left = (Canvas->ClipX - Width) * .5f;
+    const float Top = FMath::Max(12.f, (Canvas->ClipY - 430.f * Scale) * .5f);
+    DrawRect(FLinearColor(0.f, .01f, .02f, .8f), 0, 0, Canvas->ClipX, Canvas->ClipY);
+    DrawRect(FLinearColor(.025f, .055f, .065f, .98f), Left, Top, Width, 430.f * Scale);
+    DrawText(TEXT("VEILPOINT"), FLinearColor(.87f, .91f, .85f), Left + 24.f * Scale, Top + 20.f * Scale, nullptr, 1.45f * Scale);
+    DrawText(GetNetMode() == NM_Standalone ? TEXT("Paused") : TEXT("Online session continues"),
+        FLinearColor(.69f, .78f, .78f), Left + 24.f * Scale, Top + 58.f * Scale, nullptr, .85f * Scale);
+    DesktopMenuBounds.Reset();
+    float MouseX = -1.f, MouseY = -1.f;
+    Desktop->GetMousePosition(MouseX, MouseY);
+    for (int32 Row = 0; Row < AVPPlayerController::MenuRowCount; ++Row)
+    {
+        const FVector2D Min(Left + 16.f * Scale, Top + (94.f + Row * 43.f) * Scale);
+        const FVector2D Max(Left + Width - 16.f * Scale, Min.Y + 39.f * Scale);
+        const FBox2D Bounds(Min, Max);
+        DesktopMenuBounds.Add(Bounds);
+        const bool bSelected = Desktop->GetMenuRow() == Row || Bounds.IsInside(FVector2D(MouseX, MouseY));
+        DrawRect(bSelected ? FLinearColor(.14f, .23f, .23f) : FLinearColor(.045f, .085f, .095f), Min.X, Min.Y, Max.X-Min.X, Max.Y-Min.Y);
+        DrawText(Desktop->GetMenuLabel(Row), FLinearColor(.88f, .93f, .88f),
+            Min.X + 12.f * Scale, Min.Y + 9.f * Scale, nullptr, .88f * Scale);
+    }
+    DrawText(TEXT("Click or use arrows + Enter | ESC resumes"), FLinearColor(.72f, .83f, .84f),
+        Left + 24.f * Scale, Top + 367.f * Scale, nullptr, .72f * Scale);
+    DrawText(TEXT("WASD move | Shift sprint | C crouch | F interact | L lamp | MMB mark"),
+        FLinearColor(.72f, .83f, .84f), Left + 24.f * Scale, Top + 394.f * Scale, nullptr, .64f * Scale);
+}
+
 void AVPHUD::DrawHUD()
 {
     Super::DrawHUD();
     if (!Canvas || !PlayerOwner) return;
+    AVPPlayerController* Desktop = Cast<AVPPlayerController>(PlayerOwner);
+    if (Desktop && Desktop->IsDesktopMenuOpen())
+    {
+        // Menu/changed-quality frames must not pollute a gameplay benchmark.
+        if (FrameTelemetry.IsCapturing())
+        {
+            FrameTelemetry.CancelCapture();
+            LastNativeBenchmarkStatus = TEXT("CAPTURE CANCELLED BY MENU | F9 TO START AGAIN");
+        }
+        FrameTelemetry.Reset();
+        DrawDesktopMenu(Desktop);
+        return;
+    }
+    DesktopMenuBounds.Reset();
     const AVPCharacter* Pawn = Cast<AVPCharacter>(PlayerOwner->GetPawn());
     if (!Pawn) return;
+
+    FVector Mark;
+    float MarkRemaining = 0.f;
+    if (Desktop && Desktop->GetLocalFieldMark(Mark, MarkRemaining))
+    {
+        FVector2D Screen;
+        const FVector Eye = Pawn->GetPawnViewLocation();
+        FCollisionQueryParams Query(SCENE_QUERY_STAT(VPFieldMarkVisible), true, Pawn);
+        // Surface mark is local to this player, expires, and never tracks actors
+        // or appears through an intervening building.
+        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Mark-Eye) > 0.f &&
+            PlayerOwner->ProjectWorldLocationToScreen(Mark, Screen, false) &&
+            Screen.X >= 8.f && Screen.Y >= 8.f && Screen.X < Canvas->ClipX-8.f && Screen.Y < Canvas->ClipY-8.f &&
+            !GetWorld()->LineTraceTestByChannel(Eye, Mark, ECC_Visibility, Query))
+        {
+            const FLinearColor Color(.83f, .73f, .39f, FMath::Clamp(MarkRemaining, 0.f, 1.f));
+            DrawLine(Screen.X-6.f, Screen.Y, Screen.X+6.f, Screen.Y, Color, 2.f);
+            DrawLine(Screen.X, Screen.Y-6.f, Screen.X, Screen.Y+6.f, Color, 2.f);
+            DrawText(FString::Printf(TEXT("MARK %.0fm"), FVector::Distance(Eye, Mark)/100.f), Color,
+                Screen.X+10.f, Screen.Y-8.f, nullptr, .75f);
+        }
+    }
 
     const float Scale = FMath::Clamp(Canvas->ClipX / 1920.f, .7f, 1.25f);
     const float X = 32.f * Scale;
@@ -104,7 +184,7 @@ void AVPHUD::DrawHUD()
     // Derived from the pawn's replicated native 60Hz charge. No local fake
     // battery countdown and no brightness UI that exposes unseen humans.
     const FString LightLabel = FString::Printf(
-        TEXT("F LAMP %s | %.0fs"),
+        TEXT("L LAMP %s | %.0fs"),
         Pawn->bFieldLightOn ? TEXT("ON") : TEXT("OFF"),
         FMath::Max(0.f, Pawn->FieldLightSecondsRemaining));
     DrawText(LightLabel, FLinearColor(.88f,.90f,.68f,1.f),
@@ -269,9 +349,9 @@ void AVPHUD::DrawHUD()
         if (NearestVisible)
         {
             const float Metres = FMath::Sqrt(NearestVisibleSq) / 100.f;
-            const bool bReachable = NearestVisibleSq <= FMath::Square(275.f);
+            const bool bReachable = NearestVisible->CanInteract(Pawn);
             const FString PhysicalHint = bReachable
-                ? TEXT("CH01 PHYSICAL OBJECTIVE IN REACH | F TO INTERACT")
+                ? FString::Printf(TEXT("F | %s"), *NearestVisible->GetInteractionLabel())
                 : FString::Printf(TEXT("CH01 VISIBLE OBJECTIVE %.1fm | APPROACH TO INTERACT"), Metres);
             DrawText(PhysicalHint, FLinearColor(.83f,.93f,.78f,1.f),
                      X, Y + 157.f * Scale, nullptr, .75f * Scale, false);

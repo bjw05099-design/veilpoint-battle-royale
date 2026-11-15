@@ -44,7 +44,7 @@ test('custom overrides are finite, clamped, applied and optionally saved',()=>{
  assert.match(source,/FMath::IsFinite\(InPercent\)/);
  assert.match(source,/FMath::Clamp\(InPercent, 50\.f, 100\.f\)/);
  assert.match(source,/SetVSyncEnabled\(bEnabled\)/);
- assert.match(source,/ApplySettings\(false\)/);
+ assert.match(source,/ApplyNonResolutionSettings\(\)/);
  assert.match(source,/if \(bPersist\)[\s\S]*?SaveSettings\(\)/);
 });
 
