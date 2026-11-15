@@ -99,6 +99,24 @@ def read_original_court():
     return data, hashlib.sha256(raw).hexdigest()
 
 
+def configure_daylight(sun, skylight, atmosphere):
+    """Use dynamic daylight: this project deliberately disables baked lighting."""
+    if not atmosphere:
+        raise RuntimeError("Sky Atmosphere required for a captured daylight sky")
+    direct = sun.get_component_by_class(unreal.DirectionalLightComponent)
+    ambient = skylight.get_component_by_class(unreal.SkyLightComponent)
+    if not direct or not ambient:
+        raise RuntimeError("Daylight components unavailable")
+    direct.set_mobility(unreal.ComponentMobility.MOVABLE)
+    direct.set_intensity(50000.0)
+    direct.set_editor_property("atmosphere_sun_light", True)
+    ambient.set_mobility(unreal.ComponentMobility.MOVABLE)
+    ambient.set_intensity(1.0)
+    ambient.set_editor_property("real_time_capture", True)
+    return {"sunLux": 50000.0, "movable": True,
+            "skyAtmosphere": True, "skyRealTimeCapture": True}
+
+
 def author_ch01():
     # Fail closed before spawning anything or changing the game's main map.
     if os.path.exists(MAP_FILE):
@@ -133,11 +151,15 @@ def author_ch01():
         unreal.Rotator(-48, 18, 0))
     skylight = actors.spawn_actor_from_class(
         unreal.SkyLight, unreal.Vector(0, 0, 900), unreal.Rotator(0, 0, 0))
+    atmosphere = actors.spawn_actor_from_class(
+        unreal.SkyAtmosphere, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
     if not player_start or not sun or not skylight:
         raise RuntimeError("Cannot author CH01 spawn and daylight: do not package")
     player_start.set_actor_label("VP_CH01_StoryPlayerStart")
     sun.set_actor_label("VP_CH01_Daylight")
     skylight.set_actor_label("VP_CH01_AmbientSky")
+    daylight = configure_daylight(sun, skylight, atmosphere)
+    atmosphere.set_actor_label("VP_CH01_SkyAtmosphere")
 
     spawned = []
     for piece in layout["pieces"]:
@@ -180,6 +202,7 @@ def author_ch01():
         "authoredCivilianActors": len(spawned),
         "authoringMode": "/Script/Veilpoint.VPStoryGameMode",
         "fictionalGeometryOnly": True,
+        "daylight": daylight,
         "nativePIEVerified": False,
         "nativeWin64Packaged": False,
         "actualAdenCoverageVerified": False
