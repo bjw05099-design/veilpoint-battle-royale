@@ -1,5 +1,10 @@
 #include "VPVisualSmoke.h"
-#include "UnrealClient.h"
+#include "VPPlayerController.h"
+#include "VPHUD.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Camera/PlayerCameraManager.h"
+#include "RenderingThread.h"
 #include "ImageUtils.h"
 #include "ImageCore.h"
 #include "Engine/World.h"
@@ -17,14 +22,42 @@ FString SmokeDirectory()
 }
 }
 
-TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(UWorld* World, FViewport* Viewport, const FString& Name)
+TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, const FString& Name)
 {
-    if (!World || !Viewport) return nullptr;
-    const FIntPoint Size = Viewport->GetSizeXY();
-    // Bounded automated diagnostic; never allocate for a pathological viewport.
-    if (Size.X < 320 || Size.Y < 240 || Size.X > 2560 || Size.Y > 1440) return nullptr;
+    UWorld* World = Desktop ? Desktop->GetWorld() : nullptr;
+    AVPHUD* HUD = Desktop ? Cast<AVPHUD>(Desktop->GetHUD()) : nullptr;
+    if (!World || !HUD) return nullptr;
+    const FIntPoint Size(1280, 720);
+    const auto MakeTarget = [Desktop, Size]()
+    {
+        UTextureRenderTarget2D* Target = NewObject<UTextureRenderTarget2D>(Desktop);
+        Target->ClearColor = FLinearColor::Black;
+        Target->InitCustomFormat(Size.X, Size.Y, PF_B8G8R8A8, false);
+        Target->UpdateResourceImmediate(true);
+        return Target;
+    };
+    UTextureRenderTarget2D* SceneTarget = MakeTarget();
+    USceneCaptureComponent2D* Capture = NewObject<USceneCaptureComponent2D>(Desktop);
+    Capture->bCaptureEveryFrame = false;
+    Capture->bCaptureOnMovement = false;
+    Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+    Capture->TextureTarget = SceneTarget;
+    Capture->FOVAngle = Desktop->PlayerCameraManager ? Desktop->PlayerCameraManager->GetFOVAngle() : 92.f;
+    Capture->RegisterComponentWithWorld(World);
+    FVector Eye;
+    FRotator View;
+    Desktop->GetPlayerViewPoint(Eye, View);
+    Capture->SetWorldLocationAndRotation(Eye, View);
+    Capture->CaptureScene();
+    FlushRenderingCommands();
+    UTextureRenderTarget2D* Composite = MakeTarget();
+    const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, SceneTarget);
+    FlushRenderingCommands();
     TArray<FColor> Pixels;
-    if (!Viewport->ReadPixels(Pixels) || Pixels.Num() != Size.X * Size.Y) return nullptr;
+    FTextureRenderTargetResource* Resource = Composite->GameThread_GetRenderTargetResource();
+    const bool bRead = bDrewHUD && Resource && Resource->ReadPixels(Pixels);
+    Capture->DestroyComponent();
+    if (!bRead || Pixels.Num() != Size.X * Size.Y) return nullptr;
     // Backbuffer alpha is not scene transparency; preserve RGB and export an
     // opaque diagnostic so a valid render cannot look empty in a PNG viewer.
     for (FColor& Pixel : Pixels) Pixel.A = 255;
@@ -49,6 +82,8 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(UWorld* World, FViewport* Viewpor
     };
     TSharedPtr<FJsonObject> Frame = MakeShared<FJsonObject>();
     Frame->SetStringField(TEXT("name"), Name);
+    Frame->SetStringField(TEXT("captureMethod"), TEXT("gpu-scene-capture-with-production-hud-canvas"));
+    Frame->SetBoolField(TEXT("windowPresentationVerified"), false);
     Frame->SetStringField(TEXT("map"), World->GetMapName());
     Frame->SetNumberField(TEXT("width"), Size.X);
     Frame->SetNumberField(TEXT("height"), Size.Y);

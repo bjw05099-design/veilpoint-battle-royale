@@ -15,6 +15,30 @@
 #include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
+#include "Kismet/KismetRenderingLibrary.h"
+#include "Engine/TextureRenderTarget2D.h"
+
+bool AVPHUD::DrawDiagnosticCanvas(UTextureRenderTarget2D* Target, UTexture* Background)
+{
+    if (!Target || !PlayerOwner) return false;
+    UCanvas* TargetCanvas = nullptr;
+    FVector2D Size;
+    FDrawToRenderTargetContext Context;
+    UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(this, Target, TargetCanvas, Size, Context);
+    if (!TargetCanvas)
+    {
+        UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(this, Context);
+        return false;
+    }
+    UCanvas* PreviousCanvas = Canvas;
+    Canvas = TargetCanvas;
+    if (Background)
+        DrawTexture(Background, 0.f, 0.f, Size.X, Size.Y, 0.f, 0.f, 1.f, 1.f, FLinearColor::White, BLEND_Opaque);
+    DrawHUD(); // Same menu/marker drawing and hit geometry as normal play.
+    Canvas = PreviousCanvas;
+    UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(this, Context);
+    return true;
+}
 
 void AVPHUD::ClickDesktopMenu(FVector2D Position)
 {
