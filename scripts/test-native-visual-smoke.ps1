@@ -49,6 +49,9 @@ foreach ($name in @('world','menu','field-mark')) {
     }
 }
 $runtimeLog=Get-Content -LiteralPath $log -Raw
+if ($runtimeLog -match 'Please fix material usage flag InstancedStaticMeshes') {
+    throw 'Packaged civic material lacks its instanced-mesh shader usage; refusing a fallback-material visual pass.'
+}
 if ($runtimeLog -notmatch 'shaderplatform="PCD3D_SM6"' -or
     $runtimeLog -notmatch 'LogVPDaylight:.*Suns=1 Skies=1 Atmospheres=1') {
     throw 'Runtime did not prove the expected SM6 renderer and authored daylight actors.'
