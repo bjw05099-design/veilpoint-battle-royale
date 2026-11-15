@@ -13,7 +13,7 @@ cd C:\VEILPOINT
 .\SETUP_GAME_DEV.cmd
 ```
 
-3. 설치 창의 필요한 Windows 권한 요청을 처리한다. Epic Games Launcher에서 본인의 계정으로 로그인하고 **Unreal Engine 5.8**을 설치한다. 엔진 계정·라이선스·다운로드는 이 설치 코드가 대신 처리하지 않는다. Visual Studio 2022 **17.14 이상**, C++ 도구, Windows SDK 26100 구성은 `tools/game-dev/windows.vsconfig`를 사용한다. 기존에 적합한 도구가 있으면 `scripts/setup-game-dev.ps1 -Install -SkipBuildTools`로 중복 설치를 피할 수 있다.
+3. 설치 창의 필요한 Windows 권한 요청을 처리한다. Epic Games Launcher에서 본인의 계정으로 로그인하고 **Unreal Engine 5.8**을 설치한다. 엔진 계정·라이선스·다운로드는 이 설치 코드가 대신 처리하지 않는다. Visual Studio 2022 **17.14 이상**, C++ 도구, Windows SDK 26100, **.NET Framework 4.8 SDK 및 대상 지정 팩** 구성은 `tools/game-dev/windows.vsconfig`를 사용한다. 기존에 적합한 도구가 있으면 `scripts/setup-game-dev.ps1 -Install -SkipBuildTools`로 중복 설치를 피할 수 있다.
 4. 같은 PC에서 GitHub 본인 계정을 연결한다. 토큰이나 비밀번호를 채팅에 붙여 넣을 필요가 없다.
 
 ```powershell
@@ -34,6 +34,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\connect-
 
 ### 연결 단계에서 오류가 났을 때
 
+- `Could not find NetFxSDK install dir` 또는 `SwarmInterface`: **Visual Studio Installer → Visual Studio Build Tools 2022 → 수정 → 개별 구성 요소**에서 **.NET Framework 4.8 SDK**와 **.NET Framework 4.8 대상 지정 팩**을 선택하고 설치를 완료한다. .NET 런타임이나 Unreal에 포함된 dotnet SDK만으로는 충족되지 않는다. 현재 사전 검사는 등록된 SDK 4.6 이상과 실제 x64 라이브러리·헤더를 확인한 후 통과한다.
 - `DriveNotFoundException` 또는 엔진 폴더 없음: 실제 설치 경로를 사용한다. 드라이브를 새로 만들거나 엔진을 다시 설치할 필요가 있다는 뜻은 아니다.
 - 최초 연결에서 `GraphQL: Could not resolve ... repository`와 `NativeCommandError`가 나온 구버전은 `git pull --ff-only`로 수정본을 받은 다음 연결을 다시 실행한다. Windows PowerShell 5.1에서 아직 없는 저장소/파일의 응답을 처리하던 문제를 수정했다.
 - 현재 코드는 HTTP 404일 때만 새 저장소/파일 준비로 진행한다. 인증·권한·속도 제한·통신 오류는 생성 단계로 넘기지 않는다. 이미 있는 비공개 저장소와 동일한 설정 파일은 재사용하며, 다른 설정을 덮어쓰지 않는다.
