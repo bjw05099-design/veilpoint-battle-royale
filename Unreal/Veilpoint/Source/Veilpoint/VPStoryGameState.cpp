@@ -5,9 +5,9 @@
 #include "EngineUtils.h"
 #include "Engine/World.h"
 
-void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPStoryGameState, StoryStage);
     DOREPLIFETIME(AVPStoryGameState, bReadHarbor);
     DOREPLIFETIME(AVPStoryGameState, bReadShelter);

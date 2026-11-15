@@ -39,7 +39,7 @@ public:
     bool IsAvailable() const;
     bool TryActivate(AVPCharacter* Player);
 
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
     // Physical silhouette reflects the replicated objective type. Native

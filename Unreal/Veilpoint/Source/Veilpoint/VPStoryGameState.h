@@ -31,7 +31,7 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
     bool bBeaconActivated = false;
 
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     // Only the authoritative server may change a mission phase.
     bool TryAdvance(EVPStoryAction Action);

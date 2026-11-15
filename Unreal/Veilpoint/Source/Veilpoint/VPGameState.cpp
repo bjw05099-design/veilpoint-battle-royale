@@ -5,7 +5,7 @@ AVPGameState::AVPGameState()
 {
     bReplicates = true;
     bAlwaysRelevant = true;
-    NetUpdateFrequency = 4.f;
+    SetNetUpdateFrequency(4.f);
 }
 
 void AVPGameState::GetLifetimeReplicatedProps(

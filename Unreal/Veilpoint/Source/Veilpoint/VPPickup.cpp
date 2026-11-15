@@ -33,9 +33,9 @@ void AVPPickup::Claim(AVPCharacter* Character)
     bConsumed=true;
     Destroy();
 }
-void AVPPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPPickup, Resource);
     DOREPLIFETIME(AVPPickup, bConsumed);
 }

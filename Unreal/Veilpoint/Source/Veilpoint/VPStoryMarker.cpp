@@ -141,9 +141,9 @@ void AVPStoryMarker::ApplyStageShape()
         Model->SetRelativeScale3D(Shape);
 }
 
-void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPStoryMarker, Action);
     DOREPLIFETIME(AVPStoryMarker, bUsed);
 }

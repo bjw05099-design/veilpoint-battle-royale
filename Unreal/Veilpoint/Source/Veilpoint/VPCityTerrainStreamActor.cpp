@@ -134,11 +134,11 @@ bool AVPCityTerrainStreamActor::ReadManifest()
     bool bGeoreferenced=false;
     if(!Obj->TryGetBoolField(TEXT("georeferenced"),bGeoreferenced)||
         bGeoreferenced)return false;
-    const TArray<TSharedPtr<FJsonValue>>* Layers=nullptr;
-    if(!Obj->TryGetArrayField(TEXT("layers"),Layers)||
-       !Layers||Layers->IsEmpty()||Layers->Num()>49)return false;
+    const TArray<TSharedPtr<FJsonValue>>* TileLayers=nullptr;
+    if(!Obj->TryGetArrayField(TEXT("layers"),TileLayers)||
+       !TileLayers||TileLayers->IsEmpty()||TileLayers->Num()>49)return false;
     TMap<FIntPoint,FSourceTile> Parsed;
-    for(const TSharedPtr<FJsonValue>& Value : *Layers)
+    for(const TSharedPtr<FJsonValue>& Value : *TileLayers)
     {
         if(!Value.IsValid()||Value->Type!=EJson::Object)return false;
         const TSharedPtr<FJsonObject> Layer=Value->AsObject();
