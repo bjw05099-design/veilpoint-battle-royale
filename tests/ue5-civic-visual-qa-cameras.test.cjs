@@ -25,7 +25,7 @@ test('preview cameras use verified R16 terrain heights rather than absolute zero
   'aden_x0_z0_505.r16','hashlib.sha256(raw).hexdigest()',
   'scene["sourceR16Sha256"] != digest','quarter.get("sourceR16Sha256") != digest',
   'struct.unpack_from("<H", raw','ground = height_at(raw, manifest, x, z)',
-  'ground + 1.7','ground_eye * 100','unreal.Rotator(0, yaw, 0)']){
+  'ground + 1.7','ground_eye * 100','unreal.Rotator(pitch=0, yaw=yaw, roll=0)']){
   assert.ok(source.includes(snippet),snippet);
  }
  assert.doesNotMatch(source,/unreal\.Vector\(x \* 100, z \* 100, 180\)/);
