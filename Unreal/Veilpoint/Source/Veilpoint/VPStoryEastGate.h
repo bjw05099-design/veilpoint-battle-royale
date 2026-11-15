@@ -16,7 +16,7 @@ public:
     AVPStoryEastGate();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="VEILPOINT|CH01")
     TObjectPtr<UStaticMeshComponent> Door;

@@ -23,9 +23,9 @@ AVPStoryEastGate::AVPStoryEastGate()
     Door->SetMobility(EComponentMobility::Movable);
 }
 
-void AVPStoryEastGate::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPStoryEastGate::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPStoryEastGate,ClosedZ);
 }
 

@@ -201,6 +201,7 @@ bool RestoreVerifiedCivilianPose(UWorld* World, const UVPStoryCheckpoint* Saved)
     UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: saved pedestrian missing; trying previous checkpoint"));
     return false;
 }
+} // namespace
 
 void AVPStoryGameMode::RestoreStoryCheckpoint()
 {

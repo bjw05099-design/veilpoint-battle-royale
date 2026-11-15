@@ -209,7 +209,7 @@ void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
 void AVPCharacter::BeginCrouch() { if (IsAlive()) Crouch(); }
 void AVPCharacter::EndCrouch() { if (IsAlive()) UnCrouch(); }
 
-float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AController* Instigator, AActor* Causer)
+float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AController* EventInstigator, AActor* Causer)
 {
     if (!HasAuthority() || !IsAlive()) return 0.f;
     // Native VEILPOINT has no arcade-style regenerating or ablative shield.

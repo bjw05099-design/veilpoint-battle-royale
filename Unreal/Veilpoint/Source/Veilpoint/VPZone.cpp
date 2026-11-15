@@ -15,7 +15,7 @@ AVPZone::AVPZone()
 {
     bReplicates=true;
     bAlwaysRelevant=true;
-    NetUpdateFrequency=2.f;
+    SetNetUpdateFrequency(2.f);
     PrimaryActorTick.bCanEverTick=false;
 }
 void AVPZone::BeginPlay()
