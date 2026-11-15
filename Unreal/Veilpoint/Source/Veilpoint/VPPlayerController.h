@@ -25,6 +25,8 @@ private:
     int32 VisualSmokeStep = -1;
     double NextVisualSmokeAt = 0.0;
     TSharedPtr<class FJsonObject> VisualSmokeReport;
+    UPROPERTY(Transient)
+    TObjectPtr<class USceneCaptureComponent2D> VisualSmokeCapture;
     bool bDesktopMenuOpen = false;
     bool bOwnsPause = false;
     int32 MenuRow = 0;

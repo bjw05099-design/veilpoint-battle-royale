@@ -10,6 +10,7 @@
 #include "Misc/Parse.h"
 #include "HAL/PlatformTime.h"
 #include "Components/InputComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
 
 namespace
 {
@@ -56,7 +57,14 @@ void AVPPlayerController::Tick(float DeltaSeconds)
 void AVPPlayerController::TickVisualSmoke()
 {
 #if !UE_BUILD_SHIPPING
-    if (VisualSmokeStep < 0 || FPlatformTime::Seconds() < NextVisualSmokeAt || !VisualSmokeReport) return;
+    if (VisualSmokeStep < 0 || !VisualSmokeReport) return;
+    if (!VisualSmokeCapture)
+    {
+        VisualSmokeCapture = VPCreateVisualSmokeCapture(this);
+        NextVisualSmokeAt = FPlatformTime::Seconds() + 8.0;
+        return;
+    }
+    if (FPlatformTime::Seconds() < NextVisualSmokeAt) return;
     if (VisualSmokeStep == 3)
     {
         FVector Mark;
@@ -67,8 +75,9 @@ void AVPPlayerController::TickVisualSmoke()
         UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
         return;
     }
+    if (VisualSmokeStep == 2) PlaceLocalFieldMark();
     const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : TEXT("field-mark");
-    const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, Name);
+    const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, VisualSmokeCapture, Name);
     if (!Frame)
     {
         UE_LOG(LogTemp, Error, TEXT("VEILPOINT visual smoke: scene/HUD render-target readback failed"));
@@ -109,7 +118,6 @@ void AVPPlayerController::TickVisualSmoke()
             HUD->ClickDesktopMenu(ResumeCentre);
         VisualSmokeReport->SetBoolField(TEXT("menuResumed"), !IsDesktopMenuOpen() && !IsPaused());
         SetControlRotation(FRotator(-25.f, 0.f, 0.f));
-        PlaceLocalFieldMark();
     }
     else
     {
@@ -119,7 +127,7 @@ void AVPPlayerController::TickVisualSmoke()
         VisualSmokeReport->SetBoolField(TEXT("readbackSucceeded"), true);
         VPWriteVisualSmokeReport(VisualSmokeReport.ToSharedRef());
         VisualSmokeStep = 3;
-        NextVisualSmokeAt = FPlatformTime::Seconds() + 7.0;
+        NextVisualSmokeAt = FPlatformTime::Seconds() + 9.0;
         return;
     }
     ++VisualSmokeStep;
@@ -171,6 +179,7 @@ void AVPPlayerController::CloseDesktopMenu()
 
 void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    if (VisualSmokeCapture) VisualSmokeCapture->DestroyComponent();
     CloseDesktopMenu();
     Super::EndPlay(EndPlayReason);
 }
