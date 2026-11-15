@@ -32,6 +32,8 @@ jobs:
           node scripts/verify-pc-viewport.cjs --output dist/pc-ui-geometry.json
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
+      - name: Verify native dynamic daylight configuration
+        run: python3 tests/test_ch01_daylight.py
       - name: Build and verify reproducible offline demo ZIP
         run: |
           npm run package:demo
