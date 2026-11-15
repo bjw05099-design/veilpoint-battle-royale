@@ -1,6 +1,7 @@
 """Exercise production light configuration without pretending to render UE."""
 import ast
 import math
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -37,6 +38,9 @@ class Sun:
     def get_actor_forward_vector(self):
         return SimpleNamespace(z=self.forward_z)
 
+    def get_actor_rotation(self):
+        return "test rotation"
+
 
 class Sky:
     def __init__(self, component):
@@ -63,7 +67,7 @@ class DaylightTests(unittest.TestCase):
         engine.DirectionalLight, engine.SkyLight, engine.SkyAtmosphere = Sun, Sky, Atmosphere
         verify = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
                       and n.name == "verify_saved_daylight")
-        scope["math"] = math
+        scope.update(math=math, json=json)
         exec(compile(ast.Module(body=[verify], type_ignores=[]), str(source), "exec"), scope)
         self.verify = scope["verify_saved_daylight"]
         self.saved_sun, self.saved_sky = Sun(self.direct), Sky(self.ambient)
@@ -111,6 +115,20 @@ class DaylightTests(unittest.TestCase):
         self.saved_sun.forward_z = 0.743
         with self.assertRaises(RuntimeError):
             self.verify(self.saved)
+
+    def test_authoring_uses_python_rotation_names_and_downward_sun(self):
+        # Execute the actual constructor expression with Python's documented
+        # roll/pitch/yaw order: this catches the C++ positional-order mistake.
+        sun_spawn = next(n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                         and any(isinstance(t, ast.Name) and t.id == "sun" for t in n.targets))
+        expression = sun_spawn.value.args[2]
+        def rotator(roll=0., pitch=0., yaw=0.):
+            return SimpleNamespace(roll=roll, pitch=pitch, yaw=yaw)
+        result = eval(compile(ast.Expression(expression), str(source), "eval"),
+                      {"unreal": SimpleNamespace(Rotator=rotator)})
+        self.assertLess(math.sin(math.radians(result.pitch)), -0.2)
+        self.assertEqual(result.yaw, 18)
+        self.assertEqual(result.roll, 0)
 
 
 if __name__ == "__main__":
