@@ -12,14 +12,14 @@ function Resolve-BuildPcEngineRoot {
 function Get-BuildPcGitHubResource {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][string]$Endpoint)
-    Get-Command gh -CommandType Application -ErrorAction Stop | Out-Null
+    $gh=(Get-Command gh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
     $before=$ErrorActionPreference
     try {
         # Windows PowerShell 5.1 promotes redirected native stderr to a
         # terminating error under Stop, before callers can inspect LASTEXITCODE.
         # Only this read is relaxed; status/exit checks below still fail closed.
         $ErrorActionPreference='Continue'
-        $lines=@(& gh api --hostname github.com --include --method GET $Endpoint 2>$null)
+        $lines=@(& $gh api --hostname github.com --include --method GET $Endpoint 2>$null)
         $code=$LASTEXITCODE
     } finally { $ErrorActionPreference=$before }
     $response=$lines -join "`n"

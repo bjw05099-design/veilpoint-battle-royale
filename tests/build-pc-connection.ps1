@@ -15,15 +15,22 @@ try {
     $env:VEILPOINT_GH_FIXTURE_STDERR=Join-Path $temporary 'stderr.txt'
     $env:VEILPOINT_GH_FIXTURE_CALLS=Join-Path $temporary 'calls.txt'
     $native=@'
-@echo off
-echo %*>>"%VEILPOINT_GH_FIXTURE_CALLS%"
-type "%VEILPOINT_GH_FIXTURE_STDOUT%"
-type "%VEILPOINT_GH_FIXTURE_STDERR%" 1>&2
-exit /b %VEILPOINT_GH_FIXTURE_EXIT_CODE%
+using System;
+using System.IO;
+public static class VeilpointGitHubReadFixture {
+    public static int Main(string[] args) {
+        File.AppendAllText(Environment.GetEnvironmentVariable("VEILPOINT_GH_FIXTURE_CALLS"), String.Join(" ", args) + Environment.NewLine);
+        Console.Out.Write(File.ReadAllText(Environment.GetEnvironmentVariable("VEILPOINT_GH_FIXTURE_STDOUT")));
+        Console.Error.Write(File.ReadAllText(Environment.GetEnvironmentVariable("VEILPOINT_GH_FIXTURE_STDERR")));
+        return Int32.Parse(Environment.GetEnvironmentVariable("VEILPOINT_GH_FIXTURE_EXIT_CODE"));
+    }
+}
 '@
-    [IO.File]::WriteAllText((Join-Path $temporary 'gh.cmd'),($native -replace '\r?\n',"`r`n"),[Text.Encoding]::ASCII)
+    # Use a real native executable: Windows can prefer an installed gh.exe
+    # over a gh.cmd shim even when the shim directory appears first in PATH.
+    Add-Type -TypeDefinition $native -Language CSharp -OutputAssembly (Join-Path $temporary 'gh.exe') -OutputType ConsoleApplication
     $env:Path=$temporary+';'+$savedPath
-    if ((Get-Command gh -CommandType Application).Source -ne (Join-Path $temporary 'gh.cmd')) { throw 'Fixture must not use the real GitHub CLI.' }
+    if ((Get-Command gh -CommandType Application | Select-Object -First 1).Source -ne (Join-Path $temporary 'gh.exe')) { throw 'Fixture must not use the real GitHub CLI.' }
     function Set-GhFixture([string]$Output,[string]$ErrorText,[int]$ExitCode) {
         [IO.File]::WriteAllText($env:VEILPOINT_GH_FIXTURE_STDOUT,$Output,[Text.Encoding]::ASCII)
         [IO.File]::WriteAllText($env:VEILPOINT_GH_FIXTURE_STDERR,$ErrorText,[Text.Encoding]::ASCII)
