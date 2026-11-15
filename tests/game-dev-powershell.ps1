@@ -48,6 +48,15 @@ try {
     foreach ($name in @('run-native-pc-job.ps1','prepare-native-ch01-win64.ps1','build-pc-native-prerequisites.ps1','ue5-author-ch01-map.py','ch01-original-public-court.json')) {
         Copy-Item -LiteralPath (Join-Path $repo "scripts/$name") -Destination (Join-Path $fixture "scripts/$name")
     }
+    # The fake engine must use its own SDK fixture, not the hosted machine's SDK.
+    $sdkFixture=Join-Path $fixture 'scripts/netfx-fixture.json'
+    [IO.File]::WriteAllText($sdkFixture,'[]')
+    Add-Content -LiteralPath (Join-Path $fixture 'scripts/build-pc-native-prerequisites.ps1') -Value @'
+
+function Get-BuildPcNetFxSdkInstallations {
+    Get-Content -LiteralPath (Join-Path $PSScriptRoot 'netfx-fixture.json') -Raw | ConvertFrom-Json
+}
+'@
     [IO.File]::WriteAllText((Join-Path $fixture 'Unreal/Veilpoint/Veilpoint.uproject'),'{"EngineAssociation":"5.8"}')
     [IO.File]::WriteAllText((Join-Path $fixture 'Unreal/Veilpoint/Config/DefaultEngine.ini'),"GameDefaultMap=/Engine/Maps/Entry`n")
     [IO.File]::WriteAllText((Join-Path $engine 'Engine/Build/Build.version'),'{"MajorVersion":5,"MinorVersion":7}')
@@ -66,7 +75,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Fixture commit failed.' }
     $rejected=$false
     try { & (Join-Path $fixture 'scripts/run-native-pc-job.ps1') -EngineRoot $engine -Operation compile }
-    catch { $rejected=$_.Exception.Message -like '*without the native Veilpoint Editor module*' }
+    catch { $rejected=$_.Exception.Message -like '*.NET Framework SDK 4.6+*Individual components*' }
+    if (!$rejected -or (Test-Path -LiteralPath (Join-Path $fixture 'dist/native-build-logs/editor-compile.log'))) { throw 'A missing SDK must fail before invoking even the fake compiler.' }
+    [pscustomobject]@{Version='4.8';InstallationFolder=$sdk} | ConvertTo-Json | Set-Content -LiteralPath $sdkFixture -Encoding UTF8
+    $rejected=$false
+    try { & (Join-Path $fixture 'scripts/run-native-pc-job.ps1') -EngineRoot $engine -Operation compile }
+    catch {
+        $rejected=$_.Exception.Message -like '*without the native Veilpoint Editor module*'
+        if (!$rejected) { throw "Unexpected fake-engine compile failure: $($_.Exception.Message)" }
+    }
     if (!$rejected) { throw 'Exit zero without an Editor DLL must not claim compile success.' }
     $report=Get-Content (Join-Path $fixture 'dist/game-dev/native-job.json') -Raw | ConvertFrom-Json
     if ($report.status -ne 'FAILED' -or $report.nativeRuntimeVerified -ne $false) { throw 'Failure receipt was misleading.' }
