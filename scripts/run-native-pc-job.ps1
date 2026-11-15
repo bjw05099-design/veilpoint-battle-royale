@@ -15,7 +15,7 @@ if (!(Test-Path -LiteralPath $build)) { throw 'Unreal Build.bat is missing.' }
 $logs=Join-Path $repo 'dist/native-build-logs'
 $reportDir=Join-Path $repo 'dist/game-dev'
 New-Item -ItemType Directory -Force $logs,$reportDir | Out-Null
-$report=[ordered]@{schema='veilpoint-native-pc-job-v1';operation=$Operation;sourceSha=(git -C $repo rev-parse HEAD);status='FAILED';nativeRuntimeVerified=$false}
+$report=[ordered]@{schema='veilpoint-native-pc-job-v1';operation=$Operation;sourceSha=(git -C $repo rev-parse HEAD);status='FAILED';nativeRuntimeVerified=$false;offscreenRenderVerified=$false;humanInputVerified=$false;gpuPerformanceVerified=$false}
 try {
     & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PreflightOnly
     if ($Operation -eq 'compile') {
@@ -40,8 +40,22 @@ try {
             $report.offscreenRenderVerified=$true
             $report.humanInputVerified=$false
             $report.gpuPerformanceVerified=$false
+            # The next runner checkout cleans source/dist. Retain verified
+            # packages outside that workspace without touching Desktop copies.
+            if (![string]::IsNullOrWhiteSpace($env:VEILPOINT_TOOL_ROOT)) {
+                $retainedRoot=Join-Path ([IO.Path]::GetFullPath($env:VEILPOINT_TOOL_ROOT)) 'native-packages'
+                $name=$report.sourceSha.Substring(0,12)+'-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
+                $retained=Join-Path $retainedRoot $name
+                if (Test-Path -LiteralPath $retained) { throw 'Retained package target already exists.' }
+                New-Item -ItemType Directory -Path $retained -Force | Out-Null
+                Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/Windows') -Destination (Join-Path $retained 'Windows') -Recurse
+                Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/veilpoint-win64-manifest.json') -Destination $retained
+                $report.retainedPackagePath=Join-Path $retained 'Windows'
+                [ordered]@{sourceSha=$report.sourceSha;path=$report.retainedPackagePath;offscreenRenderVerified=$true;humanInputVerified=$false} |
+                    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $retainedRoot 'latest-verified.json') -Encoding UTF8
+            }
         } catch {
-            $report.status='PACKAGED_VISUAL_SMOKE_FAILED'
+            $report.status=if ($report.offscreenRenderVerified) { 'PACKAGED_RETENTION_FAILED' } else { 'PACKAGED_VISUAL_SMOKE_FAILED' }
             throw
         }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }

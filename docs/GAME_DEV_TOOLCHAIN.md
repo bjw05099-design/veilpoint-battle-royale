@@ -98,6 +98,8 @@ ESC 메뉴에서 마우스 클릭 또는 방향키·Enter로 재개, 그래픽 �
 
 CH01 기본 재질은 프로젝트가 직접 생성한 단색 PBR 블록아웃이다. 포장·벽·금속의 색과 거칠기를 구분하지만 실사 텍스처나 실측 아덴 아트라는 의미는 아니다.
 
+오프스크린 검사까지 통과한 패키지는 설정된 도구 폴더의 `native-packages/<소스 SHA 앞 12자리>-<UTC 시각>/Windows`에 별도로 보존한다. 기본 PC 경로는 `C:\VEILPOINT\.tools\native-packages`이며 `latest-verified.json`이 최신 보존 폴더를 가리킨다. 다음 빌드의 작업 폴더 정리로 이 복사본이 사라지지 않으며 기존 바탕 화면 패키지도 덮어쓰지 않는다.
+
 ## GitHub 인기 프로젝트 조사
 
 2026-11-14 GitHub Trending, 게임 개발·메시 처리 주제의 인기순 목록을 살펴보고 관련 후보의 실제 stars·최근 수정·라이선스를 기록했다. `tools/game-dev/github-tool-selection.json`은 **조사 대상 안에서의 비교**이며 GitHub 전체 순위가 아니다.
