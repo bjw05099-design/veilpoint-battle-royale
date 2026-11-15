@@ -18,6 +18,7 @@ class VEILPOINT_API AVPHUD : public AHUD
 public:
     virtual void DrawHUD() override;
     void ClickDesktopMenu(FVector2D Position);
+    bool GetDesktopMenuRowCentre(int32 Row, FVector2D& Position) const;
 private:
     void DrawDesktopMenu(class AVPPlayerController* Desktop);
     TArray<FBox2D> DesktopMenuBounds;

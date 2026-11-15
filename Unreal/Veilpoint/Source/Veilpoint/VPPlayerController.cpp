@@ -56,6 +56,16 @@ void AVPPlayerController::TickVisualSmoke()
 {
 #if !UE_BUILD_SHIPPING
     if (VisualSmokeStep < 0 || FPlatformTime::Seconds() < NextVisualSmokeAt || !VisualSmokeReport) return;
+    if (VisualSmokeStep == 3)
+    {
+        FVector Mark;
+        float Remaining = 0.f;
+        VisualSmokeReport->SetBoolField(TEXT("surfaceMarkExpired"), !GetLocalFieldMark(Mark, Remaining));
+        VPWriteVisualSmokeReport(VisualSmokeReport.ToSharedRef());
+        VisualSmokeStep = -1;
+        UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+        return;
+    }
     UGameViewportClient* Client = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
     FViewport* Viewport = Client ? Client->Viewport : nullptr;
     const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : TEXT("field-mark");
@@ -77,10 +87,25 @@ void AVPPlayerController::TickVisualSmoke()
         ToggleDesktopMenu();
         VisualSmokeReport->SetBoolField(TEXT("menuOpened"), IsDesktopMenuOpen());
         VisualSmokeReport->SetBoolField(TEXT("offlinePaused"), IsPaused());
+        if (UVPGameUserSettings* Settings = UVPGameUserSettings::GetVeilpointSettings())
+        {
+            VisualSmokeReport->SetNumberField(TEXT("originalRenderScale"), ResolutionPercent(Settings));
+            VisualSmokeReport->SetNumberField(TEXT("originalPreset"), static_cast<int32>(Settings->GetSelectedPreset()));
+            Settings->SetCustomResolutionPercent(80.f, false);
+            VisualSmokeReport->SetBoolField(TEXT("renderScaleChanged"),
+                FMath::IsNearlyEqual(ResolutionPercent(Settings), 80.f, .1f) && GetMenuLabel(2).Contains(TEXT("80%")));
+        }
     }
     else if (VisualSmokeStep == 1)
     {
-        ClickMenuRow(0);
+        if (UVPGameUserSettings* Settings = UVPGameUserSettings::GetVeilpointSettings())
+        {
+            Settings->SetCustomResolutionPercent(float(VisualSmokeReport->GetNumberField(TEXT("originalRenderScale"))), false);
+            Settings->ApplyVeilpointPreset(static_cast<EVPGraphicsPreset>(int32(VisualSmokeReport->GetNumberField(TEXT("originalPreset")))), false);
+        }
+        FVector2D ResumeCentre;
+        if (AVPHUD* HUD = Cast<AVPHUD>(GetHUD()); HUD && HUD->GetDesktopMenuRowCentre(0, ResumeCentre))
+            HUD->ClickDesktopMenu(ResumeCentre);
         VisualSmokeReport->SetBoolField(TEXT("menuResumed"), !IsDesktopMenuOpen() && !IsPaused());
         SetControlRotation(FRotator(-25.f, 0.f, 0.f));
         PlaceLocalFieldMark();
@@ -92,8 +117,8 @@ void AVPPlayerController::TickVisualSmoke()
         VisualSmokeReport->SetBoolField(TEXT("surfaceMarkPlaced"), GetLocalFieldMark(Mark, Remaining));
         VisualSmokeReport->SetBoolField(TEXT("readbackSucceeded"), true);
         VPWriteVisualSmokeReport(VisualSmokeReport.ToSharedRef());
-        VisualSmokeStep = -1;
-        UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+        VisualSmokeStep = 3;
+        NextVisualSmokeAt = FPlatformTime::Seconds() + 7.0;
         return;
     }
     ++VisualSmokeStep;

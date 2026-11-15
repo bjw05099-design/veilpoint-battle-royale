@@ -28,6 +28,13 @@ void AVPHUD::ClickDesktopMenu(FVector2D Position)
         }
 }
 
+bool AVPHUD::GetDesktopMenuRowCentre(int32 Row, FVector2D& Position) const
+{
+    if (!DesktopMenuBounds.IsValidIndex(Row)) return false;
+    Position = DesktopMenuBounds[Row].GetCenter();
+    return true;
+}
+
 void AVPHUD::DrawDesktopMenu(AVPPlayerController* Desktop)
 {
     const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1000.f, Canvas->ClipY / 700.f), .55f, 1.3f);

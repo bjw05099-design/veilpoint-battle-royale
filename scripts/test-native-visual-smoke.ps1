@@ -35,7 +35,8 @@ $proof=Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
 if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
     $proof.readbackSucceeded -ne $true -or $proof.menuOpened -ne $true -or
     $proof.offlinePaused -ne $true -or $proof.menuResumed -ne $true -or
-    $proof.surfaceMarkPlaced -ne $true -or $proof.world.map -notmatch 'CH01_Coast$' -or
+    $proof.surfaceMarkPlaced -ne $true -or $proof.surfaceMarkExpired -ne $true -or
+    $proof.renderScaleChanged -ne $true -or $proof.world.map -notmatch 'CH01_Coast$' -or
     $proof.world.upperCentreLuma8bit -lt 3 -or $proof.world.lowerCentreLuma8bit -lt 3) {
     throw 'Actual viewport/menu/mark smoke check failed. Inspect images and runtime log; no visual pass is claimed.'
 }

@@ -24,7 +24,7 @@ private:
     void TickVisualSmoke();
     int32 VisualSmokeStep = -1;
     double NextVisualSmokeAt = 0.0;
-    TSharedPtr<struct FJsonObject> VisualSmokeReport;
+    TSharedPtr<class FJsonObject> VisualSmokeReport;
     bool bDesktopMenuOpen = false;
     bool bOwnsPause = false;
     int32 MenuRow = 0;

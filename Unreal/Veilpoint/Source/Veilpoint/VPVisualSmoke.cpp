@@ -25,6 +25,9 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(UWorld* World, FViewport* Viewpor
     if (Size.X < 320 || Size.Y < 240 || Size.X > 2560 || Size.Y > 1440) return nullptr;
     TArray<FColor> Pixels;
     if (!Viewport->ReadPixels(Pixels) || Pixels.Num() != Size.X * Size.Y) return nullptr;
+    // Backbuffer alpha is not scene transparency; preserve RGB and export an
+    // opaque diagnostic so a valid render cannot look empty in a PNG viewer.
+    for (FColor& Pixel : Pixels) Pixel.A = 255;
     const FString Directory = SmokeDirectory();
     if (!IFileManager::Get().MakeDirectory(*Directory, true)) return nullptr;
     const FString File = FPaths::Combine(Directory, Name + TEXT(".png"));
