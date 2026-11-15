@@ -36,6 +36,28 @@ try {
         }
         $script:netFxCandidates=@([pscustomobject]@{Version='4.8';InstallationFolder=$sdk})
         Assert-BuildPcNetFxSdk
+        # Windows registers tools and C++ kits under different value names.
+        # A valid SDK must pass when InstallationFolder points at tools only.
+        $tools=Join-Path $temporary 'Managed SDK Tools'
+        New-Item -ItemType Directory -Force $tools | Out-Null
+        $registration=[pscustomobject]@{Values=@{InstallationFolder=$tools;KitsInstallationFolder=$sdk}}
+        $registration | Add-Member -MemberType ScriptMethod -Name GetValue -Value {
+            param($Name,$Default)
+            if ($this.Values.ContainsKey($Name)) { return $this.Values[$Name] }
+            return $Default
+        }
+        $script:netFxCandidates=@(Read-BuildPcNetFxSdkRegistration -Version '4.8' -Key $registration)
+        Assert-BuildPcNetFxSdk
+        # Conversely, a tools registration cannot replace the native kits key,
+        # even if its directory happens to contain matching fixture files.
+        $registration.Values.Remove('KitsInstallationFolder')
+        $registration.Values.InstallationFolder=$sdk
+        $script:netFxCandidates=@(Read-BuildPcNetFxSdkRegistration -Version '4.8' -Key $registration)
+        $rejected=$false
+        try { Assert-BuildPcNetFxSdk }
+        catch { $rejected=$_.Exception.Message -like '*.NET Framework SDK 4.6+*' }
+        if (!$rejected) { throw 'Managed tools registration must not substitute for native NetFx kits.' }
+        Write-Host 'NetFx registry roots PASS: native KitsInstallationFolder selected independently of managed InstallationFolder.'
         Write-Host 'NetFxSDK guards PASS: absent SDK, runtime only, incomplete SDK and obsolete SDK rejected; complete SDK in a path with spaces accepted.'
     } finally {
         Set-Item Function:Get-BuildPcNetFxSdkInstallations -Value $readSdk
