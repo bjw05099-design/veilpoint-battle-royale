@@ -54,7 +54,8 @@ try {
     Add-Content -LiteralPath (Join-Path $fixture 'scripts/build-pc-native-prerequisites.ps1') -Value @'
 
 function Get-BuildPcNetFxSdkInstallations {
-    Get-Content -LiteralPath (Join-Path $PSScriptRoot 'netfx-fixture.json') -Raw | ConvertFrom-Json
+    $entries=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'netfx-fixture.json') -Raw | ConvertFrom-Json
+    foreach ($entry in $entries) { $entry }
 }
 '@
     [IO.File]::WriteAllText((Join-Path $fixture 'Unreal/Veilpoint/Veilpoint.uproject'),'{"EngineAssociation":"5.8"}')
@@ -75,7 +76,10 @@ function Get-BuildPcNetFxSdkInstallations {
     if ($LASTEXITCODE -ne 0) { throw 'Fixture commit failed.' }
     $rejected=$false
     try { & (Join-Path $fixture 'scripts/run-native-pc-job.ps1') -EngineRoot $engine -Operation compile }
-    catch { $rejected=$_.Exception.Message -like '*.NET Framework SDK 4.6+*Individual components*' }
+    catch {
+        $rejected=$_.Exception.Message -like '*.NET Framework SDK 4.6+*Individual components*'
+        if (!$rejected) { throw "Unexpected missing-SDK fixture failure: $($_.Exception.Message)" }
+    }
     if (!$rejected -or (Test-Path -LiteralPath (Join-Path $fixture 'dist/native-build-logs/editor-compile.log'))) { throw 'A missing SDK must fail before invoking even the fake compiler.' }
     [pscustomobject]@{Version='4.8';InstallationFolder=$sdk} | ConvertTo-Json | Set-Content -LiteralPath $sdkFixture -Encoding UTF8
     $rejected=$false
