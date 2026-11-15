@@ -14,11 +14,13 @@ import re
 import unreal
 
 MAP_PACKAGE = "/Game/Maps/CH01_Coast"
-PROJECT_CONTENT = os.path.join(unreal.Paths.project_content_dir(), "Maps")
+PROJECT_CONTENT = os.path.abspath(os.path.join(
+    unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Maps"))
 MAP_FILE = os.path.join(PROJECT_CONTENT, "CH01_Coast.umap")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LAYOUT_FILE = os.path.join(ROOT, "scripts", "ch01-original-public-court.json")
-RECEIPT_FILE = os.path.join(unreal.Paths.project_saved_dir(), "CH01_MAP_READY.json")
+RECEIPT_FILE = os.path.abspath(os.path.join(
+    unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "CH01_MAP_READY.json"))
 LABEL_PREFIX = "VP_CH01_PUBLIC_"
 EXPECTED_PUBLIC_PIECES = 11
 ACTOR_ID = re.compile(r"[a-z0-9-]{8,100}\Z")

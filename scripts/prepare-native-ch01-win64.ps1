@@ -76,7 +76,7 @@ Write-Host '[VEILPOINT] Compiling VeilpointEditor Win64 Development using instal
 $before=$ErrorActionPreference
 $ErrorActionPreference='Continue'
 try {
-    & $buildBat 'VeilpointEditor' 'Win64' 'Development' "-Project=$project" '-WaitMutex' '-NoHotReload' 2>&1 |
+    & $buildBat 'VeilpointEditor' 'Win64' 'Development' "-Project=$project" '-WaitMutex' '-NoHotReload' '-MaxParallelActions=2' 2>&1 |
         Tee-Object -FilePath $buildLog
     $buildExit=$LASTEXITCODE
 }
@@ -87,7 +87,7 @@ Write-Host '[VEILPOINT] Running documented UnrealEditor-Cmd.exe ExecutePythonScr
 $before=$ErrorActionPreference
 $ErrorActionPreference='Continue'
 try {
-    & $editor $project "-ExecutePythonScript=`"$author`"" '-Unattended' '-NoSplash' '-NoSound' 2>&1 |
+    & $editor $project "-ExecutePythonScript=`"$author`"" '-Unattended' '-NoSplash' '-NoSound' '-stdout' '-FullStdOutLogOutput' 2>&1 |
         Tee-Object -FilePath $authorLog
     $editorExit=$LASTEXITCODE
 }
@@ -100,12 +100,14 @@ if (!(Test-Path -LiteralPath $map -PathType Leaf) -or
     Fail 'Editor exited without BOTH a real CH01 .umap and source-bound authoring receipt; map configuration unchanged.'
 }
 $proof=Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Copy-Item -LiteralPath $receipt -Destination (Join-Path $logFolder 'ch01-map-receipt.json')
 $observedMapBytes=(Get-Item -LiteralPath $map).Length
 $mapSha=(Get-FileHash -LiteralPath $map -Algorithm SHA256).Hash.ToLowerInvariant()
 $layoutSha=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
     $proof.mapPackage -ne '/Game/Maps/CH01_Coast' -or
-    $proof.mapFile -ne $map -or
+    ![IO.Path]::IsPathRooted([string]$proof.mapFile) -or
+    [IO.Path]::GetFullPath([string]$proof.mapFile) -ne [IO.Path]::GetFullPath($map) -or
     $observedMapBytes -lt 2048 -or
     [int64]$proof.mapBytes -ne $observedMapBytes -or
     $proof.mapSha256 -cne $mapSha -or
@@ -115,13 +117,15 @@ if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
     $proof.nativePIEVerified -ne $false -or
     $proof.nativeWin64Packaged -ne $false -or
     $proof.actualAdenCoverageVerified -ne $false) {
+    Write-Host ($proof | ConvertTo-Json -Depth 8)
+    Write-Host "[VEILPOINT] Observed map: $map; bytes: $observedMapBytes; SHA256: $mapSha; layout SHA256: $layoutSha"
     Fail 'Unreal editor map receipt fails byte-level verification. Refusing to change startup map.'
 }
 
 # Preserve the prior config in ignored Saved/ so it can be restored manually.
 $backup=Join-Path $saved "DefaultEngine.before-CH01-$stamp.ini"
 [IO.File]::WriteAllText($backup,$source,[Text.UTF8Encoding]::new($false))
-$revised=[regex]::Replace($source,'(?m)^GameDefaultMap=/Engine/Maps/Entry$',
+$revised=[regex]::Replace($source,'(?m)^GameDefaultMap=/Engine/Maps/Entry(?=\r?$)',
                            'GameDefaultMap=/Game/Maps/CH01_Coast')
 if ($revised -eq $source) { Fail 'Could not safely locate stock map setting; no changes committed.' }
 [IO.File]::WriteAllText($config,$revised,[Text.UTF8Encoding]::new($false))
