@@ -24,9 +24,9 @@ test('native CH01 HUD draws only physically available and directly observable st
 });
 test('native objective HUD uses real 25m local range and 2.75m F reach in world centimetres',()=>{
  assert.match(hud,/NearestVisibleSq = FMath::Square\(2500\.f\)/);
- assert.match(hud,/NearestVisibleSq <= FMath::Square\(275\.f\)/);
+ assert.match(hud,/NearestVisible->CanInteract\(Pawn\)/);
  assert.match(hud,/const float Metres = FMath::Sqrt\(NearestVisibleSq\) \/ 100\.f/);
- assert.match(hud,/CH01 PHYSICAL OBJECTIVE IN REACH \| F TO INTERACT/);
+ assert.match(hud,/F \| %s[\s\S]*GetInteractionLabel\(\)/);
  assert.match(hud,/CH01 VISIBLE OBJECTIVE %.1fm \| APPROACH TO INTERACT/);
  assert.match(marker,/FMath::Square\(275\.f\)/);
 });
@@ -47,7 +47,7 @@ test('native objective scan is bounded independently of 165Hz render and safely 
 });
 test('native CH01 indication stays separate from BR-only supplies and round timer',()=>{
  const story=hud.indexOf('GetGameState<AVPStoryGameState>()');
- const indication=hud.indexOf('CH01 PHYSICAL OBJECTIVE IN REACH');
+ const indication=hud.indexOf('NearestVisible->GetInteractionLabel()');
  const supplies=hud.indexOf('const FString SupplyLabel');
  const zone=hud.indexOf('const FString ZoneLabel');
  assert.ok(story>=0&&indication>story&&supplies>indication&&zone>supplies);

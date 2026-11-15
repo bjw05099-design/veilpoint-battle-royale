@@ -60,7 +60,8 @@ test('UE5 story phases and discovered records replicate only from authoritative 
 });
 
 test('UE5 CH01 actions require true reach, unobstructed visibility and server-owned E input',()=>{
- assert.match(marker,/if \(!HasAuthority\(\) \|\| !IsValid\(Player\)/);
+ assert.match(marker,/if \(!HasAuthority\(\) \|\| !CanInteract\(Player\)/);
+ assert.match(marker,/if \(!IsValid\(Player\) \|\| !Player->IsAlive\(\)/);
  assert.match(marker,/!Player->IsAlive\(\)/);
  assert.match(marker,/FVector::DistSquared\(/);
  assert.match(marker,/FMath::Square\(275\.f\)/);
@@ -70,7 +71,7 @@ test('UE5 CH01 actions require true reach, unobstructed visibility and server-ow
  const entry=character.slice(character.indexOf('void AVPCharacter::ServerTryInteract_Implementation()'));
  assert.match(entry,/GetGameState<AVPStoryGameState>\(\)/);
  assert.match(entry,/TActorIterator<AVPStoryMarker>/);
- assert.match(entry,/if \(!It->IsAvailable\(\)\) continue/);
+ assert.match(entry,/if \(!It->CanInteract\(this\)\) continue/);
  assert.match(entry,/FVector::DistSquared\(/);
  assert.match(entry,/GetPawnViewLocation\(\),It->GetActorLocation\(\),ECC_Visibility/);
  assert.match(entry,/if \(Nearest\) Nearest->TryActivate\(this\)/);

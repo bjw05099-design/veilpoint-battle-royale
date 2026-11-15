@@ -34,9 +34,9 @@ test('eliminated local and remote clients both stop movement and sprint before f
 });
 
 test('native crouch, sprint, camera and movement inputs reject eliminated pawns',()=>{
- assert.match(source,/void AVPCharacter::BeginCrouch\(\) \{ if \(IsAlive\(\)\) Crouch\(\); \}/);
+ assert.match(source,/void AVPCharacter::BeginCrouch\(\) \{ if \(IsAlive\(\) && !IsDesktopInputBlocked\(\)\) Crouch\(\); \}/);
  assert.match(source,/void AVPCharacter::EndCrouch\(\) \{ if \(IsAlive\(\)\) UnCrouch\(\); \}/);
- assert.match(source,/void AVPCharacter::BeginSprint\(\)[\s\S]*?if \(!IsAlive\(\)\) return;/);
+ assert.match(source,/void AVPCharacter::BeginSprint\(\)[\s\S]*?if \(!IsAlive\(\) \|\| IsDesktopInputBlocked\(\)\) return;/);
  assert.match(source,/void AVPCharacter::ServerSetSprintHeld_Implementation\(bool bHeld\)[\s\S]*?bSprintHeld = bHeld && IsAlive\(\)/);
  assert.match(source,/void AVPCharacter::MoveForward\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller\)/);
  assert.match(source,/void AVPCharacter::MoveRight\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller\)/);

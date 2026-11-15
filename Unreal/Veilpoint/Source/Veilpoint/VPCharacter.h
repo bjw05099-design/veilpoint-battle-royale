@@ -54,6 +54,8 @@ public:
     bool CollectResource(FName Resource);
     UFUNCTION(BlueprintCallable, Category="Survival")
     bool IsAlive() const { return Health > 0.f && !bEliminated; }
+    void RequestPrimaryAction() { TryTag(); }
+    void ReleaseDesktopActions() { EndSprint(); }
 
 protected:
     // Derived from physical world position on both client and server;
@@ -87,6 +89,7 @@ protected:
     UFUNCTION(Server, Reliable)
     void ServerTryInteract();
 private:
+    bool IsDesktopInputBlocked() const;
     double LastServerTagTime = -1000.0;
     bool bSprintHeld = false;
 

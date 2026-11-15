@@ -37,6 +37,8 @@ public:
     bool bUsed = false;
 
     bool IsAvailable() const;
+    bool CanInteract(const AVPCharacter* Player) const;
+    FString GetInteractionLabel() const;
     bool TryActivate(AVPCharacter* Player);
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

@@ -5,7 +5,7 @@ public class Veilpoint : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new string[] {"Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent"});
-        PrivateDependencyModuleNames.AddRange(new string[] {"EnhancedInput", "RenderCore", "Json"});
+        PrivateDependencyModuleNames.AddRange(new string[] {"EnhancedInput", "RenderCore", "Json", "ImageCore"});
         bUseUnity = true;
     }
 }

@@ -1,6 +1,7 @@
 #include "VPCharacter.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
+#include "VPPlayerController.h"
 #include "VPStoryPublicVan.h"
 #include "VPStoryGameState.h"
 #include "Camera/CameraComponent.h"
@@ -66,7 +67,10 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Sprint"), IE_Released, this, &AVPCharacter::EndSprint);
     Input->BindAction(TEXT("Crouch"), IE_Pressed, this, &AVPCharacter::BeginCrouch);
     Input->BindAction(TEXT("Crouch"), IE_Released, this, &AVPCharacter::EndCrouch);
-    Input->BindAction(TEXT("Tag"), IE_Pressed, this, &AVPCharacter::TryTag);
+    // The desktop controller owns the primary click so an open menu cannot
+    // also consume ammunition. Other controllers retain the legacy binding.
+    if (!Cast<AVPPlayerController>(Controller))
+        Input->BindAction(TEXT("Tag"), IE_Pressed, this, &AVPCharacter::TryTag);
     Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::TryInteract);
     Input->BindAction(TEXT("FieldLight"), IE_Pressed, this, &AVPCharacter::ToggleFieldLight);
 }
@@ -80,9 +84,14 @@ void AVPCharacter::MoveRight(float Value)
 }
 void AVPCharacter::LookUp(float Value) { if (IsAlive()) AddControllerPitchInput(Value); }
 void AVPCharacter::Turn(float Value) { if (IsAlive()) AddControllerYawInput(Value); }
+bool AVPCharacter::IsDesktopInputBlocked() const
+{
+    const AVPPlayerController* Desktop = Cast<AVPPlayerController>(Controller);
+    return Desktop && Desktop->IsDesktopMenuOpen();
+}
 void AVPCharacter::BeginSprint()
 {
-    if (!IsAlive()) return;
+    if (!IsAlive() || IsDesktopInputBlocked()) return;
     bSprintHeld = true;
     if (!HasAuthority()) ServerSetSprintHeld(true);
 }
@@ -102,7 +111,7 @@ void AVPCharacter::ServerSetSprintHeld_Implementation(bool bHeld)
 void AVPCharacter::OnRep_SprintState() { ApplySprintSpeed(); }
 void AVPCharacter::ToggleFieldLight()
 {
-    if (!IsLocallyControlled() || !IsAlive()) return;
+    if (!IsLocallyControlled() || !IsAlive() || IsDesktopInputBlocked()) return;
     if (HasAuthority()) ServerToggleFieldLight_Implementation();
     else ServerToggleFieldLight();
 }
@@ -206,7 +215,7 @@ void AVPCharacter::UpdateSprintFixedStep(float FixedSeconds)
     if (bSprintExhausted != bPreviouslyExhausted) ForceNetUpdate();
 }
 
-void AVPCharacter::BeginCrouch() { if (IsAlive()) Crouch(); }
+void AVPCharacter::BeginCrouch() { if (IsAlive() && !IsDesktopInputBlocked()) Crouch(); }
 void AVPCharacter::EndCrouch() { if (IsAlive()) UnCrouch(); }
 
 float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AController* EventInstigator, AActor* Causer)
@@ -229,7 +238,7 @@ float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AContr
 }
 void AVPCharacter::TryTag()
 {
-    if (!IsLocallyControlled() || !IsAlive() || !BodyCamera) return;
+    if (!IsLocallyControlled() || !IsAlive() || !BodyCamera || IsDesktopInputBlocked()) return;
     ServerTryTag(BodyCamera->GetComponentLocation(), BodyCamera->GetForwardVector());
 }
 void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction)
@@ -253,7 +262,7 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
         }
     }
 }
-void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive()) ServerTryInteract(); }
+void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive() && !IsDesktopInputBlocked()) ServerTryInteract(); }
 void AVPCharacter::ServerTryInteract_Implementation()
 {
     if (!IsAlive() || !GetWorld()) return;
@@ -268,7 +277,7 @@ void AVPCharacter::ServerTryInteract_Implementation()
         float BestDistanceSq = FMath::Square(275.f);
         for (TActorIterator<AVPStoryMarker> It(GetWorld()); It; ++It)
         {
-            if (!It->IsAvailable()) continue;
+            if (!It->CanInteract(this)) continue;
             const float DistanceSq=FVector::DistSquared(
                 GetActorLocation(),It->GetActorLocation());
             if (DistanceSq >= BestDistanceSq) continue;

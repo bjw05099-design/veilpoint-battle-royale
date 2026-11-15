@@ -14,8 +14,10 @@ test('UE5 native CH01 beacon switch can be physically reused after relay and bef
  assert.doesNotMatch(avail,/&& !bBeaconActivated/,'light-on is not a one-shot lock');
  assert.match(state,/case EVPStoryAction::ActivateBeacon:[\s\S]*?bBeaconActivated = !bBeaconActivated/);
  const entry=marker.slice(marker.indexOf('bool AVPStoryMarker::TryActivate('));
- assert.match(entry,/FMath::Square\(275\.f\)/);
- assert.match(entry,/LineTraceTestByChannel/);
+ assert.match(entry,/!HasAuthority\(\) \|\| !CanInteract\(Player\)/);
+ const reach=marker.slice(marker.indexOf('bool AVPStoryMarker::CanInteract('),marker.indexOf('bool AVPStoryMarker::TryActivate('));
+ assert.match(reach,/FMath::Square\(275\.f\)/);
+ assert.match(reach,/LineTraceTestByChannel/);
  assert.match(entry,/State->TryAdvance\(Action\)/);
  assert.match(entry,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
  assert.match(entry,/Model->SetVisibility\(IsAvailable\(\)\)/);

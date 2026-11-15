@@ -24,6 +24,7 @@ class VEILPOINT_API UVPGameUserSettings : public UGameUserSettings
     GENERATED_BODY()
 
 public:
+    virtual void LoadSettings(bool bForceReload = false) override;
     UPROPERTY(Config, BlueprintReadOnly, Category="VEILPOINT|Graphics")
     EVPGraphicsPreset SelectedPreset = EVPGraphicsPreset::HyperReal165;
 

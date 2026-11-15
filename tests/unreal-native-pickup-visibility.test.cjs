@@ -54,7 +54,7 @@ test('UE5 solid native structures block visibility while scenery decoration stay
 });
 
 test('UE5 visibility validation is local server geometry, not trusted client coordinates',()=>{
- assert.match(character,/void AVPCharacter::TryInteract\(\) \{ if \(IsLocallyControlled\(\) && IsAlive\(\)\) ServerTryInteract\(\); \}/);
+ assert.match(character,/void AVPCharacter::TryInteract\(\) \{ if \(IsLocallyControlled\(\) && IsAlive\(\) && !IsDesktopInputBlocked\(\)\) ServerTryInteract\(\); \}/);
  assert.match(character,/void AVPCharacter::ServerTryInteract_Implementation\(\)/);
  assert.match(interaction,/if \(!IsAlive\(\) \|\| !GetWorld\(\)\) return/);
  assert.doesNotMatch(interaction,/ClientActorLocation|ClientHitResult|ClientPickupPosition|GetPlayerLocationFromClient/);

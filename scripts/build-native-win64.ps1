@@ -136,6 +136,28 @@ $executables=@(Get-ChildItem -LiteralPath $archive -Recurse -File -Filter 'Veilp
 if ($executables.Count -lt 1) {
     Fail "UAT returned success but no Veilpoint.exe was found in $archive. Packaging is NOT verified."
 }
+$windowsRoot=Join-Path $archive 'Windows'
+if (Test-Path -LiteralPath (Join-Path $windowsRoot 'Veilpoint.exe') -PathType Leaf) {
+    # Keep log discovery beside the copied package, including OneDrive desktops.
+    # ASCII helpers avoid Windows PowerShell 5.1/cmd encoding ambiguity.
+    @'
+@echo off
+setlocal
+if not exist "%~dp0Veilpoint\Saved\Logs" mkdir "%~dp0Veilpoint\Saved\Logs"
+start "" "%~dp0Veilpoint.exe" -abslog="%~dp0Veilpoint\Saved\Logs\Veilpoint.log"
+'@ | Set-Content -LiteralPath (Join-Path $windowsRoot 'PLAY_VEILPOINT.cmd') -Encoding ASCII
+    @'
+@echo off
+if exist "%~dp0Veilpoint\Saved\Logs" (
+  start "" explorer.exe "%~dp0Veilpoint\Saved\Logs"
+) else (
+  echo Run PLAY_VEILPOINT.cmd first, then open logs again.
+  pause
+)
+'@ | Set-Content -LiteralPath (Join-Path $windowsRoot 'OPEN_LOGS.cmd') -Encoding ASCII
+    [ordered]@{schema='veilpoint-packaged-build-v1';sourceSha=(git -C $repo rev-parse HEAD);map=$map;engine='5.8';humanInputVerified=$false} |
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $windowsRoot 'BUILD_INFO.json') -Encoding UTF8
+}
 $manifest=@()
 $packed=@(Get-ChildItem -LiteralPath $archive -File -Recurse | Where-Object {
     $_.Extension -in @('.exe','.pak','.utoc','.ucas')

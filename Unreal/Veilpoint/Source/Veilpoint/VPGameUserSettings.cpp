@@ -38,10 +38,27 @@ UVPGameUserSettings* UVPGameUserSettings::GetVeilpointSettings()
     return GEngine ? Cast<UVPGameUserSettings>(GEngine->GetGameUserSettings()) : nullptr;
 }
 
+void UVPGameUserSettings::LoadSettings(bool bForceReload)
+{
+    Super::LoadSettings(bForceReload);
+    FVPGraphicsSpec Spec{};
+    float Normalized = 0.f, Percent = 100.f, Minimum = 0.f, Maximum = 100.f;
+    GetResolutionScaleInformationEx(Normalized, Percent, Minimum, Maximum);
+    // Old config files may name a preset without having ever applied it.
+    // Show the real loaded settings as Custom instead of claiming Cine quality.
+    if (TryGetGraphicsSpec(SelectedPreset, Spec) &&
+        (GetOverallScalabilityLevel() != Spec.Scalability ||
+         !FMath::IsNearlyEqual(Percent, Spec.ResolutionPercent, .1f) ||
+         !FMath::IsNearlyEqual(GetFrameRateLimit(), Spec.FrameCap, .1f) || IsVSyncEnabled()))
+        SelectedPreset = EVPGraphicsPreset::Custom;
+}
+
 void UVPGameUserSettings::CommitGraphicsChanges(bool bPersist)
 {
     // Changes affect only the local player's renderer, not server simulation.
-    ApplySettings(false);
+    // These helpers change quality/scale/cap/VSync, not display resolution.
+    // ApplySettings also saves implicitly; preserve the bPersist contract.
+    ApplyNonResolutionSettings();
     if (bPersist)
     {
         SaveSettings();
