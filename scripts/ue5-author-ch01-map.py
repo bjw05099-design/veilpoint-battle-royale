@@ -131,6 +131,13 @@ def verify_saved_daylight(actors):
     sun_lux = direct.get_editor_property("intensity")
     sky_intensity = ambient.get_editor_property("intensity")
     forward_z = suns[0].get_actor_forward_vector().z
+    observed = {"sunLux": sun_lux, "skyIntensity": sky_intensity,
+                "sunForwardZ": forward_z,
+                "sunRotation": str(suns[0].get_actor_rotation()),
+                "sunMobility": str(direct.get_editor_property("mobility")),
+                "skyMobility": str(ambient.get_editor_property("mobility")),
+                "atmosphereSun": direct.get_editor_property("atmosphere_sun_light"),
+                "realTimeCapture": ambient.get_editor_property("real_time_capture")}
     if (direct.get_editor_property("mobility") != unreal.ComponentMobility.MOVABLE
             or ambient.get_editor_property("mobility") != unreal.ComponentMobility.MOVABLE
             or not direct.get_editor_property("atmosphere_sun_light")
@@ -138,7 +145,8 @@ def verify_saved_daylight(actors):
             or not math.isclose(sun_lux, 50000.0, rel_tol=0.001)
             or not math.isclose(sky_intensity, 1.0, rel_tol=0.001)
             or not forward_z < -0.2):
-        raise RuntimeError("Saved CH01 daylight is disabled, below the horizon or altered")
+        raise RuntimeError("Saved CH01 daylight is disabled, below the horizon or altered: "
+                           + json.dumps(observed, sort_keys=True))
     return {"sunLux": sun_lux, "skyIntensity": sky_intensity,
             "sunForwardZ": forward_z, "movable": True,
             "skyAtmosphere": True, "skyRealTimeCapture": True,
@@ -226,7 +234,9 @@ def author_ch01():
         unreal.PlayerStart, unreal.Vector(0, 0, 160), unreal.Rotator(0, 0, 0))
     sun = actors.spawn_actor_from_class(
         unreal.DirectionalLight, unreal.Vector(0, 0, 2000),
-        unreal.Rotator(-48, 18, 0))
+        # Python uses (roll, pitch, yaw), unlike C++ FRotator(pitch, yaw, roll).
+        # Positional (-48,18,0) aimed light UP, putting the sun below the horizon.
+        unreal.Rotator(pitch=-48, yaw=18, roll=0))
     skylight = actors.spawn_actor_from_class(
         unreal.SkyLight, unreal.Vector(0, 0, 900), unreal.Rotator(0, 0, 0))
     atmosphere = actors.spawn_actor_from_class(
