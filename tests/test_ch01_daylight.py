@@ -1,5 +1,6 @@
 """Exercise production light configuration without pretending to render UE."""
 import ast
+import math
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -22,6 +23,32 @@ class Component:
     def set_editor_property(self, name, value):
         self.properties[name] = value
 
+    def get_editor_property(self, name):
+        return self.properties[name]
+
+
+class Sun:
+    def __init__(self, component, forward_z=-0.743):
+        self.component, self.forward_z = component, forward_z
+
+    def get_component_by_class(self, cls):
+        return self.component
+
+    def get_actor_forward_vector(self):
+        return SimpleNamespace(z=self.forward_z)
+
+
+class Sky:
+    def __init__(self, component):
+        self.component = component
+
+    def get_component_by_class(self, cls):
+        return self.component
+
+
+class Atmosphere:
+    pass
+
 
 class DaylightTests(unittest.TestCase):
     def setUp(self):
@@ -33,6 +60,14 @@ class DaylightTests(unittest.TestCase):
         scope = {"unreal": engine}
         exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), scope)
         self.configure = scope["configure_daylight"]
+        engine.DirectionalLight, engine.SkyLight, engine.SkyAtmosphere = Sun, Sky, Atmosphere
+        verify = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
+                      and n.name == "verify_saved_daylight")
+        scope["math"] = math
+        exec(compile(ast.Module(body=[verify], type_ignores=[]), str(source), "exec"), scope)
+        self.verify = scope["verify_saved_daylight"]
+        self.saved_sun, self.saved_sky = Sun(self.direct), Sky(self.ambient)
+        self.saved = [self.saved_sun, self.saved_sky, Atmosphere()]
 
     def test_no_baked_lighting_dependency_and_visible_sky(self):
         self.configure(self.sun, self.sky, object())
@@ -51,6 +86,31 @@ class DaylightTests(unittest.TestCase):
         missing = SimpleNamespace(get_component_by_class=lambda cls: None)
         with self.assertRaises(RuntimeError):
             self.configure(missing, self.sky, object())
+
+    def test_reloaded_light_values_are_used_in_receipt(self):
+        self.configure(self.sun, self.sky, object())
+        receipt = self.verify(self.saved)
+        self.assertTrue(receipt["savedReloadVerified"])
+        self.assertAlmostEqual(receipt["sunForwardZ"], -0.743)
+        self.assertEqual(receipt["sunLux"], 50000)
+
+    def test_missing_or_duplicate_saved_lights_rejected(self):
+        self.configure(self.sun, self.sky, object())
+        for actors in (self.saved[:-1], self.saved + [self.saved_sun]):
+            with self.subTest(actors=actors), self.assertRaises(RuntimeError):
+                self.verify(actors)
+
+    def test_below_horizon_or_unpersisted_changes_rejected(self):
+        for name, value in (("intensity", 0), ("mobility", "static"),
+                            ("atmosphere_sun_light", False)):
+            self.configure(self.sun, self.sky, object())
+            self.direct.properties[name] = value
+            with self.subTest(property=name), self.assertRaises(RuntimeError):
+                self.verify(self.saved)
+        self.configure(self.sun, self.sky, object())
+        self.saved_sun.forward_z = 0.743
+        with self.assertRaises(RuntimeError):
+            self.verify(self.saved)
 
 
 if __name__ == "__main__":

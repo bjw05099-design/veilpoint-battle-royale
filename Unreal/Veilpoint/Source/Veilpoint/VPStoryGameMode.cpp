@@ -11,6 +11,45 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/SkyLight.h"
+#include "Engine/SkyAtmosphere.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/SkyLightComponent.h"
+#include "Misc/Paths.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogVPDaylight, Log, All);
+
+namespace
+{
+void LogStoryDaylight(UWorld* World)
+{
+    int32 Suns = 0, Skies = 0, Atmospheres = 0;
+    for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+    {
+        const UDirectionalLightComponent* Light = It->FindComponentByClass<UDirectionalLightComponent>();
+        ++Suns;
+        if (Light)
+            UE_LOG(LogVPDaylight, Display, TEXT("Sun=%s rotation=%s forwardZ=%.3f lux=%.1f mobility=%d visible=%d atmosphereSun=%d"),
+                *It->GetName(), *It->GetActorRotation().ToString(), It->GetActorForwardVector().Z,
+                Light->Intensity, static_cast<int32>(Light->Mobility), Light->IsVisible(), Light->bAtmosphereSunLight);
+    }
+    for (TActorIterator<ASkyLight> It(World); It; ++It)
+    {
+        const USkyLightComponent* Light = It->FindComponentByClass<USkyLightComponent>();
+        ++Skies;
+        if (Light)
+            UE_LOG(LogVPDaylight, Display, TEXT("Sky=%s intensity=%.2f mobility=%d visible=%d realTimeCapture=%d"),
+                *It->GetName(), Light->Intensity, static_cast<int32>(Light->Mobility), Light->IsVisible(), Light->bRealTimeCapture);
+    }
+    for (TActorIterator<ASkyAtmosphere> It(World); It; ++It) ++Atmospheres;
+    UE_LOG(LogVPDaylight, Display, TEXT("Diagnostic=v2 Map=%s Suns=%d Skies=%d Atmospheres=%d LogDirectory=%s"),
+        *World->GetMapName(), Suns, Skies, Atmospheres,
+        *FPaths::ConvertRelativePathToFull(FPaths::ProjectLogDir()));
+    if (Suns == 0 || Skies == 0 || Atmospheres == 0)
+        UE_LOG(LogVPDaylight, Warning, TEXT("CH01 daylight actors missing at runtime; inspect authored/cooked map."));
+}
+}
 
 AVPStoryGameMode::AVPStoryGameMode()
 {
@@ -25,6 +64,7 @@ void AVPStoryGameMode::BeginPlay()
     // Deliberately skip AVPGameMode::BeginPlay: it spawns the BR zone.
     AGameModeBase::BeginPlay();
     if (!HasAuthority() || !GetWorld()) return;
+    LogStoryDaylight(GetWorld());
     // A future authored UE5 map may contain a custom coastal bootstrap. Do
     // not spawn a second stack of colliding buildings over that editor actor.
     bool bHasStoryWorld = false;
