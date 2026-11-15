@@ -141,6 +141,21 @@ class DaylightTests(unittest.TestCase):
                                             for a in node.args),
                                         "Name nonzero Python rotation axes; C++ has a different order")
 
+    def test_qa_camera_heading_changes_yaw_without_tilting_horizon(self):
+        camera = source.parent / "ue5-civic-visual-qa-cameras.py"
+        syntax = ast.parse(camera.read_text(encoding="utf-8"))
+        rotation = next(n for n in ast.walk(syntax) if isinstance(n, ast.Call)
+                        and isinstance(n.func, ast.Attribute) and n.func.attr == "Rotator")
+        def rotator(roll=0., pitch=0., yaw=0.):
+            return SimpleNamespace(roll=roll, pitch=pitch, yaw=yaw)
+        for heading in (0, 90, 180, -90):
+            with self.subTest(heading=heading):
+                result = eval(compile(ast.Expression(rotation), str(camera), "eval"),
+                              {"unreal": SimpleNamespace(Rotator=rotator), "yaw": heading})
+                self.assertEqual(result.pitch, 0)
+                self.assertEqual(result.roll, 0)
+                self.assertEqual(result.yaw, heading)
+
 
 if __name__ == "__main__":
     unittest.main()
