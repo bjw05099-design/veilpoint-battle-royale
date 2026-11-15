@@ -117,6 +117,34 @@ def configure_daylight(sun, skylight, atmosphere):
             "skyAtmosphere": True, "skyRealTimeCapture": True}
 
 
+def verify_saved_daylight(actors):
+    """Read the reloaded map, rather than certifying setter calls alone."""
+    suns = [a for a in actors if isinstance(a, unreal.DirectionalLight)]
+    skies = [a for a in actors if isinstance(a, unreal.SkyLight)]
+    atmospheres = [a for a in actors if isinstance(a, unreal.SkyAtmosphere)]
+    if (len(suns), len(skies), len(atmospheres)) != (1, 1, 1):
+        raise RuntimeError("Saved CH01 map must contain one sun, sky light and atmosphere")
+    direct = suns[0].get_component_by_class(unreal.DirectionalLightComponent)
+    ambient = skies[0].get_component_by_class(unreal.SkyLightComponent)
+    if not direct or not ambient:
+        raise RuntimeError("Saved CH01 daylight components missing")
+    sun_lux = direct.get_editor_property("intensity")
+    sky_intensity = ambient.get_editor_property("intensity")
+    forward_z = suns[0].get_actor_forward_vector().z
+    if (direct.get_editor_property("mobility") != unreal.ComponentMobility.MOVABLE
+            or ambient.get_editor_property("mobility") != unreal.ComponentMobility.MOVABLE
+            or not direct.get_editor_property("atmosphere_sun_light")
+            or not ambient.get_editor_property("real_time_capture")
+            or not math.isclose(sun_lux, 50000.0, rel_tol=0.001)
+            or not math.isclose(sky_intensity, 1.0, rel_tol=0.001)
+            or not forward_z < -0.2):
+        raise RuntimeError("Saved CH01 daylight is disabled, below the horizon or altered")
+    return {"sunLux": sun_lux, "skyIntensity": sky_intensity,
+            "sunForwardZ": forward_z, "movable": True,
+            "skyAtmosphere": True, "skyRealTimeCapture": True,
+            "savedReloadVerified": True}
+
+
 def author_ch01():
     # Fail closed before spawning anything or changing the game's main map.
     if os.path.exists(MAP_FILE):
@@ -187,6 +215,9 @@ def author_ch01():
         raise RuntimeError("CH01 original public space incomplete or duplicated")
     if not levels.save_current_level() or not os.path.isfile(MAP_FILE):
         raise RuntimeError("Real native CH01_Coast.umap did not save successfully")
+    if not levels.load_level(MAP_PACKAGE):
+        raise RuntimeError("Saved CH01 map could not be reloaded for daylight verification")
+    daylight = verify_saved_daylight(actors.get_all_level_actors())
     with open(MAP_FILE, "rb") as stream:
         map_bytes = stream.read()
     if len(map_bytes) < 2048:
