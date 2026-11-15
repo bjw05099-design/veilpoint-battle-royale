@@ -1,6 +1,8 @@
 #include "VPVisualSmoke.h"
 #include "VPPlayerController.h"
+#include "VPCharacter.h"
 #include "VPHUD.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Camera/PlayerCameraManager.h"
@@ -22,11 +24,33 @@ FString SmokeDirectory()
 }
 }
 
-TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, const FString& Name)
+USceneCaptureComponent2D* VPCreateVisualSmokeCapture(AVPPlayerController* Desktop)
+{
+    AVPCharacter* ControlledPawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
+    if (!ControlledPawn || !ControlledPawn->BodyCamera) return nullptr;
+    UTextureRenderTarget2D* Target = NewObject<UTextureRenderTarget2D>(Desktop);
+    Target->ClearColor = FLinearColor::Black;
+    Target->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
+    Target->UpdateResourceImmediate(true);
+    USceneCaptureComponent2D* Capture = NewObject<USceneCaptureComponent2D>(Desktop);
+    Capture->SetupAttachment(ControlledPawn->BodyCamera);
+    Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+    Capture->TextureTarget = Target;
+    Capture->FOVAngle = ControlledPawn->BodyCamera->FieldOfView;
+    Capture->PostProcessSettings = ControlledPawn->BodyCamera->PostProcessSettings;
+    Capture->PostProcessBlendWeight = ControlledPawn->BodyCamera->PostProcessBlendWeight;
+    Capture->bCaptureEveryFrame = true;
+    Capture->bAlwaysPersistRenderingState = true;
+    Capture->ShowFlags.SetEyeAdaptation(true);
+    Capture->RegisterComponentWithWorld(Desktop->GetWorld());
+    return Capture;
+}
+
+TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USceneCaptureComponent2D* Capture, const FString& Name)
 {
     UWorld* World = Desktop ? Desktop->GetWorld() : nullptr;
     AVPHUD* HUD = Desktop ? Cast<AVPHUD>(Desktop->GetHUD()) : nullptr;
-    if (!World || !HUD) return nullptr;
+    if (!World || !HUD || !Capture || !Capture->TextureTarget) return nullptr;
     const FIntPoint Size(1280, 720);
     const auto MakeTarget = [Desktop, Size]()
     {
@@ -36,27 +60,15 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, con
         Target->UpdateResourceImmediate(true);
         return Target;
     };
-    UTextureRenderTarget2D* SceneTarget = MakeTarget();
-    USceneCaptureComponent2D* Capture = NewObject<USceneCaptureComponent2D>(Desktop);
-    Capture->bCaptureEveryFrame = false;
-    Capture->bCaptureOnMovement = false;
-    Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
-    Capture->TextureTarget = SceneTarget;
-    Capture->FOVAngle = Desktop->PlayerCameraManager ? Desktop->PlayerCameraManager->GetFOVAngle() : 92.f;
-    Capture->RegisterComponentWithWorld(World);
-    FVector Eye;
-    FRotator View;
-    Desktop->GetPlayerViewPoint(Eye, View);
-    Capture->SetWorldLocationAndRotation(Eye, View);
-    Capture->CaptureScene();
+    // Reuse the eight-second warmed, camera-attached capture. Recreating a
+    // one-shot view here loses auto-exposure history and clips 50,000-lux light.
     FlushRenderingCommands();
     UTextureRenderTarget2D* Composite = MakeTarget();
-    const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, SceneTarget);
+    const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, Capture->TextureTarget);
     FlushRenderingCommands();
     TArray<FColor> Pixels;
     FTextureRenderTargetResource* Resource = Composite->GameThread_GetRenderTargetResource();
     const bool bRead = bDrewHUD && Resource && Resource->ReadPixels(Pixels);
-    Capture->DestroyComponent();
     if (!bRead || Pixels.Num() != Size.X * Size.Y) return nullptr;
     // Backbuffer alpha is not scene transparency; preserve RGB and export an
     // opaque diagnostic so a valid render cannot look empty in a PNG viewer.
@@ -80,6 +92,18 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, con
             }
         return Count ? Sum / Count : 0.0;
     };
+    const auto WhiteFraction = [&Pixels, Size](float Y0, float Y1)
+    {
+        int32 White = 0, Count = 0;
+        for (int32 Y = int32(Size.Y*Y0); Y < int32(Size.Y*Y1); ++Y)
+            for (int32 X = int32(Size.X*.3f); X < int32(Size.X*.7f); ++X)
+            {
+                const FColor& Pixel = Pixels[Y*Size.X+X];
+                if (Pixel.R >= 250 && Pixel.G >= 250 && Pixel.B >= 250) ++White;
+                ++Count;
+            }
+        return Count ? double(White) / Count : 0.0;
+    };
     TSharedPtr<FJsonObject> Frame = MakeShared<FJsonObject>();
     Frame->SetStringField(TEXT("name"), Name);
     Frame->SetStringField(TEXT("captureMethod"), TEXT("gpu-scene-capture-with-production-hud-canvas"));
@@ -89,6 +113,8 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, con
     Frame->SetNumberField(TEXT("height"), Size.Y);
     Frame->SetNumberField(TEXT("upperCentreLuma8bit"), MeanLuma(.12f, .40f));
     Frame->SetNumberField(TEXT("lowerCentreLuma8bit"), MeanLuma(.65f, .88f));
+    Frame->SetNumberField(TEXT("upperCentreWhiteFraction"), WhiteFraction(.12f, .40f));
+    Frame->SetNumberField(TEXT("lowerCentreWhiteFraction"), WhiteFraction(.65f, .88f));
     return Frame;
 }
 

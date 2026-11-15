@@ -38,7 +38,8 @@ if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
     $proof.surfaceMarkPlaced -ne $true -or $proof.surfaceMarkExpired -ne $true -or
     $proof.renderScaleChanged -ne $true -or $proof.renderScaleRestored -ne $true -or
     $proof.originalRenderScale -lt 50 -or $proof.world.map -notmatch 'CH01_Coast$' -or
-    $proof.world.upperCentreLuma8bit -lt 3 -or $proof.world.lowerCentreLuma8bit -lt 3) {
+    $proof.world.upperCentreLuma8bit -lt 3 -or $proof.world.lowerCentreLuma8bit -lt 3 -or
+    ($proof.world.upperCentreWhiteFraction -gt 0.95 -and $proof.world.lowerCentreWhiteFraction -gt 0.95)) {
     throw 'Actual viewport/menu/mark smoke check failed. Inspect images and runtime log; no visual pass is claimed.'
 }
 foreach ($name in @('world','menu','field-mark')) {
