@@ -13,6 +13,7 @@ function Fail([string]$Reason) { throw "[VEILPOINT native CH01] $Reason" }
 if ($env:OS -ne 'Windows_NT') {
     Fail 'Native authoring requires installed Unreal 5.8 on Windows. No map was generated.'
 }
+. (Join-Path $PSScriptRoot 'build-pc-native-prerequisites.ps1')
 
 $repo=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $project=Join-Path $repo 'Unreal/Veilpoint/Veilpoint.uproject'
@@ -56,6 +57,7 @@ if ($data.format -ne 'veilpoint-ch01-original-public-court-v1' -or
     $data.pieces.Count -ne 11) {
     Fail 'Original non-sensitive CH01 court input is missing or invalid.'
 }
+Assert-BuildPcNetFxSdk
 if ($PreflightOnly) {
     Write-Host '[VEILPOINT] CH01 PRE-FLIGHT READY; Unreal editor build, map generation, configuration and packaging NOT attempted.'
     Write-Host "[VEILPOINT] Installed UE5: $engine"
