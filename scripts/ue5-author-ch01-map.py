@@ -171,6 +171,9 @@ def create_civic_finishes():
             asset_name, "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
         if not material:
             raise RuntimeError("Cannot create civic finish: " + name)
+        # Native streets use ISM components; their shader permutation must be
+        # cooked even though the authored court uses ordinary StaticMeshActors.
+        material.set_editor_property("used_with_instanced_static_meshes", True)
         base = library.create_material_expression(material, unreal.MaterialExpressionConstant3Vector)
         base.set_editor_property("constant", unreal.LinearColor(*color, 1.0))
         library.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
@@ -196,10 +199,13 @@ def verify_saved_finishes(actors, finishes):
         material = mesh.get_material(0) if mesh else None
         if not material or material.get_path_name() not in expected:
             raise RuntimeError("Saved civic actor lost its authored material")
+        if not material.get_editor_property("used_with_instanced_static_meshes"):
+            raise RuntimeError("Saved civic finish cannot render native instanced street meshes")
         count += 1
     if count != EXPECTED_PUBLIC_PIECES:
         raise RuntimeError("Saved civic material coverage is incomplete")
     return {"savedActorsWithMaterials": count, "materials": sorted(expected),
+            "instancedStaticMeshUsageVerified": True,
             "photorealArtVerified": False}
 
 
