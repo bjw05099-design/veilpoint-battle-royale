@@ -10,20 +10,22 @@ if ($ControllerRepository -cnotmatch '^bjw05099-design/[A-Za-z0-9_.-]+$') { thro
 if ($ControllerRepository -eq 'bjw05099-design/veilpoint-battle-royale') { throw 'Never register this personal PC in the public game repository.' }
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $toolRoot=Join-Path $repo '.tools'
+. (Join-Path $PSScriptRoot 'build-pc-helpers.ps1')
+$EngineRoot=Resolve-BuildPcEngineRoot -EngineRoot $EngineRoot
 & gh auth status
 if ($LASTEXITCODE -ne 0) { throw 'Run gh auth login --scopes repo,workflow on THIS PC, then retry. Do not paste access tokens into chat.' }
 $login=& gh api user --jq .login
 if ($LASTEXITCODE -ne 0 -or $login -cne 'bjw05099-design') { throw 'Sign into the GitHub account that owns VEILPOINT.' }
 & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $EngineRoot -PreflightOnly
-$infoText=& gh repo view $ControllerRepository --json nameWithOwner,isPrivate 2>$null
-if ($LASTEXITCODE -ne 0) {
+$lookup=Get-BuildPcGitHubResource -Endpoint "repos/$ControllerRepository"
+if (!$lookup.Found) {
     & gh repo create $ControllerRepository --private --description 'Private, owner-operated VEILPOINT Windows build controller'
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the private build controller.' }
-    $infoText=& gh repo view $ControllerRepository --json nameWithOwner,isPrivate
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot verify controller visibility.' }
+    $lookup=Get-BuildPcGitHubResource -Endpoint "repos/$ControllerRepository"
+    if (!$lookup.Found) { throw 'Cannot verify controller visibility after creation.' }
 }
-$info=$infoText | ConvertFrom-Json
-if (!$info.isPrivate -or $info.nameWithOwner -cne $ControllerRepository) { throw 'The controller must be the expected PRIVATE repository.' }
+$info=$lookup.Data
+if ($info.private -isnot [bool] -or !$info.private -or $info.full_name -cne $ControllerRepository) { throw 'The controller must be the expected PRIVATE repository.' }
 $pathsFile=Join-Path $toolRoot 'paths.json'
 if (Test-Path $pathsFile) {
     $existing=Get-Content $pathsFile -Raw | ConvertFrom-Json
@@ -38,9 +40,9 @@ $paths=Get-Content $pathsFile -Raw | ConvertFrom-Json
 $runner=Split-Path (Split-Path $paths.runner -Parent) -Parent
 # Retry partial setup only when an existing file is byte-identical.
 function Put-NewControllerFile([string]$Path,[string]$Content) {
-    $old=& gh api "repos/$ControllerRepository/contents/$Path" 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        $file=$old | ConvertFrom-Json
+    $lookup=Get-BuildPcGitHubResource -Endpoint "repos/$ControllerRepository/contents/$Path"
+    if ($lookup.Found) {
+        $file=$lookup.Data
         $decoded=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($file.content))
         if ($decoded -ceq $Content) { Write-Host "Already prepared: $Path"; return }
         if ($Path -eq 'build-request.json') {
