@@ -126,8 +126,12 @@ void AVPHUD::DrawHUD()
             !GetWorld()->LineTraceTestByChannel(Eye, Mark, ECC_Visibility, Query))
         {
             const FLinearColor Color(.83f, .73f, .39f, FMath::Clamp(MarkRemaining, 0.f, 1.f));
+            const FLinearColor Shadow(.005f, .01f, .012f, Color.A);
+            DrawLine(Screen.X-6.f, Screen.Y, Screen.X+6.f, Screen.Y, Shadow, 4.f);
+            DrawLine(Screen.X, Screen.Y-6.f, Screen.X, Screen.Y+6.f, Shadow, 4.f);
             DrawLine(Screen.X-6.f, Screen.Y, Screen.X+6.f, Screen.Y, Color, 2.f);
             DrawLine(Screen.X, Screen.Y-6.f, Screen.X, Screen.Y+6.f, Color, 2.f);
+            DrawRect(FLinearColor(.01f, .02f, .025f, .96f*Color.A), Screen.X+8.f, Screen.Y-11.f, 104.f, 22.f);
             DrawText(FString::Printf(TEXT("MARK %.0fm"), FVector::Distance(Eye, Mark)/100.f), Color,
                 Screen.X+10.f, Screen.Y-8.f, nullptr, .75f);
         }
@@ -138,11 +142,18 @@ void AVPHUD::DrawHUD()
     const float Y = 116.f * Scale;
     const float BarWidth = 210.f * Scale;
     const float BarHeight = 8.f * Scale;
+    // Remain readable against both physical daylight and an unlit interior.
+    // Bounded local UI never reveals an occluded world object.
+    const bool bStoryHUD = GetWorld() && GetWorld()->GetGameState<AVPStoryGameState>();
+    DrawRect(FLinearColor(.008f, .018f, .022f, .94f), X-10.f*Scale, Y-10.f*Scale,
+        FMath::Min(760.f*Scale, Canvas->ClipX-2.f*X), (bStoryHUD?236.f:218.f)*Scale);
 
     // Native UE application-frame measurements are gathered in a bounded
     // history and never inferred from graphics presets or browser benchmarks.
     FrameTelemetry.Record(FApp::GetDeltaTime());
     const float TelemetryX=FMath::Max(12.f,Canvas->ClipX-430.f*Scale);
+    DrawRect(FLinearColor(.008f, .018f, .022f, .94f), TelemetryX-8.f*Scale, 12.f*Scale,
+        FMath::Min(438.f*Scale, Canvas->ClipX-TelemetryX), 69.f*Scale);
     if (FrameTelemetry.HasEvidence())
     {
         const FString RenderLine=FString::Printf(
