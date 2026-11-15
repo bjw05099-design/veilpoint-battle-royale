@@ -2,12 +2,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$names=@('setup-game-dev.ps1','connect-build-pc.ps1','start-build-pc.ps1','run-native-pc-job.ps1')
+$names=@('setup-game-dev.ps1','connect-build-pc.ps1','start-build-pc.ps1','run-native-pc-job.ps1','build-pc-helpers.ps1')
 foreach ($name in $names) {
     $tokens=$null; $errors=$null
     [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repo "scripts/$name"),[ref]$tokens,[ref]$errors)
     if ($errors.Count -gt 0) { throw "PowerShell parse failure in $name`: $errors" }
 }
+& (Join-Path $PSScriptRoot 'build-pc-connection.ps1')
 $before=$env:VEILPOINT_TOOL_ROOT
 & (Join-Path $repo 'scripts/setup-game-dev.ps1')
 if ($env:VEILPOINT_TOOL_ROOT -cne $before) { throw 'Plan-only setup changed the tool environment.' }

@@ -21,15 +21,23 @@ gh auth login --scopes repo,workflow
 .\CONNECT_BUILD_PC.cmd
 ```
 
-엔진 경로가 기본값과 다르면 다음과 같이 지정한다.
+기본 엔진 경로는 `C:\Program Files\Epic Games\UE_5.8`이다. 먼저 `Test-Path 'C:\Program Files\Epic Games\UE_5.8\Engine\Build\Build.version'`으로 확인할 수 있다. 다른 위치에 설치했다면 Epic Games Launcher에서 확인한 **실제 UE_5.8 폴더**를 아래 입력창에 붙여 넣는다. 존재하지 않는 예제 드라이브 경로를 그대로 입력하지 않는다.
 
 ```powershell
-.\scripts\connect-build-pc.ps1 -EngineRoot 'D:\Epic Games\UE_5.8'
+$ueRoot = Read-Host 'Enter your actual UE_5.8 installation folder'
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\connect-build-pc.ps1 -EngineRoot $ueRoot
 ```
 
 5. 연결 코드가 만든 **비공개** `bjw05099-design/veilpoint-build-pc` 저장소를 ChatGPT의 GitHub 연결이 읽고 쓸 수 있도록 허용한다. 그다음 `START_BUILD_PC.cmd`를 실행하고 창을 열어 둔다. `Ctrl+C`로 작업 수신을 중지한다. 시작 프로그램이나 백그라운드 서비스는 자동으로 등록하지 않는다.
 
 첫 작업은 `preflight`다. 이것이 성공하고 비공개 저장소의 실행 결과를 확인한 후에 실제 `compile` 또는 `author-package` 작업을 요청할 수 있다. PC가 꺼져 있거나 실행기 창이 닫혀 있으면 작업은 실행되지 않는다.
+
+### 연결 단계에서 오류가 났을 때
+
+- `DriveNotFoundException` 또는 엔진 폴더 없음: 실제 설치 경로를 사용한다. 드라이브를 새로 만들거나 엔진을 다시 설치할 필요가 있다는 뜻은 아니다.
+- 최초 연결에서 `GraphQL: Could not resolve ... repository`와 `NativeCommandError`가 나온 구버전은 `git pull --ff-only`로 수정본을 받은 다음 연결을 다시 실행한다. Windows PowerShell 5.1에서 아직 없는 저장소/파일의 응답을 처리하던 문제를 수정했다.
+- 현재 코드는 HTTP 404일 때만 새 저장소/파일 준비로 진행한다. 인증·권한·속도 제한·통신 오류는 생성 단계로 넘기지 않는다. 이미 있는 비공개 저장소와 동일한 설정 파일은 재사용하며, 다른 설정을 덮어쓰지 않는다.
+- `d C:\VEILPOINT`는 오타다. 폴더 이동은 `cd C:\VEILPOINT`이며, 프롬프트가 이미 `PS C:\VEILPOINT>`이면 이동 명령을 다시 실행할 필요가 없다.
 
 ## 설치하는 도구
 
