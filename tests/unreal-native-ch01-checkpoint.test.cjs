@@ -104,3 +104,16 @@ test('native CH01 explicitly requested fresh story cannot delete checkpoints on 
  assert.ok(deletion>conditional,'destructive reset is opt-in only');
  assert.match(restore,/starting new local story by explicit launch flag/);
 });
+
+
+test('native save-slot launch flags are read lazily after packaged startup',()=>{
+ // Supplemental source guard; actual packaged process startup is verified separately.
+ assert.match(mode,/bool IsDiagnosticStory\(\)\s*\{\s*return FParse::Param\(FCommandLine::Get\(\)/);
+ assert.doesNotMatch(mode,/const bool bDiagnosticStory\s*=\s*FParse::Param/);
+ const save=mode.slice(mode.indexOf('bool AVPStoryGameMode::PersistStoryCheckpoint()'));
+ const restore=mode.slice(mode.indexOf('void AVPStoryGameMode::RestoreStoryCheckpoint()'),mode.indexOf('bool AVPStoryGameMode::PersistStoryCheckpoint()'));
+ for(const section of [save,restore]) {
+  assert.match(section,/const FString& CH01Slot=IsDiagnosticStory\(\)\?DiagnosticCH01Slot:NativeCH01Slot/);
+  assert.match(section,/const FString& CH01BackupSlot=IsDiagnosticStory\(\)\?DiagnosticCH01BackupSlot:NativeCH01BackupSlot/);
+ }
+});

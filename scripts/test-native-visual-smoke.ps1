@@ -15,10 +15,10 @@ if (Test-Path -LiteralPath $captures) { throw 'Visual smoke output already exist
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
 $log=Join-Path $evidence $(if ($Windowed) { 'window-smoke-runtime.log' } else { 'visual-smoke-runtime.log' })
 Write-Host "[VEILPOINT] Launching bounded game diagnostic: $folder"
-$arguments=@('-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
+$arguments=@('-stdout','-FullStdOutLogOutput','-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
     '-VPVisualSmoke',('-abslog="'+$log+'"'))
 if ($Windowed) { $arguments+='-VPWindowCapture' } else { $arguments+='-RenderOffscreen' }
-$process=Start-Process -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -ArgumentList $arguments -PassThru
+$process=Start-Process -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -ArgumentList $arguments -RedirectStandardOutput (Join-Path $evidence ($folder+'-stdout.txt')) -RedirectStandardError (Join-Path $evidence ($folder+'-stderr.txt')) -PassThru
 try {
     if (!$process.WaitForExit(90000)) {
         # Stop only the diagnostic process started above, never another game/editor.
@@ -59,6 +59,9 @@ foreach ($frame in @($proof.world,$proof.'sky-view')) {
     }
 }
 $runtimeLog=Get-Content -LiteralPath $log -Raw
+if ($runtimeLog -match 'Ensure condition failed|Fatal error:|Unhandled Exception:') {
+    throw 'Packaged runtime reported an engine assertion or fatal error; refusing a visual pass.'
+}
 if ($runtimeLog -match 'Please fix material usage flag InstancedStaticMeshes') {
     throw 'Packaged civic material lacks its instanced-mesh shader usage; refusing a fallback-material visual pass.'
 }

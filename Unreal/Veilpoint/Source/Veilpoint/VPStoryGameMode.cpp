@@ -169,11 +169,16 @@ void AVPStoryGameMode::BeginPlay()
 
 namespace
 {
-// Diagnostic sessions have separate slots and reset ONLY those slots.
-// Never let automatic route tests consume or replace the player's campaign.
-const bool bDiagnosticStory=FParse::Param(FCommandLine::Get(),TEXT("VPVisualSmoke"));
-const FString CH01Slot = bDiagnosticStory?TEXT("veilpoint.ch01.diagnostic.v1"):TEXT("veilpoint.ch01.native.v1");
-const FString CH01BackupSlot = bDiagnosticStory?TEXT("veilpoint.ch01.diagnostic.v1.backup"):TEXT("veilpoint.ch01.native.v1.backup");
+// Evaluate launch flags only after engine startup. A module-global call to
+// FCommandLine::Get runs before packaged WinMain initializes it.
+bool IsDiagnosticStory()
+{
+    return FParse::Param(FCommandLine::Get(),TEXT("VPVisualSmoke"));
+}
+const FString NativeCH01Slot=TEXT("veilpoint.ch01.native.v1");
+const FString NativeCH01BackupSlot=TEXT("veilpoint.ch01.native.v1.backup");
+const FString DiagnosticCH01Slot=TEXT("veilpoint.ch01.diagnostic.v1");
+const FString DiagnosticCH01BackupSlot=TEXT("veilpoint.ch01.diagnostic.v1.backup");
 constexpr int32 CH01UserIndex = 0;
 
 // Never promote invalid or impossible mission evidence to a recovery slot.
@@ -248,10 +253,12 @@ bool RestoreVerifiedCivilianPose(UWorld* World, const UVPStoryCheckpoint* Saved)
 
 void AVPStoryGameMode::RestoreStoryCheckpoint()
 {
+    const FString& CH01Slot=IsDiagnosticStory()?DiagnosticCH01Slot:NativeCH01Slot;
+    const FString& CH01BackupSlot=IsDiagnosticStory()?DiagnosticCH01BackupSlot:NativeCH01BackupSlot;
     if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode() != NM_Standalone) return;
     // Explicit local-only test entry point: a completed CH01 save must not
     // trap an editor smoke test on its terminal screen forever.
-    if (bDiagnosticStory || FParse::Param(FCommandLine::Get(), TEXT("VeilpointCH01Fresh")))
+    if (IsDiagnosticStory() || FParse::Param(FCommandLine::Get(), TEXT("VeilpointCH01Fresh")))
     {
         for (const FString& Slot : {CH01Slot, CH01BackupSlot})
         {
@@ -286,6 +293,8 @@ void AVPStoryGameMode::RestoreStoryCheckpoint()
 
 bool AVPStoryGameMode::PersistStoryCheckpoint()
 {
+    const FString& CH01Slot=IsDiagnosticStory()?DiagnosticCH01Slot:NativeCH01Slot;
+    const FString& CH01BackupSlot=IsDiagnosticStory()?DiagnosticCH01BackupSlot:NativeCH01BackupSlot;
     if (!HasAuthority() || !GetWorld() || GetWorld()->GetNetMode() != NM_Standalone)
         return false;
     const AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
