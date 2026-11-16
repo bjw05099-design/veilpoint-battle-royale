@@ -1,9 +1,9 @@
 name: VEILPOINT game development tools
 on:
   push:
-    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', 'tests/build-pc-connection.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
+    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/invoke-native-diagnostic-process.ps1', 'scripts/test-native-visual-smoke.ps1', 'tests/test-native-*.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', 'tests/build-pc-connection.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
   pull_request:
-    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', 'tests/build-pc-connection.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
+    paths: ['tools/game-dev/**', 'scripts/*game*', 'scripts/*blender*', 'scripts/*harbor*recipe*', 'scripts/*build-pc*', 'scripts/run-native-pc-job.ps1', 'scripts/invoke-native-diagnostic-process.ps1', 'scripts/test-native-visual-smoke.ps1', 'tests/test-native-*.ps1', 'scripts/verify-audio-toolchain.py', 'tests/test_game_tools_install.py', 'tests/game-dev-powershell.ps1', 'tests/build-pc-connection.ps1', '*.cmd', '.github/workflows/game-dev-tools.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,6 +40,7 @@ jobs:
         run: |
           ./tests/game-dev-powershell.ps1
           ./tests/test-native-latest-launcher.ps1
+          ./tests/test-native-diagnostic-process.ps1
       - name: Exercise actual Blender, geometry, GIS and profiler tools
         run: python tools/game-dev/run-checks.py --install-python
       - name: Upload generated assets and tool evidence

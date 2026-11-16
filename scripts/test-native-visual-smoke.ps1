@@ -4,6 +4,7 @@ param([Parameter(Mandatory=$true)][string]$ArchiveDirectory,
       [switch]$Windowed)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'invoke-native-diagnostic-process.ps1')
 $archive=[IO.Path]::GetFullPath($ArchiveDirectory)
 $evidence=[IO.Path]::GetFullPath($EvidenceDirectory)
 $game=Join-Path $archive 'Windows/Veilpoint/Binaries/Win64/Veilpoint.exe'
@@ -18,19 +19,13 @@ Write-Host "[VEILPOINT] Launching bounded game diagnostic: $folder"
 $arguments=@('-stdout','-FullStdOutLogOutput','-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
     '-VPVisualSmoke',('-abslog="'+$log+'"'))
 if ($Windowed) { $arguments+='-VPWindowCapture' } else { $arguments+='-RenderOffscreen' }
-$process=Start-Process -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -ArgumentList $arguments -RedirectStandardOutput (Join-Path $evidence ($folder+'-stdout.txt')) -RedirectStandardError (Join-Path $evidence ($folder+'-stderr.txt')) -PassThru
 try {
-    if (!$process.WaitForExit(90000)) {
-        # Stop only the diagnostic process started above, never another game/editor.
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        throw 'Offscreen visual smoke exceeded 90 seconds.'
-    }
-    if ($process.ExitCode -ne 0) { throw "Packaged visual smoke process failed: $($process.ExitCode)" }
+    $exitCode=Invoke-NativeDiagnosticProcess -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -Arguments ($arguments -join ' ') -StdoutPath (Join-Path $evidence ($folder+'-stdout.txt')) -StderrPath (Join-Path $evidence ($folder+'-stderr.txt'))
+    if ($exitCode -ne 0) { throw "Packaged visual smoke process failed: $exitCode" }
 } finally {
     if (Test-Path -LiteralPath $captures -PathType Container) {
         Copy-Item -LiteralPath $captures -Destination $evidence -Recurse
     }
-    $process.Dispose()
 }
 $result=Join-Path $captures 'visual-smoke.json'
 if (!(Test-Path -LiteralPath $result -PathType Leaf)) { throw 'Game exited without actual viewport evidence.' }
