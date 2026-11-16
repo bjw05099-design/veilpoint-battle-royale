@@ -58,7 +58,7 @@ try {
                     ConvertTo-Json | Set-Content -LiteralPath (Join-Path $retainedRoot 'latest-verified.json') -Encoding UTF8
             }
         } catch {
-            $report.status=if ($report.offscreenRenderVerified) { 'PACKAGED_RETENTION_FAILED' } else { 'PACKAGED_VISUAL_SMOKE_FAILED' }
+            $report.status=if ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } else { 'PACKAGED_VISUAL_SMOKE_FAILED' }
             throw
         }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }

@@ -1,11 +1,16 @@
 #include "VPPlayerController.h"
 #include "VPCharacter.h"
+#include "VPStoryGameState.h"
+#include "VPStoryGameMode.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "InputCoreTypes.h"
 #include "VPVisualSmoke.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealClient.h"
+#include "VPGameplaySmoke.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "HAL/PlatformTime.h"
@@ -52,6 +57,7 @@ void AVPPlayerController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     TickVisualSmoke();
+    TickStoryFeedback();
 }
 
 void AVPPlayerController::TickVisualSmoke()
@@ -67,6 +73,14 @@ void AVPPlayerController::TickVisualSmoke()
     if (FPlatformTime::Seconds() < NextVisualSmokeAt) return;
     if (VisualSmokeStep == 4)
     {
+        VPBeginGameplaySmoke(this,VisualSmokeReport.ToSharedRef());
+        VisualSmokeStep=5;
+        NextVisualSmokeAt=FPlatformTime::Seconds()+5.0;
+        return;
+    }
+    if (VisualSmokeStep == 5)
+    {
+        VPFinishGameplaySmoke(this,VisualSmokeReport.ToSharedRef());
         FVector Mark;
         float Remaining = 0.f;
         VisualSmokeReport->SetBoolField(TEXT("surfaceMarkExpired"), !GetLocalFieldMark(Mark, Remaining));
@@ -81,6 +95,11 @@ void AVPPlayerController::TickVisualSmoke()
         bVisualMarkRequested = true;
         NextVisualSmokeAt = FPlatformTime::Seconds() + .5;
         return; // Give the actual viewport a frame to draw the new mark.
+    }
+    if(FParse::Param(FCommandLine::Get(),TEXT("VPWindowCapture")) && !PrepareWindowScreenshot())
+    {
+        NextVisualSmokeAt=FPlatformTime::Seconds()+.1;
+        return; // Engine captures at the end of a rendered frame, not during Tick.
     }
     const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : VisualSmokeStep == 2 ? TEXT("field-mark") : TEXT("sky-view");
     const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, VisualSmokeCapture, Name);
@@ -101,6 +120,8 @@ void AVPPlayerController::TickVisualSmoke()
         ToggleDesktopMenu();
         VisualSmokeReport->SetBoolField(TEXT("menuOpened"), IsDesktopMenuOpen());
         VisualSmokeReport->SetBoolField(TEXT("offlinePaused"), IsPaused());
+        ClickMenuRow(5);
+        VisualSmokeReport->SetBoolField(TEXT("manualMissionSaveVerified"), GetLocalNotice().Contains(TEXT("saved and read back")));
         if (UVPGameUserSettings* Settings = UVPGameUserSettings::GetVeilpointSettings())
         {
             VisualSmokeReport->SetNumberField(TEXT("originalRenderScale"), ResolutionPercent(Settings));
@@ -148,6 +169,87 @@ void AVPPlayerController::TickVisualSmoke()
 #endif
 }
 
+bool AVPPlayerController::PrepareWindowScreenshot()
+{
+    if(WindowScreenshotPixels.Num()>0) return true;
+    if(!bWindowScreenshotBound)
+    {
+        UGameViewportClient::OnScreenshotCaptured().AddUObject(this,&AVPPlayerController::OnWindowScreenshotCaptured);
+        bWindowScreenshotBound=true;
+    }
+    if(!bWindowScreenshotPending)
+    {
+        bWindowScreenshotPending=true;
+        FScreenshotRequest::RequestScreenshot(false,true);
+    }
+    return false;
+}
+
+void AVPPlayerController::OnWindowScreenshotCaptured(int32 Width,int32 Height,const TArray<FColor>& Pixels)
+{
+    if(!bWindowScreenshotPending || Width<=0 || Height<=0 || Pixels.Num()!=Width*Height) return;
+    WindowScreenshotPixels=Pixels;
+    WindowScreenshotSize=FIntPoint(Width,Height);
+    bWindowScreenshotPending=false;
+}
+
+bool AVPPlayerController::ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size)
+{
+    if(WindowScreenshotPixels.Num()==0) return false;
+    Size=WindowScreenshotSize;
+    Pixels=MoveTemp(WindowScreenshotPixels);
+    return true;
+}
+
+void AVPPlayerController::ShowLocalNotice(const FString& Message)
+{
+    LocalNotice=Message;
+    NoticeExpiresAt=FPlatformTime::Seconds()+6.0;
+}
+
+FString AVPPlayerController::GetLocalNotice() const
+{
+    return FPlatformTime::Seconds()<NoticeExpiresAt?LocalNotice:FString();
+}
+
+bool AVPPlayerController::CanSaveMissionProgress() const
+{
+    const AVPCharacter* Player=Cast<AVPCharacter>(GetPawn());
+    return IsLocalController() && GetNetMode()==NM_Standalone && Player && Player->IsAlive() &&
+        GetWorld() && GetWorld()->GetAuthGameMode<AVPStoryGameMode>();
+}
+
+void AVPPlayerController::SaveMissionProgress()
+{
+    if(!CanSaveMissionProgress())
+    {
+        ShowLocalNotice(TEXT("Mission progress saving is available in offline CH01 while alive."));
+        return;
+    }
+    AVPStoryGameMode* Mode=GetWorld()->GetAuthGameMode<AVPStoryGameMode>();
+    const bool bSaved=Mode && Mode->PersistStoryCheckpoint();
+    ShowLocalNotice(bSaved?TEXT("Mission progress saved and read back. Resume restarts at the mission spawn."):
+        TEXT("Save failed. Current progress remains in memory; do not quit yet."));
+}
+
+void AVPPlayerController::TickStoryFeedback()
+{
+    if(!IsLocalController() || !GetWorld()) return;
+    AVPStoryGameState* Story=GetWorld()->GetGameState<AVPStoryGameState>();
+    if(FeedbackStory.Get()!=Story)
+    {
+        FeedbackStory=Story;
+        SeenStoryRevision=Story?Story->ActionRevision:0;
+        return; // Joining/restoring a world must not replay an old action toast.
+    }
+    if(!Story || SeenStoryRevision==Story->ActionRevision) return;
+    SeenStoryRevision=Story->ActionRevision;
+    FString Message=Story->GetLastActionFeedback();
+    if(GetNetMode()==NM_Standalone)
+        Message+=Story->bLastCheckpointSaved?TEXT(" | Progress saved."):TEXT(" | Disk save failed; memory only.");
+    ShowLocalNotice(Message);
+}
+
 void AVPPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
@@ -192,6 +294,7 @@ void AVPPlayerController::CloseDesktopMenu()
 
 void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    if(bWindowScreenshotBound) UGameViewportClient::OnScreenshotCaptured().RemoveAll(this);
     if (VisualSmokeCapture) VisualSmokeCapture->DestroyComponent();
     CloseDesktopMenu();
     Super::EndPlay(EndPlayReason);
@@ -205,7 +308,8 @@ void AVPPlayerController::MenuActivate()
 {
     if (!bDesktopMenuOpen) return;
     if (MenuRow == 0) CloseDesktopMenu();
-    else if (MenuRow == 5) UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+    else if (MenuRow == 5) SaveMissionProgress();
+    else if (MenuRow == 6) UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
     else ChangeMenuValue(1);
 }
 
@@ -258,7 +362,8 @@ FString AVPPlayerController::GetMenuLabel(int32 Row) const
 {
     const UVPGameUserSettings* Settings = UVPGameUserSettings::GetVeilpointSettings();
     if (Row == 0) return TEXT("Resume");
-    if (Row == 5) return TEXT("Quit game");
+    if (Row == 5) return CanSaveMissionProgress()?TEXT("Save mission progress"):TEXT("Save mission progress (offline CH01 only)");
+    if (Row == 6) return TEXT("Quit game");
     if (!Settings) return TEXT("Settings unavailable");
     switch (Row)
     {

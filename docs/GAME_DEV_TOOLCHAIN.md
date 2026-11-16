@@ -111,3 +111,13 @@ FFmpeg, Ruff, Tracy, Open3D, meshoptimizer, trimesh, xatlas, Rasterio, glTF Tran
 ### 2026-11-16 Lumen cache and actual game viewport
 
 The daylight camera reaches EV14. `r.EyeAdaptation.CachedLightingPreExposure=8` keeps this inside the shared Lumen/realtime-sky cache range; it does not disable warnings or Lumen. Each author-package now also runs a bounded windowed diagnostic and reads only its own viewport, including the main-view warning band and a sky-facing camera. Offscreen and window readback are separate evidence; neither certifies physical keyboard input or GPU performance. The scene brightness sample excludes both HUD plates.
+
+### Native mission equipment and original Blender harbor
+
+The native CH01 relay cabinet, signal cabinet, record tables, route signs and exit bollards are grounded physical props. They remain after use; their F prompts still depend on authoritative distance, facing, line of sight and current mission state. The lever follows the actual relay/signal state. A six-second action notice shows inspected notes, route changes and the verified offline save result.
+
+ESC → Save mission progress uses the same verified primary/backup checkpoint as automatic mission saves. It stores the existing mission/civilian fields, not the player's position, ammunition or health. On resume the player restarts at the mission spawn. Online/BR/dead-player contexts cannot use this local save action.
+
+`ContentSource/OriginalHarbor` preserves the verified editable Blender original and FBX. The map author imports ten visual meshes and nine named convex colliders at (110m, -75m), reloads the saved map and checks 16×20×9.18m bounds. A bounded native diagnostic checks three lines through both four-metre doorways plus the side wall and roof. This is original prototype art.
+
+The packaged diagnostic now also uses the real F interaction entrypoint to reject remote/behind interactions, repair the relay, reuse the signal, read optional records, finish the south route, wait for the east door and finish the east route. These sessions use separate diagnostic save slots, preserving the player's campaign. Test placement is automated; this is not human keyboard/mouse or full campaign validation.

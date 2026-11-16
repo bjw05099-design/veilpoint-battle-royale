@@ -5,6 +5,7 @@
 #include "VPStoryMarker.generated.h"
 
 class UStaticMeshComponent;
+class USceneComponent;
 class UPointLightComponent;
 class UTextRenderComponent;
 class AVPCharacter;
@@ -44,6 +45,23 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<USceneComponent> EquipmentRoot;
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> Plinth;
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> LeftSupport;
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> RightSupport;
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> FacePanel;
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> SwitchHandle;
+    float GroundLocalZ = -125.f;
+    int32 LastShapeAction = -1;
+    bool bLastEquipmentActive = false;
+    void GroundEquipment();
+    bool IsEquipmentActive() const;
     // Physical silhouette reflects the replicated objective type. Native
     // placeholder markers remain usable without missing external assets.
     void ApplyStageShape();

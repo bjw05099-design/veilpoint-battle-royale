@@ -54,6 +54,7 @@ public:
     bool CollectResource(FName Resource);
     UFUNCTION(BlueprintCallable, Category="Survival")
     bool IsAlive() const { return Health > 0.f && !bEliminated; }
+    void RequestInteraction() { TryInteract(); }
     void RequestPrimaryAction() { TryTag(); }
     void ReleaseDesktopActions() { EndSprint(); }
 

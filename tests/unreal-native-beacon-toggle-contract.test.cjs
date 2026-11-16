@@ -20,7 +20,7 @@ test('UE5 native CH01 beacon switch can be physically reused after relay and bef
  assert.match(reach,/LineTraceTestByChannel/);
  assert.match(entry,/State->TryAdvance\(Action\)/);
  assert.match(entry,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
- assert.match(entry,/Model->SetVisibility\(IsAvailable\(\)\)/);
+ assert.doesNotMatch(entry,/Model->SetVisibility\(IsAvailable\(\)\)/,'equipment persists after use; availability gates interaction only');
  assert.match(entry,/SyncBeaconLight\(\);/);
 });
 test('UE5 every on/off transition still serializes the same V2 offline CH01 field',()=>{

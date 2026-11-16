@@ -57,8 +57,7 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     AVPHUD* HUD = Desktop ? Cast<AVPHUD>(Desktop->GetHUD()) : nullptr;
     if (!World || !HUD || !Capture || !Capture->TextureTarget) return nullptr;
     const bool bWindow = FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture"));
-    FViewport* Viewport = World->GetGameViewport() ? World->GetGameViewport()->Viewport : nullptr;
-    const FIntPoint Size = bWindow && Viewport ? Viewport->GetSizeXY() : FIntPoint(1280, 720);
+    FIntPoint Size(1280,720);
     const auto MakeTarget = [Desktop, Size]()
     {
         UTextureRenderTarget2D* Target = NewObject<UTextureRenderTarget2D>(Desktop);
@@ -75,7 +74,7 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     if (bWindow)
     {
         // Read only this game's viewport, never the user's desktop or other apps.
-        bRead = Viewport && GetViewportScreenShot(Viewport, Pixels);
+        bRead = Desktop->ReadWindowScreenshot(Pixels,Size);
     }
     else
     {
@@ -122,7 +121,7 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     };
     TSharedPtr<FJsonObject> Frame = MakeShared<FJsonObject>();
     Frame->SetStringField(TEXT("name"), Name);
-    Frame->SetStringField(TEXT("captureMethod"), bWindow ? TEXT("game-window-viewport-readback") : TEXT("gpu-scene-capture-with-production-hud-canvas"));
+    Frame->SetStringField(TEXT("captureMethod"), bWindow ? TEXT("game-window-end-frame-screenshot") : TEXT("gpu-scene-capture-with-production-hud-canvas"));
     Frame->SetBoolField(TEXT("windowPresentationVerified"), bWindow);
     const IConsoleVariable* Cache = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EyeAdaptation.CachedLightingPreExposure"));
     Frame->SetNumberField(TEXT("cachedLightingPreExposure"), Cache ? Cache->GetFloat() : -999.f);

@@ -31,6 +31,14 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="VEILPOINT|CH01")
     bool bBeaconActivated = false;
 
+    UPROPERTY(Replicated)
+    int32 ActionRevision = 0;
+    UPROPERTY(Replicated)
+    EVPStoryAction LastAction = EVPStoryAction::RestoreRelay;
+    // Offline disk result is local, never a fabricated network checkpoint.
+    bool bLastCheckpointSaved = false;
+    FString GetLastActionFeedback() const;
+
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     // Only the authoritative server may change a mission phase.

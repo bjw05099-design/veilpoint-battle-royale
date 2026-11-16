@@ -30,6 +30,10 @@ jobs:
             exit 1
           fi
           node scripts/verify-pc-viewport.cjs --output dist/pc-ui-geometry.json
+      - name: Execute native combat phase rules
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror tests/native/combat-rules.cpp -o /tmp/veilpoint-combat-rules
+          /tmp/veilpoint-combat-rules
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
       - name: Verify native dynamic daylight configuration
