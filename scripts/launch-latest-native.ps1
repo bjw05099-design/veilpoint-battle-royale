@@ -1,7 +1,13 @@
 [CmdletBinding()]
-param([string]$PackageRoot=$PSScriptRoot,[switch]$InspectOnly)
+param([string]$PackageRoot,[switch]$InspectOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# Parameter defaults can see the caller's automatic-variable scope. Resolve
+# the script directory in the body when launched by cmd/powershell -File.
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
+    $PackageRoot=Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) { throw 'Launcher directory could not be resolved.' }
 $root=[IO.Path]::GetFullPath($PackageRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
 $pointer=Join-Path $root 'latest-verified.json'
 if (!(Test-Path -LiteralPath $pointer -PathType Leaf)) { throw 'No verified native package is available yet.' }
