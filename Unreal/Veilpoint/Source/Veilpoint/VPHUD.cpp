@@ -64,12 +64,16 @@ void AVPHUD::DrawDesktopMenu(AVPPlayerController* Desktop)
     const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1000.f, Canvas->ClipY / 700.f), .55f, 1.3f);
     const float Width = FMath::Min(620.f * Scale, Canvas->ClipX - 24.f);
     const float Left = (Canvas->ClipX - Width) * .5f;
-    const float Top = FMath::Max(12.f, (Canvas->ClipY - 430.f * Scale) * .5f);
+    const float PanelHeight=172.f+AVPPlayerController::MenuRowCount*43.f;
+    const float Top = FMath::Max(12.f, (Canvas->ClipY - PanelHeight * Scale) * .5f);
     DrawRect(FLinearColor(0.f, .01f, .02f, .8f), 0, 0, Canvas->ClipX, Canvas->ClipY);
-    DrawRect(FLinearColor(.025f, .055f, .065f, .98f), Left, Top, Width, 430.f * Scale);
+    DrawRect(FLinearColor(.025f, .055f, .065f, .98f), Left, Top, Width, PanelHeight * Scale);
     DrawText(TEXT("VEILPOINT"), FLinearColor(.87f, .91f, .85f), Left + 24.f * Scale, Top + 20.f * Scale, nullptr, 1.45f * Scale);
     DrawText(GetNetMode() == NM_Standalone ? TEXT("Paused") : TEXT("Online session continues"),
         FLinearColor(.69f, .78f, .78f), Left + 24.f * Scale, Top + 58.f * Scale, nullptr, .85f * Scale);
+    const FString Notice=Desktop->GetLocalNotice();
+    if(!Notice.IsEmpty()) DrawText(Notice,FLinearColor(.86f,.91f,.78f),
+        Left+24.f*Scale,Top+(PanelHeight-17.f)*Scale,nullptr,.58f*Scale);
     DesktopMenuBounds.Reset();
     float MouseX = -1.f, MouseY = -1.f;
     Desktop->GetMousePosition(MouseX, MouseY);
@@ -85,9 +89,9 @@ void AVPHUD::DrawDesktopMenu(AVPPlayerController* Desktop)
             Min.X + 12.f * Scale, Min.Y + 9.f * Scale, nullptr, .88f * Scale);
     }
     DrawText(TEXT("Click or use arrows + Enter | ESC resumes"), FLinearColor(.72f, .83f, .84f),
-        Left + 24.f * Scale, Top + 367.f * Scale, nullptr, .72f * Scale);
+        Left + 24.f * Scale, Top + (109.f+AVPPlayerController::MenuRowCount*43.f) * Scale, nullptr, .72f * Scale);
     DrawText(TEXT("WASD move | Shift sprint | C crouch | F interact | L lamp | MMB mark"),
-        FLinearColor(.72f, .83f, .84f), Left + 24.f * Scale, Top + 394.f * Scale, nullptr, .64f * Scale);
+        FLinearColor(.72f, .83f, .84f), Left + 24.f * Scale, Top + (136.f+AVPPlayerController::MenuRowCount*43.f) * Scale, nullptr, .64f * Scale);
 }
 
 void AVPHUD::DrawHUD()
@@ -205,6 +209,17 @@ void AVPHUD::DrawHUD()
         :LastNativeBenchmarkStatus;
     DrawText(CaptureLine,FLinearColor(.86f,.86f,.69f,1.f),
              TelemetryX,65.f*Scale,nullptr,.67f*Scale,false);
+
+    if(Desktop)
+    {
+        const FString Notice=Desktop->GetLocalNotice();
+        if(!Notice.IsEmpty())
+        {
+            const float NoticeWidth=FMath::Min(Canvas->ClipX-24.f,1100.f*Scale);
+            DrawRect(FLinearColor(.025f,.055f,.065f,.96f),12.f,Canvas->ClipY-150.f*Scale,NoticeWidth,38.f*Scale);
+            DrawText(Notice,FLinearColor(.86f,.94f,.82f),22.f,Canvas->ClipY-140.f*Scale,nullptr,.72f*Scale);
+        }
+    }
 
     // Display the actual native authoritative stamina rather than inventing
     // a local count based on render FPS. It is safe for offline and net PIE.

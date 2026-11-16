@@ -1,0 +1,29 @@
+{
+  "schema": "veilpoint-blender-export-v1",
+  "blender": "5.2.4 LTS",
+  "sourceSha256": "9d67b761bc4c0154ea70bdc927334b70e6284e0c1b8affbbf76d676b6a689a14",
+  "visualObjects": 10,
+  "convexCollisionObjects": 9,
+  "doorwayWidthMetres": 4,
+  "dimensionsMetres": [
+    16,
+    20,
+    9.18
+  ],
+  "originalPrototypeGeometry": true,
+  "unrealImportVerified": false,
+  "files": {
+    "harbor.glb": {
+      "bytes": 45640,
+      "sha256": "7f9ac2cd3b5711872e2ae3f55e0ce6395c1a08ab72540c24ade6522435466137"
+    },
+    "harbor.fbx": {
+      "bytes": 89260,
+      "sha256": "69e67eb27f115874cf7c2e8681fbd5644d36920e77c68695b9dda477da212bcd"
+    },
+    "harbor.blend": {
+      "bytes": 109662,
+      "sha256": "4e06540aecea7396fd2f030951c37e677d3a477343f1605f46bf45bffd930856"
+    }
+  }
+}

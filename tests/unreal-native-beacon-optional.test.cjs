@@ -22,7 +22,7 @@ test('UE5 story has a real optional physical action with server-replicated beaco
  assert.match(mc,/SyncBeaconLight\(\);/);
  assert.match(mc,/FMath::Square\(275\.f\)/,'same physical E interaction check is required');
  assert.match(mc,/if \(Action != EVPStoryAction::ActivateBeacon\)\s*bUsed = true/);
- assert.match(mc,/if \(Model\) Model->SetVisibility\(IsAvailable\(\)\)/);
+ assert.doesNotMatch(mc,/Model->SetVisibility\(IsAvailable\(\)\)/,'equipment persists after use; availability gates interaction only');
 });
 test('UE5 native CH01 V3 keeps V2 beacon and V1 objective saves with readback proof',()=>{
  const data=read('VPStoryCheckpoint.h'),mode=read('VPStoryGameMode.cpp'),state=read('VPStoryGameState.cpp');

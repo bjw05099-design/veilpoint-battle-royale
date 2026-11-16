@@ -12,17 +12,20 @@ test('UE5 authored CH01 objective silhouettes distinguish relay, records, decisi
  const section=source.slice(source.indexOf('void AVPStoryMarker::ApplyStageShape()'),source.indexOf('void AVPStoryMarker::GetLifetimeReplicatedProps'));
  for(const name of ['RestoreRelay','ReadHarbor','ReadShelter','ChooseSouth','ChooseEast','ReachSouth','ReachEast'])
   assert.match(section,new RegExp('EVPStoryAction::'+name));
- assert.match(section,/Shape = FVector\(\.52f, \.52f, 1\.2f\)/);
- assert.match(section,/Shape = FVector\(\.70f, \.70f, \.15f\)/);
- assert.match(section,/GetRelativeScale3D\(\)\.Equals\(Shape, \.001f\)/);
- assert.match(section,/Model->SetRelativeScale3D\(Shape\)/);
+ assert.match(section,/Shape\(Model,FVector\(52,60,118\)/,'grounded relay cabinet');
+ assert.match(section,/Shape\(Model,FVector\(80,76,8\)/,'records lie on a table');
+ assert.match(section,/Shape\(Model,FVector\(14,14,170\)/,'route choices use a signpost');
+ assert.match(section,/GroundLocalZ/);
+ assert.match(section,/LastShapeAction==int32\(Action\)/,'rebuild only on type or state changes');
+ assert.match(section,/Part->SetVisibility\(true\)/,'used equipment remains in the world');
+ assert.match(source,/GroundEquipment\(\)/);
  assert.match(source,/void AVPStoryMarker::BeginPlay\(\)[\s\S]*?ApplyStageShape\(\);/);
  assert.match(source,/void AVPStoryMarker::Tick\(float DeltaSeconds\)[\s\S]*?ApplyStageShape\(\);/);
 });
 test('native visual markers preserve finite local E interaction and no extra gameplay RPC',()=>{
  const source=read('VPStoryMarker.cpp');
  const header=read('VPStoryMarker.h');
- assert.match(source,/Model->SetCollisionEnabled\(ECollisionEnabled::NoCollision\)/);
+ assert.match(source,/Model->SetCollisionEnabled\(ECollisionEnabled::QueryAndPhysics\)/);
  assert.match(source,/FMath::Square\(275\.f\)/);
  assert.match(source,/State->TryAdvance\(Action\)/);
  assert.match(source,/DOREPLIFETIME\(AVPStoryMarker, Action\)/);

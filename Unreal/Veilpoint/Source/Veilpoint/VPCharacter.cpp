@@ -1,4 +1,5 @@
 #include "VPCharacter.h"
+#include "VPCombatRules.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
 #include "VPPlayerController.h"
@@ -71,7 +72,7 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
     // also consume ammunition. Other controllers retain the legacy binding.
     if (!Cast<AVPPlayerController>(Controller))
         Input->BindAction(TEXT("Tag"), IE_Pressed, this, &AVPCharacter::TryTag);
-    Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::TryInteract);
+    Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::RequestInteraction);
     Input->BindAction(TEXT("FieldLight"), IE_Pressed, this, &AVPCharacter::ToggleFieldLight);
 }
 void AVPCharacter::MoveForward(float Value)
@@ -243,11 +244,19 @@ void AVPCharacter::TryTag()
 }
 void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction)
 {
-    if (!IsAlive() || Charges <= 0 || !GetWorld()) return;
+    if(!GetWorld()) return;
+    const AVPGameState* State=GetWorld()->GetGameState<AVPGameState>();
+    const AVPStoryGameState* Story=Cast<AVPStoryGameState>(State);
+    using VPCombatRules::Phase;
+    const Phase CombatPhase=Story?(Story->StoryStage==EVPStoryStage::Complete?Phase::Complete:Phase::StoryActive):
+        !State?Phase::Unavailable:State->bRoundComplete?Phase::Complete:
+        State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
+    // Waiting players and finished rounds neither spend ammunition nor damage.
+    if(!VPCombatRules::CanFire(CombatPhase,HasAuthority(),IsAlive(),Charges)) return;
     const double Time = GetWorld()->GetTimeSeconds();
     if (Time - LastServerTagTime < .22) return;
     // Authoritative start location and aiming direction: ignore untrusted client vectors.
-    const FVector Origin = GetActorLocation() + FVector(0,0,56);
+    const FVector Origin = BodyCamera ? BodyCamera->GetComponentLocation() : GetPawnViewLocation();
     const FVector RayDir = GetControlRotation().Vector();
     LastServerTagTime = Time;
     --Charges;

@@ -8,6 +8,8 @@
 void AVPStoryGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AVPStoryGameState, ActionRevision);
+    DOREPLIFETIME(AVPStoryGameState, LastAction);
     DOREPLIFETIME(AVPStoryGameState, StoryStage);
     DOREPLIFETIME(AVPStoryGameState, bReadHarbor);
     DOREPLIFETIME(AVPStoryGameState, bReadShelter);
@@ -117,12 +119,30 @@ bool AVPStoryGameState::TryAdvance(EVPStoryAction Action)
         StoryStage = EVPStoryStage::Complete;
         break;
     }
+    LastAction=Action;
+    ActionRevision=ActionRevision==MAX_int32?1:ActionRevision+1;
     ForceNetUpdate();
     // Offline single-player checkpoints never come from the client: the
     // authoritative game mode decides if this world may persist progress.
     if (AVPStoryGameMode* Mode = GetWorld() ? GetWorld()->GetAuthGameMode<AVPStoryGameMode>() : nullptr)
-        Mode->PersistStoryCheckpoint();
+        bLastCheckpointSaved=Mode->PersistStoryCheckpoint();
     return true;
+}
+
+FString AVPStoryGameState::GetLastActionFeedback() const
+{
+    switch(LastAction)
+    {
+    case EVPStoryAction::RestoreRelay: return TEXT("Relay power restored. Harbor signal is available.");
+    case EVPStoryAction::ActivateBeacon: return bBeaconActivated?TEXT("Harbor signal switched on."):TEXT("Harbor signal switched off.");
+    case EVPStoryAction::ReadHarbor: return TEXT("Harbor record added to field notes. Press J to review.");
+    case EVPStoryAction::ReadShelter: return TEXT("Shelter record added to field notes. Press J to review.");
+    case EVPStoryAction::ChooseSouth: return TEXT("South route selected. Reach the public courtyard.");
+    case EVPStoryAction::ChooseEast: return TEXT("East route selected. Wait for the physical exit to open.");
+    case EVPStoryAction::ReachSouth: return TEXT("South courtyard reached. CH01 local route complete.");
+    case EVPStoryAction::ReachEast: return TEXT("East exit reached. CH01 local route complete.");
+    }
+    return FString();
 }
 
 int32 AVPStoryGameState::GetOpeningBeat() const

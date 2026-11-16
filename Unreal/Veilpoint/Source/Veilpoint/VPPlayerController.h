@@ -19,9 +19,18 @@ public:
     FString GetMenuLabel(int32 Row) const;
     void ClickMenuRow(int32 Row);
     bool GetLocalFieldMark(FVector& OutPosition, float& OutRemaining) const;
-    static constexpr int32 MenuRowCount = 6;
+    static constexpr int32 MenuRowCount = 7;
+    FString GetLocalNotice() const;
 private:
     void TickVisualSmoke();
+    void TickStoryFeedback();
+    void SaveMissionProgress();
+    bool CanSaveMissionProgress() const;
+    TWeakObjectPtr<class AVPStoryGameState> FeedbackStory;
+    int32 SeenStoryRevision = 0;
+    FString LocalNotice;
+    double NoticeExpiresAt = 0.0;
+    void ShowLocalNotice(const FString& Message);
     int32 VisualSmokeStep = -1;
     bool bVisualMarkRequested = false;
     double NextVisualSmokeAt = 0.0;

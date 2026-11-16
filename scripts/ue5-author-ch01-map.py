@@ -209,6 +209,82 @@ def verify_saved_finishes(actors, finishes):
             "photorealArtVerified": False}
 
 
+def import_original_harbor(actors, finishes):
+    """Import actual Blender FBX, retain open doors and named UCX collision."""
+    source_dir = os.path.join(ROOT, "Unreal", "Veilpoint", "ContentSource", "OriginalHarbor")
+    source = os.path.join(source_dir, "harbor.fbx")
+    with open(os.path.join(source_dir, "blender-export.json"), encoding="utf-8") as stream:
+        provenance = json.load(stream)
+    with open(source, "rb") as stream:
+        digest = hashlib.sha256(stream.read()).hexdigest()
+    if digest != provenance["files"]["harbor.fbx"]["sha256"] or not provenance["originalPrototypeGeometry"]:
+        raise RuntimeError("Original Blender harbor source integrity failed")
+    options = unreal.FbxImportUI()
+    options.set_editor_property("import_mesh", True)
+    options.set_editor_property("import_as_skeletal", False)
+    options.set_editor_property("import_materials", False)
+    options.set_editor_property("import_textures", False)
+    options.set_editor_property("automated_import_should_detect_type", False)
+    options.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_STATIC_MESH)
+    settings = options.get_editor_property("static_mesh_import_data")
+    settings.set_editor_property("combine_meshes", False)
+    settings.set_editor_property("auto_generate_collision", False)
+    settings.set_editor_property("one_convex_hull_per_ucx", True)
+    settings.set_editor_property("transform_vertex_to_absolute", True)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", source)
+    task.set_editor_property("destination_path", "/Game/OriginalHarbor")
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", False)
+    task.set_editor_property("save", True)
+    task.set_editor_property("options", options)
+    task.set_editor_property("factory", unreal.FbxFactory())
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    meshes = [unreal.load_asset(path) for path in task.get_editor_property("imported_object_paths")]
+    meshes = [mesh for mesh in meshes if isinstance(mesh, unreal.StaticMesh)]
+    if len(meshes) != 10:
+        raise RuntimeError("Blender harbor import must produce exactly ten visual meshes: " + str(len(meshes)))
+    subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    imported = []
+    convex = 0
+    for mesh in meshes:
+        count = subsystem.get_convex_collision_count(mesh)
+        is_floor = "Floor" in mesh.get_name()
+        if not is_floor and count < 1:
+            raise RuntimeError("Original harbor mesh lost its named UCX collider: " + mesh.get_name())
+        convex += count
+        actor = actors.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(11000, -7500, -5), unreal.Rotator(0, 0, 0))
+        actor.set_actor_label("VP_CH01_HARBOR_" + mesh.get_name())
+        component = actor.get_component_by_class(unreal.StaticMeshComponent)
+        component.set_static_mesh(mesh)
+        component.set_material(0, finishes["Metal" if "Roof" in mesh.get_name() else "Wall"])
+        component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION if is_floor else unreal.CollisionEnabled.QUERY_AND_PHYSICS)
+        imported.append(actor.get_actor_label())
+    if convex != 9:
+        raise RuntimeError("Original harbor must preserve nine convex colliders: " + str(convex))
+    return {"sourceFbxSha256": digest, "visualMeshes": len(imported), "convexColliders": convex,
+            "actors": imported, "locationCm": [11000, -7500, -5],
+            "originalBlenderGeometry": True, "photorealArtVerified": False}
+
+
+def verify_saved_harbor(actors, proof):
+    observed = [actor for actor in actors if actor.get_actor_label().startswith("VP_CH01_HARBOR_")]
+    if len(observed) != 10:
+        raise RuntimeError("Saved map lost imported harbor actors")
+    mins, maxs = [float("inf")] * 3, [float("-inf")] * 3
+    for actor in observed:
+        centre, extent = actor.get_actor_bounds(False)
+        for i, axis in enumerate(("x", "y", "z")):
+            mins[i] = min(mins[i], getattr(centre, axis) - getattr(extent, axis))
+            maxs[i] = max(maxs[i], getattr(centre, axis) + getattr(extent, axis))
+    dimensions = [maxs[i] - mins[i] for i in range(3)]
+    if any(abs(actual - expected) > 10 for actual, expected in zip(dimensions, (1600, 2000, 918))):
+        raise RuntimeError("Imported FBX units, axes or bounds changed: " + str(dimensions))
+    proof["savedReloadVerified"] = True
+    proof["dimensionsCm"] = dimensions
+    return proof
+
+
 def author_ch01():
     # Fail closed before spawning anything or changing the game's main map.
     if os.path.exists(MAP_FILE):
@@ -282,6 +358,8 @@ def author_ch01():
             else unreal.CollisionEnabled.NO_COLLISION)
         spawned.append(actor.get_actor_label())
 
+    harbor_proof = import_original_harbor(actors, finishes)
+
     if len(spawned) != EXPECTED_PUBLIC_PIECES or len(set(spawned)) != len(spawned):
         raise RuntimeError("CH01 original public space incomplete or duplicated")
     if not levels.save_current_level() or not os.path.isfile(MAP_FILE):
@@ -291,6 +369,7 @@ def author_ch01():
     saved_actors = actors.get_all_level_actors()
     daylight = verify_saved_daylight(saved_actors)
     finish_proof = verify_saved_finishes(saved_actors, finishes)
+    harbor_proof = verify_saved_harbor(saved_actors, harbor_proof)
     with open(MAP_FILE, "rb") as stream:
         map_bytes = stream.read()
     if len(map_bytes) < 2048:
@@ -308,6 +387,7 @@ def author_ch01():
         "fictionalGeometryOnly": True,
         "daylight": daylight,
         "civicFinishes": finish_proof,
+        "originalHarbor": harbor_proof,
         "nativePIEVerified": False,
         "nativeWin64Packaged": False,
         "actualAdenCoverageVerified": False

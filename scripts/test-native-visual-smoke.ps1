@@ -36,6 +36,7 @@ $result=Join-Path $captures 'visual-smoke.json'
 if (!(Test-Path -LiteralPath $result -PathType Leaf)) { throw 'Game exited without actual viewport evidence.' }
 $proof=Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
 if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
+    $proof.nativeGameplayDiagnosticPassed -ne $true -or $proof.manualMissionSaveVerified -ne $true -or
     $proof.readbackSucceeded -ne $true -or $proof.menuOpened -ne $true -or
     $proof.offlinePaused -ne $true -or $proof.menuResumed -ne $true -or
     $proof.surfaceMarkPlaced -ne $true -or $proof.surfaceMarkExpired -ne $true -or
