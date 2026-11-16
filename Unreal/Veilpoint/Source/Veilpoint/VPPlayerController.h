@@ -21,8 +21,15 @@ public:
     bool GetLocalFieldMark(FVector& OutPosition, float& OutRemaining) const;
     static constexpr int32 MenuRowCount = 7;
     FString GetLocalNotice() const;
+    bool ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size);
 private:
     void TickVisualSmoke();
+    bool PrepareWindowScreenshot();
+    void OnWindowScreenshotCaptured(int32 Width,int32 Height,const TArray<FColor>& Pixels);
+    TArray<FColor> WindowScreenshotPixels;
+    FIntPoint WindowScreenshotSize = FIntPoint::ZeroValue;
+    bool bWindowScreenshotPending = false;
+    bool bWindowScreenshotBound = false;
     void TickStoryFeedback();
     void SaveMissionProgress();
     bool CanSaveMissionProgress() const;

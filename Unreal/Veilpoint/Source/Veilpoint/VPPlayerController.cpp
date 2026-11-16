@@ -8,6 +8,8 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "InputCoreTypes.h"
 #include "VPVisualSmoke.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealClient.h"
 #include "VPGameplaySmoke.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -94,6 +96,11 @@ void AVPPlayerController::TickVisualSmoke()
         NextVisualSmokeAt = FPlatformTime::Seconds() + .5;
         return; // Give the actual viewport a frame to draw the new mark.
     }
+    if(FParse::Param(FCommandLine::Get(),TEXT("VPWindowCapture")) && !PrepareWindowScreenshot())
+    {
+        NextVisualSmokeAt=FPlatformTime::Seconds()+.1;
+        return; // Engine captures at the end of a rendered frame, not during Tick.
+    }
     const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : VisualSmokeStep == 2 ? TEXT("field-mark") : TEXT("sky-view");
     const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, VisualSmokeCapture, Name);
     if (!Frame)
@@ -160,6 +167,38 @@ void AVPPlayerController::TickVisualSmoke()
     ++VisualSmokeStep;
     NextVisualSmokeAt = FPlatformTime::Seconds() + 2.0;
 #endif
+}
+
+bool AVPPlayerController::PrepareWindowScreenshot()
+{
+    if(WindowScreenshotPixels.Num()>0) return true;
+    if(!bWindowScreenshotBound)
+    {
+        UGameViewportClient::OnScreenshotCaptured().AddUObject(this,&AVPPlayerController::OnWindowScreenshotCaptured);
+        bWindowScreenshotBound=true;
+    }
+    if(!bWindowScreenshotPending)
+    {
+        bWindowScreenshotPending=true;
+        FScreenshotRequest::RequestScreenshot(false,true);
+    }
+    return false;
+}
+
+void AVPPlayerController::OnWindowScreenshotCaptured(int32 Width,int32 Height,const TArray<FColor>& Pixels)
+{
+    if(!bWindowScreenshotPending || Width<=0 || Height<=0 || Pixels.Num()!=Width*Height) return;
+    WindowScreenshotPixels=Pixels;
+    WindowScreenshotSize=FIntPoint(Width,Height);
+    bWindowScreenshotPending=false;
+}
+
+bool AVPPlayerController::ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size)
+{
+    if(WindowScreenshotPixels.Num()==0) return false;
+    Size=WindowScreenshotSize;
+    Pixels=MoveTemp(WindowScreenshotPixels);
+    return true;
 }
 
 void AVPPlayerController::ShowLocalNotice(const FString& Message)
@@ -255,6 +294,7 @@ void AVPPlayerController::CloseDesktopMenu()
 
 void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    if(bWindowScreenshotBound) UGameViewportClient::OnScreenshotCaptured().RemoveAll(this);
     if (VisualSmokeCapture) VisualSmokeCapture->DestroyComponent();
     CloseDesktopMenu();
     Super::EndPlay(EndPlayReason);
