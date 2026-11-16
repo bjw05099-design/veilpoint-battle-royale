@@ -86,6 +86,28 @@ def main():
     bpy.ops.export_scene.fbx(filepath=str(out/'harbor.fbx'), use_selection=True,
                              object_types={'MESH'}, add_leaf_bones=False, bake_anim=False,
                              axis_forward='-Y', axis_up='Z', apply_unit_scale=True)
+    # UE's FBX pipeline only imports the first custom collision when several
+    # render meshes share one file. Export one visual + its UCX per task.
+    parts_dir = out/'unreal-parts'
+    parts_dir.mkdir(exist_ok=True)
+    part_files = []
+    for obj in visual:
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        matches = [hull for hull in collision if hull.name.startswith('UCX_'+obj.name+'_')]
+        for hull in matches:
+            hull.select_set(True)
+        filename = obj.name+'.fbx'
+        bpy.ops.export_scene.fbx(filepath=str(parts_dir/filename), use_selection=True,
+                                 object_types={'MESH'}, add_leaf_bones=False, bake_anim=False,
+                                 axis_forward='-Y', axis_up='Z', apply_unit_scale=True)
+        part_files.append({'name': obj.name, 'file': filename,
+                           'ucxCount': len(matches),
+                           'sha256': hashlib.sha256((parts_dir/filename).read_bytes()).hexdigest()})
+    (out/'unreal-parts.json').write_text(json.dumps({
+        'schema': 'veilpoint-harbor-unreal-parts-v1',
+        'sourceSha256': recipe['sourceSha256'], 'parts': part_files,
+        'originalPrototypeGeometry': True}, indent=2)+'\n', encoding='utf-8')
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'harbor.blend'))
     files = {name: {'bytes': (out/name).stat().st_size,
                    'sha256': hashlib.sha256((out/name).read_bytes()).hexdigest()}

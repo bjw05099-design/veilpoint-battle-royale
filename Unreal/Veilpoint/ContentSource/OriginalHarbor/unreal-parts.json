@@ -1,0 +1,67 @@
+{
+  "schema": "veilpoint-harbor-unreal-parts-v1",
+  "sourceSha256": "9d67b761bc4c0154ea70bdc927334b70e6284e0c1b8affbbf76d676b6a689a14",
+  "parts": [
+    {
+      "name": "VP_Harbor_Wall_01",
+      "file": "VP_Harbor_Wall_01.fbx",
+      "ucxCount": 1,
+      "sha256": "679c1413b2fce35ec0a3905fbeed01e1a46134bfbf0b7e0b85b0d94b8c780750"
+    },
+    {
+      "name": "VP_Harbor_Wall_02",
+      "file": "VP_Harbor_Wall_02.fbx",
+      "ucxCount": 1,
+      "sha256": "c5cd7b932fbd356a8f324aa33ba1de910cea940be30f6b29ec8cea8bb3c70de7"
+    },
+    {
+      "name": "VP_Harbor_Wall_03",
+      "file": "VP_Harbor_Wall_03.fbx",
+      "ucxCount": 1,
+      "sha256": "4451a5b35b16a86e5410dd45b4e26cb58cf6475fff39669228798d592f0ff7cd"
+    },
+    {
+      "name": "VP_Harbor_Wall_04",
+      "file": "VP_Harbor_Wall_04.fbx",
+      "ucxCount": 1,
+      "sha256": "e6991551a1a04c905ec63d4fa4bda17d678033efdefe3ae37aa91c21734f7f75"
+    },
+    {
+      "name": "VP_Harbor_Wall_05",
+      "file": "VP_Harbor_Wall_05.fbx",
+      "ucxCount": 1,
+      "sha256": "48e06d2fb136954f0d150ed0aa64fac0c677aad18b29da49684ba0894f613a7e"
+    },
+    {
+      "name": "VP_Harbor_Wall_06",
+      "file": "VP_Harbor_Wall_06.fbx",
+      "ucxCount": 1,
+      "sha256": "855514d277e9dfb0f7d144ad2f85ebc9af94032c55c293e936b743763759d45f"
+    },
+    {
+      "name": "VP_Harbor_Cargo_07",
+      "file": "VP_Harbor_Cargo_07.fbx",
+      "ucxCount": 1,
+      "sha256": "2b823107251d226960ab0035ddd4c28a4f3064c8bc501fbd6fee0e1961f9e392"
+    },
+    {
+      "name": "VP_Harbor_Cargo_08",
+      "file": "VP_Harbor_Cargo_08.fbx",
+      "ucxCount": 1,
+      "sha256": "ec1d0c9b052b70cb1fa4a146fd77c047a801909039a8a79cc2ea89d3ea425971"
+    },
+    {
+      "name": "VP_Harbor_Roof",
+      "file": "VP_Harbor_Roof.fbx",
+      "ucxCount": 1,
+      "sha256": "b509179f266e666bf3432a2455743b4762bc79be90d798ed0e9600fe0999348d"
+    },
+    {
+      "name": "VP_Harbor_Floor",
+      "file": "VP_Harbor_Floor.fbx",
+      "ucxCount": 0,
+      "sha256": "a98aa4f4e5b8beb14040b9c0ecab8f7b5071a13dcb295f43ce463900e571faa2"
+    }
+  ],
+  "originalPrototypeGeometry": true
+}

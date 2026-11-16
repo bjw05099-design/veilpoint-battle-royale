@@ -214,8 +214,8 @@ FString AVPPlayerController::GetLocalNotice() const
 
 bool AVPPlayerController::CanSaveMissionProgress() const
 {
-    const AVPCharacter* Player=Cast<AVPCharacter>(GetPawn());
-    return IsLocalController() && GetNetMode()==NM_Standalone && Player && Player->IsAlive() &&
+    const AVPCharacter* ControlledPawn=Cast<AVPCharacter>(GetPawn());
+    return IsLocalController() && GetNetMode()==NM_Standalone && ControlledPawn && ControlledPawn->IsAlive() &&
         GetWorld() && GetWorld()->GetAuthGameMode<AVPStoryGameMode>();
 }
 

@@ -121,3 +121,7 @@ ESC → Save mission progress uses the same verified primary/backup checkpoint a
 `ContentSource/OriginalHarbor` preserves the verified editable Blender original and FBX. The map author imports ten visual meshes and nine named convex colliders at (110m, -75m), reloads the saved map and checks 16×20×9.18m bounds. A bounded native diagnostic checks three lines through both four-metre doorways plus the side wall and roof. This is original prototype art.
 
 The packaged diagnostic now also uses the real F interaction entrypoint to reject remote/behind interactions, repair the relay, reuse the signal, read optional records, finish the south route, wait for the east door and finish the east route. These sessions use separate diagnostic save slots, preserving the player's campaign. Test placement is automated; this is not human keyboard/mouse or full campaign validation.
+
+A successful native job writes `C:\VEILPOINT\.tools\native-packages\PLAY_LATEST_VEILPOINT.cmd`. This stable launcher resolves the most recent package that passed both render modes and validates its packaged source SHA. A desktop shortcut to this launcher will continue opening subsequent verified packages; moving individual executable files is unnecessary. The folder still includes older verified builds.
+
+FBX import uses one exported visual mesh and its matching UCX per file, following Epic's documented multi-mesh collision limitation. The source recipe, per-part hashes, ten imported actors and nine imported convex colliders are checked separately from runtime passage traces.
