@@ -18,6 +18,13 @@ New-Item -ItemType Directory -Force $logs,$reportDir | Out-Null
 $report=[ordered]@{schema='veilpoint-native-pc-job-v1';operation=$Operation;sourceSha=(git -C $repo rev-parse HEAD);status='FAILED';nativeRuntimeVerified=$false;offscreenRenderVerified=$false;windowRenderVerified=$false;humanInputVerified=$false;gpuPerformanceVerified=$false}
 try {
     & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PreflightOnly
+    if ($Operation -eq 'preflight' -and ![string]::IsNullOrWhiteSpace($env:VEILPOINT_TOOL_ROOT)) {
+        $retainedRoot=Join-Path ([IO.Path]::GetFullPath($env:VEILPOINT_TOOL_ROOT)) 'native-packages'
+        if (Test-Path -LiteralPath (Join-Path $retainedRoot 'latest-verified.json') -PathType Leaf) {
+            & (Join-Path $PSScriptRoot 'install-latest-native-launcher.ps1') -PackageRoot $retainedRoot
+            $report.latestLauncherVerified=$true
+        }
+    }
     if ($Operation -eq 'compile') {
         $project=Join-Path $repo 'Unreal/Veilpoint/Veilpoint.uproject'
         $before=$ErrorActionPreference
