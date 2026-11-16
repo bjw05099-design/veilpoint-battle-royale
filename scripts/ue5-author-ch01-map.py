@@ -231,16 +231,33 @@ def import_original_harbor(actors, finishes):
     settings.set_editor_property("auto_generate_collision", False)
     settings.set_editor_property("one_convex_hull_per_ucx", True)
     settings.set_editor_property("transform_vertex_to_absolute", True)
-    task = unreal.AssetImportTask()
-    task.set_editor_property("filename", source)
-    task.set_editor_property("destination_path", "/Game/OriginalHarbor")
-    task.set_editor_property("automated", True)
-    task.set_editor_property("replace_existing", False)
-    task.set_editor_property("save", True)
-    task.set_editor_property("options", options)
-    task.set_editor_property("factory", unreal.FbxFactory())
-    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
-    meshes = [unreal.load_asset(path) for path in task.get_editor_property("imported_object_paths")]
+    with open(os.path.join(source_dir, "unreal-parts.json"), encoding="utf-8") as stream:
+        manifest = json.load(stream)
+    if (manifest.get("schema") != "veilpoint-harbor-unreal-parts-v1"
+            or manifest.get("sourceSha256") != provenance["sourceSha256"]
+            or len(manifest.get("parts", [])) != 10
+            or sum(part.get("ucxCount", 0) for part in manifest["parts"]) != 9):
+        raise RuntimeError("Incomplete per-mesh Blender FBX manifest")
+    tasks = []
+    for part in manifest["parts"]:
+        if not re.fullmatch(r"VP_Harbor_[A-Za-z0-9_]+\.fbx", part["file"]):
+            raise RuntimeError("Unsafe original harbor part filename")
+        filename = os.path.join(source_dir, "unreal-parts", part["file"])
+        with open(filename, "rb") as stream:
+            if hashlib.sha256(stream.read()).hexdigest() != part["sha256"]:
+                raise RuntimeError("Original harbor FBX part integrity failed")
+        task = unreal.AssetImportTask()
+        task.set_editor_property("filename", filename)
+        task.set_editor_property("destination_path", "/Game/OriginalHarbor")
+        task.set_editor_property("destination_name", part["name"])
+        task.set_editor_property("automated", True)
+        task.set_editor_property("replace_existing", False)
+        task.set_editor_property("save", True)
+        task.set_editor_property("options", options)
+        task.set_editor_property("factory", unreal.FbxFactory())
+        tasks.append(task)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
+    meshes = [unreal.load_asset(path) for task in tasks for path in task.get_editor_property("imported_object_paths")]
     meshes = [mesh for mesh in meshes if isinstance(mesh, unreal.StaticMesh)]
     if len(meshes) != 10:
         raise RuntimeError("Blender harbor import must produce exactly ten visual meshes: " + str(len(meshes)))
@@ -264,7 +281,7 @@ def import_original_harbor(actors, finishes):
         raise RuntimeError("Original harbor must preserve nine convex colliders: " + str(convex))
     return {"sourceFbxSha256": digest, "visualMeshes": len(imported), "convexColliders": convex,
             "actors": imported, "locationCm": [11000, -7500, -5],
-            "originalBlenderGeometry": True, "photorealArtVerified": False}
+            "originalBlenderGeometry": True, "perMeshFbxImport": True, "photorealArtVerified": False}
 
 
 def verify_saved_harbor(actors, proof):

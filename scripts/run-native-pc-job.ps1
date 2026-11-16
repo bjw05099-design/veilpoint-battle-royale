@@ -54,8 +54,12 @@ try {
                 Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/Windows') -Destination (Join-Path $retained 'Windows') -Recurse
                 Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/veilpoint-win64-manifest.json') -Destination $retained
                 $report.retainedPackagePath=Join-Path $retained 'Windows'
-                [ordered]@{sourceSha=$report.sourceSha;path=$report.retainedPackagePath;offscreenRenderVerified=$true;humanInputVerified=$false} |
-                    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $retainedRoot 'latest-verified.json') -Encoding UTF8
+                Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'launch-latest-native.ps1') -Destination $retainedRoot -Force
+                Copy-Item -LiteralPath (Join-Path $repo 'tools/game-dev/PLAY_LATEST_VEILPOINT.cmd') -Destination $retainedRoot -Force
+                $pointerTemp=Join-Path $retainedRoot ('latest-'+[Guid]::NewGuid().ToString('N')+'.json')
+                [ordered]@{sourceSha=$report.sourceSha;path=$report.retainedPackagePath;offscreenRenderVerified=$true;windowRenderVerified=$true;humanInputVerified=$false} |
+                    ConvertTo-Json | Set-Content -LiteralPath $pointerTemp -Encoding UTF8
+                Move-Item -LiteralPath $pointerTemp -Destination (Join-Path $retainedRoot 'latest-verified.json') -Force
             }
         } catch {
             $report.status=if ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } else { 'PACKAGED_VISUAL_SMOKE_FAILED' }

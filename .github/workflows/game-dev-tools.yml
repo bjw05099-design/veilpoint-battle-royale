@@ -37,7 +37,9 @@ jobs:
       - name: Parse and test Windows setup/build guards
         if: runner.os == 'Windows'
         shell: powershell
-        run: ./tests/game-dev-powershell.ps1
+        run: |
+          ./tests/game-dev-powershell.ps1
+          ./tests/test-native-latest-launcher.ps1
       - name: Exercise actual Blender, geometry, GIS and profiler tools
         run: python tools/game-dev/run-checks.py --install-python
       - name: Upload generated assets and tool evidence
