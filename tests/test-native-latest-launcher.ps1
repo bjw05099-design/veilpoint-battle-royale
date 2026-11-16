@@ -6,6 +6,7 @@ $sha='0123456789abcdef0123456789abcdef01234567'
 $windows=Join-Path $fixture 'build/Windows'
 $binary=Join-Path $windows 'Veilpoint/Binaries/Win64/Veilpoint.exe'
 $script=Join-Path $repo 'scripts/launch-latest-native.ps1'
+. (Join-Path $repo 'scripts/invoke-native-diagnostic-process.ps1')
 function Write-Pointer($Path=$windows,$Source=$sha,$Offscreen=$true,$Window=$true) {
     @{sourceSha=$Source;path=$Path;offscreenRenderVerified=$Offscreen;windowRenderVerified=$Window} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $fixture 'latest-verified.json') -Encoding UTF8
@@ -35,8 +36,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Default root failed in a separate powershell.exe -File process.' }
         # Execute only our harmless batch fixture, never the dummy game binary.
         [IO.File]::WriteAllText((Join-Path $windows 'PLAY_VEILPOINT.cmd'), '@echo off'+[Environment]::NewLine+'echo fixture launched>"%~dp0fixture-launched.txt"')
-        & $env:ComSpec /d /c ('""'+(Join-Path $fixture 'PLAY_LATEST_VEILPOINT.cmd')+'" <nul"') | Out-Null
-        if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath (Join-Path $windows 'fixture-launched.txt'))) {
+        $batchCode=Invoke-NativeDiagnosticProcess -FilePath $env:ComSpec -Arguments ('/d /c ""'+(Join-Path $fixture 'PLAY_LATEST_VEILPOINT.cmd')+'" <nul"') -WorkingDirectory $env:SystemRoot -StdoutPath (Join-Path $fixture 'batch-stdout.txt') -StderrPath (Join-Path $fixture 'batch-stderr.txt') -TimeoutMilliseconds 10000
+        if ($batchCode -ne 0 -or !(Test-Path -LiteralPath (Join-Path $windows 'fixture-launched.txt'))) {
             throw 'The real latest-build batch entrypoint did not reach the harmless fixture launcher.'
         }
     } finally { Pop-Location }
