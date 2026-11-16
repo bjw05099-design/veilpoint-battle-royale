@@ -107,3 +107,7 @@ CH01 기본 재질은 프로젝트가 직접 생성한 단색 PBR 블록아웃�
 FFmpeg, Ruff, Tracy, Open3D, meshoptimizer, trimesh, xatlas, Rasterio, glTF Transform, pyproj, glTF Validator를 개발 도구로 채택했다. RenderDoc은 Windows 설치 대상으로 포함했다. Assimp는 현재 Blender 변환 경로로 충족돼 추가하지 않았다. mapshaper는 설치 시 오래된 의존성 경고를 확인해 제거했으며 지도 처리에는 pyproj·Rasterio를 사용한다. 다른 게임 엔진이나 대규모 런타임 라이브러리는 현재 UE5 프로젝트에 필요할 때 따로 검토한다.
 
 공식 프로젝트와 라이선스는 lockfile·조사 기록의 링크를 기준으로 확인한다. stars 수가 유지보수 상태, 라이선스 적합성 또는 VEILPOINT에서의 검증을 대신하지 않는다.
+
+### 2026-11-16 Lumen cache and actual game viewport
+
+The daylight camera reaches EV14. `r.EyeAdaptation.CachedLightingPreExposure=8` keeps this inside the shared Lumen/realtime-sky cache range; it does not disable warnings or Lumen. Each author-package now also runs a bounded windowed diagnostic and reads only its own viewport, including the main-view warning band and a sky-facing camera. Offscreen and window readback are separate evidence; neither certifies physical keyboard input or GPU performance. The scene brightness sample excludes both HUD plates.

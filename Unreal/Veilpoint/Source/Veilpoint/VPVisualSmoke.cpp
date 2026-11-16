@@ -7,6 +7,11 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "Camera/PlayerCameraManager.h"
 #include "RenderingThread.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealClient.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "HAL/IConsoleManager.h"
 #include "ImageUtils.h"
 #include "ImageCore.h"
 #include "Engine/World.h"
@@ -20,7 +25,7 @@ namespace
 {
 FString SmokeDirectory()
 {
-    return FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/VisualSmoke"));
+    return FPaths::Combine(FPaths::ProjectSavedDir(), FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture")) ? TEXT("Automation/WindowVisualSmoke") : TEXT("Automation/VisualSmoke"));
 }
 }
 
@@ -51,7 +56,9 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     UWorld* World = Desktop ? Desktop->GetWorld() : nullptr;
     AVPHUD* HUD = Desktop ? Cast<AVPHUD>(Desktop->GetHUD()) : nullptr;
     if (!World || !HUD || !Capture || !Capture->TextureTarget) return nullptr;
-    const FIntPoint Size(1280, 720);
+    const bool bWindow = FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture"));
+    FViewport* Viewport = World->GetGameViewport() ? World->GetGameViewport()->Viewport : nullptr;
+    const FIntPoint Size = bWindow && Viewport ? Viewport->GetSizeXY() : FIntPoint(1280, 720);
     const auto MakeTarget = [Desktop, Size]()
     {
         UTextureRenderTarget2D* Target = NewObject<UTextureRenderTarget2D>(Desktop);
@@ -63,12 +70,21 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     // Reuse the eight-second warmed, camera-attached capture. Recreating a
     // one-shot view here loses auto-exposure history and clips 50,000-lux light.
     FlushRenderingCommands();
-    UTextureRenderTarget2D* Composite = MakeTarget();
-    const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, Capture->TextureTarget);
-    FlushRenderingCommands();
     TArray<FColor> Pixels;
-    FTextureRenderTargetResource* Resource = Composite->GameThread_GetRenderTargetResource();
-    const bool bRead = bDrewHUD && Resource && Resource->ReadPixels(Pixels);
+    bool bRead = false;
+    if (bWindow)
+    {
+        // Read only this game's viewport, never the user's desktop or other apps.
+        bRead = Viewport && GetViewportScreenShot(Viewport, Pixels);
+    }
+    else
+    {
+        UTextureRenderTarget2D* Composite = MakeTarget();
+        const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, Capture->TextureTarget);
+        FlushRenderingCommands();
+        FTextureRenderTargetResource* Resource = Composite->GameThread_GetRenderTargetResource();
+        bRead = bDrewHUD && Resource && Resource->ReadPixels(Pixels);
+    }
     if (!bRead || Pixels.Num() != Size.X * Size.Y) return nullptr;
     // Backbuffer alpha is not scene transparency; preserve RGB and export an
     // opaque diagnostic so a valid render cannot look empty in a PNG viewer.
@@ -84,7 +100,7 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
         int32 Count = 0;
         // Exclude both HUD corners and measure actual central scene pixels.
         for (int32 Y = int32(Size.Y*Y0); Y < int32(Size.Y*Y1); ++Y)
-            for (int32 X = int32(Size.X*.3f); X < int32(Size.X*.7f); ++X)
+            for (int32 X = int32(Size.X*.55f); X < int32(Size.X*.8f); ++X)
             {
                 const FColor& Pixel = Pixels[Y*Size.X+X];
                 Sum += .2126*Pixel.R + .7152*Pixel.G + .0722*Pixel.B;
@@ -96,7 +112,7 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     {
         int32 White = 0, Count = 0;
         for (int32 Y = int32(Size.Y*Y0); Y < int32(Size.Y*Y1); ++Y)
-            for (int32 X = int32(Size.X*.3f); X < int32(Size.X*.7f); ++X)
+            for (int32 X = int32(Size.X*.55f); X < int32(Size.X*.8f); ++X)
             {
                 const FColor& Pixel = Pixels[Y*Size.X+X];
                 if (Pixel.R >= 250 && Pixel.G >= 250 && Pixel.B >= 250) ++White;
@@ -106,8 +122,20 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     };
     TSharedPtr<FJsonObject> Frame = MakeShared<FJsonObject>();
     Frame->SetStringField(TEXT("name"), Name);
-    Frame->SetStringField(TEXT("captureMethod"), TEXT("gpu-scene-capture-with-production-hud-canvas"));
-    Frame->SetBoolField(TEXT("windowPresentationVerified"), false);
+    Frame->SetStringField(TEXT("captureMethod"), bWindow ? TEXT("game-window-viewport-readback") : TEXT("gpu-scene-capture-with-production-hud-canvas"));
+    Frame->SetBoolField(TEXT("windowPresentationVerified"), bWindow);
+    const IConsoleVariable* Cache = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EyeAdaptation.CachedLightingPreExposure"));
+    Frame->SetNumberField(TEXT("cachedLightingPreExposure"), Cache ? Cache->GetFloat() : -999.f);
+    int32 RedWarningPixels = 0;
+    // Main-view engine warnings are absent from SceneCapture. Check their band
+    // outside the status HUD; do not disable screen messages to make this pass.
+    for (int32 Y=int32(Size.Y*.06f); Y<int32(Size.Y*.3f); ++Y)
+        for (int32 X=int32(Size.X*.42f); X<int32(Size.X*.98f); ++X)
+        {
+            const FColor& P=Pixels[Y*Size.X+X];
+            if(P.R>150 && P.G<100 && P.B<100 && P.R>1.8f*FMath::Max(P.G,P.B)) ++RedWarningPixels;
+        }
+    Frame->SetNumberField(TEXT("redWarningPixels"), RedWarningPixels);
     Frame->SetStringField(TEXT("map"), World->GetMapName());
     Frame->SetNumberField(TEXT("width"), Size.X);
     Frame->SetNumberField(TEXT("height"), Size.Y);

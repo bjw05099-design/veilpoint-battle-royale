@@ -23,6 +23,7 @@ public:
 private:
     void TickVisualSmoke();
     int32 VisualSmokeStep = -1;
+    bool bVisualMarkRequested = false;
     double NextVisualSmokeAt = 0.0;
     TSharedPtr<class FJsonObject> VisualSmokeReport;
     UPROPERTY(Transient)

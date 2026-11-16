@@ -15,7 +15,7 @@ if (!(Test-Path -LiteralPath $build)) { throw 'Unreal Build.bat is missing.' }
 $logs=Join-Path $repo 'dist/native-build-logs'
 $reportDir=Join-Path $repo 'dist/game-dev'
 New-Item -ItemType Directory -Force $logs,$reportDir | Out-Null
-$report=[ordered]@{schema='veilpoint-native-pc-job-v1';operation=$Operation;sourceSha=(git -C $repo rev-parse HEAD);status='FAILED';nativeRuntimeVerified=$false;offscreenRenderVerified=$false;humanInputVerified=$false;gpuPerformanceVerified=$false}
+$report=[ordered]@{schema='veilpoint-native-pc-job-v1';operation=$Operation;sourceSha=(git -C $repo rev-parse HEAD);status='FAILED';nativeRuntimeVerified=$false;offscreenRenderVerified=$false;windowRenderVerified=$false;humanInputVerified=$false;gpuPerformanceVerified=$false}
 try {
     & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PreflightOnly
     if ($Operation -eq 'compile') {
@@ -38,6 +38,9 @@ try {
             & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
             $report.offscreenRenderVerified=$true
+            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs -Windowed
+            $report.windowRenderVerified=$true
+            $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
             $report.humanInputVerified=$false
             $report.gpuPerformanceVerified=$false
             # The next runner checkout cleans source/dist. Retain verified
