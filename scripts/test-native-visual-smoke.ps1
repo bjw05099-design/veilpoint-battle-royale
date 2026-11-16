@@ -1,21 +1,24 @@
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][string]$ArchiveDirectory,
-      [Parameter(Mandatory=$true)][string]$EvidenceDirectory)
+      [Parameter(Mandatory=$true)][string]$EvidenceDirectory,
+      [switch]$Windowed)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $archive=[IO.Path]::GetFullPath($ArchiveDirectory)
 $evidence=[IO.Path]::GetFullPath($EvidenceDirectory)
 $game=Join-Path $archive 'Windows/Veilpoint/Binaries/Win64/Veilpoint.exe'
 $gameRoot=Join-Path $archive 'Windows/Veilpoint'
-$captures=Join-Path $gameRoot 'Saved/Automation/VisualSmoke'
+$folder=if ($Windowed) { 'WindowVisualSmoke' } else { 'VisualSmoke' }
+$captures=Join-Path $gameRoot ('Saved/Automation/'+$folder)
 if (!(Test-Path -LiteralPath $game -PathType Leaf)) { throw 'Packaged game binary missing for visual smoke test.' }
 if (Test-Path -LiteralPath $captures) { throw 'Visual smoke output already exists; refusing to certify stale images.' }
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
-$log=Join-Path $evidence 'visual-smoke-runtime.log'
-Write-Host '[VEILPOINT] Launching the packaged game OFFSCREEN for bounded render/menu/mark checks.'
-$process=Start-Process -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -ArgumentList @(
-    '-RenderOffscreen','-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
-    '-VPVisualSmoke',('-abslog="'+$log+'"')) -PassThru
+$log=Join-Path $evidence $(if ($Windowed) { 'window-smoke-runtime.log' } else { 'visual-smoke-runtime.log' })
+Write-Host "[VEILPOINT] Launching bounded game diagnostic: $folder"
+$arguments=@('-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
+    '-VPVisualSmoke',('-abslog="'+$log+'"'))
+if ($Windowed) { $arguments+='-VPWindowCapture' } else { $arguments+='-RenderOffscreen' }
+$process=Start-Process -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -ArgumentList $arguments -PassThru
 try {
     if (!$process.WaitForExit(90000)) {
         # Stop only the diagnostic process started above, never another game/editor.
@@ -42,10 +45,16 @@ if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
     ($proof.world.upperCentreWhiteFraction -gt 0.95 -and $proof.world.lowerCentreWhiteFraction -gt 0.95)) {
     throw 'Actual viewport/menu/mark smoke check failed. Inspect images and runtime log; no visual pass is claimed.'
 }
-foreach ($name in @('world','menu','field-mark')) {
+foreach ($name in @('world','menu','field-mark','sky-view')) {
     $png=Join-Path $captures ($name+'.png')
     if (!(Test-Path -LiteralPath $png -PathType Leaf) -or (Get-Item -LiteralPath $png).Length -lt 1024) {
         throw "Missing or empty actual viewport screenshot: $name"
+    }
+}
+foreach ($frame in @($proof.world,$proof.'sky-view')) {
+    if ($frame.cachedLightingPreExposure -ne 8) { throw 'Lumen cache pre-exposure does not match the EV14 daylight configuration.' }
+    if ($Windowed -and ($frame.windowPresentationVerified -ne $true -or $frame.redWarningPixels -gt 20)) {
+        throw 'Actual game viewport contains a red engine warning, or has no window readback.'
     }
 }
 $runtimeLog=Get-Content -LiteralPath $log -Raw

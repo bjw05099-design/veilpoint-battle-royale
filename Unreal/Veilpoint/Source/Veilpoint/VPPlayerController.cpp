@@ -41,7 +41,7 @@ void AVPPlayerController::BeginPlay()
         NextVisualSmokeAt = FPlatformTime::Seconds() + 8.0;
         VisualSmokeReport = MakeShared<FJsonObject>();
         VisualSmokeReport->SetStringField(TEXT("schema"), TEXT("veilpoint-native-visual-smoke-v1"));
-        VisualSmokeReport->SetBoolField(TEXT("offscreenDiagnosticOnly"), true);
+        VisualSmokeReport->SetBoolField(TEXT("offscreenDiagnosticOnly"), !FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture")));
         VisualSmokeReport->SetBoolField(TEXT("humanInputVerified"), false);
         VisualSmokeReport->SetBoolField(TEXT("gpuPerformanceVerified"), false);
     }
@@ -65,7 +65,7 @@ void AVPPlayerController::TickVisualSmoke()
         return;
     }
     if (FPlatformTime::Seconds() < NextVisualSmokeAt) return;
-    if (VisualSmokeStep == 3)
+    if (VisualSmokeStep == 4)
     {
         FVector Mark;
         float Remaining = 0.f;
@@ -75,8 +75,14 @@ void AVPPlayerController::TickVisualSmoke()
         UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
         return;
     }
-    if (VisualSmokeStep == 2) PlaceLocalFieldMark();
-    const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : TEXT("field-mark");
+    if (VisualSmokeStep == 2 && !bVisualMarkRequested)
+    {
+        PlaceLocalFieldMark();
+        bVisualMarkRequested = true;
+        NextVisualSmokeAt = FPlatformTime::Seconds() + .5;
+        return; // Give the actual viewport a frame to draw the new mark.
+    }
+    const FString Name = VisualSmokeStep == 0 ? TEXT("world") : VisualSmokeStep == 1 ? TEXT("menu") : VisualSmokeStep == 2 ? TEXT("field-mark") : TEXT("sky-view");
     const TSharedPtr<FJsonObject> Frame = VPReadVisualSmokeFrame(this, VisualSmokeCapture, Name);
     if (!Frame)
     {
@@ -119,7 +125,7 @@ void AVPPlayerController::TickVisualSmoke()
         VisualSmokeReport->SetBoolField(TEXT("menuResumed"), !IsDesktopMenuOpen() && !IsPaused());
         SetControlRotation(FRotator(-25.f, 0.f, 0.f));
     }
-    else
+    else if (VisualSmokeStep == 2)
     {
         FVector Mark;
         float Remaining = 0.f;
@@ -127,7 +133,14 @@ void AVPPlayerController::TickVisualSmoke()
         VisualSmokeReport->SetBoolField(TEXT("readbackSucceeded"), true);
         VPWriteVisualSmokeReport(VisualSmokeReport.ToSharedRef());
         VisualSmokeStep = 3;
+        SetControlRotation(FRotator(45.f, 0.f, 0.f));
         NextVisualSmokeAt = FPlatformTime::Seconds() + 9.0;
+        return;
+    }
+    else if (VisualSmokeStep == 3)
+    {
+        VisualSmokeStep = 4;
+        NextVisualSmokeAt = FPlatformTime::Seconds();
         return;
     }
     ++VisualSmokeStep;
