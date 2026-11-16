@@ -16,8 +16,8 @@ test('version-three native civilian state adds durable fields but keeps original
  }
  assert.match(mode,/SchemaVersion != 1 && Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3/);
  assert.match(mode,/Saved->SchemaVersion >= 2 && Saved->bSavedBeaconActivated/);
- assert.match(mode,/const FString CH01Slot = bDiagnosticStory\?TEXT\("veilpoint\.ch01\.diagnostic\.v1"\):TEXT\("veilpoint\.ch01\.native\.v1"\)/);
- assert.match(mode,/const FString CH01BackupSlot = bDiagnosticStory\?TEXT\("veilpoint\.ch01\.diagnostic\.v1\.backup"\):TEXT\("veilpoint\.ch01\.native\.v1\.backup"\)/);
+ assert.match(mode,/const FString NativeCH01Slot=TEXT\("veilpoint\.ch01\.native\.v1"\)/);
+ assert.match(mode,/const FString NativeCH01BackupSlot=TEXT\("veilpoint\.ch01\.native\.v1\.backup"\)/);
  assert.doesNotMatch(save,/SavedPlayerTransform|SavedAmmo|SavedHealth|PrivateToken|OpposingSquad/);
 });
 test('only physically arrived civilian milestones commit the native checkpoint',()=>{
