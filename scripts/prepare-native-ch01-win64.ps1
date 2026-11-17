@@ -121,7 +121,7 @@ Copy-Item -LiteralPath $receipt -Destination (Join-Path $logFolder 'ch01-map-rec
 $observedMapBytes=(Get-Item -LiteralPath $map).Length
 $mapSha=(Get-FileHash -LiteralPath $map -Algorithm SHA256).Hash.ToLowerInvariant()
 $layoutSha=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($proof.lastBroadcast.savedReloadVerified -ne $true -or
+if ($proof.lastBroadcast.savedReloadVerified -ne $true -or $proof.lastBroadcast.savedCollisionProfilesVerified -ne $true -or
     $proof.lastBroadcast.radioVisualMeshes -ne 9 -or $proof.lastBroadcast.radioConvexColliders -ne 9 -or
     $proof.lastBroadcast.radioSourceSha256 -cne (Get-FileHash -LiteralPath $radioSource -Algorithm SHA256).Hash.ToLowerInvariant()) {
     Fail 'Last Broadcast map/radio authoring receipt is incomplete or stale.'
