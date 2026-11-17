@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "chapterId": "CH01",
   "titleKo": "마지막 방송",
   "titleEn": "The Last Broadcast",
-  "storyDate": "2015-03-26",
+  "storyDate": "2015-04-05",
   "fictionalArrivalDate": "2015-03-18",
   "fictionalAssignmentSuspendedDate": "2015-03-19",
   "location": "Aden / Al-Mualla; fictional micro-locations",
-  "status": "screenplay-draft-not-playable",
+  "status": "revised-screenplay-not-playable",
   "targetMinutes": 50,
   "measuredMinutes": null,
   "scenes": [
@@ -154,5 +154,15 @@
   ],
   "sourceDocument": "docs/CH01_SCREENPLAY_KO.md",
   "historyDocument": "docs/CH01_HISTORY_SOURCES.md",
-  "branchPolicy": "Alternative south/east paths reconverge; never sum branch durations; optional clues never block progression"
+  "branchPolicy": "Alternative south/east paths reconverge; never sum branch durations; optional clues never block progression",
+  "fictionalOpeningLocalTime": "07:30",
+  "localReviewStatus": "documentary-review-completed-native-human-review-not-performed",
+  "reviewDocument": "docs/CH01_LOCALIZATION_REVIEW.md",
+  "arabicDialogueDraft": "docs/CH01_ARABIC_DIALOGUE_DRAFT.md",
+  "boardingManifest": {
+    "koreanTeam": 4,
+    "localCompanionsIncludingDriver": 4,
+    "totalIncludingDriver": 8,
+    "requiredVehicleSeatsAtLeast": 8
+  }
 }
