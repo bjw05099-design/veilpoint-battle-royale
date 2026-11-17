@@ -51,7 +51,7 @@ void AVPLastBroadcastEscort::Tick(float DeltaSeconds)
     FHitResult Hit;
     Capsule->MoveComponent(Step,FRotator(0,Delta.Rotation().Yaw,0),true,&Hit);
 }
-void AVPLastBroadcastEscort::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPLastBroadcastEscort::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out); DOREPLIFETIME(AVPLastBroadcastEscort,Kind); DOREPLIFETIME(AVPLastBroadcastEscort,bAtGoal);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AVPLastBroadcastEscort,Kind); DOREPLIFETIME(AVPLastBroadcastEscort,bAtGoal);
 }

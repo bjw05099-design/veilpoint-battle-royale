@@ -15,7 +15,7 @@ public:
     AVPLastBroadcastEscort();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UPROPERTY(Replicated) uint8 Kind=0;
     UPROPERTY(Replicated) bool bAtGoal=true;
     UPROPERTY(VisibleAnywhere) TObjectPtr<UCapsuleComponent> Capsule;

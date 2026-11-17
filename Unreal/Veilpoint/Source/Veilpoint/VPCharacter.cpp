@@ -1,5 +1,6 @@
 #include "VPCharacter.h"
 #include "VPCombatRules.h"
+#include "VPWeaponRules.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
 #include "VPLastBroadcastMission.h"
@@ -49,6 +50,9 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPCharacter, Health);
     DOREPLIFETIME(AVPCharacter, Charges);
+    DOREPLIFETIME(AVPCharacter, bReloading);
+    DOREPLIFETIME_CONDITION(AVPCharacter, MagazineRounds, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, ReloadEndsAt, COND_OwnerOnly);
     DOREPLIFETIME(AVPCharacter, bEliminated);
     DOREPLIFETIME(AVPCharacter, Stamina);
     DOREPLIFETIME(AVPCharacter, bSprinting);
@@ -75,6 +79,7 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
         Input->BindAction(TEXT("Tag"), IE_Pressed, this, &AVPCharacter::TryTag);
     Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::RequestInteraction);
     Input->BindAction(TEXT("FieldLight"), IE_Pressed, this, &AVPCharacter::ToggleFieldLight);
+    Input->BindAction(TEXT("Reload"), IE_Pressed, this, &AVPCharacter::RequestReload);
 }
 void AVPCharacter::MoveForward(float Value)
 {
@@ -94,6 +99,7 @@ bool AVPCharacter::IsDesktopInputBlocked() const
 void AVPCharacter::BeginSprint()
 {
     if (!IsAlive() || IsDesktopInputBlocked()) return;
+    if(bReloading)return;
     bSprintHeld = true;
     if (!HasAuthority()) ServerSetSprintHeld(true);
 }
@@ -139,6 +145,7 @@ void AVPCharacter::OnRep_Eliminated()
     bSprintHeld = false;
     bSprinting = false;
     bFieldLightOn = false;
+    bReloading=false;ReloadEndsAt=-1;
     OnRep_FieldLightState();
     ApplySprintSpeed();
     GetCharacterMovement()->StopMovementImmediately();
@@ -157,6 +164,16 @@ void AVPCharacter::ApplySprintSpeed()
 void AVPCharacter::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    if(HasAuthority() && bReloading)
+    {
+        if(!IsAlive() || !IsWeaponPhaseActive())
+        {bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();}
+        else if(GetWorld() && GetWorld()->GetTimeSeconds()>=ReloadEndsAt)
+        {
+            MagazineRounds=VPWeaponRules::FilledMagazine(Charges,MagazineRounds);
+            bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();
+        }
+    }
     if (!IsAlive()) return;
     // The actual cargo apron is visible at X=35m, Y=-40m. Update locally
     // for responsive PC movement prediction, while the server independently
@@ -238,6 +255,36 @@ float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AContr
     }
     return Amount;
 }
+bool AVPCharacter::IsWeaponPhaseActive() const
+{
+    if(!GetWorld())return false;
+    const auto* State=GetWorld()->GetGameState<AVPGameState>();
+    const auto* Story=Cast<AVPStoryGameState>(State);
+    const auto* Broadcast=AVPLastBroadcastMission::Find(GetWorld());
+    using VPCombatRules::Phase;
+    const bool ActiveBroadcast=Broadcast && Broadcast->Phase>0 && Broadcast->Phase<8;
+    const Phase Current=Story?(Story->StoryStage==EVPStoryStage::Complete && !ActiveBroadcast?Phase::Complete:Phase::StoryActive):
+        !State?Phase::Unavailable:State->bRoundComplete?Phase::Complete:State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
+    return VPCombatRules::CanFire(Current,HasAuthority(),IsAlive(),Charges);
+}
+void AVPCharacter::RequestReload()
+{
+    if(!IsLocallyControlled() || !IsAlive() || IsDesktopInputBlocked())return;
+    ServerRequestReload();
+}
+void AVPCharacter::ServerRequestReload_Implementation()
+{
+    if(!GetWorld() || !VPWeaponRules::CanReload(IsWeaponPhaseActive(),HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
+    bReloading=true;ReloadEndsAt=GetWorld()->GetTimeSeconds()+VPWeaponRules::ReloadSeconds;
+    bSprintHeld=false;bSprinting=false;ApplySprintSpeed();ForceNetUpdate();
+}
+float AVPCharacter::ReloadSecondsRemaining() const
+{
+    if(!bReloading || !GetWorld())return 0;
+    const auto* State=GetWorld()->GetGameState<AVPGameState>();
+    const double Now=State?State->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
+    return float(FMath::Max(0.0,ReloadEndsAt-Now));
+}
 void AVPCharacter::TryTag()
 {
     if (!IsLocallyControlled() || !IsAlive() || !BodyCamera || IsDesktopInputBlocked()) return;
@@ -256,6 +303,7 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
         State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
     // Waiting players and finished rounds neither spend ammunition nor damage.
     if(!VPCombatRules::CanFire(CombatPhase,HasAuthority(),IsAlive(),Charges)) return;
+    if(!VPWeaponRules::CanShoot(true,HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
     const double Time = GetWorld()->GetTimeSeconds();
     if (Time - LastServerTagTime < .22) return;
     // Authoritative start location and aiming direction: ignore untrusted client vectors.
@@ -263,6 +311,8 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
     const FVector RayDir = GetControlRotation().Vector();
     LastServerTagTime = Time;
     --Charges;
+    --MagazineRounds;
+    ForceNetUpdate();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(VPTag), true, this);
     FHitResult Hit;
     if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir*11000.f, ECC_Pawn, Params))

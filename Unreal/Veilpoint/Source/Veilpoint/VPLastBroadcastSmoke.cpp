@@ -59,6 +59,25 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
     case 0: Use(Desktop,A::LastHandover);break;
     case 1: Use(Desktop,A::LastThreat);break;
     case 2:
+        if(RoutePass==0)
+        {
+            auto* ControlledPawn=Cast<AVPCharacter>(Desktop->GetPawn());
+            if(!ControlledPawn)return -1;
+            if(!Report->HasField(TEXT("nativeReloadStartedAndFireBlocked")))
+            {
+                const int32 Total=ControlledPawn->Charges, Loaded=ControlledPawn->MagazineRounds;
+                ControlledPawn->RequestPrimaryAction();
+                const bool Shot=ControlledPawn->Charges==Total-1 && ControlledPawn->MagazineRounds==Loaded-1;
+                ControlledPawn->RequestReload();
+                const double Deadline=ControlledPawn->ReloadEndsAt;
+                ControlledPawn->RequestReload(); // Repeated R cannot reset/extend the server timer.
+                ControlledPawn->RequestPrimaryAction();
+                Report->SetBoolField(TEXT("nativeReloadStartedAndFireBlocked"),Shot && ControlledPawn->bReloading && ControlledPawn->Charges==Total-1 && ControlledPawn->MagazineRounds==Loaded-1 && Deadline==ControlledPawn->ReloadEndsAt);
+                Report->SetNumberField(TEXT("nativeReloadExpectedTotal"),Total-1);
+            }
+            else if(!ControlledPawn->bReloading && !Report->HasField(TEXT("nativeReloadConservesAmmunition")))
+                Report->SetBoolField(TEXT("nativeReloadConservesAmmunition"),ControlledPawn->Charges==Report->GetNumberField(TEXT("nativeReloadExpectedTotal")) && ControlledPawn->MagazineRounds==30);
+        }
         Use(Desktop,Mission->bWorkshopVisited?(RoutePass==0?A::LastChooseSouth:A::LastChooseEast):A::LastWorkshop);break;
     case 3:
         if(!PhysicalGatesChecked)
@@ -84,7 +103,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         else if(RoutePass==0 && !Interrupted && World->GetTimeSeconds()-Mission->BroadcastStartedAt>1)
         {
             // Leave the desk through the real character body; no forced phase.
-            if(auto* ControlledPawn=Desktop->GetPawn())ControlledPawn->SetActorLocation(FVector(11000,-6200,91),false,nullptr,ETeleportType::TeleportPhysics);
+            if(APawn* ControlledPawn=Desktop->GetPawn())ControlledPawn->SetActorLocation(FVector(11000,-6200,91),false,nullptr,ETeleportType::TeleportPhysics);
             Interrupted=true;
         }
         break;
@@ -107,7 +126,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
             RoutePass=1;PhysicalGatesChecked=false;return 0;
         }
         bool Passed=true;
-        for(const TCHAR* Field:{TEXT("lastBroadcastRemoteAndBehindRejected"),TEXT("blenderRadioDeskPresentAndColliding"),TEXT("southConvoyArrivalGateVerified"),TEXT("eastConvoyArrivalGateVerified"),TEXT("broadcastInterruptionVerified"),TEXT("lastBroadcastSouthCompleteAndSaved"),TEXT("lastBroadcastEastCompleteAndSaved"),TEXT("southPeopleAndSuppliesPhysicallyReceived"),TEXT("eastPeopleAndSuppliesPhysicallyReceived"),TEXT("forgedBroadcastCheckpointRejected")})
+        for(const TCHAR* Field:{TEXT("nativeReloadStartedAndFireBlocked"),TEXT("nativeReloadConservesAmmunition"),TEXT("lastBroadcastRemoteAndBehindRejected"),TEXT("blenderRadioDeskPresentAndColliding"),TEXT("southConvoyArrivalGateVerified"),TEXT("eastConvoyArrivalGateVerified"),TEXT("broadcastInterruptionVerified"),TEXT("lastBroadcastSouthCompleteAndSaved"),TEXT("lastBroadcastEastCompleteAndSaved"),TEXT("southPeopleAndSuppliesPhysicallyReceived"),TEXT("eastPeopleAndSuppliesPhysicallyReceived"),TEXT("forgedBroadcastCheckpointRejected")})
             Passed&=Report->HasField(Field) && Report->GetBoolField(Field);
         Report->SetBoolField(TEXT("lastBroadcastGameplayPassed"),Passed);
         Report->SetNumberField(TEXT("lastBroadcastElapsedSeconds"),FPlatformTime::Seconds()-Started);

@@ -31,7 +31,15 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
     float Health = 100.f;
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Survival")
-    int32 Charges = 48;
+    int32 Charges = 48; // Total ammunition: loaded rounds plus reserve.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="Weapon")
+    int32 MagazineRounds = 30;
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="Weapon")
+    bool bReloading = false;
+    UPROPERTY(Replicated, BlueprintReadOnly, Category="Weapon")
+    double ReloadEndsAt = -1;
+    void RequestReload();
+    float ReloadSecondsRemaining() const;
     // Client-side movement must stop on the actual server-authoritative
     // elimination transition, not only on the server's damage callback.
     UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
@@ -89,8 +97,11 @@ protected:
     void ServerTryTag(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction);
     UFUNCTION(Server, Reliable)
     void ServerTryInteract();
+    UFUNCTION(Server, Reliable)
+    void ServerRequestReload();
 private:
     bool IsDesktopInputBlocked() const;
+    bool IsWeaponPhaseActive() const;
     double LastServerTagTime = -1000.0;
     bool bSprintHeld = false;
 

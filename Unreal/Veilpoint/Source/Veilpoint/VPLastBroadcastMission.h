@@ -26,7 +26,7 @@ public:
     AVPLastBroadcastMission();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UPROPERTY(Replicated) uint8 Phase=0;
     UPROPERTY(Replicated) uint8 Route=0;
     UPROPERTY(Replicated) bool bWorkshopVisited=false;
