@@ -310,7 +310,7 @@ def verify_saved_harbor(actors, proof):
     mins, maxs = [float("inf")] * 3, [float("-inf")] * 3
     for actor in observed:
         component = actor.get_component_by_class(unreal.StaticMeshComponent)
-        verify_collision_profile(component, 'Floor' not in component.get_static_mesh().get_name())
+        verify_collision_profile(component, 'Floor' not in component.get_editor_property('static_mesh').get_name())
         centre, extent = actor.get_actor_bounds(False)
         for i, axis in enumerate(("x", "y", "z")):
             mins[i] = min(mins[i], getattr(centre, axis) - getattr(extent, axis))
