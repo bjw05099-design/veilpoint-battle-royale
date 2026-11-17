@@ -237,6 +237,7 @@ void AVPStoryMarker::ApplyStageShape()
         ObjectiveLabel->SetRelativeLocation(FVector(-13,0,GroundLocalZ+106.f));
     ObjectiveLabel->SetWorldSize(9.f);
     BeaconLight->SetRelativeLocation(FVector(0,0,GroundLocalZ+175.f));
+    UpdateComponentTransforms();
 }
 
 void AVPStoryMarker::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -398,15 +398,31 @@
       "yawDegrees": -56.659292653523
     },
     {
-      "name": "Walkway4",
+      "name": "ConvoyPaving0",
       "centreCm": [
-        7100.0,
+        6900.0,
+        -3780.0,
+        -3
+      ],
+      "sizeCm": [
+        1600.4999218994046,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 1.4320961841646465
+    },
+    {
+      "name": "ConvoyPaving1",
+      "centreCm": [
+        7900.0,
         -3760.0,
         -3
       ],
       "sizeCm": [
-        2000.0,
-        440,
+        400.0,
+        360,
         3
       ],
       "finish": "Paving",
@@ -414,31 +430,47 @@
       "yawDegrees": 0.0
     },
     {
-      "name": "Walkway5",
+      "name": "ConvoyPaving2",
       "centreCm": [
-        8400.0,
+        8300.0,
+        -3760.0,
+        -3
+      ],
+      "sizeCm": [
+        400.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "ConvoyPaving3",
+      "centreCm": [
+        8600.0,
         -4410.0,
         -3
       ],
       "sizeCm": [
-        1431.7821063276353,
-        400,
+        1315.2946437965904,
+        360,
         3
       ],
       "finish": "Paving",
       "solid": false,
-      "yawDegrees": -65.22485943116808
+      "yawDegrees": -81.2538377374448
     },
     {
-      "name": "Walkway6",
+      "name": "ConvoyPaving4",
       "centreCm": [
-        9250.0,
+        8950.0,
         -5060.0,
         -3
       ],
       "sizeCm": [
-        1100.0,
-        440,
+        500.0,
+        360,
         3
       ],
       "finish": "Paving",
@@ -446,31 +478,31 @@
       "yawDegrees": 0.0
     },
     {
-      "name": "Walkway7",
+      "name": "ConvoyPaving5",
       "centreCm": [
-        8400.0,
+        8100.0,
         -3260.0,
         -3
       ],
       "sizeCm": [
-        1166.19037896906,
-        400,
+        1000.0,
+        360,
         3
       ],
       "finish": "Paving",
       "solid": false,
-      "yawDegrees": 59.03624346792648
+      "yawDegrees": 90.0
     },
     {
-      "name": "Walkway8",
+      "name": "ConvoyPaving6",
       "centreCm": [
-        9250.0,
+        8400.0,
         -2760.0,
         -3
       ],
       "sizeCm": [
-        1100.0,
-        440,
+        600.0,
+        360,
         3
       ],
       "finish": "Paving",
@@ -478,7 +510,39 @@
       "yawDegrees": 0.0
     },
     {
-      "name": "Walkway9",
+      "name": "ConvoyPaving7",
+      "centreCm": [
+        8950.0,
+        -2760.0,
+        -3
+      ],
+      "sizeCm": [
+        500.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "ConvoyPaving8",
+      "centreCm": [
+        9500.0,
+        -5060.0,
+        -3
+      ],
+      "sizeCm": [
+        600.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "ConvoyPaving9",
       "centreCm": [
         9950.0,
         -4710.0,
@@ -486,7 +550,7 @@
       ],
       "sizeCm": [
         761.5773105863908,
-        440,
+        360,
         3
       ],
       "finish": "Paving",
@@ -494,23 +558,55 @@
       "yawDegrees": 66.80140948635182
     },
     {
-      "name": "Walkway10",
+      "name": "ConvoyPaving10",
       "centreCm": [
-        9950.0,
-        -3560.0,
+        9450.0,
+        -2760.0,
         -3
       ],
       "sizeCm": [
-        1627.8820596099706,
-        440,
+        500.0,
+        360,
         3
       ],
       "finish": "Paving",
       "solid": false,
-      "yawDegrees": -79.38034472384487
+      "yawDegrees": 0.0
     },
     {
-      "name": "Walkway11",
+      "name": "ConvoyPaving11",
+      "centreCm": [
+        9700.0,
+        -3780.0,
+        -3
+      ],
+      "sizeCm": [
+        2040.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -90.0
+    },
+    {
+      "name": "ConvoyPaving12",
+      "centreCm": [
+        9900.0,
+        -4580.0,
+        -3
+      ],
+      "sizeCm": [
+        594.6427498927402,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 47.72631099390627
+    },
+    {
+      "name": "ConvoyPaving13",
       "centreCm": [
         10350.0,
         -4660.0,
@@ -518,7 +614,7 @@
       ],
       "sizeCm": [
         781.0249675906655,
-        440,
+        360,
         3
       ],
       "finish": "Paving",
@@ -526,7 +622,7 @@
       "yawDegrees": -50.19442890773481
     },
     {
-      "name": "Walkway12",
+      "name": "ConvoyPaving14",
       "centreCm": [
         10800.0,
         -5210.0,
@@ -534,7 +630,7 @@
       ],
       "sizeCm": [
         640.3124237432849,
-        440,
+        360,
         3
       ],
       "finish": "Paving",
@@ -542,7 +638,7 @@
       "yawDegrees": -51.34019174590991
     },
     {
-      "name": "Walkway13",
+      "name": "ConvoyPaving15",
       "centreCm": [
         11000.0,
         -5930.0,
@@ -550,12 +646,44 @@
       ],
       "sizeCm": [
         940.0,
-        380,
+        360,
         3
       ],
       "finish": "Paving",
       "solid": false,
       "yawDegrees": -90.0
+    },
+    {
+      "name": "ConvoyPaving16",
+      "centreCm": [
+        11000.0,
+        -6625.0,
+        -3
+      ],
+      "sizeCm": [
+        450.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -90.0
+    },
+    {
+      "name": "ConvoyPaving17",
+      "centreCm": [
+        11200.0,
+        -6850.0,
+        -3
+      ],
+      "sizeCm": [
+        400.0,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
     }
   ],
   "radioOriginCm": [
