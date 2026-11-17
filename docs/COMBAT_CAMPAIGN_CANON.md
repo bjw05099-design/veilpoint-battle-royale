@@ -1,3 +1,5 @@
+> **CH01 최신 서사 기준 — 2026-11-17:** [마지막 방송 제작 대본](CH01_SCREENPLAY_KO.md)과 [역사 근거](CH01_HISTORY_SOURCES.md)가 CH01의 제목·실제 아덴 배경·2015-03-26 시간표·현지 표시명·장면별 사건에 우선한다. 아래 Nahrin/Sahir·구판 인명·CH01 작업명·7장 구성은 과거 기획 또는 현행 프리뷰 설명이다. 전체 12장·720분 목표는 유지한다. 새 CH01 14장면·50분은 집필 목표이며 기존 프리뷰에 통합되지 않았다. [구현 차이](CH01_IMPLEMENTATION_HANDOFF.md)를 확인한다.
+
 # VEILPOINT — Canon update: Korean special-forces captain, NIS cast, combat-first campaign
 
 **Approved by owner:** 2026-10-27. **Priority:** binding narrative/design direction for future campaign work. **Implementation status:** specification, not 12 playable hours or a military combat system.
