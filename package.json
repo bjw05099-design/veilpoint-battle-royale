@@ -11,7 +11,8 @@
     "team:server": "node server/team-server.cjs",
     "package:demo": "node scripts/package-offline-demo.cjs && node scripts/verify-offline-demo.cjs",
     "package:story-preview": "node scripts/package-story-preview.cjs",
-    "br96:server": "node server/br-squad-server.cjs"
+    "br96:server": "node server/br-squad-server.cjs",
+    "prepare:ch01": "node scripts/build-ch01-workshop.cjs"
   },
   "license": "UNLICENSED",
   "engines": {

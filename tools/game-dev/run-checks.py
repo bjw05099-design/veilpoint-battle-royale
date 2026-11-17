@@ -33,6 +33,9 @@ def main():
     run([paths['blender'], '--background', '--factory-startup', '--threads', '2',
          '--python-exit-code', '1', '--python', 'scripts/blender-build-harbor.py', '--',
          'dist/game-assets/harbor/recipe.json', 'dist/game-assets/harbor'])
+    run([paths['blender'], '--background', '--factory-startup', '--threads', '2',
+         '--python-exit-code', '1', '--python', 'scripts/blender-build-ch01-radio.py', '--',
+         'dist/game-assets/ch01-radio'])
     run(['node', 'tools/game-dev/process-harbor.mjs'])
     run([python, 'tools/game-dev/smoke-python-tools.py'])
     run(['node', 'tools/game-dev/smoke-tracy.cjs'])

@@ -49,6 +49,7 @@ jobs:
           name: veilpoint-game-dev-tools-${{ runner.os }}
           path: |
             dist/game-assets/harbor/
+            dist/game-assets/ch01-radio/
             dist/game-dev/
           if-no-files-found: error
           retention-days: 30
