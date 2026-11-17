@@ -4,6 +4,7 @@
 #include "VPStoryMarker.h"
 #include "VPStoryGameState.h"
 #include "VPStoryGameMode.h"
+#include "VPLastBroadcastMission.h"
 #include "VPStoryEastGate.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -63,6 +64,7 @@ bool VPBeginGameplaySmoke(AVPPlayerController* Desktop,const TSharedRef<FJsonObj
     bool EquipmentOK=true;
     for(TActorIterator<AVPStoryMarker> It(World);It;++It)
     {
+        if(AVPLastBroadcastMission::IsAction(It->Action))continue;
         FVector Centre,Extent;
         It->GetActorBounds(true,Centre,Extent);
         EquipmentOK&=It->Model && It->Model->IsVisible() && Extent.Z>30.f &&

@@ -1,0 +1,722 @@
+{
+  "schema": "veilpoint-last-broadcast-layout-v1",
+  "actualAdenCoverageVerified": false,
+  "coordinateSystem": "unreferenced-native-ue-centimetres",
+  "pieces": [
+    {
+      "name": "WorkshopRoof",
+      "centreCm": [
+        7700,
+        -3650,
+        320
+      ],
+      "sizeCm": [
+        1100,
+        1200,
+        18
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "WorkshopWestBack",
+      "centreCm": [
+        7180,
+        -4210,
+        150
+      ],
+      "sizeCm": [
+        40,
+        40,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "WorkshopEastBack",
+      "centreCm": [
+        8220,
+        -4210,
+        150
+      ],
+      "sizeCm": [
+        40,
+        40,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "WorkshopWestFront",
+      "centreCm": [
+        7180,
+        -3090,
+        150
+      ],
+      "sizeCm": [
+        40,
+        40,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "WorkshopEastFront",
+      "centreCm": [
+        8220,
+        -3090,
+        150
+      ],
+      "sizeCm": [
+        40,
+        40,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "RouteMedian",
+      "centreCm": [
+        8900,
+        -3500,
+        170
+      ],
+      "sizeCm": [
+        700,
+        600,
+        350
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "SouthBoundary",
+      "centreCm": [
+        8850,
+        -5500,
+        150
+      ],
+      "sizeCm": [
+        2500,
+        45,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "EastBoundary",
+      "centreCm": [
+        9000,
+        -2050,
+        150
+      ],
+      "sizeCm": [
+        2400,
+        45,
+        310
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterRoof",
+      "centreCm": [
+        11000,
+        -5350,
+        330
+      ],
+      "sizeCm": [
+        1600,
+        1500,
+        18
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterWestA",
+      "centreCm": [
+        10220,
+        -4800,
+        155
+      ],
+      "sizeCm": [
+        40,
+        40,
+        320
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterEastA",
+      "centreCm": [
+        11680,
+        -4650,
+        155
+      ],
+      "sizeCm": [
+        40,
+        40,
+        320
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterWestB",
+      "centreCm": [
+        10320,
+        -6050,
+        155
+      ],
+      "sizeCm": [
+        40,
+        40,
+        320
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterEastB",
+      "centreCm": [
+        11680,
+        -6050,
+        155
+      ],
+      "sizeCm": [
+        40,
+        40,
+        320
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterBedA",
+      "centreCm": [
+        11370,
+        -5300,
+        35
+      ],
+      "sizeCm": [
+        180,
+        75,
+        80
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterBedB",
+      "centreCm": [
+        11370,
+        -5580,
+        35
+      ],
+      "sizeCm": [
+        180,
+        75,
+        80
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "HandoverCrates",
+      "centreCm": [
+        6150,
+        -4200,
+        45
+      ],
+      "sizeCm": [
+        140,
+        90,
+        100
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ParkedVanBody",
+      "centreCm": [
+        10400,
+        -3950,
+        85
+      ],
+      "sizeCm": [
+        200,
+        400,
+        180
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ParkedVanCab",
+      "centreCm": [
+        10400,
+        -3850,
+        200
+      ],
+      "sizeCm": [
+        180,
+        170,
+        70
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "VanWheel10300_-4100",
+      "centreCm": [
+        10300,
+        -4100,
+        35
+      ],
+      "sizeCm": [
+        25,
+        55,
+        80
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "VanWheel10300_-3800",
+      "centreCm": [
+        10300,
+        -3800,
+        35
+      ],
+      "sizeCm": [
+        25,
+        55,
+        80
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "VanWheel10500_-4100",
+      "centreCm": [
+        10500,
+        -4100,
+        35
+      ],
+      "sizeCm": [
+        25,
+        55,
+        80
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "VanWheel10500_-3800",
+      "centreCm": [
+        10500,
+        -3800,
+        35
+      ],
+      "sizeCm": [
+        25,
+        55,
+        80
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "Walkway0",
+      "centreCm": [
+        5100.0,
+        -2200.0,
+        -3
+      ],
+      "sizeCm": [
+        1886.7962264113207,
+        320,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -57.9946167919165
+    },
+    {
+      "name": "Walkway1",
+      "centreCm": [
+        5100.0,
+        1400.0,
+        -3
+      ],
+      "sizeCm": [
+        1000.0,
+        320,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "Walkway2",
+      "centreCm": [
+        5600.0,
+        -800.0,
+        -3
+      ],
+      "sizeCm": [
+        4400.0,
+        320,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -90.0
+    },
+    {
+      "name": "Walkway3",
+      "centreCm": [
+        5850.0,
+        -3380.0,
+        -3
+      ],
+      "sizeCm": [
+        909.7252332435327,
+        360,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -56.659292653523
+    },
+    {
+      "name": "Walkway4",
+      "centreCm": [
+        7100.0,
+        -3760.0,
+        -3
+      ],
+      "sizeCm": [
+        2000.0,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "Walkway5",
+      "centreCm": [
+        8400.0,
+        -4410.0,
+        -3
+      ],
+      "sizeCm": [
+        1431.7821063276353,
+        400,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -65.22485943116808
+    },
+    {
+      "name": "Walkway6",
+      "centreCm": [
+        9250.0,
+        -5060.0,
+        -3
+      ],
+      "sizeCm": [
+        1100.0,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "Walkway7",
+      "centreCm": [
+        8400.0,
+        -3260.0,
+        -3
+      ],
+      "sizeCm": [
+        1166.19037896906,
+        400,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 59.03624346792648
+    },
+    {
+      "name": "Walkway8",
+      "centreCm": [
+        9250.0,
+        -2760.0,
+        -3
+      ],
+      "sizeCm": [
+        1100.0,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 0.0
+    },
+    {
+      "name": "Walkway9",
+      "centreCm": [
+        9950.0,
+        -4710.0,
+        -3
+      ],
+      "sizeCm": [
+        761.5773105863908,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": 66.80140948635182
+    },
+    {
+      "name": "Walkway10",
+      "centreCm": [
+        9950.0,
+        -3560.0,
+        -3
+      ],
+      "sizeCm": [
+        1627.8820596099706,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -79.38034472384487
+    },
+    {
+      "name": "Walkway11",
+      "centreCm": [
+        10350.0,
+        -4660.0,
+        -3
+      ],
+      "sizeCm": [
+        781.0249675906655,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -50.19442890773481
+    },
+    {
+      "name": "Walkway12",
+      "centreCm": [
+        10800.0,
+        -5210.0,
+        -3
+      ],
+      "sizeCm": [
+        640.3124237432849,
+        440,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -51.34019174590991
+    },
+    {
+      "name": "Walkway13",
+      "centreCm": [
+        11000.0,
+        -5930.0,
+        -3
+      ],
+      "sizeCm": [
+        940.0,
+        380,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -90.0
+    }
+  ],
+  "radioOriginCm": [
+    11480,
+    -6900,
+    -5
+  ],
+  "radioInteractCm": [
+    11480,
+    -6900,
+    120
+  ],
+  "stationsCm": [
+    [
+      6000,
+      -3500,
+      120
+    ],
+    [
+      6900,
+      -3500,
+      120
+    ],
+    [
+      7700,
+      -3500,
+      120
+    ],
+    [
+      8400,
+      -4450,
+      120
+    ],
+    [
+      8300,
+      -3200,
+      120
+    ],
+    [
+      9200,
+      -4800,
+      120
+    ],
+    [
+      9200,
+      -2500,
+      120
+    ],
+    [
+      10100,
+      -4100,
+      120
+    ],
+    [
+      11000,
+      -5200,
+      120
+    ],
+    [
+      11480,
+      -5800,
+      120
+    ],
+    [
+      11480,
+      -6900,
+      120
+    ]
+  ],
+  "convoy": {
+    "Workshop": [
+      [
+        7700,
+        -3760,
+        83
+      ]
+    ],
+    "South": [
+      [
+        8100,
+        -3760,
+        83
+      ],
+      [
+        8500,
+        -3760,
+        83
+      ],
+      [
+        8700,
+        -5060,
+        83
+      ],
+      [
+        9200,
+        -5060,
+        83
+      ]
+    ],
+    "East": [
+      [
+        8100,
+        -3760,
+        83
+      ],
+      [
+        8100,
+        -2760,
+        83
+      ],
+      [
+        8700,
+        -2760,
+        83
+      ],
+      [
+        9200,
+        -2760,
+        83
+      ]
+    ],
+    "BoardSouth": [
+      [
+        9800,
+        -5060,
+        83
+      ],
+      [
+        10100,
+        -4360,
+        83
+      ]
+    ],
+    "BoardEast": [
+      [
+        9700,
+        -2760,
+        83
+      ],
+      [
+        9700,
+        -4800,
+        83
+      ],
+      [
+        10100,
+        -4360,
+        83
+      ]
+    ],
+    "Reception": [
+      [
+        10600,
+        -4960,
+        83
+      ],
+      [
+        11000,
+        -5460,
+        83
+      ]
+    ]
+  }
+}

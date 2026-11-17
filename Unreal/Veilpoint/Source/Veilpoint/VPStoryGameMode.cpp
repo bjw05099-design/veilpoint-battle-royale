@@ -1,6 +1,7 @@
 #include "VPStoryGameMode.h"
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
+#include "VPLastBroadcastMission.h"
 #include "VPStoryPedestrian.h"
 #include "VPStoryPublicVan.h"
 #include "VPStoryEastGate.h"
@@ -165,6 +166,15 @@ void AVPStoryGameMode::BeginPlay()
     // Native progression currently persists only in standalone story preview.
     // Multiplayer PIE must not share one machine-wide local save slot.
     RestoreStoryCheckpoint();
+    if(!AVPLastBroadcastMission::Find(GetWorld()))
+        GetWorld()->SpawnActor<AVPLastBroadcastMission>();
+    for(uint8 Index=uint8(EVPStoryAction::LastHandover);Index<=uint8(EVPStoryAction::LastBroadcast);++Index)
+    {
+        const auto Action=static_cast<EVPStoryAction>(Index);
+        if(AuthoredActions.Contains(Action))continue;
+        if(auto* Station=GetWorld()->SpawnActor<AVPStoryMarker>(AVPStoryMarker::StaticClass(),AVPLastBroadcastMission::StationLocation(Action),FRotator::ZeroRotator))
+            Station->Action=Action;
+    }
 }
 
 namespace
@@ -348,5 +358,6 @@ bool AVPStoryGameMode::PersistStoryCheckpoint()
              Check->bSavedCivilianAtSouthCourtyard == Saved->bSavedCivilianAtSouthCourtyard));
     if (!bVerified)
         UE_LOG(LogTemp, Warning, TEXT("VEILPOINT CH01: native progress is memory-only (save verification failed)"));
-    return bVerified;
+    auto* Mission=AVPLastBroadcastMission::Find(GetWorld());
+    return bVerified && (!Mission || Mission->Persist());
 }

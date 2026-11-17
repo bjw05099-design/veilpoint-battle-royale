@@ -50,6 +50,7 @@ jobs:
           path: |
             dist/game-assets/harbor/
             dist/game-assets/ch01-radio/
+            dist/game-assets/ch01-radio-native/
             dist/game-dev/
           if-no-files-found: error
           retention-days: 30

@@ -11,6 +11,7 @@
 #include "Engine/GameViewportClient.h"
 #include "UnrealClient.h"
 #include "VPGameplaySmoke.h"
+#include "VPLastBroadcastSmoke.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "HAL/PlatformTime.h"
@@ -81,6 +82,23 @@ void AVPPlayerController::TickVisualSmoke()
     if (VisualSmokeStep == 5)
     {
         VPFinishGameplaySmoke(this,VisualSmokeReport.ToSharedRef());
+        VisualSmokeStep=6;
+        NextVisualSmokeAt=FPlatformTime::Seconds()+.25;
+        return;
+    }
+    if(VisualSmokeStep==6)
+    {
+        const int32 Result=VPTickLastBroadcastSmoke(this,VisualSmokeReport.ToSharedRef());
+        if(Result==0){NextVisualSmokeAt=FPlatformTime::Seconds()+.25;return;}
+        VisualSmokeReport->SetBoolField(TEXT("lastBroadcastGameplayPassed"),Result==1);
+        VisualSmokeStep=7;NextVisualSmokeAt=FPlatformTime::Seconds()+2;return;
+    }
+    if(VisualSmokeStep==7)
+    {
+        if(FParse::Param(FCommandLine::Get(),TEXT("VPWindowCapture")) && !PrepareWindowScreenshot())return;
+        const auto Frame=VPReadVisualSmokeFrame(this,VisualSmokeCapture,TEXT("last-broadcast"));
+        VisualSmokeReport->SetBoolField(TEXT("lastBroadcastReadbackSucceeded"),Frame.IsValid());
+        if(Frame)VisualSmokeReport->SetObjectField(TEXT("last-broadcast"),Frame);
         FVector Mark;
         float Remaining = 0.f;
         VisualSmokeReport->SetBoolField(TEXT("surfaceMarkExpired"), !GetLocalFieldMark(Mark, Remaining));

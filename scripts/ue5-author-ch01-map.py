@@ -302,6 +302,86 @@ def verify_saved_harbor(actors, proof):
     return proof
 
 
+def author_last_broadcast(actors, finishes, cube):
+    layout_file = os.path.join(ROOT, 'scripts', 'ch01-last-broadcast-layout.json')
+    with open(layout_file, encoding='utf-8') as stream:
+        layout = json.load(stream)
+    if layout.get('schema') != 'veilpoint-last-broadcast-layout-v1' or layout.get('actualAdenCoverageVerified') is not False:
+        raise RuntimeError('Last Broadcast original layout is invalid')
+    for part in layout['pieces']:
+        actor = actors.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*part['centreCm']), unreal.Rotator(yaw=part.get('yawDegrees', 0)))
+        actor.set_actor_label('VP_LB_MAP_'+part['name'])
+        component = actor.get_component_by_class(unreal.StaticMeshComponent)
+        component.set_static_mesh(cube)
+        component.set_material(0, finishes[part['finish']])
+        actor.set_actor_scale3d(unreal.Vector(*[v/100 for v in part['sizeCm']]))
+        component.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS if part['solid'] else unreal.CollisionEnabled.NO_COLLISION)
+    source = os.path.join(ROOT, 'dist', 'game-assets', 'ch01-radio-native')
+    with open(os.path.join(source, 'unreal-parts.json'), encoding='utf-8') as stream:
+        manifest = json.load(stream)
+    with open(os.path.join(ROOT, 'Unreal', 'Veilpoint', 'ContentSource', 'LastBroadcast', 'radio-desk.blend'), 'rb') as stream:
+        digest = hashlib.sha256(stream.read()).hexdigest()
+    if manifest.get('schema') != 'veilpoint-radio-unreal-parts-v1' or manifest.get('sourceSha256') != digest or len(manifest.get('parts', [])) != 9:
+        raise RuntimeError('Radio export does not match the committed Blender original')
+    tasks = []
+    for part in manifest['parts']:
+        if not re.fullmatch(r'VP_LB_[A-Za-z0-9_]+\.fbx', part['file']):
+            raise RuntimeError('Unsafe radio part name')
+        filename = os.path.join(source, part['file'])
+        with open(filename, 'rb') as stream:
+            if hashlib.sha256(stream.read()).hexdigest() != part['sha256']:
+                raise RuntimeError('Radio export hash mismatch')
+        options = unreal.FbxImportUI()
+        for key, value in [('import_mesh', True), ('import_as_skeletal', False), ('import_materials', False), ('import_textures', False), ('automated_import_should_detect_type', False)]:
+            options.set_editor_property(key, value)
+        options.set_editor_property('mesh_type_to_import', unreal.FBXImportType.FBXIT_STATIC_MESH)
+        settings = options.get_editor_property('static_mesh_import_data')
+        for key, value in [('combine_meshes', False), ('auto_generate_collision', False), ('one_convex_hull_per_ucx', True), ('transform_vertex_to_absolute', True)]:
+            settings.set_editor_property(key, value)
+        task = unreal.AssetImportTask()
+        for key, value in [('filename', filename), ('destination_path', '/Game/LastBroadcast'), ('destination_name', part['name']), ('automated', True), ('replace_existing', False), ('save', True), ('options', options), ('factory', unreal.FbxFactory())]:
+            task.set_editor_property(key, value)
+        tasks.append(task)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
+    meshes = [unreal.load_asset(path) for task in tasks for path in task.get_editor_property('imported_object_paths')]
+    meshes = [mesh for mesh in meshes if isinstance(mesh, unreal.StaticMesh)]
+    subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    if len(meshes) != 9 or sum(subsystem.get_convex_collision_count(mesh) for mesh in meshes) != 9:
+        raise RuntimeError('Radio must import nine meshes and nine real UCX colliders')
+    for mesh in meshes:
+        actor = actors.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*layout['radioOriginCm']), unreal.Rotator())
+        actor.set_actor_label('VP_LB_RADIO_'+mesh.get_name())
+        component = actor.get_component_by_class(unreal.StaticMeshComponent)
+        component.set_static_mesh(mesh)
+        component.set_material(0, finishes['Wall' if any(n in mesh.get_name() for n in ['Paper','DeskTop']) else 'Metal'])
+        component.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS)
+    with open(layout_file, 'rb') as stream:
+        layout_digest = hashlib.sha256(stream.read()).hexdigest()
+    return {'layoutSha256': layout_digest,
+            'mapPieces': len(layout['pieces']), 'radioSourceSha256': digest,
+            'radioVisualMeshes': len(meshes), 'radioConvexColliders': 9,
+            'radioOriginCm': layout['radioOriginCm'], 'photorealArtVerified': False}
+
+
+def verify_saved_last_broadcast(actors, proof):
+    parts = [actor for actor in actors if actor.get_actor_label().startswith('VP_LB_MAP_')]
+    radio = [actor for actor in actors if actor.get_actor_label().startswith('VP_LB_RADIO_')]
+    if len(parts) != proof['mapPieces'] or len(radio) != 9:
+        raise RuntimeError('Saved map lost Last Broadcast geometry or radio meshes')
+    mins, maxs = [float('inf')]*3, [float('-inf')]*3
+    for actor in radio:
+        centre, extent = actor.get_actor_bounds(False)
+        for i, axis in enumerate(('x','y','z')):
+            mins[i] = min(mins[i], getattr(centre, axis)-getattr(extent, axis))
+            maxs[i] = max(maxs[i], getattr(centre, axis)+getattr(extent, axis))
+    dimensions = [maxs[i]-mins[i] for i in range(3)]
+    if any(abs(a-b)>2 for a,b in zip(dimensions, (120,65,106))) or abs(mins[2]+5)>2:
+        raise RuntimeError('Saved radio changed units, axes or grounding: '+str(dimensions))
+    proof['savedReloadVerified'] = True
+    proof['radioDimensionsCm'] = dimensions
+    return proof
+
+
 def author_ch01():
     # Fail closed before spawning anything or changing the game's main map.
     if os.path.exists(MAP_FILE):
@@ -376,6 +456,7 @@ def author_ch01():
         spawned.append(actor.get_actor_label())
 
     harbor_proof = import_original_harbor(actors, finishes)
+    broadcast_proof = author_last_broadcast(actors, finishes, cube)
 
     if len(spawned) != EXPECTED_PUBLIC_PIECES or len(set(spawned)) != len(spawned):
         raise RuntimeError("CH01 original public space incomplete or duplicated")
@@ -387,6 +468,7 @@ def author_ch01():
     daylight = verify_saved_daylight(saved_actors)
     finish_proof = verify_saved_finishes(saved_actors, finishes)
     harbor_proof = verify_saved_harbor(saved_actors, harbor_proof)
+    broadcast_proof = verify_saved_last_broadcast(saved_actors, broadcast_proof)
     with open(MAP_FILE, "rb") as stream:
         map_bytes = stream.read()
     if len(map_bytes) < 2048:
@@ -405,6 +487,7 @@ def author_ch01():
         "daylight": daylight,
         "civicFinishes": finish_proof,
         "originalHarbor": harbor_proof,
+        "lastBroadcast": broadcast_proof,
         "nativePIEVerified": False,
         "nativeWin64Packaged": False,
         "actualAdenCoverageVerified": False
