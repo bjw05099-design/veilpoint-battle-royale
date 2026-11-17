@@ -17,6 +17,18 @@ jobs:
           node-version: '22'
       - name: Check syntax
         run: npm run check
+      - name: Build and verify CH01 tablet authoring workshop
+        run: |
+          node scripts/build-ch01-workshop.cjs
+          python3 scripts/verify-ch01-workshop.py
+      - name: Upload CH01 authoring workshop and engine handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-ch01-production-kit
+          path: |
+            dist/ch01-production/
+            docs/CH01_PRODUCTION.md
+          if-no-files-found: error
       - name: Run deterministic simulation tests
         run: npm test
       - name: Verify real Chromium PC menus at four viewport sizes
@@ -34,18 +46,6 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror tests/native/combat-rules.cpp -o /tmp/veilpoint-combat-rules
           /tmp/veilpoint-combat-rules
-      - name: Build and verify CH01 tablet authoring workshop
-        run: |
-          node scripts/build-ch01-workshop.cjs
-          python3 scripts/verify-ch01-workshop.py
-      - name: Upload CH01 authoring workshop and engine handoff
-        uses: actions/upload-artifact@v4
-        with:
-          name: veilpoint-ch01-production-kit
-          path: |
-            dist/ch01-production/
-            docs/CH01_PRODUCTION.md
-          if-no-files-found: error
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
       - name: Verify native dynamic daylight configuration

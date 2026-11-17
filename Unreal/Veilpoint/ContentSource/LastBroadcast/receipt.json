@@ -1,0 +1,17 @@
+{
+  "schema": "veilpoint-radio-desk-v1",
+  "originalPrototypeArt": true,
+  "blender": "5.2.4 LTS",
+  "objects": 9,
+  "boundsMetres": [
+    1.2000000476837158,
+    0.6499999761581421,
+    1.059999942779541
+  ],
+  "nativeImportVerified": false,
+  "photorealArtVerified": false,
+  "files": {
+    "radio-desk.glb": "8c0fc077f621c8aae084f2c5d1484003f66dee850315d27562838559814f7356",
+    "radio-desk.blend": "3692a422e9ff931520b8da17dfa76e2bfbbecc292064b2d2fb7698b74de1f47e"
+  }
+}
