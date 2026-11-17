@@ -252,6 +252,11 @@ void AVPHUD::DrawHUD()
     DrawText(HealthLabel, FLinearColor::White,
              X, Y + 69.f * Scale, nullptr, .8f * Scale, false);
 
+    const FString Ammo=Pawn->bReloading
+        ? FString::Printf(TEXT("RELOADING %.1fs"),Pawn->ReloadSecondsRemaining())
+        : FString::Printf(TEXT("AMMO %d | RESERVE %d | R RELOAD"),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
+    DrawText(Ammo,FLinearColor(.9f,.87f,.73f),X+200.f*Scale,Y+69.f*Scale,nullptr,.70f*Scale,false);
+
     // Story and BR are deliberately different native modes. Do not render
     // a BR zone timer or BR supply counter on the CH01 story screen.
     if (const AVPStoryGameState* Story =
@@ -270,7 +275,7 @@ void AVPHUD::DrawHUD()
                 const float Top=Canvas->ClipY-112.f*Scale;
                 DrawRect(FLinearColor(.025f,.07f,.08f,.94f),X,Top,FMath::Min(Canvas->ClipX-2*X,1160.f*Scale),88.f*Scale);
                 DrawText(Line,FLinearColor(.88f,.94f,.87f),X+10.f*Scale,Top+12.f*Scale,nullptr,.66f*Scale,false);
-                DrawText(Mission->Phase>=6?TEXT("SHELTER CONFIRMED | KOREAN WITHDRAWAL UNRESOLVED"):TEXT("Escort: two visible civilian proxies and one supply cart. Keep their walking path clear."),
+                DrawText(Mission->Phase>=6?TEXT("SHELTER CONFIRMED | KOREAN WITHDRAWAL UNRESOLVED"):TEXT("Keep the people and supplies together. Clear their walking path."),
                     FLinearColor(.88f,.82f,.64f),X+10.f*Scale,Top+43.f*Scale,nullptr,.66f*Scale,false);
             }
         }
@@ -297,6 +302,8 @@ void AVPHUD::DrawHUD()
             bStoryJournalOpen = !bStoryJournalOpen;
         if (bStoryJournalOpen)
         {
+            if(Story->StoryStage!=EVPStoryStage::Complete)
+            {
             const float Width=FMath::Min(410.f*Scale,Canvas->ClipX*.47f);
             const float Left=Canvas->ClipX-Width-18.f*Scale;
             const float Top=FMath::Min(168.f*Scale,
@@ -327,6 +334,24 @@ void AVPHUD::DrawHUD()
                        : TEXT("HARBOR SIGNAL | NOT ACTIVE"),
                      FLinearColor(.78f,.88f,.87f,1.f),
                      TextX,Top+136.f*Scale,nullptr,.70f*Scale,false);
+        }
+        }
+        if(bStoryJournalOpen && Story->StoryStage==EVPStoryStage::Complete)
+        {
+            if(const auto* Chapter=AVPLastBroadcastMission::Find(GetWorld()))
+            {
+                const float Width=FMath::Min(500.f*Scale,Canvas->ClipX*.48f);
+                const float Left=Canvas->ClipX-Width-18.f*Scale, Top=170.f*Scale;
+                DrawRect(FLinearColor(.025f,.09f,.11f,.95f),Left,Top,Width,218.f*Scale);
+                const FString Notes[]={TEXT("LAST BROADCAST | J TO CLOSE"),
+                    FString::Printf(TEXT("OBSERVED EVENTS %d / 9"),Chapter->Events.Num()),
+                    Chapter->Route==1?TEXT("ROUTE: SOUTH PUBLIC LANE"):Chapter->Route==2?TEXT("ROUTE: EAST PUBLIC PASSAGE"):TEXT("ROUTE: NOT CHOSEN"),
+                    Chapter->Phase>=6?TEXT("PEOPLE AND SUPPLIES: SHELTER RECEIVED"):TEXT("SHELTER RECEPTION: NOT CONFIRMED"),
+                    TEXT("KOREAN WITHDRAWAL: UNCONFIRMED"),
+                    Chapter->Phase==8?TEXT("SAFETY BROADCAST: COMPLETED"):TEXT("SAFETY BROADCAST: NOT COMPLETED")};
+                for(int32 I=0;I<UE_ARRAY_COUNT(Notes);++I)
+                    DrawText(Notes[I],FLinearColor(.85f,.92f,.85f),Left+12.f*Scale,Top+(12.f+I*32.f)*Scale,nullptr,.68f*Scale,false);
+            }
         }
         // The actual moving public exit is readable only while CH01 has
         // selected east. This is a replicated physical actor, not a fictional

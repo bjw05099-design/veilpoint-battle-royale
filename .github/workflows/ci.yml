@@ -48,6 +48,8 @@ jobs:
           /tmp/veilpoint-combat-rules
           g++ -std=c++17 -Wall -Wextra -Werror tests/native/last-broadcast-rules.cpp -o /tmp/veilpoint-last-broadcast-rules
           /tmp/veilpoint-last-broadcast-rules
+          g++ -std=c++17 -Wall -Wextra -Werror tests/native/weapon-rules.cpp -o /tmp/veilpoint-weapon-rules
+          /tmp/veilpoint-weapon-rules
       - name: Validate Unreal project descriptor
         run: python3 -m json.tool Unreal/Veilpoint/Veilpoint.uproject > /dev/null
       - name: Verify native dynamic daylight configuration

@@ -112,10 +112,10 @@ bool AVPLastBroadcastMission::Commit(EVPStoryAction A)
     case EVPStoryAction::LastHandover: Feedback=TEXT("YUSUF | Aid handover recorded. Stay with the local team.");break;
     case EVPStoryAction::LastThreat: Feedback=TEXT("JO | The street is unsafe. Move the people and supplies to the workshop.");break;
     case EVPStoryAction::LastWorkshop: Feedback=TEXT("YUSUF | South and east rejoin at Nadim's vehicle. Inspect the chosen passage.");break;
-    case EVPStoryAction::LastChooseSouth: Feedback=TEXT("SOUTH | Escort both civilian proxies and the supply cart through the public lane.");break;
+    case EVPStoryAction::LastChooseSouth: Feedback=TEXT("SOUTH | Escort the people and supplies through the public lane.");break;
     case EVPStoryAction::LastChooseEast: Feedback=TEXT("EAST | Verify the public passage with the people and supplies.");break;
     case EVPStoryAction::LastClearSouth: case EVPStoryAction::LastClearEast: Feedback=TEXT("PASSAGE | People and supplies reached the route end. Assemble by Nadim's vehicle.");break;
-    case EVPStoryAction::LastBoard: Feedback=TEXT("NADIM | Group accounted for at the vehicle. Continue the on-foot shelter handoff slice.");break;
+    case EVPStoryAction::LastBoard: Feedback=TEXT("NADIM | Group accounted for at the vehicle. Follow the team to Salma's reception.");break;
     case EVPStoryAction::LastReceive: Feedback=TEXT("SALMA | People and supplies received. Korean withdrawal is still unconfirmed.");break;
     case EVPStoryAction::LastWithdraw: Feedback=TEXT("KIM | The withdrawal vehicle cannot enter. An alternative meeting point is not confirmed.");break;
     case EVPStoryAction::LastBroadcast: Feedback=TEXT("LAST BROADCAST | Shelter handoff complete. Roads and the Korean return remain unconfirmed.");break;
@@ -168,7 +168,8 @@ FString AVPLastBroadcastMission::Objective() const
 FString AVPLastBroadcastMission::BroadcastLine() const
 {
     if(BroadcastStartedAt<0 || !GetWorld())return FString();
-    const double Elapsed=GetWorld()->GetTimeSeconds()-BroadcastStartedAt;
+    const auto* State=GetWorld()->GetGameState<AVPStoryGameState>();
+    const double Elapsed=(State?State->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds())-BroadcastStartedAt;
     if(Elapsed<4)return TEXT("MARIAM | This is a safety message for residents.");
     if(Elapsed<8)return TEXT("MARIAM | Road safety remains unconfirmed.");
     return TEXT("MARIAM | Do not come outside. Await verified guidance.");
