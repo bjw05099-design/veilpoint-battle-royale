@@ -189,8 +189,25 @@ def create_civic_finishes():
     return result
 
 
+def persist_collision_profile(component, solid):
+    # A StaticMeshComponent may reload its asset's default collision profile
+    # after saving. The engine Cube is solid, even when used only as paving.
+    component.set_editor_property('use_default_collision', False)
+    component.set_collision_profile_name('BlockAll' if solid else 'NoCollision')
+
+
+def verify_collision_profile(component, solid):
+    expected = unreal.CollisionEnabled.QUERY_AND_PHYSICS if solid else unreal.CollisionEnabled.NO_COLLISION
+    if (component.get_editor_property('use_default_collision')
+            or component.get_collision_enabled() != expected
+            or str(component.get_collision_profile_name()) != ('BlockAll' if solid else 'NoCollision')):
+        raise RuntimeError('Saved authored collision profile changed: '+component.get_path_name())
+
+
 def verify_saved_finishes(actors, finishes):
     count = 0
+    layout, _ = read_original_court()
+    solids = {LABEL_PREFIX+part['id']:part['solid'] for part in layout['pieces']}
     expected = {material.get_path_name() for material in finishes.values()}
     for actor in actors:
         if not actor.get_actor_label().startswith(LABEL_PREFIX):
@@ -201,6 +218,7 @@ def verify_saved_finishes(actors, finishes):
             raise RuntimeError("Saved civic actor lost its authored material")
         if not material.get_editor_property("used_with_instanced_static_meshes"):
             raise RuntimeError("Saved civic finish cannot render native instanced street meshes")
+        verify_collision_profile(mesh, solids[actor.get_actor_label()])
         count += 1
     if count != EXPECTED_PUBLIC_PIECES:
         raise RuntimeError("Saved civic material coverage is incomplete")
@@ -275,6 +293,7 @@ def import_original_harbor(actors, finishes):
         component = actor.get_component_by_class(unreal.StaticMeshComponent)
         component.set_static_mesh(mesh)
         component.set_material(0, finishes["Metal" if "Roof" in mesh.get_name() else "Wall"])
+        persist_collision_profile(component, not is_floor)
         component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION if is_floor else unreal.CollisionEnabled.QUERY_AND_PHYSICS)
         imported.append(actor.get_actor_label())
     if convex != 9:
@@ -290,6 +309,8 @@ def verify_saved_harbor(actors, proof):
         raise RuntimeError("Saved map lost imported harbor actors")
     mins, maxs = [float("inf")] * 3, [float("-inf")] * 3
     for actor in observed:
+        component = actor.get_component_by_class(unreal.StaticMeshComponent)
+        verify_collision_profile(component, 'Floor' not in component.get_static_mesh().get_name())
         centre, extent = actor.get_actor_bounds(False)
         for i, axis in enumerate(("x", "y", "z")):
             mins[i] = min(mins[i], getattr(centre, axis) - getattr(extent, axis))
@@ -315,6 +336,7 @@ def author_last_broadcast(actors, finishes, cube):
         component.set_static_mesh(cube)
         component.set_material(0, finishes[part['finish']])
         actor.set_actor_scale3d(unreal.Vector(*[v/100 for v in part['sizeCm']]))
+        persist_collision_profile(component, part['solid'])
         component.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS if part['solid'] else unreal.CollisionEnabled.NO_COLLISION)
     source = os.path.join(ROOT, 'dist', 'game-assets', 'ch01-radio-native')
     with open(os.path.join(source, 'unreal-parts.json'), encoding='utf-8') as stream:
@@ -354,6 +376,7 @@ def author_last_broadcast(actors, finishes, cube):
         component = actor.get_component_by_class(unreal.StaticMeshComponent)
         component.set_static_mesh(mesh)
         component.set_material(0, finishes['Wall' if any(n in mesh.get_name() for n in ['Paper','DeskTop']) else 'Metal'])
+        persist_collision_profile(component, True)
         component.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS)
     with open(layout_file, 'rb') as stream:
         layout_digest = hashlib.sha256(stream.read()).hexdigest()
@@ -368,8 +391,14 @@ def verify_saved_last_broadcast(actors, proof):
     radio = [actor for actor in actors if actor.get_actor_label().startswith('VP_LB_RADIO_')]
     if len(parts) != proof['mapPieces'] or len(radio) != 9:
         raise RuntimeError('Saved map lost Last Broadcast geometry or radio meshes')
+    with open(os.path.join(ROOT, 'scripts', 'ch01-last-broadcast-layout.json'), encoding='utf-8') as stream:
+        layout = json.load(stream)
+    solids = {'VP_LB_MAP_'+part['name']:part['solid'] for part in layout['pieces']}
+    for actor in parts:
+        verify_collision_profile(actor.get_component_by_class(unreal.StaticMeshComponent), solids[actor.get_actor_label()])
     mins, maxs = [float('inf')]*3, [float('-inf')]*3
     for actor in radio:
+        verify_collision_profile(actor.get_component_by_class(unreal.StaticMeshComponent), True)
         centre, extent = actor.get_actor_bounds(False)
         for i, axis in enumerate(('x','y','z')):
             mins[i] = min(mins[i], getattr(centre, axis)-getattr(extent, axis))
@@ -379,6 +408,7 @@ def verify_saved_last_broadcast(actors, proof):
         raise RuntimeError('Saved radio changed units, axes or grounding: '+str(dimensions))
     proof['savedReloadVerified'] = True
     proof['radioDimensionsCm'] = dimensions
+    proof['savedCollisionProfilesVerified'] = True
     return proof
 
 
@@ -450,6 +480,7 @@ def author_ch01():
             piece["widthCm"] / 100.0,
             piece["depthCm"] / 100.0,
             piece["heightCm"] / 100.0))
+        persist_collision_profile(mesh, piece['solid'])
         mesh.set_collision_enabled(
             unreal.CollisionEnabled.QUERY_AND_PHYSICS if piece["solid"]
             else unreal.CollisionEnabled.NO_COLLISION)

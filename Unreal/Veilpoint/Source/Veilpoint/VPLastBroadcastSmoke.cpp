@@ -4,12 +4,33 @@
 #include "VPStoryMarker.h"
 #include "VPCharacter.h"
 #include "VPPlayerController.h"
+#include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
 
 namespace
 {
+bool VerifyPavingSupport(UWorld* World,APawn* ControlledPawn,FString& Failure)
+{
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(VPPavingSupport),false,ControlledPawn);
+    for(TActorIterator<AVPStoryMarker> It(World);It;++It)Query.AddIgnoredActor(*It);
+    for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)Query.AddIgnoredActor(*It);
+    const FVector Sites[]={FVector(6100,-3800,0),FVector(7700,-3760,0),FVector(9200,-5060,0),
+        FVector(9200,-2760,0),FVector(10100,-4360,0),FVector(11000,-3700,0),FVector(11000,-5460,0)};
+    for(const auto& Site:Sites)
+    {
+        FHitResult Hit;
+        if(!World->LineTraceSingleByChannel(Hit,Site+FVector(0,0,50),Site-FVector(0,0,50),ECC_Visibility,Query) ||
+            FMath::Abs(Hit.ImpactPoint.Z+5.f)>.2f)
+        {
+            Failure=FString::Printf(TEXT("site=%s hitZ=%.3f actor=%s component=%s"),
+                *Site.ToString(),Hit.ImpactPoint.Z,*GetNameSafe(Hit.GetActor()),*GetNameSafe(Hit.GetComponent()));
+            return false;
+        }
+    }
+    return true;
+}
 void Use(AVPPlayerController* Desktop,EVPStoryAction Action,float Distance=180.f,bool Face=true)
 {
     auto* ControlledPawn=Cast<AVPCharacter>(Desktop->GetPawn());
@@ -49,6 +70,10 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         FCollisionQueryParams Query(SCENE_QUERY_STAT(VPRadioDesk),false);
         const bool Desk=RadioParts==9 && World->LineTraceTestByChannel(FVector(11480,-6900,130),FVector(11480,-6900,60),ECC_Visibility,Query);
         Report->SetBoolField(TEXT("blenderRadioDeskPresentAndColliding"),Desk);
+        FString PavingFailure;
+        const bool PavingOK=VerifyPavingSupport(World,Desktop->GetPawn(),PavingFailure);
+        Report->SetBoolField(TEXT("pavingSurfaceDoesNotBlockMovement"),PavingOK);
+        Report->SetStringField(TEXT("pavingSupportFailure"),PavingFailure);
     }
     TArray<FVector> Positions;
     for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)Positions.Add(It->GetActorLocation());
@@ -140,7 +165,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
             RoutePass=1;PhysicalGatesChecked=false;return 0;
         }
         bool Passed=true;
-        for(const TCHAR* Field:{TEXT("nativeReloadStartedAndFireBlocked"),TEXT("nativeReloadConservesAmmunition"),TEXT("lastBroadcastRemoteAndBehindRejected"),TEXT("blenderRadioDeskPresentAndColliding"),TEXT("southConvoyArrivalGateVerified"),TEXT("eastConvoyArrivalGateVerified"),TEXT("broadcastInterruptionVerified"),TEXT("lastBroadcastSouthCompleteAndSaved"),TEXT("lastBroadcastEastCompleteAndSaved"),TEXT("southPeopleAndSuppliesPhysicallyReceived"),TEXT("eastPeopleAndSuppliesPhysicallyReceived"),TEXT("forgedBroadcastCheckpointRejected")})
+        for(const TCHAR* Field:{TEXT("pavingSurfaceDoesNotBlockMovement"),TEXT("nativeReloadStartedAndFireBlocked"),TEXT("nativeReloadConservesAmmunition"),TEXT("lastBroadcastRemoteAndBehindRejected"),TEXT("blenderRadioDeskPresentAndColliding"),TEXT("southConvoyArrivalGateVerified"),TEXT("eastConvoyArrivalGateVerified"),TEXT("broadcastInterruptionVerified"),TEXT("lastBroadcastSouthCompleteAndSaved"),TEXT("lastBroadcastEastCompleteAndSaved"),TEXT("southPeopleAndSuppliesPhysicallyReceived"),TEXT("eastPeopleAndSuppliesPhysicallyReceived"),TEXT("forgedBroadcastCheckpointRejected")})
             Passed&=Report->HasField(Field) && Report->GetBoolField(Field);
         Report->SetBoolField(TEXT("lastBroadcastGameplayPassed"),Passed);
         Report->SetNumberField(TEXT("lastBroadcastElapsedSeconds"),FPlatformTime::Seconds()-Started);
