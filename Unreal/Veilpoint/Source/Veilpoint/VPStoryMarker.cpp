@@ -1,5 +1,6 @@
 #include "VPStoryMarker.h"
 #include "VPCharacter.h"
+#include "VPLastBroadcastMission.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Materials/MaterialInterface.h"
@@ -106,7 +107,7 @@ void AVPStoryMarker::SyncBeaconLight()
 void AVPStoryMarker::SyncObjectiveText()
 {
     if (!ObjectiveLabel) return;
-    FString Label=TEXT("MISSION");
+    FString Label=AVPLastBroadcastMission::IsAction(Action)?GetInteractionLabel():TEXT("MISSION");
     switch(Action)
     {
     case EVPStoryAction::RestoreRelay: Label=TEXT("RELAY POWER");break;
@@ -211,6 +212,15 @@ void AVPStoryMarker::ApplyStageShape()
         Shape(SwitchHandle,FVector(6,34,5),FVector(-11,0,95));
         break;
     }
+    if(AVPLastBroadcastMission::IsAction(Action))
+    {
+        Shape(Model,FVector(70,65,8),FVector(0,0,89));
+        Shape(FacePanel,FVector(44,45,2),FVector(-8,0,95));
+        Shape(SwitchHandle,FVector(12,14,18),FVector(16,0,104));
+        if(Action==EVPStoryAction::LastBroadcast)
+            for(UStaticMeshComponent* Part:{Model.Get(),Plinth.Get(),LeftSupport.Get(),RightSupport.Get(),FacePanel.Get(),SwitchHandle.Get()})
+            {Part->SetVisibility(false);Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);}
+    }
     // Cabinet lever visibly moves with authority-owned power state.
     if(Action==EVPStoryAction::RestoreRelay || Action==EVPStoryAction::ActivateBeacon)
         SwitchHandle->SetRelativeRotation(FRotator(bActive?-35.f:35.f,0,0));
@@ -240,6 +250,11 @@ bool AVPStoryMarker::IsAvailable() const
 {
     const AVPStoryGameState* State =
         GetWorld() ? GetWorld()->GetGameState<AVPStoryGameState>() : nullptr;
+    if(AVPLastBroadcastMission::IsAction(Action))
+    {
+        const auto* Mission=AVPLastBroadcastMission::Find(GetWorld());
+        return Mission && Mission->IsAvailable(Action);
+    }
     return !bUsed && State && State->IsAvailable(Action);
 }
 
@@ -255,6 +270,17 @@ FString AVPStoryMarker::GetInteractionLabel() const
     case EVPStoryAction::ChooseEast: return TEXT("Choose the east route");
     case EVPStoryAction::ReachSouth: return TEXT("Enter the south courtyard");
     case EVPStoryAction::ReachEast: return TEXT("Leave by the east exit");
+    case EVPStoryAction::LastHandover: return TEXT("Yusuf: confirm aid handover");
+    case EVPStoryAction::LastThreat: return TEXT("Inspect the unsafe-street warning");
+    case EVPStoryAction::LastWorkshop: return TEXT("Assemble at the workshop");
+    case EVPStoryAction::LastChooseSouth: return TEXT("Choose the south public lane");
+    case EVPStoryAction::LastChooseEast: return TEXT("Choose the east public passage");
+    case EVPStoryAction::LastClearSouth: return TEXT("Confirm people and supplies passed south");
+    case EVPStoryAction::LastClearEast: return TEXT("Confirm the east passage is clear");
+    case EVPStoryAction::LastBoard: return TEXT("Nadim: account for the group at the vehicle");
+    case EVPStoryAction::LastReceive: return TEXT("Salma: receive people and supplies");
+    case EVPStoryAction::LastWithdraw: return TEXT("Kim: check the withdrawal channel");
+    case EVPStoryAction::LastBroadcast: return TEXT("Mariam: start the safety broadcast");
     default: return FString();
     }
 }
@@ -278,6 +304,11 @@ bool AVPStoryMarker::CanInteract(const AVPCharacter* Player) const
 bool AVPStoryMarker::TryActivate(AVPCharacter* Player)
 {
     if (!HasAuthority() || !CanInteract(Player)) return false;
+    if(AVPLastBroadcastMission::IsAction(Action))
+    {
+        auto* Mission=AVPLastBroadcastMission::Find(GetWorld());
+        return Mission && Mission->TryAction(Action,Player);
+    }
     AVPStoryGameState* State = GetWorld()->GetGameState<AVPStoryGameState>();
     if (!State || !State->TryAdvance(Action)) return false;
     if (Action != EVPStoryAction::ActivateBeacon)

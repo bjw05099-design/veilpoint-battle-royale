@@ -2,6 +2,7 @@
 #include "VPCombatRules.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
+#include "VPLastBroadcastMission.h"
 #include "VPPlayerController.h"
 #include "VPStoryPublicVan.h"
 #include "VPStoryGameState.h"
@@ -248,7 +249,9 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
     const AVPGameState* State=GetWorld()->GetGameState<AVPGameState>();
     const AVPStoryGameState* Story=Cast<AVPStoryGameState>(State);
     using VPCombatRules::Phase;
-    const Phase CombatPhase=Story?(Story->StoryStage==EVPStoryStage::Complete?Phase::Complete:Phase::StoryActive):
+    const auto* Broadcast=AVPLastBroadcastMission::Find(GetWorld());
+    const bool bBroadcastActive=Broadcast && Broadcast->Phase>0 && Broadcast->Phase<8;
+    const Phase CombatPhase=Story?(Story->StoryStage==EVPStoryStage::Complete && !bBroadcastActive?Phase::Complete:Phase::StoryActive):
         !State?Phase::Unavailable:State->bRoundComplete?Phase::Complete:
         State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
     // Waiting players and finished rounds neither spend ammunition nor damage.

@@ -1,6 +1,7 @@
 #include "VPStoryGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "VPStoryGameMode.h"
+#include "VPLastBroadcastMission.h"
 #include "VPStoryEastGate.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
@@ -201,7 +202,8 @@ FString AVPStoryGameState::GetObjectiveLabel() const
     case EVPStoryStage::EastExit:
         return TEXT("CH01 / Reach the east checkpoint");
     case EVPStoryStage::Complete:
-        return TEXT("CH01 / Objective complete - local prototype");
+        if(const auto* Mission=AVPLastBroadcastMission::Find(GetWorld()))return Mission->Objective();
+        return TEXT("CH01 / Local approach complete");
     }
     return TEXT("CH01 / Awaiting objective state");
 }

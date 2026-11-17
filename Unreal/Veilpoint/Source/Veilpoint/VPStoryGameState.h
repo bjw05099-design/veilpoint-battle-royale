@@ -13,7 +13,10 @@ enum class EVPStoryStage : uint8
 UENUM(BlueprintType)
 enum class EVPStoryAction : uint8
 {
-    RestoreRelay, ReadHarbor, ReadShelter, ChooseSouth, ChooseEast, ReachSouth, ReachEast, ActivateBeacon
+    RestoreRelay, ReadHarbor, ReadShelter, ChooseSouth, ChooseEast, ReachSouth, ReachEast, ActivateBeacon,
+    // Append only: legacy enum ordinals remain readable in v1/v2/v3 saves.
+    LastHandover, LastThreat, LastWorkshop, LastChooseSouth, LastChooseEast,
+    LastClearSouth, LastClearEast, LastBoard, LastReceive, LastWithdraw, LastBroadcast
 };
 
 UCLASS()

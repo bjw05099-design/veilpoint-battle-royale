@@ -20,7 +20,7 @@ $arguments=@('-stdout','-FullStdOutLogOutput','-unattended','-nosound','-windowe
     '-VPVisualSmoke',('-abslog="'+$log+'"'))
 if ($Windowed) { $arguments+='-VPWindowCapture' } else { $arguments+='-RenderOffscreen' }
 try {
-    $exitCode=Invoke-NativeDiagnosticProcess -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -Arguments ($arguments -join ' ') -StdoutPath (Join-Path $evidence ($folder+'-stdout.txt')) -StderrPath (Join-Path $evidence ($folder+'-stderr.txt'))
+    $exitCode=Invoke-NativeDiagnosticProcess -FilePath $game -WorkingDirectory (Split-Path -Parent $game) -TimeoutMilliseconds 300000 -Arguments ($arguments -join ' ') -StdoutPath (Join-Path $evidence ($folder+'-stdout.txt')) -StderrPath (Join-Path $evidence ($folder+'-stderr.txt'))
     if ($exitCode -ne 0) { throw "Packaged visual smoke process failed: $exitCode" }
 } finally {
     if (Test-Path -LiteralPath $captures -PathType Container) {
@@ -31,6 +31,7 @@ $result=Join-Path $captures 'visual-smoke.json'
 if (!(Test-Path -LiteralPath $result -PathType Leaf)) { throw 'Game exited without actual viewport evidence.' }
 $proof=Get-Content -LiteralPath $result -Raw | ConvertFrom-Json
 if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
+    $proof.lastBroadcastGameplayPassed -ne $true -or $proof.lastBroadcastReadbackSucceeded -ne $true -or
     $proof.nativeGameplayDiagnosticPassed -ne $true -or $proof.manualMissionSaveVerified -ne $true -or
     $proof.readbackSucceeded -ne $true -or $proof.menuOpened -ne $true -or
     $proof.offlinePaused -ne $true -or $proof.menuResumed -ne $true -or
@@ -41,13 +42,13 @@ if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
     ($proof.world.upperCentreWhiteFraction -gt 0.95 -and $proof.world.lowerCentreWhiteFraction -gt 0.95)) {
     throw 'Actual viewport/menu/mark smoke check failed. Inspect images and runtime log; no visual pass is claimed.'
 }
-foreach ($name in @('world','menu','field-mark','sky-view')) {
+foreach ($name in @('world','menu','field-mark','sky-view','last-broadcast')) {
     $png=Join-Path $captures ($name+'.png')
     if (!(Test-Path -LiteralPath $png -PathType Leaf) -or (Get-Item -LiteralPath $png).Length -lt 1024) {
         throw "Missing or empty actual viewport screenshot: $name"
     }
 }
-foreach ($frame in @($proof.world,$proof.'sky-view')) {
+foreach ($frame in @($proof.world,$proof.'sky-view',$proof.'last-broadcast')) {
     if ($frame.cachedLightingPreExposure -ne 8) { throw 'Lumen cache pre-exposure does not match the EV14 daylight configuration.' }
     if ($Windowed -and ($frame.windowPresentationVerified -ne $true -or $frame.redWarningPixels -gt 20)) {
         throw 'Actual game viewport contains a red engine warning, or has no window readback.'

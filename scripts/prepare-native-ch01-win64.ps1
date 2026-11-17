@@ -83,6 +83,23 @@ try {
 finally { $ErrorActionPreference=$before }
 if ($buildExit -ne 0) { Fail "Native Editor C++ build failed ($buildExit); review $buildLog. No map created." }
 
+# Export the editable committed radio with the already installed Blender.
+# Per-part visual+UCX files avoid the FBX multi-mesh collision limitation.
+$toolRoot=if ([string]::IsNullOrWhiteSpace($env:VEILPOINT_TOOL_ROOT)) { Join-Path $repo '.tools' } else { $env:VEILPOINT_TOOL_ROOT }
+$toolPaths=Get-Content -LiteralPath (Join-Path $toolRoot 'paths.json') -Raw | ConvertFrom-Json
+$blender=[string]$toolPaths.blender
+if (!(Test-Path -LiteralPath $blender -PathType Leaf)) { Fail 'Installed Blender is required for the original radio export.' }
+$radioSource=Join-Path $repo 'Unreal/Veilpoint/ContentSource/LastBroadcast/radio-desk.blend'
+$radioExport=Join-Path $repo 'dist/game-assets/ch01-radio-native'
+$before=$ErrorActionPreference
+$ErrorActionPreference='Continue'
+try {
+    & $blender '--background' '--factory-startup' '--threads' '2' '--python-exit-code' '1' '--python' (Join-Path $repo 'scripts/blender-export-ch01-radio.py') '--' $radioSource $radioExport 2>&1 |
+        Tee-Object -FilePath (Join-Path $logFolder 'ch01-radio-blender.log')
+    $radioExit=$LASTEXITCODE
+} finally { $ErrorActionPreference=$before }
+if ($radioExit -ne 0) { Fail 'Actual Blender radio FBX/UCX export failed.' }
+
 Write-Host '[VEILPOINT] Running documented UnrealEditor-Cmd.exe ExecutePythonScript authoring...'
 $before=$ErrorActionPreference
 $ErrorActionPreference='Continue'
@@ -104,6 +121,11 @@ Copy-Item -LiteralPath $receipt -Destination (Join-Path $logFolder 'ch01-map-rec
 $observedMapBytes=(Get-Item -LiteralPath $map).Length
 $mapSha=(Get-FileHash -LiteralPath $map -Algorithm SHA256).Hash.ToLowerInvariant()
 $layoutSha=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($proof.lastBroadcast.savedReloadVerified -ne $true -or
+    $proof.lastBroadcast.radioVisualMeshes -ne 9 -or $proof.lastBroadcast.radioConvexColliders -ne 9 -or
+    $proof.lastBroadcast.radioSourceSha256 -cne (Get-FileHash -LiteralPath $radioSource -Algorithm SHA256).Hash.ToLowerInvariant()) {
+    Fail 'Last Broadcast map/radio authoring receipt is incomplete or stale.'
+}
 if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
     $proof.mapPackage -ne '/Game/Maps/CH01_Coast' -or
     ![IO.Path]::IsPathRooted([string]$proof.mapFile) -or

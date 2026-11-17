@@ -36,6 +36,9 @@ def main():
     run([paths['blender'], '--background', '--factory-startup', '--threads', '2',
          '--python-exit-code', '1', '--python', 'scripts/blender-build-ch01-radio.py', '--',
          'dist/game-assets/ch01-radio'])
+    run([paths['blender'], '--background', '--factory-startup', '--threads', '2',
+         '--python-exit-code', '1', '--python', 'scripts/blender-export-ch01-radio.py', '--',
+         'Unreal/Veilpoint/ContentSource/LastBroadcast/radio-desk.blend', 'dist/game-assets/ch01-radio-native'])
     run(['node', 'tools/game-dev/process-harbor.mjs'])
     run([python, 'tools/game-dev/smoke-python-tools.py'])
     run(['node', 'tools/game-dev/smoke-tracy.cjs'])

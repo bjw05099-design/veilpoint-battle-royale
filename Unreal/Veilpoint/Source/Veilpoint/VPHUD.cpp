@@ -5,6 +5,7 @@
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPStoryMarker.h"
+#include "VPLastBroadcastMission.h"
 #include "VPStoryEastGate.h"
 #include "VPStoryPedestrian.h"
 #include "VPStoryPublicVan.h"
@@ -261,6 +262,18 @@ void AVPHUD::DrawHUD()
         DrawText(TEXT("LOCAL STORY PROTOTYPE | F: INTERACT | J: FIELD NOTES"),
                  FLinearColor(.78f,.87f,.92f,1.f),
                  X, Y + 125.f * Scale, nullptr, .8f * Scale, false);
+        if(const auto* Mission=AVPLastBroadcastMission::Find(GetWorld()); Mission && Story->StoryStage==EVPStoryStage::Complete)
+        {
+            const FString Line=Mission->BroadcastLine().IsEmpty()?Mission->Feedback:Mission->BroadcastLine();
+            if(!Line.IsEmpty())
+            {
+                const float Top=Canvas->ClipY-112.f*Scale;
+                DrawRect(FLinearColor(.025f,.07f,.08f,.94f),X,Top,FMath::Min(Canvas->ClipX-2*X,1160.f*Scale),88.f*Scale);
+                DrawText(Line,FLinearColor(.88f,.94f,.87f),X+10.f*Scale,Top+12.f*Scale,nullptr,.66f*Scale,false);
+                DrawText(Mission->Phase>=6?TEXT("SHELTER CONFIRMED | KOREAN WITHDRAWAL UNRESOLVED"):TEXT("Escort: two visible civilian proxies and one supply cart. Keep their walking path clear."),
+                    FLinearColor(.88f,.82f,.64f),X+10.f*Scale,Top+43.f*Scale,nullptr,.66f*Scale,false);
+            }
+        }
         // Three short temporal briefing/arrival beats for a FRESH story only.
         // They occupy an unobtrusive, bounded lower-screen strip, without
         // blocking keyboard movement, interaction, aim or saving. A restored
