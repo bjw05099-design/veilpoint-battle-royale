@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 2,
+  "chapterId": "CH01",
+  "titleKo": "마지막 방송",
+  "titleEn": "The Last Broadcast",
+  "storyDate": "2015-04-05",
+  "fictionalArrivalDate": "2015-03-18",
+  "fictionalAssignmentSuspendedDate": "2015-03-19",
+  "location": "Aden / Al-Mualla; fictional micro-locations",
+  "status": "revised-screenplay-not-playable",
+  "targetMinutes": 50,
+  "measuredMinutes": null,
+  "scenes": [
+    {
+      "id": "S01",
+      "titleKo": "돌아갈 시간",
+      "targetMinutes": 3,
+      "primaryActivity": "인물·서사",
+      "requiresPrevious": null,
+      "consequence": "남은 물품을 인계해야 탑승 지점으로 갈 수 있음",
+      "screenplaySection": "S01",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S02",
+      "titleKo": "문을 반만 연 거리",
+      "targetMinutes": 2,
+      "primaryActivity": "탐색",
+      "requiresPrevious": "S01",
+      "consequence": "물·연료 부족과 지역 생활의 구체적 관계를 알게 됨",
+      "screenplaySection": "S02",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S03",
+      "titleKo": "떠나는 사람의 약속",
+      "targetMinutes": 3,
+      "primaryActivity": "인물·서사",
+      "requiresPrevious": "S02",
+      "consequence": "마리암과 주민들은 철수 차량에 탈 수 없다는 사실이 드러남",
+      "screenplaySection": "S03",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S04",
+      "titleKo": "방금 지나온 길",
+      "targetMinutes": 4,
+      "primaryActivity": "전투",
+      "requiresPrevious": "S03",
+      "consequence": "위협이 원래 동선을 끊음",
+      "screenplaySection": "S04",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S05",
+      "titleKo": "작업장 안쪽 문",
+      "targetMinutes": 3,
+      "primaryActivity": "이동·구조",
+      "requiresPrevious": "S04",
+      "consequence": "살림을 데려가야 마리암도 연락실을 떠날 수 있음",
+      "screenplaySection": "S05",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S06",
+      "titleKo": "골목의 끝",
+      "targetMinutes": 5,
+      "primaryActivity": "전투",
+      "requiresPrevious": "S05",
+      "consequence": "작업장 출구가 위험해 연결 마당으로 우회",
+      "screenplaySection": "S06",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S07",
+      "titleKo": "같은 해의 다른 기억",
+      "targetMinutes": 2,
+      "primaryActivity": "인물·서사",
+      "requiresPrevious": "S06",
+      "consequence": "살림이 이동을 선택하고 열쇠를 챙김",
+      "screenplaySection": "S07",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S08",
+      "titleKo": "다섯 분의 차이",
+      "targetMinutes": 2,
+      "primaryActivity": "탐색",
+      "requiresPrevious": "S07",
+      "consequence": "선택 기록을 보되 진행은 차량·구호소 협의로 열림",
+      "screenplaySection": "S08",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S09",
+      "titleKo": "도로를 건너는 이유",
+      "targetMinutes": 5,
+      "primaryActivity": "전투",
+      "requiresPrevious": "S08",
+      "consequence": "선택한 접근로를 통과해 승차 지점에 도달",
+      "screenplaySection": "S09",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S10",
+      "titleKo": "운전석의 약속",
+      "targetMinutes": 4,
+      "primaryActivity": "이동·구조",
+      "requiresPrevious": "S09",
+      "consequence": "나딤과 주민이 실제 합류하고 이동 시작",
+      "screenplaySection": "S10",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S11",
+      "titleKo": "다시 걸어야 하는 거리",
+      "targetMinutes": 5,
+      "primaryActivity": "전투",
+      "requiresPrevious": "S10",
+      "consequence": "전방 통행 불가, 밴 안의 안전도 보장되지 않음",
+      "screenplaySection": "S11",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S12",
+      "titleKo": "한 번 더 닫히는 문",
+      "targetMinutes": 6,
+      "primaryActivity": "전투",
+      "requiresPrevious": "S11",
+      "consequence": "접근 위협 속에서 인접 통로를 지나 구호소 앞까지 이동",
+      "screenplaySection": "S12",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S13",
+      "titleKo": "이름을 부르는 안뜰",
+      "targetMinutes": 3,
+      "primaryActivity": "이동·구조",
+      "requiresPrevious": "S12",
+      "consequence": "주민·물품을 살마에게 실제로 인계",
+      "screenplaySection": "S13",
+      "implementationStatus": "authored-not-integrated"
+    },
+    {
+      "id": "S14",
+      "titleKo": "마지막 방송",
+      "targetMinutes": 3,
+      "primaryActivity": "인물·서사",
+      "requiresPrevious": "S13",
+      "consequence": "귀환편 상실 확정, 하루가 끝나지 않은 채 장 종료",
+      "screenplaySection": "S14",
+      "implementationStatus": "authored-not-integrated"
+    }
+  ],
+  "sourceDocument": "docs/CH01_SCREENPLAY_KO.md",
+  "historyDocument": "docs/CH01_HISTORY_SOURCES.md",
+  "branchPolicy": "Alternative south/east paths reconverge; never sum branch durations; optional clues never block progression",
+  "fictionalOpeningLocalTime": "07:30",
+  "localReviewStatus": "documentary-review-completed-native-human-review-not-performed",
+  "reviewDocument": "docs/CH01_LOCALIZATION_REVIEW.md",
+  "arabicDialogueDraft": "docs/CH01_ARABIC_DIALOGUE_DRAFT.md",
+  "boardingManifest": {
+    "koreanTeam": 4,
+    "localCompanionsIncludingDriver": 4,
+    "totalIncludingDriver": 8,
+    "requiredVehicleSeatsAtLeast": 8
+  }
+}

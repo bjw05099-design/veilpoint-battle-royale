@@ -1,3 +1,7 @@
+> **CH01 지역성 개정 v2 — 2026-11-17:** 주 사건일은 2015-04-05 아침, 마리암의 확장 이름은 마리암 살림 아와드다. [자료 기반 검토](CH01_LOCALIZATION_REVIEW.md)와 [표준 아랍어 주요 대사 초안](CH01_ARABIC_DIALOGUE_DRAFT.md)을 반영했다. 현지인·원어민 직접 감수는 수행하지 않았으며 새 장면은 런타임에 미통합 상태다.
+
+> **CH01 최신 서사 기준 — 2026-11-17:** [마지막 방송 제작 대본](CH01_SCREENPLAY_KO.md)과 [역사 근거](CH01_HISTORY_SOURCES.md)가 CH01의 제목·실제 아덴 배경·2015-04-05 시간표·현지 표시명·장면별 사건에 우선한다. 아래 Nahrin/Sahir·구판 인명·CH01 작업명·7장 구성은 과거 기획 또는 현행 프리뷰 설명이다. 전체 12장·720분 목표는 유지한다. 새 CH01 14장면·50분은 집필 목표이며 기존 프리뷰에 통합되지 않았다. [구현 차이](CH01_IMPLEMENTATION_HANDOFF.md)를 확인한다.
+
 # VEILPOINT — STORY / The Broken Signal
 **Narrative blueprint 0.1 · earlier 8-chapter outline, now superseded by 12-chapter production target**
 > **New playable protagonist and combat focus:** The binding current story design is [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md): Korean special-forces captain **이수혁 대위**, fictional NIS agents, and a combat-led 12-hour campaign. All appearances below of Mara as a playable lead or the eight-chapter outline are historical brainstorming, not current design. The existing CH01 browser slice now contains movement/records plus a short, non-graphic fictional three-human-opponent encounter with finite ammunition and cover-aware perception, but it is **not** a completed authored combat-first chapter or native battle scene.
