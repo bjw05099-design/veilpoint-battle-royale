@@ -219,9 +219,9 @@ void AVPLastBroadcastMission::Restore()
     if((ReadHistory(Name,History) || ReadHistory(Name+TEXT(".backup"),History)) && RestoreEvents(History))
         Feedback=TEXT("Mission checkpoint restored. Unfinished walking/broadcast restarts at its confirmed assembly point.");
 }
-void AVPLastBroadcastMission::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const
+void AVPLastBroadcastMission::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AVPLastBroadcastMission,Phase); DOREPLIFETIME(AVPLastBroadcastMission,Route);
     DOREPLIFETIME(AVPLastBroadcastMission,bWorkshopVisited); DOREPLIFETIME(AVPLastBroadcastMission,Events);
     DOREPLIFETIME(AVPLastBroadcastMission,BroadcastStartedAt); DOREPLIFETIME(AVPLastBroadcastMission,Feedback);

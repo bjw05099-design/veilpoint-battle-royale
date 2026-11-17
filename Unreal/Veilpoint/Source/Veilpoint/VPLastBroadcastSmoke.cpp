@@ -103,7 +103,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         else if(RoutePass==0 && !Interrupted && World->GetTimeSeconds()-Mission->BroadcastStartedAt>1)
         {
             // Leave the desk through the real character body; no forced phase.
-            if(auto* ControlledPawn=Desktop->GetPawn())ControlledPawn->SetActorLocation(FVector(11000,-6200,91),false,nullptr,ETeleportType::TeleportPhysics);
+            if(APawn* ControlledPawn=Desktop->GetPawn())ControlledPawn->SetActorLocation(FVector(11000,-6200,91),false,nullptr,ETeleportType::TeleportPhysics);
             Interrupted=true;
         }
         break;
