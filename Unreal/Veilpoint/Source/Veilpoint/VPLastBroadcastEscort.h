@@ -20,11 +20,13 @@ public:
     UPROPERTY(Replicated) bool bAtGoal=true;
     UPROPERTY(VisibleAnywhere) TObjectPtr<UCapsuleComponent> Capsule;
     void Follow(const TArray<FVector>& Points);
+    FString DiagnosticStatus() const;
 private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Head;
     TArray<FVector> Path;
     int32 NextPoint=0;
     int32 AppliedKind=-1;
+    FString LastBlocker;
     void ApplyAppearance();
 };

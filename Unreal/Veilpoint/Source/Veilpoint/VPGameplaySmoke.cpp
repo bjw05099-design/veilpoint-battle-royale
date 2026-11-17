@@ -62,15 +62,21 @@ bool VPBeginGameplaySmoke(AVPPlayerController* Desktop,const TSharedRef<FJsonObj
     UseStation(Desktop,EVPStoryAction::RestoreRelay);
     const AVPStoryMarker* Relay=FindStation(World,EVPStoryAction::RestoreRelay);
     bool EquipmentOK=true;
+    FString BadEquipment;
     for(TActorIterator<AVPStoryMarker> It(World);It;++It)
     {
         if(AVPLastBroadcastMission::IsAction(It->Action))continue;
+        It->UpdateComponentTransforms();
         FVector Centre,Extent;
         It->GetActorBounds(true,Centre,Extent);
-        EquipmentOK&=It->Model && It->Model->IsVisible() && Extent.Z>30.f &&
+        const bool Grounded=It->Model && It->Model->IsVisible() && Extent.Z>30.f &&
             FMath::Abs(Centre.Z-Extent.Z+5.f)<3.f;
+        EquipmentOK&=Grounded;
+        if(!Grounded)BadEquipment+=FString::Printf(TEXT("action=%d centre=%s extent=%s visible=%d; "),
+            int32(It->Action),*Centre.ToString(),*Extent.ToString(),It->Model && It->Model->IsVisible());
     }
     Report->SetBoolField(TEXT("missionEquipmentGroundedAndColliding"),EquipmentOK);
+    Report->SetStringField(TEXT("missionEquipmentGroundingFailures"),BadEquipment);
     Passed&=EquipmentOK;
     const bool RelayOK=Story->StoryStage==EVPStoryStage::InspectRecords && Relay && Relay->Model->IsVisible() && Story->bLastCheckpointSaved;
     Report->SetBoolField(TEXT("relayInteractionAndVerifiedSave"),RelayOK);

@@ -33,9 +33,12 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
     static double Started=0;
     static bool Interrupted=false;
     static bool PhysicalGatesChecked=false;
+    static double LastProgress=0;
+    static uint8 PreviousPhase=0;
+    static TArray<FVector> PreviousPositions;
     if(ObservedWorld.Get()!=World)
     {
-        ObservedWorld=World;RoutePass=0;Started=FPlatformTime::Seconds();Interrupted=false;PhysicalGatesChecked=false;
+        ObservedWorld=World;RoutePass=0;Started=FPlatformTime::Seconds();LastProgress=Started;PreviousPhase=0;PreviousPositions.Reset();Interrupted=false;PhysicalGatesChecked=false;
         Use(Desktop,EVPStoryAction::LastHandover,600);
         const bool Remote=Mission->Phase==0;
         Use(Desktop,EVPStoryAction::LastHandover,180,false);
@@ -47,10 +50,21 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         const bool Desk=RadioParts==9 && World->LineTraceTestByChannel(FVector(11480,-6900,130),FVector(11480,-6900,60),ECC_Visibility,Query);
         Report->SetBoolField(TEXT("blenderRadioDeskPresentAndColliding"),Desk);
     }
-    if(FPlatformTime::Seconds()-Started>220)
+    TArray<FVector> Positions;
+    for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)Positions.Add(It->GetActorLocation());
+    bool Moved=Positions.Num()!=PreviousPositions.Num() || Mission->Phase!=PreviousPhase;
+    if(!Moved)for(int32 I=0;I<Positions.Num();++I)Moved|=!Positions[I].Equals(PreviousPositions[I],5.f);
+    if(Moved){LastProgress=FPlatformTime::Seconds();PreviousPositions=Positions;PreviousPhase=Mission->Phase;}
+    const bool Stalled=(Mission->Phase>=2 && Mission->Phase<=5 && FPlatformTime::Seconds()-LastProgress>15);
+    if(Stalled || FPlatformTime::Seconds()-Started>220)
     {
         Report->SetNumberField(TEXT("lastBroadcastStalledPhase"),Mission->Phase);
         Report->SetNumberField(TEXT("lastBroadcastStalledRoute"),Mission->Route);
+        Report->SetBoolField(TEXT("lastBroadcastWorkshopVisited"),Mission->bWorkshopVisited);
+        Report->SetNumberField(TEXT("lastBroadcastEventCount"),Mission->Events.Num());
+        FString People;
+        for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)People+=It->DiagnosticStatus()+TEXT("; ");
+        Report->SetStringField(TEXT("lastBroadcastConvoyDiagnostic"),People);
         Report->SetBoolField(TEXT("lastBroadcastGameplayPassed"),false);return -1;
     }
     using A=EVPStoryAction;
