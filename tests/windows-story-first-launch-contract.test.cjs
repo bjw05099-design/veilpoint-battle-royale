@@ -57,7 +57,8 @@ test('current quick start cannot advertise obsolete E as CH01 default or touch a
  assert.match(latest,/F.*interact|F.*상호작용|F.*interaction/i);
  assert.match(latest,/PC-only|Windows PC only/i);
  assert.doesNotMatch(latest,/E interact|E collect resources|press \*\*E\*\*/i);
- assert.match(latest,/2026-11-10/);
+ assert.match(latest,/75% story \/ 25% Battle Royale/);
+ assert.match(latest,/ship separately, with story first/);
 });
 
 test('CDP runner gives slow Chrome a bounded chance but never turns failed startup into passing geometry',()=>{

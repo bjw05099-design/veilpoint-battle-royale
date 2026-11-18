@@ -1,11 +1,16 @@
 # VEILPOINT — Story-first PC development · CH01 preview and future Battle Royale
 
-> **Status (2026-11-10): Windows PC story-first development; playable browser CH01 preview + uncompiled/untested native UE5.8 scaffold.**
-> No claim of Bodycam-equivalent photorealism, shipping readiness, authoritative networking, anti-cheat, or production QA.
+> **Status (2026-11-18): playable Windows PC browser CH01, separate story-only Windows WebView2 candidate, and a UE5.8 development build with dedicated native runtime checks.**
 
-**Active 2026-11-10 production rule:** allocate rolling development effort 35% map / 35% story / 20% future BR / 10% stability. Story ships first; November 27 is a **demo candidate target**, not a 12-hour or UE5-native release promise. Details: [story-first plan](docs/STORY_FIRST_RELEASE_PLAN.md).
+Development effort is split **75% story / 25% Battle Royale**. The two modes
+ship separately, with story first. November 27 remains a demo candidate target.
+[Story-first plan](docs/STORY_FIRST_RELEASE_PLAN.md)
 
-**World reference decision (2026-11-07):** VEILPOINT uses **Aden, southern Yemen (approximately 2015)** as its researched real-world geographic, coastal and architecture reference. **Nahrin / Sahir Coast** remains the original fictional story setting and named cast. Historical terrain and neighborhood/building character are requirements **not yet realized** in the procedural browser and uncompiled UE5 graybox. See [source-backed Aden reference and acceptance gates](docs/WORLD_REFERENCE_ADEN.md).
+The production map uses **Aden, southern Yemen** at 1:1 scale. The public source
+build contains a projected elevation mosaic and a smaller registered road and
+building footprint layer. The current CH01 gameplay blockout is a separate
+playtest environment. The source build still needs 2015 historical comparison
+and integration with the playable world. [Aden source build](docs/ADEN_PUBLIC_SOURCE_BUILD.md)
 
 VEILPOINT is a **Windows PC-only** game in development. The **single-player story campaign releases first**, with Battle Royale later reusing validated story environments and shared systems. Its final vision includes story (~12h authored target), later online team multiplayer and Battle Royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The BR browser combat uses fictional firearm-class abstractions with finite carried ammunition; these are not verified real-world ballistics or production weapon assets. The project has no account system, telemetry, external assets, analytics or dependency downloads.
 
@@ -86,15 +91,17 @@ The original 2015 Aden geography and fully built city are **not verified**.
 .\scripts\prepare-native-ch01-win64.ps1 -EngineRoot 'C:\Program Files\Epic Games\UE_5.8'
 ```
 
-This code has **not been executed in Unreal on the owner's PC**. It is not
-a prebuilt native game or a certification of the C++ compile, playable map
-or RTX3070 performance. The standalone story-only WebView2 EXE is a
-separate verified distribution **candidate**. See
-[UE5 Windows CH01 authoring/build gate](docs/UE5_WIN64_BUILD_GATE.md).
+The Windows build PC has compiled, authored and packaged CH01. The
+November 18 shelter build passed both escort routes, saving and broadcast
+in the actual game window and an offscreen run. RTX 3070 QHD performance
+and manual keyboard/mouse acceptance require separate measurements.
+[UE5 Windows CH01 authoring/build gate](docs/UE5_WIN64_BUILD_GATE.md)
 
 ### Engine / fidelity direction
 
-The `Unreal/Veilpoint/` directory contains the **UE5.8 source scaffold** with Unreal camera, replicated player state, server-authoritative tagging and pickup interaction, shrinking zone and procedural graybox bootstrap. It was prepared without Unreal Engine installed in the development environment. **It has not been compiled, opened in UE Editor, packaged, benchmarked, or visually validated in UE.** It is a starting point for PC photorealism, not a runnable production build.
+The `Unreal/Veilpoint/` directory contains the UE5.8 story and BR development
+source, including the authored CH01 route, local checkpointing, replicated
+state and a physical convoy. The current environments use blockout assets.
 
 To make a full fidelity edition:
 

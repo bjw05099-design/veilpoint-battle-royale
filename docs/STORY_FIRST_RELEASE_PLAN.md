@@ -124,7 +124,7 @@ explicit `story.html` dependency.
   measurement provenance; avoid sensitive operational locations.
 - The story campaign's separate desired **playtime composition** remains
   combat 50%, urgent movement/rescue 20%, character/narrative 22% and exploration
-  8%. Do not confuse that split with the 35/35/20/10 **development effort**.
+  8%. The story/BR development allocation is 75% / 25%.
 - No 165FPS, RTX3070 performance, UE5 UBT/PIE, full-city surveyed accuracy,
   12-hour playable campaign or internet 96-human match can be asserted from
   Node/browser contract tests alone.
