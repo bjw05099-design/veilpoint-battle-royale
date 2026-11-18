@@ -42,4 +42,9 @@ foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-debr
         throw "Missing or incomplete packaged Aden render: $name"
     }
 }
+foreach ($name in @('aden-world','aden-debrief')) {
+    if ($report.$name.warmGroundFraction -lt .22) {
+        throw "Packaged Aden $name did not render enough visible terrain below the horizon."
+    }
+}
 Write-Host '[VEILPOINT] Packaged native Aden route, observations, both atlas views, story and SaveGame passed.'

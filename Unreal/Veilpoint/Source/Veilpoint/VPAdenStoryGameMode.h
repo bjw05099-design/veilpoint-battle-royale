@@ -10,6 +10,7 @@
 class AVPAdenSourceWorld;
 class AVPCharacter;
 class USceneCaptureComponent2D;
+class FJsonObject;
 
 // Presentation state for the standalone story. Only GameMode publishes it.
 UCLASS()
@@ -73,6 +74,9 @@ private:
     FVector GetNotePoint(VPAdenMission::ENote Note) const;
     void BeginDiagnostic();
     void RunDiagnostic();
+    void CaptureDebrief();
+    void FinishDiagnostic(bool bPassed);
+    TSharedPtr<FJsonObject> DiagnosticReport;
 
     UPROPERTY(Transient)
     TObjectPtr<USceneCaptureComponent2D> DiagnosticCapture;
