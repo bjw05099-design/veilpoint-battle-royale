@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import rasterio
 from rasterio.warp import transform
 
 
@@ -30,6 +31,20 @@ def build(directory):
         raise ValueError("Missing ODbL terms")
     ox, on = manifest["gameZeroUTMMetres"]
     left, bottom, right, top = manifest["packExtentUTMMetres"]
+    surface = directory / "aden-public-surface.tif"
+    if hashlib.sha256(surface.read_bytes()).hexdigest() != manifest["sha256"][surface.name]:
+        raise ValueError("Unverified regional elevation raster")
+    with rasterio.open(surface) as raster:
+        if raster.crs.to_epsg() != 32638 or raster.res != (32, 32):
+            raise ValueError("Unexpected regional elevation projection or spacing")
+        stride = 8
+        if (raster.width - 1) % stride or (raster.height - 1) % stride:
+            raise ValueError("Regional extent must align to the source overview grid")
+        elevations = raster.read(1)[::stride, ::stride]
+        west, north_edge = raster.xy(0, 0)
+        region = dict(x=west - ox, z=on - north_edge, spacing=32 * stride,
+                      columns=elevations.shape[1], rows=elevations.shape[0],
+                      elevations=[round(float(y), 1) for y in elevations.flat])
     roads, footprints = [], []
     for feature in source["features"]:
         geometry = feature["geometry"]
@@ -65,7 +80,7 @@ def build(directory):
     identity = json.dumps([manifest["gameZeroUTMMetres"], roads, footprints,
                            [[t["tx"], t["tz"], t["gridSize"], t["samples"]] for t in height["tiles"]]],
                           separators=(",", ":")).encode()
-    return dict(version=1, revision=hashlib.sha256(identity).hexdigest(), terrain=height,
+    return dict(version=1, revision=hashlib.sha256(identity).hexdigest(), terrain=height, region=region,
                 roadsCm=roads, footprintsCm=footprints, acquiredDate=vector["acquiredDate"],
                 terrainAttribution=manifest["attribution"], vectorAttribution=source["attribution"])
 

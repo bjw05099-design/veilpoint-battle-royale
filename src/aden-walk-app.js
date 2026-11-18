@@ -12,6 +12,7 @@
  const controls={view:get('view'),action:get('action'),reset:get('reset')};
  let state=game.create(runtime),yaw=runtime.corridor.yaw,pitch=0;
  let eye=false,zoom=3,resetArmed=false,frame=0,last=0,accum=0,paintTicks=0;
+ let showRegion=false;
  const held=new Set();
  const movementKeys=['KeyW','KeyA','KeyS','KeyD'];
  const bearingKeys=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
@@ -50,6 +51,7 @@
   get('report').hidden=true;
  }
  function interact(report){
+  if(showRegion)return;
   const result=game.interact(runtime,state,report);
   if(!result.ok){
    if(result.reason==='choose-report'){get('report').hidden=false;release();}
@@ -66,7 +68,8 @@
   const metres=next?game.distance(player,next):0;
   get('distance').textContent=next?metres.toFixed(1)+' m · '+(metres<=game.REACH?'상호작용 범위':'지점까지 직선 거리'):
    '총 이동 '+state.metres.toFixed(1)+' m';
-  controls.action.disabled=!next||metres>game.REACH;
+  controls.action.disabled=showRegion||!next||metres>game.REACH;
+  if(showRegion){paintRegion();return;}
   get('scale').textContent=eye?'눈높이 · '+player.y.toFixed(1)+' m':'20 m';
   if(eye){
    const found=new Map([...runtime.world.cache].filter(([k])=>{
@@ -125,18 +128,50 @@
   ctx.strokeStyle=roadColor;ctx.lineWidth=2;
   path([[w-25-20*zoom,h-40],[w-25,h-40]],false);ctx.stroke();
  }
+ function paintRegion(){
+  const {x,z,spacing,columns,rows,elevations}=runtime.region;
+  const w=canvas.width,h=canvas.height,m=Math.min((w-44)/(columns-1),(h-44)/(rows-1));
+  const left=(w-(columns-1)*m)/2,top=(h-(rows-1)*m)/2;
+  ctx.fillStyle='#14272b';ctx.fillRect(0,0,w,h);
+  for(let r=0;r<rows-1;r++)for(let c=0;c<columns-1;c++){
+   const i=r*columns+c,level=(elevations[i]+elevations[i+1]+elevations[i+columns]+elevations[i+columns+1])/4;
+   ctx.fillStyle=level<=.25?'#345964':'hsl(45 17% '+Math.min(68,32+level*.23)+'%)';
+   ctx.fillRect(left+c*m,top+r*m,m+.5,m+.5);
+  }
+  const px=a=>left+(a-x)/spacing*m,pz=a=>top+(a-z)/spacing*m;
+  const bounds=[...runtime.world.registry.values()].map(t=>tiles.tileBounds(t.tx,t.tz));
+  const minX=Math.min(...bounds.map(b=>b.minX)),maxX=Math.max(...bounds.map(b=>b.maxX));
+  const minZ=Math.min(...bounds.map(b=>b.minZ)),maxZ=Math.max(...bounds.map(b=>b.maxZ));
+  ctx.strokeStyle=targetColor;ctx.lineWidth=2;
+  ctx.strokeRect(px(minX),pz(minZ),px(maxX)-px(minX),pz(maxZ)-pz(minZ));
+  ctx.fillStyle='#f6ecd8';ctx.font='14px system-ui';
+  ctx.fillText('CH01 타일 범위',px(maxX)+7,pz(minZ)+11);
+  get('scale').textContent=((columns-1)*spacing/1000).toFixed(2)+' × '+((rows-1)*spacing/1000).toFixed(2)+'km · 광역 표고';
+ }
  function fit(){
   canvas.width=Math.max(1,Math.round(canvas.clientWidth));
   canvas.height=Math.max(1,Math.round(canvas.clientHeight));
   paint();
  }
  function view(){
+  if(showRegion)region();
   eye=!eye;
   if(!eye&&doc.pointerLockElement===canvas)doc.exitPointerLock();
   controls.view.setAttribute('aria-pressed',String(eye));
   controls.view.textContent=eye?'V · 위에서 보기':'V · 눈높이 보기';
   get('zoom-in').disabled=get('zoom-out').disabled=eye;
   paint();
+ }
+ function region(){
+  if(!runtime.region)return;
+  showRegion=!showRegion;
+  if(doc.pointerLockElement===canvas)doc.exitPointerLock();
+  get('region').setAttribute('aria-pressed',String(showRegion));
+  get('region').textContent=showRegion?'M · 현장으로 돌아가기':'M · 광역 지도';
+  get('zoom-in').disabled=get('zoom-out').disabled=eye||showRegion;
+  get('report').hidden=true;
+  get('map-legend').style.visibility=showRegion?'hidden':'';
+  release();
  }
  function step(now){
   frame=0;
@@ -172,6 +207,8 @@
    return;
   }
   if(!e.repeat&&e.code==='KeyV'){e.preventDefault();view();return;}
+  if(!e.repeat&&e.code==='KeyM'){e.preventDefault();region();return;}
+  if(showRegion)return;
   if(!e.repeat&&e.code==='KeyF'){e.preventDefault();interact();return;}
   if(!movementKeys.includes(e.code)&&!(eye&&bearingKeys.includes(e.code)))return;
   e.preventDefault();get('report').hidden=true;held.add(e.code);
@@ -188,11 +225,13 @@
  });
  canvas.addEventListener('click',()=>{
   canvas.focus();
-  if(eye&&doc.pointerLockElement!==canvas)try{canvas.requestPointerLock?.()?.catch?.(()=>{});}catch(_){}
+  if(eye&&!showRegion&&doc.pointerLockElement!==canvas)try{canvas.requestPointerLock?.()?.catch?.(()=>{});}catch(_){}
  });
  get('zoom-in').addEventListener('click',()=>{zoom=Math.min(9,zoom*1.3);canvas.focus();paint();});
  get('zoom-out').addEventListener('click',()=>{zoom=Math.max(.2,zoom/1.3);canvas.focus();paint();});
  controls.view.addEventListener('click',()=>{view();canvas.focus();});
+ get('region').disabled=!runtime.region;
+ get('region').addEventListener('click',()=>{region();canvas.focus();});
  controls.action.addEventListener('click',()=>{interact();canvas.focus();});
  get('report-known').addEventListener('click',()=>{interact('retransmission');canvas.focus();});
  get('report-unknown').addEventListener('click',()=>{interact('separate');canvas.focus();});

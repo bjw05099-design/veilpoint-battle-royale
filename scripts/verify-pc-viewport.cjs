@@ -762,7 +762,8 @@ async function run(){
     fs.mkdirSync(path.dirname(dest),{recursive:true});
     fs.writeFileSync(path.join(path.dirname(dest),'aden-map.png'),Buffer.from(result.map,'base64'));
     fs.writeFileSync(path.join(path.dirname(dest),'aden-eye.png'),Buffer.from(result.eye,'base64'));
-    delete result.map;delete result.eye;
+    fs.writeFileSync(path.join(path.dirname(dest),'aden-region.png'),Buffer.from(result.region,'base64'));
+    delete result.map;delete result.eye;delete result.region;
     fs.writeFileSync(dest,JSON.stringify(result,null,2)+'\n');
    }
    console.log('Real Chromium Aden walk, report and checkpoint passed');

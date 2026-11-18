@@ -99,4 +99,5 @@ jobs:
             dist/aden-playable/ADEN_BROWSER_VERIFICATION.json
             dist/aden-playable/aden-map.png
             dist/aden-playable/aden-eye.png
+            dist/aden-playable/aden-region.png
           if-no-files-found: error

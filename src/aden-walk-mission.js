@@ -71,14 +71,21 @@
    if(!registry.has(Tiles.tileFor(x,z).key))throw Error('Vector extent exceeds sourced terrain');
   const cache=new Map([...registry].map(([key,tile])=>[key,{sourceTile:tile,mesh:Tiles.buildTerrainMesh(tile,1)}]));
   const world=Walk.createFootprintWorld(registry,cache,new Set(cache.keys()),footprints);
-  return Object.freeze({world,roads,footprints,corridor:selectCorridor(world,roads),revision:data.revision});
+  const region=data.region;
+  if(region&&(![region.x,region.z,region.spacing].every(Number.isFinite)||region.spacing!==256||
+     ![region.columns,region.rows].every(n=>Number.isInteger(n)&&n>1&&n<=256)||
+     !Array.isArray(region.elevations)||region.elevations.length!==region.columns*region.rows||
+     [...region.elevations].some(y=>!Number.isFinite(y)||y< -500||y>3000)))
+   throw Error('Invalid regional view');
+  return Object.freeze({world,roads,footprints,region,corridor:selectCorridor(world,roads),revision:data.revision});
  }
- function create(runtime,events=[]){
+ function create(runtime,events=[],metres=0){
   if(!Array.isArray(events)||events.length>SCENES.length||
      Array.from(events).some((id,i)=>id!==SCENES[i].id))throw Error('Invalid mission history');
   const departure=runtime.corridor.stations[events.length-1]||runtime.corridor.spawn;
+  if(!Number.isFinite(metres)||metres<0)throw Error('Invalid checkpoint distance');
   return Object.freeze({walker:Walk.initial(runtime.world,departure.x,departure.z),
-   events:Object.freeze([...events]),metres:0});
+   events:Object.freeze([...events]),metres});
  }
  function move(runtime,state,intent){
   const walker=Walk.step(runtime.world,state.walker,intent);
@@ -100,12 +107,14 @@
   if(objective.id==='handoff'&&report!=='retransmission')return {ok:false,reason:'unsupported-report',state};
   return {ok:true,line:objective.line,state:Object.freeze({...state,events:Object.freeze([...state.events,objective.id])})};
  }
- function save(runtime,state){return JSON.stringify({version:1,revision:runtime.revision,events:state.events});}
+ function save(runtime,state){
+  return JSON.stringify({version:1,revision:runtime.revision,events:state.events,metres:state.metres});
+ }
  function load(runtime,raw){
   if(typeof raw!=='string'||raw.length>512)throw Error('Invalid checkpoint');
   const data=JSON.parse(raw);
   if(data?.version!==1||data.revision!==runtime.revision)throw Error('Checkpoint belongs to a different map');
-  return create(runtime,data.events);
+  return create(runtime,data.events,data.metres===undefined?0:data.metres);
  }
  return Object.freeze({prepare,create,move,current,interact,save,load,SCENES,REACH,distance});
 });

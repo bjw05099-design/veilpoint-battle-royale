@@ -25,6 +25,12 @@ async function verifyAdenBrowser({rpc,sleep,directory}){
  await rpc('Page.bringToFront');
  await until('document.getElementById("objective")?.textContent==="첫 수신 기록 확인"','Missing live objective');
  const map=(await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data;
+ await tap('KeyM','m',77);
+ assert.equal(await read('document.getElementById("region").getAttribute("aria-pressed")'),'true');
+ assert.match(await read('document.getElementById("scale").textContent'),/40\.96 × 35\.84km/);
+ const region=(await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data;
+ assert.notEqual(map,region);
+ await tap('KeyM','m',77);
  await tap('KeyV','v',86);
  assert.equal(await read('document.getElementById("view").getAttribute("aria-pressed")'),'true');
  const eye=(await rpc('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data;
@@ -53,6 +59,6 @@ async function verifyAdenBrowser({rpc,sleep,directory}){
  }
  assert.deepEqual(faults,[],'Story browser layout overflow');
  return {realBrowser:true,fileUrl:true,phasesCompleted:3,restored:true,
-  wrongReportRejected:true,viewports:[[1366,768],...sizes],map,eye};
+  wrongReportRejected:true,regionalOverviewVerified:true,viewports:[[1366,768],...sizes],map,eye,region};
 }
 module.exports={verifyAdenBrowser};

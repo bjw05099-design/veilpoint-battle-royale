@@ -45,7 +45,8 @@ function verifyWalk(runtime){
   if(!confirm.ok)throw Error('Mapped station not physically reachable');
   state=Mission.load(runtime,Mission.save(runtime,confirm.state));
  }
- if(Mission.current(runtime,state)||!(walked>50))throw Error('Mission did not finish by walking');
+ if(Mission.current(runtime,state)||!(walked>50)||Math.abs(state.metres-walked)>1e-8)
+  throw Error('Mission did not finish with checkpointed walking distance');
  return {events:state.events,walkedMetres:Number(walked.toFixed(1))};
 }
 function packagePlay(dataPath,output){
