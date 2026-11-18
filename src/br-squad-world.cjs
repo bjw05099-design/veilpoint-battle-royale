@@ -44,6 +44,10 @@ const BOUNDARY_GRACE_TICKS=8*60;
 // public-area contraction ends. Multiple surviving squads share first place:
 // there is no invented champion, combat outcome or client-side timer.
 const ROUND_LIMIT_TICKS=15*60*60;
+const TRAIL_SAMPLE_TICKS=180;
+const trailPoint=(actor,tick)=>Object.freeze({
+  tick,x:Math.round(actor.x*10)/10,z:Math.round(actor.z*10)/10
+});
 // Server-owned finite lamp; battery follows simulation ticks, not frames.
 const HEADLAMP_TICKS=10*60*60;
 // Only low, already-colliding fictional public benches can be stepped over.
@@ -124,6 +128,7 @@ class BrSquadWorld {
           // Only actual accepted authoritative 60Hz displacement contributes
           // to this personal post-round travel record. No client-authored GPS.
           traveledMeters:0,sprintedMeters:0,benchRestTicks:0,
+          personalTrail:[trailPoint(point,0)],
           outsideAreaTicks:0,outsideStreakTicks:0,
           stamina:100,sprintHeld:false,crouchHeld:false,sprintDepleted:false,
           weapon:{health:100,loaded:Sim.FIREARMS.carbine.magazine,
@@ -805,6 +810,10 @@ class BrSquadWorld {
         if(actor.stamina>=STAMINA_REARM)actor.sprintDepleted=false;
       }
       actor.x=next.x;actor.z=next.z;
+      if(this.tick%TRAIL_SAMPLE_TICKS===0){
+        const last=actor.personalTrail.at(-1),point=trailPoint(actor,this.tick);
+        if(point.x!==last.x||point.z!==last.z)actor.personalTrail.push(point);
+      }
       if(actor.stepping&&stepAdvance&&traveled>1e-8){
         actor.stepping.progress++;
         if(actor.stepping.progress>=STEP_OVER_TICKS)actor.stepping=null;
@@ -990,6 +999,12 @@ class BrSquadWorld {
     // A genuine PERSONAL journey record for this authenticated participant,
     // never invented squad achievements or another player's path telemetry.
     // Published only after a server-authoritative finished round.
+    const personalTrail=this.phase==='finished'?(()=>{
+      const finish=trailPoint(me,me.eliminatedAtTick??this.tick);
+      const samples=me.personalTrail.filter(sample=>sample.tick<finish.tick);
+      return Object.freeze({schema:'veilpoint-br96-personal-trail-v1',
+        intervalTicks:TRAIL_SAMPLE_TICKS,samples:Object.freeze([...samples,finish])});
+    })():null;
     const personalRecap=this.phase==='finished'?Object.freeze({
       schema:'veilpoint-br96-personal-journey-v1',
       participantSlot:me.slot+1,squad:me.team+1,
@@ -1031,7 +1046,7 @@ class BrSquadWorld {
       ...(this.finishReason==='time_limit'?{reason:'time_limit'}:{})
     }):null;
     return {mode:'br-96-traversal-prototype',revision:this.revision,phase:this.phase,tick:this.tick,
-      matchOutcome,personalRecap,squadJourney,
+      matchOutcome,personalRecap,personalTrail,squadJourney,
       roundClock:Object.freeze({limitTicks:ROUND_LIMIT_TICKS,
         remainingTicks:Math.max(0,ROUND_LIMIT_TICKS-this.tick)}),
       coastalWeather:weather,

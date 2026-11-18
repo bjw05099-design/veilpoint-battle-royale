@@ -11,6 +11,15 @@ on:
       - scripts/export-ue5-heightmaps.cjs
       - scripts/verify-ue5-tile-pack.cjs
       - src/aden-citywide-tiles.js
+      - src/aden-walk-*.js
+      - src/aden-city-walking-probe.js
+      - src/aden-street-perspective.js
+      - game/aden/**
+      - scripts/*aden-playable.cjs
+      - scripts/verify-aden-browser.cjs
+      - scripts/build-aden-walk.py
+      - scripts/verify-pc-viewport.cjs
+      - docs/ADEN_PUBLIC_SOURCE_BUILD.md
   pull_request:
     paths:
       - .github/workflows/aden-source.yml
@@ -20,6 +29,15 @@ on:
       - scripts/export-ue5-heightmaps.cjs
       - scripts/verify-ue5-tile-pack.cjs
       - src/aden-citywide-tiles.js
+      - src/aden-walk-*.js
+      - src/aden-city-walking-probe.js
+      - src/aden-street-perspective.js
+      - game/aden/**
+      - scripts/*aden-playable.cjs
+      - scripts/verify-aden-browser.cjs
+      - scripts/build-aden-walk.py
+      - scripts/verify-pc-viewport.cjs
+      - docs/ADEN_PUBLIC_SOURCE_BUILD.md
 jobs:
   terrain-source:
     permissions:
@@ -61,4 +79,24 @@ jobs:
         with:
           name: veilpoint-aden-public-terrain
           path: dist/aden-source/
+          if-no-files-found: error
+      - name: Package the independent offline Aden CH01
+        run: |
+          python scripts/build-aden-walk.py dist/aden-source dist/aden-playable/aden-source-data.js
+          node scripts/package-aden-playable.cjs dist/aden-playable/aden-source-data.js dist/aden-playable
+          cd dist/aden-playable
+          sha256sum -c veilpoint-aden-ch01.zip.sha256
+          unzip -t veilpoint-aden-ch01.zip
+      - name: Walk all three stages in real Chromium
+        run: node scripts/verify-pc-viewport.cjs --aden-playable dist/aden-playable/play --output dist/aden-playable/ADEN_BROWSER_VERIFICATION.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-aden-ch01-playable
+          path: |
+            dist/aden-playable/veilpoint-aden-ch01.zip
+            dist/aden-playable/veilpoint-aden-ch01.zip.sha256
+            dist/aden-playable/ADEN_PLAYABLE_VERIFICATION.json
+            dist/aden-playable/ADEN_BROWSER_VERIFICATION.json
+            dist/aden-playable/aden-map.png
+            dist/aden-playable/aden-eye.png
           if-no-files-found: error

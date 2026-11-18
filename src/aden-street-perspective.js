@@ -117,13 +117,13 @@
   return panels;
  }
  function draw(canvas,registry,cache,walker,yaw,buildings=[],pitch=0,
-   {publicRooms=[],closedDoorIds=new Set(),pedestrians=[]}={}){
+   {publicRooms=[],closedDoorIds=new Set(),pedestrians=[],groundLines=[]}={}){
   if(!canvas||typeof canvas.getContext!=='function'||
      !(registry instanceof Map)||!(cache instanceof Map)||
      !walker||![walker.x,walker.y,walker.z,yaw,pitch].every(Number.isFinite)||
      Math.abs(pitch)>Math.PI/3||!Array.isArray(buildings)||
      !Array.isArray(publicRooms)||!(closedDoorIds instanceof Set)||
-     !Array.isArray(pedestrians)||pedestrians.length>128)
+     !Array.isArray(pedestrians)||pedestrians.length>128||!Array.isArray(groundLines))
    throw new TypeError('Invalid civilian street camera');
   const ctx=canvas.getContext('2d');
   if(!ctx)throw new TypeError('Canvas 2D unavailable');
@@ -177,6 +177,40 @@
   // loaded mesh as the road; missing DEM cannot spawn floating buildings.
   const tiles=typeof globalThis!=='undefined'?globalThis.VeilpointAdenCityTiles:null;
   const Tile=tiles||(typeof require==='function'?require('./aden-citywide-tiles.js'):null);
+  // Public-source linework has no surveyed heights above the ground.
+  // Clip each visible ground segment with the same eye/near/far projection.
+  const lerp=(start,end,t)=>({
+   right:start.right+(end.right-start.right)*t,
+   up:start.up+(end.up-start.up)*t,
+   depth:start.depth+(end.depth-start.depth)*t
+  });
+  const line=(a,b,color)=>{
+   if(Math.max(a.depth,b.depth)<NEAR||Math.min(a.depth,b.depth)>FAR)return;
+   const clip=(p,q)=>p.depth<NEAR?lerp(p,q,(NEAR-p.depth)/(q.depth-p.depth)):
+    p.depth>FAR?lerp(p,q,(FAR-p.depth)/(q.depth-p.depth)):p;
+   const clipped=[clip(a,b),clip(b,a)];
+   faces.push({stroke:true,color,average:(clipped[0].depth+clipped[1].depth)/2,
+    projected:clipped.map(p=>({x:width/2+p.right*focal/p.depth,y:height/2-p.up*focal/p.depth}))});
+  };
+  const surface=(x,z)=>{
+   const mesh=Tile&&meshByKey.get(Tile.tileFor(x,z).key);
+   return mesh?camera(x,Tile.heightOnTerrainMesh(mesh,x,z)+.12,z):null;
+  };
+  for(const path of groundLines){
+   const points=path.points,edges=points.length-1+Number(path.closed);
+   for(let i=0;i<edges;i++){
+    const [ax,az]=points[i],[bx,bz]=points[(i+1)%points.length];
+    if(Math.min(ax,bx)>eye.x+FAR||Math.max(ax,bx)<eye.x-FAR||
+       Math.min(az,bz)>eye.z+FAR||Math.max(az,bz)<eye.z-FAR)continue;
+    const steps=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)/4));
+    let last=surface(ax,az);
+    for(let j=1;j<=steps;j++){
+     const t=j/steps,next=surface(ax+(bx-ax)*t,az+(bz-az)*t);
+     if(last&&next)line(last,next,path.closed?'#eccaa2':'#e4ece4');
+     last=next;
+    }
+   }
+  }
   for(const b of buildings){
    if(!b||![b.x,b.z,b.w,b.d,b.h].every(Number.isFinite)||
       b.w<=0||b.d<=0||b.h<=0||Math.hypot(b.x-eye.x,b.z-eye.z)>FAR+40)continue;
@@ -214,7 +248,9 @@
   for(const f of faces){
    ctx.fillStyle=f.color;ctx.beginPath();
    f.projected.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
-   ctx.closePath();ctx.fill();visibleFaces++;
+   if(f.stroke){ctx.strokeStyle=f.color;ctx.lineWidth=1.45;ctx.stroke();}
+   else{ctx.closePath();ctx.fill();}
+   visibleFaces++;
   }
   return Object.freeze({mode:'original-street-perspective',terrainTiles,
    trianglesConsidered,visibleFaces,civilianFacades,civilianBodies,

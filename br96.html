@@ -31,6 +31,9 @@ section{border:1px solid #476168;background:#122127;border-radius:8px;min-height
 #journeyPanel h2{margin:0 0 6px;font-size:1.05rem}
 #journeyText{white-space:pre-wrap;font:12px/1.7 ui-monospace,Consolas,monospace;max-height:calc(80vh - 110px);overflow:hidden;margin:0 0 8px}
 #journeyDismiss{padding:5px 14px}
+#journeyMap{display:block;height:min(200px,36vh);width:100%;background:#173030}
+#journeyMapPane{margin-bottom:7px}
+#journeyMapPane p{font-size:.75rem;margin:.25rem 0}
 @media(max-height:650px){#journeyPanel{padding:8px}#journeyText{font-size:11px;line-height:1.36}}
 
 .standings-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex:0 0 auto}
@@ -95,6 +98,13 @@ label{display:block;font-size:.8rem;color:#bfd0cf}
 <div id="journeyPanel" role="region" aria-label="이번 경기 개인 활동 기록" hidden>
  <h2>이번 경기 활동 기록 · 서버 측정</h2>
  <pre id="journeyText" aria-live="off"></pre>
+ <div id="journeyMapPane" hidden>
+  <canvas id="journeyMap" width="480" height="200" aria-label="내 서버 관측 이동 표본"></canvas>
+  <label for="journeySample">관측 시각 <output id="journeySampleTime"></output></label>
+  <input id="journeySample" type="range" min="0" max="0" value="0">
+  <p>3초 간격 위치 표본과 종료 위치를 표시합니다.</p>
+ </div>
+ <button id="journeyToggle" type="button" hidden aria-expanded="false">내 이동 지도</button>
  <button id="journeyDismiss" type="button">기록 닫기</button>
 </div>
 <div id="standingsPanel" role="region" aria-label="16개 분대 경기 상황" hidden>

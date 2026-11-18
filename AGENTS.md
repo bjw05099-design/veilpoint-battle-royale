@@ -4,6 +4,12 @@
   marking. Story and Battle Royale ship separately, with story first. Allocate
   development effort 75% to story and 25% to BR, including each mode's map work
   and stabilization.
+- Build production Aden scenery from registered real-world sources at 1:1
+  scale. Preserve the sourced terrain, public road alignment, ordinary
+  building footprints and their known dimensions. Missing elevations,
+  heights, interiors and historical evidence remain missing. Keep synthetic
+  fixtures in the separate developer lab and exclude restricted facility
+  interiors and operational details from production inputs.
 - Read `docs/GAME_DEV_TOOLCHAIN.md` before asset or native-build work. Prefer the
   installed Blender, geometry/GIS, validation and profiling tools when applicable.
   Portable tool locations live in ignored `.tools/paths.json`; dependencies are

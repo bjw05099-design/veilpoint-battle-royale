@@ -13,7 +13,7 @@
  else root.VeilpointAdenWalkingProbe=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(Tiles,Districts){
  'use strict';
- if(!Tiles||!Districts)throw new Error('Terrain and civilian district geometry required');
+ if(!Tiles)throw new Error('Terrain is required');
  const TICKS_PER_SECOND=60,SPEED_METRES_PER_SECOND=1.7,RADIUS_METRES=.45;
  const MAX_SLOPE_DEGREES=35,MAX_TICK_STEP_METRES=.35;
  const EPS=1e-7;
@@ -41,7 +41,7 @@
   return {cells,large};
  }
  function createWorld(registry,cache,activeKeys,buildings,closedDoors=new Set()){
-  if(!(registry instanceof Map)||!(cache instanceof Map)||
+  if(!Districts||!(registry instanceof Map)||!(cache instanceof Map)||
    !(activeKeys instanceof Set)||!Array.isArray(buildings)||buildings.length>3000||
    !(closedDoors instanceof Set)||closedDoors.size>3000)
    throw new TypeError('Invalid local 60Hz civilian walk world');
@@ -80,6 +80,27 @@
     solids.push(solid(id,minX,maxX,minZ,maxZ,foundation.lowMetres));
    }
   }
+  return assembleWorld(registry,cache,activeKeys,solids,rooms);
+ }
+ function createFootprintWorld(registry,cache,activeKeys,footprints){
+  if(!(registry instanceof Map)||!(cache instanceof Map)||!(activeKeys instanceof Set)||
+     !Array.isArray(footprints)||footprints.length>8192)
+   throw new TypeError('Invalid public footprint world');
+  const solids=footprints.map((ring,id)=>{
+   if(!Array.isArray(ring)||ring.length<3||ring.length>512)
+    throw new TypeError('Invalid building ring');
+   const outline=Object.freeze(Array.from(ring,p=>{
+    if(!Array.isArray(p)||p.length!==2)throw new TypeError('Invalid outline point');
+    const {x,z}=Tiles.point(p[0],p[1]);
+    return Object.freeze([x,z]);
+   }));
+   const x=outline.map(p=>p[0]),z=outline.map(p=>p[1]);
+   return Object.freeze({id,minX:Math.min(...x),maxX:Math.max(...x),
+    minZ:Math.min(...z),maxZ:Math.max(...z),outline});
+  });
+  return assembleWorld(registry,cache,activeKeys,solids,[]);
+ }
+ function assembleWorld(registry,cache,activeKeys,solids,rooms){
   const index=createIndex(solids);
   const world=Object.freeze({registry,cache,activeKeys,
    solids:Object.freeze(solids),rooms:Object.freeze(rooms),
@@ -94,7 +115,17 @@
  function intersects(b,x,z,radius){
   const nearX=Math.max(b.minX,Math.min(x,b.maxX)),
    nearZ=Math.max(b.minZ,Math.min(z,b.maxZ));
-  return Math.hypot(nearX-x,nearZ-z)<radius-EPS;
+  if(Math.hypot(nearX-x,nearZ-z)>=radius-EPS)return false;
+  if(!b.outline)return true;
+  let inside=false;
+  for(let i=0,j=b.outline.length-1;i<b.outline.length;j=i++){
+   const [ax,az]=b.outline[j],[bx,bz]=b.outline[i],dx=bx-ax,dz=bz-az;
+   const length=dx*dx+dz*dz;
+   const fraction=length?Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/length)):0;
+   if(Math.hypot(x-ax-fraction*dx,z-az-fraction*dz)<radius-EPS)return true;
+   if((az>z)!==(bz>z)&&x<ax+dx*(z-az)/dz)inside=!inside;
+  }
+  return inside;
  }
  function collide(world,x,z,radius){
   const index=SPATIAL.get(world);
@@ -211,5 +242,5 @@
  }
  return Object.freeze({TICKS_PER_SECOND,SPEED_METRES_PER_SECOND,RADIUS_METRES,
   MAX_SLOPE_DEGREES,MAX_TICK_STEP_METRES,CELL_METRES,
-  createWorld,probe,initial,step});
+  createWorld,createFootprintWorld,probe,initial,step});
 });
