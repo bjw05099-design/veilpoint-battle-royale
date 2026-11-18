@@ -10,6 +10,45 @@ ADEN_PACKAGE = "/Game/Maps/CH01_Aden"
 ADEN_MATERIAL = "/Game/Materials/M_AdenSourceVertex"
 ADEN_MODE = "/Script/Veilpoint.VPAdenStoryGameMode"
 ADEN_ACTOR = "/Script/Veilpoint.VPAdenSourceWorld"
+ATLAS_PACKAGE = "/Game/Maps/AdenAtlas"
+ATLAS_SOURCES = (("local_atlas", "aden-atlas-local.png", "T_AdenAtlasLocal"),
+                 ("regional_atlas", "aden-atlas-region.png", "T_AdenAtlasRegional"))
+
+
+def import_atlas_textures():
+    project = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
+    source = os.path.join(project, "ContentSource", "Aden")
+    with open(os.path.join(source, "aden-atlas.json"), encoding="utf-8") as stream:
+        manifest = json.load(stream)
+    if manifest.get("schema") != "veilpoint-native-aden-atlas-v1":
+        raise RuntimeError("Incompatible Atlas manifest")
+    textures = {}
+    for prop, filename, asset in ATLAS_SOURCES:
+        file = os.path.join(source, filename)
+        with open(file, "rb") as stream:
+            observed = hashlib.sha256(stream.read()).hexdigest()
+        if observed != manifest["layers"][filename]["pngSha256"]:
+            raise RuntimeError("Sourced Atlas texture hash is invalid: " + filename)
+        target = ATLAS_PACKAGE + "/" + asset
+        if unreal.EditorAssetLibrary.does_asset_exist(target):
+            raise RuntimeError("Refusing to overwrite existing Atlas asset: " + target)
+        task = unreal.AssetImportTask()
+        task.set_editor_property("filename", file)
+        task.set_editor_property("destination_path", ATLAS_PACKAGE)
+        task.set_editor_property("destination_name", asset)
+        task.set_editor_property("automated", True)
+        task.set_editor_property("replace_existing", False)
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+        texture = unreal.EditorAssetLibrary.load_asset(target)
+        if not isinstance(texture, unreal.Texture2D):
+            raise RuntimeError("Atlas asset was not registered as native Texture2D: " + target)
+        texture.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON)
+        texture.set_editor_property("mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS)
+        texture.set_editor_property("never_stream", True)
+        if not unreal.EditorAssetLibrary.save_loaded_asset(texture):
+            raise RuntimeError("Could not save cooked Atlas texture: " + target)
+        textures[prop] = texture
+    return textures
 
 
 def author_aden_ch01(configure_daylight, verify_saved_daylight):
@@ -39,6 +78,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     if not assets.save_loaded_asset(material):
         raise RuntimeError("Aden vertex-color material did not save")
 
+    atlas = import_atlas_textures()
     world = editor.get_editor_world()
     world.get_world_settings().set_editor_property("default_game_mode", mode)
     origin = unreal.Vector(0, 0, 0)
@@ -46,6 +86,8 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     if not source:
         raise RuntimeError("Cannot place native Aden source actor")
     source.set_editor_property("vertex_color_material", material)
+    for prop, texture in atlas.items():
+        source.set_editor_property(prop, texture)
     source.set_actor_label("VP_Aden_PublicGeometry")
     sun = actors.spawn_actor_from_class(unreal.DirectionalLight, origin,
                                         unreal.Rotator(pitch=-48, yaw=18, roll=0))
@@ -65,6 +107,10 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         raise RuntimeError("Reloaded Aden map lost its cooked material reference")
     if editor.get_editor_world().get_world_settings().get_editor_property("default_game_mode") != mode:
         raise RuntimeError("Reloaded Aden map lost its story GameMode")
+    for prop, texture in atlas.items():
+        observed = reloaded[0].get_editor_property(prop)
+        if not observed or observed.get_path_name() != texture.get_path_name():
+            raise RuntimeError("Reloaded Aden map lost its Atlas texture: " + prop)
     daylight = verify_saved_daylight(actors.get_all_level_actors())
     content = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     map_file = os.path.join(content, "Maps", "CH01_Aden.umap")
@@ -74,7 +120,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         raise RuntimeError("Native Aden level has no valid saved map bytes")
     receipt = {"schema": "veilpoint-native-aden-authoring-v1", "map": ADEN_PACKAGE, "gameMode": ADEN_MODE,
                "mapSha256": hashlib.sha256(binary).hexdigest(), "mapBytes": len(binary),
-               "sourceActorCount": len(reloaded), "savedReloadVerified": True, "daylight": daylight}
+               "sourceActorCount": len(reloaded), "atlasTextureCount": len(atlas), "savedReloadVerified": True, "daylight": daylight}
     saved = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
     target = os.path.join(saved, "Veilpoint", "ch01-aden-map-receipt.json")
     os.makedirs(os.path.dirname(target), exist_ok=True)

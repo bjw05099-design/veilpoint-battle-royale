@@ -5,6 +5,7 @@
 #include "VPAdenSourceWorld.generated.h"
 
 class UMaterialInterface;
+class UTexture2D;
 
 UCLASS()
 class VEILPOINT_API AVPAdenSourceWorld : public AActor
@@ -14,10 +15,17 @@ public:
     AVPAdenSourceWorld();
     bool BuildSource();
     FVector Station(int32 Index) const;
+    UTexture2D* AtlasTexture(bool bRegional) const;
     const FString& Revision() const { return SourceRevision; }
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
+
+    UPROPERTY(EditAnywhere, Category="Aden source")
+    TObjectPtr<UTexture2D> LocalAtlas;
+
+    UPROPERTY(EditAnywhere, Category="Aden source")
+    TObjectPtr<UTexture2D> RegionalAtlas;
 
 private:
     FString SourceRevision;

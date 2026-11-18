@@ -9,6 +9,7 @@ on:
       - scripts/export-aden-civilian-osm.py
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
+      - scripts/build-native-aden-atlas.py
       - Unreal/Veilpoint/ContentSource/Aden/**
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
@@ -20,6 +21,7 @@ on:
       - scripts/export-aden-civilian-osm.py
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
+      - scripts/build-native-aden-atlas.py
       - Unreal/Veilpoint/ContentSource/Aden/**
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
@@ -40,7 +42,7 @@ jobs:
           node-version: '22'
       - name: Fetch and verify the public GLO-30 inputs
         run: |
-          python -m pip install rasterio==1.5.2 numpy==2.3.5
+          python -m pip install rasterio==1.5.2 numpy==2.3.5 pillow==13.0.0
           mkdir -p "$RUNNER_TEMP/aden"
           for longitude in 044 045; do
             object="Copernicus_DSM_COG_10_N12_00_E${longitude}_00_DEM"
@@ -66,6 +68,25 @@ jobs:
           python scripts/build-native-aden-source.py dist/aden-source "$RUNNER_TEMP/VPAdenEmbedded.h"
           cmp "$RUNNER_TEMP/VPAdenEmbedded.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
           sha256sum "$RUNNER_TEMP/VPAdenEmbedded.h"
+      - name: Compare the cooked atlas source pixels
+        run: |
+          python scripts/build-native-aden-atlas.py dist/aden-source "$RUNNER_TEMP/atlas"
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+          committed = Path("Unreal/Veilpoint/ContentSource/Aden")
+          generated = Path(os.environ["RUNNER_TEMP"]) / "atlas"
+          a, b = (json.loads((folder / "aden-atlas.json").read_bytes()) for folder in (committed, generated))
+          assert a["revision"] == b["revision"]
+          import hashlib
+          from PIL import Image
+          for name, layer in a["layers"].items():
+              with Image.open(committed / name) as image:
+                  assert hashlib.sha256(image.convert("RGB").tobytes()).hexdigest() == layer["pixelSha256"]
+              assert hashlib.sha256((committed / name).read_bytes()).hexdigest() == layer["pngSha256"]
+              assert all(layer[key] == b["layers"][name][key] for key in ("boundsCm", "size", "pixelSha256"))
+          PYCODE
       - uses: actions/upload-artifact@v4
         with:
           name: veilpoint-aden-public-terrain

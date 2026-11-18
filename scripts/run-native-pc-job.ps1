@@ -45,16 +45,9 @@ try {
             & (Join-Path $PSScriptRoot 'test-native-aden-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.adenGameplaySmokePassed=$true
             $report.nativeRuntimeVerified=$true
-            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
-            $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
-            $report.offscreenRenderVerified=$true
-            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs -Windowed
-            $report.windowRenderVerified=$true
-            $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
-            $report.humanInputVerified=$false
-            $report.gpuPerformanceVerified=$false
-            # The next runner checkout cleans source/dist. Retain verified
-            # packages outside that workspace without touching Desktop copies.
+            $report.adenAtlasVerified=$true
+            # Preserve a verified Aden gameplay candidate before running the
+            # separate Coast window/offscreen regressions.
             if (![string]::IsNullOrWhiteSpace($env:VEILPOINT_TOOL_ROOT)) {
                 $retainedRoot=Join-Path ([IO.Path]::GetFullPath($env:VEILPOINT_TOOL_ROOT)) 'native-packages'
                 $name=$report.sourceSha.Substring(0,12)+'-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
@@ -64,6 +57,20 @@ try {
                 Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/Windows') -Destination (Join-Path $retained 'Windows') -Recurse
                 Copy-Item -LiteralPath (Join-Path $repo 'dist/native-win64/veilpoint-win64-manifest.json') -Destination $retained
                 $report.retainedPackagePath=Join-Path $retained 'Windows'
+                $candidateTemp=Join-Path $retainedRoot ('aden-'+[Guid]::NewGuid().ToString('N')+'.json')
+                [ordered]@{sourceSha=$report.sourceSha;path=$report.retainedPackagePath;adenGameplaySmokePassed=$true;adenAtlasVerified=$true;humanInputVerified=$false} |
+                    ConvertTo-Json | Set-Content -LiteralPath $candidateTemp -Encoding UTF8
+                Move-Item -LiteralPath $candidateTemp -Destination (Join-Path $retainedRoot 'latest-aden-candidate.json') -Force
+            }
+            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
+            $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
+            $report.offscreenRenderVerified=$true
+            & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs -Windowed
+            $report.windowRenderVerified=$true
+            $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
+            $report.humanInputVerified=$false
+            $report.gpuPerformanceVerified=$false
+            if ($report.Contains('retainedPackagePath')) {
                 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'launch-latest-native.ps1') -Destination $retainedRoot -Force
                 Copy-Item -LiteralPath (Join-Path $repo 'tools/game-dev/PLAY_LATEST_VEILPOINT.cmd') -Destination $retainedRoot -Force
                 $pointerTemp=Join-Path $retainedRoot ('latest-'+[Guid]::NewGuid().ToString('N')+'.json')
@@ -72,7 +79,7 @@ try {
                 Move-Item -LiteralPath $pointerTemp -Destination (Join-Path $retainedRoot 'latest-verified.json') -Force
             }
         } catch {
-            $report.status=if ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } else { 'PACKAGED_VISUAL_SMOKE_FAILED' }
+            $report.status=if ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } elseif ($report.nativeRuntimeVerified) { 'PACKAGED_ADEN_PASSED_COAST_OR_RETENTION_FAILED' } else { 'PACKAGED_ADEN_SMOKE_FAILED' }
             throw
         }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }

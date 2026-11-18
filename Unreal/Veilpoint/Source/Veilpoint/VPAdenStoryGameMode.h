@@ -9,6 +9,7 @@
 
 class AVPAdenSourceWorld;
 class AVPCharacter;
+class USceneCaptureComponent2D;
 
 // Presentation state for the standalone story. Only GameMode publishes it.
 UCLASS()
@@ -20,7 +21,11 @@ public:
     bool bSourceReady = false;
     bool bChoosingReport = false;
     int32 Confirmed = 0;
-    FVector Objective;
+    int32 Notes = 0;
+    VPAdenMission::ENote AvailableNote = VPAdenMission::None;
+    FVector NotePoint = FVector::ZeroVector;
+    FVector Objective = FVector::ZeroVector;
+    TWeakObjectPtr<AVPAdenSourceWorld> Source;
     FString Notice;
 };
 
@@ -30,6 +35,8 @@ class UVPAdenStoryCheckpoint : public USaveGame
     GENERATED_BODY()
 public:
     UPROPERTY(SaveGame)
+    // Version 1 serialized this property. Keep the default for old saves
+    // and explicitly stamp version 2 on every new write.
     int32 Version = 1;
 
     UPROPERTY(SaveGame)
@@ -37,6 +44,9 @@ public:
 
     UPROPERTY(SaveGame)
     int32 Confirmed = 0;
+
+    UPROPERTY(SaveGame)
+    int32 Notes = 0;
 };
 
 UCLASS()
@@ -59,8 +69,13 @@ public:
 private:
     bool PrepareSource();
     void PublishState();
-    int32 ReadCheckpoint() const;
+    VPAdenMission::FProgress ReadCheckpoint() const;
+    FVector GetNotePoint(VPAdenMission::ENote Note) const;
+    void BeginDiagnostic();
     void RunDiagnostic();
+
+    UPROPERTY(Transient)
+    TObjectPtr<USceneCaptureComponent2D> DiagnosticCapture;
 
     UPROPERTY(Transient)
     TObjectPtr<AVPAdenSourceWorld> Source;
@@ -71,5 +86,6 @@ private:
     bool bSourceChecked = false;
     bool bChoosingReport = false;
     int32 Confirmed = 0;
+    int32 Notes = 0;
     FString Notice;
 };

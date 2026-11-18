@@ -1,0 +1,34 @@
+{
+  "schema": "veilpoint-native-aden-atlas-v1",
+  "revision": "30b78f40feeb65103707c6f5880f38f24c2b52152fc01c61839965eeb4d26e62",
+  "layers": {
+    "aden-atlas-local.png": {
+      "size": [
+        768,
+        768
+      ],
+      "boundsCm": [
+        153600,
+        -153600,
+        512000,
+        204800
+      ],
+      "pixelSha256": "0cd6106a1ac8fc095afc1c0763e659386f50441430fc066e6f86b0485f85b1db",
+      "pngSha256": "92c646342edb9765f45704a1f190edf6d7ac2e0311c77022b351385f1c2edf0b"
+    },
+    "aden-atlas-region.png": {
+      "size": [
+        640,
+        560
+      ],
+      "boundsCm": [
+        -2662400,
+        -2150400,
+        1433600,
+        1433600
+      ],
+      "pixelSha256": "20ade95a0da7518afb73e6c678839fc4310bab9754ea031a48e0e027d439bc68",
+      "pngSha256": "fe3996b4defcd659e261c7e8d0a252cea85895996b202b2a215ad50d90a997cb"
+    }
+  }
+}

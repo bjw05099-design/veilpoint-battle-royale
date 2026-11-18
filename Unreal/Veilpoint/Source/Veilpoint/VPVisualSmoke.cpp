@@ -25,6 +25,8 @@ namespace
 {
 FString SmokeDirectory()
 {
+    if (FParse::Param(FCommandLine::Get(), TEXT("VPAdenSmoke")))
+        return FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/AdenSmoke"));
     return FPaths::Combine(FPaths::ProjectSavedDir(), FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture")) ? TEXT("Automation/WindowVisualSmoke") : TEXT("Automation/VisualSmoke"));
 }
 }
@@ -55,8 +57,8 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
 {
     UWorld* World = Desktop ? Desktop->GetWorld() : nullptr;
     AVPHUD* HUD = Desktop ? Cast<AVPHUD>(Desktop->GetHUD()) : nullptr;
-    if (!World || !HUD || !Capture || !Capture->TextureTarget) return nullptr;
     const bool bWindow = FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture"));
+    if (!World || !HUD || (!bWindow && (!Capture || !Capture->TextureTarget))) return nullptr;
     FIntPoint Size(1280,720);
     const auto MakeTarget = [Desktop, Size]()
     {
@@ -66,9 +68,6 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
         Target->UpdateResourceImmediate(true);
         return Target;
     };
-    // Reuse the eight-second warmed, camera-attached capture. Recreating a
-    // one-shot view here loses auto-exposure history and clips 50,000-lux light.
-    FlushRenderingCommands();
     TArray<FColor> Pixels;
     bool bRead = false;
     if (bWindow)
@@ -78,6 +77,9 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     }
     else
     {
+        // Reuse the warmed scene capture; the game window path already holds
+        // its own readback and must not run a second full-size RHI view.
+        FlushRenderingCommands();
         UTextureRenderTarget2D* Composite = MakeTarget();
         const bool bDrewHUD = HUD->DrawDiagnosticCanvas(Composite, Capture->TextureTarget);
         FlushRenderingCommands();

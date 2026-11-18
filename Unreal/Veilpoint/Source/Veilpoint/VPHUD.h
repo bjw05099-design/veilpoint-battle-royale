@@ -22,10 +22,15 @@ public:
     bool DrawDiagnosticCanvas(class UTextureRenderTarget2D* Target, class UTexture* Background);
 private:
     void DrawDesktopMenu(class AVPPlayerController* Desktop);
+    void DrawLiveFrameTelemetry(float Scale, float X);
+    void DrawAdenAtlas(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn, int32 Page, int32 Zoom);
     void DrawAdenStory(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn);
     void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
     bool bRoundReviewOpen = false;
     int32 RoundReviewCursor = INDEX_NONE;
+    bool bRoundReviewPlaying = false;
+    double ReviewPlaybackBeganAt = 0.;
+    int32 ReviewPlaybackStartMs = 0;
     TArray<FBox2D> DesktopMenuBounds;
     // Avoid a full actor scan on every render frame (including 165Hz).
     // The zone is a replicated server-owned actor; clients only read its data.
