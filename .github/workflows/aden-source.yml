@@ -7,37 +7,23 @@ on:
       - .github/workflows/aden-source.yml
       - scripts/import-aden-glo30.py
       - scripts/export-aden-civilian-osm.py
+      - scripts/aden_source_geometry.py
+      - scripts/build-native-aden-source.py
       - Unreal/Veilpoint/ContentSource/Aden/**
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
       - scripts/verify-ue5-tile-pack.cjs
-      - src/aden-citywide-tiles.js
-      - src/aden-walk-*.js
-      - src/aden-city-walking-probe.js
-      - src/aden-street-perspective.js
-      - game/aden/**
-      - scripts/*aden-playable.cjs
-      - scripts/verify-aden-browser.cjs
-      - scripts/build-aden-walk.py
-      - scripts/verify-pc-viewport.cjs
-      - docs/ADEN_PUBLIC_SOURCE_BUILD.md
   pull_request:
     paths:
       - .github/workflows/aden-source.yml
       - scripts/import-aden-glo30.py
       - scripts/export-aden-civilian-osm.py
+      - scripts/aden_source_geometry.py
+      - scripts/build-native-aden-source.py
       - Unreal/Veilpoint/ContentSource/Aden/**
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
       - scripts/verify-ue5-tile-pack.cjs
-      - src/aden-citywide-tiles.js
-      - src/aden-walk-*.js
-      - src/aden-city-walking-probe.js
-      - src/aden-street-perspective.js
-      - game/aden/**
-      - scripts/*aden-playable.cjs
-      - scripts/verify-aden-browser.cjs
-      - scripts/build-aden-walk.py
-      - scripts/verify-pc-viewport.cjs
-      - docs/ADEN_PUBLIC_SOURCE_BUILD.md
 jobs:
   terrain-source:
     permissions:
@@ -75,31 +61,13 @@ jobs:
           node scripts/export-ue5-heightmaps.cjs dist/aden-source/aden-pilot-heightfield.json dist/aden-source/ue5-r16
           node scripts/verify-ue5-tile-pack.cjs dist/aden-source/ue5-r16 > dist/aden-source/R16_VERIFICATION.json
           node -e 'const result=require("./dist/aden-source/R16_VERIFICATION.json"); if(result.tiles!==49||result.seams!==84)process.exit(1);'
+      - name: Rebuild and compare the exact native C++ payload
+        run: |
+          python scripts/build-native-aden-source.py dist/aden-source "$RUNNER_TEMP/VPAdenEmbedded.h"
+          cmp "$RUNNER_TEMP/VPAdenEmbedded.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
+          sha256sum "$RUNNER_TEMP/VPAdenEmbedded.h"
       - uses: actions/upload-artifact@v4
         with:
           name: veilpoint-aden-public-terrain
           path: dist/aden-source/
-          if-no-files-found: error
-      - name: Package the independent offline Aden CH01
-        run: |
-          python scripts/build-aden-walk.py dist/aden-source dist/aden-playable/aden-source-data.js
-          node scripts/package-aden-playable.cjs dist/aden-playable/aden-source-data.js dist/aden-playable
-          cd dist/aden-playable
-          sha256sum -c veilpoint-aden-ch01.zip.sha256
-          unzip -t veilpoint-aden-ch01.zip
-      - name: Install Korean glyphs for the browser proof screenshots
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
-      - name: Walk all three stages in real Chromium
-        run: node scripts/verify-pc-viewport.cjs --aden-playable dist/aden-playable/play --output dist/aden-playable/ADEN_BROWSER_VERIFICATION.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: veilpoint-aden-ch01-playable
-          path: |
-            dist/aden-playable/veilpoint-aden-ch01.zip
-            dist/aden-playable/veilpoint-aden-ch01.zip.sha256
-            dist/aden-playable/ADEN_PLAYABLE_VERIFICATION.json
-            dist/aden-playable/ADEN_BROWSER_VERIFICATION.json
-            dist/aden-playable/aden-map.png
-            dist/aden-playable/aden-eye.png
-            dist/aden-playable/aden-region.png
           if-no-files-found: error

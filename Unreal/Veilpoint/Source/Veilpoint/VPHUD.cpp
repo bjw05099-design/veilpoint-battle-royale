@@ -4,6 +4,7 @@
 #include "VPZone.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
+#include "VPAdenStoryGameMode.h"
 #include "VPStoryMarker.h"
 #include "VPLastBroadcastMission.h"
 #include "VPStoryEastGate.h"
@@ -114,6 +115,11 @@ void AVPHUD::DrawHUD()
     }
     DesktopMenuBounds.Reset();
     const AVPCharacter* Pawn = Cast<AVPCharacter>(PlayerOwner->GetPawn());
+    if (const auto* Aden = GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
+        DrawAdenStory(Aden, Pawn);
+        return;
+    }
     if (!Pawn) return;
 
     FVector Mark;
@@ -620,4 +626,79 @@ void AVPHUD::DrawHUD()
         DrawText(TEXT("OUTSIDE THE SAFE AREA"),
                  FLinearColor(.96f,.58f,.44f,1.f),
                  X, Y + 170.f * Scale, nullptr, Scale, false);
+}
+
+void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn)
+{
+    const FLinearColor Ink(.89f, .93f, .90f), Accent(.94f, .82f, .57f), Plate(.008f, .02f, .024f, .92f);
+    const float Scale = FMath::Clamp(Canvas->ClipX / 1600.f, .70f, 1.35f);
+    const float X = 20.f * Scale, Y = 20.f * Scale;
+    const float Width = FMath::Min(Canvas->ClipX - 2.f * X, 740.f * Scale);
+    if (!Pawn || !Aden->bSourceReady)
+    {
+        DrawRect(Plate, X, Y, Width, 55.f * Scale);
+        DrawText(TEXT("Aden public source could not be opened."), Accent, X + 12.f * Scale, Y + 14.f * Scale, nullptr, Scale);
+        return;
+    }
+
+    const int32 Confirmed = Aden->Confirmed;
+    const TCHAR* Objectives[] = {
+        TEXT("Confirm the first receipt"), TEXT("Compare the retransmission"),
+        TEXT("Give Salma the verified report"), TEXT("Report handed over")
+    };
+    const TCHAR* Records[] = {
+        TEXT("04:07  First verified receipt."),
+        TEXT("04:12  Retransmission of the same message."),
+        TEXT("Salma received the record. The missing are still unaccounted for.")
+    };
+    const bool bPending = Confirmed < VPAdenMission::Complete;
+    const FVector Objective = Aden->Objective;
+    const double Distance = bPending ? FVector::Dist2D(Pawn->GetActorLocation(), Objective) / 100. : 0.;
+    const auto* Desktop = Cast<AVPPlayerController>(PlayerOwner);
+    const bool bJournalOpen = Desktop && Desktop->IsAdenJournalOpen();
+
+    DrawRect(Plate, X, Y, Width, (bJournalOpen ? 200.f : 109.f) * Scale);
+    DrawText(TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
+        X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
+    DrawText(Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
+    const FString Status = bPending
+        ? FString::Printf(TEXT("%d / 3  |  %.1fm to station  |  F inspect  |  J field notes"), Confirmed + 1, Distance)
+        : TEXT("3 / 3 confirmed  |  J field notes");
+    DrawText(Status, Ink, X + 12.f * Scale, Y + 58.f * Scale, nullptr, .81f * Scale);
+    DrawText(TEXT("Terrain: Copernicus GLO-30   |   Vectors: OpenStreetMap contributors"), Ink,
+        X + 12.f * Scale, Y + 82.f * Scale, nullptr, .65f * Scale);
+    if (bJournalOpen)
+    {
+        if (Confirmed == 0)
+            DrawText(TEXT("No verified field entries yet."), Ink, X + 12.f * Scale, Y + 116.f * Scale, nullptr, .77f * Scale);
+        for (int32 I = 0; I < Confirmed; ++I)
+            DrawText(Records[I], Ink, X + 12.f * Scale, Y + (116.f + I * 23.f) * Scale, nullptr, .77f * Scale);
+    }
+
+    if (bPending)
+    {
+        FVector2D Screen;
+        const FVector Eye = Pawn->GetPawnViewLocation();
+        FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStationHud), true, Pawn);
+        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Objective - Eye) > 0. &&
+            PlayerOwner->ProjectWorldLocationToScreen(Objective, Screen) &&
+            Screen.X > 18.f && Screen.Y > 18.f && Screen.X < Canvas->ClipX - 18.f && Screen.Y < Canvas->ClipY - 18.f &&
+            !GetWorld()->LineTraceTestByChannel(Eye, Objective, ECC_Visibility, Query))
+        {
+            DrawLine(Screen.X - 8.f, Screen.Y, Screen.X + 8.f, Screen.Y, Accent, 2.f);
+            DrawLine(Screen.X, Screen.Y - 8.f, Screen.X, Screen.Y + 8.f, Accent, 2.f);
+            if (AVPAdenStoryState::CanReach(Pawn, Objective))
+                DrawText(TEXT("[F]"), Accent, Screen.X + 12.f, Screen.Y - 10.f, nullptr, Scale);
+        }
+    }
+
+    if (!Aden->Notice.IsEmpty() || Aden->bChoosingReport)
+    {
+        const float Bottom = Canvas->ClipY - 90.f * Scale;
+        DrawRect(Plate, X, Bottom, Width, 69.f * Scale);
+        DrawText(Aden->Notice, Ink, X + 12.f * Scale, Bottom + 12.f * Scale, nullptr, .78f * Scale);
+        if (Aden->bChoosingReport)
+            DrawText(TEXT("[1] Same message retransmitted       [2] Two separate incidents"), Accent,
+                X + 12.f * Scale, Bottom + 35.f * Scale, nullptr, .78f * Scale);
+    }
 }

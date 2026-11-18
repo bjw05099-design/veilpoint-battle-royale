@@ -1,5 +1,10 @@
 # VEILPOINT development continuity
 
+- Unreal Engine 5.8 in `Unreal/Veilpoint` is the only production runtime and
+  development target for the game, maps, Story and Battle Royale. Add playable
+  features and release builds through Unreal. Browser and WebView2 prototypes
+  are historical references and legacy regression fixtures.
+
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
   marking. Story and Battle Royale ship separately, with story first. Allocate
   development effort 75% to story and 25% to BR, including each mode's map work

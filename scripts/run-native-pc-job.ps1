@@ -42,6 +42,9 @@ try {
         & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PackageNative
         $report.status='PACKAGED_NOT_RUNTIME_TESTED'
         try {
+            & (Join-Path $PSScriptRoot 'test-native-aden-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
+            $report.adenGameplaySmokePassed=$true
+            $report.nativeRuntimeVerified=$true
             & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
             $report.offscreenRenderVerified=$true

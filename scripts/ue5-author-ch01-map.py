@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import runpy
 import re
 import unreal
 
@@ -537,3 +538,5 @@ def author_ch01():
 
 
 author_ch01()
+aden_author = runpy.run_path(os.path.join(ROOT, "scripts", "ue5-author-aden-ch01.py"))
+aden_author["author_aden_ch01"](configure_daylight, verify_saved_daylight)

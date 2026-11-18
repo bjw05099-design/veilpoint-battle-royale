@@ -16,7 +16,7 @@ if (Test-Path -LiteralPath $captures) { throw 'Visual smoke output already exist
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
 $log=Join-Path $evidence $(if ($Windowed) { 'window-smoke-runtime.log' } else { 'visual-smoke-runtime.log' })
 Write-Host "[VEILPOINT] Launching bounded game diagnostic: $folder"
-$arguments=@('-stdout','-FullStdOutLogOutput','-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
+$arguments=@('/Game/Maps/CH01_Coast','-stdout','-FullStdOutLogOutput','-unattended','-nosound','-windowed','-ResX=1280','-ResY=720',
     '-VPVisualSmoke',('-abslog="'+$log+'"'))
 if ($Windowed) { $arguments+='-VPWindowCapture' } else { $arguments+='-RenderOffscreen' }
 try {
