@@ -62,6 +62,13 @@ void AVPGameMode::PreLogin(const FString& Options, const FString& Address,
         ErrorMessage = TEXT("This native round already started.");
 }
 
+void AVPGameMode::Logout(AController* Exiting)
+{
+    if (auto* Desktop = Cast<APlayerController>(Exiting))
+        ReadyControllers.Remove(TWeakObjectPtr<APlayerController>(Desktop));
+    Super::Logout(Exiting);
+}
+
 void AVPGameMode::SetReadyFromController(APlayerController* Controller, bool bReady)
 {
     if (!HasAuthority() || !bRequireReady || bSeenMultiplePlayers || !Controller) return;
