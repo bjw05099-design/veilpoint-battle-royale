@@ -16,8 +16,8 @@ stabilization count toward the release track they serve.
 
 ## Release sequence
 
-1. **First release: native Windows PC story mode, single-player.**
-   Unreal Chapter 01 starts in `CH01_Aden`. Completion requires separately verified playable chapters, genuine story
+1. **First release: Windows PC story mode, single-player.**
+   The native Unreal game starts Chapter 01 in `CH01_Aden`. Completion requires separately verified playable chapters, genuine story
    flow, human Windows launch, assets, localization/accessibility, save recovery,
    offline package, license provenance and real performance measurement.
 2. **Second release: Battle Royale.** Reuse as much of the proven story's
