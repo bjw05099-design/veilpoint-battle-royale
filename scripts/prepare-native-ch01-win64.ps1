@@ -22,8 +22,10 @@ $author=Join-Path $repo 'scripts/ue5-author-ch01-map.py'
 $layout=Join-Path $repo 'scripts/ch01-original-public-court.json'
 $broadcastLayout=Join-Path $repo 'scripts/ch01-last-broadcast-layout.json'
 $map=Join-Path $repo 'Unreal/Veilpoint/Content/Maps/CH01_Coast.umap'
+$adenMap=Join-Path $repo 'Unreal/Veilpoint/Content/Maps/CH01_Aden.umap'
 $saved=Join-Path $repo 'Unreal/Veilpoint/Saved'
 $receipt=Join-Path $saved 'CH01_MAP_READY.json'
+$adenReceipt=Join-Path $saved 'Veilpoint/ch01-aden-map-receipt.json'
 $engine=[IO.Path]::GetFullPath($EngineRoot)
 $versionPath=Join-Path $engine 'Engine/Build/Build.version'
 $buildBat=Join-Path $engine 'Engine/Build/BatchFiles/Build.bat'
@@ -44,10 +46,10 @@ $source=Get-Content -LiteralPath $config -Raw
 if ($source -notmatch '(?m)^GameDefaultMap=/Engine/Maps/Entry\s*$') {
     Fail 'Source game map differs from the original safe Entry default; do not overwrite custom settings.'
 }
-if (Test-Path -LiteralPath $map) {
+if ((Test-Path -LiteralPath $map) -or (Test-Path -LiteralPath $adenMap)) {
     Fail 'A CH01_Coast.umap already exists; review it in Unreal Editor. Never overwrite authored map assets.'
 }
-if (Test-Path -LiteralPath $receipt) {
+if ((Test-Path -LiteralPath $receipt) -or (Test-Path -LiteralPath $adenReceipt)) {
     Fail 'A CH01 authoring receipt already exists; inspect before attempting a new run.'
 }
 $data=Get-Content -LiteralPath $layout -Raw | ConvertFrom-Json
@@ -147,14 +149,29 @@ if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
     Fail 'Unreal editor map receipt fails byte-level verification. Refusing to change startup map.'
 }
 
+if (!(Test-Path -LiteralPath $adenMap -PathType Leaf) -or !(Test-Path -LiteralPath $adenReceipt -PathType Leaf)) {
+    Fail 'The Unreal Editor did not generate the native sourced Aden map and receipt.'
+}
+Copy-Item -LiteralPath $adenReceipt -Destination (Join-Path $logFolder 'ch01-aden-map-receipt.json')
+$adenProof=Get-Content -LiteralPath $adenReceipt -Raw | ConvertFrom-Json
+$adenSha=(Get-FileHash -LiteralPath $adenMap -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($adenProof.schema -ne 'veilpoint-native-aden-authoring-v1' -or
+    $adenProof.map -ne '/Game/Maps/CH01_Aden' -or $adenProof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or
+    $adenProof.savedReloadVerified -ne $true -or $adenProof.sourceActorCount -ne 1 -or
+    $adenProof.mapSha256 -cne $adenSha -or [int64]$adenProof.mapBytes -ne (Get-Item -LiteralPath $adenMap).Length) {
+    Fail 'Sourced Aden map receipt fails byte-level verification.'
+}
+
 # Preserve the prior config in ignored Saved/ so it can be restored manually.
 $backup=Join-Path $saved "DefaultEngine.before-CH01-$stamp.ini"
 [IO.File]::WriteAllText($backup,$source,[Text.UTF8Encoding]::new($false))
 $revised=[regex]::Replace($source,'(?m)^GameDefaultMap=/Engine/Maps/Entry(?=\r?$)',
-                           'GameDefaultMap=/Game/Maps/CH01_Coast')
+                           'GameDefaultMap=/Game/Maps/CH01_Aden')
 if ($revised -eq $source) { Fail 'Could not safely locate stock map setting; no changes committed.' }
+$revised=[regex]::Replace($revised,'(?m)^EditorStartupMap=/Engine/Maps/Entry(?=\r?$)',
+                           'EditorStartupMap=/Game/Maps/CH01_Aden')
 [IO.File]::WriteAllText($config,$revised,[Text.UTF8Encoding]::new($false))
-Write-Host "[VEILPOINT] Verified physical CH01 map + 11 civic actors and enabled story startup."
+Write-Host "[VEILPOINT] Verified native sourced Aden and enabled CH01_Aden story startup."
 Write-Host "[VEILPOINT] Config backup: $backup"
 Write-Host "[VEILPOINT] Author receipt: $receipt"
 Write-Host '[VEILPOINT] UE5 editor C++ compile and asset authoring succeeded LOCALLY; playable PIE is still UNVERIFIED.'

@@ -1,31 +1,32 @@
 # VEILPOINT — Story-first PC development · CH01 preview and future Battle Royale
 
-> **Status (2026-11-18): playable Windows PC browser CH01, separate story-only Windows WebView2 candidate, and a UE5.8 development build with dedicated native runtime checks.**
+**Production development is Windows PC-only on Unreal Engine 5.8.** Open
+[`Unreal/Veilpoint/Veilpoint.uproject`](Unreal/Veilpoint/Veilpoint.uproject).
+Development is split **75% story / 25% Battle Royale**. The two modes
+ship separately, with story first. The verified editor authoring command creates
+`CH01_Aden`, then selects it as the native game's startup map.
+[Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)
 
-Development effort is split **75% story / 25% Battle Royale**. The two modes
-ship separately, with story first. November 27 remains a demo candidate target.
-[Story-first plan](docs/STORY_FIRST_RELEASE_PLAN.md)
+Production Aden uses registered real-world public terrain, roads, and ordinary
+building outlines at 1:1 scale. Current native scope is the 3.584 × 3.584 km
+pilot, pending citywide work and 2015 comparison. BR continues under the
+Unreal project as a separate mode.
+[Aden source build](docs/ADEN_PUBLIC_SOURCE_BUILD.md)
 
-The production map uses **Aden, southern Yemen** at 1:1 scale. The public source
-build contains a projected elevation mosaic and a smaller registered road and
-building footprint layer. The current CH01 gameplay blockout is a separate
-playtest environment. The source build still needs 2015 historical comparison
-and integration with the playable world. [Aden source build](docs/ADEN_PUBLIC_SOURCE_BUILD.md)
+<details>
+<summary>Archived browser and WebView2 prototype documentation</summary>
 
-VEILPOINT is a **Windows PC-only** game in development. The **single-player story campaign releases first**, with Battle Royale later reusing validated story environments and shared systems. Its final vision includes story (~12h authored target), later online team multiplayer and Battle Royale. Currently the browser includes an **offline** survival battle-royale prototype and a **short, playable CH01 story preview**. The BR browser combat uses fictional firearm-class abstractions with finite carried ammunition; these are not verified real-world ballistics or production weapon assets. The project has no account system, telemetry, external assets, analytics or dependency downloads.
+## Historical Windows offline demo EXE track
 
+The archived prototype has these internal test packages:
 
-## Windows offline demo EXE track (2026-11-27 delivery target)
-
-The Windows demo has **two distinct release paths**:
-
-- The existing verified offline **browser ZIP** remains the primary P0 regression and fallback launch path.
+- The existing verified offline **browser ZIP** is retained for regression testing.
 - A **Windows x64 `.exe` browser-host candidate** is built from `windows/VEILPOINT.DemoHost/` using .NET 10 WinForms and Microsoft Edge WebView2. It now **opens story CH01 first**, with separate BR and original terrain preview buttons for development. Launch `VEILPOINT.Demo.exe --story-only` to hide BR/terrain buttons and reject navigation to those pages; this mode still uses the same mixed offline asset package and is **not** a separately packaged 12-hour story game. WebView2 Evergreen runtime is required; this is **not** native UE5.
 - A separate **BR-free Story CH01 Windows EXE candidate** reuses the verified WebView2 host binary but bundles only the story-only source ZIP and its dependencies. The archive `dist/windows-story-exe/veilpoint-story-windows-exe.zip` automatically launches CH01 with BR/terrain navigation disabled, and independently verifies every included asset. This is **not** a native UE5 game, full 12-hour campaign or final signed release.
 
 For a Windows machine with Node 22 and the .NET 10 SDK, run `./scripts/package-windows-demo.ps1` followed by `./scripts/package-windows-story-demo.ps1` in PowerShell to build both candidates. The script verifies the browser ZIP, actually compiles the Win64 EXE, bundles `game/` files, checks PE executable headers and the WebView2 native loader, re-extracts the release ZIP, and produces `dist/windows-exe/veilpoint-windows-demo-exe.zip` with its `.sha256` sidecar. The dedicated Windows GitHub Actions workflow uploads separate `veilpoint-windows-demo-exe-candidate` (combined) and `veilpoint-story-windows-exe-candidate` (BR-free CH01) artifacts only when their build/package gates pass. Extract **all** files from the release ZIP before running `VEILPOINT.Demo.exe`.
 
-This host uses a stable local virtual origin, so EXE checkpoints persist in a per-user local WebView2 profile and are separate from saves created in `file://` browser pages. Remote network resources/navigation are blocked by the host. Package creation is not a real Windows gameplay smoke test, a Microsoft code signature, or proof of 165 FPS. A native standalone UE5 `.exe` remains the separate 2027-04-27 goal. See [Windows EXE validation](docs/WINDOWS_EXE_DEMO.md).
+This host uses a stable local virtual origin, so EXE checkpoints persist in a per-user local WebView2 profile and are separate from saves created in `file://` browser pages. Remote network resources/navigation are blocked by the host. Package creation is not a real Windows gameplay smoke test, a Microsoft code signature, or proof of 165 FPS. See the native guide above for current Windows packaging. See [Windows EXE validation](docs/WINDOWS_EXE_DEMO.md).
 
 ## Separate 16×6 local squad browser field test
 
@@ -76,13 +77,16 @@ Open `story.html` directly, or use the **스토리 CH01 프리뷰** button on th
 - PC mouse/keyboard controls, adaptive no-scroll UI, synthesized local UI sound, no remote calls.
 - Core simulation unit tests and GitHub Actions CI recipe.
 
+</details>
+
 ### Native UE5 CH01 map authoring — Windows development gate (2026-11-10)
 
 For the installed Unreal Engine **5.8** plus Windows C++ build tools,
 `scripts/prepare-native-ch01-win64.ps1` checks the engine version, compiles
 `VeilpointEditor`, executes the actual editor map-generation script and
-verifies a SHA-256 receipt for `CH01_Coast.umap` before setting it as the
-startup map. A small original civilian public courtyard adds **11 actual
+verifies separate SHA-256 receipts for `CH01_Aden.umap` and the
+`CH01_Coast.umap` development map before selecting the sourced Aden map for
+startup. A small original civilian public courtyard adds **11 actual
 authored editor meshes**, with open pedestrian access and physical collision.
 The original 2015 Aden geography and fully built city are **not verified**.
 

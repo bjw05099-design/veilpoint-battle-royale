@@ -81,6 +81,18 @@ elseif ($map -match '^/Game/([A-Za-z0-9_/]+)$') {
             Fail 'CH01 authored map receipt mismatch. Refusing cook/package of unverified level.'
         }
     }
+    if ($map -eq '/Game/Maps/CH01_Aden') {
+        $proofPath=Join-Path $repo 'Unreal/Veilpoint/Saved/Veilpoint/ch01-aden-map-receipt.json'
+        if (!(Test-Path -LiteralPath $proofPath -PathType Leaf)) { Fail 'Missing native Aden authoring receipt.' }
+        $proof=Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
+        $mapDigest=(Get-FileHash -LiteralPath $mapFile -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($proof.schema -ne 'veilpoint-native-aden-authoring-v1' -or $proof.map -ne $map -or
+            $proof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or $proof.savedReloadVerified -ne $true -or
+            $proof.sourceActorCount -ne 1 -or $proof.mapSha256 -cne $mapDigest -or
+            [int64]$proof.mapBytes -ne (Get-Item -LiteralPath $mapFile).Length) {
+            Fail 'Native Aden map receipt mismatch. Refusing cook/package of the unverified level.'
+        }
+    }
 }
 else { Fail "GameDefaultMap is not a supported authored /Game/ map: $map" }
 
@@ -95,13 +107,17 @@ if ($archive.TrimEnd('\','/') -eq $nativeProject.TrimEnd('\','/') -or
     Fail 'ArchiveDirectory must be outside the source Unreal project.'
 }
 
+$cookMaps=$map
+if ($map -eq '/Game/Maps/CH01_Aden' -and $Configuration -eq 'Development') {
+    $cookMaps+='+/Game/Maps/CH01_Coast'
+}
 $arguments=@(
     'BuildCookRun',
     "-project=$project",
     '-noP4',
     '-platform=Win64',
     "-clientconfig=$Configuration",
-    '-build', '-cook', "-map=$map", '-stage', '-pak', '-archive',
+    '-build', '-cook', "-map=$cookMaps", '-stage', '-pak', '-archive',
     "-archivedirectory=$archive"
 )
 

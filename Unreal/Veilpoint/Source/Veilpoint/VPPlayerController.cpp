@@ -2,6 +2,7 @@
 #include "VPCharacter.h"
 #include "VPStoryGameState.h"
 #include "VPStoryGameMode.h"
+#include "VPAdenStoryGameMode.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
@@ -234,7 +235,7 @@ bool AVPPlayerController::CanSaveMissionProgress() const
 {
     const AVPCharacter* ControlledPawn=Cast<AVPCharacter>(GetPawn());
     return IsLocalController() && GetNetMode()==NM_Standalone && ControlledPawn && ControlledPawn->IsAlive() &&
-        GetWorld() && GetWorld()->GetAuthGameMode<AVPStoryGameMode>();
+        GetWorld() && (GetWorld()->GetAuthGameMode<AVPStoryGameMode>() || GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>());
 }
 
 void AVPPlayerController::SaveMissionProgress()
@@ -242,6 +243,12 @@ void AVPPlayerController::SaveMissionProgress()
     if(!CanSaveMissionProgress())
     {
         ShowLocalNotice(TEXT("Mission progress saving is available in offline CH01 while alive."));
+        return;
+    }
+    if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>())
+    {
+        ShowLocalNotice(Aden->PersistStoryCheckpoint()
+            ? TEXT("Mission progress saved and read back.") : TEXT("Save failed. Current progress remains in memory."));
         return;
     }
     AVPStoryGameMode* Mode=GetWorld()->GetAuthGameMode<AVPStoryGameMode>();
@@ -280,6 +287,19 @@ void AVPPlayerController::SetupInputComponent()
     // Consume the controller click: menu clicks must never also fire the pawn.
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AVPPlayerController::MenuClick).bExecuteWhenPaused = true;
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
+    InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ReportAdenRetransmission);
+    InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
+}
+
+void AVPPlayerController::ReportAdenRetransmission() { SendAdenReport(true); }
+void AVPPlayerController::ReportAdenTwoIncidents() { SendAdenReport(false); }
+
+void AVPPlayerController::SendAdenReport(bool bSameMessage)
+{
+    if (bDesktopMenuOpen || !IsLocalController() || !GetWorld()) return;
+    if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosingReport())
+        Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()),
+            bSameMessage ? VPAdenMission::EInput::SameMessage : VPAdenMission::EInput::TwoIncidents);
 }
 
 void AVPPlayerController::ToggleDesktopMenu()

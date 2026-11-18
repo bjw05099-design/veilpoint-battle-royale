@@ -38,6 +38,9 @@ private:
     FString LocalNotice;
     double NoticeExpiresAt = 0.0;
     void ShowLocalNotice(const FString& Message);
+    void ReportAdenRetransmission();
+    void ReportAdenTwoIncidents();
+    void SendAdenReport(bool bSameMessage);
     int32 VisualSmokeStep = -1;
     bool bVisualMarkRequested = false;
     double NextVisualSmokeAt = 0.0;

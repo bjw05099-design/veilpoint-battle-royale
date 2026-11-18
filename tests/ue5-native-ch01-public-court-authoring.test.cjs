@@ -96,17 +96,18 @@ test('Windows one-command CH01 native preparation is fail-closed and only sets s
   'Get-FileHash -LiteralPath $layout -Algorithm SHA256',
   'actualAdenCoverageVerified','Native Editor C++ build failed',
   'Editor exited without BOTH a real CH01 .umap',
-  'Saved','GameDefaultMap=/Game/Maps/CH01_Coast','$PreflightOnly','$PackageNative'
+  'Saved','GameDefaultMap=/Game/Maps/CH01_Aden','$PreflightOnly','$PackageNative'
  ])assert.ok(prepare.includes(needle),'missing real Windows authoring protection: '+needle);
  assert.match(prepare,/if \(\$env:OS -ne 'Windows_NT'\)/);
- assert.match(prepare,/if \(Test-Path -LiteralPath \$map\)/);
- assert.match(prepare,/if \(Test-Path -LiteralPath \$receipt\)/);
+ assert.match(prepare,/\(Test-Path -LiteralPath \$map\)/);
+ assert.match(prepare,/\(Test-Path -LiteralPath \$receipt\)/);
  assert.match(prepare,/if \(\$PreflightOnly\) \{[\s\S]*?\breturn\b/);
  assert.doesNotMatch(prepare,/Remove-Item.*CH01_Coast|Set-ExecutionPolicy|Invoke-WebRequest/);
  const verify=prepare.indexOf("if ($proof.format -ne");
+ const verifyAden=prepare.indexOf("if ($adenProof.schema -ne");
  const backup=prepare.indexOf("$backup=Join-Path $saved");
  const configWrite=prepare.indexOf('[IO.File]::WriteAllText($config');
- assert.ok(verify>=0&&backup>verify&&configWrite>backup,
+ assert.ok(verify>=0&&verifyAden>verify&&backup>verifyAden&&configWrite>backup,
   'startup INI must be written only AFTER a byte-exact UE editor receipt');
  const authoring=prepare.indexOf('& $editor $project');
  assert.ok(authoring>=0&&authoring<verify);
@@ -120,7 +121,7 @@ test('Windows one-command CH01 native preparation is fail-closed and only sets s
 test('native CH01 Python script syntax is parseable without importing the proprietary Unreal module', {
  skip:process.platform==='win32'
 },()=>{
- const scripts=['scripts/ue5-author-ch01-map.py'];
+ const scripts=['scripts/ue5-author-ch01-map.py','scripts/ue5-author-aden-ch01.py'];
  for(const script of scripts){
   const run=spawnSync('python3',['-c',
     'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf8").read())',

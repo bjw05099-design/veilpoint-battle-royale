@@ -7,6 +7,7 @@
 #include "VPPlayerController.h"
 #include "VPStoryPublicVan.h"
 #include "VPStoryGameState.h"
+#include "VPAdenStoryGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -328,6 +329,11 @@ void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive() && !Is
 void AVPCharacter::ServerTryInteract_Implementation()
 {
     if (!IsAlive() || !GetWorld()) return;
+    if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>())
+    {
+        Aden->TryInteraction(this, VPAdenMission::EInput::Inspect);
+        return;
+    }
     // Native CH01 uses the PC F key, but the server alone
     // validates the actual physical marker and advances story progress.
     // A BR pickup cannot accidentally advance the story (or vice versa).
