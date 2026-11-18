@@ -261,9 +261,13 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         bPassed = bPassed && Confirmed == I && ReadCheckpoint() == I;
     }
     if (bPassed)
+    {
         UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: source, ground, swept route, gating, report, checkpoint"));
+    }
     else
+    {
         UE_LOG(LogVPAdenStory, Error, TEXT("ADEN_NATIVE_SMOKE_FAILED at confirmation %d"), Confirmed);
+    }
     if (Controller)
         UKismetSystemLibrary::QuitGame(this, Controller, EQuitPreference::Quit, false);
     else

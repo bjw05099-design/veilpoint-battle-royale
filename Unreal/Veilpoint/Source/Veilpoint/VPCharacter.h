@@ -6,6 +6,18 @@
 class UCameraComponent;
 class USpotLightComponent;
 
+USTRUCT()
+struct FVPRoundReviewSample
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    int32 Milliseconds = 0;
+
+    UPROPERTY()
+    FIntPoint PositionMetres = FIntPoint::ZeroValue;
+};
+
 UCLASS()
 class VEILPOINT_API AVPCharacter : public ACharacter
 {
@@ -65,6 +77,8 @@ public:
     void RequestInteraction() { TryInteract(); }
     void RequestPrimaryAction() { TryTag(); }
     void ReleaseDesktopActions() { EndSprint(); }
+    void ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete);
+    const TArray<FVPRoundReviewSample>& GetRoundReview() const { return OwnRoundReview; }
 
 protected:
     // Derived from physical world position on both client and server;
@@ -106,4 +120,10 @@ private:
     bool bSprintHeld = false;
 
     float SprintAccumulator = 0.f;
+
+    // Only the final result is replicated, once and to this pawn's owner.
+    UPROPERTY(Replicated)
+    TArray<FVPRoundReviewSample> OwnRoundReview;
+    TArray<FVPRoundReviewSample> PendingRoundReview;
+    bool bRoundReviewClosed = false;
 };

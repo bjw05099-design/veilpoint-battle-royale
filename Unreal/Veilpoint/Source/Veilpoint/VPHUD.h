@@ -23,6 +23,9 @@ public:
 private:
     void DrawDesktopMenu(class AVPPlayerController* Desktop);
     void DrawAdenStory(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn);
+    void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
+    bool bRoundReviewOpen = false;
+    int32 RoundReviewCursor = INDEX_NONE;
     TArray<FBox2D> DesktopMenuBounds;
     // Avoid a full actor scan on every render frame (including 165Hz).
     // The zone is a replicated server-owned actor; clients only read its data.

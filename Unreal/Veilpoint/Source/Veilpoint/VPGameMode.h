@@ -19,4 +19,6 @@ public:
     bool bRoundComplete=false;
 private:
     bool bSeenMultiplePlayers=false;
+    double ReviewStartedAt = -1.;
+    double ReviewNextSampleAt = -1.;
 };
