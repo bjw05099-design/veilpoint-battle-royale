@@ -10,6 +10,8 @@ on:
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
       - scripts/build-native-aden-atlas.py
+      - scripts/build-native-aden-dispatch.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenDispatchRouteData.h
       - Unreal/Veilpoint/ContentSource/Aden/**
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
@@ -22,6 +24,8 @@ on:
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
       - scripts/build-native-aden-atlas.py
+      - scripts/build-native-aden-dispatch.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenDispatchRouteData.h
       - Unreal/Veilpoint/ContentSource/Aden/**
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
       - scripts/export-ue5-heightmaps.cjs
@@ -68,6 +72,10 @@ jobs:
           python scripts/build-native-aden-source.py dist/aden-source "$RUNNER_TEMP/VPAdenEmbedded.h"
           cmp "$RUNNER_TEMP/VPAdenEmbedded.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
           sha256sum "$RUNNER_TEMP/VPAdenEmbedded.h"
+      - name: Verify follow-up routes against registered public roads and clearance
+        run: |
+          python scripts/build-native-aden-dispatch.py dist/aden-source "$RUNNER_TEMP/VPAdenDispatchRouteData.h"
+          cmp "$RUNNER_TEMP/VPAdenDispatchRouteData.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenDispatchRouteData.h
       - name: Compare the cooked atlas source pixels
         run: |
           python scripts/build-native-aden-atlas.py dist/aden-source "$RUNNER_TEMP/atlas"

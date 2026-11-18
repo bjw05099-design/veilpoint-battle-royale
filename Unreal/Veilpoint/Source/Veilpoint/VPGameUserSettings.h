@@ -56,6 +56,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="VEILPOINT|Graphics")
     void SetCustomVSync(bool bEnabled, bool bPersist = true);
 
+    UPROPERTY(Config)
+    bool bFieldAudioEnabled = true;
+
 private:
     void CommitGraphicsChanges(bool bPersist);
 };

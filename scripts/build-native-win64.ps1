@@ -88,7 +88,8 @@ elseif ($map -match '^/Game/([A-Za-z0-9_/]+)$') {
         $mapDigest=(Get-FileHash -LiteralPath $mapFile -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($proof.schema -ne 'veilpoint-native-aden-authoring-v1' -or $proof.map -ne $map -or
             $proof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or $proof.savedReloadVerified -ne $true -or
-            $proof.sourceActorCount -ne 1 -or $proof.atlasTextureCount -ne 2 -or $proof.mapSha256 -cne $mapDigest -or
+            $proof.sourceActorCount -ne 1 -or $proof.atlasTextureCount -ne 2 -or $proof.fieldAudioCount -ne 5 -or
+        $proof.fieldStationSaved -ne $true -or $proof.mapSha256 -cne $mapDigest -or
             [int64]$proof.mapBytes -ne (Get-Item -LiteralPath $mapFile).Length) {
             Fail 'Native Aden map receipt mismatch. Refusing cook/package of the unverified level.'
         }
@@ -109,7 +110,7 @@ if ($archive.TrimEnd('\','/') -eq $nativeProject.TrimEnd('\','/') -or
 
 $cookMaps=$map
 if ($map -eq '/Game/Maps/CH01_Aden' -and $Configuration -eq 'Development') {
-    $cookMaps+='+/Game/Maps/CH01_Coast'
+    $cookMaps+='+/Game/Maps/CH01_Coast+/Game/Maps/BR_Development'
 }
 $arguments=@(
     'BuildCookRun',

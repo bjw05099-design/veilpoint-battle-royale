@@ -2,6 +2,10 @@
 
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Sound/SoundBase.h"
 #include "Engine/Texture2D.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/Base64.h"
@@ -9,6 +13,7 @@
 #include "ProceduralMeshComponent.h"
 #include "VPAdenEmbedded.h"
 #include "VPAdenAtlasProjection.h"
+#include "VPAdenDispatchRouteData.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
 
@@ -261,7 +266,9 @@ bool AVPAdenSourceWorld::BuildSource()
         return Stations.Num() == 4;
     bAttempted = true;
     VPAdenWorld::FGeometry Geometry;
-    if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !Decode(Geometry))
+    if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !StationMesh || !StationMaterial || !WindSound
+        || !DossierSound || StepSounds.Num() != 3 || !Decode(Geometry)
+        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenDispatchData::Revision))
     {
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));
         return false;
@@ -312,6 +319,19 @@ bool AVPAdenSourceWorld::BuildSource()
     }
     for (const FVector2D& Point : Geometry.Stations)
         Stations.Add(Geometry.Position(Point));
+    CreateFieldStations();
+    const auto RegisterLeg = [&](int32 Index, const auto& Points)
+    {
+        for (const auto Point : Points)
+            DispatchLegs[Index].Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
+    };
+    RegisterLeg(0, VPAdenDispatchData::Brief);
+    RegisterLeg(1, VPAdenDispatchData::Decision);
+    RegisterLeg(2, VPAdenDispatchData::Witness);
+    RegisterLeg(3, VPAdenDispatchData::Notice);
+    RegisterLeg(4, VPAdenDispatchData::FromWitness);
+    RegisterLeg(5, VPAdenDispatchData::FromNotice);
+    RegisterLeg(6, VPAdenDispatchData::Handoff);
     SourceRevision = MoveTemp(Geometry.Revision);
     UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: 49 tiles, %d roads, %d footprints (%s)"),
         Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
@@ -326,4 +346,83 @@ FVector AVPAdenSourceWorld::Station(int32 Index) const
 UTexture2D* AVPAdenSourceWorld::AtlasTexture(bool bRegional) const
 {
     return bRegional ? RegionalAtlas.Get() : LocalAtlas.Get();
+}
+
+const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState State) const
+{
+    using namespace VPAdenDispatch;
+    const bool bWitness = State.Route == Witness;
+    switch (State.Phase)
+    {
+    case Brief: return DispatchLegs[0];
+    case Choose: return DispatchLegs[1];
+    case Verify: return DispatchLegs[bWitness ? 2 : 3];
+    case Compare: return DispatchLegs[bWitness ? 4 : 5];
+    default: return DispatchLegs[6];
+    }
+}
+
+FVector AVPAdenSourceWorld::DispatchResume(VPAdenDispatch::FState State) const
+{
+    const auto& Leg = DispatchLeg(State);
+    if (Leg.IsEmpty()) return Station(0);
+    return State.Phase == VPAdenDispatch::Complete ? Leg.Last() : Leg[0];
+}
+
+namespace
+{
+constexpr int32 FieldPartCount = 4;
+const FVector StationDimensions[FieldPartCount] = {
+    FVector(.39, .38, .055), FVector(.036, .037, 1.21), FVector(.07, .61, .31), FVector(.08, .53, .045)
+};
+const double StationHeight[FieldPartCount] = {3., 61., 121., 113.};
+}
+
+void AVPAdenSourceWorld::CreateFieldStations()
+{
+    for (int32 Slot = 0; Slot < 2; ++Slot)
+    {
+        const auto Tint = Slot == 0 ? FLinearColor(.73f,.46f,.18f) : FLinearColor(.17f,.52f,.48f);
+        UMaterialInstanceDynamic* Painted = UMaterialInstanceDynamic::Create(StationMaterial, this);
+        Painted->SetVectorParameterValue(TEXT("Tint"), Tint);
+        UMaterialInstanceDynamic* Metal = UMaterialInstanceDynamic::Create(StationMaterial, this);
+        Metal->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.13f,.16f,.16f));
+        for (int32 Part = 0; Part < FieldPartCount; ++Part)
+        {
+            auto* Mesh = NewObject<UStaticMeshComponent>(this);
+            AddInstanceComponent(Mesh);
+            Mesh->SetupAttachment(GetRootComponent());
+            Mesh->SetMobility(EComponentMobility::Movable);
+            Mesh->SetStaticMesh(StationMesh);
+            Mesh->SetMaterial(0, Part == 2 ? Painted : Metal);
+            Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Mesh->SetGenerateOverlapEvents(false);
+            Mesh->SetRelativeScale3D(StationDimensions[Part]);
+            Mesh->SetVisibility(false);
+            Mesh->RegisterComponent();
+            FieldStationParts.Add(Mesh);
+        }
+    }
+}
+
+void AVPAdenSourceWorld::ShowFieldStation(int32 Slot, bool bVisible, const FVector& Point, const FVector& Direction)
+{
+    if (Slot < 0 || Slot > 1 || FieldStationParts.Num() != 2 * FieldPartCount) return;
+    const FRotator Yaw(0., Direction.Rotation().Yaw, 0.);
+    for (int32 Part = 0; Part < FieldPartCount; ++Part)
+    {
+        auto* Mesh = FieldStationParts[Slot * FieldPartCount + Part].Get();
+        if (bVisible)
+        {
+            Mesh->SetWorldLocationAndRotation(Point + FVector(0., 0., StationHeight[Part] - 130.), Yaw);
+        }
+        Mesh->SetVisibility(bVisible);
+    }
+}
+
+USoundBase* AVPAdenSourceWorld::GetWindSound() const { return WindSound.Get(); }
+USoundBase* AVPAdenSourceWorld::GetDossierSound() const { return DossierSound.Get(); }
+USoundBase* AVPAdenSourceWorld::GetStepSound(int32 Index) const
+{
+    return StepSounds.IsValidIndex(Index) ? StepSounds[Index].Get() : nullptr;
 }

@@ -5,6 +5,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/SaveGame.h"
 #include "VPAdenMissionRules.h"
+#include "VPAdenDispatchRules.h"
 #include "VPAdenStoryGameMode.generated.h"
 
 class AVPAdenSourceWorld;
@@ -25,6 +26,9 @@ public:
     int32 Notes = 0;
     VPAdenMission::ENote AvailableNote = VPAdenMission::None;
     FVector NotePoint = FVector::ZeroVector;
+    VPAdenDispatch::FState Dispatch;
+    TArray<FVector> ActiveLeg;
+    bool bDispatchActive = false;
     FVector Objective = FVector::ZeroVector;
     TWeakObjectPtr<AVPAdenSourceWorld> Source;
     FString Notice;
@@ -48,6 +52,19 @@ public:
 
     UPROPERTY(SaveGame)
     int32 Notes = 0;
+
+    UPROPERTY(SaveGame)
+    int32 DispatchPhase = 0;
+
+    UPROPERTY(SaveGame)
+    int32 DispatchRoute = 0;
+};
+
+struct FVPAdenCampaignCheckpoint
+{
+    VPAdenMission::FProgress Broadcast;
+    VPAdenDispatch::FState Dispatch;
+    bool HasDispatch() const { return (Broadcast.Notes & VPAdenMission::ReturnDebrief) != 0; }
 };
 
 UCLASS()
@@ -62,6 +79,7 @@ public:
     void TryInteraction(const AVPCharacter* Pawn, VPAdenMission::EInput Input);
     bool CanReach(const AVPCharacter* Pawn) const;
     bool PersistStoryCheckpoint();
+    bool ReturnToCheckpoint(AVPCharacter* Pawn);
     bool IsSourceReady() const { return Source != nullptr; }
     int32 GetConfirmed() const { return Confirmed; }
     bool IsChoosingReport() const { return bChoosingReport; }
@@ -70,11 +88,16 @@ public:
 private:
     bool PrepareSource();
     void PublishState();
-    VPAdenMission::FProgress ReadCheckpoint() const;
+    FVPAdenCampaignCheckpoint ReadCheckpoint() const;
+    FTransform RecoveryTransform(FVPAdenCampaignCheckpoint Checkpoint) const;
+    void TryDispatch(const AVPCharacter* Pawn, VPAdenMission::EInput Input);
     FVector GetNotePoint(VPAdenMission::ENote Note) const;
     void BeginDiagnostic();
     void RunDiagnostic();
     void CaptureDebrief();
+    void VerifyDispatch();
+    void CaptureDispatchCompletion();
+    bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
     void FinishDiagnostic(bool bPassed);
     TSharedPtr<FJsonObject> DiagnosticReport;
 
@@ -91,5 +114,6 @@ private:
     bool bChoosingReport = false;
     int32 Confirmed = 0;
     int32 Notes = 0;
+    VPAdenDispatch::FState Dispatch;
     FString Notice;
 };

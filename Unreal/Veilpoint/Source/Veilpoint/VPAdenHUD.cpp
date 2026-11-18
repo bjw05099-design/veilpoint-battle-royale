@@ -2,6 +2,7 @@
 
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenStoryGameMode.h"
+#include "VPAdenDispatch.h"
 #include "VPAdenSourceWorld.h"
 #include "VPCharacter.h"
 #include "Engine/Canvas.h"
@@ -27,7 +28,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    DrawText(TEXT("VEILPOINT  /  CH01"), Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
+    DrawText(Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01"), Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
     DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
 
@@ -72,9 +73,20 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawRect(Color, P.X - 4. * Scale, P.Y - 4. * Scale, 8.f * Scale, 8.f * Scale);
         }
     };
+    const FLinearColor RouteColor(.30f, .77f, .67f);
     if (!bRegional)
     {
-        if (Aden->Confirmed < VPAdenMission::Complete) DrawMarker(Aden->Objective, Accent);
+        for (int32 I = 1; I < Aden->ActiveLeg.Num(); ++I)
+        {
+            const auto& From = Aden->ActiveLeg[I - 1];
+            const auto& To = Aden->ActiveLeg[I];
+            VPAdenAtlas::FPoint A{From.X, From.Y}, B{To.X, To.Y};
+            if (!VPAdenAtlas::Clip(Crop, A, B)) continue;
+            const auto Start = Pixel(A), End = Pixel(B);
+            DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
+            DrawLine(Start.X, Start.Y, End.X, End.Y, RouteColor, 2.8f);
+        }
+        if (!Aden->ActiveLeg.IsEmpty() || Aden->Confirmed < VPAdenMission::Complete) DrawMarker(Aden->Objective, Accent);
         if (Aden->AvailableNote != VPAdenMission::None) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
     }
     const FVector2D Here = Pixel(Player);
@@ -111,8 +123,13 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawRect(PlayerColor, PanelX, PanelY + 34.f * Scale, 7.f * Scale, 7.f * Scale);
         DrawText(TEXT("Your position"), Ink, PanelX + 14.f * Scale, PanelY + 31.f * Scale, nullptr, .77f * Scale);
         DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
-        DrawText(bRegional ? TEXT("Playable CH01 area") : TEXT("Current objective"),
+        DrawText(bRegional ? TEXT("Playable story area") : TEXT("Current objective"),
             Ink, PanelX + 14.f * Scale, PanelY + 55.f * Scale, nullptr, .77f * Scale);
+        if (!bRegional && !Aden->ActiveLeg.IsEmpty())
+        {
+            DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
+            DrawText(TEXT("Current walking leg"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
+        }
         if (!bRegional && Aden->AvailableNote != VPAdenMission::None)
         {
             DrawRect(FLinearColor(.57f, .82f, .82f), PanelX, PanelY + 82.f * Scale, 7.f * Scale, 7.f * Scale);

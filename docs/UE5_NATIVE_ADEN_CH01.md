@@ -59,3 +59,5 @@ Unreal에서 PNG로 직접 렌더하고 1인칭 화면의 지표 픽셀을 검�
 경로·저장 증거가 남는다. 아덴 검사를 통과한 Windows 후보는
 `latest-aden-candidate.json`에 기록된다. 기존 해안 개발 맵의 창 모드
 검사는 별도로 실행한다.
+
+복귀 브리핑 뒤에는 [CH02 Open Channel](UE5_OPEN_CHANNEL.md)이 이어진다.
