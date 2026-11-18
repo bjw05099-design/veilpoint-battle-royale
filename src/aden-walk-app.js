@@ -106,7 +106,7 @@
     const triangle=[t[i],t[i+1],t[i+2]].map(j=>p.slice(j*3,j*3+3));
     const x=triangle.map(v=>v[0]),z=triangle.map(v=>v[2]);
     if(outside(Math.min(...x),Math.max(...x),Math.min(...z),Math.max(...z)))continue;
-    ctx.fillStyle=root.VeilpointAdenMapRelief.triangleColor(...triangle);
+    ctx.fillStyle=root.VeilpointAdenRelief.triangleColor(...triangle);
     path(triangle.map(v=>xy(v[0],v[2])),true);ctx.fill();
    }
   }
@@ -144,7 +144,7 @@
   const minZ=Math.min(...bounds.map(b=>b.minZ)),maxZ=Math.max(...bounds.map(b=>b.maxZ));
   ctx.strokeStyle=targetColor;ctx.lineWidth=2;
   ctx.strokeRect(px(minX),pz(minZ),px(maxX)-px(minX),pz(maxZ)-pz(minZ));
-  ctx.fillStyle='#f6ecd8';ctx.font='14px system-ui';
+  ctx.fillStyle='#f6ecd8';ctx.font='14px "Malgun Gothic", "Noto Sans CJK KR", system-ui';
   ctx.fillText('CH01 타일 범위',px(maxX)+7,pz(minZ)+11);
   get('scale').textContent=((columns-1)*spacing/1000).toFixed(2)+' × '+((rows-1)*spacing/1000).toFixed(2)+'km · 광역 표고';
  }
