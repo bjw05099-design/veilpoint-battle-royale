@@ -236,7 +236,7 @@ bool AVPAdenSourceWorld::BuildSource()
     if (bAttempted)
         return Stations.Num() == 4;
     bAttempted = true;
-    FGeometry Geometry;
+    VPAdenWorld::FGeometry Geometry;
     if (!VertexColorMaterial || !Decode(Geometry))
     {
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));

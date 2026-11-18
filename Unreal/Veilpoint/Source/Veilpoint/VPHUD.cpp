@@ -556,6 +556,20 @@ void AVPHUD::DrawHUD()
                  X, Y + 115.f * Scale, nullptr, .8f * Scale, false);
     }
 
+    const bool bReviewAvailable = RoundState && RoundState->bRoundComplete;
+    if (bReviewAvailable)
+    {
+        if (PlayerOwner->WasInputKeyJustPressed(EKeys::M))
+            bRoundReviewOpen = !bRoundReviewOpen;
+        if (bRoundReviewOpen)
+        {
+            DrawRoundReview(Pawn, Scale);
+            return;
+        }
+        DrawText(TEXT("M: REVIEW MY MOVEMENT"), FLinearColor(.86f,.85f,.68f),
+            X, Y + 173.f * Scale, nullptr, .8f * Scale);
+    }
+
     if (!Pawn->IsAlive())
     {
         DrawText(TEXT("ROUND ENDED - MOVEMENT DISABLED"),
@@ -701,4 +715,50 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawText(TEXT("[1] Same message retransmitted       [2] Two separate incidents"), Accent,
                 X + 12.f * Scale, Bottom + 35.f * Scale, nullptr, .78f * Scale);
     }
+}
+
+void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
+{
+    const FLinearColor Plate(.008f, .021f, .026f, .96f), Ink(.87f, .92f, .90f);
+    const float Width = FMath::Min(730.f * Scale, Canvas->ClipX - 48.f);
+    const float Height = FMath::Min(480.f * Scale, Canvas->ClipY - 48.f);
+    const float Left = (Canvas->ClipX - Width) * .5f;
+    const float Top = (Canvas->ClipY - Height) * .5f;
+    DrawRect(Plate, Left, Top, Width, Height);
+    DrawText(TEXT("ROUND COMPLETE  /  MY MOVEMENT"), Ink, Left + 18.f * Scale,
+        Top + 12.f * Scale, nullptr, Scale);
+    const auto& Track = Pawn->GetRoundReview();
+    if (Track.IsEmpty())
+    {
+        DrawText(TEXT("Waiting for your verified movement record.  |  M close"), Ink,
+            Left + 18.f * Scale, Top + 43.f * Scale, nullptr, .8f * Scale);
+        return;
+    }
+    const int32 Last = Track.Num() - 1;
+    if (RoundReviewCursor == INDEX_NONE)
+        RoundReviewCursor = Last;
+    const int32 Step = int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Right))
+        - int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Left));
+    RoundReviewCursor = FMath::Clamp(RoundReviewCursor + Step, 0, Last);
+    FBox2D Bounds(ForceInit);
+    for (const FVPRoundReviewSample& Sample : Track)
+        Bounds += FVector2D(Sample.PositionMetres.X, Sample.PositionMetres.Y);
+    const FVector2D Range = Bounds.GetSize();
+    const double UnitsToPixels = FMath::Min((Width - 86. * Scale) / FMath::Max(1., Range.X),
+        (Height - 132. * Scale) / FMath::Max(1., Range.Y));
+    const FVector2D Origin(Left + Width * .5, Top + Height * .5 + 4. * Scale);
+    const FVector2D Mid = Bounds.GetCenter();
+    for (int32 I = 0; I <= Last; ++I)
+    {
+        const FIntPoint Point = Track[I].PositionMetres;
+        const FVector2D Pixel = Origin + (FVector2D(Point.X, Point.Y) - Mid) * UnitsToPixels;
+        const bool bCursor = I == RoundReviewCursor;
+        const float Size = (bCursor ? 10.f : 5.f) * Scale;
+        const FLinearColor Dot = bCursor ? FLinearColor(.99f, .76f, .32f) :
+            I < RoundReviewCursor ? FLinearColor(.39f, .80f, .74f) : FLinearColor(.27f, .38f, .40f);
+        DrawRect(Dot, Pixel.X - Size * .5f, Pixel.Y - Size * .5f, Size, Size);
+    }
+    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  Arrows scrub  |  M close"),
+        RoundReviewCursor + 1, Track.Num(), Track[RoundReviewCursor].Milliseconds / 1000.),
+        Ink, Left + 18.f * Scale, Top + Height - 29.f * Scale, nullptr, .8f * Scale);
 }

@@ -62,6 +62,30 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     // Other clients need the lamp's visible on/off state, not the owner's
     // finite battery telemetry. Keep 96-player replication bounded.
     DOREPLIFETIME_CONDITION(AVPCharacter, FieldLightSecondsRemaining, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundReview, COND_OwnerOnly);
+}
+
+void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete)
+{
+    if (!HasAuthority() || !GetController() || !GetController()->IsPlayerController()) return;
+    if (!bRoundReviewClosed)
+    {
+        const bool bFinalPoint = !IsAlive() || bComplete;
+        constexpr int32 MaxSamples = 601;
+        if (bFinalPoint || (bSample && PendingRoundReview.Num() < MaxSamples - 1))
+        {
+            const FVector Position = GetActorLocation() / 100.;
+            auto& Point = PendingRoundReview.AddDefaulted_GetRef();
+            Point.PositionMetres = FIntPoint(FMath::RoundToInt(Position.X), FMath::RoundToInt(Position.Y));
+            Point.Milliseconds = ElapsedMs;
+        }
+        bRoundReviewClosed = bFinalPoint;
+    }
+    if (bComplete)
+    {
+        OwnRoundReview = MoveTemp(PendingRoundReview);
+        ForceNetUpdate();
+    }
 }
 void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 {

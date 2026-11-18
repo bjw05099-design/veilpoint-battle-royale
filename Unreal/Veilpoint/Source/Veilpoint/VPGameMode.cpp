@@ -57,18 +57,35 @@ void AVPGameMode::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if(!HasAuthority()||bRoundComplete)return;
+    AVPGameState* NativeState=GetWorld()->GetGameState<AVPGameState>();
+    if (!NativeState) return;
     int32 Total=0,Living=0;
-    for(TActorIterator<AVPCharacter> It(GetWorld());It;++It){Total++;if(It->IsAlive())Living++;}
+    TArray<AVPCharacter*, TInlineAllocator<96>> Participants;
+    for(TActorIterator<AVPCharacter> It(GetWorld());It;++It)
+    {
+        ++Total;
+        if(It->IsAlive())Living++;
+        Participants.Add(*It);
+    }
     ActiveSurvivors=Living;
     if(Total>=2)bSeenMultiplePlayers=true;
     if(bSeenMultiplePlayers&&Living<=1){bRoundComplete=true;UE_LOG(LogTemp,Display,TEXT("VEILPOINT: round finished, survivors %d"),Living);}
     // GameMode is never replicated to remote clients. Publish only factual
     // finite round status through the server-owned GameState.
-    if(AVPGameState* NativeState=GetWorld()->GetGameState<AVPGameState>())
+    NativeState->UpdateRoundState(Living,bRoundComplete);
+    // The first real multi-participant round opens the zone clock.
+    // Merely launching the offline native scene must not consume it.
+    if(bSeenMultiplePlayers) NativeState->MarkRoundStarted();
+    if (bSeenMultiplePlayers)
     {
-        NativeState->UpdateRoundState(Living,bRoundComplete);
-        // The first real multi-participant round opens the zone clock.
-        // Merely launching the offline native scene must not consume it.
-        if(bSeenMultiplePlayers) NativeState->MarkRoundStarted();
+        const double Now = GetWorld()->GetTimeSeconds();
+        if (ReviewStartedAt < 0.)
+            ReviewStartedAt = Now;
+        const bool bSample = Now >= ReviewNextSampleAt;
+        if (bSample)
+            ReviewNextSampleAt = Now + 3.;
+        const int32 ElapsedMs = FMath::RoundToInt(FMath::Min(Now - ReviewStartedAt, 36000.) * 1000.);
+        for (AVPCharacter* Pawn : Participants)
+            Pawn->ObserveRoundReview(ElapsedMs, bSample, bRoundComplete);
     }
 }

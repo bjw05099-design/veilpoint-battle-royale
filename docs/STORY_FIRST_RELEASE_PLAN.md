@@ -1,7 +1,8 @@
 # VEILPOINT · Story-first release and development allocation
-**Approved production direction · 2026-11-10.** This decision supersedes any
-earlier inference that the offline Battle Royale prototype or public-internet
-96-player lobby must be launched before the complete story game.
+**Production direction · 2026-11-18.** Both Windows releases use Unreal
+Engine 5.8. The campaign ships first. Development belongs under
+`Unreal/Veilpoint`; earlier WebView2 and offline browser work is reference
+material for regression and migration.
 
 ## Development allocation
 
@@ -15,9 +16,8 @@ stabilization count toward the release track they serve.
 
 ## Release sequence
 
-1. **First release: Windows PC story mode, single-player.** The current offline
-   `story.html` CH01 is only a *small preview*, not the 12-hour campaign.
-   Completion requires separately verified playable chapters, genuine story
+1. **First release: native Windows PC story mode, single-player.**
+   Unreal Chapter 01 starts in `CH01_Aden`. Completion requires separately verified playable chapters, genuine story
    flow, human Windows launch, assets, localization/accessibility, save recovery,
    offline package, license provenance and real performance measurement.
 2. **Second release: Battle Royale.** Reuse as much of the proven story's
@@ -28,9 +28,9 @@ stabilization count toward the release track they serve.
    private single-player plot flags into a multiplayer snapshot.
 3. The **2026-11-27 date is the existing demo candidate target**, not a
    guaranteed full 12-hour story launch or a simultaneous BR release.
-   A Windows browser-host EXE is not a native Unreal packaged game.
+   Native Win64 cook, package and launch evidence determine demo readiness.
 
-## Two independent Windows WebView2 candidate archives
+## Archived WebView2 test packages
 
 - Combined developer preview: `veilpoint-windows-demo-exe.zip` opens CH01
   first and retains optional BR/terrain debug entrypoints.
@@ -38,7 +38,7 @@ stabilization count toward the release track they serve.
   the certified `veilpoint-story-preview.zip` asset closure and a separately
   validated Windows host. Double-clicking its EXE chooses story-only mode
   automatically. Corrupt/missing assets fail its native PE preflight.
-- CI must verify both outputs at the exact PR head and upload independently
+- Historical CI evidence for both outputs was stored as independently
   checksum-covered artifacts. The story-only archive does not bring public
   matchmaking, an Unreal native game, a 12-hour campaign or real hardware
   performance evidence into existence.
@@ -114,10 +114,9 @@ explicit `story.html` dependency.
 
 ## Authoring and asset reuse
 
-- Story-first world content may be staged behind its own module, e.g.
-  `src/aden-public-hall.js`, but must not silently overwrite already saved BR
-  world revisions. Later BR reuse requires its own independent server collision,
-  networking and concurrency validation.
+- Author story maps in Unreal and validate packaged geometry and collision.
+  Later BR reuse requires independent server collision, networking and
+  concurrency validation in its Unreal GameMode.
 - The long-term target is **Aden's full city at 1:1 scale**. Today's original,
   non-georeferenced public civilian pieces are prototypes, not a verified
   real-address reconstruction. Respect third-party rights, civilian safety and
@@ -145,7 +144,8 @@ This is a CH01 environmental gameplay and map increment, NOT a new
 coverage, or RTX 3070 benchmark. Existing BR/BR96 game states remain intact.
 
 ## Every PR's proof
-Verify latest main/head; distinct tested source and independent regressions;
-Linux Node + real Chromium at 2560×1440, 1366×768, 1280×720 and 1024×600;
-Windows browser-host EXE and offline ZIP SHA256 artifacts; exact PR-head merge
-eligibility; and post-merge main status. A CI-pending branch stays unmerged.
+Check current main and the relevant source or gameplay gates on the exact
+change. A native candidate requires Editor compilation, saved map references,
+packaged Windows launch and gameplay run evidence. Record manual input and
+QHD performance separately. The private Windows worker builds from merged
+main only.
