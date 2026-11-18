@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 function render(){
  const layout=JSON.parse(fs.readFileSync(path.join(root,'scripts/ch01-last-broadcast-layout.json'),'utf8'));
- const arrays={Stations:layout.stationsCm,...layout.convoy};
+ const arrays={Stations:layout.stationsCm,...layout.convoy,ReceptionStand:[layout.receptionStandCm]};
  let text='#pragma once\n// Generated from scripts/ch01-last-broadcast-layout.json. Run generate-ch01-native-paths.cjs.\nnamespace VPLastBroadcastPaths\n{\nstruct Point { float X,Y,Z; };\n';
  for(const [name,points]of Object.entries(arrays)){
   if(!/^[A-Za-z]+$/.test(name)||!points.length)throw Error('Invalid path');

@@ -30,3 +30,18 @@ test('radio desk remains outside the four-metre hall doorway and previous cargo 
  assert.ok(x-60>11200 && x+60<11750);assert.ok(y-32.5> -7150 && y+32.5< -6500);
  assert.deepEqual(layout.radioInteractCm,layout.stationsCm.at(-1));
 });
+test('shelter waiting bay is within F reach and clear of all three reception lanes',()=>{
+ const [x,y,z]=layout.receptionStandCm;
+ const desk=layout.stationsCm[8];
+ assert.ok(Math.hypot(x-desk[0],y-desk[1],z-desk[2])<275);
+ const bay=layout.pieces.find(part=>part.name==='ShelterReceptionStandingBay');
+ assert.deepEqual(bay.centreCm.slice(0,2),[x,y]);
+ assert.equal(bay.solid,false);
+ const points=[layout.convoy.BoardSouth.at(-1),...layout.convoy.Reception];
+ for(let i=1;i<points.length;i++)for(const offset of [-85,0,85]){
+  const a=points[i-1],b=points[i],dx=b[0]-a[0],dy=b[1]-a[1];
+  const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1]-offset)*dy)/(dx*dx+dy*dy)));
+  const distance=Math.hypot(x-(a[0]+t*dx),y-(a[1]+offset+t*dy));
+  assert.ok(distance>110,'wait position overlaps a swept escort lane');
+ }
+});

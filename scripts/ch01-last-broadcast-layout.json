@@ -229,6 +229,276 @@
       "solid": true
     },
     {
+      "name": "ShelterNorthWestWall",
+      "centreCm": [
+        10250,
+        -4600,
+        145
+      ],
+      "sizeCm": [
+        100,
+        36,
+        300
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterNorthEastWall",
+      "centreCm": [
+        11250,
+        -4600,
+        145
+      ],
+      "sizeCm": [
+        1100,
+        36,
+        300
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterNorthEntryHeader",
+      "centreCm": [
+        10500,
+        -4600,
+        278
+      ],
+      "sizeCm": [
+        400,
+        34,
+        46
+      ],
+      "finish": "ShelterTeal",
+      "solid": true
+    },
+    {
+      "name": "ShelterNorthEntryLeft",
+      "centreCm": [
+        10300,
+        -4600,
+        130
+      ],
+      "sizeCm": [
+        28,
+        48,
+        270
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ShelterNorthEntryRight",
+      "centreCm": [
+        10700,
+        -4600,
+        130
+      ],
+      "sizeCm": [
+        28,
+        48,
+        270
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ShelterWestScreen",
+      "centreCm": [
+        10220,
+        -5300,
+        104
+      ],
+      "sizeCm": [
+        36,
+        1000,
+        218
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterEastScreen",
+      "centreCm": [
+        11785,
+        -5350,
+        114
+      ],
+      "sizeCm": [
+        36,
+        1300,
+        238
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterSouthWestWall",
+      "centreCm": [
+        10500,
+        -6080,
+        125
+      ],
+      "sizeCm": [
+        600,
+        36,
+        260
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterSouthEastWall",
+      "centreCm": [
+        11500,
+        -6080,
+        125
+      ],
+      "sizeCm": [
+        600,
+        36,
+        260
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterSouthEntryHeader",
+      "centreCm": [
+        11000,
+        -6080,
+        256
+      ],
+      "sizeCm": [
+        400,
+        32,
+        46
+      ],
+      "finish": "ShelterTeal",
+      "solid": true
+    },
+    {
+      "name": "ShelterWaitingBench",
+      "centreCm": [
+        10355,
+        -5425,
+        24
+      ],
+      "sizeCm": [
+        80,
+        230,
+        58
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ShelterSupplyCounter",
+      "centreCm": [
+        10365,
+        -5720,
+        43
+      ],
+      "sizeCm": [
+        110,
+        150,
+        96
+      ],
+      "finish": "Wall",
+      "solid": true
+    },
+    {
+      "name": "ShelterSupplyCrateA",
+      "centreCm": [
+        10348,
+        -5720,
+        111
+      ],
+      "sizeCm": [
+        60,
+        64,
+        40
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ShelterSupplyCrateB",
+      "centreCm": [
+        10368,
+        -5668,
+        103
+      ],
+      "sizeCm": [
+        52,
+        35,
+        24
+      ],
+      "finish": "Paving",
+      "solid": true
+    },
+    {
+      "name": "ShelterTriageStorage",
+      "centreCm": [
+        11645,
+        -5120,
+        78
+      ],
+      "sizeCm": [
+        105,
+        135,
+        166
+      ],
+      "finish": "Metal",
+      "solid": true
+    },
+    {
+      "name": "ShelterPrivacyScreen",
+      "centreCm": [
+        11475,
+        -5650,
+        85
+      ],
+      "sizeCm": [
+        365,
+        28,
+        180
+      ],
+      "finish": "ShelterTeal",
+      "solid": true
+    },
+    {
+      "name": "ShelterReceptionStandingBay",
+      "centreCm": [
+        11000,
+        -5020,
+        -3
+      ],
+      "sizeCm": [
+        194,
+        140,
+        3
+      ],
+      "finish": "ShelterTeal",
+      "solid": false
+    },
+    {
+      "name": "ShelterForecourtPaving",
+      "centreCm": [
+        10400,
+        -4400,
+        -3
+      ],
+      "sizeCm": [
+        660,
+        330,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false
+    },
+    {
       "name": "HandoverCrates",
       "centreCm": [
         6150,
@@ -606,20 +876,36 @@
       "yawDegrees": 47.72631099390627
     },
     {
-      "name": "ConvoyPaving13",
+      "name": "ReceptionEntryPaving",
       "centreCm": [
-        10350.0,
-        -4660.0,
+        10500,
+        -4585,
         -3
       ],
       "sizeCm": [
-        781.0249675906655,
-        360,
+        460,
+        330,
         3
       ],
       "finish": "Paving",
       "solid": false,
-      "yawDegrees": -50.19442890773481
+      "yawDegrees": 90
+    },
+    {
+      "name": "ReceptionQueuePaving",
+      "centreCm": [
+        10550,
+        -4880,
+        -3
+      ],
+      "sizeCm": [
+        188.67962264113208,
+        330,
+        3
+      ],
+      "finish": "Paving",
+      "solid": false,
+      "yawDegrees": -57.9946167919165
     },
     {
       "name": "ConvoyPaving14",
@@ -836,6 +1122,16 @@
     ],
     "Reception": [
       [
+        10500,
+        -4370,
+        83
+      ],
+      [
+        10500,
+        -4800,
+        83
+      ],
+      [
         10600,
         -4960,
         83
@@ -846,5 +1142,10 @@
         83
       ]
     ]
-  }
+  },
+  "receptionStandCm": [
+    11000,
+    -5020,
+    91
+  ]
 }

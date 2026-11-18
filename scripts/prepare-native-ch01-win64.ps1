@@ -20,6 +20,7 @@ $project=Join-Path $repo 'Unreal/Veilpoint/Veilpoint.uproject'
 $config=Join-Path $repo 'Unreal/Veilpoint/Config/DefaultEngine.ini'
 $author=Join-Path $repo 'scripts/ue5-author-ch01-map.py'
 $layout=Join-Path $repo 'scripts/ch01-original-public-court.json'
+$broadcastLayout=Join-Path $repo 'scripts/ch01-last-broadcast-layout.json'
 $map=Join-Path $repo 'Unreal/Veilpoint/Content/Maps/CH01_Coast.umap'
 $saved=Join-Path $repo 'Unreal/Veilpoint/Saved'
 $receipt=Join-Path $saved 'CH01_MAP_READY.json'
@@ -121,7 +122,9 @@ Copy-Item -LiteralPath $receipt -Destination (Join-Path $logFolder 'ch01-map-rec
 $observedMapBytes=(Get-Item -LiteralPath $map).Length
 $mapSha=(Get-FileHash -LiteralPath $map -Algorithm SHA256).Hash.ToLowerInvariant()
 $layoutSha=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
+$broadcastLayoutSha=(Get-FileHash -LiteralPath $broadcastLayout -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($proof.lastBroadcast.savedReloadVerified -ne $true -or $proof.lastBroadcast.savedCollisionProfilesVerified -ne $true -or
+    $proof.lastBroadcast.layoutSha256 -cne $broadcastLayoutSha -or
     $proof.lastBroadcast.radioVisualMeshes -ne 9 -or $proof.lastBroadcast.radioConvexColliders -ne 9 -or
     $proof.lastBroadcast.radioSourceSha256 -cne (Get-FileHash -LiteralPath $radioSource -Algorithm SHA256).Hash.ToLowerInvariant()) {
     Fail 'Last Broadcast map/radio authoring receipt is incomplete or stale.'

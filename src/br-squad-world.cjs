@@ -328,10 +328,6 @@ class BrSquadWorld {
     actor.lastPresenceTick=this.tick;
     return {ok:true,tick:this.tick};
   }
-  // Voluntary quick marks are placed only at the sender's authenticated
-  // server position and shared with their six-person squad. The legacy
-  // "regroup" signal kind now means "shall we meet here?" only: it imposes
-  // NO vote, distance requirement, timer, progress or match reward.
   chat(token,raw){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -349,6 +345,8 @@ class BrSquadWorld {
     if(messages.length>CHAT_LIMIT)messages.shift();
     return {ok:true,message:event};
   }
+  // Quickmarks carry the sender's server position. A regroup receipt only
+  // records that a teammate saw the current proposal.
   signal(token,kind){
     const actor=this.actors.get(token);
     if(!actor)throw new RangeError('unknown_session');
@@ -359,11 +357,34 @@ class BrSquadWorld {
     if(remaining>0)return {ok:false,reason:'signal_cooldown',retryTicks:remaining};
     actor.lastSignalTick=this.tick;
     actor.lastPresenceTick=this.tick;
-    const notice={squad:actor.team+1,authorId:actor.id,
+    const notice={id:++this.revision,squad:actor.team+1,authorId:actor.id,
       kind,x:actor.x,z:actor.z,issuedAtTick:this.tick,
-      expiresAtTick:this.tick+SIGNAL_TTL_TICKS};
+      expiresAtTick:this.tick+SIGNAL_TTL_TICKS,
+      ...(kind==='regroup'?{acknowledgedSlots:[]}:{})};
     this.squadSignals.set(actor.team,notice);
-    return {ok:true,signal:{...notice}};
+    return {ok:true,signal:this.squadSignalFor(actor.team)};
+  }
+  squadSignalFor(team){
+    const signal=this.squadSignals.get(team);
+    if(!signal||signal.expiresAtTick<=this.tick)return null;
+    return {...signal,...(signal.kind==='regroup'?{acknowledgedSlots:[...signal.acknowledgedSlots]}:{})};
+  }
+  acknowledgeRegroup(token,signalId){
+    const actor=this.actors.get(token);
+    if(!actor)throw new RangeError('unknown_session');
+    if(this.phase!=='moving'||!actor.eligible)return {ok:false,reason:'out_of_round'};
+    const signal=this.squadSignals.get(actor.team);
+    if(signal?.kind!=='regroup'||signal.id!==signalId||signal.expiresAtTick<=this.tick)
+      return {ok:false,reason:'stale_regroup_signal'};
+    if(actor.id===signal.authorId)return {ok:false,reason:'own_regroup_signal'};
+    const slot=actor.slot+1;
+    if(!signal.acknowledgedSlots.includes(slot)){
+      signal.acknowledgedSlots.push(slot);
+      signal.acknowledgedSlots.sort((a,b)=>a-b);
+      actor.lastPresenceTick=this.tick;
+      this.revision++;
+    }
+    return {ok:true,signalId};
   }
   // A nearby human can physically operate this public passenger hall shutter
   // from either side; clients never supply gate pose, velocity or coordinates.
@@ -947,7 +968,6 @@ class BrSquadWorld {
           stepOverProgress:p.stepping?p.stepping.progress/STEP_OVER_TICKS:null});
       }
     }
-    const signal=this.squadSignals.get(me.team);
     // A voluntary position pin is a suggestion, never a required destination,
     // vote, scored rendezvous, or attendance check. Its server-issued coordinates
     // remain visible only to the sender's squad until expiry.
@@ -1019,7 +1039,7 @@ class BrSquadWorld {
       squadEntry:this.entryPlans[me.team],
       civicGate:this.gateSnapshot(),
       handcart:this.handcartSnapshot(token),
-      squadSignal:signal&&signal.expiresAtTick>this.tick?{...signal}:null,
+      squadSignal:this.squadSignalFor(me.team),
       squadChat:this.squadChat[me.team].map(message=>({...message})),
       squadTimeline:this.squadTimeline[me.team].map(event=>({...event})),
       squadLandmarks,

@@ -45,6 +45,13 @@ async function verifyCombatBrowser({rpc,sleep}){
   await rpc('Emulation.setDeviceMetricsOverride',{width:1366,height:768,deviceScaleFactor:1,mobile:false});
   await rpc('Page.navigate',{url:base+'/'});await rpc('Page.bringToFront');
   await until(()=>evaluate('document.readyState==="complete" && !!document.getElementById("streetToggle") && !document.getElementById("streetToggle").disabled'),'authenticated world');
+  await post('/signal',{kind:'regroup'},players[1]);
+  for(let i=0;i<15;i++)host.step();
+  await until(()=>evaluate('!document.getElementById("regroupAck").disabled'),'teammate regroup prompt');
+  await key('KeyY','y',89);
+  await until(()=>evaluate('document.getElementById("regroupAck").textContent==="집결 제안 확인됨"'),'real Y acknowledgement');
+  assert.deepEqual(world.snapshot(players[1]).squadSignal.acknowledgedSlots,[1]);
+  assert.equal(world.snapshot(players[6]).squadSignal,null);
   await key('KeyP','p',80);
   await until(()=>evaluate('document.getElementById("streetToggle").getAttribute("aria-pressed")==="true"'),'first person');
   const centre=await evaluate('(()=>{const r=document.getElementById("map").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()');

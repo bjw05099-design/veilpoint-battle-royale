@@ -124,6 +124,8 @@ function runRoute(route){
     assert.equal(state.world.carryingAid,true);
     use('aidDrop');
     assert.equal(state.aidDelivered,true);
+    walkTo('shelterIntake','aid-handoff-to-shelter-intake');
+    use('shelterIntake','shelterIntake',true);
     use('exitEvac');
   }
   assert.equal(state.phase,'complete');
@@ -143,12 +145,14 @@ function runRoute(route){
     assert.equal(verified.report.guideReleased,true);
     assert.equal(verified.report.aidDelivered,true);
     assert.equal(verified.report.musterConfirmed,true);
+    assert.equal(verified.report.shelterIntake,'비상 물품 인계와 안내원 접수');
   }
   return {route,completed:true,previewOnly:true,finalCheckpointSha256:sha(raw),
     checkpointCount:checkpoints.length,checkpoints,walkSegments,
     report:{route:verified.report.route,civilianOutcome:verified.report.civilianOutcome,
       clockDiscrepancy:verified.report.clockDiscrepancy,guideReleased:verified.report.guideReleased,
-      aidDelivered:verified.report.aidDelivered,logHandedOff:verified.report.logHandedOff}};
+      aidDelivered:verified.report.aidDelivered,logHandedOff:verified.report.logHandedOff,
+      shelterIntake:verified.report.shelterIntake}};
 }
 function generate(){
   return {schema:'veilpoint-ch01-route-check-v2',

@@ -159,6 +159,7 @@ def create_civic_finishes():
         "Paving": ((0.26, 0.21, 0.15), 0.9, 0.0),
         "Wall": ((0.48, 0.43, 0.34), 0.78, 0.0),
         "Metal": ((0.12, 0.16, 0.17), 0.45, 0.7),
+        "ShelterTeal": ((0.075, 0.26, 0.23), 0.83, 0.0),
     }
     result = {}
     library = unreal.MaterialEditingLibrary

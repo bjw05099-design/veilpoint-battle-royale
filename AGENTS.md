@@ -1,7 +1,9 @@
 # VEILPOINT development continuity
 
-- Preserve Windows PC keyboard/mouse controls, F interaction, middle-click marking,
-  and story-first delivery. Map/story/BR/stability priorities remain 35/35/20/10.
+- Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
+  marking. Story and Battle Royale ship separately, with story first. Allocate
+  development effort 75% to story and 25% to BR, including each mode's map work
+  and stabilization.
 - Read `docs/GAME_DEV_TOOLCHAIN.md` before asset or native-build work. Prefer the
   installed Blender, geometry/GIS, validation and profiling tools when applicable.
   Portable tool locations live in ignored `.tools/paths.json`; dependencies are

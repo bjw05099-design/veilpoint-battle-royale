@@ -20,7 +20,7 @@ test('authored Nahrin buildings are physically blocked and avoid all objective/e
  const s=Story.createState();assert.equal(s.world.scene,'nahrin');
  const buildings=s.world.obstacles.filter(o=>o.type&&o.type.startsWith('story-'));
  const historic=buildings.filter(o=>!o.id?.startsWith('harbor-hall-')&&
-  !o.id?.startsWith('public-court-'));
+  !o.id?.startsWith('public-court-')&&!o.id?.startsWith('shelter-intake-'));
  assert.equal(historic.length,20,
   'twenty prior structures remain; the east solid building is now a walk-through hall');
  assert.equal(s.world.obstacles.filter(o=>o.type==='harbor-passage-wall'&&o.x<60).length,6);
@@ -29,8 +29,9 @@ test('authored Nahrin buildings are physically blocked and avoid all objective/e
   'new accessible public hall adds exactly its seven real collision objects');
  assert.equal(buildings.filter(o=>o.id?.startsWith('public-court-')).length,Court.SOLIDS.length,
   'eight newly authored CH01 court columns/furniture are separate real colliders');
- assert.equal(buildings.length,20+Hall.PARTS.length+Court.SOLIDS.length,
-  'retain historic collision, existing public hall and new courtyard independently');
+ assert.equal(buildings.filter(o=>o.id?.startsWith('shelter-intake-')).length,4);
+ assert.equal(buildings.length,20+Hall.PARTS.length+Court.SOLIDS.length+4,
+  'retain historic collision, public hall, courtyard and shelter intake independently');
  assert.equal(buildings.filter(o=>o.type==='story-dispatch-case').length,0);
  assert.equal(buildings.filter(o=>o.type==='story-office-wall').length,5);
  assert.equal(buildings.filter(o=>o.type==='story-office-desk').length,1);

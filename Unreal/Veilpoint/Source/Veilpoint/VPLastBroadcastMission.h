@@ -33,11 +33,13 @@ public:
     UPROPERTY(Replicated) TArray<uint8> Events;
     UPROPERTY(Replicated) double BroadcastStartedAt=-1;
     UPROPERTY(Replicated) FString Feedback;
+    UPROPERTY(Replicated) uint8 ConvoyArrivalMask=0;
     bool bLastCheckpointSaved=false;
     bool IsAvailable(EVPStoryAction Action) const;
     bool TryAction(EVPStoryAction Action, AVPCharacter* InstigatorPawn);
     FString Objective() const;
     FString BroadcastLine() const;
+    FString AssemblyLine() const;
     bool ConvoyAtGoal(bool bSupplies) const;
     bool Persist();
     bool RestoreEvents(const TArray<uint8>& History);
@@ -48,6 +50,7 @@ public:
 private:
     UPROPERTY() TArray<TObjectPtr<AVPLastBroadcastEscort>> Convoy;
     UPROPERTY() TWeakObjectPtr<AVPCharacter> BroadcasterPawn;
+    uint8 ObserveConvoyArrivals() const;
     void SetConvoyPath();
     void Restore();
     bool Commit(EVPStoryAction Action);
