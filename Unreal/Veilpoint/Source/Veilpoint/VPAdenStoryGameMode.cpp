@@ -38,6 +38,7 @@ AVPAdenStoryGameMode::AVPAdenStoryGameMode()
 {
     DefaultPawnClass = AVPCharacter::StaticClass();
     PlayerControllerClass = AVPPlayerController::StaticClass();
+    GameStateClass = AVPAdenStoryState::StaticClass();
     HUDClass = AVPHUD::StaticClass();
 }
 
@@ -96,6 +97,7 @@ AActor* AVPAdenStoryGameMode::ChoosePlayerStart_Implementation(AController* Cont
 void AVPAdenStoryGameMode::StartPlay()
 {
     PrepareSource();
+    PublishState();
     Super::StartPlay();
     if (IsAdenDiagnostic())
     {
@@ -113,9 +115,14 @@ FVector AVPAdenStoryGameMode::GetObjective() const
 
 bool AVPAdenStoryGameMode::CanReach(const AVPCharacter* Pawn) const
 {
-    if (!Source || !IsValid(Pawn) || !Pawn->IsAlive() || Confirmed >= VPAdenMission::Complete)
+    return Source && Confirmed < VPAdenMission::Complete && AVPAdenStoryState::CanReach(Pawn, GetObjective());
+}
+
+bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point)
+{
+    if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld())
         return false;
-    const FVector Point = GetObjective(), Eye = Pawn->GetPawnViewLocation();
+    const FVector Eye = Pawn->GetPawnViewLocation();
     if (FVector::DistSquared2D(Pawn->GetActorLocation(), Point) > FMath::Square(VPAdenMission::ReachCm))
         return false;
     const FVector ToPoint = Point - Eye;
@@ -123,7 +130,7 @@ bool AVPAdenStoryGameMode::CanReach(const AVPCharacter* Pawn) const
     if (FVector::DotProduct(Forward, ToPoint.GetSafeNormal()) < .5)
         return false;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
-    return !GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query);
+    return !Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query);
 }
 
 void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMission::EInput Input)
@@ -132,12 +139,14 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMissio
     if (!HasAuthority() || !CanReach(Pawn))
     {
         bChoosingReport = false;
+        PublishState();
         return;
     }
     if (Confirmed == 2 && Input == EInput::Inspect)
     {
         bChoosingReport = true;
         Notice = TEXT("Salma: What did you verify?");
+        PublishState();
         return;
     }
     if (Input != EInput::Inspect && !bChoosingReport)
@@ -145,6 +154,7 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMissio
     if (!CanAdvance(Confirmed, Input))
     {
         Notice = TEXT("Salma: Two times alone do not prove two incidents.");
+        PublishState();
         return;
     }
     const TCHAR* Results[] = {
@@ -155,6 +165,19 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMissio
     Notice = Results[Confirmed++];
     bChoosingReport = false;
     Notice += PersistStoryCheckpoint() ? TEXT("  |  Saved.") : TEXT("  |  Save failed.");
+    PublishState();
+}
+
+void AVPAdenStoryGameMode::PublishState()
+{
+    if (auto* State = GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
+        State->bSourceReady = IsSourceReady();
+        State->bChoosingReport = bChoosingReport;
+        State->Confirmed = Confirmed;
+        State->Objective = GetObjective();
+        State->Notice = Notice;
+    }
 }
 
 int32 AVPAdenStoryGameMode::ReadCheckpoint() const

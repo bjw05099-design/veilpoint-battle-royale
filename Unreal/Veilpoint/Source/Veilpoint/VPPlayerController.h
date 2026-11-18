@@ -15,6 +15,7 @@ public:
     virtual void SetupInputComponent() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
+    bool IsAdenJournalOpen() const { return bAdenJournalOpen; }
     int32 GetMenuRow() const { return MenuRow; }
     FString GetMenuLabel(int32 Row) const;
     void ClickMenuRow(int32 Row);
@@ -41,6 +42,8 @@ private:
     void ReportAdenRetransmission();
     void ReportAdenTwoIncidents();
     void SendAdenReport(bool bSameMessage);
+    void ToggleAdenJournal();
+    bool bAdenJournalOpen = false;
     int32 VisualSmokeStep = -1;
     bool bVisualMarkRequested = false;
     double NextVisualSmokeAt = 0.0;

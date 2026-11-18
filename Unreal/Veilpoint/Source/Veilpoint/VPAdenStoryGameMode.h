@@ -2,12 +2,27 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/SaveGame.h"
 #include "VPAdenMissionRules.h"
 #include "VPAdenStoryGameMode.generated.h"
 
 class AVPAdenSourceWorld;
 class AVPCharacter;
+
+// Presentation state for the standalone story. Only GameMode publishes it.
+UCLASS()
+class AVPAdenStoryState : public AGameStateBase
+{
+    GENERATED_BODY()
+public:
+    static bool CanReach(const AVPCharacter* Pawn, const FVector& Point);
+    bool bSourceReady = false;
+    bool bChoosingReport = false;
+    int32 Confirmed = 0;
+    FVector Objective;
+    FString Notice;
+};
 
 UCLASS()
 class UVPAdenStoryCheckpoint : public USaveGame
@@ -40,10 +55,10 @@ public:
     int32 GetConfirmed() const { return Confirmed; }
     bool IsChoosingReport() const { return bChoosingReport; }
     FVector GetObjective() const;
-    const FString& GetNotice() const { return Notice; }
 
 private:
     bool PrepareSource();
+    void PublishState();
     int32 ReadCheckpoint() const;
     void RunDiagnostic();
 

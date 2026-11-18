@@ -22,7 +22,7 @@ public:
     bool DrawDiagnosticCanvas(class UTextureRenderTarget2D* Target, class UTexture* Background);
 private:
     void DrawDesktopMenu(class AVPPlayerController* Desktop);
-    void DrawAdenStory(const class AVPAdenStoryGameMode* Aden, const class AVPCharacter* Pawn);
+    void DrawAdenStory(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn);
     TArray<FBox2D> DesktopMenuBounds;
     // Avoid a full actor scan on every render frame (including 165Hz).
     // The zone is a replicated server-owned actor; clients only read its data.

@@ -289,6 +289,13 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ReportAdenRetransmission);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
+    InputComponent->BindKey(EKeys::J, IE_Pressed, this, &AVPPlayerController::ToggleAdenJournal).bConsumeInput = false;
+}
+
+void AVPPlayerController::ToggleAdenJournal()
+{
+    if (!bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
+        bAdenJournalOpen = !bAdenJournalOpen;
 }
 
 void AVPPlayerController::ReportAdenRetransmission() { SendAdenReport(true); }
