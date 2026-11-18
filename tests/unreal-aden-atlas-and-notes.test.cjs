@@ -32,6 +32,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
     const cpp = `
       #include "VPAdenAtlasProjection.h"
       #include "VPAdenMissionRules.h"
+      #include "VPAdenDispatchRules.h"
       #include <cassert>
       int main() {
         using namespace VPAdenAtlas;
@@ -42,6 +43,28 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         auto whole = Crop(Region, {0., 0.}, 0);
         auto point = whole.Normalized({Region.East, Region.South});
         assert(point.X == 1. && point.Y == 1.);
+        FPoint from{-5., 5.}, to{15., 5.};
+        assert(Clip({0., 0., 10., 10.}, from, to));
+        assert(from.X == 0. && to.X == 10. && from.Y == to.Y);
+        FPoint outsideA{-2., -1.}, outsideB{8., -1.};
+        assert(!Clip({0., 0., 10., 10.}, outsideA, outsideB));
+        {
+          namespace d = VPAdenDispatch;
+          d::FState session;
+          assert(!d::Valid({d::Choose, d::Witness}));
+          assert(!d::Valid({d::Verify, d::Unselected}));
+          assert(d::Advance(session, d::EInput::OptionOne, false) == d::EResult::Ignored);
+          assert(d::Advance(session, d::EInput::Interact, false) == d::EResult::Advanced);
+          assert(d::Advance(session, d::EInput::Interact, false) == d::EResult::ShowChoice);
+          assert(d::Advance(session, d::EInput::OptionTwo, false) == d::EResult::Ignored);
+          assert(d::Advance(session, d::EInput::OptionTwo, true) == d::EResult::Advanced);
+          assert(session.Route == d::PublicNotice && session.Phase == d::Verify);
+          assert(d::Advance(session, d::EInput::Interact, false) == d::EResult::Advanced);
+          assert(d::Advance(session, d::EInput::Interact, false) == d::EResult::Advanced);
+          assert(d::Advance(session, d::EInput::OptionTwo, true) == d::EResult::Refused);
+          assert(d::Advance(session, d::EInput::OptionOne, true) == d::EResult::Advanced);
+          assert(session.Phase == d::Complete && session.Route == d::PublicNotice);
+        }
         using namespace VPAdenMission;
         static_assert(ValidCheckpoint(1, {2, None}));
         static_assert(!ValidCheckpoint(1, {2, RelaySlip}));

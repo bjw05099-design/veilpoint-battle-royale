@@ -5,6 +5,7 @@
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
+#include "VPAdenDispatch.h"
 #include "VPStoryMarker.h"
 #include "VPLastBroadcastMission.h"
 #include "VPStoryEastGate.h"
@@ -550,6 +551,16 @@ void AVPHUD::DrawHUD()
     }
     if (!RoundState->bRoundStarted)
     {
+        if (RoundState->bReadyRequired && GetWorld() && GetWorld()->GetNetMode() != NM_Standalone)
+        {
+            const FString Lobby = FString::Printf(TEXT("LOBBY   %d JOINED  |  %d READY"),
+                RoundState->JoinedPlayers, RoundState->ReadyPlayers);
+            DrawText(Lobby, FLinearColor(.84f,.94f,.87f), X, Y + 144.f * Scale, nullptr, .92f * Scale);
+            const bool bReady = Desktop && Desktop->IsReadyLocally();
+            DrawText(bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
+                FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
+            return;
+        }
         // A standalone Windows process has no multiplayer lobby to join.
         // Keep its interactive world preview distinct from a real BR round;
         // the server-owned zone timer stays paused until an actual match.
@@ -681,7 +692,9 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         TEXT("04:12  Retransmission of the same message."),
         TEXT("Salma received the record. The missing are still unaccounted for.")
     };
-    const bool bPending = Confirmed < VPAdenMission::Complete;
+    const bool bDispatch = Aden->bDispatchActive;
+    const bool bPending = bDispatch ? Aden->Dispatch.Phase < VPAdenDispatch::Complete
+        : Confirmed < VPAdenMission::Complete;
     const FVector Objective = Aden->Objective;
     const double Distance = bPending ? FVector::Dist2D(Pawn->GetActorLocation(), Objective) / 100. : 0.;
     const auto* Desktop = Cast<AVPPlayerController>(PlayerOwner);
@@ -700,17 +713,29 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
 
     const bool bHasNote = Aden->AvailableNote != VPAdenMission::None;
     const FLinearColor Note(.42f, .83f, .79f);
-    const float JournalTop = bHasNote ? 136.f : 116.f;
+    const float JournalTop = (bHasNote || bDispatch) ? 136.f : 116.f;
     DrawRect(Plate, X, Y, Width, (bJournalOpen ? JournalTop + 120.f : JournalTop - 7.f) * Scale);
-    DrawText(TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
+    DrawText(bDispatch ? TEXT("VEILPOINT  /  CH02  /  OPEN CHANNEL")
+        : TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
         X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
-    DrawText(Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
+    DrawText(bDispatch ? VPAdenDispatch::Objective(Aden->Dispatch) : Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
+    const int32 Total = bDispatch ? VPAdenDispatch::Complete : VPAdenMission::Complete;
+    const int32 Done = bDispatch ? Aden->Dispatch.Phase : Confirmed;
     const FString Status = bPending
-        ? FString::Printf(TEXT("%d / 3  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Confirmed + 1, Distance)
-        : TEXT("3 / 3 confirmed  |  J notes  |  M map");
+        ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done + 1, Total, Distance)
+        : FString::Printf(TEXT("%d / %d confirmed  |  J notes  |  M map"), Done, Total);
     DrawText(Status, Ink, X + 12.f * Scale, Y + 58.f * Scale, nullptr, .81f * Scale);
     DrawText(TEXT("Terrain: Copernicus GLO-30   |   Vectors: OpenStreetMap contributors"), Ink,
         X + 12.f * Scale, Y + 82.f * Scale, nullptr, .65f * Scale);
+    if (bDispatch)
+    {
+        const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Pawn->GetActorLocation());
+        const FString GuideText = bPending
+            ? FString::Printf(TEXT("Walking leg %.0fm  |  %.0fm off centreline  |  F6 save  F7 return"),
+                Guide.RemainingCm / 100., Guide.OffsetCm / 100.)
+            : TEXT("The public update is filed.  |  F6 save  F7 return");
+        DrawText(GuideText, Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .70f * Scale);
+    }
     if (bHasNote)
     {
         const double NoteDistance = FVector::Dist2D(Pawn->GetActorLocation(), Aden->NotePoint) / 100.;
@@ -719,7 +744,15 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawText(FString::Printf(TEXT("%s  |  %.1f m"), Name, NoteDistance),
             Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .73f * Scale);
     }
-    if (bJournalOpen)
+    if (bJournalOpen && bDispatch)
+    {
+        for (int32 I = 0; I < Done; ++I)
+            DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch.Route), Ink,
+                X + 12.f * Scale, Y + (JournalTop + I * 20.f) * Scale, nullptr, .77f * Scale);
+        if (Done == 0)
+            DrawText(TEXT("No Open Channel entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
+    }
+    if (bJournalOpen && !bDispatch)
     {
         if (Confirmed == 0)
             DrawText(TEXT("No verified field entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
@@ -753,6 +786,21 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     };
     if (bPending) DrawStation(Objective, Accent);
+    if (bDispatch && Aden->ActiveLeg.Num() > 2)
+    {
+        const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Pawn->GetActorLocation());
+        if (FVector::Dist2D(Guide.Waypoint, Objective) > 100.)
+        {
+            FVector2D GuideScreen;
+            FCollisionQueryParams Query(SCENE_QUERY_STAT(VPDispatchCorner), true, Pawn);
+            const FVector Corner = Guide.Waypoint + FVector(0., 0., 135.);
+            if (PlayerOwner->ProjectWorldLocationToScreen(Corner, GuideScreen)
+                && GuideScreen.X > 16. && GuideScreen.X < Canvas->ClipX - 16.
+                && GuideScreen.Y > 16. && GuideScreen.Y < Canvas->ClipY - 16.
+                && !GetWorld()->LineTraceTestByChannel(Pawn->GetPawnViewLocation(), Corner, ECC_Visibility, Query))
+                DrawText(TEXT("NEXT TURN"), Note, GuideScreen.X, GuideScreen.Y, nullptr, .66f * Scale);
+        }
+    }
     if (bHasNote) DrawStation(Aden->NotePoint, Note);
     DrawLiveFrameTelemetry(Scale, X);
 
@@ -762,8 +810,20 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawRect(Plate, X, Bottom, Width, 69.f * Scale);
         DrawText(Aden->Notice, Ink, X + 12.f * Scale, Bottom + 12.f * Scale, nullptr, .78f * Scale);
         if (Aden->bChoosingReport)
-            DrawText(TEXT("[1] Same message retransmitted       [2] Two separate incidents"), Accent,
+        {
+            const TCHAR* Choices = !bDispatch ? TEXT("[1] Same message retransmitted       [2] Two separate incidents")
+                : Aden->Dispatch.Phase == VPAdenDispatch::Choose
+                    ? TEXT("[1] Witness interview           [2] Public notice")
+                    : TEXT("[1] Release verified facts       [2] Mark every name as confirmed");
+            DrawText(Choices, Accent,
                 X + 12.f * Scale, Bottom + 35.f * Scale, nullptr, .78f * Scale);
+        }
+    }
+    if (Desktop && !Desktop->GetLocalNotice().IsEmpty())
+    {
+        const float NoticeY = Canvas->ClipY - 120.f * Scale;
+        DrawRect(Plate, X, NoticeY, Width, 25.f * Scale);
+        DrawText(Desktop->GetLocalNotice(), Note, X + 12.f * Scale, NoticeY + 4.f * Scale, nullptr, .72f * Scale);
     }
 }
 
@@ -777,11 +837,20 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     DrawRect(Plate, Left, Top, Width, Height);
     DrawText(TEXT("ROUND REVIEW  /  MY MOVEMENT"), Ink, Left + 18.f * Scale,
         Top + 12.f * Scale, nullptr, Scale);
+    if (const auto* RoundState = GetWorld()->GetGameState<AVPGameState>())
+    {
+        const TCHAR* Result = Pawn->IsAlive() && RoundState->ActiveSurvivors == 1
+            ? TEXT("LAST SURVIVOR") : !Pawn->IsAlive() ? TEXT("ELIMINATED") : TEXT("ROUND CLOSED");
+        const FString Summary = FString::Printf(TEXT("%s  |  %d PLAYERS  |  %.1fs"),
+            Result, RoundState->JoinedPlayers, RoundState->RoundElapsedMs / 1000.);
+        DrawText(Summary, FLinearColor(.79f,.85f,.68f), Left + 18.f * Scale,
+            Top + 39.f * Scale, nullptr, .75f * Scale);
+    }
     const auto& Track = Pawn->GetRoundReview();
     if (Track.IsEmpty())
     {
         DrawText(TEXT("Waiting for your verified movement record.  |  M close"), Ink,
-            Left + 18.f * Scale, Top + 43.f * Scale, nullptr, .8f * Scale);
+            Left + 18.f * Scale, Top + 67.f * Scale, nullptr, .8f * Scale);
         return;
     }
     const int32 Last = Track.Num() - 1;
@@ -829,10 +898,10 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     }
     DrawText(FString::Printf(TEXT("%d observations  |  ~%.0f m sampled  |  %.1f s observed"),
         Track.Num(), SampledDistance, (Track.Last().Milliseconds - Track[0].Milliseconds) / 1000.),
-        Ink, Left + 18.f * Scale, Top + 40.f * Scale, nullptr, .75f * Scale);
+        Ink, Left + 18.f * Scale, Top + 64.f * Scale, nullptr, .75f * Scale);
     const FVector2D Range = Bounds.GetSize();
     const double UnitsToPixels = FMath::Min((Width - 86. * Scale) / FMath::Max(1., Range.X),
-        (Height - 162. * Scale) / FMath::Max(1., Range.Y));
+        (Height - 197. * Scale) / FMath::Max(1., Range.Y));
     const FVector2D Origin(Left + Width * .5, Top + Height * .5 + 2. * Scale);
     const FVector2D Mid = Bounds.GetCenter();
     for (int32 I = 0; I <= Last; ++I)

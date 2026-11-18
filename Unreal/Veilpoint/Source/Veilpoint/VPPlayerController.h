@@ -14,6 +14,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupInputComponent() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    bool IsReadyLocally() const { return bReadyLocally; }
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
@@ -28,6 +29,16 @@ public:
     bool ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size);
 private:
     void TickVisualSmoke();
+    void TickBRDiagnostic();
+    void ToggleRoundReady();
+    UFUNCTION(Server, Reliable)
+    void ServerSetRoundReady(bool bReady);
+    bool bReadyLocally = false;
+    bool bBRObservedLobby = false;
+    bool bBRReadyRequested = false;
+    bool bBRProofPrinted = false;
+    double BRObserveAt = -1.;
+    double BRQuitAt = -1.;
     bool PrepareWindowScreenshot();
     void OnWindowScreenshotCaptured(int32 Width,int32 Height,const TArray<FColor>& Pixels);
     TArray<FColor> WindowScreenshotPixels;
@@ -36,6 +47,18 @@ private:
     bool bWindowScreenshotBound = false;
     void TickStoryFeedback();
     void SaveMissionProgress();
+    void QuickSaveAden();
+    void QuickRecoverAden();
+    void ToggleAdenAudio();
+    void TickAdenAudio();
+    UPROPERTY(Transient)
+    TObjectPtr<class UAudioComponent> AdenWind;
+    FString LastAdenCue;
+    FVector PreviousAdenAudioPosition = FVector::ZeroVector;
+    double AdenStepDistance = 0.;
+    int32 AdenStepIndex = 0;
+    bool bHasAdenAudioPosition = false;
+    bool bAdenAudioPaused = false;
     bool CanSaveMissionProgress() const;
     TWeakObjectPtr<class AVPStoryGameState> FeedbackStory;
     int32 SeenStoryRevision = 0;

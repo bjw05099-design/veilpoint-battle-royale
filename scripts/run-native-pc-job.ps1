@@ -67,6 +67,8 @@ try {
             $report.offscreenRenderVerified=$true
             & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs -Windowed
             $report.windowRenderVerified=$true
+            & (Join-Path $PSScriptRoot 'test-native-br-lobby.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
+            $report.brLocalNetworkVerified=$true
             $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
             $report.humanInputVerified=$false
             $report.gpuPerformanceVerified=$false
@@ -79,7 +81,7 @@ try {
                 Move-Item -LiteralPath $pointerTemp -Destination (Join-Path $retainedRoot 'latest-verified.json') -Force
             }
         } catch {
-            $report.status=if ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } elseif ($report.nativeRuntimeVerified) { 'PACKAGED_ADEN_PASSED_COAST_OR_RETENTION_FAILED' } else { 'PACKAGED_ADEN_SMOKE_FAILED' }
+            $report.status=if ($report.windowRenderVerified -and !$report.Contains('brLocalNetworkVerified')) { 'PACKAGED_BR_NETWORK_SMOKE_FAILED' } elseif ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } elseif ($report.nativeRuntimeVerified) { 'PACKAGED_ADEN_PASSED_COAST_OR_RETENTION_FAILED' } else { 'PACKAGED_ADEN_SMOKE_FAILED' }
             throw
         }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }

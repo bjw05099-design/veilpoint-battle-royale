@@ -1,9 +1,13 @@
 #include "VPPlayerController.h"
 #include "VPCharacter.h"
+#include "VPGameMode.h"
+#include "VPGameState.h"
+#include "EngineUtils.h"
 #include "VPStoryGameState.h"
 #include "VPStoryGameMode.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenAtlasProjection.h"
+#include "VPAdenSourceWorld.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
@@ -15,9 +19,14 @@
 #include "VPGameplaySmoke.h"
 #include "VPLastBroadcastSmoke.h"
 #include "Misc/CommandLine.h"
+#include "Misc/App.h"
 #include "Misc/Parse.h"
 #include "HAL/PlatformTime.h"
 #include "Components/InputComponent.h"
+#include "Components/AudioComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Components/SceneCaptureComponent2D.h"
 
 namespace
@@ -61,6 +70,8 @@ void AVPPlayerController::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     TickVisualSmoke();
     TickStoryFeedback();
+    TickAdenAudio();
+    TickBRDiagnostic();
 }
 
 void AVPPlayerController::TickVisualSmoke()
@@ -259,6 +270,91 @@ void AVPPlayerController::SaveMissionProgress()
         TEXT("Save failed. Current progress remains in memory; do not quit yet."));
 }
 
+void AVPPlayerController::QuickSaveAden()
+{
+    if (!bDesktopMenuOpen && AdenAtlasPage == 0 && GetWorld() && GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>())
+        SaveMissionProgress();
+}
+
+void AVPPlayerController::QuickRecoverAden()
+{
+    if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
+    auto* Mode = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>();
+    if (Mode && !Mode->ReturnToCheckpoint(Cast<AVPCharacter>(GetPawn())))
+        ShowLocalNotice(TEXT("Could not safely return to the saved checkpoint."));
+}
+
+void AVPPlayerController::ToggleAdenAudio()
+{
+    if (bDesktopMenuOpen || !IsLocalController() || !GetWorld() || !GetWorld()->GetGameState<AVPAdenStoryState>()) return;
+    if (auto* Settings = UVPGameUserSettings::GetVeilpointSettings())
+    {
+        Settings->bFieldAudioEnabled = !Settings->bFieldAudioEnabled;
+        Settings->SaveSettings();
+        ShowLocalNotice(Settings->bFieldAudioEnabled ? TEXT("Field audio on.") : TEXT("Field audio muted."));
+    }
+}
+
+void AVPPlayerController::TickAdenAudio()
+{
+    if (!IsLocalController() || !GetWorld()) return;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    const auto* Source = State ? State->Source.Get() : nullptr;
+    const auto* Character = Cast<AVPCharacter>(GetPawn());
+    const auto* Settings = UVPGameUserSettings::GetVeilpointSettings();
+    const bool bAudible = Source && Character && !FApp::IsUnattended() &&
+        (!Settings || Settings->bFieldAudioEnabled);
+    if (!bAudible)
+    {
+        if (AdenWind)
+        {
+            AdenWind->Stop();
+            AdenWind = nullptr;
+            bAdenAudioPaused = false;
+        }
+        bHasAdenAudioPosition = false;
+        AdenStepDistance = 0.;
+        if (State) LastAdenCue = State->Notice;
+        return;
+    }
+    if (!AdenWind)
+    {
+        AdenWind = UGameplayStatics::SpawnSound2D(this, Source->GetWindSound(), .22f, 1.f, 0.f, nullptr, false, false);
+        LastAdenCue = State->Notice;
+    }
+    if (AdenWind && bAdenAudioPaused != bDesktopMenuOpen)
+    {
+        bAdenAudioPaused = bDesktopMenuOpen;
+        AdenWind->SetPaused(bAdenAudioPaused);
+    }
+
+    if (LastAdenCue != State->Notice)
+    {
+        LastAdenCue = State->Notice;
+        if (LastAdenCue.EndsWith(TEXT("  |  Saved.")) && !bDesktopMenuOpen)
+            UGameplayStatics::PlaySound2D(this, Source->GetDossierSound(), .15f);
+    }
+    const FVector Position = Character->GetActorLocation();
+    const double Moved = bHasAdenAudioPosition ? FVector::Dist2D(Position, PreviousAdenAudioPosition) : 0.;
+    PreviousAdenAudioPosition = Position;
+    bHasAdenAudioPosition = true;
+    if (bDesktopMenuOpen || !Character->GetCharacterMovement()->IsMovingOnGround() || Moved > 300.)
+    {
+        AdenStepDistance = 0.;
+        return;
+    }
+    AdenStepDistance += Moved;
+    const bool bCrouched = Character->GetCharacterMovement()->IsCrouching();
+    const double Stride = bCrouched ? 105. : Character->bSprinting ? 165. : 139.;
+    if (AdenStepDistance >= Stride)
+    {
+        AdenStepDistance = FMath::Fmod(AdenStepDistance, Stride);
+        USoundBase* Clip = Source->GetStepSound(AdenStepIndex++ % 3);
+        if (Clip)
+            UGameplayStatics::PlaySound2D(this, Clip, bCrouched ? .11f : .23f);
+    }
+}
+
 void AVPPlayerController::TickStoryFeedback()
 {
     if(!IsLocalController() || !GetWorld()) return;
@@ -294,6 +390,9 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &AVPPlayerController::QuickSaveAden);
+    InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &AVPPlayerController::QuickRecoverAden);
+    InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AVPPlayerController::ToggleAdenAudio);
     InputComponent->BindKey(EKeys::J, IE_Pressed, this, &AVPPlayerController::ToggleAdenJournal).bConsumeInput = false;
 }
 
@@ -364,6 +463,7 @@ void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     if(bWindowScreenshotBound) UGameViewportClient::OnScreenshotCaptured().RemoveAll(this);
     if (VisualSmokeCapture) VisualSmokeCapture->DestroyComponent();
+    if (AdenWind) AdenWind->Stop();
     CloseDesktopMenu();
     Super::EndPlay(EndPlayReason);
 }
@@ -372,9 +472,76 @@ void AVPPlayerController::MenuUp() { if (bDesktopMenuOpen) MenuRow = (MenuRow + 
 void AVPPlayerController::MenuDown() { if (bDesktopMenuOpen) MenuRow = (MenuRow + 1) % MenuRowCount; }
 void AVPPlayerController::MenuLeft() { if (bDesktopMenuOpen) ChangeMenuValue(-1); }
 void AVPPlayerController::MenuRight() { if (bDesktopMenuOpen) ChangeMenuValue(1); }
+void AVPPlayerController::ToggleRoundReady()
+{
+    if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone) return;
+    const auto* State = GetWorld()->GetGameState<AVPGameState>();
+    if (!State || !State->bReadyRequired || State->bRoundStarted) return;
+    bReadyLocally = !bReadyLocally;
+    ServerSetRoundReady(bReadyLocally);
+}
+
+void AVPPlayerController::ServerSetRoundReady_Implementation(bool bReady)
+{
+    if (GetWorld())
+        if (auto* Mode = GetWorld()->GetAuthGameMode<AVPGameMode>())
+            Mode->SetReadyFromController(this, bReady);
+}
+
+void AVPPlayerController::TickBRDiagnostic()
+{
+#if !UE_BUILD_SHIPPING
+    if (!IsLocalController() || !GetWorld() || !FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify"))) return;
+    const auto* State = GetWorld()->GetGameState<AVPGameState>();
+    const auto* Pawn = Cast<AVPCharacter>(GetPawn());
+    if (!State || !Pawn || !State->bReadyRequired) return;
+    const double Now = GetWorld()->GetTimeSeconds();
+    if (!State->bRoundStarted && State->JoinedPlayers == 2 && State->ReadyPlayers < 2 && !bBRObservedLobby)
+    {
+        bBRObservedLobby = true;
+        BRObserveAt = Now;
+    }
+    if (bBRObservedLobby && !bBRReadyRequested && !State->bRoundStarted && Now - BRObserveAt >= 1.5)
+    {
+        bBRReadyRequested = true;
+        ToggleRoundReady();
+    }
+    if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
+        && bBRObservedLobby && bBRReadyRequested && !bBRProofPrinted && Pawn->GetRoundReview().Num() >= 2)
+    {
+        if (GetNetMode() == NM_Client)
+        {
+            int32 Others = 0;
+            for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
+            {
+                if (*It == Pawn) continue;
+                if (!It->GetRoundReview().IsEmpty()) return;
+                ++Others;
+            }
+            if (Others != 1 || !Pawn->IsAlive() || State->ActiveSurvivors != 1) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: ready gate and owner-only finished record (%d samples)"), Pawn->GetRoundReview().Num());
+            BRQuitAt = Now + .25;
+        }
+        else if (GetNetMode() == NM_ListenServer)
+        {
+            if (Pawn->IsAlive() || State->ActiveSurvivors != 1) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: two ready participants and final round (%d samples)"), Pawn->GetRoundReview().Num());
+            BRQuitAt = Now + 4.;
+        }
+        bBRProofPrinted = true;
+    }
+    if (BRQuitAt >= 0. && Now >= BRQuitAt)
+        UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+#endif
+}
+
 void AVPPlayerController::MenuActivate()
 {
-    if (!bDesktopMenuOpen) return;
+    if (!bDesktopMenuOpen)
+    {
+        ToggleRoundReady();
+        return;
+    }
     if (MenuRow == 0) CloseDesktopMenu();
     else if (MenuRow == 5) SaveMissionProgress();
     else if (MenuRow == 6) UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);

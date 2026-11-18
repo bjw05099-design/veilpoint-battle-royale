@@ -29,4 +29,24 @@ inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
     const double North = std::clamp(Centre.Y - H / 2., Full.North, Full.South - H);
     return {West, North, West + W, North + H};
 }
+inline bool Clip(FExtent Bounds, FPoint& A, FPoint& B)
+{
+    const double DX = B.X - A.X, DY = B.Y - A.Y;
+    double Near = 0., Far = 1.;
+    const auto Edge = [&](double Direction, double Gap)
+    {
+        if (Direction == 0.) return Gap >= 0.;
+        const double T = Gap / Direction;
+        if (Direction < 0.) Near = std::max(Near, T);
+        else Far = std::min(Far, T);
+        return Near <= Far;
+    };
+    if (!Edge(-DX, A.X - Bounds.West) || !Edge(DX, Bounds.East - A.X)
+        || !Edge(-DY, A.Y - Bounds.North) || !Edge(DY, Bounds.South - A.Y))
+        return false;
+    B = {A.X + DX * Far, A.Y + DY * Far};
+    A = {A.X + DX * Near, A.Y + DY * Near};
+    return true;
+}
+
 }

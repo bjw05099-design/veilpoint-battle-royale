@@ -15,6 +15,10 @@ void AVPGameState::GetLifetimeReplicatedProps(
     DOREPLIFETIME(AVPGameState, ActiveSurvivors);
     DOREPLIFETIME(AVPGameState, bRoundComplete);
     DOREPLIFETIME(AVPGameState, bRoundStarted);
+    DOREPLIFETIME(AVPGameState, JoinedPlayers);
+    DOREPLIFETIME(AVPGameState, ReadyPlayers);
+    DOREPLIFETIME(AVPGameState, RoundElapsedMs);
+    DOREPLIFETIME(AVPGameState, bReadyRequired);
 }
 
 void AVPGameState::UpdateRoundState(int32 AliveCount, bool bFinished)
@@ -33,5 +37,17 @@ void AVPGameState::MarkRoundStarted()
     // A late-joining client receives the same factual lobby/round boundary.
     if (!HasAuthority() || bRoundStarted) return;
     bRoundStarted = true;
+    ForceNetUpdate();
+}
+
+void AVPGameState::UpdateLobby(int32 InJoined, int32 InReady, bool bInReadyRequired, int32 InElapsedMs)
+{
+    if (!HasAuthority()) return;
+    if (JoinedPlayers == InJoined && ReadyPlayers == InReady && bReadyRequired == bInReadyRequired && RoundElapsedMs == InElapsedMs)
+        return;
+    JoinedPlayers = InJoined;
+    ReadyPlayers = InReady;
+    bReadyRequired = bInReadyRequired;
+    RoundElapsedMs = InElapsedMs;
     ForceNetUpdate();
 }
