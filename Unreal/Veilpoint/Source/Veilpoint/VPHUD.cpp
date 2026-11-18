@@ -12,6 +12,7 @@
 #include "VPStoryPublicVan.h"
 #include "VPGameUserSettings.h"
 #include "Misc/App.h"
+#include "HAL/PlatformTime.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/Canvas.h"
@@ -115,12 +116,12 @@ void AVPHUD::DrawHUD()
     }
     DesktopMenuBounds.Reset();
     const AVPCharacter* Pawn = Cast<AVPCharacter>(PlayerOwner->GetPawn());
-    if (const auto* Aden = GetWorld()->GetGameState<AVPAdenStoryState>())
+    const auto* Aden = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!Pawn)
     {
-        DrawAdenStory(Aden, Pawn);
+        if (Aden) DrawAdenStory(Aden, Pawn);
         return;
     }
-    if (!Pawn) return;
 
     FVector Mark;
     float MarkRemaining = 0.f;
@@ -148,6 +149,12 @@ void AVPHUD::DrawHUD()
         }
     }
 
+    if (Aden)
+    {
+        DrawAdenStory(Aden, Pawn);
+        return;
+    }
+
     const float Scale = FMath::Clamp(Canvas->ClipX / 1920.f, .7f, 1.25f);
     const float X = 32.f * Scale;
     const float Y = 116.f * Scale;
@@ -159,63 +166,7 @@ void AVPHUD::DrawHUD()
     DrawRect(FLinearColor(.008f, .018f, .022f, .94f), X-10.f*Scale, Y-10.f*Scale,
         FMath::Min(760.f*Scale, Canvas->ClipX-2.f*X), (bStoryHUD?236.f:218.f)*Scale);
 
-    // Native UE application-frame measurements are gathered in a bounded
-    // history and never inferred from graphics presets or browser benchmarks.
-    FrameTelemetry.Record(FApp::GetDeltaTime());
-    const float TelemetryX=FMath::Max(12.f,Canvas->ClipX-430.f*Scale);
-    DrawRect(FLinearColor(.008f, .018f, .022f, .94f), TelemetryX-8.f*Scale, 12.f*Scale,
-        FMath::Min(438.f*Scale, Canvas->ClipX-TelemetryX), 69.f*Scale);
-    if (FrameTelemetry.HasEvidence())
-    {
-        const FString RenderLine=FString::Printf(
-            TEXT("APP FRAMES %.0f FPS | P95 %.1fms"),
-            FrameTelemetry.GetObservedFPS(),FrameTelemetry.GetP95FrameMs());
-        DrawText(RenderLine,FLinearColor(.79f,.94f,.84f,1.f),
-                 TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
-    }
-    else DrawText(TEXT("APP FRAMES: CALIBRATING"),
-                  FLinearColor(.83f,.90f,.84f,1.f),
-                  TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
-    const UVPGameUserSettings* NativeSettings=UVPGameUserSettings::GetVeilpointSettings();
-    const float ConfiguredCap=NativeSettings?NativeSettings->GetFrameRateLimit():0.f;
-    const FString PixelLine=FString::Printf(
-        TEXT("GAME VIEWPORT %.0fx%.0f | CAP %.0f | NOT GPU TIMING"),
-        Canvas->ClipX,Canvas->ClipY,ConfiguredCap);
-    DrawText(PixelLine,FLinearColor(.75f,.83f,.90f,1.f),
-             TelemetryX,45.f*Scale,nullptr,.72f*Scale,false);
-    // Explicit PC F9 toggles an on-device frame capture; 120 seconds of
-    // valid application frame deltas save automatically. A shorter capture
-    // must have at least 5 seconds and 120 real frames. No GPU utilization,
-    // monitor Hz, RTX model or hardware-identifying data is fabricated.
-    const auto SaveNativeBenchmark=[this,ConfiguredCap]()
-    {
-        FString SavedPath;
-        const bool bSaved=FrameTelemetry.EndCaptureAndSave(
-            FMath::RoundToInt(Canvas->ClipX),FMath::RoundToInt(Canvas->ClipY),
-            ConfiguredCap,SavedPath);
-        LastNativeBenchmarkStatus=bSaved
-            ?TEXT("APP-FRAME JSON SAVED TO PROJECT SAVED/BENCHMARKS")
-            :TEXT("BENCHMARK TOO SHORT OR FILE SAVE FAILED; RETRY F9");
-    };
-    if (PlayerOwner->WasInputKeyJustPressed(EKeys::F9))
-    {
-        if (FrameTelemetry.IsCapturing()) SaveNativeBenchmark();
-        else
-        {
-            FrameTelemetry.BeginCapture();
-            LastNativeBenchmarkStatus=TEXT("RECORDING LOCAL APP FRAMES");
-        }
-    }
-    if (FrameTelemetry.IsCapturing() &&
-        FrameTelemetry.GetCaptureElapsedSeconds()>=120.f)
-        SaveNativeBenchmark();
-    const FString CaptureLine=FrameTelemetry.IsCapturing()
-        ?FString::Printf(TEXT("F9 END / AUTO 120s: %.1fs | %d FRAMES | NOT GPU"),
-            FrameTelemetry.GetCaptureElapsedSeconds(),
-            FrameTelemetry.GetCaptureSampleCount())
-        :LastNativeBenchmarkStatus;
-    DrawText(CaptureLine,FLinearColor(.86f,.86f,.69f,1.f),
-             TelemetryX,65.f*Scale,nullptr,.67f*Scale,false);
+    DrawLiveFrameTelemetry(Scale, X);
 
     if(Desktop)
     {
@@ -560,7 +511,10 @@ void AVPHUD::DrawHUD()
     if (bReviewAvailable)
     {
         if (PlayerOwner->WasInputKeyJustPressed(EKeys::M))
+        {
             bRoundReviewOpen = !bRoundReviewOpen;
+            bRoundReviewPlaying = false;
+        }
         if (bRoundReviewOpen)
         {
             DrawRoundReview(Pawn, Scale);
@@ -642,6 +596,68 @@ void AVPHUD::DrawHUD()
                  X, Y + 170.f * Scale, nullptr, Scale, false);
 }
 
+void AVPHUD::DrawLiveFrameTelemetry(float Scale, float X)
+{
+    // Native UE application-frame measurements are gathered in a bounded
+    // history and never inferred from graphics presets or browser benchmarks.
+    FrameTelemetry.Record(FApp::GetDeltaTime());
+    const float TelemetryX=FMath::Max(12.f,Canvas->ClipX-430.f*Scale);
+    DrawRect(FLinearColor(.008f, .018f, .022f, .94f), TelemetryX-8.f*Scale, 12.f*Scale,
+        FMath::Min(438.f*Scale, Canvas->ClipX-TelemetryX), 69.f*Scale);
+    if (FrameTelemetry.HasEvidence())
+    {
+        const FString RenderLine=FString::Printf(
+            TEXT("APP FRAMES %.0f FPS | P95 %.1fms"),
+            FrameTelemetry.GetObservedFPS(),FrameTelemetry.GetP95FrameMs());
+        DrawText(RenderLine,FLinearColor(.79f,.94f,.84f,1.f),
+                 TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
+    }
+    else DrawText(TEXT("APP FRAMES: CALIBRATING"),
+                  FLinearColor(.83f,.90f,.84f,1.f),
+                  TelemetryX,22.f*Scale,nullptr,.8f*Scale,false);
+    const UVPGameUserSettings* NativeSettings=UVPGameUserSettings::GetVeilpointSettings();
+    const float ConfiguredCap=NativeSettings?NativeSettings->GetFrameRateLimit():0.f;
+    const FString PixelLine=FString::Printf(
+        TEXT("GAME VIEWPORT %.0fx%.0f | CAP %.0f | NOT GPU TIMING"),
+        Canvas->ClipX,Canvas->ClipY,ConfiguredCap);
+    DrawText(PixelLine,FLinearColor(.75f,.83f,.90f,1.f),
+             TelemetryX,45.f*Scale,nullptr,.72f*Scale,false);
+    // Explicit PC F9 toggles an on-device frame capture; 120 seconds of
+    // valid application frame deltas save automatically. A shorter capture
+    // must have at least 5 seconds and 120 real frames. No GPU utilization,
+    // monitor Hz, RTX model or hardware-identifying data is fabricated.
+    const auto SaveNativeBenchmark=[this,ConfiguredCap]()
+    {
+        FString SavedPath;
+        const bool bSaved=FrameTelemetry.EndCaptureAndSave(
+            FMath::RoundToInt(Canvas->ClipX),FMath::RoundToInt(Canvas->ClipY),
+            ConfiguredCap,SavedPath);
+        LastNativeBenchmarkStatus=bSaved
+            ?TEXT("APP-FRAME JSON SAVED TO PROJECT SAVED/BENCHMARKS")
+            :TEXT("BENCHMARK TOO SHORT OR FILE SAVE FAILED; RETRY F9");
+    };
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::F9))
+    {
+        if (FrameTelemetry.IsCapturing()) SaveNativeBenchmark();
+        else
+        {
+            FrameTelemetry.BeginCapture();
+            LastNativeBenchmarkStatus=TEXT("RECORDING LOCAL APP FRAMES");
+        }
+    }
+    if (FrameTelemetry.IsCapturing() &&
+        FrameTelemetry.GetCaptureElapsedSeconds()>=120.f)
+        SaveNativeBenchmark();
+    const FString CaptureLine=FrameTelemetry.IsCapturing()
+        ?FString::Printf(TEXT("F9 END / AUTO 120s: %.1fs | %d FRAMES | NOT GPU"),
+            FrameTelemetry.GetCaptureElapsedSeconds(),
+            FrameTelemetry.GetCaptureSampleCount())
+        :LastNativeBenchmarkStatus;
+    DrawText(CaptureLine,FLinearColor(.86f,.86f,.69f,1.f),
+             TelemetryX,65.f*Scale,nullptr,.67f*Scale,false);
+
+}
+
 void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn)
 {
     const FLinearColor Ink(.89f, .93f, .90f), Accent(.94f, .82f, .57f), Plate(.008f, .02f, .024f, .92f);
@@ -669,42 +685,76 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const FVector Objective = Aden->Objective;
     const double Distance = bPending ? FVector::Dist2D(Pawn->GetActorLocation(), Objective) / 100. : 0.;
     const auto* Desktop = Cast<AVPPlayerController>(PlayerOwner);
+    if (Desktop && Desktop->GetAdenAtlasPage())
+    {
+        if (FrameTelemetry.IsCapturing())
+        {
+            FrameTelemetry.CancelCapture();
+            LastNativeBenchmarkStatus = TEXT("CAPTURE CANCELLED BY MAP | F9 TO START AGAIN");
+        }
+        FrameTelemetry.Reset();
+        DrawAdenAtlas(Aden, Pawn, Desktop->GetAdenAtlasPage(), Desktop->GetAdenAtlasZoom());
+        return;
+    }
     const bool bJournalOpen = Desktop && Desktop->IsAdenJournalOpen();
 
-    DrawRect(Plate, X, Y, Width, (bJournalOpen ? 200.f : 109.f) * Scale);
+    const bool bHasNote = Aden->AvailableNote != VPAdenMission::None;
+    const FLinearColor Note(.42f, .83f, .79f);
+    const float JournalTop = bHasNote ? 136.f : 116.f;
+    DrawRect(Plate, X, Y, Width, (bJournalOpen ? JournalTop + 120.f : JournalTop - 7.f) * Scale);
     DrawText(TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
         X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
     DrawText(Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
     const FString Status = bPending
-        ? FString::Printf(TEXT("%d / 3  |  %.1fm to station  |  F inspect  |  J field notes"), Confirmed + 1, Distance)
-        : TEXT("3 / 3 confirmed  |  J field notes");
+        ? FString::Printf(TEXT("%d / 3  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Confirmed + 1, Distance)
+        : TEXT("3 / 3 confirmed  |  J notes  |  M map");
     DrawText(Status, Ink, X + 12.f * Scale, Y + 58.f * Scale, nullptr, .81f * Scale);
     DrawText(TEXT("Terrain: Copernicus GLO-30   |   Vectors: OpenStreetMap contributors"), Ink,
         X + 12.f * Scale, Y + 82.f * Scale, nullptr, .65f * Scale);
+    if (bHasNote)
+    {
+        const double NoteDistance = FVector::Dist2D(Pawn->GetActorLocation(), Aden->NotePoint) / 100.;
+        const TCHAR* Name = Aden->AvailableNote == VPAdenMission::ReturnDebrief
+            ? TEXT("Return to Hyunji for debrief") : TEXT("Check the relay slip");
+        DrawText(FString::Printf(TEXT("%s  |  %.1f m"), Name, NoteDistance),
+            Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .73f * Scale);
+    }
     if (bJournalOpen)
     {
         if (Confirmed == 0)
-            DrawText(TEXT("No verified field entries yet."), Ink, X + 12.f * Scale, Y + 116.f * Scale, nullptr, .77f * Scale);
+            DrawText(TEXT("No verified field entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
         for (int32 I = 0; I < Confirmed; ++I)
-            DrawText(Records[I], Ink, X + 12.f * Scale, Y + (116.f + I * 23.f) * Scale, nullptr, .77f * Scale);
+            DrawText(Records[I], Ink, X + 12.f * Scale, Y + (JournalTop + I * 20.f) * Scale, nullptr, .77f * Scale);
+        float Row = JournalTop + Confirmed * 20.f;
+        if (Aden->Notes & VPAdenMission::RelaySlip)
+        {
+            DrawText(TEXT("Relay slip filed. One call was retried."), Note, X + 12.f * Scale, Y + Row * Scale, nullptr, .77f * Scale);
+            Row += 20.f;
+        }
+        if (Aden->Notes & VPAdenMission::ReturnDebrief)
+            DrawText(TEXT("Debrief complete. Unverified reports remain open."), Note,
+                X + 12.f * Scale, Y + Row * Scale, nullptr, .77f * Scale);
     }
 
-    if (bPending)
+    const auto DrawStation = [&](const FVector& Point, const FLinearColor& Color)
     {
         FVector2D Screen;
         const FVector Eye = Pawn->GetPawnViewLocation();
         FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStationHud), true, Pawn);
-        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Objective - Eye) > 0. &&
-            PlayerOwner->ProjectWorldLocationToScreen(Objective, Screen) &&
+        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Point - Eye) > 0. &&
+            PlayerOwner->ProjectWorldLocationToScreen(Point, Screen) &&
             Screen.X > 18.f && Screen.Y > 18.f && Screen.X < Canvas->ClipX - 18.f && Screen.Y < Canvas->ClipY - 18.f &&
-            !GetWorld()->LineTraceTestByChannel(Eye, Objective, ECC_Visibility, Query))
+            !GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query))
         {
-            DrawLine(Screen.X - 8.f, Screen.Y, Screen.X + 8.f, Screen.Y, Accent, 2.f);
-            DrawLine(Screen.X, Screen.Y - 8.f, Screen.X, Screen.Y + 8.f, Accent, 2.f);
-            if (AVPAdenStoryState::CanReach(Pawn, Objective))
-                DrawText(TEXT("[F]"), Accent, Screen.X + 12.f, Screen.Y - 10.f, nullptr, Scale);
+            DrawLine(Screen.X - 8.f, Screen.Y, Screen.X + 8.f, Screen.Y, Color, 2.f);
+            DrawLine(Screen.X, Screen.Y - 8.f, Screen.X, Screen.Y + 8.f, Color, 2.f);
+            if (AVPAdenStoryState::CanReach(Pawn, Point))
+                DrawText(TEXT("[F]"), Color, Screen.X + 12.f, Screen.Y - 10.f, nullptr, Scale);
         }
-    }
+    };
+    if (bPending) DrawStation(Objective, Accent);
+    if (bHasNote) DrawStation(Aden->NotePoint, Note);
+    DrawLiveFrameTelemetry(Scale, X);
 
     if (!Aden->Notice.IsEmpty() || Aden->bChoosingReport)
     {
@@ -725,7 +775,7 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     const float Left = (Canvas->ClipX - Width) * .5f;
     const float Top = (Canvas->ClipY - Height) * .5f;
     DrawRect(Plate, Left, Top, Width, Height);
-    DrawText(TEXT("ROUND COMPLETE  /  MY MOVEMENT"), Ink, Left + 18.f * Scale,
+    DrawText(TEXT("ROUND REVIEW  /  MY MOVEMENT"), Ink, Left + 18.f * Scale,
         Top + 12.f * Scale, nullptr, Scale);
     const auto& Track = Pawn->GetRoundReview();
     if (Track.IsEmpty())
@@ -739,14 +789,51 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
         RoundReviewCursor = Last;
     const int32 Step = int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Right))
         - int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Left));
-    RoundReviewCursor = FMath::Clamp(RoundReviewCursor + Step, 0, Last);
+    const bool bHome = PlayerOwner->WasInputKeyJustPressed(EKeys::Home);
+    const bool bEnd = PlayerOwner->WasInputKeyJustPressed(EKeys::End);
+    if (Step || bHome || bEnd)
+    {
+        bRoundReviewPlaying = false;
+        RoundReviewCursor = bHome ? 0 : bEnd ? Last : FMath::Clamp(RoundReviewCursor + Step, 0, Last);
+    }
+    const double Now = FPlatformTime::Seconds();
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::SpaceBar) && Last > 0)
+    {
+        bRoundReviewPlaying = !bRoundReviewPlaying;
+        if (bRoundReviewPlaying)
+        {
+            if (RoundReviewCursor == Last) RoundReviewCursor = 0;
+            ReviewPlaybackBeganAt = Now;
+            ReviewPlaybackStartMs = Track[RoundReviewCursor].Milliseconds;
+        }
+    }
+    if (bRoundReviewPlaying)
+    {
+        const double Playhead = ReviewPlaybackStartMs + (Now - ReviewPlaybackBeganAt) * 3000.;
+        while (RoundReviewCursor < Last && Track[RoundReviewCursor + 1].Milliseconds <= Playhead)
+            ++RoundReviewCursor;
+        if (RoundReviewCursor == Last) bRoundReviewPlaying = false;
+    }
+
     FBox2D Bounds(ForceInit);
-    for (const FVPRoundReviewSample& Sample : Track)
-        Bounds += FVector2D(Sample.PositionMetres.X, Sample.PositionMetres.Y);
+    double SampledDistance = 0.;
+    for (int32 I = 0; I <= Last; ++I)
+    {
+        const auto& Position = Track[I].PositionMetres;
+        Bounds += FVector2D(Position.X, Position.Y);
+        if (I > 0)
+        {
+            const auto& Previous = Track[I - 1].PositionMetres;
+            SampledDistance += FVector2D(double(Position.X) - Previous.X, double(Position.Y) - Previous.Y).Size();
+        }
+    }
+    DrawText(FString::Printf(TEXT("%d observations  |  ~%.0f m sampled  |  %.1f s observed"),
+        Track.Num(), SampledDistance, (Track.Last().Milliseconds - Track[0].Milliseconds) / 1000.),
+        Ink, Left + 18.f * Scale, Top + 40.f * Scale, nullptr, .75f * Scale);
     const FVector2D Range = Bounds.GetSize();
     const double UnitsToPixels = FMath::Min((Width - 86. * Scale) / FMath::Max(1., Range.X),
-        (Height - 132. * Scale) / FMath::Max(1., Range.Y));
-    const FVector2D Origin(Left + Width * .5, Top + Height * .5 + 4. * Scale);
+        (Height - 162. * Scale) / FMath::Max(1., Range.Y));
+    const FVector2D Origin(Left + Width * .5, Top + Height * .5 + 2. * Scale);
     const FVector2D Mid = Bounds.GetCenter();
     for (int32 I = 0; I <= Last; ++I)
     {
@@ -758,7 +845,17 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
             I < RoundReviewCursor ? FLinearColor(.39f, .80f, .74f) : FLinearColor(.27f, .38f, .40f);
         DrawRect(Dot, Pixel.X - Size * .5f, Pixel.Y - Size * .5f, Size, Size);
     }
-    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  Arrows scrub  |  M close"),
-        RoundReviewCursor + 1, Track.Num(), Track[RoundReviewCursor].Milliseconds / 1000.),
-        Ink, Left + 18.f * Scale, Top + Height - 29.f * Scale, nullptr, .8f * Scale);
+    const FLinearColor Progress(.39f, .80f, .74f);
+    const float RailX = Left + 18.f * Scale, RailY = Top + Height - 67.f * Scale, RailW = Width - 36.f * Scale;
+    const int32 RangeMs = Track.Last().Milliseconds - Track[0].Milliseconds;
+    const int32 OffsetMs = Track[RoundReviewCursor].Milliseconds - Track[0].Milliseconds;
+    const float Ratio = RangeMs > 0 ? float(OffsetMs) / RangeMs : 1.f;
+    DrawRect(FLinearColor(.12f, .22f, .24f), RailX, RailY, RailW, 3.f * Scale);
+    DrawRect(Progress, RailX, RailY, RailW * Ratio, 3.f * Scale);
+    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s"),
+        RoundReviewCursor + 1, Track.Num(), Track[RoundReviewCursor].Milliseconds / 1000.,
+        bRoundReviewPlaying ? TEXT("PLAYING 3X") : TEXT("PAUSED")),
+        Ink, RailX, RailY + 11.f * Scale, nullptr, .8f * Scale);
+    DrawText(TEXT("SPACE  Play / pause     ARROWS  Step     HOME / END     M  Close"),
+        Ink, RailX, RailY + 35.f * Scale, nullptr, .74f * Scale);
 }

@@ -3,6 +3,7 @@
 #include "VPStoryGameState.h"
 #include "VPStoryGameMode.h"
 #include "VPAdenStoryGameMode.h"
+#include "VPAdenAtlasProjection.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
@@ -66,7 +67,8 @@ void AVPPlayerController::TickVisualSmoke()
 {
 #if !UE_BUILD_SHIPPING
     if (VisualSmokeStep < 0 || !VisualSmokeReport) return;
-    if (!VisualSmokeCapture)
+    const bool bWindowCapture = FParse::Param(FCommandLine::Get(), TEXT("VPWindowCapture"));
+    if (!bWindowCapture && !VisualSmokeCapture)
     {
         VisualSmokeCapture = VPCreateVisualSmokeCapture(this);
         NextVisualSmokeAt = FPlatformTime::Seconds() + 8.0;
@@ -96,7 +98,7 @@ void AVPPlayerController::TickVisualSmoke()
     }
     if(VisualSmokeStep==7)
     {
-        if(FParse::Param(FCommandLine::Get(),TEXT("VPWindowCapture")) && !PrepareWindowScreenshot())return;
+        if(bWindowCapture && !PrepareWindowScreenshot())return;
         const auto Frame=VPReadVisualSmokeFrame(this,VisualSmokeCapture,TEXT("last-broadcast"));
         VisualSmokeReport->SetBoolField(TEXT("lastBroadcastReadbackSucceeded"),Frame.IsValid());
         if(Frame)VisualSmokeReport->SetObjectField(TEXT("last-broadcast"),Frame);
@@ -115,7 +117,7 @@ void AVPPlayerController::TickVisualSmoke()
         NextVisualSmokeAt = FPlatformTime::Seconds() + .5;
         return; // Give the actual viewport a frame to draw the new mark.
     }
-    if(FParse::Param(FCommandLine::Get(),TEXT("VPWindowCapture")) && !PrepareWindowScreenshot())
+    if(bWindowCapture && !PrepareWindowScreenshot())
     {
         NextVisualSmokeAt=FPlatformTime::Seconds()+.1;
         return; // Engine captures at the end of a rendered frame, not during Tick.
@@ -289,7 +291,28 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ReportAdenRetransmission);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
+    InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
     InputComponent->BindKey(EKeys::J, IE_Pressed, this, &AVPPlayerController::ToggleAdenJournal).bConsumeInput = false;
+}
+
+void AVPPlayerController::CycleAdenAtlas()
+{
+    if (!bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
+        AdenAtlasPage = (AdenAtlasPage + 1) % 3;
+}
+
+void AVPPlayerController::ZoomAdenAtlasIn()
+{
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1)
+        AdenAtlasZoom = FMath::Min(AdenAtlasZoom + 1, VPAdenAtlas::MaxZoomLevel);
+}
+
+void AVPPlayerController::ZoomAdenAtlasOut()
+{
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1)
+        AdenAtlasZoom = FMath::Max(AdenAtlasZoom - 1, 0);
 }
 
 void AVPPlayerController::ToggleAdenJournal()
@@ -303,7 +326,7 @@ void AVPPlayerController::ReportAdenTwoIncidents() { SendAdenReport(false); }
 
 void AVPPlayerController::SendAdenReport(bool bSameMessage)
 {
-    if (bDesktopMenuOpen || !IsLocalController() || !GetWorld()) return;
+    if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
     if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosingReport())
         Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()),
             bSameMessage ? VPAdenMission::EInput::SameMessage : VPAdenMission::EInput::TwoIncidents);
@@ -428,7 +451,7 @@ FString AVPPlayerController::GetMenuLabel(int32 Row) const
 void AVPPlayerController::PlaceLocalFieldMark()
 {
     const AVPCharacter* ControlledPawn = Cast<AVPCharacter>(GetPawn());
-    if (bDesktopMenuOpen || !ControlledPawn || !ControlledPawn->IsAlive() || !GetWorld()) return;
+    if (bDesktopMenuOpen || AdenAtlasPage || !ControlledPawn || !ControlledPawn->IsAlive() || !GetWorld()) return;
     FVector Eye;
     FRotator View;
     GetPlayerViewPoint(Eye, View);

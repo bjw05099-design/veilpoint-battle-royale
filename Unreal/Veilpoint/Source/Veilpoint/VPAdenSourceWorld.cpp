@@ -2,11 +2,13 @@
 
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/Texture2D.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/Base64.h"
 #include "Misc/Compression.h"
 #include "ProceduralMeshComponent.h"
 #include "VPAdenEmbedded.h"
+#include "VPAdenAtlasProjection.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
 
@@ -14,9 +16,10 @@ namespace VPAdenWorld
 {
 constexpr int32 Side = 113;
 constexpr int32 Spacing = 3200;
-constexpr int32 OriginX = 153600;
-constexpr int32 OriginY = -153600;
+constexpr int32 OriginX = int32(VPAdenAtlas::Local.West);
+constexpr int32 OriginY = int32(VPAdenAtlas::Local.North);
 constexpr int32 Width = (Side - 1) * Spacing;
+static_assert(Width == int32(VPAdenAtlas::Local.Width()));
 constexpr uint32 RoadCount = 183;
 constexpr uint32 FootprintCount = 4865;
 constexpr int32 SegmentSize = 480;
@@ -237,7 +240,7 @@ bool AVPAdenSourceWorld::BuildSource()
         return Stations.Num() == 4;
     bAttempted = true;
     VPAdenWorld::FGeometry Geometry;
-    if (!VertexColorMaterial || !Decode(Geometry))
+    if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !Decode(Geometry))
     {
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));
         return false;
@@ -290,4 +293,9 @@ bool AVPAdenSourceWorld::BuildSource()
 FVector AVPAdenSourceWorld::Station(int32 Index) const
 {
     return Stations.IsValidIndex(Index) ? Stations[Index] : FVector::ZeroVector;
+}
+
+UTexture2D* AVPAdenSourceWorld::AtlasTexture(bool bRegional) const
+{
+    return bRegional ? RegionalAtlas.Get() : LocalAtlas.Get();
 }
