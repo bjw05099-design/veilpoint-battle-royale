@@ -9,6 +9,8 @@ This script is NOT an assertion that UnrealBuildTool, PIE or World Partition
 have run successfully in GitHub CI. It authors an opt-in ProceduralMesh test
 map, NOT a finished native World Partition/Landscape shipping city.
 """
+import json
+import math
 import os
 import unreal
 
@@ -16,6 +18,23 @@ PACKAGE = "/Game/Maps/Aden_TerrainLab"
 CONTENT_MAPS = os.path.join(unreal.Paths.project_content_dir(), "Maps")
 LEVEL_FILE = os.path.join(CONTENT_MAPS, "Aden_TerrainLab.umap")
 MATERIAL_PATH = "/Game/Materials/M_CityTerrainPreview"
+
+
+def player_start_for_pack():
+    manifest = os.path.join(unreal.Paths.project_saved_dir(), "CityTiles", "IMPORT_MANIFEST.json")
+    if not os.path.isfile(manifest):
+        return unreal.Vector(0, 0, 26000)
+    with open(manifest, encoding="utf-8") as stream:
+        layers = json.load(stream)["layers"]
+    if not 1 <= len(layers) <= 49:
+        raise RuntimeError("Invalid terrain preview layer count")
+    points = [(*layer["worldOriginCm"], layer["maxHeightMetres"]) for layer in layers]
+    if any(not all(math.isfinite(value) for value in point) for point in points):
+        raise RuntimeError("Invalid world origin or tile height in terrain pack")
+    mid_x = (min(p[0] for p in points) + max(p[0] for p in points)) / 2
+    mid_y = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
+    x, y, height = min(points, key=lambda p: (p[0] - mid_x) ** 2 + (p[1] - mid_y) ** 2)
+    return unreal.Vector(x + 25600, y + 25600, (height + 120) * 100)
 
 
 def prepare_vertex_color_material():
@@ -63,6 +82,7 @@ def author_terrain_lab():
     if not editor or not levels or not actors:
         raise RuntimeError("Editor subsystems unavailable")
 
+    spawn_location = player_start_for_pack()
     material = prepare_vertex_color_material()
 
     os.makedirs(CONTENT_MAPS, exist_ok=True)
@@ -83,7 +103,7 @@ def author_terrain_lab():
     terrain = actors.spawn_actor_from_class(
         native, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
     spawn = actors.spawn_actor_from_class(
-        unreal.PlayerStart, unreal.Vector(0, 0, 26000),
+        unreal.PlayerStart, spawn_location,
         unreal.Rotator(0, 0, 0))
     sun = actors.spawn_actor_from_class(
         unreal.DirectionalLight, unreal.Vector(0, 0, 30000),

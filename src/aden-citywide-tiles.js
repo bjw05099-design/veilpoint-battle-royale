@@ -67,14 +67,15 @@
  }
  function validateSource(source){
   if(!source||typeof source!=='object'||Array.isArray(source))throw new TypeError('Missing source provenance');
-  const {provider,observedDate,license,reference,scope,type}=source;
+  const {provider,observedDate,acquiredDate,license,reference,scope,type}=source;
   if(typeof provider!=='string'||provider.trim().length<3||
     typeof license!=='string'||license.trim().length<3||
     typeof reference!=='string'||reference.trim().length<5||
-    !validDate(observedDate)||!SOURCE_SCOPE.includes(scope)||
+    !((observedDate===undefined&&validDate(acquiredDate))||
+      (acquiredDate===undefined&&validDate(observedDate)))||!SOURCE_SCOPE.includes(scope)||
     !['licensed-dem','historical-public','artist-blockout'].includes(type))
    throw new RangeError('Unverified geographic source/provenance');
-  return Object.freeze({provider:provider.trim(),observedDate,
+  return Object.freeze({provider:provider.trim(),...(acquiredDate?{acquiredDate}:{observedDate}),
    license:license.trim(),reference:reference.trim(),scope,type});
  }
  function createHeightTile(raw){
@@ -297,7 +298,7 @@
    if(!raw||typeof raw!=='object'||Array.isArray(raw)||
      Object.keys(raw).some(k=>!['tx','tz','gridSize','samples','source'].includes(k))||
      !raw.source||Object.keys(raw.source).some(k=>!
-       ['provider','observedDate','license','reference','scope','type'].includes(k)))
+       ['provider','observedDate','acquiredDate','license','reference','scope','type'].includes(k)))
     throw new RangeError('Invalid elevation-only tile record');
    return createHeightTile(raw);
   });
