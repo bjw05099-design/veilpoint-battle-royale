@@ -64,13 +64,21 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     if not levels.new_level(ADEN_PACKAGE, False):
         raise RuntimeError("Cannot create the native Aden level")
 
+    atlas = import_atlas_textures()
     material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         "M_AdenSourceVertex", "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
     if not material:
         raise RuntimeError("Cannot create native Aden vertex-color material")
     graph = unreal.MaterialEditingLibrary
     color = graph.create_material_expression(material, unreal.MaterialExpressionVertexColor)
-    graph.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    material.set_editor_property("two_sided", True)
+    source_color = graph.create_material_expression(material, unreal.MaterialExpressionTextureSample)
+    source_color.set_editor_property("texture", atlas["local_atlas"])
+    blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    blend.set_editor_property("const_alpha", 0.28)
+    graph.connect_material_expressions(color, "", blend, "A")
+    graph.connect_material_expressions(source_color, "RGB", blend, "B")
+    graph.connect_material_property(blend, "", unreal.MaterialProperty.MP_BASE_COLOR)
     roughness = graph.create_material_expression(material, unreal.MaterialExpressionConstant)
     roughness.set_editor_property("r", 0.94)
     graph.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS)
@@ -78,7 +86,6 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     if not assets.save_loaded_asset(material):
         raise RuntimeError("Aden vertex-color material did not save")
 
-    atlas = import_atlas_textures()
     world = editor.get_editor_world()
     world.get_world_settings().set_editor_property("default_game_mode", mode)
     origin = unreal.Vector(0, 0, 0)
@@ -107,6 +114,8 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         raise RuntimeError("Reloaded Aden map lost its cooked material reference")
     if editor.get_editor_world().get_world_settings().get_editor_property("default_game_mode") != mode:
         raise RuntimeError("Reloaded Aden map lost its story GameMode")
+    if not saved_material.get_editor_property("two_sided"):
+        raise RuntimeError("Reloaded Aden material lost two-sided terrain rendering")
     for prop, texture in atlas.items():
         observed = reloaded[0].get_editor_property(prop)
         if not observed or observed.get_path_name() != texture.get_path_name():

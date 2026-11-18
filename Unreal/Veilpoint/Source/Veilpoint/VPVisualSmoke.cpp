@@ -144,6 +144,19 @@ TSharedPtr<FJsonObject> VPReadVisualSmokeFrame(AVPPlayerController* Desktop, USc
     Frame->SetNumberField(TEXT("lowerCentreLuma8bit"), MeanLuma(.65f, .88f));
     Frame->SetNumberField(TEXT("upperCentreWhiteFraction"), WhiteFraction(.12f, .40f));
     Frame->SetNumberField(TEXT("lowerCentreWhiteFraction"), WhiteFraction(.65f, .88f));
+    if (FParse::Param(FCommandLine::Get(), TEXT("VPAdenSmoke")))
+    {
+        int32 VisibleGround = 0, Count = 0;
+        for (int32 Y = int32(Size.Y * .64); Y < int32(Size.Y * .87); ++Y)
+            for (int32 X = int32(Size.X * .44); X < int32(Size.X * .79); ++X)
+            {
+                const FColor& P = Pixels[Y * Size.X + X];
+                if (P.R > 45 && P.R >= P.B + 10 && P.G >= P.B + 4)
+                    ++VisibleGround;
+                ++Count;
+            }
+        Frame->SetNumberField(TEXT("warmGroundFraction"), Count ? double(VisibleGround) / Count : 0.);
+    }
     return Frame;
 }
 

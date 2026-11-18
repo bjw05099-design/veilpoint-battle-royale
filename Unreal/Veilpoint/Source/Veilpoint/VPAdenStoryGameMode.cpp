@@ -252,7 +252,10 @@ void AVPAdenStoryGameMode::BeginDiagnostic()
 {
 #if !UE_BUILD_SHIPPING
     if (auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController()))
+    {
+        Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
         DiagnosticCapture = VPCreateVisualSmokeCapture(Desktop);
+    }
     FTimerHandle Timer;
     GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::RunDiagnostic, 8.f, false);
 #endif
@@ -264,7 +267,8 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     using namespace VPAdenMission;
     auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
     auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
-    auto Report = MakeShared<FJsonObject>();
+    DiagnosticReport = MakeShared<FJsonObject>();
+    auto& Report = DiagnosticReport;
     Report->SetStringField(TEXT("schema"), TEXT("veilpoint-native-aden-visual-v1"));
     const auto ReadFrame = [&](const TCHAR* Name)
     {
@@ -338,16 +342,38 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     {
         Pawn->RequestInteraction();
         bPassed = Notes == (RelaySlip | ReturnDebrief) && ReadCheckpoint().Notes == Notes;
-        bPassed = bPassed && ReadFrame(TEXT("aden-debrief"));
+        if (bPassed)
+        {
+            Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
+            FTimerHandle Timer;
+            GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::CaptureDebrief, 1.5f, false);
+            return;
+        }
     }
-    else
-        bPassed = false;
+    FinishDiagnostic(false);
+#endif
+}
 
-    Report->SetBoolField(TEXT("allStationsVerified"), bPassed);
-    Report->SetNumberField(TEXT("confirmed"), Confirmed);
-    Report->SetBoolField(TEXT("relaySlipSaved"), bool(Notes & RelaySlip));
-    Report->SetBoolField(TEXT("debriefSaved"), bool(Notes & ReturnDebrief));
-    bPassed = VPWriteVisualSmokeReport(Report) && bPassed;
+void AVPAdenStoryGameMode::CaptureDebrief()
+{
+#if !UE_BUILD_SHIPPING
+    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
+    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-debrief"));
+    if (Frame && DiagnosticReport)
+        DiagnosticReport->SetObjectField(TEXT("aden-debrief"), Frame);
+    FinishDiagnostic(Frame.IsValid());
+#endif
+}
+
+void AVPAdenStoryGameMode::FinishDiagnostic(bool bPassed)
+{
+#if !UE_BUILD_SHIPPING
+    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
+    DiagnosticReport->SetBoolField(TEXT("allStationsVerified"), bPassed);
+    DiagnosticReport->SetNumberField(TEXT("confirmed"), Confirmed);
+    DiagnosticReport->SetBoolField(TEXT("relaySlipSaved"), bool(Notes & VPAdenMission::RelaySlip));
+    DiagnosticReport->SetBoolField(TEXT("debriefSaved"), bool(Notes & VPAdenMission::ReturnDebrief));
+    bPassed = VPWriteVisualSmokeReport(DiagnosticReport.ToSharedRef()) && bPassed;
     if (bPassed)
     {
         UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: swept route, observations, atlas, choices, callbacks, checkpoint"));

@@ -155,6 +155,24 @@ struct FMesh
     TArray<int32> Triangles;
     TArray<FLinearColor> Colors;
 
+    void ReverseRenderWinding()
+    {
+        for (int32 I = 0; I < Triangles.Num(); I += 3)
+            Swap(Triangles[I + 1], Triangles[I + 2]);
+    }
+
+    TArray<FVector2D> SourceUVs() const
+    {
+        TArray<FVector2D> UVs;
+        UVs.Reserve(Vertices.Num());
+        for (const FVector& V : Vertices)
+        {
+            const auto P = VPAdenAtlas::Local.Normalized({V.X, V.Y});
+            UVs.Emplace(FMath::Clamp(P.X, 0., 1.), FMath::Clamp(P.Y, 0., 1.));
+        }
+        return UVs;
+    }
+
     void Quad(const FVector& A, const FVector& B, const FVector& C, const FVector& D, const FLinearColor& Color)
     {
         const int32 Index = Vertices.Num();
@@ -182,7 +200,10 @@ FMesh TerrainMesh(const FGeometry& Geometry)
             const double DY = (Geometry.At(X, FMath::Min(Y + 1, Side - 1)) - Geometry.At(X, FMath::Max(0, Y - 1))) / (2. * Spacing);
             Mesh.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
             const float Slope = FMath::Clamp(float(FMath::Abs(DX) + FMath::Abs(DY)), 0.f, 1.f);
-            Mesh.Colors.Add(FMath::Lerp(FLinearColor(.46f, .35f, .23f), FLinearColor(.30f, .24f, .18f), Slope));
+            const float Height = FMath::Clamp(float(H / 18000.), 0.f, 1.f);
+            const FLinearColor Low(.51f, .36f, .22f), High(.33f, .28f, .19f);
+            const FLinearColor Color = FMath::Lerp(Low, High, Height);
+            Mesh.Colors.Add(FMath::Lerp(Color, High, Slope * .42f));
             if (Y + 1 < Side && X + 1 < Side)
             {
                 const int32 A = Y * Side + X;
@@ -253,18 +274,25 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->SetCollisionProfileName(bSolid ? FName(TEXT("BlockAll")) : FName(TEXT("NoCollision")));
         Mesh->bUseAsyncCooking = false;
         Mesh->RegisterComponent();
+        const TArray<FVector2D> UV0 = bVisible ? Buffer.SourceUVs() : TArray<FVector2D>();
         const TArray<FVector2D> EmptyUV;
         const TArray<FProcMeshTangent> EmptyTangents;
         Mesh->CreateMeshSection_LinearColor(0, Buffer.Vertices, Buffer.Triangles, Buffer.Normals,
-            EmptyUV, EmptyUV, EmptyUV, EmptyUV, Buffer.Colors, EmptyTangents, bSolid, false);
+            UV0, EmptyUV, EmptyUV, EmptyUV, Buffer.Colors, EmptyTangents, bSolid, false);
         Mesh->SetMaterial(0, VertexColorMaterial);
         Mesh->SetCastShadow(bVisible);
         Mesh->SetVisibility(bVisible);
     };
-    AddMesh(TerrainMesh(Geometry), true, true);
+    FMesh Terrain = TerrainMesh(Geometry);
+    AddMesh(Terrain, true, false);
+    // Keep the already verified physics triangles. The above-ground view
+    // uses its own Unreal render winding and up-facing vertex normals.
+    Terrain.ReverseRenderWinding();
+    AddMesh(Terrain, false, true);
     FMesh Lines, Blockers;
     AddShapes(Geometry, Geometry.Roads, false, Lines, Blockers);
     AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers);
+    Lines.ReverseRenderWinding();
     AddMesh(Lines, false, true);
     AddMesh(Blockers, true, false);
 
