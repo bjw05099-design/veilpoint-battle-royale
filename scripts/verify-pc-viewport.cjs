@@ -593,6 +593,9 @@ async function reserveLoopbackPort(){
 }
 
 async function run(){
+ const adenIndex=process.argv.indexOf('--aden-playable');
+ const adenDirectory=adenIndex<0?null:process.argv[adenIndex+1];
+ if(adenIndex>=0&&!adenDirectory)throw new Error('--aden-playable requires the packaged directory');
  const idx=process.argv.indexOf('--output');
  const dest=idx<0?null:process.argv[idx+1];
  if(idx>=0&&!dest)throw new Error('--output requires a file path');
@@ -753,6 +756,19 @@ async function run(){
   }
   await rpc('Page.enable');
   await rpc('Runtime.enable');
+  if(adenDirectory){
+   const result=await require('./verify-aden-browser.cjs').verifyAdenBrowser({rpc,sleep,directory:adenDirectory});
+   if(dest){
+    fs.mkdirSync(path.dirname(dest),{recursive:true});
+    fs.writeFileSync(path.join(path.dirname(dest),'aden-map.png'),Buffer.from(result.map,'base64'));
+    fs.writeFileSync(path.join(path.dirname(dest),'aden-eye.png'),Buffer.from(result.eye,'base64'));
+    fs.writeFileSync(path.join(path.dirname(dest),'aden-region.png'),Buffer.from(result.region,'base64'));
+    delete result.map;delete result.eye;delete result.region;
+    fs.writeFileSync(dest,JSON.stringify(result,null,2)+'\n');
+   }
+   console.log('Real Chromium Aden walk, report and checkpoint passed');
+   return;
+  }
   async function evaluateValue(expression,label){
    const response=await rpc('Runtime.evaluate',{expression,returnByValue:true});
    if(response.exceptionDetails||typeof response.result?.value!=='string')
@@ -1046,6 +1062,7 @@ async function run(){
   delete harborBrowser.primaryScreenshot;delete harborBrowser.fallbackScreenshot;
   process.stdout.write('Chromium CH01 hall: '+harborBrowser.backend+' + Canvas2D, physical traversal and checkpoint verified\n');
  }catch(error){
+  if(adenDirectory)throw error;
   transportFailure={message:String(error&&error.stack||error),
    browserExitCode:child.exitCode,browserSignal:child.signalCode,
    browserStderr:stderr.slice(-4000),completedViewports:records.length};

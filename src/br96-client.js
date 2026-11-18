@@ -62,6 +62,7 @@ let withdrawArmedUntil=0,watchOptionsSignature='',mapFollow=false,mapZoomLevel=0
 let streetView=false,streetYaw=0,streetPitch=0; // camera-only, never part of movement POST
 let weaponSeq=0,weaponBusy=false;
 let dismissedJourneyRound=null; // local UI only; server remains authoritative
+let trailRound=null,showTrail=false,trailIndex=null;
 try{const stored=sessionStorage.getItem(SESSION);if(stored&&/^[a-f0-9]{64}$/.test(stored))token=stored;}catch(_){}
 function message(value){if(value!==lastStatus){lastStatus=value;el('status').textContent=value;}}
 function cleanSession(){
@@ -334,6 +335,7 @@ function render(){
  draw(w);
  renderStandings(w);
  renderJourney(w);
+ renderTrail(w);
 }
 // The server owns every number and only sends PERSONAL data after round end.
 // No client movement estimates, rival route telemetry or invented awards.
@@ -398,6 +400,42 @@ function renderStandings(w){
    ?(entry.placement===null?'진행 중':'확정 '+entry.placement+'위')+
      ' · '+entry.eligibleMembers+'/6명'
    :'시작 전 · 미확정';
+ }
+}
+function renderTrail(w){
+ const toggle=el('journeyToggle'),pane=el('journeyMapPane'),summary=el('journeyText');
+ const round=state?.roundNumber;
+ if(trailRound!==round){trailRound=round;showTrail=false;trailIndex=null;}
+ const track=w?.personalTrail;
+ const samples=track?.schema==='veilpoint-br96-personal-trail-v1'&&Array.isArray(track.samples)&&
+  track.samples.length>0&&track.samples.length<=302&&
+  track.samples.every((p,i)=>Number.isSafeInteger(p?.tick)&&p.tick>=0&&p.tick<=w.tick&&
+   (!i||p.tick>track.samples[i-1].tick)&&
+   [p.x,p.z].every(n=>Number.isFinite(n)&&Math.abs(n)<=175))?track.samples:null;
+ toggle.hidden=!samples||el('journeyPanel').hidden;
+ const visible=!toggle.hidden&&showTrail;
+ pane.hidden=!visible;summary.hidden=visible;
+ toggle.setAttribute('aria-expanded',String(visible));
+ toggle.textContent=visible?'이동 통계 보기':'내 이동 지도';
+ if(!visible)return;
+ const slider=el('journeySample');
+ slider.max=String(samples.length-1);
+ const selected=Math.min(samples.length-1,trailIndex??samples.length-1);
+ slider.value=String(selected);
+ el('journeySampleTime').textContent=(samples[selected].tick/60).toFixed(1)+'초';
+ const map=el('journeyMap'),ink=map.getContext('2d');
+ const width=map.width,height=map.height,scale=(Math.min(width,height)-18)/350;
+ const x=v=>width/2+v*scale,z=v=>height/2+v*scale;
+ ink.fillStyle='#173030';ink.fillRect(0,0,width,height);
+ ink.fillStyle='#486162';
+ for(const block of publicGeometry||[]){
+  if(![block.x,block.z,block.w,block.d].every(Number.isFinite)||block.w<=0||block.d<=0)continue;
+  ink.fillRect(x(block.x-block.w/2),z(block.z-block.d/2),block.w*scale,block.d*scale);
+ }
+ for(let i=0;i<=selected;i++){
+  const point=samples[i];
+  ink.fillStyle=i===selected?'#f9db89':'#86b8a7';
+  ink.beginPath();ink.arc(x(point.x),z(point.z),i===selected?4:2,0,2*Math.PI);ink.fill();
  }
 }
 function toggleStandings(open){
@@ -1108,6 +1146,14 @@ el('vpAudioClose').addEventListener('click',()=>setAudioPanel(false));
 el('journeyDismiss').addEventListener('click',()=>{
  dismissedJourneyRound=state?.roundNumber??0;
  el('journeyPanel').hidden=true;
+});
+el('journeyToggle').addEventListener('click',()=>{
+ showTrail=!showTrail;
+ renderTrail(currentWorld());
+});
+el('journeySample').addEventListener('input',()=>{
+ trailIndex=Number(el('journeySample').value);
+ renderTrail(currentWorld());
 });
 el('standingsToggle').addEventListener('click',()=>toggleStandings());
 el('mapFollow').addEventListener('click',toggleMapFollow);

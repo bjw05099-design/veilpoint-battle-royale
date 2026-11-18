@@ -118,9 +118,21 @@ async function verifyCombatBrowser({rpc,sleep}){
    host.step();if(n%15===0)await sleep(60);
   }
   await key('KeyW','w',87);assert.ok(own.z<=1,'body exits the other four-metre doorway');
+  assert.equal(world.snapshot(players[0]).personalTrail,null);
+  const opponents=players.slice(6).filter(token=>world.actors.get(token).eligible);
+  const lastOpponent=opponents.pop();
+  for(const token of opponents)assert.equal(world.withdraw(token).ok,true);
+  await post('/withdraw',{},lastOpponent);
+  await key('Escape','Escape',27);
+  await until(()=>evaluate('!document.getElementById("journeyToggle").hidden'),'private movement map button');
+  const replay=await evaluate('(()=>{const r=document.getElementById("journeyToggle").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
+  await click(replay.x,replay.y);
+  await until(()=>evaluate('!document.getElementById("journeyMapPane").hidden'),'personal sampled movement map');
+  assert.ok(Number(await evaluate('document.getElementById("journeySample").max'))>=1);
+  assert.notDeepEqual(world.snapshot(players[0]).personalTrail,world.snapshot(players[6]).personalTrail);
   return {sessions:96,transport:'loopback',shots:3,firstShotTick,
    remainingRounds:own.weapon.rounds,reloadVerified:true,chatIsolationVerified:true,
-   combatEliminationVerified:true,hallTraversalVerified:true,
+   combatEliminationVerified:true,hallTraversalVerified:true,personalTrailVerified:true,
    screenshot:screenshot.data,hallScreenshot:hallScreenshot.data};
  }finally{
   if(preload?.identifier)await rpc('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.identifier});

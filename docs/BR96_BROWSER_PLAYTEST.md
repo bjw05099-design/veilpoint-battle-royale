@@ -26,6 +26,9 @@ on-screen toggle requests finite sprint, Q sends a server-positioned private
 regroup signal. Teammates can acknowledge an active proposal with Y or the
 map's acknowledgement button. The marker shows how many teammates saw it.
 The acknowledgement is voluntary and does not change movement or results.
+After the match, **내 이동 지도** shows the signed-in player's own positions
+sampled at three-second intervals plus the final position. Move the slider
+to review a specific sample. No trail is sent while the match is active.
 Press the mouse wheel for a local-position mark; F performs nearby interactions. A faint public circle
 represents the published play-area rule. The map shows the player, their
 six-person squad, physically observed rivals, and legitimately discovered

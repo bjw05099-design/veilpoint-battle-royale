@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>VEILPOINT · 마지막 방송</title>
+ <link href="assets/aden-walk.css" rel="stylesheet">
+</head>
+<body>
+ <main>
+  <header>
+   <div><span>VEILPOINT / CH01</span><h1>마지막 방송</h1></div>
+   <div class="tools" aria-label="화면과 임무 설정">
+    <button id="view" type="button" aria-pressed="false">V · 눈높이 보기</button>
+    <button id="region" type="button" aria-pressed="false">M · 광역 지도</button>
+    <button id="reset" type="button">임무 재시작</button>
+   </div>
+  </header>
+  <div class="workspace">
+   <section class="scene" aria-label="아덴의 공개 지형과 거리">
+    <canvas id="map" tabindex="0" aria-label="공개 지형과 도로·건물 외곽"></canvas>
+    <div id="map-legend"><span><i class="road"></i>도로 중심선</span><span><i class="lot"></i>건물 외곽</span><span><i class="target"></i>임무 지점</span></div>
+    <div class="map-controls"><button type="button" id="zoom-out" aria-label="지도 축소">−</button><button type="button" id="zoom-in" aria-label="지도 확대">+</button></div>
+    <output id="scale"></output>
+   </section>
+   <aside>
+    <section class="objective" aria-labelledby="objective">
+     <p class="eyebrow" id="phase">임무 준비</p>
+     <h2 id="objective">아덴 지형을 여는 중</h2>
+     <p id="distance"></p>
+     <button type="button" id="action" disabled>F · 현장 확인</button>
+     <div id="report" hidden>
+      <p>살마에게 어떤 내용으로 전달할까?</p>
+      <button type="button" id="report-known">1 · 같은 통신의 재전송</button>
+      <button type="button" id="report-unknown">2 · 별개의 신고 두 건</button>
+     </div>
+    </section>
+    <p id="dialogue" role="status">한국에서 출국하기 전 받은 임무는 현지 민간 통신 지원이었다. 이수혁 대위는 도착 후 현지 구조단과 함께 끊긴 수신 기록을 확인한다.</p>
+    <details id="journal"><summary>현장 기록 <span id="entries-count">0</span></summary><ol id="entries"></ol></details>
+    <p id="controls">WASD로 이동 · V 시점 전환 · F 상호작용<br>눈높이 시점에서 방향키 또는 마우스로 둘러보기</p>
+    <output id="saved" role="status"></output>
+   </aside>
+  </div>
+  <footer>
+   <p>공개 지도 기반 · 임무는 창작 · 2015년 배치 대조 전 · 건물 높이·실내 미제작</p>
+   <details><summary>지도 출처</summary><p id="credit-vector"></p><p id="credit-terrain"></p></details>
+  </footer>
+ </main>
+ <script src="src/aden-citywide-tiles.js"></script>
+ <script src="src/aden-map-relief.js"></script>
+ <script src="src/aden-city-walking-probe.js"></script>
+ <script src="src/aden-street-perspective.js"></script>
+ <script src="src/aden-walk-mission.js"></script>
+ <script src="assets/aden-source-data.js"></script>
+ <script src="src/aden-walk-app.js"></script>
+</body>
+</html>

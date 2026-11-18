@@ -49,6 +49,7 @@ test('BR96 finished-person journey reports never publish bench rest duration or 
  for(let i=0;i<40;i++)w.step();
  const before=mine.benchRestTicks;
  assert.equal(w.snapshot(tok(0)).personalRecap,null);
+  assert.equal(w.snapshot(tok(0)).personalTrail,null);
  for(let i=6;i<96;i++)assert.equal(w.withdraw(tok(i)).ok,true);
  assert.equal(w.phase,'finished');
  const recap=w.snapshot(tok(0)).personalRecap;
@@ -59,4 +60,11 @@ test('BR96 finished-person journey reports never publish bench rest duration or 
  assert.equal(recap.ownSquadPlacement,1);
  assert.equal(w.snapshot(tok(6)).personalRecap.squad,2,
    'personal debrief remains scoped to its authenticated human');
+  const trail=w.snapshot(tok(0)).personalTrail;
+  assert.equal(trail.schema,'veilpoint-br96-personal-trail-v1');
+  assert.equal(trail.samples.at(-1).tick,w.tick);
+  assert.deepEqual(trail.samples.at(-1),{tick:w.tick,x:Math.round(mine.x*10)/10,
+   z:Math.round(mine.z*10)/10});
+  assert.notDeepEqual(w.snapshot(tok(6)).personalTrail.samples,trail.samples);
+  assert.ok(trail.samples.every(p=>Object.keys(p).sort().join(',')==='tick,x,z'));
 });
