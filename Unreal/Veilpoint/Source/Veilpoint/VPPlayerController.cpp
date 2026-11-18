@@ -300,9 +300,9 @@ void AVPPlayerController::TickAdenAudio()
     if (!IsLocalController() || !GetWorld()) return;
     const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
     const auto* Source = State ? State->Source.Get() : nullptr;
-    const auto* Character = Cast<AVPCharacter>(GetPawn());
+    const auto* ControlledCharacter = Cast<AVPCharacter>(GetPawn());
     const auto* Settings = UVPGameUserSettings::GetVeilpointSettings();
-    const bool bAudible = Source && Character && !FApp::IsUnattended() &&
+    const bool bAudible = Source && ControlledCharacter && !FApp::IsUnattended() &&
         (!Settings || Settings->bFieldAudioEnabled);
     if (!bAudible)
     {
@@ -334,18 +334,18 @@ void AVPPlayerController::TickAdenAudio()
         if (LastAdenCue.EndsWith(TEXT("  |  Saved.")) && !bDesktopMenuOpen)
             UGameplayStatics::PlaySound2D(this, Source->GetDossierSound(), .15f);
     }
-    const FVector Position = Character->GetActorLocation();
+    const FVector Position = ControlledCharacter->GetActorLocation();
     const double Moved = bHasAdenAudioPosition ? FVector::Dist2D(Position, PreviousAdenAudioPosition) : 0.;
     PreviousAdenAudioPosition = Position;
     bHasAdenAudioPosition = true;
-    if (bDesktopMenuOpen || !Character->GetCharacterMovement()->IsMovingOnGround() || Moved > 300.)
+    if (bDesktopMenuOpen || !ControlledCharacter->GetCharacterMovement()->IsMovingOnGround() || Moved > 300.)
     {
         AdenStepDistance = 0.;
         return;
     }
     AdenStepDistance += Moved;
-    const bool bCrouched = Character->GetCharacterMovement()->IsCrouching();
-    const double Stride = bCrouched ? 105. : Character->bSprinting ? 165. : 139.;
+    const bool bCrouched = ControlledCharacter->GetCharacterMovement()->IsCrouching();
+    const double Stride = bCrouched ? 105. : ControlledCharacter->bSprinting ? 165. : 139.;
     if (AdenStepDistance >= Stride)
     {
         AdenStepDistance = FMath::Fmod(AdenStepDistance, Stride);
@@ -493,8 +493,8 @@ void AVPPlayerController::TickBRDiagnostic()
 #if !UE_BUILD_SHIPPING
     if (!IsLocalController() || !GetWorld() || !FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify"))) return;
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
-    const auto* Pawn = Cast<AVPCharacter>(GetPawn());
-    if (!State || !Pawn || !State->bReadyRequired) return;
+    const auto* LocalBRPawn = Cast<AVPCharacter>(GetPawn());
+    if (!State || !LocalBRPawn || !State->bReadyRequired) return;
     const double Now = GetWorld()->GetTimeSeconds();
     if (!State->bRoundStarted && State->JoinedPlayers == 2 && State->ReadyPlayers < 2 && !bBRObservedLobby)
     {
@@ -507,25 +507,25 @@ void AVPPlayerController::TickBRDiagnostic()
         ToggleRoundReady();
     }
     if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
-        && bBRObservedLobby && bBRReadyRequested && !bBRProofPrinted && Pawn->GetRoundReview().Num() >= 2)
+        && bBRObservedLobby && bBRReadyRequested && !bBRProofPrinted && LocalBRPawn->GetRoundReview().Num() >= 2)
     {
         if (GetNetMode() == NM_Client)
         {
             int32 Others = 0;
             for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
             {
-                if (*It == Pawn) continue;
+                if (*It == LocalBRPawn) continue;
                 if (!It->GetRoundReview().IsEmpty()) return;
                 ++Others;
             }
-            if (Others != 1 || !Pawn->IsAlive() || State->ActiveSurvivors != 1) return;
-            UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: ready gate and owner-only finished record (%d samples)"), Pawn->GetRoundReview().Num());
+            if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: ready gate and owner-only finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + .25;
         }
         else if (GetNetMode() == NM_ListenServer)
         {
-            if (Pawn->IsAlive() || State->ActiveSurvivors != 1) return;
-            UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: two ready participants and final round (%d samples)"), Pawn->GetRoundReview().Num());
+            if (LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: two ready participants and final round (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + 4.;
         }
         bBRProofPrinted = true;

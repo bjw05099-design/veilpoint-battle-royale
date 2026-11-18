@@ -17,6 +17,7 @@ public:
     virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
     virtual void PreLogin(const FString& Options, const FString& Address,
         const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+    virtual void Logout(AController* Exiting) override;
     void SetReadyFromController(APlayerController* Controller, bool bReady);
     virtual void Tick(float DeltaSeconds) override;
     UPROPERTY(BlueprintReadOnly,Category="Battle Royale")
