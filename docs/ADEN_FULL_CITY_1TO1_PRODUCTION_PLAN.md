@@ -5,7 +5,7 @@
 
 **Goal:** an explorable representation of **the entirety of Aden's civilian city at 1:1 spatial scale** (one game world metre = one represented metre), using the fullest legitimately sourced geographic, historical and ordinary civilian architectural reference possible. Preserve the fictional story/characters without claiming historical events occurred as scripted. Preserve BR/CH01 use of a coherent common city.
 
-**Not achieved:** The existing offline game is a **350m proof-of-play**. The background mountains/water/48 shells from #754 are **unlocated scenic blockouts**, not surveyed relief, accurately measured shoreline or built city coverage. Do not relabel them as mapped Aden tiles. No city boundary geodata or DEM tile has yet been downloaded, validated, licensed, imported, or rendered by UE5 World Partition. Changing a scope document alone does not build the city.
+**Current output:** The offline game still uses a **350m proof-of-play**. The separate [public Aden source build](ADEN_PUBLIC_SOURCE_BUILD.md) contains the projected Copernicus elevation mosaic, an actual 49-tile terrain pilot, and registered public street and small building footprints. The full city boundary, historical geometry and in-engine World Partition build remain unverified.
 
 "1:1" refers to metres of horizontal/vertical space. "100% identical building-for-building, in every year" is not a provable claim: sources have acquisition dates, incomplete coverage, inaccessible interiors and ongoing changes. Per-region accuracy labels must be earned; do not replace missing data with fake survey claims.
 
@@ -41,7 +41,7 @@ Required per-import provenance: original provider, observed/acquired date, licen
 ## Production steps and clear acceptance gates
 
 1. **City boundary definition:** legitimate historical or civic dataset, source date, documented urban-area definition, edge water/terrain policy, 512m grid coverage. Do not fabricate the extent.
-2. **Terrain:** import vetted DEM into UE5 heightmaps; preserve sample interval and vertical units; run cross-tile height/normal/slope audits, coast alignment and edge compatibility. Node seam tests run now, but no real DEM is loaded.
+2. **Terrain:** extend the verified GLO-30 source conversion, preserve sample interval and vertical units, then validate coast alignment and in-engine height, normal and collision continuity.
 3. **Public districts:** modular licensed period-appropriate civilian architecture, façade varieties, public interiors, street character, storefronts, lived-in civilian spaces; retain physical doors/access for included playable scenes. Do not claim textures/photos are licensed without rights.
 4. **City streaming:** configure real UE5 World Partition/data layers/HLOD, coordinate origin rebasing, distance budgets and safe reload. Build actual cooked PC packages and walk across adjacent streamed tiles. The 512m grid header is not a substitute for this.
 5. **Gameplay integration:** rework BR/CH01 actor replication and navmesh streaming to handle city scale while preserving fair shared BR96 physics and campaign save compatibility; verify actual clients and finite resources. Do not invent gameplay accessibility to unbuilt cells.

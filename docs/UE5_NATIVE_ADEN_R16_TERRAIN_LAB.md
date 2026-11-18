@@ -1,6 +1,6 @@
 # VEILPOINT — Native UE5 civil-terrain streaming lab
 
-**Scope:** optional Unreal Engine 5.8 C++ **civilian terrain inspection level**, not the production BR/CH01 map, not the promised full city, and not an imported World Partition/Landscape world. The user target remains **the entire civilian city of Aden at 1:1 real-world metre scale**. This proof-of-integration uses ORIGINAL synthetic elevations only; no genuinely authenticated Aden terrain/architecture is embedded.
+**Scope:** optional Unreal Engine 5.8 C++ civilian terrain inspection level. The [public Aden source build](ADEN_PUBLIC_SOURCE_BUILD.md) and the synthetic installation fixture both supply compatible inputs. The production BR/CH01 world and World Partition require separate integration.
 
 ## What is now implemented in native game source
 

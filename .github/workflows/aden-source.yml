@@ -1,0 +1,64 @@
+name: VEILPOINT public Aden terrain source
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/aden-source.yml
+      - scripts/import-aden-glo30.py
+      - scripts/export-aden-civilian-osm.py
+      - Unreal/Veilpoint/ContentSource/Aden/**
+      - scripts/export-ue5-heightmaps.cjs
+      - scripts/verify-ue5-tile-pack.cjs
+      - src/aden-citywide-tiles.js
+  pull_request:
+    paths:
+      - .github/workflows/aden-source.yml
+      - scripts/import-aden-glo30.py
+      - scripts/export-aden-civilian-osm.py
+      - Unreal/Veilpoint/ContentSource/Aden/**
+      - scripts/export-ue5-heightmaps.cjs
+      - scripts/verify-ue5-tile-pack.cjs
+      - src/aden-citywide-tiles.js
+jobs:
+  terrain-source:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch and verify the public GLO-30 inputs
+        run: |
+          python -m pip install rasterio==1.5.2 numpy==2.3.5
+          mkdir -p "$RUNNER_TEMP/aden"
+          for longitude in 044 045; do
+            object="Copernicus_DSM_COG_10_N12_00_E${longitude}_00_DEM"
+            curl --fail --location --silent --show-error --max-time 90 --retry 2 \
+              "https://copernicus-dem-30m.s3.amazonaws.com/$object/$object.tif" \
+              --output "$RUNNER_TEMP/aden/$object.tif"
+          done
+          cd "$RUNNER_TEMP/aden"
+          sha256sum -c <<'SUMS'
+          2458629f63c54d25da812285566ed628e204611623b296517cc4f8282a8ead1a  Copernicus_DSM_COG_10_N12_00_E044_00_DEM.tif
+          dc25233ef08c57e117eb5fb01c246ae2550ef7131c5829fabad67cdc42821473  Copernicus_DSM_COG_10_N12_00_E045_00_DEM.tif
+          SUMS
+      - name: Build the projected GeoTIFF, browser input and UE5 R16 candidates
+        run: |
+          python scripts/import-aden-glo30.py dist/aden-source "$RUNNER_TEMP"/aden/*.tif \
+            --acquired-date "$(date -u +%F)" \
+            --civilian-source Unreal/Veilpoint/ContentSource/Aden/aden-civilian-pilot.geojson.gz
+          node scripts/export-ue5-heightmaps.cjs dist/aden-source/aden-pilot-heightfield.json dist/aden-source/ue5-r16
+          node scripts/verify-ue5-tile-pack.cjs dist/aden-source/ue5-r16 > dist/aden-source/R16_VERIFICATION.json
+          node -e 'const result=require("./dist/aden-source/R16_VERIFICATION.json"); if(result.tiles!==49||result.seams!==84)process.exit(1);'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veilpoint-aden-public-terrain
+          path: dist/aden-source/
+          if-no-files-found: error

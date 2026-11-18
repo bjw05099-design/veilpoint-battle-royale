@@ -57,6 +57,7 @@ test('native header is explicitly math-only, not a misleading completed UE5 worl
  const map=fs.readFileSync(path.resolve(__dirname,
   '../docs/ADEN_FULL_CITY_1TO1_PRODUCTION_PLAN.md'),'utf8');
  assert.match(map,/512m square tiles/);
- assert.match(map,/no.*DEM tile has yet been downloaded/i);
+ assert.match(map,/projected Copernicus elevation mosaic/i);
+ assert.match(map,/in-engine World Partition build remain unverified/i);
  assert.match(map,/not a provable claim/);
 });
