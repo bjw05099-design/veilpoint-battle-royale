@@ -15,6 +15,8 @@
 namespace
 {
 using namespace VPLastBroadcastRules;
+constexpr uint8 CivilianArrivals=0x03;
+constexpr uint8 SupplyArrival=0x04;
 bool Diagnostic(){return FParse::Param(FCommandLine::Get(),TEXT("VPVisualSmoke"));}
 FString Slot(){return Diagnostic()?TEXT("veilpoint.last-broadcast.diagnostic.v1"):TEXT("veilpoint.last-broadcast.native.v1");}
 Action RuleAction(EVPStoryAction A){return static_cast<Action>(uint8(A)-uint8(EVPStoryAction::LastHandover));}
@@ -57,12 +59,21 @@ void AVPLastBroadcastMission::BeginPlay()
     }
     Restore();
 }
+uint8 AVPLastBroadcastMission::ObserveConvoyArrivals() const
+{
+    if(Convoy.Num()!=3)return 0;
+    uint8 Arrivals=0;
+    for(const auto& Person:Convoy)
+    {
+        if(!IsValid(Person.Get()) || Person->Kind>2)return 0;
+        if(Person->bAtGoal)Arrivals|=uint8(1u<<Person->Kind);
+    }
+    return Arrivals;
+}
 bool AVPLastBroadcastMission::ConvoyAtGoal(bool bSupplies) const
 {
-    if(Convoy.Num()!=3)return false;
-    for(const auto& Person:Convoy)
-        if(!IsValid(Person.Get()) || ((Person->Kind==2)==bSupplies && !Person->bAtGoal))return false;
-    return true;
+    const uint8 Required=bSupplies?SupplyArrival:CivilianArrivals;
+    return (ObserveConvoyArrivals()&Required)==Required;
 }
 bool AVPLastBroadcastMission::IsAvailable(EVPStoryAction A) const
 {
@@ -89,7 +100,7 @@ bool AVPLastBroadcastMission::TryAction(EVPStoryAction A,AVPCharacter* Controlle
     if(!HasAuthority() || !IsAvailable(A) || !HasPhysicalAccess(A,ControlledPawn,275))return false;
     if((A==EVPStoryAction::LastWorkshop || A==EVPStoryAction::LastChooseSouth || A==EVPStoryAction::LastChooseEast) &&
         (!ConvoyAtGoal(false) || !ConvoyAtGoal(true)))
-    {Feedback=TEXT("WAIT | Assemble people and supplies at the workshop first.");ForceNetUpdate();return false;}
+    {Feedback=TEXT("WAIT | Clear the approach and wait for the workshop assembly.");ForceNetUpdate();return false;}
     if(A==EVPStoryAction::LastBroadcast)
     {
         BroadcastStartedAt=GetWorld()->GetTimeSeconds(); BroadcasterPawn=ControlledPawn;
@@ -115,20 +126,21 @@ bool AVPLastBroadcastMission::Commit(EVPStoryAction A)
     case EVPStoryAction::LastChooseSouth: Feedback=TEXT("SOUTH | Escort the people and supplies through the public lane.");break;
     case EVPStoryAction::LastChooseEast: Feedback=TEXT("EAST | Verify the public passage with the people and supplies.");break;
     case EVPStoryAction::LastClearSouth: case EVPStoryAction::LastClearEast: Feedback=TEXT("PASSAGE | People and supplies reached the route end. Assemble by Nadim's vehicle.");break;
-    case EVPStoryAction::LastBoard: Feedback=TEXT("NADIM | Group accounted for at the vehicle. Follow the team to Salma's reception.");break;
+    case EVPStoryAction::LastBoard: Feedback=TEXT("NADIM | Group accounted for. Follow the marked walk through the north shelter entrance.");break;
     case EVPStoryAction::LastReceive: Feedback=TEXT("SALMA | People and supplies received. Korean withdrawal is still unconfirmed.");break;
     case EVPStoryAction::LastWithdraw: Feedback=TEXT("KIM | The withdrawal vehicle cannot enter. An alternative meeting point is not confirmed.");break;
     case EVPStoryAction::LastBroadcast: Feedback=TEXT("LAST BROADCAST | Shelter handoff complete. Roads and the Korean return remain unconfirmed.");break;
     default: break;
     }
-    SetConvoyPath(); bLastCheckpointSaved=Persist(); ForceNetUpdate(); return true;
+    SetConvoyPath(); ConvoyArrivalMask=ObserveConvoyArrivals();
+    bLastCheckpointSaved=Persist(); ForceNetUpdate(); return true;
 }
 void AVPLastBroadcastMission::SetConvoyPath()
 {
     TArray<FVector> Points;
     const auto Add=[&Points](const auto& Source){for(const auto& P:Source)Points.Add(FVector(P.X,P.Y,P.Z));};
     using namespace VPLastBroadcastPaths;
-    if(Phase==2)Add(Workshop);
+    if(Phase==2 && !bWorkshopVisited)Add(Workshop);
     if(Phase==3){if(Route==1)Add(South);else Add(East);}
     if(Phase==4){if(Route==1)Add(BoardSouth);else Add(BoardEast);}
     if(Phase==5)Add(Reception);
@@ -142,7 +154,18 @@ void AVPLastBroadcastMission::SetConvoyPath()
 }
 void AVPLastBroadcastMission::Tick(float DeltaSeconds)
 {
-    Super::Tick(DeltaSeconds); if(!HasAuthority() || BroadcastStartedAt<0 || !GetWorld())return;
+    Super::Tick(DeltaSeconds);
+    if(!HasAuthority() || !GetWorld())return;
+    if(Phase>=2 && Phase<=5)
+    {
+        const uint8 Arrivals=ObserveConvoyArrivals();
+        if(Arrivals!=ConvoyArrivalMask)
+        {
+            ConvoyArrivalMask=Arrivals;
+            ForceNetUpdate();
+        }
+    }
+    if(BroadcastStartedAt<0)return;
     if(!HasPhysicalAccess(EVPStoryAction::LastBroadcast,BroadcasterPawn.Get(),425))
     {
         BroadcastStartedAt=-1; BroadcasterPawn.Reset(); Feedback=TEXT("BROADCAST INTERRUPTED | Return to the desk and press F to restart."); ForceNetUpdate(); return;
@@ -158,12 +181,21 @@ FString AVPLastBroadcastMission::Objective() const
     case 2:return bWorkshopVisited?TEXT("LAST BROADCAST / Choose south or east at the workshop signs"):TEXT("LAST BROADCAST / Reach the workshop with the local team");
     case 3:return Route==1?TEXT("LAST BROADCAST / South lane: escort people AND supplies to its end"):TEXT("LAST BROADCAST / East lane: verify passage with people AND supplies");
     case 4:return TEXT("LAST BROADCAST / Assemble the group at Nadim's parked vehicle");
-    case 5:return TEXT("LAST BROADCAST / Accompany the group to Salma's shelter reception");
+    case 5:return TEXT("LAST BROADCAST / North shelter entrance: accompany the group to Salma");
     case 6:return TEXT("LAST BROADCAST / Check the Korean withdrawal radio beside the shelter");
     case 7:return TEXT("LAST BROADCAST / Enter the loading hall; assist Mariam at the radio desk");
     case 8:return TEXT("LAST BROADCAST / Slice complete: shelter confirmed; Korean return unresolved");
     default:return FString();
     }
+}
+FString AVPLastBroadcastMission::AssemblyLine() const
+{
+    if(Phase>=6)return TEXT("SHELTER CONFIRMED | KOREAN WITHDRAWAL UNRESOLVED");
+    if(Phase<2)return TEXT("Keep the people and supplies together.");
+    const int32 Civilians=int32((ConvoyArrivalMask&0x01)!=0)+int32((ConvoyArrivalMask&0x02)!=0);
+    const bool bSuppliesArrived=(ConvoyArrivalMask&SupplyArrival)!=0;
+    return FString::Printf(TEXT("ARRIVED | CIVILIANS %d/2 | SUPPLIES %d/1 | %s"),
+        Civilians,int32(bSuppliesArrived),Civilians==2&&bSuppliesArrived?TEXT("CLEAR TO REPORT"):TEXT("KEEP THE WALKWAY CLEAR"));
 }
 FString AVPLastBroadcastMission::BroadcastLine() const
 {
@@ -207,7 +239,7 @@ bool AVPLastBroadcastMission::RestoreEvents(const TArray<uint8>& History)
         Convoy[I]->Follow({});
         Convoy[I]->SetActorLocation(Base+FVector(0,(I-1)*85,0),false,nullptr,ETeleportType::TeleportPhysics);
     }
-    SetConvoyPath(); ForceNetUpdate(); return true;
+    SetConvoyPath(); ConvoyArrivalMask=ObserveConvoyArrivals(); ForceNetUpdate(); return true;
 }
 void AVPLastBroadcastMission::Restore()
 {
@@ -225,4 +257,5 @@ void AVPLastBroadcastMission::GetLifetimeReplicatedProps(TArray<FLifetimePropert
     DOREPLIFETIME(AVPLastBroadcastMission,Phase); DOREPLIFETIME(AVPLastBroadcastMission,Route);
     DOREPLIFETIME(AVPLastBroadcastMission,bWorkshopVisited); DOREPLIFETIME(AVPLastBroadcastMission,Events);
     DOREPLIFETIME(AVPLastBroadcastMission,BroadcastStartedAt); DOREPLIFETIME(AVPLastBroadcastMission,Feedback);
+    DOREPLIFETIME(AVPLastBroadcastMission,ConvoyArrivalMask);
 }

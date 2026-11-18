@@ -32,6 +32,7 @@ test('CH01 southern route requires physical aid transfer and escort accounting a
   assert.ok(south.checkpoints.at(-1).taskStatus.includes('exit:done'));
   assert.equal(south.report.guideReleased,true);
   assert.equal(south.report.aidDelivered,true);
+  assert.equal(south.report.shelterIntake,'비상 물품 인계와 안내원 접수');
   assert.equal(south.report.civilianOutcome,'south-headcount-verified');
 });
 
@@ -46,6 +47,7 @@ test('CH01 eastern route checkpoints locked and cleared 60Hz gate plus recorded 
  assert.ok(east.checkpoints.find(x=>x.label==='gate-cleared')
    .taskStatus.includes('exit:available'));
  assert.equal(east.report.logHandedOff,true);
+ assert.equal(east.report.shelterIntake,'');
  assert.equal(east.report.clockDiscrepancy,'retransmission-confirmed');
 });
 
@@ -54,19 +56,21 @@ test('CH01 central corridors and both exits are reached by real fixed-step walki
  const south=routes.find(r=>r.route==='evacuation');
  const east=routes.find(r=>r.route==='verification');
  assert.deepEqual(south.walkSegments.map(x=>x.label),
-  ['opening-to-terminal','terminal-to-decision','decision-to-south-exit']);
+  ['opening-to-terminal','terminal-to-decision','decision-to-south-exit',
+   'aid-handoff-to-shelter-intake']);
  assert.deepEqual(east.walkSegments.map(x=>x.label),
   ['opening-to-terminal','terminal-to-decision','decision-to-east-approach','east-approach-to-exit']);
  for(const route of routes){
   for(const segment of route.walkSegments){
    assert.ok(segment.ticks>=10&&segment.ticks<=1000);
-   assert.ok(segment.distance>=10,'segment needs substantial actual 60Hz travel');
+   const minimum=segment.label==='aid-handoff-to-shelter-intake'?8:10;
+   assert.ok(segment.distance>=minimum,'segment needs substantial actual 60Hz travel');
    assert.ok(segment.remaining<=2.2,'segment must reach interaction distance without teleportation');
    assert.ok(route.checkpoints.some(x=>x.label==='walk-'+segment.label),
     'physical segment must be immediately checkpointed for deterministic replay');
   }
  }
- assert.ok(south.walkSegments.at(-1).to[1]<-58,
+ assert.ok(south.walkSegments.find(x=>x.label==='decision-to-south-exit').to[1]<-58,
   'south arrival is inside the actual courtyard');
  assert.ok(east.walkSegments.at(-1).to[0]>24,
   'east arrival is near the verified physical exit');

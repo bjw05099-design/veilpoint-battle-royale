@@ -82,6 +82,13 @@
             :'나딤의 기존 면담이 기록되어 있다. 출발·도착은 여전히 미확인이다.');
     if(state&&state.musterConfirmed)note('muster','집결지 인원 확인',
       '남쪽 집결지에 실제로 있는 유수프 구조단 담당자와 대피 지원을 직접 협의했다. 미확인 인원은 확인된 수로 간주하지 않는다.');
+    if(state&&state.shelterIntakeMask){
+      const received=[];
+      if(state.shelterIntakeMask&1)received.push('비상 물품 인계');
+      if(state.shelterIntakeMask&2)received.push('안내원 접수');
+      note('shelterIntake','살마의 안뜰 접수 기록',
+        '현장에서 대조한 항목은 '+received.join(' 및 ')+'이다. 다른 주민의 도착, 차량 수송, 한국팀 복귀 여부는 확인되지 않았다.');
+    }
     if(state&&state.aidPickedUp)note('aid','민간 비상 물품',
       state.aidDelivered?'비상 물품을 현지 구조단에 직접 전달했다.':
         state.aidStaged?'비상 물품이 임시 적재대에 남아 있다. 구조단 현장 인계는 아직 완료되지 않았다.':

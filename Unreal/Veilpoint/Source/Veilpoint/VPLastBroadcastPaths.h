@@ -41,7 +41,12 @@ inline constexpr Point BoardEast[]={
     {10100.0f,-4360.0f,83.0f},
 };
 inline constexpr Point Reception[]={
+    {10500.0f,-4370.0f,83.0f},
+    {10500.0f,-4800.0f,83.0f},
     {10600.0f,-4960.0f,83.0f},
     {11000.0f,-5460.0f,83.0f},
+};
+inline constexpr Point ReceptionStand[]={
+    {11000.0f,-5020.0f,91.0f},
 };
 }

@@ -4,6 +4,8 @@
 #include "VPStoryMarker.h"
 #include "VPCharacter.h"
 #include "VPPlayerController.h"
+#include "CollisionShape.h"
+#include "VPLastBroadcastPaths.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
 #include "Engine/StaticMeshActor.h"
@@ -17,7 +19,8 @@ bool VerifyPavingSupport(UWorld* World,APawn* ControlledPawn,FString& Failure)
     for(TActorIterator<AVPStoryMarker> It(World);It;++It)Query.AddIgnoredActor(*It);
     for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)Query.AddIgnoredActor(*It);
     const FVector Sites[]={FVector(6100,-3800,0),FVector(7700,-3760,0),FVector(9200,-5060,0),
-        FVector(9200,-2760,0),FVector(10100,-4360,0),FVector(11000,-3700,0),FVector(11000,-5460,0)};
+        FVector(9200,-2760,0),FVector(10100,-4360,0),FVector(11000,-3700,0),FVector(11000,-5460,0),
+        FVector(10500,-4600,0),FVector(11000,-6080,0)};
     for(const auto& Site:Sites)
     {
         FHitResult Hit;
@@ -31,13 +34,30 @@ bool VerifyPavingSupport(UWorld* World,APawn* ControlledPawn,FString& Failure)
     }
     return true;
 }
+bool VerifyShelterPassages(UWorld* World,APawn* ControlledPawn)
+{
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(VPShelterAccess),false,ControlledPawn);
+    const auto Blocked=[&](float X,float Y)
+    {
+        return World->SweepTestByChannel(FVector(X,Y+80,90),FVector(X,Y-80,90),
+            FQuat::Identity,ECC_Visibility,FCollisionShape::MakeCapsule(34.f,85.f),Query);
+    };
+    return !Blocked(10500,-4600) && Blocked(11150,-4600)
+        && !Blocked(11000,-6080) && Blocked(11400,-6080);
+}
 void Use(AVPPlayerController* Desktop,EVPStoryAction Action,float Distance=180.f,bool Face=true)
 {
     auto* ControlledPawn=Cast<AVPCharacter>(Desktop->GetPawn());
     if(!ControlledPawn)return;
     for(TActorIterator<AVPStoryMarker> It(Desktop->GetWorld());It;++It)if(It->Action==Action)
     {
-        ControlledPawn->SetActorLocation(It->GetActorLocation()+FVector(-Distance,0,-29),false,nullptr,ETeleportType::TeleportPhysics);
+        FVector Stand=It->GetActorLocation()+FVector(-Distance,0,-29);
+        if(Action==EVPStoryAction::LastReceive)
+        {
+            const auto& Bay=VPLastBroadcastPaths::ReceptionStand[0];
+            Stand=FVector(Bay.X,Bay.Y,Bay.Z);
+        }
+        ControlledPawn->SetActorLocation(Stand,false,nullptr,ETeleportType::TeleportPhysics);
         FRotator Look=(It->GetActorLocation()-ControlledPawn->GetPawnViewLocation()).Rotation();
         if(!Face)Look.Yaw+=180;
         Desktop->SetControlRotation(Look); ControlledPawn->RequestInteraction(); return;
@@ -74,6 +94,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         const bool PavingOK=VerifyPavingSupport(World,Desktop->GetPawn(),PavingFailure);
         Report->SetBoolField(TEXT("pavingSurfaceDoesNotBlockMovement"),PavingOK);
         Report->SetStringField(TEXT("pavingSupportFailure"),PavingFailure);
+        Report->SetBoolField(TEXT("shelterOpeningsAndWallsVerified"),VerifyShelterPassages(World,Desktop->GetPawn()));
     }
     TArray<FVector> Positions;
     for(TActorIterator<AVPLastBroadcastEscort> It(World);It;++It)Positions.Add(It->GetActorLocation());
@@ -165,6 +186,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
             RoutePass=1;PhysicalGatesChecked=false;return 0;
         }
         bool Passed=true;
+        Passed&=Report->HasField(TEXT("shelterOpeningsAndWallsVerified")) && Report->GetBoolField(TEXT("shelterOpeningsAndWallsVerified"));
         for(const TCHAR* Field:{TEXT("pavingSurfaceDoesNotBlockMovement"),TEXT("nativeReloadStartedAndFireBlocked"),TEXT("nativeReloadConservesAmmunition"),TEXT("lastBroadcastRemoteAndBehindRejected"),TEXT("blenderRadioDeskPresentAndColliding"),TEXT("southConvoyArrivalGateVerified"),TEXT("eastConvoyArrivalGateVerified"),TEXT("broadcastInterruptionVerified"),TEXT("lastBroadcastSouthCompleteAndSaved"),TEXT("lastBroadcastEastCompleteAndSaved"),TEXT("southPeopleAndSuppliesPhysicallyReceived"),TEXT("eastPeopleAndSuppliesPhysicallyReceived"),TEXT("forgedBroadcastCheckpointRejected")})
             Passed&=Report->HasField(Field) && Report->GetBoolField(Field);
         Report->SetBoolField(TEXT("lastBroadcastGameplayPassed"),Passed);

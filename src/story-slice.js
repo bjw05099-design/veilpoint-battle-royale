@@ -68,6 +68,12 @@
     {x:18,z:-42.9,w:1.6,d:.8,h:1.05,type:'story-desk'},
     // Solid intake counter, reached from the open southern walkway.
     {x:-24,z:-55,w:1.6,d:.8,h:1.05,type:'story-desk'},
+    // Open-sided intake booth beyond the south supply handoff. The counter
+    // and windbreak share the same footprints as the visible browser scene.
+    {id:'shelter-intake-west',x:-26,z:-64,w:.4,d:7,h:2.7,type:'story-shelter-wall'},
+    {id:'shelter-intake-south',x:-23,z:-67.5,w:6,d:.4,h:2.7,type:'story-shelter-wall'},
+    {id:'shelter-intake-counter',x:-23.5,z:-64.5,w:1.1,d:2.1,h:1.05,type:'story-shelter-counter'},
+    {id:'shelter-intake-seat',x:-24.25,z:-61.4,w:2.15,d:.65,h:.56,type:'story-public-hall-seat'},
     // Story-first accessible civilian hall. The map's ordinary solid walls,
     // desk and seat share a single data module with the future BR authoring
     // pipeline. Do not insert them into already serialized BR matches.
@@ -174,6 +180,7 @@
     guideTransfer: Object.freeze({id:'guideTransfer', x:-12, z:-60, kind:'evac', label:'남쪽 현지 구조단 안내원 인계'}),
     aidPickup: Object.freeze({id:'aidPickup', x:-7, z:-47, kind:'objective', label:'민간 구조용 비상 물품 상자'}),
     aidDrop: Object.freeze({id:'aidDrop', x:-12, z:-60, kind:'evac', label:'현지 구조단 비상 물품 인계 지점'}),
+    shelterIntake: Object.freeze({id:'shelterIntake',x:-21.5,z:-64.5,kind:'evidence',label:'살마의 안뜰 접수대 · 인계 내역 확인'}),
     aidStage: Object.freeze({id:'aidStage', x:-7, z:-55, kind:'objective', label:'민간 비상 물품 임시 적재대'}),
     aidResume: Object.freeze({id:'aidResume', x:-7, z:-55, kind:'objective', label:'임시 적재된 민간 비상 물품'}),
     exitEvac: Object.freeze({id:'exitEvac', x:0, z:-61, kind:'evac', label:'안전한 안뜰'}),
@@ -206,6 +213,18 @@
     return beat?Object.freeze({location:beat.location,subtitle:beat.subtitle}):null;
   }
   const phases = ['terminal','engagement','records','decision','exit','complete','failed'];
+  const INTAKE_SUPPLIES=1,INTAKE_GUIDE=2;
+  function receivedAtIntake(state){
+    if(state.musterConfirmed!==true)return 0;
+    return (state.aidDelivered===true?INTAKE_SUPPLIES:0)|
+      (state.guide?.released===true||state.guide?.arrived===true?INTAKE_GUIDE:0);
+  }
+  function describeShelterIntake(mask){
+    if(mask===(INTAKE_SUPPLIES|INTAKE_GUIDE))return '비상 물품 인계와 안내원 접수';
+    if(mask===INTAKE_SUPPLIES)return '비상 물품 인계';
+    if(mask===INTAKE_GUIDE)return '안내원 접수';
+    return '';
+  }
   const hasOwn = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
   const sharedStoryObstacle=o=>o.type!=='yard-gate'&&o.type!=='yard-fence'&&
@@ -564,6 +583,7 @@
       passageWarningHeard:false,transportVan:null,awningFallen:false,awningShift:0,awningWorking:false,civilianRerouted:false,
       mara:newMarketMara(),liaisonZ:LIAISON_WALK.startZ,
       kimJiyoon:newKimJiyoon(),kimAftercareReviewed:false,kimWaiting:false,
+      shelterIntakeMask:0,
       civicCrossing:Civic?Civic.initial():null,
       // Retained solely to load v2 saves produced before the Korea-briefing correction.
       deploymentReviewed:false,
@@ -767,6 +787,7 @@
             ?[{id:'guideControl',x:state.guide.x,z:state.guide.z,kind:'evac',
               label:state.guide.waiting?'안내원 동행 재개':'안내원 현장 대기 지시'}]:[]),
         ...(!state.aidPickedUp?[POINTS.aidPickup]:[]),
+        ...(!state.world.carryingAid&&receivedAtIntake(state)!==state.shelterIntakeMask?[POINTS.shelterIntake]:[]),
         ...(state.aidPickedUp&&!state.aidDelivered?(state.aidStaged?[POINTS.aidResume]:[POINTS.aidStage,POINTS.aidDrop]):[]),...warningMarkers(state),POINTS.relay];
     return [];
   }
@@ -2120,6 +2141,13 @@
       state.aidDelivered=true;state.world.aidDelivered=true;state.world.carryingAid=false;
       state.subtitle='유수프(현지 구조단): 비상 물품을 현장에서 인수했어. 주민 지원은 우리 구조단이 맡을게.';
       state.message='민간 구조단 물품 인계 완료 · 안전한 안뜰로 이동';
+    }else if(marker.id==='shelterIntake'&&state.phase==='exit'&&state.choice==='evacuation'){
+      if(state.world.carryingAid)return {ok:false,reason:'hands_occupied'};
+      const received=receivedAtIntake(state);
+      if(received===state.shelterIntakeMask)return {ok:false,reason:'unavailable'};
+      state.shelterIntakeMask=received;
+      state.subtitle='살마(현지 대피소): '+describeShelterIntake(received)+' 기록을 여기서 확인했어요. 이름을 확인하지 못한 사람들은 빈칸으로 둘게요. 이 장부로 수송이나 귀환까지 확인할 수는 없어요.';
+      state.message='살마와 현장 접수 대조 완료 · J 현장 기록';
     }else if(marker.id==='dispatchLedger'&&state.phase==='exit'&&state.choice==='evacuation'&&!state.dispatchReviewed){
       // Inspect only the local signed intake sheet; no inferred civilian location.
       state.dispatchReviewed=true;
@@ -2453,6 +2481,7 @@
   function closingScene(state) {
     if(state.phase!=='complete')return null;
     const east=state.choice==='verification';
+    const intake=describeShelterIntake(state.shelterIntakeMask);
     const local=east
       ?'마라(현지 기술자): 동쪽 문이 실제로 열렸어요. 통로 운영은 현지 구조단이 맡습니다.'
       :(state.aidDelivered
@@ -2497,12 +2526,13 @@
     return Object.freeze({
       location:east?'현지 동쪽 통로':'남쪽 주민 집결지',
       route:east?'east-physically-opened':'south-civilian-priority',
-      lines:Object.freeze([local,civilian,radio+
+      lines:Object.freeze([local+(intake?' 살마: '+intake+'만 접수 기록에 남겼어요. 내일 먼저 확인할 사람들을 위해 빈칸을 그대로 둘게요.':''),civilian,radio+
         (state.kimAftercareReviewed?' 김지윤은 현장에서 직접 확인된 한정된 민간 상황만 대위와 대조했습니다. 추가 주민 수송과 본국 복귀는 아직 확정되지 않았습니다.':''),
         '이수혁 대위: 한국에서 받은 지시는 그대로입니다. 달라진 건 이곳의 상황입니다. 우리가 확인한 것과 모르는 것, 주민이 스스로 결정한 일을 분리해 보고하겠습니다. 복귀는 다시 승인받아야 합니다.'+
         (street?' '+street:'')+
         (state.mara?.arrived?' 마라는 통행 공간이 열린 뒤 자신이 고른 공용 골목까지 걸었습니다. 다른 주민의 이동은 미확인입니다.':'')+
         (workerReport||'')+yieldedVan+rememberedSouth+drainOutcome+crossingOutcome]),
+      shelterIntake:intake,
       // This durable follow-up thread is derived exclusively from the existing
       // validated V2 CH01 world. It is not a second campaign chapter or a
       // fabricated civilian headcount, and never gates the existing exit.
@@ -2541,6 +2571,7 @@
       verifiedInformationOnly:state.combat.supportUsed||state.gateLogReviewed||state.logHandedOff,
       emergencyRadioRestored:state.relayRestored,predepartureBriefingAcknowledged:true,harborWarningEnabled:state.beaconEnabled,gateLogReviewed:state.gateLogReviewed,logHandedOff:state.logHandedOff,musterConfirmed:state.musterConfirmed,
       aidDelivered:state.aidDelivered,aidPickedUp:state.aidPickedUp,aidStaged:state.aidStaged,
+      shelterIntake:describeShelterIntake(state.shelterIntakeMask),
       localAidHandoffVerified:state.choice==='evacuation'&&state.aidDelivered,
       driverReportFiled:state.driverReportFiled,civilianVehicleArrived:state.transportVan?.arrived===true,civilianWalkerArrived:state.civilianWalker?.arrived===true,civilianRerouted:state.civilianRerouted,workerInterviewed:state.workerInterviewed,officeBoardRead:state.officeBoardRead,civicVisited:state.civicVisited,
       passageWarningHeard:state.passageWarningHeard,waterSurveyed:state.waterSurveyed,waterReportFiled:state.waterReportFiled,deploymentReviewed:state.deploymentReviewed,
@@ -2557,6 +2588,7 @@
           :'유수프 구조단의 남쪽 대피를 우선했습니다. 동쪽 통로는 통제 중이며 기록 검증은 후속 과제입니다.')+
         (state.aidDelivered?' 현지 구조단에 비상 물품을 직접 전달했습니다.':
           state.aidStaged?' 비상 물품은 임시 적재대에 남겨 두었으며 구조단 인계는 미완료입니다.':'')+
+        (state.shelterIntakeMask?' 살마와 대피소 접수 기록을 대조했습니다. 확인한 항목은 '+describeShelterIntake(state.shelterIntakeMask)+'입니다.':'')+
         (state.guide.released?(Math.hypot(state.guide.x-POINTS.guideTransfer.x,state.guide.z-POINTS.guideTransfer.z)<2.1?' 안내원은 남쪽 물품 접수소의 현지 구조단에 직접 인계했습니다.':' 안내원은 집결지에서 현지 구조단에 직접 인계했습니다.'):state.guide.active?(state.guide.arrived?' 안내원이 실제로 남쪽 안뜰에 도착했습니다.':' 안내원이 대피 경로에서 아직 이동 중입니다.'):'')+
         (state.beaconEnabled?' 항구 수동 경고등을 켜 현지 구조단에 상태를 알렸습니다.':'')+
         (state.transportVan?.arrived?' 현지 운송 차량이 실제 승차 지점에 도착했습니다. 승객 수송과 귀환은 아직 확인되지 않았습니다.':state.transportVan?' 현지 운송 차량이 이동 중이나 도착과 수송은 미확인입니다.':'')+
@@ -2639,6 +2671,7 @@
       liaisonZ:state.liaisonZ,
       kimJiyoon:state.kimJiyoon?{x:state.kimJiyoon.x,z:state.kimJiyoon.z}:null,
       kimAftercareReviewed:state.kimAftercareReviewed,kimWaiting:state.kimWaiting,
+      ...(state.shelterIntakeMask?{shelterIntakeMask:state.shelterIntakeMask}:{}),
       ...(state.civicCrossing?{civicCrossing:state.civicCrossing}:{}),
       transportVan:state.transportVan?{z:state.transportVan.z,arrived:state.transportVan.arrived,
         ...(hasOwn(state.transportVan,'driverZ')?{driverZ:state.transportVan.driverZ}:{}),
@@ -2672,7 +2705,7 @@
     if(Object.keys(data).length<expectedKeys.length||// Fourteen current optional fields plus one recognized retired v2 field.
       // Unknown fields are still rejected by the explicit allowlist below.
       Object.keys(data).length>expectedKeys.length+39||
-      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','drainCleared','drainClearTicks','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing','kimAftercareReviewed','kimWaiting').includes(k))||
+      Object.keys(data).some(k=>!expectedKeys.concat('gateReadyAt','relayRestored','beaconEnabled','flashlightOn','flashlightTicks','gateLogReviewed','logHandedOff','musterConfirmed','dispatchReviewed','transportContact','driverReportFiled','transitReviewed','aidPickedUp','aidDelivered','aidStaged','drainCleared','drainClearTicks','guide','gateClearanceDuration','worker','workerInterviewed','officeBoardRead','civicVisited','waterSurveyed','waterReportFiled','deploymentReviewed','passageWarningHeard','transportVan','civilianWalker','civilianRerouted','awningFallen','awningShift','awningWorking','mara','liaisonZ','kimJiyoon','civicCrossing','kimAftercareReviewed','kimWaiting','shelterIntakeMask').includes(k))||
       (hasOwn(data,'kimWaiting')&&(
         typeof data.kimWaiting!=='boolean'||
         (data.kimWaiting&&(!data.kimJiyoon||
@@ -2971,6 +3004,11 @@
     if((data.logHandedOff===true&&
          (data.gateLogReviewed!==true||data.choice!=='verification'||
           !['exit','complete'].includes(data.phase)))||
+       (hasOwn(data,'shelterIntakeMask')&&
+         (!Number.isInteger(data.shelterIntakeMask)||data.shelterIntakeMask<1||
+          data.shelterIntakeMask>3||data.choice!=='evacuation'||
+          !['exit','complete'].includes(data.phase)||
+          (data.shelterIntakeMask&receivedAtIntake(data))!==data.shelterIntakeMask))||
        (data.gateLogReviewed===true&&
          (data.choice!=='verification'||!['exit','complete'].includes(data.phase)||
            !hasOwn(data,'gateReadyAt')||data.elapsed+1e-6<data.gateReadyAt))||
@@ -3030,6 +3068,7 @@
     state.logHandedOff=hasOwn(data,'logHandedOff')?data.logHandedOff:false;
     // Older v1/v2 checkpoints never included an optional south muster review.
     state.musterConfirmed=hasOwn(data,'musterConfirmed')?data.musterConfirmed:false;
+    state.shelterIntakeMask=data.shelterIntakeMask??0;
     // Existing checkpoint generations predate this optional observed journal.
     state.dispatchReviewed=hasOwn(data,'dispatchReviewed')?data.dispatchReviewed:false;
     // Old current and completed story saves predate the optional conversation.

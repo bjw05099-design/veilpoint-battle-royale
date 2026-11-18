@@ -205,7 +205,7 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     const result=world.move(token,body);
     return send(res,result.ok?200:409,{...result,...(result.ok?{world:world.snapshot(token)}:{})});
    }
-   if(req.method==='POST'&&(url.pathname==='/fire'||url.pathname==='/reload')){
+   if(req.method==='POST'&&['/fire','/reload','/regroup-ack'].includes(url.pathname)){
     lobby.snapshot(token);
     if(!world)return send(res,409,{error:'round_not_started'});
     const generation=req.headers['x-round-number'];
@@ -214,8 +214,16 @@ function createBrSquadServer({host='127.0.0.1',port=0,bodyTimeoutMs=5000,autoTic
     if(Number(generation)!==roundNumber)return send(res,409,{error:'stale_round'});
     const body=await readJson(req,160,bodyTimeoutMs);
     // The other 96 requests may finish replay consent while this body streams.
-    // Recheck after the await so an old trigger cannot act in the new round.
+    // Recheck after the await so a delayed action cannot affect the new round.
     if(Number(generation)!==roundNumber)return send(res,409,{error:'stale_round'});
+    if(url.pathname==='/regroup-ack'){
+     if(!body||typeof body!=='object'||Array.isArray(body)||
+        Object.keys(body).length!==1||!Number.isSafeInteger(body.signalId)||body.signalId<1)
+       return send(res,400,{error:'invalid_regroup_ack'});
+     const result=world.acknowledgeRegroup(token,body.signalId);
+     return send(res,result.ok?200:409,{...result,
+       ...(result.ok?{world:world.snapshot(token)}:{})});
+    }
     const before=world.phase;
     const result=url.pathname==='/fire'?world.fire(token,body):world.reload(token,body);
     if(before==='moving'&&world.phase==='finished')broadcastPrivateWorld();

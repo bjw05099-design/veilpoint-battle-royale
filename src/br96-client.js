@@ -85,7 +85,7 @@ async function request(path,payload=null,authenticated=true){
   const response=await fetch(path,{method:payload===null?'GET':'POST',
    headers:{...(payload===null?{}:{'content-type':'application/json'}),
     ...(authenticated&&token?{'x-player-token':token}:{}),
-    ...((path==='/fire'||path==='/reload')?{'x-round-number':String(state?.roundNumber)}:{})},
+    ...(['/fire','/reload','/regroup-ack'].includes(path)?{'x-round-number':String(state?.roundNumber)}:{})},
    ...(payload===null?{}:{body:JSON.stringify(payload)}),signal:controller.signal,
    cache:'no-store'});
   const data=await response.json();
@@ -199,6 +199,12 @@ function currentWorld(){return state&&state.world&&state.world.mode==='br-96-tra
 function active(){const w=currentWorld();return !!token&&!!w&&w.phase==='moving'&&w.self?.eligible;}
 function render(){
  const w=currentWorld();
+ const regroup=w?.squadSignal?.kind==='regroup'?w.squadSignal:null;
+ const ack=el('regroupAck');
+ const acknowledged=regroup?.acknowledgedSlots?.includes(state?.self?.slot);
+ ack.hidden=!active()||!regroup||regroup.authorId===w.self.id;
+ ack.disabled=ack.hidden||!!acknowledged;
+ ack.textContent=acknowledged?'집결 제안 확인됨':'Y · 집결 제안 확인';
  if(w&&!publicGeometry&&!geometryBusy)loadPublicGeometry();
  if(active()&&harborAudio?.enabled())harborAudio.update(w.self.surface,w.coastalWeather);
  const soundWanted=audioControls?audioControls.get().enabled:!!harborAudio?.enabled();
@@ -303,7 +309,8 @@ function render(){
       w.handcart.handoffAvailable?'가까운 분대원에게서 F로 조작 인계 가능':
       w.handcart.squadOperatorSlot?'분대 '+w.handcart.squadOperatorSlot+'번 조작 중':
       '현장 접근 시 조작 가능'):'')+
-    (w.squadSignal?'\n분대 퀵마크: '+(w.squadSignal.kind==='regroup'?'현재 위치로 모이기 제안':'현재 위치 공유'):'')+
+    (w.squadSignal?'\n분대 퀵마크: '+(regroup
+      ?'집결 제안 · 확인 '+(regroup.acknowledgedSlots?.length??0)+'명':'현재 위치 공유'):'')+
     // Only this participant's authenticated six-person server timeline is
     // rendered; opponent sessions, identities and coordinates never appear.
     (w.squadTimeline?.length?'\n분대 실제 퇴장 '+w.squadTimeline.length+'/6 · 최근 '+
@@ -517,7 +524,7 @@ function draw(w){
   const pin=w.squadSignal;
   dot(pin,pin.kind==='regroup'?'#e7d189':'#a5d5f3',8);
   ctx.fillStyle='#f3e8c9';ctx.font='12px system-ui';
-  ctx.fillText(pin.kind==='regroup'?'MEET HERE?':'POSITION',
+  ctx.fillText(pin.kind==='regroup'?'MEET HERE? · '+(pin.acknowledgedSlots?.length??0)+'/5':'POSITION',
     x(pin.x)+11,z(pin.z)-10);
  }
  if(w.spectatorView){
@@ -573,8 +580,9 @@ async function command(path,body,statusText){
   if(statusText)message(statusText);
   return data;
  }catch(error){
-  if(token!==ownToken)return null;
+  if(token!==ownToken||state?.roundNumber!==ownRound)return null;
   if(error.message==='unknown_session'){cleanSession();message('세션 만료 · 새로 입장하세요.');}
+  else if(error.message==='stale_regroup_signal')message('집결 제안이 바뀌었거나 만료됐습니다.');
   else message('서버 응답: '+error.message);
   return null;
  }
@@ -650,6 +658,13 @@ async function signal(kind){
  if(result?.ok)message(kind==='regroup'
   ?'현재 위치에 집결 제안 퀵마크를 찍었습니다. 아군이 따라올지는 자유입니다.'
   :'현재 위치를 분대에 표시했습니다.');
+}
+async function acknowledgeRegroup(){
+ const signal=currentWorld()?.squadSignal;
+ if(el('regroupAck').disabled||!Number.isSafeInteger(signal?.id))return;
+ const result=await command('/regroup-ack',{signalId:signal.id},null);
+ if(result?.ok&&currentWorld()?.squadSignal?.id===signal.id)
+  message('집결 제안을 봤다고 분대에 알렸습니다.');
 }
 async function sendSquadChat(){
  if(!token||!(state?.phase==='assembling'||active()))return;
@@ -917,6 +932,9 @@ document.addEventListener('keydown',event=>{
  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight','KeyC'].includes(key)){
   keys.add(key);event.preventDefault();
  }else if(!event.repeat&&key==='KeyQ'&&active()){event.preventDefault();signal('regroup');}
+ else if(!event.repeat&&key==='KeyY'&&!el('regroupAck').disabled){
+  event.preventDefault();acknowledgeRegroup();
+ }
  // Middle mouse button owns location-only quickmark (no keyboard E).
  else if(!event.repeat&&key==='KeyF'&&active()){event.preventDefault();interactNearby();}
  else if(!event.repeat&&key==='KeyH'&&active()){event.preventDefault();toggleHeadlamp();}
@@ -1072,6 +1090,7 @@ el('entryVote').addEventListener('click',voteEntry);
 el('leave').addEventListener('click',leave);
 el('invite').addEventListener('click',invite);
 el('regroup').addEventListener('click',()=>signal('regroup'));
+el('regroupAck').addEventListener('click',acknowledgeRegroup);
 el('location').addEventListener('click',()=>signal('location'));
 el('sendSquadChat').addEventListener('click',sendSquadChat);
 el('squadChatInput').addEventListener('keydown',event=>{

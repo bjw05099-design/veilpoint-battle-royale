@@ -23,7 +23,10 @@ No simulated guests are inserted to manufacture a full lobby.
 
 Controls: WASD/arrow keys move the authenticated actor, Shift or the
 on-screen toggle requests finite sprint, Q sends a server-positioned private
-regroup signal. Press the mouse wheel for a local-position mark; F performs nearby interactions. A faint public circle
+regroup signal. Teammates can acknowledge an active proposal with Y or the
+map's acknowledgement button. The marker shows how many teammates saw it.
+The acknowledgement is voluntary and does not change movement or results.
+Press the mouse wheel for a local-position mark; F performs nearby interactions. A faint public circle
 represents the published play-area rule. The map shows the player, their
 six-person squad, physically observed rivals, and legitimately discovered
 public landmarks. No opponent identity, remote position or authentication

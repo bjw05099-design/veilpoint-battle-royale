@@ -16,7 +16,7 @@ function render(){
  for(const p of pieces){
   const [cx,cy,cz]=p.centreCm,[w,d,h]=p.sizeCm;
   const roof=cz-h/2>200;
-  svg+=`<rect x="${x(cx-w/2)}" y="${y(cy-d/2)}" width="${w*.145}" height="${d*.145}" transform="rotate(${p.yawDegrees||0} ${x(cx)} ${y(cy)})" fill="${roof?'none':p.solid?'#8b826e':'#314248'}" stroke="${roof?'#8b9a87':'#727768'}" ${roof?'stroke-dasharray="6 5"':''}><title>${esc(p.name)}</title></rect>`;
+  svg+=`<rect x="${x(cx-w/2)}" y="${y(cy-d/2)}" width="${w*.145}" height="${d*.145}" transform="rotate(${p.yawDegrees||0} ${x(cx)} ${y(cy)})" fill="${roof?'none':p.solid?'#8b826e':'#314248'}" stroke="${p.finish==='ShelterTeal'?'#6db299':roof?'#8b9a87':'#727768'}" ${roof?'stroke-dasharray="6 5"':''}><title>${esc(p.name)}</title></rect>`;
  }
  // Existing imported hall envelope, with the actual four-metre openings.
  for(const [ax,bx]of [[10200,10800],[11200,11800]])for(const gy of [-8500,-6500])if(gy>=-7400)

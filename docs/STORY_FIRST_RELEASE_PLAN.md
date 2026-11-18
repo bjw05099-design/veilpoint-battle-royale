@@ -3,19 +3,15 @@
 earlier inference that the offline Battle Royale prototype or public-internet
 96-player lobby must be launched before the complete story game.
 
-## Development allocation (rolling 10–20 hourly iterations)
+## Development allocation
 
-| Area | Share | Acceptance focus |
+| Release track | Share | Acceptance focus |
 |---|---:|---|
-| World / map implementation | **35%** | Real in-engine accessible spaces, correct collision, authored geometry, licensed/provenanced terrain, world streaming and visual quality |
-| Single-player story campaign | **35%** | Playable CH01→campaign expansion, causal narrative, actual actor motion, grounded interactions, solo save/recovery and offline completion |
-| Future Battle Royale | **20%** | Reuse tested story world/components; isolate server-authoritative 6×16 players and networking for later release |
-| Bug fixing / stabilization | **10%** | Fix P0 regressions immediately; restore the 10% share across subsequent iterations, never disable tests |
+| Single-player story campaign | **75%** | Playable chapters, authored maps, actor motion, grounded interactions, solo save/recovery and offline completion |
+| Battle Royale | **25%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
 
-These percentages are **real software development effort**, not code line counts,
-test-count inflation, report lengths, or mandatory percentages for every one-hour run.
-Individual runs should implement two structurally different areas when feasible,
-preferably map+story while bringing BR forward only where shared foundations benefit.
+The November 18 allocation applies to development effort. Map work and
+stabilization count toward the release track they serve.
 
 ## Release sequence
 

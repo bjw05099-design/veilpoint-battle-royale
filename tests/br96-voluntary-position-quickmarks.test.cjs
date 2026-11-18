@@ -73,9 +73,10 @@ test('withdrawal of sender cancels the private pin immediately without affecting
 test('HTTP endpoint is a single authenticated quickmark, and the obsolete route-vote endpoint stays unavailable',async()=>{
  const host=createBrSquadServer({port:0,autoTick:false});
  const address=await host.listen(),base='http://127.0.0.1:'+address.port;
- async function post(url,body,credential){
+ async function post(url,body,credential,round){
   const result=await fetch(base+url,{method:'POST',
-   headers:{'content-type':'application/json',...(credential?{'x-player-token':credential}:{})},
+   headers:{'content-type':'application/json',...(credential?{'x-player-token':credential}:{}),
+    ...(round?{'x-round-number':String(round)}:{})},
    body:JSON.stringify(body)});
   return {status:result.status,data:await result.json()};
  }
@@ -97,6 +98,21 @@ test('HTTP endpoint is a single authenticated quickmark, and the obsolete route-
   assert.equal(mate.squadRoute,undefined);
   assert.equal(rival.squadSignal,null);
   assert.equal(JSON.stringify(mate).includes(sessions[0]),false);
+  const id=sent.data.signal.id;
+  const acknowledge=(seat,round=1,signalId=id)=>post('/regroup-ack',{signalId},sessions[seat],round);
+  assert.equal((await acknowledge(1,2)).data.error,'stale_round');
+  assert.equal((await acknowledge(6)).data.reason,'stale_regroup_signal');
+  assert.equal((await acknowledge(0)).data.reason,'own_regroup_signal');
+  const accepted=await acknowledge(1);
+  assert.equal(accepted.status,200);
+  assert.deepEqual(accepted.data.world.squadSignal.acknowledgedSlots,[2]);
+  assert.deepEqual((await acknowledge(1)).data.world.squadSignal.acknowledgedSlots,[2]);
+  assert.equal(host.world.snapshot(sessions[6]).squadSignal,null);
+  assert.equal(host.world.snapshot(sessions[0]).squadSignal.expiresAtTick,sent.data.signal.expiresAtTick);
+  const replacement=await post('/signal',{kind:'regroup'},sessions[2]);
+  assert.notEqual(replacement.data.signal.id,id);
+  assert.equal((await acknowledge(1)).data.reason,'stale_regroup_signal');
+  assert.deepEqual((await acknowledge(1,1,replacement.data.signal.id)).data.world.squadSignal.acknowledgedSlots,[2]);
   assert.equal((await post('/route-vote',{choice:'shade'},sessions[1])).status,404);
  }finally{await host.close();}
 });

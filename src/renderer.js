@@ -516,6 +516,7 @@ class SoftwareRenderer {
      o.type==='story-warehouse'?'story-warehouse':
      o.type==='story-office-wall'?'story-office-wall':
      o.type==='story-office-desk'?'story-office-desk':
+     o.type==='story-shelter-wall'||o.type==='story-shelter-counter'?o.type:
      o.type==='story-public-hall-wall'?'story-public-hall-wall':
      o.type==='story-public-hall-counter'?'story-public-hall-counter':
      o.type==='story-public-hall-seat'?'story-public-hall-seat':
@@ -711,6 +712,8 @@ class SoftwareRenderer {
    o.type==='aden-ferry-hall-wall'?'#a89a83':o.type==='aden-ferry-hall-bench'?'#857668':o.type==='aden-ferry-hall-notice'?'#756754':
    o.type==='story-public-court-column'?'#bba98d':
    o.type==='story-public-court-furniture'?'#7f705e':
+   o.type==='story-shelter-wall'?'#667f70':
+   o.type==='story-shelter-counter'?'#9e8367':
    o.type==='aden-civic-wall'?'#978774':o.type==='aden-civic-stall'?'#746957':
    o.type==='aden-arcade-wall'?'#998677':o.type==='aden-arcade-water'?'#717d80':
    o.type==='aden-shade-post'?'#8e7961':o.type==='aden-shade-seat'?'#7c6b58':
@@ -1370,6 +1373,17 @@ class Renderer {
    if(o.type==='story-office-desk'){
     m.box(o.x,0,o.z,o.w,o.h,o.d,[.40,.36,.31]);
     m.box(o.x,o.h-.13,o.z,o.w,.16,o.d,[.54,.48,.39]);
+    continue;
+   }
+   if(o.type==='story-shelter-wall'){
+    m.box(o.x,0,o.z,o.w,o.h,o.d,[.54,.52,.43]);
+    m.box(o.x,o.h-.6,o.z,o.w+.025,.16,o.d+.025,[.25,.43,.36]);
+    continue;
+   }
+   if(o.type==='story-shelter-counter'){
+    m.box(o.x,0,o.z,o.w,o.h-.11,o.d,[.39,.32,.25]);
+    m.box(o.x,o.h-.11,o.z,o.w,.11,o.d,[.62,.49,.36]);
+    m.box(o.x,o.h,o.z+.33,.38,.018,.50,[.76,.72,.60]);
     continue;
    }
    if(o.type==='story-drydock-hull'){
