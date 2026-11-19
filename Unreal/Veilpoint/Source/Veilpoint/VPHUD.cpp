@@ -562,7 +562,8 @@ void AVPHUD::DrawHUD()
             if (RoundState->LobbyCountdownEndsAt > 0.)
             {
                 const double Seconds = RoundState->LobbyCountdownEndsAt - RoundState->GetServerWorldTimeSeconds();
-                const FString Countdown = FString::Printf(TEXT("ROUND STARTS IN %d"), FMath::Max(1, FMath::CeilToInt(Seconds)));
+                const int32 Remaining = FMath::CeilToInt(static_cast<float>(Seconds));
+                const FString Countdown = FString::Printf(TEXT("ROUND STARTS IN %d"), FMath::Max(1, Remaining));
                 DrawText(Countdown, FLinearColor(.95f,.79f,.48f), X, Y + 200.f * Scale, nullptr, .84f * Scale);
             }
             return;
