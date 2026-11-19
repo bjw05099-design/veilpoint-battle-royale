@@ -4,6 +4,8 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const os=require('node:os');
+const {spawnSync}=require('node:child_process');
 const root=path.resolve(__dirname,'../Unreal/Veilpoint/Source/Veilpoint');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 const stateH=read('VPGameState.h'),state=read('VPGameState.cpp'),
@@ -26,6 +28,40 @@ test('native lobby becomes active only after physical server player-count thresh
  assert.match(mode,/if\(bSeenMultiplePlayers\) NativeState->MarkRoundStarted\(\)/);
  assert.doesNotMatch(mode,/ClientStartRound|ClientDecideStart|Server, Reliable/);
 });
+
+test('native ready lobby restarts its countdown after readiness changes or a player departs',
+ {skip: process.platform === 'win32'}, () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-ready-lobby-'));
+  try {
+   const exe = path.join(temp, 'verify');
+   const cpp = `
+    #include "VPBRLobbyRules.h"
+    #include <cassert>
+    int main() {
+      using VPBRLobby::AdvanceCountdown;
+      double endsAt = 0.;
+      assert(!AdvanceCountdown(0., 1, 1, endsAt) && endsAt == 0.);
+      assert(!AdvanceCountdown(5., 2, 2, endsAt) && endsAt == 9.);
+      assert(!AdvanceCountdown(8.9, 2, 2, endsAt) && endsAt == 9.);
+      assert(!AdvanceCountdown(9., 2, 1, endsAt) && endsAt == 0.);
+      assert(!AdvanceCountdown(10., 2, 2, endsAt) && endsAt == 14.);
+      assert(!AdvanceCountdown(12., 3, 2, endsAt) && endsAt == 0.);
+      assert(!AdvanceCountdown(13., 3, 3, endsAt) && endsAt == 17.);
+      assert(!AdvanceCountdown(14., 1, 1, endsAt) && endsAt == 0.);
+      assert(!AdvanceCountdown(15., 2, 2, endsAt) && endsAt == 19.);
+      assert(!AdvanceCountdown(18.999, 2, 2, endsAt));
+      assert(AdvanceCountdown(19., 2, 2, endsAt));
+    }
+   `;
+   const compilation = spawnSync('c++', ['-std=c++17', '-I', root, '-x', 'c++', '-', '-o', exe],
+    {input: cpp, encoding: 'utf8', timeout: 15000});
+   assert.equal(compilation.status, 0, compilation.stderr);
+   const native = spawnSync(exe, [], {encoding: 'utf8', timeout: 4000});
+   assert.equal(native.status, 0, native.stderr);
+  } finally {
+   fs.rmSync(temp, {recursive: true, force: true});
+  }
+ });
 
 test('native zone does not shrink during waiting lobby and starts its clock from observed server start',()=>{
  const update=zone.slice(zone.indexOf('void AVPZone::UpdateZone()'),zone.indexOf('void AVPZone::GetLifetimeReplicatedProps('));

@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "VPAdenMissionRules.h"
 #include "VPPlayerController.generated.h"
 
 // Local desktop presentation. Opening a network menu never pauses the server.
@@ -11,10 +12,11 @@ class VEILPOINT_API AVPPlayerController : public APlayerController
 public:
     AVPPlayerController();
     virtual void BeginPlay() override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupInputComponent() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-    bool IsReadyLocally() const { return bReadyLocally; }
+    bool IsRoundReady() const { return bRoundReady; }
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
@@ -28,14 +30,19 @@ public:
     FString GetLocalNotice() const;
     bool ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size);
 private:
+    friend class AVPGameMode;
     void TickVisualSmoke();
     void TickBRDiagnostic();
     void ToggleRoundReady();
     UFUNCTION(Server, Reliable)
-    void ServerSetRoundReady(bool bReady);
-    bool bReadyLocally = false;
+    void ServerToggleRoundReady();
+    UPROPERTY(Replicated)
+    bool bRoundReady = false;
     bool bBRObservedLobby = false;
     bool bBRReadyRequested = false;
+    bool bBRObservedCountdown = false;
+    bool bBRRequestedCancel = false;
+    bool bBRObservedCancellation = false;
     bool bBRProofPrinted = false;
     double BRObserveAt = -1.;
     double BRQuitAt = -1.;
@@ -67,7 +74,8 @@ private:
     void ShowLocalNotice(const FString& Message);
     void ReportAdenRetransmission();
     void ReportAdenTwoIncidents();
-    void SendAdenReport(bool bSameMessage);
+    void FileAdenReportInternally();
+    void SendAdenReport(VPAdenMission::EInput Choice);
     void ToggleAdenJournal();
     bool bAdenJournalOpen = false;
     void ZoomAdenAtlasIn();
