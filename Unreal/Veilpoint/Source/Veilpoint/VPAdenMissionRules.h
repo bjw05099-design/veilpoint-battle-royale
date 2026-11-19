@@ -4,7 +4,7 @@ namespace VPAdenMission
 {
 constexpr int Complete = 3;
 constexpr double ReachCm = 275.;
-enum class EInput { Inspect, SameMessage, TwoIncidents };
+enum class EInput { Inspect, SameMessage, TwoIncidents, FileInternally };
 enum ENote { None = 0, RelaySlip = 1, ReturnDebrief = 2 };
 
 struct FProgress

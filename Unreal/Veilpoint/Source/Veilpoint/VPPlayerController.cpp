@@ -21,6 +21,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "Misc/Parse.h"
+#include "Net/UnrealNetwork.h"
 #include "HAL/PlatformTime.h"
 #include "Components/InputComponent.h"
 #include "Components/AudioComponent.h"
@@ -387,6 +388,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ReportAdenRetransmission);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
+    InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVPPlayerController::FileAdenReportInternally);
     InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
@@ -420,15 +422,15 @@ void AVPPlayerController::ToggleAdenJournal()
         bAdenJournalOpen = !bAdenJournalOpen;
 }
 
-void AVPPlayerController::ReportAdenRetransmission() { SendAdenReport(true); }
-void AVPPlayerController::ReportAdenTwoIncidents() { SendAdenReport(false); }
+void AVPPlayerController::ReportAdenRetransmission() { SendAdenReport(VPAdenMission::EInput::SameMessage); }
+void AVPPlayerController::ReportAdenTwoIncidents() { SendAdenReport(VPAdenMission::EInput::TwoIncidents); }
+void AVPPlayerController::FileAdenReportInternally() { SendAdenReport(VPAdenMission::EInput::FileInternally); }
 
-void AVPPlayerController::SendAdenReport(bool bSameMessage)
+void AVPPlayerController::SendAdenReport(VPAdenMission::EInput Choice)
 {
     if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
     if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosingReport())
-        Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()),
-            bSameMessage ? VPAdenMission::EInput::SameMessage : VPAdenMission::EInput::TwoIncidents);
+        Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()), Choice);
 }
 
 void AVPPlayerController::ToggleDesktopMenu()
@@ -477,15 +479,20 @@ void AVPPlayerController::ToggleRoundReady()
     if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone) return;
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
     if (!State || !State->bReadyRequired || State->bRoundStarted) return;
-    bReadyLocally = !bReadyLocally;
-    ServerSetRoundReady(bReadyLocally);
+    ServerToggleRoundReady();
 }
 
-void AVPPlayerController::ServerSetRoundReady_Implementation(bool bReady)
+void AVPPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME_CONDITION(AVPPlayerController, bRoundReady, COND_OwnerOnly);
+}
+
+void AVPPlayerController::ServerToggleRoundReady_Implementation()
 {
     if (GetWorld())
         if (auto* Mode = GetWorld()->GetAuthGameMode<AVPGameMode>())
-            Mode->SetReadyFromController(this, bReady);
+            Mode->ToggleReadyFromController(this);
 }
 
 void AVPPlayerController::TickBRDiagnostic()
@@ -506,8 +513,26 @@ void AVPPlayerController::TickBRDiagnostic()
         bBRReadyRequested = true;
         ToggleRoundReady();
     }
+    if (!State->bRoundStarted && State->LobbyCountdownEndsAt > 0. && bRoundReady)
+    {
+        bBRObservedCountdown = true;
+        if (GetNetMode() == NM_Client && !bBRRequestedCancel)
+        {
+            bBRRequestedCancel = true;
+            ToggleRoundReady();
+        }
+    }
+    if (!State->bRoundStarted && bBRObservedCountdown && !bBRObservedCancellation
+        && State->LobbyCountdownEndsAt == 0. && State->ReadyPlayers == 1
+        && (GetNetMode() != NM_Client || (bBRRequestedCancel && !bRoundReady)))
+    {
+        bBRObservedCancellation = true;
+        UE_LOG(LogTemp, Display, TEXT("VPBR_COUNTDOWN_CANCELLED"));
+        if (GetNetMode() == NM_Client)
+            ToggleRoundReady();
+    }
     if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
-        && bBRObservedLobby && bBRReadyRequested && !bBRProofPrinted && LocalBRPawn->GetRoundReview().Num() >= 2)
+        && bBRObservedCancellation && bRoundReady && !bBRProofPrinted && LocalBRPawn->GetRoundReview().Num() >= 2)
     {
         if (GetNetMode() == NM_Client)
         {

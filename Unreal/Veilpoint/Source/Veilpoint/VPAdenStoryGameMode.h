@@ -40,8 +40,7 @@ class UVPAdenStoryCheckpoint : public USaveGame
     GENERATED_BODY()
 public:
     UPROPERTY(SaveGame)
-    // Version 1 serialized this property. Keep the default for old saves
-    // and explicitly stamp version 2 on every new write.
+    // Keep the original default for saves written before later versions.
     int32 Version = 1;
 
     UPROPERTY(SaveGame)
@@ -58,6 +57,9 @@ public:
 
     UPROPERTY(SaveGame)
     int32 DispatchRoute = 0;
+
+    UPROPERTY(SaveGame)
+    int32 DispatchDisposition = 0;
 };
 
 struct FVPAdenCampaignCheckpoint

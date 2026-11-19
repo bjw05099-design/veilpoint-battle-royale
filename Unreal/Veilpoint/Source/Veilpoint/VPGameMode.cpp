@@ -1,4 +1,5 @@
 #include "VPGameMode.h"
+#include "VPBRLobbyRules.h"
 #include "VPCharacter.h"
 #include "VPPlayerController.h"
 #include "VPHUD.h"
@@ -51,7 +52,8 @@ AActor* AVPGameMode::ChoosePlayerStart_Implementation(AController* Player)
 void AVPGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
     Super::InitGame(MapName, Options, ErrorMessage);
-    bRequireReady = UGameplayStatics::ParseOption(Options, TEXT("VPReadyLobby")) == TEXT("1");
+    const FString ReadyOption = UGameplayStatics::ParseOption(Options, TEXT("VPReadyLobby"));
+    bRequireReady = ReadyOption.IsEmpty() ? MapName.EndsWith(TEXT("BR_Development")) : ReadyOption == TEXT("1");
 }
 
 void AVPGameMode::PreLogin(const FString& Options, const FString& Address,
@@ -62,21 +64,32 @@ void AVPGameMode::PreLogin(const FString& Options, const FString& Address,
         ErrorMessage = TEXT("This native round already started.");
 }
 
+void AVPGameMode::PostLogin(APlayerController* NewPlayer)
+{
+    Super::PostLogin(NewPlayer);
+    if (auto* Desktop = Cast<AVPPlayerController>(NewPlayer))
+    {
+        Desktop->bRoundReady = false;
+        ReadyCountdownEndsAt = 0.;
+    }
+}
+
 void AVPGameMode::Logout(AController* Exiting)
 {
-    if (auto* Desktop = Cast<APlayerController>(Exiting))
-        ReadyControllers.Remove(TWeakObjectPtr<APlayerController>(Desktop));
+    if (Cast<AVPPlayerController>(Exiting))
+        ReadyCountdownEndsAt = 0.;
     Super::Logout(Exiting);
 }
 
-void AVPGameMode::SetReadyFromController(APlayerController* Controller, bool bReady)
+void AVPGameMode::ToggleReadyFromController(AVPPlayerController* Controller)
 {
     if (!HasAuthority() || !bRequireReady || bSeenMultiplePlayers || !Controller) return;
     const auto* Pawn = Cast<AVPCharacter>(Controller->GetPawn());
     if (!Pawn || !Pawn->IsAlive()) return;
-    const TWeakObjectPtr<APlayerController> Key(Controller);
-    if (bReady) ReadyControllers.Add(Key);
-    else ReadyControllers.Remove(Key);
+    Controller->bRoundReady = !Controller->bRoundReady;
+    Controller->ForceNetUpdate();
+    if (!Controller->bRoundReady)
+        ReadyCountdownEndsAt = 0.;
 }
 
 void AVPGameMode::BeginPlay()
@@ -101,16 +114,22 @@ void AVPGameMode::Tick(float DeltaSeconds)
         ++Total;
         if(It->IsAlive())Living++;
         Participants.Add(*It);
-        if (APlayerController* Controller = Cast<APlayerController>(It->GetController()); Controller && It->IsAlive())
+        if (const auto* Controller = Cast<AVPPlayerController>(It->GetController()); Controller && It->IsAlive())
         {
             ++Joined;
-            if (ReadyControllers.Contains(TWeakObjectPtr<APlayerController>(Controller))) ++Ready;
+            if (Controller->IsRoundReady()) ++Ready;
         }
     }
     ActiveSurvivors=Living;
-    if (bRequireReady)
+    const double Now = GetWorld()->GetTimeSeconds();
+    const bool bOnlineReadyLobby = bRequireReady && GetNetMode() != NM_Standalone;
+    if (bOnlineReadyLobby)
     {
-        if (Joined >= 2 && Ready == Joined) bSeenMultiplePlayers = true;
+        if (!bSeenMultiplePlayers && VPBRLobby::AdvanceCountdown(Now, Joined, Ready, ReadyCountdownEndsAt))
+        {
+            bSeenMultiplePlayers = true;
+            ReadyCountdownEndsAt = 0.;
+        }
     }
     else
     {
@@ -124,13 +143,12 @@ void AVPGameMode::Tick(float DeltaSeconds)
     // The first real multi-participant round opens the zone clock.
     // Merely launching the offline native scene must not consume it.
     if(bSeenMultiplePlayers) NativeState->MarkRoundStarted();
-    const double Now = GetWorld()->GetTimeSeconds();
     const int32 ElapsedMs = ReviewStartedAt < 0. ? 0
         : FMath::RoundToInt(FMath::Min(Now - ReviewStartedAt, 36000.) * 1000.);
     if (!bAlreadyStarted)
-        NativeState->UpdateLobby(Joined, Ready, bRequireReady, ElapsedMs);
+        NativeState->UpdateLobby(Joined, Ready, bOnlineReadyLobby, ElapsedMs, ReadyCountdownEndsAt);
     else
-        NativeState->UpdateLobby(NativeState->JoinedPlayers, NativeState->ReadyPlayers, bRequireReady, ElapsedMs);
+        NativeState->UpdateLobby(NativeState->JoinedPlayers, NativeState->ReadyPlayers, bOnlineReadyLobby, ElapsedMs, 0.);
     if (bSeenMultiplePlayers)
     {
         if (ReviewStartedAt < 0.)

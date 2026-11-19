@@ -3,7 +3,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "VPGameMode.generated.h"
 class AVPCharacter;
-class APlayerController;
+class AVPPlayerController;
 UCLASS()
 class VEILPOINT_API AVPGameMode : public AGameModeBase
 {
@@ -17,8 +17,9 @@ public:
     virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
     virtual void PreLogin(const FString& Options, const FString& Address,
         const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+    virtual void PostLogin(APlayerController* NewPlayer) override;
     virtual void Logout(AController* Exiting) override;
-    void SetReadyFromController(APlayerController* Controller, bool bReady);
+    void ToggleReadyFromController(AVPPlayerController* Controller);
     virtual void Tick(float DeltaSeconds) override;
     UPROPERTY(BlueprintReadOnly,Category="Battle Royale")
     int32 ActiveSurvivors=0;
@@ -27,7 +28,7 @@ public:
 private:
     void TickRoundDiagnostic(const TArray<AVPCharacter*, TInlineAllocator<96>>& Participants, double Now);
     bool bRequireReady = false;
-    TSet<TWeakObjectPtr<APlayerController>> ReadyControllers;
+    double ReadyCountdownEndsAt = 0.;
     bool bSeenMultiplePlayers=false;
     double ReviewStartedAt = -1.;
     double ReviewNextSampleAt = -1.;

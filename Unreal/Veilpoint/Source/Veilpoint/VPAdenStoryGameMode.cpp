@@ -191,6 +191,7 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMissio
 {
     using namespace VPAdenMission;
     if (!HasAuthority() || !GetWorld() || !Source) return;
+    if (Input == EInput::FileInternally && !(Notes & ReturnDebrief)) return;
     if (Notes & ReturnDebrief)
     {
         TryDispatch(Pawn, Input);
@@ -248,15 +249,21 @@ void AVPAdenStoryGameMode::TryDispatch(const AVPCharacter* Pawn, VPAdenMission::
         PublishState();
         return;
     }
-    const EInput Action = Input == VPAdenMission::EInput::Inspect ? EInput::Interact
-        : Input == VPAdenMission::EInput::SameMessage ? EInput::OptionOne : EInput::OptionTwo;
+    EInput Action = EInput::Interact;
+    switch (Input)
+    {
+    case VPAdenMission::EInput::SameMessage: Action = EInput::OptionOne; break;
+    case VPAdenMission::EInput::TwoIncidents: Action = EInput::OptionTwo; break;
+    case VPAdenMission::EInput::FileInternally: Action = EInput::FileInternally; break;
+    case VPAdenMission::EInput::Inspect: break;
+    }
     const EResult Result = Advance(Dispatch, Action, bChoosingReport);
     if (Result == EResult::Ignored) return;
     if (Result == EResult::ShowChoice)
     {
         bChoosingReport = true;
         Notice = Dispatch.Phase == Choose ? TEXT("Hyunji: Which source will you check?")
-            : TEXT("Salma: Which findings can we release?");
+            : TEXT("Salma: The delivery is confirmed. How should we file it?");
     }
     else if (Result == EResult::Refused)
         Notice = TEXT("Salma: A delivery record cannot identify every missing caller.");
@@ -310,11 +317,14 @@ FVPAdenCampaignCheckpoint AVPAdenStoryGameMode::ReadCheckpoint() const
             continue;
         const auto* Saved = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
         if (!Saved || Saved->Revision != Source->Revision()) continue;
-        const FVPAdenCampaignCheckpoint Candidate{{Saved->Confirmed, Saved->Notes}, {Saved->DispatchPhase, Saved->DispatchRoute}};
-        const int32 BroadcastVersion = Saved->Version == 3 ? 2 : Saved->Version;
+        if (Saved->Version < 1 || Saved->Version > 4) continue;
+        const auto RestoredDispatch = VPAdenDispatch::Restore(Saved->Version,
+            {Saved->DispatchPhase, Saved->DispatchRoute, Saved->DispatchDisposition});
+        const FVPAdenCampaignCheckpoint Candidate{{Saved->Confirmed, Saved->Notes}, RestoredDispatch};
+        const int32 BroadcastVersion = FMath::Min(Saved->Version, 2);
         if (!VPAdenMission::ValidCheckpoint(BroadcastVersion, Candidate.Broadcast)) continue;
         const bool bStarted = Candidate.Dispatch.Phase != VPAdenDispatch::Brief || Candidate.Dispatch.Route != VPAdenDispatch::Unselected;
-        if ((bStarted && (!Candidate.HasDispatch() || Saved->Version != 3)) ||
+        if ((bStarted && (!Candidate.HasDispatch() || Saved->Version < 3)) ||
             !VPAdenDispatch::Valid(Candidate.Dispatch)) continue;
         return Candidate;
     }
@@ -327,12 +337,13 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
         return false;
     auto* Saved = NewObject<UVPAdenStoryCheckpoint>();
     Saved->Revision = Source->Revision();
-    Saved->Version = 3;
+    Saved->Version = 4;
     const auto Previous = ReadCheckpoint();
     Saved->Confirmed = Previous.Broadcast.Confirmed;
     Saved->Notes = Previous.Broadcast.Notes;
     Saved->DispatchPhase = Previous.Dispatch.Phase;
     Saved->DispatchRoute = Previous.Dispatch.Route;
+    Saved->DispatchDisposition = Previous.Dispatch.Disposition;
     const FString Slot = AdenSlot();
     if (!UGameplayStatics::SaveGameToSlot(Saved, Slot + TEXT("-backup"), 0))
         return false;
@@ -340,11 +351,13 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
     Saved->Notes = Notes;
     Saved->DispatchPhase = Dispatch.Phase;
     Saved->DispatchRoute = Dispatch.Route;
+    Saved->DispatchDisposition = Dispatch.Disposition;
     if (!UGameplayStatics::SaveGameToSlot(Saved, Slot, 0))
         return false;
     const auto* Observed = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
-    return Observed && Observed->Version == 3 && Observed->Confirmed == Confirmed && Observed->Notes == Notes &&
+    return Observed && Observed->Version == 4 && Observed->Confirmed == Confirmed && Observed->Notes == Notes &&
         Observed->DispatchPhase == Dispatch.Phase && Observed->DispatchRoute == Dispatch.Route &&
+        Observed->DispatchDisposition == Dispatch.Disposition &&
         Observed->Revision == Source->Revision();
 }
 
@@ -548,12 +561,23 @@ void AVPAdenStoryGameMode::VerifyDispatch()
         if (bPassed)
         {
             Pawn->RequestInteraction();
+            if (Route == PublicNotice)
+            {
+                const auto DecisionFrame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-dispatch-decision"));
+                bPassed = DecisionFrame.IsValid();
+                if (DecisionFrame)
+                    DiagnosticReport->SetObjectField(TEXT("aden-dispatch-decision"), DecisionFrame);
+            }
             TryInteraction(Pawn, BroadcastInput::TwoIncidents);
-            bPassed = Dispatch.Phase == Publish && bChoosingReport
-                && Notice.Contains(TEXT("cannot identify every"));
-            TryInteraction(Pawn, BroadcastInput::SameMessage);
+            bPassed = bPassed && Dispatch.Phase == Publish && bChoosingReport && Notice.Contains(TEXT("cannot identify every"));
+            const EDisposition Expected = Route == Witness ? PublicUpdate : InternalHandoff;
+            TryInteraction(Pawn, Route == Witness ? BroadcastInput::SameMessage : BroadcastInput::FileInternally);
             const auto Saved = ReadCheckpoint();
-            bPassed = bPassed && Dispatch.Phase == Complete && Saved.Dispatch.Phase == Complete && Saved.Dispatch.Route == Route;
+            bPassed = bPassed && Dispatch.Phase == Complete && Dispatch.Disposition == Expected
+                && Saved.Dispatch.Phase == Complete && Saved.Dispatch.Route == Route && Saved.Dispatch.Disposition == Expected;
+            if (bPassed && Route == PublicNotice)
+                bPassed = ReturnToCheckpoint(Pawn) && Dispatch.Phase == Complete && Dispatch.Disposition == Expected;
+            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicUpdateSaved") : TEXT("internalHandoffRestored"), bPassed);
         }
         DiagnosticReport->SetBoolField(Route == Witness ? TEXT("witnessCompleted") : TEXT("noticeCompleted"), bPassed);
     }

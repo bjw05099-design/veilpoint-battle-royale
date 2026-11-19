@@ -42,7 +42,7 @@ const TCHAR* Objective(FState State)
     case Choose: return TEXT("Choose a field check at the junction");
     case Verify: return State.Route == Witness ? TEXT("Hear the witness account") : TEXT("Check the public notice");
     case Compare: return TEXT("Compare the field entry with the ledger");
-    case Publish: return TEXT("File the verified public update");
+    case Publish: return TEXT("Decide how to file the verified report");
     default: return TEXT("Dispatch filed");
     }
 }
@@ -56,22 +56,32 @@ const TCHAR* CompletionLine(FState State)
         ? TEXT("Hyunji: Meet the witness and record only what they saw.")
         : TEXT("Hyunji: Read the public notice and check who issued it.");
     case Compare: return State.Route == Witness
-        ? TEXT("The witness saw supplies arrive. They did not identify the missing callers.")
-        : TEXT("The notice confirms a delivery. Its attendance list is incomplete.");
-    case Publish: return TEXT("Mara: The ledger agrees on the delivery. The identities are unsettled.");
-    default: return TEXT("Salma: The public update is filed. The unanswered reports remain open.");
+        ? TEXT("Witness: I signed for six water crates. I never saw who collected them.")
+        : TEXT("Public notice: Six water crates received. The collection list is blank.");
+    case Publish: return TEXT("Mara: The ledger confirms six crates. There are no collection signatures.");
+    default: return State.Disposition == InternalHandoff
+        ? TEXT("Salma: The relief desk has the verified record. We'll contact families directly.")
+        : TEXT("Salma: The delivery is on the public board. The missing reports stay open.");
     }
 }
 
-const TCHAR* JournalLine(int Phase, int Route)
+const TCHAR* DispositionLine(FState State)
+{
+    return State.Disposition == InternalHandoff ? TEXT("Filed with the relief desk.")
+        : TEXT("Posted a verified public update.");
+}
+
+const TCHAR* JournalLine(int Phase, FState State)
 {
     switch (Phase)
     {
     case Brief: return TEXT("Accepted the relief desk briefing.");
-    case Choose: return Route == Witness ? TEXT("Chose a witness interview.") : TEXT("Chose to verify the public notice.");
-    case Verify: return Route == Witness ? TEXT("Recorded the witnessed delivery.") : TEXT("Cross-checked the posted delivery entry.");
-    case Compare: return TEXT("Matched the delivery to the ledger.");
-    case Publish: return TEXT("Filed the confirmed delivery and left unresolved names open.");
+    case Choose: return State.Route == Witness ? TEXT("Source: relief depot witness.") : TEXT("Source: relief depot public notice.");
+    case Verify: return State.Route == Witness
+        ? TEXT("Witness receipt: six water crates. Recipients unseen.")
+        : TEXT("Posted receipt: six water crates. Collection list blank.");
+    case Compare: return TEXT("Ledger: six crates received. No collection signatures.");
+    case Publish: return DispositionLine(State);
     default: return TEXT("");
     }
 }

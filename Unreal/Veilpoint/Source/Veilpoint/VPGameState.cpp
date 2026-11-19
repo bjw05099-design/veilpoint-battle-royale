@@ -19,6 +19,7 @@ void AVPGameState::GetLifetimeReplicatedProps(
     DOREPLIFETIME(AVPGameState, ReadyPlayers);
     DOREPLIFETIME(AVPGameState, RoundElapsedMs);
     DOREPLIFETIME(AVPGameState, bReadyRequired);
+    DOREPLIFETIME(AVPGameState, LobbyCountdownEndsAt);
 }
 
 void AVPGameState::UpdateRoundState(int32 AliveCount, bool bFinished)
@@ -40,14 +41,16 @@ void AVPGameState::MarkRoundStarted()
     ForceNetUpdate();
 }
 
-void AVPGameState::UpdateLobby(int32 InJoined, int32 InReady, bool bInReadyRequired, int32 InElapsedMs)
+void AVPGameState::UpdateLobby(int32 InJoined, int32 InReady, bool bInReadyRequired, int32 InElapsedMs, double InCountdownEndsAt)
 {
     if (!HasAuthority()) return;
-    if (JoinedPlayers == InJoined && ReadyPlayers == InReady && bReadyRequired == bInReadyRequired && RoundElapsedMs == InElapsedMs)
+    if (JoinedPlayers == InJoined && ReadyPlayers == InReady && bReadyRequired == bInReadyRequired
+        && RoundElapsedMs == InElapsedMs && LobbyCountdownEndsAt == InCountdownEndsAt)
         return;
     JoinedPlayers = InJoined;
     ReadyPlayers = InReady;
     bReadyRequired = bInReadyRequired;
     RoundElapsedMs = InElapsedMs;
+    LobbyCountdownEndsAt = InCountdownEndsAt;
     ForceNetUpdate();
 }

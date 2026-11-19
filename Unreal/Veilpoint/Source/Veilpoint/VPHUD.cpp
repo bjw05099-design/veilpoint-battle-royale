@@ -556,9 +556,16 @@ void AVPHUD::DrawHUD()
             const FString Lobby = FString::Printf(TEXT("LOBBY   %d JOINED  |  %d READY"),
                 RoundState->JoinedPlayers, RoundState->ReadyPlayers);
             DrawText(Lobby, FLinearColor(.84f,.94f,.87f), X, Y + 144.f * Scale, nullptr, .92f * Scale);
-            const bool bReady = Desktop && Desktop->IsReadyLocally();
+            const bool bReady = Desktop && Desktop->IsRoundReady();
             DrawText(bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
                 FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
+            if (RoundState->LobbyCountdownEndsAt > 0.)
+            {
+                const double Seconds = RoundState->LobbyCountdownEndsAt - RoundState->GetServerWorldTimeSeconds();
+                const int32 Remaining = FMath::CeilToInt(static_cast<float>(Seconds));
+                const FString Countdown = FString::Printf(TEXT("ROUND STARTS IN %d"), FMath::Max(1, Remaining));
+                DrawText(Countdown, FLinearColor(.95f,.79f,.48f), X, Y + 200.f * Scale, nullptr, .84f * Scale);
+            }
             return;
         }
         // A standalone Windows process has no multiplayer lobby to join.
@@ -733,7 +740,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         const FString GuideText = bPending
             ? FString::Printf(TEXT("Walking leg %.0fm  |  %.0fm off centreline  |  F6 save  F7 return"),
                 Guide.RemainingCm / 100., Guide.OffsetCm / 100.)
-            : TEXT("The public update is filed.  |  F6 save  F7 return");
+            : FString::Printf(TEXT("%s  |  F6 save  F7 return"), VPAdenDispatch::DispositionLine(Aden->Dispatch));
         DrawText(GuideText, Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .70f * Scale);
     }
     if (bHasNote)
@@ -747,7 +754,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     if (bJournalOpen && bDispatch)
     {
         for (int32 I = 0; I < Done; ++I)
-            DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch.Route), Ink,
+            DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch), Ink,
                 X + 12.f * Scale, Y + (JournalTop + I * 20.f) * Scale, nullptr, .77f * Scale);
         if (Done == 0)
             DrawText(TEXT("No Open Channel entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
@@ -806,6 +813,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
 
     if (!Aden->Notice.IsEmpty() || Aden->bChoosingReport)
     {
+        const bool bFiling = bDispatch && Aden->bChoosingReport && Aden->Dispatch.Phase == VPAdenDispatch::Publish;
         const float Bottom = Canvas->ClipY - 90.f * Scale;
         DrawRect(Plate, X, Bottom, Width, 69.f * Scale);
         DrawText(Aden->Notice, Ink, X + 12.f * Scale, Bottom + 12.f * Scale, nullptr, .78f * Scale);
@@ -814,9 +822,12 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             const TCHAR* Choices = !bDispatch ? TEXT("[1] Same message retransmitted       [2] Two separate incidents")
                 : Aden->Dispatch.Phase == VPAdenDispatch::Choose
                     ? TEXT("[1] Witness interview           [2] Public notice")
-                    : TEXT("[1] Release verified facts       [2] Mark every name as confirmed");
+                    : TEXT("[1] Post verified update     [3] File with relief desk");
             DrawText(Choices, Accent,
-                X + 12.f * Scale, Bottom + 35.f * Scale, nullptr, .78f * Scale);
+                X + 12.f * Scale, Bottom + (bFiling ? 30.f : 35.f) * Scale, nullptr, .78f * Scale);
+            if (bFiling)
+                DrawText(TEXT("[2] Mark every name as confirmed"), Accent,
+                    X + 12.f * Scale, Bottom + 48.f * Scale, nullptr, .78f * Scale);
         }
     }
     if (Desktop && !Desktop->GetLocalNotice().IsEmpty())
