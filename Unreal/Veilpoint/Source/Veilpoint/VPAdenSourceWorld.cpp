@@ -14,6 +14,7 @@
 #include "VPAdenEmbedded.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenDispatchRouteData.h"
+#include "VPAdenDrape.h"
 #include "VPAdenRegionalData.h"
 #include "VPAdenRegionalGrid.h"
 
@@ -340,10 +341,48 @@ FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, co
     return Mesh;
 }
 
-void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprints, FMesh& Lines, FMesh& Blockers)
+void DrapeLine(const FGeometry& Geometry, const FVector2D& From, const FVector2D& To, const FVector2D& Left,
+    double Lift, const FLinearColor& Color, FMesh& Lines, double& MaxGapError)
+{
+    const auto Point = [](const FVector2D& P) { return VPAdenAtlas::FPoint{P.X, P.Y}; };
+    const std::array<VPAdenAtlas::FPoint, 4> Corners{
+        Point(From + Left), Point(From - Left), Point(To - Left), Point(To + Left)
+    };
+    VPAdenDrape::DrapeStrip(Corners, VPAdenAtlas::Local, Spacing, [&](const VPAdenDrape::FPolygon& Polygon)
+    {
+        TArray<FVector, TInlineAllocator<12>> Positions;
+        for (int32 I = 0; I < Polygon.Count; ++I)
+        {
+            const auto P = Polygon.Points[I];
+            Positions.Add(Geometry.Position(FVector2D(P.X, P.Y), Lift));
+        }
+        const int32 First = Lines.Vertices.Num();
+        FVector Normal = FVector::ZeroVector;
+        for (int32 I = 1; I + 1 < Positions.Num(); ++I)
+        {
+            const FVector Cross = FVector::CrossProduct(Positions[I] - Positions[0], Positions[I + 1] - Positions[0]);
+            if (Cross.Z <= .00001) continue;
+            Normal = Cross.GetSafeNormal();
+            Lines.Triangles.Append({First, First + I, First + I + 1});
+            const FVector Centre = (Positions[0] + Positions[I] + Positions[I + 1]) / 3.;
+            MaxGapError = FMath::Max(MaxGapError,
+                FMath::Abs(Centre.Z - Geometry.Height(FVector2D(Centre)) - Lift));
+        }
+        if (Normal.IsZero()) return;
+        for (const FVector& Position : Positions)
+        {
+            Lines.Vertices.Add(Position);
+            Lines.Normals.Add(Normal);
+            Lines.Colors.Add(Color);
+        }
+    });
+}
+
+void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprints, FMesh& Lines, FMesh& Blockers, double& MaxGapError)
 {
     const double HalfWidth = bFootprints ? 14. : 21.;
-    const FLinearColor Color = bFootprints ? FLinearColor(.66f, .26f, .13f) : FLinearColor(.91f, .85f, .56f);
+    const double Lift = bFootprints ? 8. : 10.;
+    const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f) : FLinearColor(.91f, .79f, .46f, 0.f);
     for (const auto& Shape : Shapes)
     {
         const int32 Segments = Shape.Num() - (bFootprints ? 0 : 1);
@@ -357,8 +396,7 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
             {
                 const FVector2D From = A + Direction * (double(Piece) / Pieces);
                 const FVector2D To = A + Direction * (double(Piece + 1) / Pieces);
-                Lines.Quad(Geometry.Position(From + Left, 18.), Geometry.Position(From - Left, 18.),
-                           Geometry.Position(To + Left, 18.), Geometry.Position(To - Left, 18.), Color);
+                DrapeLine(Geometry, From, To, Left, Lift, Color, Lines, MaxGapError);
                 if (bFootprints)
                 {
                     // Invisible, two-sided gameplay exclusion at mapped boundaries.
@@ -429,10 +467,12 @@ bool AVPAdenSourceWorld::BuildSource()
     // The panorama does not contribute to local collision or dynamic shadows.
     RegionalBackdrop->SetCastShadow(false);
     FMesh Lines, Blockers;
-    AddShapes(Geometry, Geometry.Roads, false, Lines, Blockers);
-    AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers);
+    AddShapes(Geometry, Geometry.Roads, false, Lines, Blockers, MaxOverlayGapError);
+    RoadTriangleCount = Lines.Triangles.Num() / 3;
+    AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers, MaxOverlayGapError);
+    FootprintTriangleCount = Lines.Triangles.Num() / 3 - RoadTriangleCount;
     Lines.ReverseRenderWinding();
-    AddMesh(Lines, false, true);
+    AddMesh(Lines, false, true)->SetCastShadow(false);
     AddMesh(Blockers, true, false);
 
     const FVector2D Centre(OriginX + Width / 2, OriginY + Width / 2);
