@@ -402,9 +402,9 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
                     // Invisible, two-sided gameplay exclusion at mapped boundaries.
                     // The world renders only the mapped outlines; heights are unknown.
                     const FVector Lo = Geometry.Position(From, -80.), Hi = Geometry.Position(To, -80.);
-                    const FVector Lift(0., 0., 650.);
-                    Blockers.Quad(Lo, Hi, Lo + Lift, Hi + Lift, Color);
-                    Blockers.Quad(Hi, Lo, Hi + Lift, Lo + Lift, Color);
+                    const FVector BlockerRise(0., 0., 650.);
+                    Blockers.Quad(Lo, Hi, Lo + BlockerRise, Hi + BlockerRise, Color);
+                    Blockers.Quad(Hi, Lo, Hi + BlockerRise, Lo + BlockerRise, Color);
                 }
             }
         }
