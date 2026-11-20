@@ -31,6 +31,8 @@ public:
     int32 RegionalBackdropTriangles() const;
     int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
     int32 FootprintOverlayTriangles() const { return FootprintTriangleCount; }
+    int32 FilledFootprints() const { return FilledFootprintCount; }
+    int32 FootprintFillTriangles() const { return FootprintFillTriangleCount; }
     double OverlayMaxGapError() const { return MaxOverlayGapError; }
 
     UPROPERTY(EditAnywhere, Category="Aden source")
@@ -72,5 +74,7 @@ private:
     bool bAttempted = false;
     int32 RoadTriangleCount = 0;
     int32 FootprintTriangleCount = 0;
+    int32 FilledFootprintCount = 0;
+    int32 FootprintFillTriangleCount = 0;
     double MaxOverlayGapError = 0.;
 };

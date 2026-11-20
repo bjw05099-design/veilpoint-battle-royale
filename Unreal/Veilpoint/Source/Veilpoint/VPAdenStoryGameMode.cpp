@@ -437,6 +437,8 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("regionalBackdropTriangles"), BackdropTriangles);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
         Report->SetNumberField(TEXT("footprintOverlayTriangles"), FootprintTriangles);
+        Report->SetNumberField(TEXT("filledFootprints"), Source->FilledFootprints());
+        Report->SetNumberField(TEXT("footprintFillTriangles"), Source->FootprintFillTriangles());
         Report->SetNumberField(TEXT("overlayMaxGapErrorCm"), Source->OverlayMaxGapError());
         if (bPassed && BackdropTriangles > 0 && RoadTriangles > 0 && FootprintTriangles > 0)
         {

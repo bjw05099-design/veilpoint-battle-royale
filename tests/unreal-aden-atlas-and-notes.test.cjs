@@ -52,6 +52,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
     const cpp = `
       #include "VPAdenAtlasProjection.h"
       #include "VPAdenDrape.h"
+      #include "VPAdenFootprint.h"
       #include "VPAdenRegionalGrid.h"
       #include "VPAdenMissionRules.h"
       #include "VPAdenDispatchRules.h"
@@ -74,7 +75,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           const std::array<FPoint, 4> strip{{{-10., 10.}, {110., 10.}, {110., 40.}, {-10., 40.}}};
           double area = 0.;
           int patches = 0;
-          VPAdenDrape::DrapeStrip(strip, {0., 0., 100., 100.}, 50., [&](const auto& polygon) {
+          VPAdenDrape::DrapeConvex(strip, {0., 0., 100., 100.}, 50., [&](const auto& polygon) {
             ++patches;
             for (int i = 0; i < polygon.Count; ++i) {
               const auto a = polygon.Points[i];
@@ -84,6 +85,32 @@ test('compile and exercise the real Unreal atlas projection and save migration r
             }
           });
           assert(patches == 4 && std::abs(area - 3000.) < .0001);
+        }
+        {
+          // The L-shaped footprint spans several terrain cells and has a concave corner.
+          using VPAdenFootprint::Cross;
+          std::array<FPoint, 8> ring{{{0., 0.}, {25., 0.}, {50., 0.}, {50., 10.},
+                                      {10., 10.}, {10., 50.}, {0., 50.}, {0., 0.}}};
+          for (int winding = 0; winding < 2; ++winding) {
+            const auto triangles = VPAdenFootprint::Triangulate(ring.data(), int(ring.size()));
+            assert(triangles.size() == 4);
+            double area = 0.;
+            for (const auto& indices : triangles) {
+              const std::array<FPoint, 3> triangle{ring[indices[0]], ring[indices[1]], ring[indices[2]]};
+              VPAdenDrape::DrapeConvex(triangle, {0., 0., 50., 50.}, 10., [&](const auto& patch) {
+                for (int i = 0; i < patch.Count; ++i) {
+                  const FPoint p = patch.Points[i];
+                  assert(p.X <= 10. || p.Y <= 10.);
+                }
+                for (int i = 1; i + 1 < patch.Count; ++i)
+                  area += Cross(patch.Points[0], patch.Points[i], patch.Points[i + 1]) / 2.;
+              });
+            }
+            assert(std::abs(area - 900.) < .0001);
+            std::reverse(ring.begin(), ring.end());
+          }
+          const FPoint collinear[] = {{0., 0.}, {5., 0.}, {10., 0.}};
+          assert(VPAdenFootprint::Triangulate(collinear, 3).empty());
         }
         {
           using namespace VPAdenRegionalGrid;
