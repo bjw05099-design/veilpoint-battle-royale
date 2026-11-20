@@ -51,6 +51,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
     const exe = path.join(temp, 'verify');
     const cpp = `
       #include "VPAdenAtlasProjection.h"
+      #include "VPAdenDrape.h"
       #include "VPAdenRegionalGrid.h"
       #include "VPAdenMissionRules.h"
       #include "VPAdenDispatchRules.h"
@@ -69,6 +70,21 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         assert(from.X == 0. && to.X == 10. && from.Y == to.Y);
         FPoint outsideA{-2., -1.}, outsideB{8., -1.};
         assert(!Clip({0., 0., 10., 10.}, outsideA, outsideB));
+        {
+          const std::array<FPoint, 4> strip{{{-10., 10.}, {110., 10.}, {110., 40.}, {-10., 40.}}};
+          double area = 0.;
+          int patches = 0;
+          VPAdenDrape::DrapeStrip(strip, {0., 0., 100., 100.}, 50., [&](const auto& polygon) {
+            ++patches;
+            for (int i = 0; i < polygon.Count; ++i) {
+              const auto a = polygon.Points[i];
+              const auto b = polygon.Points[(i + 1) % polygon.Count];
+              assert(a.X >= 0. && a.X <= 100.);
+              area += (a.X * b.Y - b.X * a.Y) / 2.;
+            }
+          });
+          assert(patches == 4 && std::abs(area - 3000.) < .0001);
+        }
         {
           using namespace VPAdenRegionalGrid;
           int omitted = 0, stitched = 0, triangles = 0;

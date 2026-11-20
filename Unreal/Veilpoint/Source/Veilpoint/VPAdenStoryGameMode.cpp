@@ -432,15 +432,25 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     {
         bPassed = ReadFrame(TEXT("aden-world"));
         const int32 BackdropTriangles = Source->RegionalBackdropTriangles();
+        const int32 RoadTriangles = Source->RoadOverlayTriangles();
+        const int32 FootprintTriangles = Source->FootprintOverlayTriangles();
         Report->SetNumberField(TEXT("regionalBackdropTriangles"), BackdropTriangles);
-        if (bPassed && BackdropTriangles > 0)
+        Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
+        Report->SetNumberField(TEXT("footprintOverlayTriangles"), FootprintTriangles);
+        Report->SetNumberField(TEXT("overlayMaxGapErrorCm"), Source->OverlayMaxGapError());
+        if (bPassed && BackdropTriangles > 0 && RoadTriangles > 0 && FootprintTriangles > 0)
         {
             const FTransform Original = DiagnosticCapture->GetRelativeTransform();
             DiagnosticCapture->bCaptureEveryFrame = false;
+            const FVector Street = Source->Station(2) - Source->Station(0);
+            DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(1) + FVector(0., 0., 9800.),
+                FRotator(-70., Street.Rotation().Yaw, 0.));
+            DiagnosticCapture->CaptureScene();
+            bPassed = ReadFrame(TEXT("aden-sourced-street"));
             DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(0) + FVector(0., 0., 72000.),
                 FRotator(-14., 180., 0.));
             DiagnosticCapture->CaptureScene();
-            bPassed = ReadFrame(TEXT("aden-regional-terrain"));
+            bPassed = ReadFrame(TEXT("aden-regional-terrain")) && bPassed;
             DiagnosticCapture->SetRelativeTransform(Original);
             DiagnosticCapture->bCaptureEveryFrame = true;
         }

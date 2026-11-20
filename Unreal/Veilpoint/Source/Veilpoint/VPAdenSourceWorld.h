@@ -29,6 +29,9 @@ public:
     USoundBase* GetStepSound(int32 Index) const;
     const FString& Revision() const { return SourceRevision; }
     int32 RegionalBackdropTriangles() const;
+    int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
+    int32 FootprintOverlayTriangles() const { return FootprintTriangleCount; }
+    double OverlayMaxGapError() const { return MaxOverlayGapError; }
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
@@ -67,4 +70,7 @@ private:
     TArray<FVector> FollowupToPublicCopy;
     TArray<FVector> FollowupToDeskCopy;
     bool bAttempted = false;
+    int32 RoadTriangleCount = 0;
+    int32 FootprintTriangleCount = 0;
+    double MaxOverlayGapError = 0.;
 };
