@@ -431,6 +431,21 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     if (bPassed)
     {
         bPassed = ReadFrame(TEXT("aden-world"));
+        const int32 BackdropTriangles = Source->RegionalBackdropTriangles();
+        Report->SetNumberField(TEXT("regionalBackdropTriangles"), BackdropTriangles);
+        if (bPassed && BackdropTriangles > 0)
+        {
+            const FTransform Original = DiagnosticCapture->GetRelativeTransform();
+            DiagnosticCapture->bCaptureEveryFrame = false;
+            DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(0) + FVector(0., 0., 72000.),
+                FRotator(-14., 180., 0.));
+            DiagnosticCapture->CaptureScene();
+            bPassed = ReadFrame(TEXT("aden-regional-terrain"));
+            DiagnosticCapture->SetRelativeTransform(Original);
+            DiagnosticCapture->bCaptureEveryFrame = true;
+        }
+        else
+            bPassed = false;
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 1 && ReadFrame(TEXT("aden-field-map"));
         Desktop->CycleAdenAtlas();

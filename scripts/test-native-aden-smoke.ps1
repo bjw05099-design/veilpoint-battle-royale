@@ -32,12 +32,13 @@ if ($content -notmatch 'Aden native source loaded: 49 tiles, 183 roads, 4865 foo
 $report=Get-Content -LiteralPath (Join-Path $captures 'visual-smoke.json') -Raw | ConvertFrom-Json
 if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStationsVerified -ne $true -or
     $report.confirmed -ne 3 -or $report.relaySlipSaved -ne $true -or $report.debriefSaved -ne $true -or
+    $report.regionalBackdropTriangles -ne 44912 -or
     $report.dispatchPhase -ne 5 -or $report.witnessCompleted -ne $true -or $report.noticeCompleted -ne $true -or
     $report.publicUpdateSaved -ne $true -or $report.internalHandoffRestored -ne $true -or
     $report.followupStep -ne 3 -or $report.publicCorrectionVerified -ne $true -or $report.deskCorrectionVerified -ne $true) {
     throw 'Aden captured an incomplete native story.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-debrief','aden-dispatch-route','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
+foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-debrief','aden-dispatch-route','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or

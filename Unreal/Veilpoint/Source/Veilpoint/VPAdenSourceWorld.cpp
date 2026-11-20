@@ -14,13 +14,15 @@
 #include "VPAdenEmbedded.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenDispatchRouteData.h"
+#include "VPAdenRegionalData.h"
+#include "VPAdenRegionalGrid.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
 
 namespace VPAdenWorld
 {
 constexpr int32 Side = 113;
-constexpr int32 Spacing = 3200;
+constexpr int32 Spacing = VPAdenRegionalGrid::LocalSpacing;
 constexpr int32 OriginX = int32(VPAdenAtlas::Local.West);
 constexpr int32 OriginY = int32(VPAdenAtlas::Local.North);
 constexpr int32 Width = (Side - 1) * Spacing;
@@ -166,13 +168,13 @@ struct FMesh
             Swap(Triangles[I + 1], Triangles[I + 2]);
     }
 
-    TArray<FVector2D> SourceUVs() const
+    TArray<FVector2D> SourceUVs(const VPAdenAtlas::FExtent& Extent) const
     {
         TArray<FVector2D> UVs;
         UVs.Reserve(Vertices.Num());
         for (const FVector& V : Vertices)
         {
-            const auto P = VPAdenAtlas::Local.Normalized({V.X, V.Y});
+            const auto P = Extent.Normalized({V.X, V.Y});
             UVs.Emplace(FMath::Clamp(P.X, 0., 1.), FMath::Clamp(P.Y, 0., 1.));
         }
         return UVs;
@@ -208,12 +210,131 @@ FMesh TerrainMesh(const FGeometry& Geometry)
             const float Height = FMath::Clamp(float(H / 18000.), 0.f, 1.f);
             const FLinearColor Low(.51f, .36f, .22f), High(.33f, .28f, .19f);
             const FLinearColor Color = FMath::Lerp(Low, High, Height);
-            Mesh.Colors.Add(FMath::Lerp(Color, High, Slope * .42f));
+            FLinearColor Tint = FMath::Lerp(Color, High, Slope * .42f);
+            Tint.A = FMath::Clamp(float(FMath::Min(FMath::Min(X, Side - 1 - X),
+                FMath::Min(Y, Side - 1 - Y))) / VPAdenRegionalGrid::Subdivisions, 0.f, 1.f);
+            Mesh.Colors.Add(Tint);
             if (Y + 1 < Side && X + 1 < Side)
             {
                 const int32 A = Y * Side + X;
                 Mesh.Triangles.Append({A, A + 1, A + Side, A + 1, A + Side + 1, A + Side});
             }
+        }
+    }
+    return Mesh;
+}
+
+bool ReadRegionalHeights(TArray<int32>& Heights)
+{
+    using namespace VPAdenRegionalGrid;
+    FString Encoding;
+    for (const char* Chunk : VPAdenRegionalData::Chunks)
+        Encoding.Append(ANSI_TO_TCHAR(Chunk));
+    TArray<uint8> Compressed, Raw;
+    if (!FBase64::Decode(Encoding, Compressed) || Compressed.IsEmpty()) return false;
+    Raw.SetNumUninitialized(2 * Columns * Rows);
+    if (!FCompression::UncompressMemory(NAME_Zlib, Raw.GetData(), Raw.Num(), Compressed.GetData(), Compressed.Num()))
+        return false;
+    FReader Reader{Raw};
+    Heights.Reserve(Columns * Rows);
+    for (int32 I = 0; I < Columns * Rows; ++I)
+    {
+        const int32 Sample = int32(Reader.Read(2));
+        Heights.Add((Sample < 32768 ? Sample : Sample - 65536) * 10);
+    }
+    return Reader.bValid && Reader.Offset == Raw.Num();
+}
+
+FLinearColor RegionalTint(double HeightCm)
+{
+    const FLinearColor Low(.46f, .34f, .22f), High(.34f, .27f, .19f);
+    return FMath::Lerp(Low, High, FMath::Clamp(float(HeightCm / 38000.), 0.f, 1.f));
+}
+
+FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, const TArray<int32>& Heights)
+{
+    using namespace VPAdenRegionalGrid;
+    constexpr int32 RegionSpacing = VPAdenRegionalGrid::Spacing;
+    const auto PilotIndex = [](const FVector2D& Position)
+    {
+        return FMath::RoundToInt((Position.Y - OriginY) / LocalSpacing) * Side
+            + FMath::RoundToInt((Position.X - OriginX) / LocalSpacing);
+    };
+    const auto Sample = [&Heights, &LocalGeometry](int32 X, int32 Y)
+    {
+        const FVector2D Position(VPAdenAtlas::Region.West + X * RegionSpacing,
+                                 VPAdenAtlas::Region.North + Y * RegionSpacing);
+        return OnPilotBorder(X, Y) ? LocalGeometry.Height(Position) : double(Heights[Y * Columns + X]);
+    };
+    FMesh Mesh;
+    constexpr int32 SharedEdges = 2 * ((LocalEast - LocalWest) + (LocalSouth - LocalNorth));
+    constexpr int32 VertexCount = Columns * Rows + SharedEdges * Subdivisions;
+    Mesh.Vertices.Reserve(VertexCount);
+    Mesh.Normals.Reserve(VertexCount);
+    Mesh.Colors.Reserve(VertexCount);
+    for (int32 Y = 0; Y < Rows; ++Y)
+    {
+        for (int32 X = 0; X < Columns; ++X)
+        {
+            const FVector2D Point(VPAdenAtlas::Region.West + X * RegionSpacing,
+                                  VPAdenAtlas::Region.North + Y * RegionSpacing);
+            const double Height = Sample(X, Y);
+            if (OnPilotBorder(X, Y))
+            {
+                const int32 Index = PilotIndex(Point);
+                Mesh.Vertices.Add(Pilot.Vertices[Index]);
+                Mesh.Normals.Add(Pilot.Normals[Index]);
+                Mesh.Colors.Add(Pilot.Colors[Index]);
+                continue;
+            }
+            const int32 West = FMath::Max(0, X - 1), East = FMath::Min(X + 1, Columns - 1);
+            const int32 North = FMath::Max(0, Y - 1), South = FMath::Min(Y + 1, Rows - 1);
+            const double DX = (Sample(East, Y) - Sample(West, Y)) / ((East - West) * RegionSpacing);
+            const double DY = (Sample(X, South) - Sample(X, North)) / ((South - North) * RegionSpacing);
+            Mesh.Vertices.Emplace(Point.X, Point.Y, Height);
+            Mesh.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
+            Mesh.Colors.Add(RegionalTint(Height));
+        }
+    }
+    for (int32 Y = 0; Y < Rows - 1; ++Y)
+    {
+        for (int32 X = 0; X < Columns - 1; ++X)
+        {
+            if (InPilot(X, Y)) continue;
+            const int32 A = Y * Columns + X, B = A + 1, C = A + Columns, D = C + 1;
+            const EEdge Shared = SharedEdge(X, Y);
+            if (Shared == EEdge::None)
+            {
+                Mesh.Triangles.Append({A, C, B, B, C, D});
+                continue;
+            }
+
+            // Stitch the shared regional edge to all nine pilot vertices.
+            // Both meshes read the same pilot vertices and normals along it.
+            const int32 Corners[] = {A, B, D, C};
+            const EEdge Edges[] = {EEdge::North, EEdge::East, EEdge::South, EEdge::West};
+            TArray<int32, TInlineAllocator<Subdivisions + 3>> Ring;
+            for (int32 Edge = 0; Edge < 4; ++Edge)
+            {
+                const int32 From = Corners[Edge], To = Corners[(Edge + 1) % 4];
+                Ring.Add(From);
+                if (Shared != Edges[Edge]) continue;
+                const FVector First = Mesh.Vertices[From], Last = Mesh.Vertices[To];
+                for (int32 I = 1; I < Subdivisions; ++I)
+                {
+                    const FVector Mid = FMath::Lerp(First, Last, double(I) / Subdivisions);
+                    const int32 Index = PilotIndex(FVector2D(Mid));
+                    Ring.Add(Mesh.Vertices.Add(Pilot.Vertices[Index]));
+                    Mesh.Normals.Add(Pilot.Normals[Index]);
+                    Mesh.Colors.Add(Pilot.Colors[Index]);
+                }
+            }
+            const FVector Mid = (Mesh.Vertices[B] + Mesh.Vertices[C]) * .5;
+            const int32 Centre = Mesh.Vertices.Add(Mid);
+            Mesh.Normals.Add((Mesh.Normals[B] + Mesh.Normals[C]).GetSafeNormal());
+            Mesh.Colors.Add(RegionalTint(Mid.Z));
+            for (int32 I = 0; I < Ring.Num(); ++I)
+                Mesh.Triangles.Append({Centre, Ring[(I + 1) % Ring.Num()], Ring[I]});
         }
     }
     return Mesh;
@@ -266,14 +387,17 @@ bool AVPAdenSourceWorld::BuildSource()
         return Stations.Num() == 4;
     bAttempted = true;
     VPAdenWorld::FGeometry Geometry;
+    TArray<int32> RegionalHeights;
     if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !StationMesh || !StationMaterial || !WindSound
         || !DossierSound || StepSounds.Num() != 3 || !Decode(Geometry)
-        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenDispatchData::Revision))
+        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenDispatchData::Revision)
+        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenRegionalData::PilotRevision) || !ReadRegionalHeights(RegionalHeights))
     {
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));
         return false;
     }
-    const auto AddMesh = [this](const FMesh& Buffer, bool bSolid, bool bVisible)
+    const auto AddMesh = [this](const FMesh& Buffer, bool bSolid, bool bVisible,
+        const VPAdenAtlas::FExtent& Extent = VPAdenAtlas::Local, UMaterialInterface* Material = nullptr)
     {
         auto* Mesh = NewObject<UProceduralMeshComponent>(this);
         AddInstanceComponent(Mesh);
@@ -281,14 +405,15 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->SetCollisionProfileName(bSolid ? FName(TEXT("BlockAll")) : FName(TEXT("NoCollision")));
         Mesh->bUseAsyncCooking = false;
         Mesh->RegisterComponent();
-        const TArray<FVector2D> UV0 = bVisible ? Buffer.SourceUVs() : TArray<FVector2D>();
+        const TArray<FVector2D> UV0 = bVisible ? Buffer.SourceUVs(Extent) : TArray<FVector2D>();
         const TArray<FVector2D> EmptyUV;
         const TArray<FProcMeshTangent> EmptyTangents;
         Mesh->CreateMeshSection_LinearColor(0, Buffer.Vertices, Buffer.Triangles, Buffer.Normals,
             UV0, EmptyUV, EmptyUV, EmptyUV, Buffer.Colors, EmptyTangents, bSolid, false);
-        Mesh->SetMaterial(0, VertexColorMaterial);
+        Mesh->SetMaterial(0, Material ? Material : VertexColorMaterial.Get());
         Mesh->SetCastShadow(bVisible);
         Mesh->SetVisibility(bVisible);
+        return Mesh;
     };
     FMesh Terrain = TerrainMesh(Geometry);
     AddMesh(Terrain, true, false);
@@ -296,6 +421,13 @@ bool AVPAdenSourceWorld::BuildSource()
     // uses its own Unreal render winding and up-facing vertex normals.
     Terrain.ReverseRenderWinding();
     AddMesh(Terrain, false, true);
+    auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
+    if (!RegionalMaterial) return false;
+    RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
+    const FMesh Backdrop = RegionalTerrainMesh(Geometry, Terrain, RegionalHeights);
+    RegionalBackdrop = AddMesh(Backdrop, false, true, VPAdenAtlas::Region, RegionalMaterial);
+    // The panorama does not contribute to local collision or dynamic shadows.
+    RegionalBackdrop->SetCastShadow(false);
     FMesh Lines, Blockers;
     AddShapes(Geometry, Geometry.Roads, false, Lines, Blockers);
     AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers);
@@ -345,6 +477,14 @@ bool AVPAdenSourceWorld::BuildSource()
     UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: 49 tiles, %d roads, %d footprints (%s)"),
         Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
     return true;
+}
+
+int32 AVPAdenSourceWorld::RegionalBackdropTriangles() const
+{
+    if (!RegionalBackdrop || !RegionalBackdrop->IsVisible()
+        || RegionalBackdrop->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return 0;
+    const auto* Section = RegionalBackdrop->GetProcMeshSection(0);
+    return Section ? Section->ProcIndexBuffer.Num() / 3 : 0;
 }
 
 FVector AVPAdenSourceWorld::Station(int32 Index) const
