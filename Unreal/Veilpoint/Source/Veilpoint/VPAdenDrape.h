@@ -3,11 +3,42 @@
 #include "VPAdenAtlasProjection.h"
 #include <array>
 #include <cmath>
+#include <vector>
 
 namespace VPAdenDrape
 {
 using VPAdenAtlas::FExtent;
 using VPAdenAtlas::FPoint;
+
+inline constexpr int CellsPerSector = 16;
+inline constexpr int SectorsPerAxis = 7;
+
+constexpr int SectorIndex(int X, int Y)
+{
+    return (Y / CellsPerSector) * SectorsPerAxis + X / CellsPerSector;
+}
+
+inline std::vector<double> SegmentBreaks(FPoint A, FPoint B, FExtent Bounds, double Step)
+{
+    std::vector<double> Breaks{0., 1.};
+    const auto AddFamily = [&](double Start, double End, double Origin)
+    {
+        if (Start == End) return;
+        const double Min = std::min(Start, End), Max = std::max(Start, End);
+        const int First = int(std::floor((Min - Origin) / Step)) + 1;
+        for (double Line = Origin + First * Step; Line < Max; Line += Step)
+            Breaks.push_back((Line - Start) / (End - Start));
+    };
+    AddFamily(A.X, B.X, Bounds.West);
+    AddFamily(A.Y, B.Y, Bounds.North);
+    AddFamily(A.X + A.Y, B.X + B.Y, Bounds.West + Bounds.North);
+    std::sort(Breaks.begin(), Breaks.end());
+    Breaks.erase(std::unique(Breaks.begin(), Breaks.end(), [](double AValue, double BValue)
+    {
+        return std::abs(AValue - BValue) < 1.e-10;
+    }), Breaks.end());
+    return Breaks;
+}
 
 struct FPolygon
 {
@@ -75,7 +106,7 @@ void DrapeConvex(const std::array<FPoint, CornerCount>& Corners, FExtent Bounds,
             for (const double Side : {-1., 1.})
             {
                 const FPolygon Half = Clip(Cell, Side, Side, Side * Diagonal);
-                if (Half.Count >= 3) Emit(Half);
+                if (Half.Count >= 3) Emit(Half, X, Y);
             }
         }
     }

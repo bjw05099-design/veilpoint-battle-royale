@@ -45,6 +45,16 @@ if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -
 if ($report.filledFootprints -ne 4865 -or $report.footprintFillTriangles -lt 4865) {
     throw 'Aden ground fill did not cover every registered civilian footprint.'
 }
+$surfaceTotal = $report.roadOverlayTriangles + $report.footprintOverlayTriangles + $report.footprintFillTriangles
+if ($report.overlaySectors -lt 2 -or $report.overlaySectors -gt 49 -or
+    $report.largestOverlaySectorTriangles -le 0 -or $report.largestOverlaySectorTriangles -ge $surfaceTotal) {
+    throw 'Aden visible ground overlays were not divided into independently culled sectors.'
+}
+if ($report.blockerTriangles -lt 4865 -or $null -eq $report.blockerBaseGapErrorCm -or
+    $report.blockerBaseGapErrorCm -gt 0.02 -or $report.blockerCollisionProbes -lt 4 -or
+    $report.blockerCollisionProbesPassed -ne $report.blockerCollisionProbes) {
+    throw 'Aden footprint collision failed the ground alignment or two-sided traces.'
+}
 foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')

@@ -71,16 +71,38 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         assert(from.X == 0. && to.X == 10. && from.Y == to.Y);
         FPoint outsideA{-2., -1.}, outsideB{8., -1.};
         assert(!Clip({0., 0., 10., 10.}, outsideA, outsideB));
+        assert(ScaleBarMetres(Region) == 5000);
+        assert(ScaleBarMetres(Local) == 500);
+        assert(ScaleBarMetres(Crop(Local, {0., 0.}, MaxZoomLevel)) == 20);
+        {
+          using namespace VPAdenDrape;
+          static_assert(SectorIndex(0, 0) == 0);
+          static_assert(SectorIndex(16, 16) == 8);
+          static_assert(SectorIndex(111, 111) == 48);
+          const auto breaks = SegmentBreaks({3., 3.}, {17., 13.}, {0., 0., 20., 20.}, 10.);
+          assert(breaks.size() == 6);
+          assert(std::abs(breaks[1] - 1. / 6.) < 1.e-9);
+          assert(std::abs(breaks[2] - .5) < 1.e-9);
+          assert(std::abs(breaks[3] - 7. / 12.) < 1.e-9);
+          assert(std::abs(breaks[4] - .7) < 1.e-9);
+          const auto corner = SegmentBreaks({5., 5.}, {15., 15.}, {0., 0., 20., 20.}, 10.);
+          assert(corner.size() == 3 && corner[1] == .5);
+          const auto reversed = SegmentBreaks({17., 13.}, {3., 3.}, {0., 0., 20., 20.}, 10.);
+          assert(reversed.size() == breaks.size());
+          for (std::size_t i = 0; i < breaks.size(); ++i)
+            assert(std::abs(reversed[i] + breaks[breaks.size() - 1 - i] - 1.) < 1.e-9);
+        }
         {
           const std::array<FPoint, 4> strip{{{-10., 10.}, {110., 10.}, {110., 40.}, {-10., 40.}}};
           double area = 0.;
           int patches = 0;
-          VPAdenDrape::DrapeConvex(strip, {0., 0., 100., 100.}, 50., [&](const auto& polygon) {
+          VPAdenDrape::DrapeConvex(strip, {0., 0., 100., 100.}, 50., [&](const auto& polygon, int col, int row) {
             ++patches;
+            assert((col == 0 || col == 1) && row == 0);
             for (int i = 0; i < polygon.Count; ++i) {
               const auto a = polygon.Points[i];
               const auto b = polygon.Points[(i + 1) % polygon.Count];
-              assert(a.X >= 0. && a.X <= 100.);
+              assert(a.X >= col * 50. - 1.e-9 && a.X <= (col + 1) * 50. + 1.e-9);
               area += (a.X * b.Y - b.X * a.Y) / 2.;
             }
           });
@@ -97,10 +119,12 @@ test('compile and exercise the real Unreal atlas projection and save migration r
             double area = 0.;
             for (const auto& indices : triangles) {
               const std::array<FPoint, 3> triangle{ring[indices[0]], ring[indices[1]], ring[indices[2]]};
-              VPAdenDrape::DrapeConvex(triangle, {0., 0., 50., 50.}, 10., [&](const auto& patch) {
+              VPAdenDrape::DrapeConvex(triangle, {0., 0., 50., 50.}, 10., [&](const auto& patch, int col, int row) {
                 for (int i = 0; i < patch.Count; ++i) {
                   const FPoint p = patch.Points[i];
                   assert(p.X <= 10. || p.Y <= 10.);
+                  assert(p.X >= col * 10. - 1.e-9 && p.X <= (col + 1) * 10. + 1.e-9);
+                  assert(p.Y >= row * 10. - 1.e-9 && p.Y <= (row + 1) * 10. + 1.e-9);
                 }
                 for (int i = 1; i + 1 < patch.Count; ++i)
                   area += Cross(patch.Points[0], patch.Points[i], patch.Points[i + 1]) / 2.;

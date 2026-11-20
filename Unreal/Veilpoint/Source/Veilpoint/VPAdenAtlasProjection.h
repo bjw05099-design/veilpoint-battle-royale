@@ -20,6 +20,19 @@ inline constexpr FExtent Local{153600., -153600., 512000., 204800.};
 inline constexpr FExtent Region{-2662400., -2150400., 1433600., 1433600.};
 inline constexpr int MaxZoomLevel = 5;
 
+inline int ScaleBarMetres(FExtent View)
+{
+    const double Limit = View.Width() / 100. / 5.;
+    constexpr int Steps[] = {5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000};
+    int Best = Steps[0];
+    for (const int Step : Steps)
+    {
+        if (Step > Limit) break;
+        Best = Step;
+    }
+    return Best;
+}
+
 inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
 {
     const int Factor = 1 << std::clamp(ZoomLevel, 0, MaxZoomLevel);
