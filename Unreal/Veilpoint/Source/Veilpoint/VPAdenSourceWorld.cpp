@@ -15,6 +15,7 @@
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenDispatchRouteData.h"
 #include "VPAdenDrape.h"
+#include "VPAdenFootprint.h"
 #include "VPAdenRegionalData.h"
 #include "VPAdenRegionalGrid.h"
 
@@ -341,14 +342,11 @@ FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, co
     return Mesh;
 }
 
-void DrapeLine(const FGeometry& Geometry, const FVector2D& From, const FVector2D& To, const FVector2D& Left,
-    double Lift, const FLinearColor& Color, FMesh& Lines, double& MaxGapError)
+template <std::size_t CornerCount>
+void AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::FPoint, CornerCount>& Corners,
+    double Lift, const FLinearColor& Color, FMesh& Surface, double& MaxGapError)
 {
-    const auto Point = [](const FVector2D& P) { return VPAdenAtlas::FPoint{P.X, P.Y}; };
-    const std::array<VPAdenAtlas::FPoint, 4> Corners{
-        Point(From + Left), Point(From - Left), Point(To - Left), Point(To + Left)
-    };
-    VPAdenDrape::DrapeStrip(Corners, VPAdenAtlas::Local, Spacing, [&](const VPAdenDrape::FPolygon& Polygon)
+    VPAdenDrape::DrapeConvex(Corners, VPAdenAtlas::Local, Spacing, [&](const VPAdenDrape::FPolygon& Polygon)
     {
         TArray<FVector, TInlineAllocator<12>> Positions;
         for (int32 I = 0; I < Polygon.Count; ++I)
@@ -356,14 +354,14 @@ void DrapeLine(const FGeometry& Geometry, const FVector2D& From, const FVector2D
             const auto P = Polygon.Points[I];
             Positions.Add(Geometry.Position(FVector2D(P.X, P.Y), Lift));
         }
-        const int32 First = Lines.Vertices.Num();
+        const int32 First = Surface.Vertices.Num();
         FVector Normal = FVector::ZeroVector;
         for (int32 I = 1; I + 1 < Positions.Num(); ++I)
         {
             const FVector Cross = FVector::CrossProduct(Positions[I] - Positions[0], Positions[I + 1] - Positions[0]);
             if (Cross.Z <= .00001) continue;
             Normal = Cross.GetSafeNormal();
-            Lines.Triangles.Append({First, First + I, First + I + 1});
+            Surface.Triangles.Append({First, First + I, First + I + 1});
             const FVector Centre = (Positions[0] + Positions[I] + Positions[I + 1]) / 3.;
             MaxGapError = FMath::Max(MaxGapError,
                 FMath::Abs(Centre.Z - Geometry.Height(FVector2D(Centre)) - Lift));
@@ -371,9 +369,9 @@ void DrapeLine(const FGeometry& Geometry, const FVector2D& From, const FVector2D
         if (Normal.IsZero()) return;
         for (const FVector& Position : Positions)
         {
-            Lines.Vertices.Add(Position);
-            Lines.Normals.Add(Normal);
-            Lines.Colors.Add(Color);
+            Surface.Vertices.Add(Position);
+            Surface.Normals.Add(Normal);
+            Surface.Colors.Add(Color);
         }
     });
 }
@@ -383,6 +381,7 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
     const double HalfWidth = bFootprints ? 14. : 21.;
     const double Lift = bFootprints ? 8. : 10.;
     const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f) : FLinearColor(.91f, .79f, .46f, 0.f);
+    const auto Point = [](const FVector2D& P) { return VPAdenAtlas::FPoint{P.X, P.Y}; };
     for (const auto& Shape : Shapes)
     {
         const int32 Segments = Shape.Num() - (bFootprints ? 0 : 1);
@@ -396,11 +395,14 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
             {
                 const FVector2D From = A + Direction * (double(Piece) / Pieces);
                 const FVector2D To = A + Direction * (double(Piece + 1) / Pieces);
-                DrapeLine(Geometry, From, To, Left, Lift, Color, Lines, MaxGapError);
+                const std::array<VPAdenAtlas::FPoint, 4> Corners{
+                    Point(From + Left), Point(From - Left), Point(To - Left), Point(To + Left)
+                };
+                AddDrapedSurface(Geometry, Corners, Lift, Color, Lines, MaxGapError);
                 if (bFootprints)
                 {
                     // Invisible, two-sided gameplay exclusion at mapped boundaries.
-                    // The world renders only the mapped outlines; heights are unknown.
+                    // The visible footprint stays on the ground; heights are unknown.
                     const FVector Lo = Geometry.Position(From, -80.), Hi = Geometry.Position(To, -80.);
                     const FVector BlockerRise(0., 0., 650.);
                     Blockers.Quad(Lo, Hi, Lo + BlockerRise, Hi + BlockerRise, Color);
@@ -409,6 +411,29 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
             }
         }
     }
+}
+
+int32 AddFootprintFill(const FGeometry& Geometry, FMesh& Surface, double& MaxGapError)
+{
+    const FLinearColor FillTint(.24f, .17f, .12f, 0.f);
+    int32 Filled = 0;
+    TArray<VPAdenAtlas::FPoint, TInlineAllocator<32>> Ring;
+    for (const auto& Shape : Geometry.Footprints)
+    {
+        Ring.Reset(Shape.Num());
+        for (const FVector2D& P : Shape)
+            Ring.Add({P.X, P.Y});
+        const int32 First = Surface.Triangles.Num();
+        for (const auto& Indices : VPAdenFootprint::Triangulate(Ring.GetData(), Ring.Num()))
+        {
+            const std::array<VPAdenAtlas::FPoint, 3> Triangle{
+                Ring[Indices[0]], Ring[Indices[1]], Ring[Indices[2]]
+            };
+            AddDrapedSurface(Geometry, Triangle, 4., FillTint, Surface, MaxGapError);
+        }
+        if (Surface.Triangles.Num() > First) ++Filled;
+    }
+    return Filled;
 }
 }
 
@@ -471,6 +496,9 @@ bool AVPAdenSourceWorld::BuildSource()
     RoadTriangleCount = Lines.Triangles.Num() / 3;
     AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers, MaxOverlayGapError);
     FootprintTriangleCount = Lines.Triangles.Num() / 3 - RoadTriangleCount;
+    const int32 OutlineTriangles = Lines.Triangles.Num() / 3;
+    FilledFootprintCount = AddFootprintFill(Geometry, Lines, MaxOverlayGapError);
+    FootprintFillTriangleCount = Lines.Triangles.Num() / 3 - OutlineTriangles;
     Lines.ReverseRenderWinding();
     AddMesh(Lines, false, true)->SetCastShadow(false);
     AddMesh(Blockers, true, false);

@@ -44,9 +44,10 @@ inline FPolygon Clip(const FPolygon& Polygon, double NX, double NY, double Limit
     return Result;
 }
 
-template <typename FEmit>
-void DrapeStrip(const std::array<FPoint, 4>& Corners, FExtent Bounds, double Step, FEmit Emit)
+template <std::size_t CornerCount, typename FEmit>
+void DrapeConvex(const std::array<FPoint, CornerCount>& Corners, FExtent Bounds, double Step, FEmit Emit)
 {
+    static_assert(CornerCount == 3 || CornerCount == 4);
     FPolygon Strip;
     double MinX = Corners[0].X, MaxX = MinX, MinY = Corners[0].Y, MaxY = MinY;
     for (const FPoint Point : Corners)

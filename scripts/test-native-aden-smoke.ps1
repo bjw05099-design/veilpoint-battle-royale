@@ -42,6 +42,9 @@ if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -
     $null -eq $report.overlayMaxGapErrorCm -or $report.overlayMaxGapErrorCm -gt 0.02) {
     throw 'Aden road and footprint overlays do not conform to the playable surface.'
 }
+if ($report.filledFootprints -ne 4865 -or $report.footprintFillTriangles -lt 4865) {
+    throw 'Aden ground fill did not cover every registered civilian footprint.'
+}
 foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
