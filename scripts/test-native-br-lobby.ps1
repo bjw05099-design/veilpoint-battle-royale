@@ -46,7 +46,8 @@ try {
     if ($server.ExitCode -ne 0 -or $client.ExitCode -ne 0) { throw 'A packaged BR diagnostic process failed.' }
     $hostEvidence=Get-Content -LiteralPath $hostLog -Raw
     $clientEvidence=Get-Content -LiteralPath $joinLog -Raw
-    if ($hostEvidence -notmatch 'VPBR_HOST_PASS' -or $clientEvidence -notmatch 'VPBR_CLIENT_PASS' -or
+    if ($hostEvidence -notmatch 'VPBR_HOST_PASS: authoritative place #2' -or
+        $clientEvidence -notmatch 'VPBR_CLIENT_PASS: owner-only place #1' -or
         $hostEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED' -or $clientEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED') {
         throw 'Missing actual host/client countdown cancellation, round or owner privacy evidence.'
     }

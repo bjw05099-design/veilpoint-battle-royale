@@ -28,7 +28,9 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    DrawText(Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01"), Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
+    const TCHAR* Chapter = Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
+        : Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01");
+    DrawText(Chapter, Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
     DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
 
@@ -86,7 +88,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
             DrawLine(Start.X, Start.Y, End.X, End.Y, RouteColor, 2.8f);
         }
-        if (!Aden->ActiveLeg.IsEmpty() || Aden->Confirmed < VPAdenMission::Complete) DrawMarker(Aden->Objective, Accent);
+        if (Aden->bDispatchActive ? VPAdenDispatch::HasObjective(Aden->Dispatch) : Aden->Confirmed < VPAdenMission::Complete)
+            DrawMarker(Aden->Objective, Accent);
         if (Aden->AvailableNote != VPAdenMission::None) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
     }
     const FVector2D Here = Pixel(Player);

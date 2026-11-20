@@ -77,8 +77,9 @@ public:
     void RequestInteraction() { TryInteract(); }
     void RequestPrimaryAction() { TryTag(); }
     void ReleaseDesktopActions() { EndSprint(); }
-    void ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete);
+    void ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete, int32 Survivors);
     const TArray<FVPRoundReviewSample>& GetRoundReview() const { return OwnRoundReview; }
+    int32 GetRoundPlacement() const { return OwnRoundPlacement; }
 
 protected:
     // Derived from physical world position on both client and server;
@@ -124,6 +125,9 @@ private:
     // Only the final result is replicated, once and to this pawn's owner.
     UPROPERTY(Replicated)
     TArray<FVPRoundReviewSample> OwnRoundReview;
+    UPROPERTY(Replicated)
+    int32 OwnRoundPlacement = 0;
+    int32 PendingRoundPlacement = 0;
     TArray<FVPRoundReviewSample> PendingRoundReview;
     bool bRoundReviewClosed = false;
 };

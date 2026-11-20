@@ -158,7 +158,7 @@ void AVPGameMode::Tick(float DeltaSeconds)
             ReviewNextSampleAt = Now + 3.;
 
         for (AVPCharacter* Pawn : Participants)
-            Pawn->ObserveRoundReview(ElapsedMs, bSample, bRoundComplete);
+            Pawn->ObserveRoundReview(ElapsedMs, bSample, bRoundComplete, Living);
         if (!bRoundComplete) TickRoundDiagnostic(Participants, Now);
     }
 }

@@ -332,6 +332,15 @@ bool AVPAdenSourceWorld::BuildSource()
     RegisterLeg(4, VPAdenDispatchData::FromWitness);
     RegisterLeg(5, VPAdenDispatchData::FromNotice);
     RegisterLeg(6, VPAdenDispatchData::Handoff);
+    const auto ReverseLeg = [](const TArray<FVector>& Forward, TArray<FVector>& Reverse)
+    {
+        Reverse.Reserve(Forward.Num());
+        for (int32 Index = Forward.Num() - 1; Index >= 0; --Index)
+            Reverse.Add(Forward[Index]);
+    };
+    ReverseLeg(DispatchLegs[6], FollowupToLedger);
+    ReverseLeg(DispatchLegs[4], FollowupToPublicCopy);
+    ReverseLeg(DispatchLegs[5], FollowupToDeskCopy);
     SourceRevision = MoveTemp(Geometry.Revision);
     UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: 49 tiles, %d roads, %d footprints (%s)"),
         Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
@@ -358,6 +367,11 @@ const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState St
     case Choose: return DispatchLegs[1];
     case Verify: return DispatchLegs[bWitness ? 2 : 3];
     case Compare: return DispatchLegs[bWitness ? 4 : 5];
+    case Complete:
+        if (State.Followup == ReturnToLedger) return FollowupToLedger;
+        if (State.Followup >= DeliverCorrection)
+            return State.Disposition == PublicUpdate ? FollowupToPublicCopy : FollowupToDeskCopy;
+        return DispatchLegs[6];
     default: return DispatchLegs[6];
     }
 }
@@ -366,7 +380,11 @@ FVector AVPAdenSourceWorld::DispatchResume(VPAdenDispatch::FState State) const
 {
     const auto& Leg = DispatchLeg(State);
     if (Leg.IsEmpty()) return Station(0);
-    return State.Phase == VPAdenDispatch::Complete ? Leg.Last() : Leg[0];
+    using namespace VPAdenDispatch;
+    if (State.Phase == Complete && State.Followup == FollowupReady)
+        return Leg.Last() - (Leg.Last() - Leg[Leg.Num() - 2]).GetSafeNormal() * 145.;
+    if (State.Phase == Complete && State.Followup == FollowupComplete) return Leg.Last();
+    return Leg[0];
 }
 
 namespace

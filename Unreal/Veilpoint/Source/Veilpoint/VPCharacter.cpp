@@ -63,14 +63,18 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     // finite battery telemetry. Keep 96-player replication bounded.
     DOREPLIFETIME_CONDITION(AVPCharacter, FieldLightSecondsRemaining, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundReview, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundPlacement, COND_OwnerOnly);
 }
 
-void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete)
+void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete, int32 Survivors)
 {
     if (!HasAuthority() || !GetController() || !GetController()->IsPlayerController()) return;
     if (!bRoundReviewClosed)
     {
         const bool bFinalPoint = !IsAlive() || bComplete;
+        // Eliminations observed in the same server update share a placement.
+        if (bFinalPoint)
+            PendingRoundPlacement = IsAlive() ? 1 : Survivors + 1;
         constexpr int32 MaxSamples = 601;
         if (bFinalPoint || (bSample && PendingRoundReview.Num() < MaxSamples - 1))
         {
@@ -84,6 +88,7 @@ void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bCompl
     if (bComplete)
     {
         OwnRoundReview = MoveTemp(PendingRoundReview);
+        OwnRoundPlacement = PendingRoundPlacement;
         ForceNetUpdate();
     }
 }

@@ -78,6 +78,20 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           assert(d::Advance(internal, d::EInput::OptionOne, true) == d::EResult::Ignored);
           assert(d::Advance(session, d::EInput::OptionOne, true) == d::EResult::Advanced);
           assert(session.Phase == d::Complete && session.Route == d::PublicNotice && session.Disposition == d::PublicUpdate);
+          assert(!d::Valid({d::Publish, d::Witness, d::Unfiled, d::ReturnToLedger}));
+          assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::FollowupComplete + 1}));
+          for (auto finished : {session, internal}) {
+            const auto migrated = d::Restore(4, finished);
+            assert(migrated.Followup == d::FollowupReady && d::HasObjective(migrated));
+            for (int step = d::ReturnToLedger; step <= d::FollowupComplete; ++step) {
+              assert(d::Advance(finished, d::EInput::FileInternally, true) == d::EResult::Ignored);
+              assert(d::Advance(finished, d::EInput::Interact, false) == d::EResult::Advanced);
+              assert(finished.Followup == step && finished.Disposition == migrated.Disposition);
+              assert(d::Valid(d::Restore(5, finished)));
+            }
+            assert(!d::HasObjective(finished));
+            assert(d::Advance(finished, d::EInput::Interact, false) == d::EResult::Ignored);
+          }
         }
         using namespace VPAdenMission;
         static_assert(ValidCheckpoint(1, {2, None}));
