@@ -440,6 +440,12 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("filledFootprints"), Source->FilledFootprints());
         Report->SetNumberField(TEXT("footprintFillTriangles"), Source->FootprintFillTriangles());
         Report->SetNumberField(TEXT("overlayMaxGapErrorCm"), Source->OverlayMaxGapError());
+        Report->SetNumberField(TEXT("overlaySectors"), Source->PopulatedOverlaySectors());
+        Report->SetNumberField(TEXT("largestOverlaySectorTriangles"), Source->LargestOverlaySectorTriangles());
+        Report->SetNumberField(TEXT("blockerTriangles"), Source->FootprintBlockerTriangles());
+        Report->SetNumberField(TEXT("blockerBaseGapErrorCm"), Source->BlockerBaseGapError());
+        Report->SetNumberField(TEXT("blockerCollisionProbes"), Source->FootprintCollisionProbeCount());
+        Report->SetNumberField(TEXT("blockerCollisionProbesPassed"), Source->VerifyFootprintCollision(Pawn));
         if (bPassed && BackdropTriangles > 0 && RoadTriangles > 0 && FootprintTriangles > 0)
         {
             const FTransform Original = DiagnosticCapture->GetRelativeTransform();

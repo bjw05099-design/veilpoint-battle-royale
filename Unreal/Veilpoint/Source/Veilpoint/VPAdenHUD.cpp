@@ -7,6 +7,7 @@
 #include "VPCharacter.h"
 #include "Engine/Canvas.h"
 #include "Engine/Texture2D.h"
+#include <cmath>
 
 void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn, int32 Page, int32 Zoom)
 {
@@ -47,6 +48,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const auto UV = Full.Normalized({Crop.West, Crop.North});
     DrawTexture(Map, MapX, MapY, MapW, MapH, UV.X, UV.Y,
         Crop.Width() / Full.Width(), Crop.Height() / Full.Height(), FLinearColor::White, BLEND_Opaque);
+    const int32 ScaleMetres = VPAdenAtlas::ScaleBarMetres(Crop);
 
     const auto Pixel = [&](const VPAdenAtlas::FPoint& Point)
     {
@@ -65,6 +67,23 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawLine(B.X, A.Y, B.X, B.Y, Accent, 2.f);
         DrawLine(B.X, B.Y, A.X, B.Y, Accent, 2.f);
         DrawLine(A.X, B.Y, A.X, A.Y, Accent, 2.f);
+    }
+    else
+    {
+        const double GridStep = 100. * ScaleMetres;
+        const FLinearColor Grid(.85f, .90f, .88f, .19f);
+        for (double GridX = Full.West + std::ceil((Crop.West - Full.West) / GridStep) * GridStep;
+             GridX < Crop.East; GridX += GridStep)
+        {
+            const double PX = Pixel({GridX, Crop.North}).X;
+            DrawLine(PX, MapY, PX, MapY + MapH, Grid);
+        }
+        for (double GridY = Full.North + std::ceil((Crop.North - Full.North) / GridStep) * GridStep;
+             GridY < Crop.South; GridY += GridStep)
+        {
+            const double PY = Pixel({Crop.West, GridY}).Y;
+            DrawLine(MapX, PY, MapX + MapW, PY, Grid);
+        }
     }
     const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
     {
@@ -110,13 +129,14 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(TEXT("N"), Ink, CompassX, CompassY + 3.f * Scale, nullptr, .78f * Scale);
 
     const double WidthMetres = Crop.Width() / 100.;
-    const int32 ScaleMetres = bRegional ? 5000 : WidthMetres > 700. ? 100 : 25;
     const float Bar = float(MapW * ScaleMetres / WidthMetres);
     const float BarY = MapY + MapH - 11.f * Scale, BarX = MapX + 12.f * Scale;
     DrawRect(FLinearColor(.01f, .03f, .038f, .94f), BarX - 7.f * Scale, BarY - 24.f * Scale,
         FMath::Max(Bar + 14.f * Scale, 86.f * Scale), 32.f * Scale);
     DrawLine(BarX, BarY, BarX + Bar, BarY, Ink, 2.f);
-    DrawText(bRegional ? TEXT("5 km") : FString::Printf(TEXT("%d m"), ScaleMetres),
+    const FString ScaleLabel = ScaleMetres >= 1000 ? FString::Printf(TEXT("%g km"), ScaleMetres / 1000.)
+                                                  : FString::Printf(TEXT("%d m"), ScaleMetres);
+    DrawText(ScaleLabel,
         Ink, BarX, BarY - 19.f * Scale, nullptr, .68f * Scale);
     if (bSide)
     {

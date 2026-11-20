@@ -4,6 +4,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Sound/SoundBase.h"
 #include "Engine/Texture2D.h"
@@ -29,6 +30,8 @@ constexpr int32 OriginX = int32(VPAdenAtlas::Local.West);
 constexpr int32 OriginY = int32(VPAdenAtlas::Local.North);
 constexpr int32 Width = (Side - 1) * Spacing;
 static_assert(Width == int32(VPAdenAtlas::Local.Width()));
+static_assert(Side - 1 == VPAdenDrape::CellsPerSector * VPAdenDrape::SectorsPerAxis);
+constexpr int32 SurfaceSectors = VPAdenDrape::SectorsPerAxis * VPAdenDrape::SectorsPerAxis;
 constexpr uint32 RoadCount = 183;
 constexpr uint32 FootprintCount = 4865;
 constexpr int32 SegmentSize = 480;
@@ -343,11 +346,13 @@ FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, co
 }
 
 template <std::size_t CornerCount>
-void AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::FPoint, CornerCount>& Corners,
-    double Lift, const FLinearColor& Color, FMesh& Surface, double& MaxGapError)
+int32 AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::FPoint, CornerCount>& Corners,
+    double Lift, const FLinearColor& Color, TArray<FMesh>& Surfaces, double& MaxGapError)
 {
-    VPAdenDrape::DrapeConvex(Corners, VPAdenAtlas::Local, Spacing, [&](const VPAdenDrape::FPolygon& Polygon)
+    int32 Added = 0;
+    VPAdenDrape::DrapeConvex(Corners, VPAdenAtlas::Local, Spacing, [&](const VPAdenDrape::FPolygon& Polygon, int32 X, int32 Y)
     {
+        auto& Surface = Surfaces[VPAdenDrape::SectorIndex(X, Y)];
         TArray<FVector, TInlineAllocator<12>> Positions;
         for (int32 I = 0; I < Polygon.Count; ++I)
         {
@@ -362,6 +367,7 @@ void AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::F
             if (Cross.Z <= .00001) continue;
             Normal = Cross.GetSafeNormal();
             Surface.Triangles.Append({First, First + I, First + I + 1});
+            ++Added;
             const FVector Centre = (Positions[0] + Positions[I] + Positions[I + 1]) / 3.;
             MaxGapError = FMath::Max(MaxGapError,
                 FMath::Abs(Centre.Z - Geometry.Height(FVector2D(Centre)) - Lift));
@@ -374,14 +380,17 @@ void AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::F
             Surface.Colors.Add(Color);
         }
     });
+    return Added;
 }
 
-void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprints, FMesh& Lines, FMesh& Blockers, double& MaxGapError)
+int32 AddShapeOutlines(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprints,
+    TArray<FMesh>& Surfaces, double& MaxGapError)
 {
     const double HalfWidth = bFootprints ? 14. : 21.;
     const double Lift = bFootprints ? 8. : 10.;
     const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f) : FLinearColor(.91f, .79f, .46f, 0.f);
     const auto Point = [](const FVector2D& P) { return VPAdenAtlas::FPoint{P.X, P.Y}; };
+    int32 Added = 0;
     for (const auto& Shape : Shapes)
     {
         const int32 Segments = Shape.Num() - (bFootprints ? 0 : 1);
@@ -398,22 +407,14 @@ void AddShapes(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprint
                 const std::array<VPAdenAtlas::FPoint, 4> Corners{
                     Point(From + Left), Point(From - Left), Point(To - Left), Point(To + Left)
                 };
-                AddDrapedSurface(Geometry, Corners, Lift, Color, Lines, MaxGapError);
-                if (bFootprints)
-                {
-                    // Invisible, two-sided gameplay exclusion at mapped boundaries.
-                    // The visible footprint stays on the ground; heights are unknown.
-                    const FVector Lo = Geometry.Position(From, -80.), Hi = Geometry.Position(To, -80.);
-                    const FVector BlockerRise(0., 0., 650.);
-                    Blockers.Quad(Lo, Hi, Lo + BlockerRise, Hi + BlockerRise, Color);
-                    Blockers.Quad(Hi, Lo, Hi + BlockerRise, Lo + BlockerRise, Color);
-                }
+                Added += AddDrapedSurface(Geometry, Corners, Lift, Color, Surfaces, MaxGapError);
             }
         }
     }
+    return Added;
 }
 
-int32 AddFootprintFill(const FGeometry& Geometry, FMesh& Surface, double& MaxGapError)
+int32 AddFootprintFill(const FGeometry& Geometry, TArray<FMesh>& Surfaces, double& MaxGapError, int32& FaceCount)
 {
     const FLinearColor FillTint(.24f, .17f, .12f, 0.f);
     int32 Filled = 0;
@@ -423,17 +424,54 @@ int32 AddFootprintFill(const FGeometry& Geometry, FMesh& Surface, double& MaxGap
         Ring.Reset(Shape.Num());
         for (const FVector2D& P : Shape)
             Ring.Add({P.X, P.Y});
-        const int32 First = Surface.Triangles.Num();
+        int32 Added = 0;
         for (const auto& Indices : VPAdenFootprint::Triangulate(Ring.GetData(), Ring.Num()))
         {
             const std::array<VPAdenAtlas::FPoint, 3> Triangle{
                 Ring[Indices[0]], Ring[Indices[1]], Ring[Indices[2]]
             };
-            AddDrapedSurface(Geometry, Triangle, 4., FillTint, Surface, MaxGapError);
+            Added += AddDrapedSurface(Geometry, Triangle, 4., FillTint, Surfaces, MaxGapError);
         }
-        if (Surface.Triangles.Num() > First) ++Filled;
+        if (Added > 0) ++Filled;
+        FaceCount += Added;
     }
     return Filled;
+}
+
+FMesh FootprintBlockers(const FGeometry& Geometry, TArray<TPair<FVector, FVector>>& Probes, double& MaxBaseError)
+{
+    FMesh Blockers;
+    const FVector Rise(0., 0., 650.);
+    int32 NextProbe = 0;
+    for (int32 Item = 0; Item < Geometry.Footprints.Num(); ++Item)
+    {
+        const auto& Ring = Geometry.Footprints[Item];
+        for (int32 I = 0; I < Ring.Num(); ++I)
+        {
+            const FVector2D A = Ring[I], B = Ring[(I + 1) % Ring.Num()];
+            if (A.Equals(B, .001)) continue;
+            const auto Breaks = VPAdenDrape::SegmentBreaks({A.X, A.Y}, {B.X, B.Y}, VPAdenAtlas::Local, Spacing);
+            FVector Previous = Geometry.Position(A, -80.);
+            for (std::size_t Segment = 1; Segment < Breaks.size(); ++Segment)
+            {
+                const FVector EndPoint = Geometry.Position(FMath::Lerp(A, B, Breaks[Segment]), -80.);
+                Blockers.Quad(Previous, EndPoint, Previous + Rise, EndPoint + Rise, FLinearColor::White);
+                Blockers.Quad(EndPoint, Previous, EndPoint + Rise, Previous + Rise, FLinearColor::White);
+                const FVector Midpoint = (Previous + EndPoint) * .5;
+                MaxBaseError = FMath::Max(MaxBaseError, FMath::Abs(Midpoint.Z + 80. - Geometry.Height(FVector2D(Midpoint))));
+                Previous = EndPoint;
+            }
+            if (Item >= NextProbe && FVector2D::Distance(A, B) >= 300.)
+            {
+                const FVector2D Direction = (B - A).GetSafeNormal();
+                const FVector Normal(-Direction.Y, Direction.X, 0.);
+                const FVector Midpoint = Geometry.Position((A + B) * .5, 200.);
+                Probes.Emplace(Midpoint - Normal * 110., Midpoint + Normal * 110.);
+                NextProbe = Item + 600;
+            }
+        }
+    }
+    return Blockers;
 }
 }
 
@@ -491,17 +529,22 @@ bool AVPAdenSourceWorld::BuildSource()
     RegionalBackdrop = AddMesh(Backdrop, false, true, VPAdenAtlas::Region, RegionalMaterial);
     // The panorama does not contribute to local collision or dynamic shadows.
     RegionalBackdrop->SetCastShadow(false);
-    FMesh Lines, Blockers;
-    AddShapes(Geometry, Geometry.Roads, false, Lines, Blockers, MaxOverlayGapError);
-    RoadTriangleCount = Lines.Triangles.Num() / 3;
-    AddShapes(Geometry, Geometry.Footprints, true, Lines, Blockers, MaxOverlayGapError);
-    FootprintTriangleCount = Lines.Triangles.Num() / 3 - RoadTriangleCount;
-    const int32 OutlineTriangles = Lines.Triangles.Num() / 3;
-    FilledFootprintCount = AddFootprintFill(Geometry, Lines, MaxOverlayGapError);
-    FootprintFillTriangleCount = Lines.Triangles.Num() / 3 - OutlineTriangles;
-    Lines.ReverseRenderWinding();
-    AddMesh(Lines, false, true)->SetCastShadow(false);
-    AddMesh(Blockers, true, false);
+    TArray<FMesh> Surfaces;
+    Surfaces.SetNum(SurfaceSectors);
+    RoadTriangleCount = AddShapeOutlines(Geometry, Geometry.Roads, false, Surfaces, MaxOverlayGapError);
+    FootprintTriangleCount = AddShapeOutlines(Geometry, Geometry.Footprints, true, Surfaces, MaxOverlayGapError);
+    FilledFootprintCount = AddFootprintFill(Geometry, Surfaces, MaxOverlayGapError, FootprintFillTriangleCount);
+    for (auto& Surface : Surfaces)
+    {
+        if (Surface.Triangles.IsEmpty()) continue;
+        ++OverlaySectorCount;
+        LargestOverlaySector = FMath::Max(LargestOverlaySector, Surface.Triangles.Num() / 3);
+        Surface.ReverseRenderWinding();
+        AddMesh(Surface, false, true)->SetCastShadow(false);
+    }
+    const FMesh Blockers = FootprintBlockers(Geometry, BlockerProbes, MaxBlockerBaseError);
+    BlockerTriangleCount = Blockers.Triangles.Num() / 3;
+    FootprintCollision = AddMesh(Blockers, true, false);
 
     const FVector2D Centre(OriginX + Width / 2, OriginY + Width / 2);
     for (int32 Axis = 0; Axis < 2; ++Axis)
@@ -553,6 +596,24 @@ int32 AVPAdenSourceWorld::RegionalBackdropTriangles() const
         || RegionalBackdrop->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return 0;
     const auto* Section = RegionalBackdrop->GetProcMeshSection(0);
     return Section ? Section->ProcIndexBuffer.Num() / 3 : 0;
+}
+
+int32 AVPAdenSourceWorld::VerifyFootprintCollision(const AActor* Ignore) const
+{
+    int32 Passed = 0;
+    const UWorld* World = GetWorld();
+    if (!World || !FootprintCollision) return Passed;
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenFootprintProbe), true, Ignore);
+    const auto HitsFootprint = [&](const FVector& Start, const FVector& End)
+    {
+        FHitResult Hit;
+        return World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)
+            && Hit.GetComponent() == FootprintCollision.Get();
+    };
+    for (const auto& Probe : BlockerProbes)
+        if (HitsFootprint(Probe.Key, Probe.Value) && HitsFootprint(Probe.Value, Probe.Key))
+            ++Passed;
+    return Passed;
 }
 
 FVector AVPAdenSourceWorld::Station(int32 Index) const

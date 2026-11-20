@@ -34,6 +34,12 @@ public:
     int32 FilledFootprints() const { return FilledFootprintCount; }
     int32 FootprintFillTriangles() const { return FootprintFillTriangleCount; }
     double OverlayMaxGapError() const { return MaxOverlayGapError; }
+    int32 PopulatedOverlaySectors() const { return OverlaySectorCount; }
+    int32 LargestOverlaySectorTriangles() const { return LargestOverlaySector; }
+    int32 FootprintBlockerTriangles() const { return BlockerTriangleCount; }
+    double BlockerBaseGapError() const { return MaxBlockerBaseError; }
+    int32 FootprintCollisionProbeCount() const { return BlockerProbes.Num(); }
+    int32 VerifyFootprintCollision(const AActor* Ignore) const;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
@@ -65,6 +71,9 @@ private:
     TArray<TObjectPtr<UStaticMeshComponent>> FieldStationParts;
     UPROPERTY(Transient)
     TObjectPtr<UProceduralMeshComponent> RegionalBackdrop;
+    UPROPERTY(Transient)
+    TObjectPtr<UProceduralMeshComponent> FootprintCollision;
+    TArray<TPair<FVector, FVector>> BlockerProbes;
     FString SourceRevision;
     TArray<FVector> Stations;
     TArray<FVector> DispatchLegs[7];
@@ -77,4 +86,8 @@ private:
     int32 FilledFootprintCount = 0;
     int32 FootprintFillTriangleCount = 0;
     double MaxOverlayGapError = 0.;
+    int32 OverlaySectorCount = 0;
+    int32 LargestOverlaySector = 0;
+    int32 BlockerTriangleCount = 0;
+    double MaxBlockerBaseError = 0.;
 };
