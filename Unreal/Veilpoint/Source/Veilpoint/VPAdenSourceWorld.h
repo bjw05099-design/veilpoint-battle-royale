@@ -59,5 +59,8 @@ private:
     FString SourceRevision;
     TArray<FVector> Stations;
     TArray<FVector> DispatchLegs[7];
+    TArray<FVector> FollowupToLedger;
+    TArray<FVector> FollowupToPublicCopy;
+    TArray<FVector> FollowupToDeskCopy;
     bool bAttempted = false;
 };

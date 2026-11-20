@@ -540,17 +540,17 @@ void AVPPlayerController::TickBRDiagnostic()
             for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
             {
                 if (*It == LocalBRPawn) continue;
-                if (!It->GetRoundReview().IsEmpty()) return;
+                if (!It->GetRoundReview().IsEmpty() || It->GetRoundPlacement() != 0) return;
                 ++Others;
             }
-            if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1) return;
-            UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: ready gate and owner-only finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
+            if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 1) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: owner-only place #1 and finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + .25;
         }
         else if (GetNetMode() == NM_ListenServer)
         {
-            if (LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1) return;
-            UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: two ready participants and final round (%d samples)"), LocalBRPawn->GetRoundReview().Num());
+            if (LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 2) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: authoritative place #2 and finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + 4.;
         }
         bBRProofPrinted = true;

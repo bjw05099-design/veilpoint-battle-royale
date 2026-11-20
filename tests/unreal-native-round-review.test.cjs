@@ -11,10 +11,11 @@ test('Unreal BR takes movement from the server and publishes only the completed 
   const mode = source('VPGameMode.cpp');
   assert.match(mode, /if\(!HasAuthority\(\)\|\|bRoundComplete\)return/);
   assert.match(mode, /ReviewNextSampleAt = Now \+ 3\./);
-  assert.match(mode, /ObserveRoundReview\(ElapsedMs, bSample, bRoundComplete\)/);
+  assert.match(mode, /ObserveRoundReview\(ElapsedMs, bSample, bRoundComplete, Living\)/);
 
   const character = source('VPCharacter.cpp');
   assert.match(character, /DOREPLIFETIME_CONDITION\(AVPCharacter, OwnRoundReview, COND_OwnerOnly\)/);
+  assert.match(character, /DOREPLIFETIME_CONDITION\(AVPCharacter, OwnRoundPlacement, COND_OwnerOnly\)/);
   assert.doesNotMatch(character, /DOREPLIFETIME\(AVPCharacter, (Own|Pending)RoundReview\)/);
   const recording = character.slice(character.indexOf('void AVPCharacter::ObserveRoundReview'),
       character.indexOf('void AVPCharacter::SetupPlayerInputComponent'));
@@ -22,6 +23,8 @@ test('Unreal BR takes movement from the server and publishes only the completed 
   assert.match(recording, /GetActorLocation\(\)/);
   assert.match(recording, /bFinalPoint = !IsAlive\(\) \|\| bComplete/);
   assert.match(recording, /if \(bComplete\)\s*\{\s*OwnRoundReview = MoveTemp\(PendingRoundReview\)/);
+  assert.match(recording, /PendingRoundPlacement = IsAlive\(\) \? 1 : Survivors \+ 1/);
+  assert.match(recording, /OwnRoundPlacement = PendingRoundPlacement/);
   assert.doesNotMatch(source('VPCharacter.h'), /UFUNCTION\(Server[^)]*\)\s*void ObserveRoundReview/);
 });
 

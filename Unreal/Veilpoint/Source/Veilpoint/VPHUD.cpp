@@ -700,7 +700,9 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         TEXT("Salma received the record. The missing are still unaccounted for.")
     };
     const bool bDispatch = Aden->bDispatchActive;
-    const bool bPending = bDispatch ? Aden->Dispatch.Phase < VPAdenDispatch::Complete
+    const bool bFollowup = bDispatch && Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady;
+    const bool bFollowupReady = bDispatch && !bFollowup && Aden->Dispatch.Phase == VPAdenDispatch::Complete;
+    const bool bPending = bDispatch ? VPAdenDispatch::HasObjective(Aden->Dispatch)
         : Confirmed < VPAdenMission::Complete;
     const FVector Objective = Aden->Objective;
     const double Distance = bPending ? FVector::Dist2D(Pawn->GetActorLocation(), Objective) / 100. : 0.;
@@ -722,13 +724,18 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const FLinearColor Note(.42f, .83f, .79f);
     const float JournalTop = (bHasNote || bDispatch) ? 136.f : 116.f;
     DrawRect(Plate, X, Y, Width, (bJournalOpen ? JournalTop + 120.f : JournalTop - 7.f) * Scale);
-    DrawText(bDispatch ? TEXT("VEILPOINT  /  CH02  /  OPEN CHANNEL")
+    DrawText(bFollowup ? TEXT("VEILPOINT  /  CH03  /  NIGHT ROSTER")
+        : bDispatch ? TEXT("VEILPOINT  /  CH02  /  OPEN CHANNEL")
         : TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
         X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
     DrawText(bDispatch ? VPAdenDispatch::Objective(Aden->Dispatch) : Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
-    const int32 Total = bDispatch ? VPAdenDispatch::Complete : VPAdenMission::Complete;
-    const int32 Done = bDispatch ? Aden->Dispatch.Phase : Confirmed;
-    const FString Status = bPending
+    const int32 Total = bFollowup ? int32(VPAdenDispatch::FollowupComplete)
+        : bDispatch ? int32(VPAdenDispatch::Complete) : VPAdenMission::Complete;
+    const int32 Done = bFollowup ? Aden->Dispatch.Followup : bDispatch ? Aden->Dispatch.Phase : Confirmed;
+    const FString Status = bFollowupReady ? FString(TEXT("5 / 5 filed  |  F speak to Salma  |  J notes  |  M map"))
+        : bFollowup && bPending
+            ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done, Total, Distance)
+        : bPending
         ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done + 1, Total, Distance)
         : FString::Printf(TEXT("%d / %d confirmed  |  J notes  |  M map"), Done, Total);
     DrawText(Status, Ink, X + 12.f * Scale, Y + 58.f * Scale, nullptr, .81f * Scale);
@@ -737,10 +744,12 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     if (bDispatch)
     {
         const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Pawn->GetActorLocation());
-        const FString GuideText = bPending
+        const FString GuideText = !Aden->ActiveLeg.IsEmpty()
             ? FString::Printf(TEXT("Walking leg %.0fm  |  %.0fm off centreline  |  F6 save  F7 return"),
                 Guide.RemainingCm / 100., Guide.OffsetCm / 100.)
-            : FString::Printf(TEXT("%s  |  F6 save  F7 return"), VPAdenDispatch::DispositionLine(Aden->Dispatch));
+            : FString::Printf(TEXT("%s  |  F6 save  F7 return"),
+                bFollowup ? VPAdenDispatch::FollowupJournalLine(Done, Aden->Dispatch)
+                          : VPAdenDispatch::DispositionLine(Aden->Dispatch));
         DrawText(GuideText, Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .70f * Scale);
     }
     if (bHasNote)
@@ -751,7 +760,15 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawText(FString::Printf(TEXT("%s  |  %.1f m"), Name, NoteDistance),
             Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .73f * Scale);
     }
-    if (bJournalOpen && bDispatch)
+    if (bJournalOpen && bFollowup)
+    {
+        DrawText(VPAdenDispatch::DispositionLine(Aden->Dispatch), Note,
+            X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
+        for (int32 Step = VPAdenDispatch::ReturnToLedger; Step <= Done; ++Step)
+            DrawText(VPAdenDispatch::FollowupJournalLine(Step, Aden->Dispatch), Ink,
+                X + 12.f * Scale, Y + (JournalTop + Step * 20.f) * Scale, nullptr, .77f * Scale);
+    }
+    if (bJournalOpen && bDispatch && !bFollowup)
     {
         for (int32 I = 0; I < Done; ++I)
             DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch), Ink,
@@ -850,15 +867,17 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
         Top + 12.f * Scale, nullptr, Scale);
     if (const auto* RoundState = GetWorld()->GetGameState<AVPGameState>())
     {
-        const TCHAR* Result = Pawn->IsAlive() && RoundState->ActiveSurvivors == 1
-            ? TEXT("LAST SURVIVOR") : !Pawn->IsAlive() ? TEXT("ELIMINATED") : TEXT("ROUND CLOSED");
-        const FString Summary = FString::Printf(TEXT("%s  |  %d PLAYERS  |  %.1fs"),
-            Result, RoundState->JoinedPlayers, RoundState->RoundElapsedMs / 1000.);
+        const int32 Placement = Pawn->GetRoundPlacement();
+        const TCHAR* Result = Placement == 1 && RoundState->ActiveSurvivors == 1 ? TEXT("LAST SURVIVOR")
+            : Placement == 1 ? TEXT("TIED FIRST") : Placement > 1 ? TEXT("ELIMINATED") : TEXT("ROUND CLOSED");
+        const FString PlacementLabel = Placement > 0 ? FString::Printf(TEXT("  |  PLACE #%d"), Placement) : FString();
+        const FString Summary = FString::Printf(TEXT("%s%s  |  %d PLAYERS  |  %.1fs"),
+            Result, *PlacementLabel, RoundState->JoinedPlayers, RoundState->RoundElapsedMs / 1000.);
         DrawText(Summary, FLinearColor(.79f,.85f,.68f), Left + 18.f * Scale,
             Top + 39.f * Scale, nullptr, .75f * Scale);
     }
     const auto& Track = Pawn->GetRoundReview();
-    if (Track.IsEmpty())
+    if (Track.IsEmpty() || Pawn->GetRoundPlacement() <= 0)
     {
         DrawText(TEXT("Waiting for your verified movement record.  |  M close"), Ink,
             Left + 18.f * Scale, Top + 67.f * Scale, nullptr, .8f * Scale);

@@ -36,6 +36,17 @@ FGuide Guide(TConstArrayView<FVector> Leg, const FVector& Position)
 
 const TCHAR* Objective(FState State)
 {
+    if (State.Phase == Complete)
+    {
+        switch (State.Followup)
+        {
+        case FollowupReady: return TEXT("Speak to Salma about the reply");
+        case ReturnToLedger: return TEXT("Check the duplicate claim with Mara");
+        case DeliverCorrection: return State.Disposition == PublicUpdate
+            ? TEXT("Correct the public copy") : TEXT("Correct the desk copy");
+        default: return TEXT("Correction acknowledged");
+        }
+    }
     switch (State.Phase)
     {
     case Brief: return TEXT("Read the relief desk briefing");
@@ -49,6 +60,19 @@ const TCHAR* Objective(FState State)
 
 const TCHAR* CompletionLine(FState State)
 {
+    if (State.Phase == Complete && State.Followup != FollowupReady)
+    {
+        switch (State.Followup)
+        {
+        case ReturnToLedger:
+            return TEXT("Salma: A family asked why their request appears twice. Mara has both slips.");
+        case DeliverCorrection:
+            return TEXT("Mara: The second slip repeats the same call. Keep one open request.");
+        default: return State.Disposition == PublicUpdate
+            ? TEXT("Amina: I can see the correction. I'll tell my brother our request is still open.")
+            : TEXT("Yusuf: The desk copy is corrected. I'll call the family and read it back.");
+        }
+    }
     switch (State.Phase)
     {
     case Choose: return TEXT("Hyunji: The second report is still open. Pick one source to verify.");
@@ -62,6 +86,19 @@ const TCHAR* CompletionLine(FState State)
     default: return State.Disposition == InternalHandoff
         ? TEXT("Salma: The relief desk has the verified record. We'll contact families directly.")
         : TEXT("Salma: The delivery is on the public board. The missing reports stay open.");
+    }
+}
+
+const TCHAR* FollowupJournalLine(int Step, FState State)
+{
+    switch (Step)
+    {
+    case ReturnToLedger: return TEXT("Salma forwarded a family's question about two slips.");
+    case DeliverCorrection: return TEXT("The two slips refer to one open request.");
+    case FollowupComplete: return State.Disposition == PublicUpdate
+        ? TEXT("Amina read the correction on the public copy.")
+        : TEXT("Yusuf acknowledged the correction at the desk.");
+    default: return TEXT("");
     }
 }
 
