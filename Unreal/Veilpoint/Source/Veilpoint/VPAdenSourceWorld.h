@@ -9,6 +9,7 @@ class UMaterialInterface;
 class UTexture2D;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UProceduralMeshComponent;
 class USoundBase;
 
 UCLASS()
@@ -27,6 +28,7 @@ public:
     USoundBase* GetDossierSound() const;
     USoundBase* GetStepSound(int32 Index) const;
     const FString& Revision() const { return SourceRevision; }
+    int32 RegionalBackdropTriangles() const;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
@@ -56,6 +58,8 @@ private:
     void CreateFieldStations();
     UPROPERTY(Transient)
     TArray<TObjectPtr<UStaticMeshComponent>> FieldStationParts;
+    UPROPERTY(Transient)
+    TObjectPtr<UProceduralMeshComponent> RegionalBackdrop;
     FString SourceRevision;
     TArray<FVector> Stations;
     TArray<FVector> DispatchLegs[7];

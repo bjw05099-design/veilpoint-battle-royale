@@ -9,6 +9,8 @@ on:
       - scripts/export-aden-civilian-osm.py
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
+      - scripts/build-native-aden-region.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
       - scripts/build-native-aden-atlas.py
       - scripts/build-native-aden-dispatch.py
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenDispatchRouteData.h
@@ -23,6 +25,8 @@ on:
       - scripts/export-aden-civilian-osm.py
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
+      - scripts/build-native-aden-region.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
       - scripts/build-native-aden-atlas.py
       - scripts/build-native-aden-dispatch.py
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenDispatchRouteData.h
@@ -71,6 +75,8 @@ jobs:
         run: |
           python scripts/build-native-aden-source.py dist/aden-source "$RUNNER_TEMP/VPAdenEmbedded.h"
           cmp "$RUNNER_TEMP/VPAdenEmbedded.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
+          python scripts/build-native-aden-region.py dist/aden-source "$RUNNER_TEMP/VPAdenRegionalData.h"
+          cmp "$RUNNER_TEMP/VPAdenRegionalData.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
           sha256sum "$RUNNER_TEMP/VPAdenEmbedded.h"
       - name: Verify follow-up routes against registered public roads and clearance
         run: |
