@@ -32,6 +32,8 @@ constexpr int32 Width = (Side - 1) * Spacing;
 static_assert(Width == int32(VPAdenAtlas::Local.Width()));
 static_assert(Side - 1 == VPAdenDrape::CellsPerSector * VPAdenDrape::SectorsPerAxis);
 constexpr int32 SurfaceSectors = VPAdenDrape::SectorsPerAxis * VPAdenDrape::SectorsPerAxis;
+constexpr int32 SectorCells = VPAdenDrape::CellsPerSector;
+constexpr int32 SectorSide = SectorCells + 1;
 constexpr uint32 RoadCount = 183;
 constexpr uint32 FootprintCount = 4865;
 constexpr int32 SegmentSize = 480;
@@ -211,11 +213,11 @@ FMesh TerrainMesh(const FGeometry& Geometry)
             const double DX = (Geometry.At(FMath::Min(X + 1, Side - 1), Y) - Geometry.At(FMath::Max(0, X - 1), Y)) / (2. * Spacing);
             const double DY = (Geometry.At(X, FMath::Min(Y + 1, Side - 1)) - Geometry.At(X, FMath::Max(0, Y - 1))) / (2. * Spacing);
             Mesh.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
-            const float Slope = FMath::Clamp(float(FMath::Abs(DX) + FMath::Abs(DY)), 0.f, 1.f);
+            const float Slope = float(FMath::Sqrt(DX * DX + DY * DY));
             const float Height = FMath::Clamp(float(H / 18000.), 0.f, 1.f);
-            const FLinearColor Low(.51f, .36f, .22f), High(.33f, .28f, .19f);
-            const FLinearColor Color = FMath::Lerp(Low, High, Height);
-            FLinearColor Tint = FMath::Lerp(Color, High, Slope * .42f);
+            const FLinearColor Low(.51f, .36f, .22f), High(.40f, .31f, .22f), Steep(.29f, .25f, .20f);
+            const float Steepness = FMath::SmoothStep(.12f, .65f, Slope);
+            FLinearColor Tint = FMath::Lerp(FMath::Lerp(Low, High, Height), Steep, Steepness);
             Tint.A = FMath::Clamp(float(FMath::Min(FMath::Min(X, Side - 1 - X),
                 FMath::Min(Y, Side - 1 - Y))) / VPAdenRegionalGrid::Subdivisions, 0.f, 1.f);
             Mesh.Colors.Add(Tint);
@@ -223,6 +225,31 @@ FMesh TerrainMesh(const FGeometry& Geometry)
             {
                 const int32 A = Y * Side + X;
                 Mesh.Triangles.Append({A, A + 1, A + Side, A + 1, A + Side + 1, A + Side});
+            }
+        }
+    }
+    return Mesh;
+}
+
+FMesh TerrainRenderSector(const FMesh& Ground, int32 SectorX, int32 SectorY)
+{
+    FMesh Mesh;
+    Mesh.Vertices.Reserve(SectorSide * SectorSide);
+    Mesh.Normals.Reserve(SectorSide * SectorSide);
+    Mesh.Colors.Reserve(SectorSide * SectorSide);
+    Mesh.Triangles.Reserve(6 * SectorCells * SectorCells);
+    for (int32 Y = 0; Y < SectorSide; ++Y)
+    {
+        for (int32 X = 0; X < SectorSide; ++X)
+        {
+            const int32 Source = (SectorY * SectorCells + Y) * Side + SectorX * SectorCells + X;
+            Mesh.Vertices.Add(Ground.Vertices[Source]);
+            Mesh.Normals.Add(Ground.Normals[Source]);
+            Mesh.Colors.Add(Ground.Colors[Source]);
+            if (X < SectorCells && Y < SectorCells)
+            {
+                const int32 A = Y * SectorSide + X, B = A + 1, C = A + SectorSide, D = C + 1;
+                Mesh.Triangles.Append({A, C, B, B, C, D});
             }
         }
     }
@@ -516,12 +543,15 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->SetVisibility(bVisible);
         return Mesh;
     };
-    FMesh Terrain = TerrainMesh(Geometry);
-    AddMesh(Terrain, true, false);
-    // Keep the already verified physics triangles. The above-ground view
-    // uses its own Unreal render winding and up-facing vertex normals.
-    Terrain.ReverseRenderWinding();
-    AddMesh(Terrain, false, true);
+    const FMesh Terrain = TerrainMesh(Geometry);
+    TerrainCollision = AddMesh(Terrain, true, false);
+    // Share the global grid's vertex attributes while keeping one continuous physics surface.
+    TerrainSectors.Reserve(SurfaceSectors);
+    for (int32 Y = 0; Y < VPAdenDrape::SectorsPerAxis; ++Y)
+    {
+        for (int32 X = 0; X < VPAdenDrape::SectorsPerAxis; ++X)
+            TerrainSectors.Add(AddMesh(TerrainRenderSector(Terrain, X, Y), false, true));
+    }
     auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
     if (!RegionalMaterial) return false;
     RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
@@ -596,6 +626,69 @@ int32 AVPAdenSourceWorld::RegionalBackdropTriangles() const
         || RegionalBackdrop->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return 0;
     const auto* Section = RegionalBackdrop->GetProcMeshSection(0);
     return Section ? Section->ProcIndexBuffer.Num() / 3 : 0;
+}
+
+FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
+{
+    using namespace VPAdenWorld;
+    constexpr int32 Axis = VPAdenDrape::SectorsPerAxis;
+    FVPAdenTerrainCheck Result;
+    if (!TerrainCollision || TerrainSectors.Num() != SurfaceSectors) return Result;
+    const FProcMeshSection* Sections[SurfaceSectors];
+    for (int32 I = 0; I < SurfaceSectors; ++I)
+    {
+        const auto* Mesh = TerrainSectors[I].Get();
+        if (!Mesh || !Mesh->IsVisible() || Mesh->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return Result;
+        // GetProcMeshSection exposes the actual buffers consumed by the procedural mesh component.
+        const auto* Section = TerrainSectors[I]->GetProcMeshSection(0);
+        if (!Section || Section->ProcVertexBuffer.Num() != SectorSide * SectorSide) return Result;
+        const FVector Size = Section->SectionLocalBox.GetSize();
+        if (Size.X != SectorCells * Spacing || Size.Y != SectorCells * Spacing) return Result;
+        Sections[I] = Section;
+        ++Result.Sectors;
+        Result.Triangles += Section->ProcIndexBuffer.Num() / 3;
+    }
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenTerrainSeamProbe), true);
+    for (int32 I = 0; I < SurfaceSectors; ++I)
+    {
+        for (int32 AxisIndex = 0; AxisIndex < 2; ++AxisIndex)
+        {
+            const bool bVertical = AxisIndex == 0;
+            if ((bVertical ? I % Axis : I / Axis) == Axis - 1) continue;
+            const auto& First = Sections[I]->ProcVertexBuffer;
+            const auto& Next = Sections[I + (bVertical ? 1 : Axis)]->ProcVertexBuffer;
+            const int32 Edge = bVertical ? SectorCells : SectorCells * SectorSide;
+            const int32 Stride = bVertical ? SectorSide : 1;
+            bool bShared = true;
+            for (int32 V = 0; V < SectorSide; ++V)
+            {
+                const auto& A = First[Edge + V * Stride];
+                const auto& B = Next[V * Stride];
+                bShared &= A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color && A.UV0 == B.UV0;
+            }
+            if (bShared) ++Result.SharedEdges;
+
+            // Probe just inside each side of the seam using the adjacent rendered triangle's plane.
+            const int32 Middle = Edge + (SectorCells / 2) * Stride;
+            const FVector Along = First[Middle + Stride].Position - First[Middle].Position;
+            const FVector Delta[2] = {
+                First[Middle + Stride - (bVertical ? 1 : SectorSide)].Position - First[Middle + Stride].Position,
+                Next[(SectorCells / 2) * Stride + (bVertical ? 1 : SectorSide)].Position - First[Middle].Position
+            };
+            for (const FVector& Across : Delta)
+            {
+                const FVector Surface = First[Middle].Position + Along * .5 + Across * .005;
+                const FVector Up(0., 0., 100.);
+                FHitResult Hit;
+                if (TerrainCollision->LineTraceComponent(Hit, Surface + Up, Surface - Up, Params))
+                {
+                    ++Result.CollisionHits;
+                    Result.MaxCollisionError = FMath::Max(Result.MaxCollisionError, FMath::Abs(Hit.ImpactPoint.Z - Surface.Z));
+                }
+            }
+        }
+    }
+    return Result;
 }
 
 int32 AVPAdenSourceWorld::VerifyFootprintCollision(const AActor* Ignore) const
