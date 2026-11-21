@@ -13,11 +13,13 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
 {
     const bool bRegional = Page == 2;
     const auto* Source = Aden->Source.Get();
-    UTexture2D* Map = Source ? Source->AtlasTexture(bRegional) : nullptr;
+    const bool bDetailed = !bRegional && Zoom >= VPAdenAtlas::DetailZoomLevel && Source && Source->DetailReliefAtlas;
+    UTexture2D* Map = Source ? Source->AtlasTexture(bRegional, bDetailed) : nullptr;
     if (!Map) return;
 
     const FLinearColor Ink(.89f, .92f, .86f), Muted(.61f, .72f, .71f);
     const FLinearColor Accent(.94f, .76f, .44f), PlayerColor(.36f, .88f, .85f), Edge(.23f, .37f, .37f);
+    const FLinearColor RoadInk(.88f, .71f, .45f), RoadCasing(.19f, .14f, .085f), FootprintInk(.17f, .23f, .21f);
     const float Scale = FMath::Clamp(Canvas->ClipX / 1440.f, .70f, 1.55f);
     const float W = FMath::Min(1130.f * Scale, Canvas->ClipX - 35.f * Scale);
     const float H = FMath::Min(740.f * Scale, Canvas->ClipY - 36.f * Scale);
@@ -85,6 +87,26 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             const double PY = Pixel({Crop.West, GridY}).Y;
             DrawRect(Grid, MapX, PY, MapW, Stroke);
         }
+    }
+    if (bDetailed)
+    {
+        // Keep the screen-width strokes inside the map when the crop cuts a segment.
+        const double Margin = 2.1 * Scale * Crop.Width() / MapW;
+        const VPAdenAtlas::FExtent Strokes{Crop.West + Margin, Crop.North + Margin,
+            Crop.East - Margin, Crop.South - Margin};
+        const auto DrawStroke = [&](const FVPAdenAtlasLine& Line, FLinearColor Color, float Thickness)
+        {
+            const auto A = Pixel(Line.A), B = Pixel(Line.B);
+            DrawLine(A.X, A.Y, B.X, B.Y, Color, Thickness * Scale);
+        };
+        TArray<FVPAdenAtlasLine, TInlineAllocator<64>> Roads;
+        Source->VisitAtlasLines(Strokes, [&](const FVPAdenAtlasLine& Line)
+        {
+            if (Line.bRoad) Roads.Add(Line);
+            else DrawStroke(Line, FootprintInk, 1.4f);
+        });
+        for (const auto& Road : Roads) DrawStroke(Road, RoadCasing, 3.8f);
+        for (const auto& Road : Roads) DrawStroke(Road, RoadInk, 2.0f);
     }
     const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
     {
@@ -198,6 +220,13 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawText(TEXT("Copernicus GLO-30"), Muted, PanelX, PanelY + 192.f * Scale, nullptr, .72f * Scale);
         if (!bRegional)
             DrawText(TEXT("OpenStreetMap contributors"), Muted, PanelX, PanelY + 211.f * Scale, nullptr, .63f * Scale);
+        if (bDetailed)
+        {
+            DrawLine(PanelX, PanelY + 248.f * Scale, PanelX + 10.f * Scale, PanelY + 248.f * Scale, RoadInk, 2.f);
+            DrawText(TEXT("Public road centreline"), Ink, PanelX + 14.f * Scale, PanelY + 242.f * Scale, nullptr, .77f * Scale);
+            DrawLine(PanelX, PanelY + 271.f * Scale, PanelX + 10.f * Scale, PanelY + 271.f * Scale, FootprintInk, 2.f);
+            DrawText(TEXT("Building footprint"), Ink, PanelX + 14.f * Scale, PanelY + 265.f * Scale, nullptr, .77f * Scale);
+        }
     }
     DrawText(bRegional ? TEXT("M  Close map") : TEXT("Wheel  Zoom      M  Regional relief"),
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);

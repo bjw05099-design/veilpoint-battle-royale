@@ -60,6 +60,12 @@ if ($report.blockerTriangles -lt 4865 -or $null -eq $report.blockerBaseGapErrorC
     $report.blockerCollisionProbesPassed -ne $report.blockerCollisionProbes) {
     throw 'Aden footprint collision failed the ground alignment or two-sided traces.'
 }
+if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -or
+    $report.atlasDetailFootprintLines -le 0 -or $report.atlasDetailClipped -ne $true -or
+    $report.atlasDetailCandidates -ge ($report.atlasSourceLines / 2) -or
+    $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
+    throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
+}
 foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')

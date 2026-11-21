@@ -1,4 +1,4 @@
-"""Render the pinned public Aden geometry as two Unreal atlas textures."""
+"""Render the pinned public Aden geometry as Unreal atlas textures."""
 
 import argparse
 import hashlib
@@ -7,9 +7,6 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
-
-from aden_source_geometry import build
-
 
 def relief(samples, width, height, contour_step):
     y, x = np.mgrid[:height, :width]
@@ -35,7 +32,7 @@ def relief(samples, width, height, contour_step):
     return Image.fromarray(np.stack(rows, axis=2))
 
 
-def footprint_texture(data):
+def local_elevations(data):
     values = np.full((113, 113), np.nan)
     for tile in data["terrain"]["tiles"]:
         x = (tile["tx"] - 3) * 16
@@ -43,6 +40,10 @@ def footprint_texture(data):
         values[y:y + 17, x:x + 17] = np.asarray(tile["samples"], dtype=float).reshape(17, 17)
     if not np.isfinite(values).all():
         raise ValueError("Incomplete local atlas grid")
+    return values
+
+
+def footprint_texture(data, values):
     final_size = 768
     image = relief(values, final_size * 2, final_size * 2, 20)
     draw = ImageDraw.Draw(image)
@@ -57,26 +58,40 @@ def footprint_texture(data):
     return image.resize((final_size, final_size), Image.Resampling.BOX)
 
 
+def detail_texture(values):
+    # Match the whole-centimetre elevations in the native world payload.
+    return relief(np.rint(values * 100) / 100, 768, 768, 20)
+
+
+def save_layer(destination, name, image, bounds):
+    target = destination / name
+    image = image.quantize(colors=144, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    image.save(target, compress_level=9)
+    return {"size": list(image.size), "boundsCm": bounds,
+            "pixelSha256": hashlib.sha256(image.convert("RGB").tobytes()).hexdigest(),
+            "pngSha256": hashlib.sha256(target.read_bytes()).hexdigest()}
+
+
 def render(source, destination):
+    from aden_source_geometry import build
+
     data = build(source)
     region = data["region"]
     if (region["x"], region["z"], region["spacing"], region["columns"], region["rows"]) != (-26624, -21504, 256, 161, 141):
         raise ValueError("Regional atlas extent differs from the Unreal projection")
     destination.mkdir(parents=True, exist_ok=True)
-    local = footprint_texture(data)
+    values = local_elevations(data)
+    local = footprint_texture(data, values)
     broad = relief(np.asarray(region["elevations"], dtype=float).reshape(141, 161), 640, 560, 50)
+    local_bounds = [153600, -153600, 512000, 204800]
     layers = [
-        ("aden-atlas-local.png", local, [153600, -153600, 512000, 204800]),
+        ("aden-atlas-local.png", local, local_bounds),
         ("aden-atlas-region.png", broad, [-2662400, -2150400, 1433600, 1433600]),
+        ("aden-atlas-detail-relief.png", detail_texture(values), local_bounds),
     ]
     proof = {"schema": "veilpoint-native-aden-atlas-v1", "revision": data["revision"], "layers": {}}
     for name, image, bounds in layers:
-        target = destination / name
-        image = image.quantize(colors=144, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-        image.save(target, compress_level=9)
-        proof["layers"][name] = {"size": list(image.size), "boundsCm": bounds,
-                                 "pixelSha256": hashlib.sha256(image.convert("RGB").tobytes()).hexdigest(),
-                                 "pngSha256": hashlib.sha256(target.read_bytes()).hexdigest()}
+        proof["layers"][name] = save_layer(destination, name, image, bounds)
     (destination / "aden-atlas.json").write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
 
 

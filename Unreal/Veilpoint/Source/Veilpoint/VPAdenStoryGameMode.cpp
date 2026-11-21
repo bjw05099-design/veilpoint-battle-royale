@@ -613,8 +613,28 @@ void AVPAdenStoryGameMode::VerifyDispatch()
             const VPAdenAtlas::FPoint Player{Position.X, Position.Y};
             VPAdenAtlas::FPoint Objective{Target.X, Target.Y};
             const auto Crop = VPAdenAtlas::Crop(VPAdenAtlas::Local, Player, Desktop->GetAdenAtlasZoom());
+            int32 PublicRoadLines = 0, FootprintLines = 0;
+            bool bAtlasLinesClipped = true;
+            const int32 Candidates = Source->VisitAtlasLines(Crop, [&](const FVPAdenAtlasLine& Line)
+            {
+                for (const auto Point : {Line.A, Line.B})
+                {
+                    const auto UV = Crop.Normalized(Point);
+                    bAtlasLinesClipped &= UV.X >= -1.e-9 && UV.X <= 1. + 1.e-9 && UV.Y >= -1.e-9 && UV.Y <= 1. + 1.e-9;
+                }
+                if (Line.bRoad) ++PublicRoadLines;
+                else ++FootprintLines;
+            });
+            int32 TotalLines = 0;
+            Source->VisitAtlasLines(VPAdenAtlas::Local, [&](const FVPAdenAtlasLine&) { ++TotalLines; });
+            DiagnosticReport->SetNumberField(TEXT("atlasSourceLines"), TotalLines);
+            DiagnosticReport->SetNumberField(TEXT("atlasDetailCandidates"), Candidates);
+            DiagnosticReport->SetNumberField(TEXT("atlasDetailRoadLines"), PublicRoadLines);
+            DiagnosticReport->SetNumberField(TEXT("atlasDetailFootprintLines"), FootprintLines);
+            DiagnosticReport->SetBoolField(TEXT("atlasDetailClipped"), bAtlasLinesClipped);
             bPassed = Desktop->GetAdenAtlasPage() == 1 && Desktop->GetAdenAtlasZoom() == VPAdenAtlas::MaxZoomLevel
-                && VPAdenAtlas::ObjectiveAtEdge(Crop, Player, Objective, 0.);
+                && VPAdenAtlas::ObjectiveAtEdge(Crop, Player, Objective, 0.)
+                && Source->DetailReliefAtlas && PublicRoadLines > 0 && FootprintLines > 0 && bAtlasLinesClipped;
             const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-zoomed-field-map"));
             if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-zoomed-field-map"), Frame);
             bPassed = bPassed && Frame.IsValid();

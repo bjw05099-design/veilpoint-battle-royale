@@ -576,6 +576,29 @@ bool AVPAdenSourceWorld::BuildSource()
     BlockerTriangleCount = Blockers.Triangles.Num() / 3;
     FootprintCollision = AddMesh(Blockers, true, false);
 
+    AtlasLineSectors.SetNum(SurfaceSectors);
+    const auto IndexAtlasShapes = [&](const FShapes& Shapes, bool bRoad)
+    {
+        for (const auto& Shape : Shapes)
+        {
+            const int32 Count = Shape.Num() - (bRoad ? 1 : 0);
+            for (int32 I = 0; I < Count; ++I)
+            {
+                const FVector2D& A = Shape[I];
+                const FVector2D& B = Shape[(I + 1) % Shape.Num()];
+                if (A == B) continue;
+                const int32 Index = AtlasLines.Add({{A.X, A.Y}, {B.X, B.Y}, bRoad});
+                const auto Range = VPAdenDrape::LocalAtlasSectors({FMath::Min(A.X, B.X), FMath::Min(A.Y, B.Y),
+                    FMath::Max(A.X, B.X), FMath::Max(A.Y, B.Y)});
+                for (int32 Y = Range.North; Y <= Range.South; ++Y)
+                for (int32 X = Range.West; X <= Range.East; ++X)
+                    AtlasLineSectors[Y * VPAdenDrape::SectorsPerAxis + X].Add(Index);
+            }
+        }
+    };
+    IndexAtlasShapes(Geometry.Footprints, false);
+    IndexAtlasShapes(Geometry.Roads, true);
+
     const FVector2D Centre(OriginX + Width / 2, OriginY + Width / 2);
     for (int32 Axis = 0; Axis < 2; ++Axis)
     for (int32 Sign : {-1, 1})
@@ -714,9 +737,33 @@ FVector AVPAdenSourceWorld::Station(int32 Index) const
     return Stations.IsValidIndex(Index) ? Stations[Index] : FVector::ZeroVector;
 }
 
-UTexture2D* AVPAdenSourceWorld::AtlasTexture(bool bRegional) const
+UTexture2D* AVPAdenSourceWorld::AtlasTexture(bool bRegional, bool bDetailed) const
 {
+    if (!bRegional && bDetailed && DetailReliefAtlas) return DetailReliefAtlas.Get();
     return bRegional ? RegionalAtlas.Get() : LocalAtlas.Get();
+}
+
+int32 AVPAdenSourceWorld::VisitAtlasLines(VPAdenAtlas::FExtent View,
+    TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const
+{
+    if (AtlasLineSectors.IsEmpty()) return 0;
+    TBitArray<> Seen(false, AtlasLines.Num());
+    int32 Checked = 0;
+    const auto Range = VPAdenDrape::LocalAtlasSectors(View);
+    for (int32 Y = Range.North; Y <= Range.South; ++Y)
+    for (int32 X = Range.West; X <= Range.East; ++X)
+    {
+        for (const int32 Index : AtlasLineSectors[Y * VPAdenDrape::SectorsPerAxis + X])
+        {
+            if (Seen[Index]) continue;
+            Seen[Index] = true;
+            ++Checked;
+            auto Line = AtlasLines[Index];
+            if (VPAdenAtlas::Clip(View, Line.A, Line.B) && (Line.A.X != Line.B.X || Line.A.Y != Line.B.Y))
+                Visit(Line);
+        }
+    }
+    return Checked;
 }
 
 const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState State) const
