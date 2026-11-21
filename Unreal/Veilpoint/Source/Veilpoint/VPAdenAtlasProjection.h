@@ -19,6 +19,7 @@ struct FExtent
 inline constexpr FExtent Local{153600., -153600., 512000., 204800.};
 inline constexpr FExtent Region{-2662400., -2150400., 1433600., 1433600.};
 inline constexpr int MaxZoomLevel = 5;
+inline constexpr int DetailZoomLevel = 3;
 
 inline int ScaleBarMetres(FExtent View)
 {

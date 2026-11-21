@@ -14,7 +14,8 @@ ADEN_MODE = "/Script/Veilpoint.VPAdenStoryGameMode"
 ADEN_ACTOR = "/Script/Veilpoint.VPAdenSourceWorld"
 ATLAS_PACKAGE = "/Game/Maps/AdenAtlas"
 ATLAS_SOURCES = (("local_atlas", "aden-atlas-local.png", "T_AdenAtlasLocal"),
-                 ("regional_atlas", "aden-atlas-region.png", "T_AdenAtlasRegional"))
+                 ("regional_atlas", "aden-atlas-region.png", "T_AdenAtlasRegional"),
+                 ("detail_relief_atlas", "aden-atlas-detail-relief.png", "T_AdenAtlasDetailRelief"))
 
 
 def import_atlas_textures():

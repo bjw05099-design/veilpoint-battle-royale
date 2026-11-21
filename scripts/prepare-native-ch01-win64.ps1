@@ -157,7 +157,7 @@ $adenProof=Get-Content -LiteralPath $adenReceipt -Raw | ConvertFrom-Json
 $adenSha=(Get-FileHash -LiteralPath $adenMap -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($adenProof.schema -ne 'veilpoint-native-aden-authoring-v1' -or
     $adenProof.map -ne '/Game/Maps/CH01_Aden' -or $adenProof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or
-    $adenProof.savedReloadVerified -ne $true -or $adenProof.sourceActorCount -ne 1 -or $adenProof.atlasTextureCount -ne 2 -or $adenProof.fieldAudioCount -ne 5 -or
+    $adenProof.savedReloadVerified -ne $true -or $adenProof.sourceActorCount -ne 1 -or $adenProof.atlasTextureCount -ne 3 -or $adenProof.fieldAudioCount -ne 5 -or
         $adenProof.fieldStationSaved -ne $true -or
     $adenProof.mapSha256 -cne $adenSha -or [int64]$adenProof.mapBytes -ne (Get-Item -LiteralPath $adenMap).Length) {
     Fail 'Sourced Aden map receipt fails byte-level verification.'

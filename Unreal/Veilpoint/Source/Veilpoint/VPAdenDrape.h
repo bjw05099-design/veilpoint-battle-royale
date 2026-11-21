@@ -18,6 +18,20 @@ constexpr int SectorIndex(int X, int Y)
     return (Y / CellsPerSector) * SectorsPerAxis + X / CellsPerSector;
 }
 
+struct FSectorRange { int West, North, East, South; };
+
+inline FSectorRange LocalAtlasSectors(FExtent View)
+{
+    using VPAdenAtlas::Local;
+    const auto Index = [](double Coordinate)
+    {
+        return std::clamp(int(Coordinate * SectorsPerAxis), 0, SectorsPerAxis - 1);
+    };
+    const auto NW = Local.Normalized({View.West, View.North});
+    const auto SE = Local.Normalized({View.East, View.South});
+    return {Index(NW.X), Index(NW.Y), Index(SE.X), Index(SE.Y)};
+}
+
 inline std::vector<double> SegmentBreaks(FPoint A, FPoint B, FExtent Bounds, double Step)
 {
     std::vector<double> Breaks{0., 1.};

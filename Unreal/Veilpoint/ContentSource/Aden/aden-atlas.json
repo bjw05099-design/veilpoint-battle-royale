@@ -29,6 +29,20 @@
       ],
       "pixelSha256": "20ade95a0da7518afb73e6c678839fc4310bab9754ea031a48e0e027d439bc68",
       "pngSha256": "fe3996b4defcd659e261c7e8d0a252cea85895996b202b2a215ad50d90a997cb"
+    },
+    "aden-atlas-detail-relief.png": {
+      "size": [
+        768,
+        768
+      ],
+      "boundsCm": [
+        153600,
+        -153600,
+        512000,
+        204800
+      ],
+      "pixelSha256": "1b2c2988375dcc74d8cc3286a5e61b27807636de909a22d85b0b9157f540417a",
+      "pngSha256": "425349808ead73d661151290b096d647c066899c5ba14856549c75176c096573"
     }
   }
 }

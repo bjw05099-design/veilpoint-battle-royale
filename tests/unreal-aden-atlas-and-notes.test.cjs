@@ -17,6 +17,7 @@ test('Unreal atlas textures carry verified extents and pinned original bytes', (
   const manifest = JSON.parse(fs.readFileSync(path.join(maps, 'aden-atlas.json'), 'utf8'));
   assert.equal(manifest.schema, 'veilpoint-native-aden-atlas-v1');
   assert.deepEqual(manifest.layers['aden-atlas-local.png'].boundsCm, [153600, -153600, 512000, 204800]);
+  assert.deepEqual(manifest.layers['aden-atlas-detail-relief.png'].boundsCm, manifest.layers['aden-atlas-local.png'].boundsCm);
   assert.deepEqual(manifest.layers['aden-atlas-region.png'].boundsCm, [-2662400, -2150400, 1433600, 1433600]);
   for (const [name, info] of Object.entries(manifest.layers)) {
     const img = fs.readFileSync(path.join(maps, name));
@@ -91,6 +92,13 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           static_assert(SectorIndex(0, 0) == 0);
           static_assert(SectorIndex(16, 16) == 8);
           static_assert(SectorIndex(111, 111) == 48);
+          const auto full = LocalAtlasSectors(Local);
+          assert(full.West == 0 && full.North == 0 && full.East == 6 && full.South == 6);
+          const auto edgeSector = LocalAtlasSectors({Local.West + 51199., Local.North + 51200.,
+                                                   Local.West + 51200., Local.North + 64000.});
+          assert(edgeSector.West == 0 && edgeSector.East == 1 && edgeSector.North == 1 && edgeSector.South == 1);
+          const auto close = LocalAtlasSectors(Crop(Local, {Local.East, Local.South}, MaxZoomLevel));
+          assert(close.West == 6 && close.North == 6 && close.East == 6 && close.South == 6);
           const auto breaks = SegmentBreaks({3., 3.}, {17., 13.}, {0., 0., 20., 20.}, 10.);
           assert(breaks.size() == 6);
           assert(std::abs(breaks[1] - 1. / 6.) < 1.e-9);

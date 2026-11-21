@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "VPAdenAtlasProjection.h"
 #include "VPAdenDispatchRules.h"
 #include "VPAdenSourceWorld.generated.h"
 
@@ -21,6 +22,12 @@ struct FVPAdenTerrainCheck
     double MaxCollisionError = 0.;
 };
 
+struct FVPAdenAtlasLine
+{
+    VPAdenAtlas::FPoint A, B;
+    bool bRoad;
+};
+
 UCLASS()
 class VEILPOINT_API AVPAdenSourceWorld : public AActor
 {
@@ -31,7 +38,8 @@ public:
     FVector Station(int32 Index) const;
     const TArray<FVector>& DispatchLeg(VPAdenDispatch::FState State) const;
     FVector DispatchResume(VPAdenDispatch::FState State) const;
-    UTexture2D* AtlasTexture(bool bRegional) const;
+    UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
+    int32 VisitAtlasLines(VPAdenAtlas::FExtent View, TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const;
     void ShowFieldStation(int32 Slot, bool bVisible, const FVector& Point, const FVector& Direction);
     USoundBase* GetWindSound() const;
     USoundBase* GetDossierSound() const;
@@ -61,6 +69,9 @@ public:
     TObjectPtr<UTexture2D> RegionalAtlas;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
+    TObjectPtr<UTexture2D> DetailReliefAtlas;
+
+    UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UStaticMesh> StationMesh;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
@@ -88,6 +99,8 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<UProceduralMeshComponent> FootprintCollision;
     TArray<TPair<FVector, FVector>> BlockerProbes;
+    TArray<FVPAdenAtlasLine> AtlasLines;
+    TArray<TArray<int32>> AtlasLineSectors;
     FString SourceRevision;
     TArray<FVector> Stations;
     TArray<FVector> DispatchLegs[7];
