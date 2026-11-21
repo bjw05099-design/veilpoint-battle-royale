@@ -21,6 +21,8 @@ public:
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
     void CycleAdenAtlas();
+    void ZoomAdenAtlasIn();
+    void ZoomAdenAtlasOut();
     bool IsAdenJournalOpen() const { return bAdenJournalOpen; }
     int32 GetMenuRow() const { return MenuRow; }
     FString GetMenuLabel(int32 Row) const;
@@ -78,8 +80,6 @@ private:
     void SendAdenReport(VPAdenMission::EInput Choice);
     void ToggleAdenJournal();
     bool bAdenJournalOpen = false;
-    void ZoomAdenAtlasIn();
-    void ZoomAdenAtlasOut();
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;
     int32 VisualSmokeStep = -1;

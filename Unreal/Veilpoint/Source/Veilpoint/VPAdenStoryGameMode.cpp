@@ -1,5 +1,6 @@
 #include "VPAdenStoryGameMode.h"
 
+#include "VPAdenAtlasProjection.h"
 #include "VPAdenSourceWorld.h"
 #include "VPAdenDispatch.h"
 #include "VPCharacter.h"
@@ -435,6 +436,12 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         const int32 RoadTriangles = Source->RoadOverlayTriangles();
         const int32 FootprintTriangles = Source->FootprintOverlayTriangles();
         Report->SetNumberField(TEXT("regionalBackdropTriangles"), BackdropTriangles);
+        const auto Terrain = Source->VerifyTerrainSectors();
+        Report->SetNumberField(TEXT("terrainRenderSectors"), Terrain.Sectors);
+        Report->SetNumberField(TEXT("terrainRenderTriangles"), Terrain.Triangles);
+        Report->SetNumberField(TEXT("terrainSharedEdges"), Terrain.SharedEdges);
+        Report->SetNumberField(TEXT("terrainCollisionHits"), Terrain.CollisionHits);
+        Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
         Report->SetNumberField(TEXT("footprintOverlayTriangles"), FootprintTriangles);
         Report->SetNumberField(TEXT("filledFootprints"), Source->FilledFootprints());
@@ -595,6 +602,26 @@ void AVPAdenStoryGameMode::VerifyDispatch()
             Desktop->CycleAdenAtlas();
             if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-dispatch-route"), Frame);
             bPassed = bPassed && Frame.IsValid();
+        }
+        if (bPassed && Route == PublicNotice)
+        {
+            Desktop->CycleAdenAtlas();
+            const int32 OriginalZoom = Desktop->GetAdenAtlasZoom();
+            for (int32 Zoom = OriginalZoom; Zoom < VPAdenAtlas::MaxZoomLevel; ++Zoom)
+                Desktop->ZoomAdenAtlasIn();
+            const FVector Position = Pawn->GetActorLocation(), Target = GetObjective();
+            const VPAdenAtlas::FPoint Player{Position.X, Position.Y};
+            VPAdenAtlas::FPoint Objective{Target.X, Target.Y};
+            const auto Crop = VPAdenAtlas::Crop(VPAdenAtlas::Local, Player, Desktop->GetAdenAtlasZoom());
+            bPassed = Desktop->GetAdenAtlasPage() == 1 && Desktop->GetAdenAtlasZoom() == VPAdenAtlas::MaxZoomLevel
+                && VPAdenAtlas::ObjectiveAtEdge(Crop, Player, Objective, 0.);
+            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-zoomed-field-map"));
+            if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-zoomed-field-map"), Frame);
+            bPassed = bPassed && Frame.IsValid();
+            for (int32 Zoom = VPAdenAtlas::MaxZoomLevel; Zoom > OriginalZoom; --Zoom)
+                Desktop->ZoomAdenAtlasOut();
+            Desktop->CycleAdenAtlas();
+            Desktop->CycleAdenAtlas();
         }
         if (bPassed && Follow()) Pawn->RequestInteraction(); else bPassed = false;
         bPassed = bPassed && Dispatch.Phase == Compare && Follow();

@@ -12,6 +12,15 @@ class UStaticMeshComponent;
 class UProceduralMeshComponent;
 class USoundBase;
 
+struct FVPAdenTerrainCheck
+{
+    int32 Sectors = 0;
+    int32 Triangles = 0;
+    int32 SharedEdges = 0;
+    int32 CollisionHits = 0;
+    double MaxCollisionError = 0.;
+};
+
 UCLASS()
 class VEILPOINT_API AVPAdenSourceWorld : public AActor
 {
@@ -29,6 +38,7 @@ public:
     USoundBase* GetStepSound(int32 Index) const;
     const FString& Revision() const { return SourceRevision; }
     int32 RegionalBackdropTriangles() const;
+    FVPAdenTerrainCheck VerifyTerrainSectors() const;
     int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
     int32 FootprintOverlayTriangles() const { return FootprintTriangleCount; }
     int32 FilledFootprints() const { return FilledFootprintCount; }
@@ -69,6 +79,10 @@ private:
     void CreateFieldStations();
     UPROPERTY(Transient)
     TArray<TObjectPtr<UStaticMeshComponent>> FieldStationParts;
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UProceduralMeshComponent>> TerrainSectors;
+    UPROPERTY(Transient)
+    TObjectPtr<UProceduralMeshComponent> TerrainCollision;
     UPROPERTY(Transient)
     TObjectPtr<UProceduralMeshComponent> RegionalBackdrop;
     UPROPERTY(Transient)

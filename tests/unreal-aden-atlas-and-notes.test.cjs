@@ -75,6 +75,18 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         assert(ScaleBarMetres(Local) == 500);
         assert(ScaleBarMetres(Crop(Local, {0., 0.}, MaxZoomLevel)) == 20);
         {
+          constexpr FExtent view{0., 0., 100., 100.};
+          FPoint objective{135., 70.};
+          assert(ObjectiveAtEdge(view, {30., 40.}, objective, 10.));
+          assert(objective.X == 90. && std::abs(objective.Y - (40. + 120. / 7.)) < 1.e-9);
+          objective = {-10., -10.};
+          assert(ObjectiveAtEdge(view, {0., 0.}, objective, 10.));
+          assert(objective.X == 10. && objective.Y == 10.);
+          objective = {100., 40.};
+          assert(!ObjectiveAtEdge(view, {30., 40.}, objective, 10.));
+          assert(objective.X == 100. && objective.Y == 40.);
+        }
+        {
           using namespace VPAdenDrape;
           static_assert(SectorIndex(0, 0) == 0);
           static_assert(SectorIndex(16, 16) == 8);

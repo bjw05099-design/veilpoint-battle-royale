@@ -71,30 +71,38 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     else
     {
         const double GridStep = 100. * ScaleMetres;
-        const FLinearColor Grid(.85f, .90f, .88f, .19f);
+        const FLinearColor Grid(.63f, .72f, .70f, .19f);
+        const float Stroke = FMath::Max(1.f, Scale);
         for (double GridX = Full.West + std::ceil((Crop.West - Full.West) / GridStep) * GridStep;
-             GridX < Crop.East; GridX += GridStep)
+             GridX < Crop.East - Stroke * Crop.Width() / MapW; GridX += GridStep)
         {
             const double PX = Pixel({GridX, Crop.North}).X;
-            DrawLine(PX, MapY, PX, MapY + MapH, Grid);
+            DrawRect(Grid, PX, MapY, Stroke, MapH);
         }
         for (double GridY = Full.North + std::ceil((Crop.North - Full.North) / GridStep) * GridStep;
-             GridY < Crop.South; GridY += GridStep)
+             GridY < Crop.South - Stroke * Crop.Height() / MapH; GridY += GridStep)
         {
             const double PY = Pixel({Crop.West, GridY}).Y;
-            DrawLine(MapX, PY, MapX + MapW, PY, Grid);
+            DrawRect(Grid, MapX, PY, MapW, Stroke);
         }
     }
     const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
     {
-        const FVector2D P = Pixel({Position.X, Position.Y});
-        if (Inside(P))
+        FVector2D P = Pixel({Position.X, Position.Y});
+        if (P.X >= MapX && P.X <= MapX + MapW && P.Y >= MapY && P.Y <= MapY + MapH)
         {
+            const double Pad = 7. * Scale;
+            P.X = FMath::Clamp(P.X, MapX + Pad, MapX + MapW - Pad);
+            P.Y = FMath::Clamp(P.Y, MapY + Pad, MapY + MapH - Pad);
             DrawRect(FLinearColor(.01f, .025f, .03f), P.X - 7. * Scale, P.Y - 7. * Scale, 14.f * Scale, 14.f * Scale);
             DrawRect(Color, P.X - 4. * Scale, P.Y - 4. * Scale, 8.f * Scale, 8.f * Scale);
         }
     };
     const FLinearColor RouteColor(.30f, .77f, .67f);
+    const bool bHasObjective = !bRegional && (Aden->bDispatchActive
+        ? VPAdenDispatch::HasObjective(Aden->Dispatch) : Aden->Confirmed < VPAdenMission::Complete);
+    const bool bHasNote = !bRegional && Aden->AvailableNote != VPAdenMission::None;
+    bool bObjectiveAtEdge = false;
     if (!bRegional)
     {
         for (int32 I = 1; I < Aden->ActiveLeg.Num(); ++I)
@@ -107,15 +115,36 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
             DrawLine(Start.X, Start.Y, End.X, End.Y, RouteColor, 2.8f);
         }
-        if (Aden->bDispatchActive ? VPAdenDispatch::HasObjective(Aden->Dispatch) : Aden->Confirmed < VPAdenMission::Complete)
-            DrawMarker(Aden->Objective, Accent);
-        if (Aden->AvailableNote != VPAdenMission::None) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
+        if (bHasNote) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
+        if (bHasObjective)
+        {
+            const VPAdenAtlas::FPoint Objective{Aden->Objective.X, Aden->Objective.Y};
+            auto EdgePoint = Objective;
+            bObjectiveAtEdge = VPAdenAtlas::ObjectiveAtEdge(Crop, Player, EdgePoint, 43. * Scale * Crop.Width() / MapW);
+            if (bObjectiveAtEdge)
+            {
+                const FVector2D Tip = Pixel(EdgePoint);
+                const FVector2D Direction = (Pixel(Objective) - Pixel(Player)).GetSafeNormal();
+                const FVector2D Cross(-Direction.Y, Direction.X);
+                const FVector2D Back = Tip - Direction * (12. * Scale);
+                const FVector2D Left = Back + Cross * (6. * Scale), Right = Back - Cross * (6. * Scale);
+                const FLinearColor Outline(.023f, .048f, .047f);
+                DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Outline, 6.f * Scale);
+                DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Outline, 6.f * Scale);
+                DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Accent, 3.f * Scale);
+                DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Accent, 3.f * Scale);
+            }
+            else
+            {
+                DrawMarker(Aden->Objective, Accent);
+            }
+        }
     }
     const FVector2D Here = Pixel(Player);
     if (Inside(Here))
     {
-        const FVector Forward = Pawn->GetViewRotation().Vector();
-        const FVector2D Aim = FVector2D(Forward.X, Forward.Y).GetSafeNormal();
+        const FVector Forward = FRotator(0., Pawn->GetViewRotation().Yaw, 0.).Vector();
+        const FVector2D Aim(Forward.X, Forward.Y);
         const FVector2D Cross(-Aim.Y, Aim.X);
         const FVector2D Tip = Here + Aim * (12. * Scale);
         const FVector2D A = Here - Aim * (6. * Scale) + Cross * (5. * Scale);
@@ -145,26 +174,30 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawText(TEXT("FIELD LEGEND"), Accent, PanelX, PanelY, nullptr, .76f * Scale);
         DrawRect(PlayerColor, PanelX, PanelY + 34.f * Scale, 7.f * Scale, 7.f * Scale);
         DrawText(TEXT("Your position"), Ink, PanelX + 14.f * Scale, PanelY + 31.f * Scale, nullptr, .77f * Scale);
-        DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
-        DrawText(bRegional ? TEXT("Playable story area") : TEXT("Current objective"),
-            Ink, PanelX + 14.f * Scale, PanelY + 55.f * Scale, nullptr, .77f * Scale);
+        if (bRegional || bHasObjective)
+        {
+            DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
+            const TCHAR* Label = bRegional ? TEXT("Playable story area")
+                : bObjectiveAtEdge ? TEXT("Objective beyond view") : TEXT("Current objective");
+            DrawText(Label, Ink, PanelX + 14.f * Scale, PanelY + 55.f * Scale, nullptr, .77f * Scale);
+        }
         if (!bRegional && !Aden->ActiveLeg.IsEmpty())
         {
             DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
             DrawText(TEXT("Current walking leg"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
         }
-        if (!bRegional && Aden->AvailableNote != VPAdenMission::None)
+        if (bHasNote)
         {
-            DrawRect(FLinearColor(.57f, .82f, .82f), PanelX, PanelY + 82.f * Scale, 7.f * Scale, 7.f * Scale);
-            DrawText(TEXT("Optional field note"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
+            DrawRect(FLinearColor(.57f, .82f, .82f), PanelX, PanelY + 106.f * Scale, 7.f * Scale, 7.f * Scale);
+            DrawText(TEXT("Optional field note"), Ink, PanelX + 14.f * Scale, PanelY + 103.f * Scale, nullptr, .77f * Scale);
         }
         DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("1:1 public streets"),
-            Muted, PanelX, PanelY + 114.f * Scale, nullptr, .83f * Scale);
+            Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
         DrawText(bRegional ? TEXT("256 m source sampling") : TEXT("32 m terrain sampling"),
-            Muted, PanelX, PanelY + 137.f * Scale, nullptr, .73f * Scale);
-        DrawText(TEXT("Copernicus GLO-30"), Muted, PanelX, PanelY + 172.f * Scale, nullptr, .72f * Scale);
+            Muted, PanelX, PanelY + 159.f * Scale, nullptr, .73f * Scale);
+        DrawText(TEXT("Copernicus GLO-30"), Muted, PanelX, PanelY + 192.f * Scale, nullptr, .72f * Scale);
         if (!bRegional)
-            DrawText(TEXT("OpenStreetMap contributors"), Muted, PanelX, PanelY + 191.f * Scale, nullptr, .63f * Scale);
+            DrawText(TEXT("OpenStreetMap contributors"), Muted, PanelX, PanelY + 211.f * Scale, nullptr, .63f * Scale);
     }
     DrawText(bRegional ? TEXT("M  Close map") : TEXT("Wheel  Zoom      M  Regional relief"),
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);

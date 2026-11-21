@@ -38,6 +38,11 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStations
     $report.followupStep -ne 3 -or $report.publicCorrectionVerified -ne $true -or $report.deskCorrectionVerified -ne $true) {
     throw 'Aden captured an incomplete native story.'
 }
+if ($report.terrainRenderSectors -ne 49 -or $report.terrainRenderTriangles -ne 25088 -or
+    $report.terrainSharedEdges -ne 84 -or $report.terrainCollisionHits -ne 168 -or
+    $null -eq $report.terrainMaxCollisionErrorCm -or $report.terrainMaxCollisionErrorCm -gt 1.0) {
+    throw 'Aden playable terrain sector edges or continuous ground collision failed.'
+}
 if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -lt 4865 -or
     $null -eq $report.overlayMaxGapErrorCm -or $report.overlayMaxGapErrorCm -gt 0.02) {
     throw 'Aden road and footprint overlays do not conform to the playable surface.'
@@ -55,7 +60,7 @@ if ($report.blockerTriangles -lt 4865 -or $null -eq $report.blockerBaseGapErrorC
     $report.blockerCollisionProbesPassed -ne $report.blockerCollisionProbes) {
     throw 'Aden footprint collision failed the ground alignment or two-sided traces.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
+foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or
