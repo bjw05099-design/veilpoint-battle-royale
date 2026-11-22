@@ -124,6 +124,7 @@ private:
     bool VerifyCheckpointRecovery(AVPCharacter* Pawn);
     bool VerifyAtlasRouteOverview(AVPPlayerController* Desktop, const AVPCharacter* Pawn, bool bWitness);
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
+    bool VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     void FinishDiagnostic(bool bPassed);
     TSharedPtr<FJsonObject> DiagnosticReport;
 

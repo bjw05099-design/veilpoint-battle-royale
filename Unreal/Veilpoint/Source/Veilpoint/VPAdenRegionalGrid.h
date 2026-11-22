@@ -11,10 +11,10 @@ inline constexpr int LocalSpacing = 3200;
 inline constexpr int Subdivisions = Spacing / LocalSpacing;
 inline constexpr int Columns = int(VPAdenAtlas::Region.Width()) / Spacing + 1;
 inline constexpr int Rows = int(VPAdenAtlas::Region.Height()) / Spacing + 1;
-inline constexpr int LocalWest = int(VPAdenAtlas::Local.West - VPAdenAtlas::Region.West) / Spacing;
-inline constexpr int LocalNorth = int(VPAdenAtlas::Local.North - VPAdenAtlas::Region.North) / Spacing;
-inline constexpr int LocalEast = int(VPAdenAtlas::Local.East - VPAdenAtlas::Region.West) / Spacing;
-inline constexpr int LocalSouth = int(VPAdenAtlas::Local.South - VPAdenAtlas::Region.North) / Spacing;
+inline constexpr int LocalWest = int(VPAdenAtlas::Playable.West - VPAdenAtlas::Region.West) / Spacing;
+inline constexpr int LocalNorth = int(VPAdenAtlas::Playable.North - VPAdenAtlas::Region.North) / Spacing;
+inline constexpr int LocalEast = int(VPAdenAtlas::Playable.East - VPAdenAtlas::Region.West) / Spacing;
+inline constexpr int LocalSouth = int(VPAdenAtlas::Playable.South - VPAdenAtlas::Region.North) / Spacing;
 inline constexpr int TileCells = 20;
 inline constexpr int TilesX = (Columns - 1) / TileCells;
 inline constexpr int TilesY = (Rows - 1) / TileCells;
@@ -22,19 +22,19 @@ inline constexpr int TileCount = TilesX * TilesY;
 inline constexpr double FitToleranceCm = 600.;
 static_assert((Columns - 1) % TileCells == 0 && (Rows - 1) % TileCells == 0 && TileCells % 4 == 0);
 static_assert(Columns == 161 && Rows == 141 && Subdivisions == 8);
-static_assert(VPAdenAtlas::Region.West + LocalWest * Spacing == VPAdenAtlas::Local.West);
-static_assert(VPAdenAtlas::Region.North + LocalNorth * Spacing == VPAdenAtlas::Local.North);
-static_assert(VPAdenAtlas::Region.West + LocalEast * Spacing == VPAdenAtlas::Local.East);
-static_assert(VPAdenAtlas::Region.North + LocalSouth * Spacing == VPAdenAtlas::Local.South);
+static_assert(VPAdenAtlas::Region.West + LocalWest * Spacing == VPAdenAtlas::Playable.West);
+static_assert(VPAdenAtlas::Region.North + LocalNorth * Spacing == VPAdenAtlas::Playable.North);
+static_assert(VPAdenAtlas::Region.West + LocalEast * Spacing == VPAdenAtlas::Playable.East);
+static_assert(VPAdenAtlas::Region.North + LocalSouth * Spacing == VPAdenAtlas::Playable.South);
 
 enum class EEdge { None, North, East, South, West };
 
-constexpr bool InPilot(int X, int Y)
+constexpr bool InPlayable(int X, int Y)
 {
     return X >= LocalWest && X < LocalEast && Y >= LocalNorth && Y < LocalSouth;
 }
 
-constexpr bool OnPilotBorder(int X, int Y)
+constexpr bool OnPlayableBorder(int X, int Y)
 {
     return ((X == LocalWest || X == LocalEast) && Y >= LocalNorth && Y <= LocalSouth)
         || ((Y == LocalNorth || Y == LocalSouth) && X >= LocalWest && X <= LocalEast);

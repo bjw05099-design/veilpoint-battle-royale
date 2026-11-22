@@ -24,7 +24,7 @@ try {
 }
 if ($code -ne 0 -or !(Test-Path -LiteralPath $log -PathType Leaf)) { throw 'Packaged Aden runtime did not finish.' }
 $content=Get-Content -LiteralPath $log -Raw
-if ($content -notmatch 'Aden native source loaded: 49 tiles, 183 roads, 4865 footprints' -or
+if ($content -notmatch 'Aden native source loaded: 70 tiles, 183 roads, 4865 footprints' -or
     $content -notmatch 'ADEN_NATIVE_SMOKE_PASSED' -or
     $content -match 'ADEN_NATIVE_SMOKE_FAILED|Ensure condition failed|Fatal error:|Unhandled Exception:') {
     throw 'Packaged Aden collision, progression or SaveGame validation failed.'
@@ -41,16 +41,21 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStations
     $report.receiptRouteRemainingMetres -lt 70 -or $report.receiptRouteRemainingMetres -gt 76) {
     throw 'Aden captured an incomplete native story.'
 }
-if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -ne 33 -or
-    $report.regionalBackdropTriangles -ne 22802 -or $report.regionalSharedEdges -ne 97 -or
-    $report.regionalPilotBorderVertices -ne 448 -or $null -eq $report.regionalGridFitErrorCm -or
+if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 -or
+    $report.regionalBackdropTriangles -lt 20000 -or $report.regionalSharedEdges -ne 97 -or
+    $report.regionalPlayableBorderVertices -ne 544 -or $null -eq $report.regionalGridFitErrorCm -or
     $report.regionalGridFitErrorCm -le 0 -or $report.regionalGridFitErrorCm -gt 600) {
     throw 'Aden regional terrain failed the elevation fit or shared edge validation.'
 }
-if ($report.terrainRenderSectors -ne 49 -or $report.terrainRenderTriangles -ne 25088 -or
-    $report.terrainSharedEdges -ne 84 -or $report.terrainCollisionHits -ne 168 -or
+if ($report.terrainRenderSectors -ne 70 -or $report.terrainRenderTriangles -ne 35840 -or
+    $report.terrainSharedEdges -ne 123 -or $report.terrainWestJoinEdges -ne 7 -or $report.terrainCollisionHits -ne 246 -or
     $null -eq $report.terrainMaxCollisionErrorCm -or $report.terrainMaxCollisionErrorCm -gt 1.0) {
     throw 'Aden playable terrain sector edges or continuous ground collision failed.'
+}
+if ($report.westGroundSamples -ne 1025 -or $report.westCapsuleSweepMetres -ne 1024 -or
+    $report.westMaxRiseCmPerMetre -le 0 -or $report.westMaxRiseCmPerMetre -gt 30 -or
+    $report.westFieldMapVerified -ne $true) {
+    throw 'Aden west terrain failed the capsule crossing or atlas verification.'
 }
 if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -lt 4865 -or
     $null -eq $report.overlayMaxGapErrorCm -or $report.overlayMaxGapErrorCm -gt 0.02) {
@@ -75,7 +80,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
+foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or

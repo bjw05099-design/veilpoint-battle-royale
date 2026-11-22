@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
+from aden_west_source import read_west
 
 def relief(samples, width, height, contour_step):
     y, x = np.mgrid[:height, :width]
@@ -88,6 +89,8 @@ def render(source, destination):
         ("aden-atlas-local.png", local, local_bounds),
         ("aden-atlas-region.png", broad, [-2662400, -2150400, 1433600, 1433600]),
         ("aden-atlas-detail-relief.png", detail_texture(values), local_bounds),
+        ("aden-atlas-west.png", relief(read_west(source) / 100., 336, 784, 20),
+         [0, -153600, 153600, 204800]),
     ]
     proof = {"schema": "veilpoint-native-aden-atlas-v1", "revision": data["revision"], "layers": {}}
     for name, image, bounds in layers:

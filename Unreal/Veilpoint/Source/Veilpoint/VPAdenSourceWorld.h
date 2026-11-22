@@ -19,6 +19,7 @@ struct FVPAdenTerrainCheck
     int32 Triangles = 0;
     int32 SharedEdges = 0;
     int32 CollisionHits = 0;
+    int32 WestJoinEdges = 0;
     double MaxCollisionError = 0.;
 };
 
@@ -27,7 +28,7 @@ struct FVPAdenRegionalCheck
     int32 Tiles = 0;
     int32 Triangles = 0;
     int32 SharedEdges = 0;
-    int32 PilotBorderVertices = 0;
+    int32 PlayableBorderVertices = 0;
     int32 CoarsenedTiles = 0;
     double GridFitErrorCm = 0.;
 };
@@ -45,6 +46,7 @@ class VEILPOINT_API AVPAdenSourceWorld : public AActor
 public:
     AVPAdenSourceWorld();
     bool BuildSource();
+    bool IsPlayableGround(const FHitResult& Hit) const;
     FVector Station(int32 Index) const;
     const TArray<FVector>& DispatchLeg(VPAdenDispatch::FState State) const;
     FVector DispatchResume(VPAdenDispatch::FState State) const;
@@ -80,6 +82,9 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UTexture2D> DetailReliefAtlas;
+
+    UPROPERTY(EditAnywhere, Category="Aden source")
+    TObjectPtr<UTexture2D> WestAtlas;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UStaticMesh> StationMesh;

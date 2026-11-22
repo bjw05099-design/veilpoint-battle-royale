@@ -19,6 +19,7 @@
 #include "VPAdenFootprint.h"
 #include "VPAdenRegionalData.h"
 #include "VPAdenRegionalGrid.h"
+#include "VPAdenWestData.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
 
@@ -34,6 +35,13 @@ static_assert(Side - 1 == VPAdenDrape::CellsPerSector * VPAdenDrape::SectorsPerA
 constexpr int32 SurfaceSectors = VPAdenDrape::SectorsPerAxis * VPAdenDrape::SectorsPerAxis;
 constexpr int32 SectorCells = VPAdenDrape::CellsPerSector;
 constexpr int32 SectorSide = SectorCells + 1;
+constexpr int32 WestCells = int32(VPAdenAtlas::West.Width()) / Spacing;
+constexpr int32 GroundColumns = WestCells + Side;
+constexpr int32 GroundSectorsX = (GroundColumns - 1) / SectorCells;
+constexpr int32 GroundSectorsY = VPAdenDrape::SectorsPerAxis;
+constexpr int32 GroundSectors = GroundSectorsX * GroundSectorsY;
+static_assert(VPAdenWestData::Columns == WestCells && VPAdenWestData::Rows == Side);
+static_assert(WestCells % SectorCells == 0 && (GroundColumns - 1) * Spacing == VPAdenAtlas::Playable.Width());
 constexpr uint32 RoadCount = 183;
 constexpr uint32 FootprintCount = 4865;
 constexpr int32 SegmentSize = 480;
@@ -201,30 +209,41 @@ struct FMesh
     }
 };
 
-FMesh TerrainMesh(const FGeometry& Geometry)
+FMesh TerrainMesh(const FGeometry& Geometry, const TArray<int32>& WestHeights)
 {
     FMesh Mesh;
+    Mesh.Vertices.Reserve(GroundColumns * Side);
+    Mesh.Colors.Reserve(GroundColumns * Side);
+    Mesh.Normals.Reserve(GroundColumns * Side);
+    Mesh.Triangles.Reserve(6 * (GroundColumns - 1) * (Side - 1));
+    const auto At = [&](int32 X, int32 Y)
+    {
+        return X < WestCells ? WestHeights[Y * WestCells + X] : Geometry.At(X - WestCells, Y);
+    };
     for (int32 Y = 0; Y < Side; ++Y)
     {
-        for (int32 X = 0; X < Side; ++X)
+        for (int32 X = 0; X < GroundColumns; ++X)
         {
-            const double H = Geometry.At(X, Y);
-            Mesh.Vertices.Emplace(OriginX + X * Spacing, OriginY + Y * Spacing, H);
-            const double DX = (Geometry.At(FMath::Min(X + 1, Side - 1), Y) - Geometry.At(FMath::Max(0, X - 1), Y)) / (2. * Spacing);
-            const double DY = (Geometry.At(X, FMath::Min(Y + 1, Side - 1)) - Geometry.At(X, FMath::Max(0, Y - 1))) / (2. * Spacing);
+            const double H = At(X, Y);
+            Mesh.Vertices.Emplace(VPAdenAtlas::Playable.West + X * Spacing, OriginY + Y * Spacing, H);
+            const int32 X0 = FMath::Max(0, X - 1), X1 = FMath::Min(X + 1, GroundColumns - 1);
+            const int32 Y0 = FMath::Max(0, Y - 1), Y1 = FMath::Min(Y + 1, Side - 1);
+            const double DX = (At(X1, Y) - At(X0, Y)) / double((X1 - X0) * Spacing);
+            const double DY = (At(X, Y1) - At(X, Y0)) / double((Y1 - Y0) * Spacing);
             Mesh.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
             const float Slope = float(FMath::Sqrt(DX * DX + DY * DY));
             const float Height = FMath::Clamp(float(H / 18000.), 0.f, 1.f);
             const FLinearColor Low(.51f, .36f, .22f), High(.40f, .31f, .22f), Steep(.29f, .25f, .20f);
             const float Steepness = FMath::SmoothStep(.12f, .65f, Slope);
             FLinearColor Tint = FMath::Lerp(FMath::Lerp(Low, High, Height), Steep, Steepness);
-            Tint.A = FMath::Clamp(float(FMath::Min(FMath::Min(X, Side - 1 - X),
-                FMath::Min(Y, Side - 1 - Y))) / VPAdenRegionalGrid::Subdivisions, 0.f, 1.f);
+            const int32 Border = FMath::Min(FMath::Min(X, GroundColumns - 1 - X), FMath::Min(Y, Side - 1 - Y));
+            const float TextureBlend = float(FMath::Min(Border, FMath::Abs(X - WestCells))) / VPAdenRegionalGrid::Subdivisions;
+            Tint.A = FMath::Clamp(TextureBlend, 0.f, 1.f);
             Mesh.Colors.Add(Tint);
-            if (Y + 1 < Side && X + 1 < Side)
+            if (Y + 1 < Side && X + 1 < GroundColumns)
             {
-                const int32 A = Y * Side + X;
-                Mesh.Triangles.Append({A, A + 1, A + Side, A + 1, A + Side + 1, A + Side});
+                const int32 A = Y * GroundColumns + X;
+                Mesh.Triangles.Append({A, A + 1, A + GroundColumns, A + 1, A + GroundColumns + 1, A + GroundColumns});
             }
         }
     }
@@ -242,7 +261,7 @@ FMesh TerrainRenderSector(const FMesh& Ground, int32 SectorX, int32 SectorY)
     {
         for (int32 X = 0; X < SectorSide; ++X)
         {
-            const int32 Source = (SectorY * SectorCells + Y) * Side + SectorX * SectorCells + X;
+            const int32 Source = (SectorY * SectorCells + Y) * GroundColumns + SectorX * SectorCells + X;
             Mesh.Vertices.Add(Ground.Vertices[Source]);
             Mesh.Normals.Add(Ground.Normals[Source]);
             Mesh.Colors.Add(Ground.Colors[Source]);
@@ -256,17 +275,34 @@ FMesh TerrainRenderSector(const FMesh& Ground, int32 SectorX, int32 SectorY)
     return Mesh;
 }
 
+template <std::size_t ChunkCount>
+bool DecodeHeightBytes(const char* const (&Chunks)[ChunkCount], int32 Size, TArray<uint8>& Raw)
+{
+    FString Encoding;
+    for (const char* Chunk : Chunks)
+        Encoding.Append(ANSI_TO_TCHAR(Chunk));
+    TArray<uint8> Compressed;
+    if (!FBase64::Decode(Encoding, Compressed) || Compressed.IsEmpty()) return false;
+    Raw.SetNumUninitialized(Size);
+    return FCompression::UncompressMemory(NAME_Zlib, Raw.GetData(), Raw.Num(), Compressed.GetData(), Compressed.Num());
+}
+
+bool ReadWestHeights(TArray<int32>& Heights)
+{
+    TArray<uint8> Raw;
+    if (!DecodeHeightBytes(VPAdenWestData::Chunks, 4 * WestCells * Side, Raw)) return false;
+    FReader Reader{Raw};
+    Heights.Reserve(WestCells * Side);
+    for (int32 I = 0; I < WestCells * Side; ++I)
+        Heights.Add(Reader.ReadInt());
+    return Reader.bValid && Reader.Offset == Raw.Num();
+}
+
 bool ReadRegionalHeights(TArray<int32>& Heights)
 {
     using namespace VPAdenRegionalGrid;
-    FString Encoding;
-    for (const char* Chunk : VPAdenRegionalData::Chunks)
-        Encoding.Append(ANSI_TO_TCHAR(Chunk));
-    TArray<uint8> Compressed, Raw;
-    if (!FBase64::Decode(Encoding, Compressed) || Compressed.IsEmpty()) return false;
-    Raw.SetNumUninitialized(2 * Columns * Rows);
-    if (!FCompression::UncompressMemory(NAME_Zlib, Raw.GetData(), Raw.Num(), Compressed.GetData(), Compressed.Num()))
-        return false;
+    TArray<uint8> Raw;
+    if (!DecodeHeightBytes(VPAdenRegionalData::Chunks, 2 * Columns * Rows, Raw)) return false;
     FReader Reader{Raw};
     Heights.Reserve(Columns * Rows);
     for (int32 I = 0; I < Columns * Rows; ++I)
@@ -285,21 +321,21 @@ FLinearColor RegionalTint(double HeightCm, double Slope)
     return FMath::Lerp(LowRelief, FMath::Lerp(Low, Rock, Relief), FMath::SmoothStep(0.f, 550.f, float(HeightCm)));
 }
 
-TArray<FMesh> RegionalTerrainTiles(const FGeometry& LocalGeometry, const FMesh& Pilot,
-    const TArray<int32>& Heights, VPAdenRegionalGrid::FSteps& Steps, double& FitError)
+TArray<FMesh> RegionalTerrainTiles(const FMesh& Ground, const TArray<int32>& Heights,
+    VPAdenRegionalGrid::FSteps& Steps, double& FitError)
 {
     using namespace VPAdenRegionalGrid;
     constexpr int32 RegionSpacing = VPAdenRegionalGrid::Spacing;
-    const auto PilotIndex = [](const FVector2D& Position)
+    const auto GroundIndex = [](const FVector2D& Position)
     {
-        return FMath::RoundToInt((Position.Y - OriginY) / LocalSpacing) * Side
-            + FMath::RoundToInt((Position.X - OriginX) / LocalSpacing);
+        return FMath::RoundToInt((Position.Y - OriginY) / LocalSpacing) * GroundColumns
+            + FMath::RoundToInt((Position.X - VPAdenAtlas::Playable.West) / LocalSpacing);
     };
-    const auto Sample = [&Heights, &LocalGeometry](int32 X, int32 Y)
+    const auto Sample = [&](int32 X, int32 Y)
     {
         const FVector2D Position(VPAdenAtlas::Region.West + X * RegionSpacing,
                                  VPAdenAtlas::Region.North + Y * RegionSpacing);
-        return OnPilotBorder(X, Y) ? LocalGeometry.Height(Position) : double(Heights[Y * Columns + X]);
+        return OnPlayableBorder(X, Y) ? Ground.Vertices[GroundIndex(Position)].Z : double(Heights[Y * Columns + X]);
     };
     for (int32 Y = 0; Y < TilesY; ++Y)
     for (int32 X = 0; X < TilesX; ++X)
@@ -325,12 +361,12 @@ TArray<FMesh> RegionalTerrainTiles(const FGeometry& LocalGeometry, const FMesh& 
             const FVector2D Point(VPAdenAtlas::Region.West + X * RegionSpacing,
                                   VPAdenAtlas::Region.North + Y * RegionSpacing);
             const double Height = Sample(X, Y);
-            if (OnPilotBorder(X, Y))
+            if (OnPlayableBorder(X, Y))
             {
-                const int32 Index = PilotIndex(Point);
-                Samples.Vertices.Add(Pilot.Vertices[Index]);
-                Samples.Normals.Add(Pilot.Normals[Index]);
-                Samples.Colors.Add(Pilot.Colors[Index]);
+                const int32 Index = GroundIndex(Point);
+                Samples.Vertices.Add(Ground.Vertices[Index]);
+                Samples.Normals.Add(Ground.Normals[Index]);
+                Samples.Colors.Add(Ground.Colors[Index]);
                 continue;
             }
             const int32 West = FMath::Max(0, X - 1), East = FMath::Min(X + 1, Columns - 1);
@@ -368,7 +404,7 @@ TArray<FMesh> RegionalTerrainTiles(const FGeometry& LocalGeometry, const FMesh& 
         for (int32 Y = TileY * TileCells; Y < (TileY + 1) * TileCells; Y += Step)
         for (int32 X = TileX * TileCells; X < (TileX + 1) * TileCells; X += Step)
         {
-            if (InPilot(X, Y)) continue;
+            if (InPlayable(X, Y)) continue;
             const int32 A = GridVertex(X, Y), B = GridVertex(X + Step, Y);
             const int32 C = GridVertex(X, Y + Step), D = GridVertex(X + Step, Y + Step);
             const EEdge Shared = Step == 1 ? SharedEdge(X, Y) : EEdge::None;
@@ -388,15 +424,15 @@ TArray<FMesh> RegionalTerrainTiles(const FGeometry& LocalGeometry, const FMesh& 
                 const int32 From = Corners[Edge], To = Corners[(Edge + 1) % 4];
                 Ring.Add(From);
                 const FVector First = Mesh.Vertices[From], Last = Mesh.Vertices[To];
-                const bool bPilotEdge = Shared == Edges[Edge];
-                const int32 Divisions = bPilotEdge ? Subdivisions : Step / EdgeSteps[Edge];
+                const bool bGroundEdge = Shared == Edges[Edge];
+                const int32 Divisions = bGroundEdge ? Subdivisions : Step / EdgeSteps[Edge];
                 for (int32 I = 1; I < Divisions; ++I)
                 {
                     const FVector Mid = FMath::Lerp(First, Last, double(I) / Divisions);
-                    if (bPilotEdge)
+                    if (bGroundEdge)
                     {
-                        const int32 Index = PilotIndex(FVector2D(Mid));
-                        Ring.Add(Vertex(Pilot, Index, Columns * Rows + Index));
+                        const int32 Index = GroundIndex(FVector2D(Mid));
+                        Ring.Add(Vertex(Ground, Index, Columns * Rows + Index));
                     }
                     else
                     {
@@ -564,11 +600,12 @@ bool AVPAdenSourceWorld::BuildSource()
         return Stations.Num() == 4;
     bAttempted = true;
     VPAdenWorld::FGeometry Geometry;
-    TArray<int32> RegionalHeights;
-    if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !StationMesh || !StationMaterial || !WindSound
+    TArray<int32> RegionalHeights, WestHeights;
+    if (!VertexColorMaterial || !LocalAtlas || !RegionalAtlas || !WestAtlas || !StationMesh || !StationMaterial || !WindSound
         || !DossierSound || StepSounds.Num() != 3 || !Decode(Geometry)
         || Geometry.Revision != UTF8_TO_TCHAR(VPAdenDispatchData::Revision)
-        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenRegionalData::PilotRevision) || !ReadRegionalHeights(RegionalHeights))
+        || Geometry.Revision != UTF8_TO_TCHAR(VPAdenRegionalData::PilotRevision)
+        || !ReadWestHeights(WestHeights) || !ReadRegionalHeights(RegionalHeights))
     {
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));
         return false;
@@ -592,20 +629,26 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->SetVisibility(bVisible);
         return Mesh;
     };
-    const FMesh Terrain = TerrainMesh(Geometry);
+    auto* WestMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
+    auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
+    if (!WestMaterial || !RegionalMaterial) return false;
+    WestMaterial->SetTextureParameterValue(TEXT("AdenRelief"), WestAtlas);
+    RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
+    const FMesh Terrain = TerrainMesh(Geometry, WestHeights);
     TerrainCollision = AddMesh(Terrain, true, false);
     // Share the global grid's vertex attributes while keeping one continuous physics surface.
-    TerrainSectors.Reserve(SurfaceSectors);
-    for (int32 Y = 0; Y < VPAdenDrape::SectorsPerAxis; ++Y)
+    TerrainSectors.Reserve(GroundSectors);
+    for (int32 Y = 0; Y < GroundSectorsY; ++Y)
     {
-        for (int32 X = 0; X < VPAdenDrape::SectorsPerAxis; ++X)
-            TerrainSectors.Add(AddMesh(TerrainRenderSector(Terrain, X, Y), false, true));
+        for (int32 X = 0; X < GroundSectorsX; ++X)
+        {
+            const bool bWest = X < WestCells / SectorCells;
+            TerrainSectors.Add(AddMesh(TerrainRenderSector(Terrain, X, Y), false, true,
+                bWest ? VPAdenAtlas::West : VPAdenAtlas::Local, bWest ? WestMaterial : nullptr));
+        }
     }
-    auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
-    if (!RegionalMaterial) return false;
-    RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
     VPAdenRegionalGrid::FSteps RegionalSteps{};
-    const auto Backdrop = RegionalTerrainTiles(Geometry, Terrain, RegionalHeights, RegionalSteps, RegionalFitErrorCm);
+    const auto Backdrop = RegionalTerrainTiles(Terrain, RegionalHeights, RegionalSteps, RegionalFitErrorCm);
     RegionalTiles.Reserve(Backdrop.Num());
     for (int32 Tile = 0; Tile < Backdrop.Num(); ++Tile)
     {
@@ -654,17 +697,19 @@ bool AVPAdenSourceWorld::BuildSource()
     IndexAtlasShapes(Geometry.Footprints, false);
     IndexAtlasShapes(Geometry.Roads, true);
 
-    const FVector2D Centre(OriginX + Width / 2, OriginY + Width / 2);
+    constexpr auto Area = VPAdenAtlas::Playable;
+    const FVector2D Centre((Area.West + Area.East) * .5, (Area.North + Area.South) * .5);
+    const FVector2D Half(Area.Width() * .5, Area.Height() * .5);
     for (int32 Axis = 0; Axis < 2; ++Axis)
     for (int32 Sign : {-1, 1})
     {
         auto* Edge = NewObject<UBoxComponent>(this);
         AddInstanceComponent(Edge);
         Edge->SetupAttachment(GetRootComponent());
-        const double Offset = Sign * (Width / 2. + 30.);
+        const double Offset = Sign * ((Axis == 0 ? Half.X : Half.Y) + 30.);
         const FVector2D Point = Centre + (Axis == 0 ? FVector2D(Offset, 0.) : FVector2D(0., Offset));
-        Edge->SetRelativeLocation(FVector(Point.X, Point.Y, 10000.));
-        Edge->SetBoxExtent(Axis == 0 ? FVector(30., Width / 2., 45000.) : FVector(Width / 2., 30., 45000.));
+        Edge->SetRelativeLocation(FVector(Point.X, Point.Y, 30000.));
+        Edge->SetBoxExtent(Axis == 0 ? FVector(30., Half.Y, 75000.) : FVector(Half.X, 30., 75000.));
         Edge->SetCollisionProfileName(TEXT("BlockAll"));
         Edge->RegisterComponent();
     }
@@ -695,9 +740,14 @@ bool AVPAdenSourceWorld::BuildSource()
     ReverseLeg(DispatchLegs[4], FollowupToPublicCopy);
     ReverseLeg(DispatchLegs[5], FollowupToDeskCopy);
     SourceRevision = MoveTemp(Geometry.Revision);
-    UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: 49 tiles, %d roads, %d footprints (%s)"),
-        Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
+    UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: %d tiles, %d roads, %d footprints (%s)"),
+        GroundSectors, Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
     return true;
+}
+
+bool AVPAdenSourceWorld::IsPlayableGround(const FHitResult& Hit) const
+{
+    return TerrainCollision && Hit.GetComponent() == TerrainCollision.Get();
 }
 
 FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
@@ -705,7 +755,7 @@ FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
     using namespace VPAdenRegionalGrid;
     using VPAdenAtlas::Region;
     FVPAdenRegionalCheck Result;
-    if (RegionalTiles.Num() != TileCount || TerrainSectors.Num() != VPAdenWorld::SurfaceSectors) return Result;
+    if (RegionalTiles.Num() != TileCount || TerrainSectors.Num() != VPAdenWorld::GroundSectors) return Result;
     Result.CoarsenedTiles = RegionalCoarsenedTiles;
     Result.GridFitErrorCm = RegionalFitErrorCm;
     const FProcMeshSection* Sections[TileCount];
@@ -752,39 +802,39 @@ FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
     }
 
     // Only the world-space attributes are shared with the playable patch. Its atlas projection differs by design.
-    TSet<FIntPoint> PilotBorder;
-    constexpr int32 PilotCells = VPAdenWorld::Side - 1;
+    TSet<FIntPoint> GroundBorder;
+    constexpr int32 MaxCol = VPAdenWorld::GroundColumns - 1, MaxRow = VPAdenWorld::Side - 1;
     constexpr int32 CellTile = VPAdenWorld::SectorCells;
-    constexpr int32 LastSector = VPAdenDrape::SectorsPerAxis - 1;
+    constexpr auto Area = VPAdenAtlas::Playable;
     for (const auto* Section : Sections)
     for (const auto& Vertex : Section->ProcVertexBuffer)
     {
         const FVector2D P(Vertex.Position);
-        if (!VPAdenWorld::InBounds(int64(P.X), int64(P.Y))) continue;
-        const int32 X = int32(P.X) - VPAdenWorld::OriginX, Y = int32(P.Y) - VPAdenWorld::OriginY;
+        if (!Area.Contains({P.X, P.Y})) continue;
+        const int32 X = int32(P.X - Area.West), Y = int32(P.Y - Area.North);
         if (X % LocalSpacing != 0 || Y % LocalSpacing != 0) continue;
         const int32 Col = X / LocalSpacing, Row = Y / LocalSpacing;
-        if (Col != 0 && Col != PilotCells && Row != 0 && Row != PilotCells) continue;
-        const int32 SX = FMath::Min(Col / CellTile, LastSector), SY = FMath::Min(Row / CellTile, LastSector);
-        const int32 Tile = SY * VPAdenDrape::SectorsPerAxis + SX;
-        const auto* Pilot = TerrainSectors[Tile]->GetProcMeshSection(0);
+        if (Col != 0 && Col != MaxCol && Row != 0 && Row != MaxRow) continue;
+        const int32 SX = FMath::Min(Col / CellTile, VPAdenWorld::GroundSectorsX - 1);
+        const int32 SY = FMath::Min(Row / CellTile, VPAdenWorld::GroundSectorsY - 1);
+        const int32 Tile = SY * VPAdenWorld::GroundSectorsX + SX;
+        const auto* Playable = TerrainSectors[Tile]->GetProcMeshSection(0);
         const int32 Index = (Row - SY * CellTile) * VPAdenWorld::SectorSide + Col - SX * CellTile;
-        if (!Pilot || !Pilot->ProcVertexBuffer.IsValidIndex(Index) || !Equal(Pilot->ProcVertexBuffer[Index], Vertex))
+        if (!Playable || !Playable->ProcVertexBuffer.IsValidIndex(Index) || !Equal(Playable->ProcVertexBuffer[Index], Vertex))
             return Result;
-        PilotBorder.Add(FIntPoint(Col, Row));
+        GroundBorder.Add(FIntPoint(Col, Row));
     }
-    Result.PilotBorderVertices = PilotBorder.Num();
+    Result.PlayableBorderVertices = GroundBorder.Num();
     return Result;
 }
 
 FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
 {
     using namespace VPAdenWorld;
-    constexpr int32 Axis = VPAdenDrape::SectorsPerAxis;
     FVPAdenTerrainCheck Result;
-    if (!TerrainCollision || TerrainSectors.Num() != SurfaceSectors) return Result;
-    const FProcMeshSection* Sections[SurfaceSectors];
-    for (int32 I = 0; I < SurfaceSectors; ++I)
+    if (!TerrainCollision || TerrainSectors.Num() != GroundSectors) return Result;
+    const FProcMeshSection* Sections[GroundSectors];
+    for (int32 I = 0; I < GroundSectors; ++I)
     {
         const auto* Mesh = TerrainSectors[I].Get();
         if (!Mesh || !Mesh->IsVisible() || Mesh->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return Result;
@@ -798,14 +848,16 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
         Result.Triangles += Section->ProcIndexBuffer.Num() / 3;
     }
     const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenTerrainSeamProbe), true);
-    for (int32 I = 0; I < SurfaceSectors; ++I)
+    for (int32 I = 0; I < GroundSectors; ++I)
     {
         for (int32 AxisIndex = 0; AxisIndex < 2; ++AxisIndex)
         {
             const bool bVertical = AxisIndex == 0;
-            if ((bVertical ? I % Axis : I / Axis) == Axis - 1) continue;
+            const int32 X = I % GroundSectorsX, Y = I / GroundSectorsX;
+            if (bVertical ? X + 1 == GroundSectorsX : Y + 1 == GroundSectorsY) continue;
+            const bool bWestJoin = bVertical && (X + 1) * SectorCells == WestCells;
             const auto& First = Sections[I]->ProcVertexBuffer;
-            const auto& Next = Sections[I + (bVertical ? 1 : Axis)]->ProcVertexBuffer;
+            const auto& Next = Sections[I + (bVertical ? 1 : GroundSectorsX)]->ProcVertexBuffer;
             const int32 Edge = bVertical ? SectorCells : SectorCells * SectorSide;
             const int32 Stride = bVertical ? SectorSide : 1;
             bool bShared = true;
@@ -813,9 +865,11 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
             {
                 const auto& A = First[Edge + V * Stride];
                 const auto& B = Next[V * Stride];
-                bShared &= A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color && A.UV0 == B.UV0;
+                const bool bUV = bWestJoin ? A.UV0.X == 1. && B.UV0.X == 0. && A.UV0.Y == B.UV0.Y : A.UV0 == B.UV0;
+                bShared &= A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color && bUV;
             }
             if (bShared) ++Result.SharedEdges;
+            if (bShared && bWestJoin) ++Result.WestJoinEdges;
 
             // Probe just inside each side of the seam using the adjacent rendered triangle's plane.
             const int32 Middle = Edge + (SectorCells / 2) * Stride;
@@ -872,6 +926,8 @@ UTexture2D* AVPAdenSourceWorld::AtlasTexture(bool bRegional, bool bDetailed) con
 int32 AVPAdenSourceWorld::VisitAtlasLines(VPAdenAtlas::FExtent View,
     TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const
 {
+    View = VPAdenAtlas::Intersection(View, VPAdenAtlas::Local);
+    if (View.Width() <= 0. || View.Height() <= 0.) return 0;
     if (AtlasLineSectors.IsEmpty()) return 0;
     TBitArray<> Seen(false, AtlasLines.Num());
     int32 Checked = 0;

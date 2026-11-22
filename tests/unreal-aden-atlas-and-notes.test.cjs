@@ -18,6 +18,7 @@ test('Unreal atlas textures carry verified extents and pinned original bytes', (
   assert.equal(manifest.schema, 'veilpoint-native-aden-atlas-v1');
   assert.deepEqual(manifest.layers['aden-atlas-local.png'].boundsCm, [153600, -153600, 512000, 204800]);
   assert.deepEqual(manifest.layers['aden-atlas-detail-relief.png'].boundsCm, manifest.layers['aden-atlas-local.png'].boundsCm);
+  assert.deepEqual(manifest.layers['aden-atlas-west.png'].boundsCm, [0, -153600, 153600, 204800]);
   assert.deepEqual(manifest.layers['aden-atlas-region.png'].boundsCm, [-2662400, -2150400, 1433600, 1433600]);
   for (const [name, info] of Object.entries(manifest.layers)) {
     const img = fs.readFileSync(path.join(maps, name));
@@ -45,6 +46,16 @@ test('Unreal regional mesh carries the full registered 256 metre elevation grid'
   assert.ok(seaLevel > 500);
 });
 
+test('Aden west contains the full centimetre elevation payload for 21 new terrain sectors', () => {
+  const header = fs.readFileSync(path.join(include, 'VPAdenWestData.h'), 'utf8');
+  const packed = [...header.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(entry => entry[1]).join('');
+  const samples = inflateSync(Buffer.from(packed, 'base64'));
+  assert.equal(samples.length, 48 * 113 * 4);
+  const profile = Array.from({length: 48}, (_, x) => samples.readInt32LE((22 * 48 + x) * 4));
+  assert.ok(Math.min(...profile.slice(16)) > 600);
+  assert.ok(Math.max(...profile.slice(16)) - Math.min(...profile.slice(16)) > 300);
+});
+
 test('compile and exercise the real Unreal atlas projection and save migration rules',
     {skip: process.platform === 'win32'}, () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-atlas-rules-'));
@@ -61,6 +72,11 @@ test('compile and exercise the real Unreal atlas projection and save migration r
       int main() {
         using namespace VPAdenAtlas;
         assert(Local.Width() == 358400 && Region.Width() == 4096000 && Region.Height() == 3584000);
+        assert(Playable.Width() == 512000 && Playable.Height() == 358400);
+        const auto split = Crop(Playable, {West.East, 0.}, 3);
+        const auto left = Intersection(split, West), right = Intersection(split, Local);
+        assert(left.East == right.West && left.Width() + right.Width() == split.Width());
+        assert(Intersection(Crop(Playable, {West.West, 0.}, 3), Local).Width() < 0.);
         auto edge = Crop(Local, {Local.West, Local.South}, 3);
         assert(edge.West == Local.West && edge.South == Local.South);
         assert(edge.Width() == 44800 && edge.Height() == 44800);
@@ -175,7 +191,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           for (int y = 0; y < Rows - 1; ++y) {
             for (int x = 0; x < Columns - 1; ++x) {
               const auto edge = SharedEdge(x, y);
-              if (InPilot(x, y)) {
+              if (InPlayable(x, y)) {
                 assert(edge == EEdge::None);
                 ++omitted;
                 continue;
@@ -189,11 +205,11 @@ test('compile and exercise the real Unreal atlas projection and save migration r
               const bool horizontal = edge == EEdge::North || edge == EEdge::South;
               const int edgeX = x + (edge == EEdge::East);
               const int edgeY = y + (edge == EEdge::South);
-              assert(OnPilotBorder(edgeX, edgeY));
-              assert(OnPilotBorder(edgeX + horizontal, edgeY + !horizontal));
+              assert(OnPlayableBorder(edgeX, edgeY));
+              assert(OnPlayableBorder(edgeX + horizontal, edgeY + !horizontal));
             }
           }
-          assert(omitted == 196 && stitched == 56 && triangles == 44912);
+          assert(omitted == 280 && stitched == 68 && triangles == 44852);
           static_assert(TileCount == 56);
           static_assert(PreferredStep(0, 0) == 4);
           static_assert(PreferredStep(LocalWest / TileCells, LocalNorth / TileCells) == 1);
