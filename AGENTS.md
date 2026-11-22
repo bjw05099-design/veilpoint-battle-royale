@@ -11,8 +11,9 @@
   and stabilization.
 - Use [the model work allocation guide](docs/MODEL_WORK_ALLOCATION.md) when
   choosing or scoping development work. Use the model and reasoning level
-  selected for the session when available. Explicitly requested work takes
-  priority. Use the guide's task criteria when a setting is not visible.
+  selected for the session when available. Use Sol 6.2 High as the default
+  and minimum reasoning level for Sol development. Explicitly requested work
+  takes priority. Use the guide's task criteria when a setting is not visible.
 - Build production Aden scenery from registered real-world sources at 1:1
   scale. Preserve the sourced terrain, public road alignment, ordinary
   building footprints and their known dimensions. Missing elevations,
