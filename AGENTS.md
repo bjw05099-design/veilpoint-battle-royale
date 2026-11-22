@@ -10,8 +10,9 @@
   development effort 75% to story and 25% to BR, including each mode's map work
   and stabilization.
 - Use [the model work allocation guide](docs/MODEL_WORK_ALLOCATION.md) when
-  choosing or scoping development work. Use the model selected for the session
-  as the work selection input. Explicitly requested work takes priority.
+  choosing or scoping development work. Use the model and reasoning level
+  selected for the session when available. Explicitly requested work takes
+  priority. Use the guide's task criteria when a setting is not visible.
 - Build production Aden scenery from registered real-world sources at 1:1
   scale. Preserve the sourced terrain, public road alignment, ordinary
   building footprints and their known dimensions. Missing elevations,
