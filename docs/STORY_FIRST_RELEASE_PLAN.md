@@ -6,13 +6,14 @@ material for regression and migration.
 
 ## Development allocation
 
-| Release track | Share | Acceptance focus |
+| Development area | Share | Acceptance focus |
 |---|---:|---|
-| Single-player story campaign | **75%** | Playable chapters, authored maps, actor motion, grounded interactions, solo save/recovery and offline completion |
-| Battle Royale | **25%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
+| Maps | **40%** | Sourced terrain and public geometry, local traversal, collision, atlas controls and packaged rendering |
+| Single-player story campaign | **50%** | Playable chapters, actor motion, grounded interactions, solo save/recovery and offline completion |
+| Battle Royale | **10%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
 
-The November 18 allocation applies to development effort. Map work and
-stabilization count toward the release track they serve.
+The November 22 allocation applies to ongoing development effort. Map production
+has its own share. Stabilization counts under the area being improved.
 
 ## Release sequence
 
@@ -123,7 +124,7 @@ explicit `story.html` dependency.
   measurement provenance; avoid sensitive operational locations.
 - The story campaign's separate desired **playtime composition** remains
   combat 50%, urgent movement/rescue 20%, character/narrative 22% and exploration
-  8%. The story/BR development allocation is 75% / 25%.
+  8%.
 - No 165FPS, RTX3070 performance, UE5 UBT/PIE, full-city surveyed accuracy,
   12-hour playable campaign or internet 96-human match can be asserted from
   Node/browser contract tests alone.

@@ -7,8 +7,10 @@
 
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
   marking. Story and Battle Royale ship separately, with story first. Allocate
-  development effort 75% to story and 25% to BR, including each mode's map work
-  and stabilization.
+  development effort 40% to maps, 50% to story mode, and 10% to Battle Royale.
+  Count map production separately, including shared terrain and collision.
+  Count stabilization under the area being improved. Follow explicit session
+  scope while keeping this allocation for ongoing development.
 - Use [the model work allocation guide](docs/MODEL_WORK_ALLOCATION.md) when
   choosing or scoping development work. Use the model and reasoning level
   selected for the session when available. Use Sol 6.2 High as the default
