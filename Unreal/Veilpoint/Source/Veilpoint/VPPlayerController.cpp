@@ -390,6 +390,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
     InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVPPlayerController::FileAdenReportInternally);
     InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::G, IE_Pressed, this, &AVPPlayerController::ToggleAdenAtlasRouteOverview).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
     InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &AVPPlayerController::QuickSaveAden);
@@ -401,18 +402,34 @@ void AVPPlayerController::SetupInputComponent()
 void AVPPlayerController::CycleAdenAtlas()
 {
     if (!bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
         AdenAtlasPage = (AdenAtlasPage + 1) % 3;
+        bAdenAtlasRouteOverview = false;
+    }
+}
+
+bool AVPPlayerController::IsAdenAtlasRouteOverview() const
+{
+    const auto* State = GetWorld() ? GetWorld()->GetGameState<AVPAdenStoryState>() : nullptr;
+    return AdenAtlasPage == 1 && bAdenAtlasRouteOverview && State && State->HasAtlasRoute();
+}
+
+void AVPPlayerController::ToggleAdenAtlasRouteOverview()
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld()) return;
+    if (const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>(); State && State->HasAtlasRoute())
+        bAdenAtlasRouteOverview = !bAdenAtlasRouteOverview;
 }
 
 void AVPPlayerController::ZoomAdenAtlasIn()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1)
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview())
         AdenAtlasZoom = FMath::Min(AdenAtlasZoom + 1, VPAdenAtlas::MaxZoomLevel);
 }
 
 void AVPPlayerController::ZoomAdenAtlasOut()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1)
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview())
         AdenAtlasZoom = FMath::Max(AdenAtlasZoom - 1, 0);
 }
 
@@ -503,6 +520,11 @@ void AVPPlayerController::TickBRDiagnostic()
     const auto* LocalBRPawn = Cast<AVPCharacter>(GetPawn());
     if (!State || !LocalBRPawn || !State->bReadyRequired) return;
     const double Now = GetWorld()->GetTimeSeconds();
+    if (FParse::Param(FCommandLine::Get(), TEXT("VPBRRejoin")))
+    {
+        TickBRRejoinDiagnostic(*State, Now);
+        return;
+    }
     if (!State->bRoundStarted && State->JoinedPlayers == 2 && State->ReadyPlayers < 2 && !bBRObservedLobby)
     {
         bBRObservedLobby = true;
@@ -574,6 +596,54 @@ void AVPPlayerController::TickBRDiagnostic()
             BRQuitAt = Now + 4.;
         }
         bBRProofPrinted = true;
+    }
+    if (BRQuitAt >= 0. && Now >= BRQuitAt)
+        UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+#endif
+}
+
+void AVPPlayerController::TickBRRejoinDiagnostic(const AVPGameState& State, double Now)
+{
+#if !UE_BUILD_SHIPPING
+    const bool bHost = GetNetMode() == NM_ListenServer;
+    const bool bFirstClient = !bHost && FParse::Param(FCommandLine::Get(), TEXT("VPBRLeaveDuringCountdown"));
+    const bool bCountdown = State.LobbyCountdownEndsAt > 0.;
+    if (!bBRObservedLobby && !State.bRoundStarted && State.JoinedPlayers == 2 && !bRoundReady && !bCountdown
+        && (bHost || bFirstClient || State.ReadyPlayers == 1))
+    {
+        bBRObservedLobby = true;
+        BRObserveAt = Now;
+        if (!bHost && !bFirstClient)
+            UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_UNREADY_CONFIRMED"));
+    }
+    if (bBRObservedLobby && !bBRReadyRequested && !State.bRoundStarted && State.JoinedPlayers == 2
+        && !bCountdown && !bRoundReady && Now - BRObserveAt >= 1.5 && (bHost || bFirstClient || State.ReadyPlayers == 1))
+    {
+        bBRReadyRequested = true;
+        ToggleRoundReady();
+    }
+    if (bBRReadyRequested && !State.bRoundStarted && bCountdown && State.JoinedPlayers == 2 && State.ReadyPlayers == 2)
+    {
+        bBRObservedCountdown = true;
+        if (!bFirstClient && (!bHost || bBRObservedCancellation)) bBRRestartObserved = true;
+        if (bFirstClient && !bBRProofPrinted)
+        {
+            UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_FIRST_CLIENT_LEFT"));
+            bBRProofPrinted = true;
+            BRQuitAt = Now;
+        }
+    }
+    if (bHost && bBRObservedCountdown && !bBRObservedCancellation && !State.bRoundStarted
+        && State.JoinedPlayers == 1 && State.ReadyPlayers == 1 && !bCountdown)
+    {
+        bBRObservedCancellation = true;
+        UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_HOST_CANCELLED"));
+    }
+    if (!bBRProofPrinted && bBRRestartObserved && State.bRoundStarted && State.JoinedPlayers == 2 && State.ReadyPlayers == 2)
+    {
+        UE_LOG(LogTemp, Display, TEXT("%s"), bHost ? TEXT("VPBR_REJOIN_HOST_PASS") : TEXT("VPBR_REJOIN_CLIENT_PASS"));
+        bBRProofPrinted = true;
+        BRQuitAt = Now + (bHost ? 2. : .25);
     }
     if (BRQuitAt >= 0. && Now >= BRQuitAt)
         UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);

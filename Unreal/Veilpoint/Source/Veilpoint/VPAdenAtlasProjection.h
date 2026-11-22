@@ -10,6 +10,17 @@ struct FExtent
     double West, North, East, South;
     constexpr double Width() const { return East - West; }
     constexpr double Height() const { return South - North; }
+    constexpr bool Contains(FPoint Point) const
+    {
+        return Point.X >= West && Point.X <= East && Point.Y >= North && Point.Y <= South;
+    }
+    constexpr void Include(FPoint Point)
+    {
+        West = std::min(West, Point.X);
+        East = std::max(East, Point.X);
+        North = std::min(North, Point.Y);
+        South = std::max(South, Point.Y);
+    }
     FPoint Normalized(FPoint Point) const
     {
         return {(Point.X - West) / Width(), (Point.Y - North) / Height()};
@@ -34,15 +45,31 @@ inline int ScaleBarMetres(FExtent View)
     return Best;
 }
 
-inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
+inline FExtent CentredCrop(FExtent Full, FPoint Centre, double Fraction)
 {
-    const int Factor = 1 << std::clamp(ZoomLevel, 0, MaxZoomLevel);
-    const double W = Full.Width() / Factor;
-    const double H = Full.Height() / Factor;
+    const double W = Full.Width() * Fraction;
+    const double H = Full.Height() * Fraction;
     const double West = std::clamp(Centre.X - W / 2., Full.West, Full.East - W);
     const double North = std::clamp(Centre.Y - H / 2., Full.North, Full.South - H);
-    return {West, North, West + W, North + H};
+    return {West, North, std::min(Full.East, West + W), std::min(Full.South, North + H)};
 }
+
+inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
+{
+    return CentredCrop(Full, Centre, 1. / (1 << std::clamp(ZoomLevel, 0, MaxZoomLevel)));
+}
+
+inline FExtent FitRoute(FExtent Full, FExtent Bounds, int ZoomLevel)
+{
+    // Leave room for the player arrow and objective marker while preserving the atlas aspect ratio.
+    constexpr double Margin = 1600.;
+    const double Fit = std::max((Bounds.Width() + 2. * Margin) / Full.Width(),
+                                (Bounds.Height() + 2. * Margin) / Full.Height());
+    const double Requested = 1. / (1 << std::clamp(ZoomLevel, 0, MaxZoomLevel));
+    return CentredCrop(Full, {(Bounds.West + Bounds.East) * .5, (Bounds.North + Bounds.South) * .5},
+        std::clamp(Fit, Requested, 1.));
+}
+
 inline bool Clip(FExtent Bounds, FPoint& A, FPoint& B)
 {
     const double DX = B.X - A.X, DY = B.Y - A.Y;
