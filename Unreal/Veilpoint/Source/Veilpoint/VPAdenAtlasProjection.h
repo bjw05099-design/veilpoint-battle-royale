@@ -57,9 +57,9 @@ inline FExtent CentredCrop(FExtent Full, FPoint Centre, double Fraction)
 {
     const double W = Full.Width() * Fraction;
     const double H = Full.Height() * Fraction;
-    const double West = std::clamp(Centre.X - W / 2., Full.West, Full.East - W);
+    const double CropWest = std::clamp(Centre.X - W / 2., Full.West, Full.East - W);
     const double North = std::clamp(Centre.Y - H / 2., Full.North, Full.South - H);
-    return {West, North, std::min(Full.East, West + W), std::min(Full.South, North + H)};
+    return {CropWest, North, std::min(Full.East, CropWest + W), std::min(Full.South, North + H)};
 }
 
 inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
