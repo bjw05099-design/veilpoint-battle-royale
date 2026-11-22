@@ -435,10 +435,15 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     if (bPassed)
     {
         bPassed = ReadFrame(TEXT("aden-world"));
-        const int32 BackdropTriangles = Source->RegionalBackdropTriangles();
+        const auto Backdrop = Source->VerifyRegionalTiles();
         const int32 RoadTriangles = Source->RoadOverlayTriangles();
         const int32 FootprintTriangles = Source->FootprintOverlayTriangles();
-        Report->SetNumberField(TEXT("regionalBackdropTriangles"), BackdropTriangles);
+        Report->SetNumberField(TEXT("regionalBackdropTriangles"), Backdrop.Triangles);
+        Report->SetNumberField(TEXT("regionalRenderTiles"), Backdrop.Tiles);
+        Report->SetNumberField(TEXT("regionalCoarsenedTiles"), Backdrop.CoarsenedTiles);
+        Report->SetNumberField(TEXT("regionalSharedEdges"), Backdrop.SharedEdges);
+        Report->SetNumberField(TEXT("regionalPilotBorderVertices"), Backdrop.PilotBorderVertices);
+        Report->SetNumberField(TEXT("regionalGridFitErrorCm"), Backdrop.GridFitErrorCm);
         const auto Terrain = Source->VerifyTerrainSectors();
         Report->SetNumberField(TEXT("terrainRenderSectors"), Terrain.Sectors);
         Report->SetNumberField(TEXT("terrainRenderTriangles"), Terrain.Triangles);
@@ -456,7 +461,7 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("blockerBaseGapErrorCm"), Source->BlockerBaseGapError());
         Report->SetNumberField(TEXT("blockerCollisionProbes"), Source->FootprintCollisionProbeCount());
         Report->SetNumberField(TEXT("blockerCollisionProbesPassed"), Source->VerifyFootprintCollision(Pawn));
-        if (bPassed && BackdropTriangles > 0 && RoadTriangles > 0 && FootprintTriangles > 0)
+        if (bPassed && Backdrop.Triangles > 0 && RoadTriangles > 0 && FootprintTriangles > 0)
         {
             const FTransform Original = DiagnosticCapture->GetRelativeTransform();
             DiagnosticCapture->bCaptureEveryFrame = false;
@@ -469,6 +474,11 @@ void AVPAdenStoryGameMode::RunDiagnostic()
                 FRotator(-14., 180., 0.));
             DiagnosticCapture->CaptureScene();
             bPassed = ReadFrame(TEXT("aden-regional-terrain")) && bPassed;
+            const auto Local = VPAdenAtlas::Local;
+            DiagnosticCapture->SetWorldLocationAndRotation(FVector(Local.West + 30000.,
+                (Local.North + Local.South) * .5, 101000.), FRotator(-28., 168., 0.));
+            DiagnosticCapture->CaptureScene();
+            bPassed = ReadFrame(TEXT("aden-regional-seam")) && bPassed;
             DiagnosticCapture->SetRelativeTransform(Original);
             DiagnosticCapture->bCaptureEveryFrame = true;
         }

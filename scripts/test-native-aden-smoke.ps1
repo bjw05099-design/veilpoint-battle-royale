@@ -32,7 +32,6 @@ if ($content -notmatch 'Aden native source loaded: 49 tiles, 183 roads, 4865 foo
 $report=Get-Content -LiteralPath (Join-Path $captures 'visual-smoke.json') -Raw | ConvertFrom-Json
 if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStationsVerified -ne $true -or
     $report.confirmed -ne 3 -or $report.relaySlipSaved -ne $true -or $report.debriefSaved -ne $true -or
-    $report.regionalBackdropTriangles -ne 44912 -or
     $report.dispatchPhase -ne 5 -or $report.witnessCompleted -ne $true -or $report.noticeCompleted -ne $true -or
     $report.publicUpdateSaved -ne $true -or $report.internalHandoffRestored -ne $true -or
     $report.followupStep -ne 3 -or $report.publicCorrectionVerified -ne $true -or $report.deskCorrectionVerified -ne $true -or
@@ -40,6 +39,12 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStations
     $report.receiptLegacyResumeVerified -ne $true -or
     $report.receiptRouteRemainingMetres -lt 70 -or $report.receiptRouteRemainingMetres -gt 76) {
     throw 'Aden captured an incomplete native story.'
+}
+if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -ne 33 -or
+    $report.regionalBackdropTriangles -ne 22802 -or $report.regionalSharedEdges -ne 97 -or
+    $report.regionalPilotBorderVertices -ne 448 -or $null -eq $report.regionalGridFitErrorCm -or
+    $report.regionalGridFitErrorCm -le 0 -or $report.regionalGridFitErrorCm -gt 600) {
+    throw 'Aden regional terrain failed the elevation fit or shared edge validation.'
 }
 if ($report.terrainRenderSectors -ne 49 -or $report.terrainRenderTriangles -ne 25088 -or
     $report.terrainSharedEdges -ne 84 -or $report.terrainCollisionHits -ne 168 -or
@@ -69,7 +74,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
+foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or
