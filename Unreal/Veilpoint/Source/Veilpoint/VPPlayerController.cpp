@@ -531,7 +531,27 @@ void AVPPlayerController::TickBRDiagnostic()
         if (GetNetMode() == NM_Client)
             ToggleRoundReady();
     }
-    if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
+    if (FParse::Param(FCommandLine::Get(), TEXT("VPBRDepart")))
+    {
+        if (bBRObservedCancellation && State->bRoundStarted && !bBRProofPrinted)
+        {
+            if (GetNetMode() == NM_Client && !State->bRoundComplete && State->RoundElapsedMs >= 4500)
+            {
+                UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_DEPARTED: leaving an active round"));
+                BRQuitAt = Now;
+                bBRProofPrinted = true;
+            }
+            else if (GetNetMode() == NM_ListenServer && State->bRoundComplete && State->JoinedPlayers == 2
+                && State->DepartedPlayers == 1 && State->ActiveSurvivors == 1 && LocalBRPawn->IsAlive()
+                && LocalBRPawn->GetRoundPlacement() == 1 && LocalBRPawn->GetRoundReview().Num() >= 2)
+            {
+                UE_LOG(LogTemp, Display, TEXT("VPBR_DEPARTURE_PASS: one departure, one survivor, winner record finalized"));
+                BRQuitAt = Now;
+                bBRProofPrinted = true;
+            }
+        }
+    }
+    else if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
         && bBRObservedCancellation && bRoundReady && !bBRProofPrinted && LocalBRPawn->GetRoundReview().Num() >= 2)
     {
         if (GetNetMode() == NM_Client)

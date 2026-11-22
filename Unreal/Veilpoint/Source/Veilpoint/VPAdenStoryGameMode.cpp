@@ -109,7 +109,7 @@ FTransform AVPAdenStoryGameMode::RecoveryTransform(FVPAdenCampaignCheckpoint Che
     {
         const auto& Leg = Source->DispatchLeg(Checkpoint.Dispatch);
         Here = Source->DispatchResume(Checkpoint.Dispatch);
-        if (Checkpoint.Dispatch.Phase == VPAdenDispatch::Complete && Checkpoint.Dispatch.Followup == VPAdenDispatch::FollowupReady)
+        if (VPAdenDispatch::IsChapterHandoff(Checkpoint.Dispatch))
             Ahead = Leg.Last();
         else
             Ahead = VPAdenDispatch::HasObjective(Checkpoint.Dispatch) ? Leg[1] : Leg[0];
@@ -293,7 +293,7 @@ void AVPAdenStoryGameMode::PublishState()
         State->bDispatchActive = bool(Notes & VPAdenMission::ReturnDebrief);
         State->ActiveLeg.Reset();
         if (Source && State->bDispatchActive && VPAdenDispatch::HasObjective(Dispatch)
-            && (Dispatch.Phase < VPAdenDispatch::Complete || Dispatch.Followup != VPAdenDispatch::FollowupReady))
+            && !VPAdenDispatch::IsChapterHandoff(Dispatch))
             State->ActiveLeg = Source->DispatchLeg(Dispatch);
         State->AvailableNote = VPAdenMission::AvailableNote({Confirmed, Notes});
         State->NotePoint = GetNotePoint(State->AvailableNote);
@@ -323,15 +323,16 @@ FVPAdenCampaignCheckpoint AVPAdenStoryGameMode::ReadCheckpoint() const
             continue;
         const auto* Saved = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
         if (!Saved || Saved->Revision != Source->Revision()) continue;
-        if (Saved->Version < 1 || Saved->Version > 5) continue;
+        if (Saved->Version < 1 || Saved->Version > VPAdenDispatch::CheckpointVersion) continue;
         const auto RestoredDispatch = VPAdenDispatch::Restore(Saved->Version,
-            {Saved->DispatchPhase, Saved->DispatchRoute, Saved->DispatchDisposition, Saved->DispatchFollowup});
+            {Saved->DispatchPhase, Saved->DispatchRoute, Saved->DispatchDisposition, Saved->DispatchFollowup, Saved->DispatchReceipt});
         const FVPAdenCampaignCheckpoint Candidate{{Saved->Confirmed, Saved->Notes}, RestoredDispatch};
         const int32 BroadcastVersion = FMath::Min(Saved->Version, 2);
         if (!VPAdenMission::ValidCheckpoint(BroadcastVersion, Candidate.Broadcast)) continue;
         const bool bStarted = Candidate.Dispatch.Phase != VPAdenDispatch::Brief || Candidate.Dispatch.Route != VPAdenDispatch::Unselected;
         if ((bStarted && (!Candidate.HasDispatch() || Saved->Version < 3)) ||
             (Saved->Version < 5 && RestoredDispatch.Followup != VPAdenDispatch::FollowupReady) ||
+            (Saved->Version < 6 && RestoredDispatch.Receipt != VPAdenDispatch::ReceiptReady) ||
             !VPAdenDispatch::Valid(Candidate.Dispatch)) continue;
         return Candidate;
     }
@@ -344,7 +345,7 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
         return false;
     auto* Saved = NewObject<UVPAdenStoryCheckpoint>();
     Saved->Revision = Source->Revision();
-    Saved->Version = 5;
+    Saved->Version = VPAdenDispatch::CheckpointVersion;
     const auto Previous = ReadCheckpoint();
     Saved->Confirmed = Previous.Broadcast.Confirmed;
     Saved->Notes = Previous.Broadcast.Notes;
@@ -352,6 +353,7 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
     Saved->DispatchRoute = Previous.Dispatch.Route;
     Saved->DispatchDisposition = Previous.Dispatch.Disposition;
     Saved->DispatchFollowup = Previous.Dispatch.Followup;
+    Saved->DispatchReceipt = Previous.Dispatch.Receipt;
     const FString Slot = AdenSlot();
     if (!UGameplayStatics::SaveGameToSlot(Saved, Slot + TEXT("-backup"), 0))
         return false;
@@ -361,13 +363,14 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
     Saved->DispatchRoute = Dispatch.Route;
     Saved->DispatchDisposition = Dispatch.Disposition;
     Saved->DispatchFollowup = Dispatch.Followup;
+    Saved->DispatchReceipt = Dispatch.Receipt;
     if (!UGameplayStatics::SaveGameToSlot(Saved, Slot, 0))
         return false;
     const auto* Observed = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
-    return Observed && Observed->Version == 5 && Observed->Confirmed == Confirmed && Observed->Notes == Notes &&
+    return Observed && Observed->Version == VPAdenDispatch::CheckpointVersion && Observed->Confirmed == Confirmed && Observed->Notes == Notes &&
         Observed->DispatchPhase == Dispatch.Phase && Observed->DispatchRoute == Dispatch.Route &&
         Observed->DispatchDisposition == Dispatch.Disposition &&
-        Observed->DispatchFollowup == Dispatch.Followup &&
+        Observed->DispatchFollowup == Dispatch.Followup && Observed->DispatchReceipt == Dispatch.Receipt &&
         Observed->Revision == Source->Revision();
 }
 
@@ -680,6 +683,11 @@ void AVPAdenStoryGameMode::VerifyDispatch()
             bPassed = VerifyDispatchFollowup(Pawn);
             DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicCorrectionVerified") : TEXT("deskCorrectionVerified"), bPassed);
         }
+        if (bPassed)
+        {
+            bPassed = VerifyReceiptChapter(Pawn);
+            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicReceiptVerified") : TEXT("deskReceiptVerified"), bPassed);
+        }
     }
     if (!bPassed)
     {
@@ -688,7 +696,7 @@ void AVPAdenStoryGameMode::VerifyDispatch()
     }
     Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
     FTimerHandle Timer;
-    GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::CaptureDispatchCompletion, 1.5f, false);
+    GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::CaptureReceiptCompletion, 1.5f, false);
 #endif
 }
 
@@ -712,6 +720,13 @@ bool AVPAdenStoryGameMode::VerifyDispatchFollowup(AVPCharacter* Pawn)
                 UE_LOG(LogVPAdenStory, Error, TEXT("Follow-up route collision on step %d"), Step);
                 return false;
             }
+        if (Step == DeliverCorrection && OriginalDisposition == PublicUpdate)
+        {
+            auto* Desktop = Cast<AVPPlayerController>(Pawn->GetController());
+            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-night-roster"));
+            if (!Frame) return false;
+            DiagnosticReport->SetObjectField(TEXT("aden-night-roster"), Frame);
+        }
         Pawn->RequestInteraction();
         if (Dispatch.Followup != Step + 1 || ReadCheckpoint().Dispatch.Followup != Step + 1)
             return false;
@@ -724,12 +739,66 @@ bool AVPAdenStoryGameMode::VerifyDispatchFollowup(AVPCharacter* Pawn)
 #endif
 }
 
-void AVPAdenStoryGameMode::CaptureDispatchCompletion()
+bool AVPAdenStoryGameMode::VerifyReceiptChapter(AVPCharacter* Pawn)
+{
+#if !UE_BUILD_SHIPPING
+    using namespace VPAdenDispatch;
+    if (!IsReceiptChapter(Dispatch) || Dispatch.Receipt != ReceiptReady) return false;
+    const bool bPublic = Dispatch.Disposition == PublicUpdate;
+    if (bPublic)
+    {
+        // Reopen the independently isolated diagnostic slot as a pre-CH04 save.
+        auto* Legacy = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(AdenSlot(), 0));
+        if (!Legacy || Legacy->DispatchFollowup != FollowupComplete) return false;
+        Legacy->Version = 5;
+        if (!UGameplayStatics::SaveGameToSlot(Legacy, AdenSlot(), 0) || !ReturnToCheckpoint(Pawn)
+            || !IsReceiptChapter(Dispatch) || Dispatch.Receipt != ReceiptReady) return false;
+        DiagnosticReport->SetBoolField(TEXT("receiptLegacyResumeVerified"), true);
+    }
+    Pawn->RequestInteraction();
+    if (Dispatch.Receipt != ReceiptAtLedger || !Notice.StartsWith(bPublic ? TEXT("Amina") : TEXT("Yusuf"))
+        || !ReturnToCheckpoint(Pawn) || Dispatch.Receipt != ReceiptAtLedger) return false;
+    Pawn->RequestInteraction();
+    if (Dispatch.Receipt != ReceiptAtLedger) return false;
+    for (const EReceiptStep Step : {ReceiptAtLedger, ReceiptAtArchive})
+    {
+        const auto& Leg = Source->DispatchLeg(Dispatch);
+        if (Dispatch.Receipt != Step || Leg.Num() != 2) return false;
+        const FVector Middle = FMath::Lerp(Leg[0], Leg[1], .5);
+        if (!SweepDiagnosticLeg(Pawn, Leg[0], Middle)) return false;
+        if (Step == ReceiptAtArchive && bPublic)
+        {
+            auto* Desktop = Cast<AVPPlayerController>(Pawn->GetController());
+            if (!Desktop) return false;
+            const FGuide RouteGuide = Guide(Leg, Pawn->GetActorLocation());
+            if (RouteGuide.SegmentEnd != 1 || RouteGuide.OffsetCm > 1. ||
+                RouteGuide.RemainingCm < 7000. || RouteGuide.RemainingCm > 7600.) return false;
+            DiagnosticReport->SetNumberField(TEXT("receiptRouteRemainingMetres"), RouteGuide.RemainingCm / 100.);
+            Desktop->CycleAdenAtlas();
+            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-receipt-route"));
+            Desktop->CycleAdenAtlas();
+            Desktop->CycleAdenAtlas();
+            if (!Frame) return false;
+            DiagnosticReport->SetObjectField(TEXT("aden-receipt-route"), Frame);
+        }
+        if (!SweepDiagnosticLeg(Pawn, Middle, Leg[1])) return false;
+        Pawn->RequestInteraction();
+        if (Dispatch.Receipt != Step + 1 || !ReturnToCheckpoint(Pawn) || Dispatch.Receipt != Step + 1)
+            return false;
+    }
+    Pawn->RequestInteraction();
+    return Dispatch.Receipt == ReceiptComplete && Dispatch.Disposition == (bPublic ? PublicUpdate : InternalHandoff);
+#else
+    return false;
+#endif
+}
+
+void AVPAdenStoryGameMode::CaptureReceiptCompletion()
 {
 #if !UE_BUILD_SHIPPING
     auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
-    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-night-roster"));
-    if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-night-roster"), Frame);
+    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-receipt-archive"));
+    if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-receipt-archive"), Frame);
     FinishDiagnostic(Frame.IsValid());
 #endif
 }
@@ -744,6 +813,7 @@ void AVPAdenStoryGameMode::FinishDiagnostic(bool bPassed)
     DiagnosticReport->SetBoolField(TEXT("debriefSaved"), bool(Notes & VPAdenMission::ReturnDebrief));
     DiagnosticReport->SetNumberField(TEXT("dispatchPhase"), Dispatch.Phase);
     DiagnosticReport->SetNumberField(TEXT("followupStep"), Dispatch.Followup);
+    DiagnosticReport->SetNumberField(TEXT("receiptStep"), Dispatch.Receipt);
     bPassed = VPWriteVisualSmokeReport(DiagnosticReport.ToSharedRef()) && bPassed;
     if (bPassed)
     {

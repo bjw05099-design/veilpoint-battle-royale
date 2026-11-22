@@ -8,6 +8,7 @@
 #include "VPWorldBootstrap.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
+#include "GameFramework/GameSession.h"
 #include "GameFramework/PlayerStart.h"
 #include "Engine/DamageEvents.h"
 #include "Kismet/GameplayStatics.h"
@@ -66,6 +67,12 @@ void AVPGameMode::PreLogin(const FString& Options, const FString& Address,
 
 void AVPGameMode::PostLogin(APlayerController* NewPlayer)
 {
+    // A connection admitted by PreLogin can finish joining after the start tick.
+    if (bRequireReady && bSeenMultiplePlayers && GameSession)
+    {
+        GameSession->KickPlayer(NewPlayer, FText::FromString(TEXT("This native round already started.")));
+        return;
+    }
     Super::PostLogin(NewPlayer);
     if (auto* Desktop = Cast<AVPPlayerController>(NewPlayer))
     {
@@ -76,8 +83,12 @@ void AVPGameMode::PostLogin(APlayerController* NewPlayer)
 
 void AVPGameMode::Logout(AController* Exiting)
 {
-    if (Cast<AVPPlayerController>(Exiting))
+    if (auto* Desktop = Cast<AVPPlayerController>(Exiting))
+    {
         ReadyCountdownEndsAt = 0.;
+        if (RoundEntrants.Remove(Desktop) > 0)
+            if (auto* Match = GetGameState<AVPGameState>()) Match->RecordDeparture();
+    }
     Super::Logout(Exiting);
 }
 
@@ -107,26 +118,44 @@ void AVPGameMode::Tick(float DeltaSeconds)
     if(!HasAuthority()||bRoundComplete)return;
     AVPGameState* NativeState=GetWorld()->GetGameState<AVPGameState>();
     if (!NativeState) return;
+    const bool bOnlineReadyLobby = bRequireReady && GetNetMode() != NM_Standalone;
+    const bool bAlreadyStarted = NativeState->bRoundStarted;
     int32 Total=0,Living=0,Joined=0,Ready=0;
     TArray<AVPCharacter*, TInlineAllocator<96>> Participants;
-    for(TActorIterator<AVPCharacter> It(GetWorld());It;++It)
+    if (bOnlineReadyLobby && bAlreadyStarted)
     {
-        ++Total;
-        if(It->IsAlive())Living++;
-        Participants.Add(*It);
-        if (const auto* Controller = Cast<AVPPlayerController>(It->GetController()); Controller && It->IsAlive())
+        for (const auto& Entry : RoundEntrants)
         {
-            ++Joined;
-            if (Controller->IsRoundReady()) ++Ready;
+            auto* Pawn = Entry.Value.Get();
+            if (!Pawn || !Entry.Key.IsValid() || Pawn->GetController() != Entry.Key.Get()) continue;
+            Participants.Add(Pawn);
+            if (Pawn->IsAlive()) ++Living;
+        }
+    }
+    else
+    {
+        for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
+        {
+            ++Total;
+            auto* Controller = Cast<AVPPlayerController>(It->GetController());
+            if (bOnlineReadyLobby && (!Controller || !It->IsAlive())) continue;
+            Participants.Add(*It);
+            if (It->IsAlive()) ++Living;
+            if (Controller && It->IsAlive())
+            {
+                ++Joined;
+                if (Controller->IsRoundReady()) ++Ready;
+            }
         }
     }
     ActiveSurvivors=Living;
     const double Now = GetWorld()->GetTimeSeconds();
-    const bool bOnlineReadyLobby = bRequireReady && GetNetMode() != NM_Standalone;
     if (bOnlineReadyLobby)
     {
         if (!bSeenMultiplePlayers && VPBRLobby::AdvanceCountdown(Now, Joined, Ready, ReadyCountdownEndsAt))
         {
+            for (auto* Pawn : Participants)
+                RoundEntrants.Add(CastChecked<AVPPlayerController>(Pawn->GetController()), Pawn);
             bSeenMultiplePlayers = true;
             ReadyCountdownEndsAt = 0.;
         }
@@ -138,7 +167,6 @@ void AVPGameMode::Tick(float DeltaSeconds)
     if(bSeenMultiplePlayers&&Living<=1){bRoundComplete=true;UE_LOG(LogTemp,Display,TEXT("VEILPOINT: round finished, survivors %d"),Living);}
     // GameMode is never replicated to remote clients. Publish only factual
     // finite round status through the server-owned GameState.
-    const bool bAlreadyStarted = NativeState->bRoundStarted;
     NativeState->UpdateRoundState(Living,bRoundComplete);
     // The first real multi-participant round opens the zone clock.
     // Merely launching the offline native scene must not consume it.
@@ -167,6 +195,7 @@ void AVPGameMode::TickRoundDiagnostic(const TArray<AVPCharacter*, TInlineAllocat
 {
 #if !UE_BUILD_SHIPPING
     if (!FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify")) || GetNetMode() != NM_ListenServer
+        || FParse::Param(FCommandLine::Get(), TEXT("VPBRDepart"))
         || !bRequireReady || Now - ReviewStartedAt < 5. || Participants.Num() != 2)
         return;
     for (AVPCharacter* Pawn : Participants)
