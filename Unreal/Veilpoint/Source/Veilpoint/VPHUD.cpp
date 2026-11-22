@@ -719,7 +719,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             LastNativeBenchmarkStatus = TEXT("CAPTURE CANCELLED BY MAP | F9 TO START AGAIN");
         }
         FrameTelemetry.Reset();
-        DrawAdenAtlas(Aden, Pawn, Desktop->GetAdenAtlasPage(), Desktop->GetAdenAtlasZoom());
+        DrawAdenAtlas(Aden, Pawn, Desktop->GetAdenAtlasPage(), Desktop->GetAdenAtlasZoom(), Desktop->IsAdenAtlasRouteOverview());
         return;
     }
     const bool bJournalOpen = Desktop && Desktop->IsAdenJournalOpen();

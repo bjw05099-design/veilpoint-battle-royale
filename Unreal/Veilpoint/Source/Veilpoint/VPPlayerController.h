@@ -20,6 +20,8 @@ public:
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
+    bool IsAdenAtlasRouteOverview() const;
+    void ToggleAdenAtlasRouteOverview();
     void CycleAdenAtlas();
     void ZoomAdenAtlasIn();
     void ZoomAdenAtlasOut();
@@ -35,6 +37,7 @@ private:
     friend class AVPGameMode;
     void TickVisualSmoke();
     void TickBRDiagnostic();
+    void TickBRRejoinDiagnostic(const class AVPGameState& State, double Now);
     void ToggleRoundReady();
     UFUNCTION(Server, Reliable)
     void ServerToggleRoundReady();
@@ -46,6 +49,7 @@ private:
     bool bBRRequestedCancel = false;
     bool bBRObservedCancellation = false;
     bool bBRProofPrinted = false;
+    bool bBRRestartObserved = false;
     double BRObserveAt = -1.;
     double BRQuitAt = -1.;
     bool PrepareWindowScreenshot();
@@ -80,6 +84,7 @@ private:
     void SendAdenReport(VPAdenMission::EInput Choice);
     void ToggleAdenJournal();
     bool bAdenJournalOpen = false;
+    bool bAdenAtlasRouteOverview = false;
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;
     int32 VisualSmokeStep = -1;

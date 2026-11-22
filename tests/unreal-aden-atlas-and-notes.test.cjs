@@ -76,6 +76,19 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         assert(ScaleBarMetres(Local) == 500);
         assert(ScaleBarMetres(Crop(Local, {0., 0.}, MaxZoomLevel)) == 20);
         {
+          constexpr FPoint start{Local.East - 300., Local.North + 600.};
+          constexpr FPoint goal{Local.East - 18000., Local.North + 15000.};
+          FExtent bounds{start.X, start.Y, start.X, start.Y};
+          bounds.Include(goal);
+          const auto follow = Crop(Local, start, MaxZoomLevel);
+          const auto route = FitRoute(Local, bounds, MaxZoomLevel);
+          assert(!follow.Contains(goal) && route.Contains(goal) && route.Contains(start));
+          assert(route.East == Local.East && route.North == Local.North);
+          assert(route.Width() > follow.Width() && std::abs(route.Width() - route.Height()) < 1.e-9);
+          const auto full = FitRoute(Local, Local, MaxZoomLevel);
+          assert(full.West == Local.West && full.North == Local.North && full.East == Local.East && full.South == Local.South);
+        }
+        {
           constexpr FExtent view{0., 0., 100., 100.};
           FPoint objective{135., 70.};
           assert(ObjectiveAtEdge(view, {30., 40.}, objective, 10.));

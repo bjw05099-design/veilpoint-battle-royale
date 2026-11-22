@@ -36,7 +36,8 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStations
     $report.publicUpdateSaved -ne $true -or $report.internalHandoffRestored -ne $true -or
     $report.followupStep -ne 3 -or $report.publicCorrectionVerified -ne $true -or $report.deskCorrectionVerified -ne $true -or
     $report.receiptStep -ne 3 -or $report.publicReceiptVerified -ne $true -or $report.deskReceiptVerified -ne $true -or
-    $report.receiptLegacyResumeVerified -ne $true -or
+    $report.receiptLegacyResumeVerified -ne $true -or $report.receiptPublicBackupVerified -ne $true -or
+    $report.receiptDeskBackupVerified -ne $true -or
     $report.receiptRouteRemainingMetres -lt 70 -or $report.receiptRouteRemainingMetres -gt 76) {
     throw 'Aden captured an incomplete native story.'
 }
@@ -74,7 +75,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
+foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or

@@ -9,11 +9,16 @@
 #include "Engine/Texture2D.h"
 #include <cmath>
 
-void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn, int32 Page, int32 Zoom)
+void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn, int32 Page, int32 Zoom, bool bRouteOverview)
 {
     const bool bRegional = Page == 2;
+    const FVector World = Pawn->GetActorLocation();
+    const VPAdenAtlas::FPoint Player{World.X, World.Y};
+    const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Local;
+    const auto Crop = bRegional ? Full : Aden->AtlasCrop(World, Zoom, bRouteOverview);
     const auto* Source = Aden->Source.Get();
-    const bool bDetailed = !bRegional && Zoom >= VPAdenAtlas::DetailZoomLevel && Source && Source->DetailReliefAtlas;
+    const bool bDetailed = !bRegional && Crop.Width() <= Full.Width() / (1 << VPAdenAtlas::DetailZoomLevel)
+        && Source && Source->DetailReliefAtlas;
     UTexture2D* Map = Source ? Source->AtlasTexture(bRegional, bDetailed) : nullptr;
     if (!Map) return;
 
@@ -35,13 +40,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         : Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
         : Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01");
     DrawText(Chapter, Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
-    DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF") : TEXT("ADEN  /  FIELD MAP"),
+    DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF")
+        : bRouteOverview ? TEXT("ADEN  /  ROUTE OVERVIEW") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
 
-    const FVector World = Pawn->GetActorLocation();
-    const VPAdenAtlas::FPoint Player{World.X, World.Y};
-    const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Local;
-    const auto Crop = VPAdenAtlas::Crop(Full, Player, bRegional ? 0 : Zoom);
     const float AreaWidth = W - 2.f * Inset - Side;
     const float AreaHeight = H - Head - Foot;
     const float MapW = FMath::Min(AreaWidth, float(AreaHeight * Crop.Width() / Crop.Height()));
@@ -57,10 +59,6 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     {
         const auto P = Crop.Normalized(Point);
         return FVector2D(MapX + P.X * MapW, MapY + P.Y * MapH);
-    };
-    const auto Inside = [&](FVector2D P)
-    {
-        return P.X >= MapX + 2.f && P.X <= MapX + MapW - 2.f && P.Y >= MapY + 2.f && P.Y <= MapY + MapH - 2.f;
     };
     if (bRegional)
     {
@@ -177,9 +175,12 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             }
         }
     }
-    const FVector2D Here = Pixel(Player);
-    if (Inside(Here))
+    if (Crop.Contains(Player))
     {
+        const auto P = Pixel(Player);
+        const double Pad = 14. * Scale;
+        const FVector2D Here(FMath::Clamp(P.X, MapX + Pad, MapX + MapW - Pad),
+            FMath::Clamp(P.Y, MapY + Pad, MapY + MapH - Pad));
         const FVector Forward = FRotator(0., Pawn->GetViewRotation().Yaw, 0.).Vector();
         const FVector2D Aim(Forward.X, Forward.Y);
         const FVector2D Cross(-Aim.Y, Aim.X);
@@ -243,6 +244,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawText(TEXT("Building footprint"), Ink, PanelX + 14.f * Scale, PanelY + 265.f * Scale, nullptr, .77f * Scale);
         }
     }
-    DrawText(bRegional ? TEXT("M  Close map") : TEXT("Wheel  Zoom      M  Regional relief"),
+    const TCHAR* Controls = bRegional ? TEXT("M  Close map")
+        : bRouteOverview ? TEXT("G  Follow player      M  Regional relief")
+        : Aden->HasAtlasRoute() ? TEXT("Wheel  Zoom      G  Fit route      M  Regional relief")
+        : TEXT("Wheel  Zoom      M  Regional relief");
+    DrawText(Controls,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
 }
