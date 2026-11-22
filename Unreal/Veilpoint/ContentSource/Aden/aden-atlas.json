@@ -43,6 +43,20 @@
       ],
       "pixelSha256": "1b2c2988375dcc74d8cc3286a5e61b27807636de909a22d85b0b9157f540417a",
       "pngSha256": "425349808ead73d661151290b096d647c066899c5ba14856549c75176c096573"
+    },
+    "aden-atlas-west.png": {
+      "size": [
+        336,
+        784
+      ],
+      "boundsCm": [
+        0,
+        -153600,
+        153600,
+        204800
+      ],
+      "pixelSha256": "e319ac75a6ee57eed668fb86f338818de4a400e2f1f38366e69085fa57743f49",
+      "pngSha256": "a5248fc5c35381aa73e6a72d8e886dc2f94c2ddb719cbe3cb3222dbb4aea8aa1"
     }
   }
 }

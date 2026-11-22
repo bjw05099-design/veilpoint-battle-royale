@@ -183,12 +183,12 @@ bool AVPAdenStoryGameMode::CanReach(const AVPCharacter* Pawn) const
 VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const
 {
     using namespace VPAdenAtlas;
-    if (!bRouteOverview || !HasAtlasRoute()) return Crop(Local, {Player.X, Player.Y}, Zoom);
+    if (!bRouteOverview || !HasAtlasRoute()) return Crop(Playable, {Player.X, Player.Y}, Zoom);
     FExtent Bounds{Player.X, Player.Y, Player.X, Player.Y};
     for (const FVector& Point : ActiveLeg)
         Bounds.Include({Point.X, Point.Y});
     Bounds.Include({Objective.X, Objective.Y});
-    return FitRoute(Local, Bounds, MaxZoomLevel);
+    return FitRoute(Playable, Bounds, MaxZoomLevel);
 }
 
 bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point)
@@ -423,6 +423,81 @@ bool AVPAdenStoryGameMode::SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector&
     return true;
 }
 
+bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn)
+{
+    const FTransform Original = Pawn->GetActorTransform();
+    const FRotator View = Desktop->GetControlRotation();
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenWestGround), true, Pawn);
+    // This lowland transect begins inside the original footprint and crosses
+    // two new render sectors. Every position uses the packaged world's collision.
+    constexpr int32 Steps = 1024;
+    const FVector Start(VPAdenAtlas::West.East + 1200., -83040., 0.);
+    const FVector Up(0., 0., 60000.);
+    double MaxRise = 0., PreviousHeight = 0.;
+    int32 Checked = 0;
+    for (int32 Step = 0; Step <= Steps; ++Step)
+    {
+        const FVector P = Start - FVector(Step * 100., 0., 0.);
+        FHitResult Ground;
+        if (!GetWorld()->LineTraceSingleByChannel(Ground, P + Up, P - Up, ECC_Visibility, Query)
+            || !Source->IsPlayableGround(Ground) || !Pawn->GetCharacterMovement()->IsWalkable(Ground)) break;
+        const double Above = Pawn->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 14.;
+        const FVector Position = Ground.ImpactPoint + FVector(0., 0., Above);
+        if (Step == 0)
+        {
+            if (!Pawn->TeleportTo(Position, FRotator::ZeroRotator)) break;
+        }
+        else
+        {
+            FHitResult Hit;
+            Pawn->SetActorLocation(Position, true, &Hit);
+            if (Hit.bBlockingHit || !Pawn->GetActorLocation().Equals(Position, 1.)) break;
+            MaxRise = FMath::Max(MaxRise, FMath::Abs(Ground.ImpactPoint.Z - PreviousHeight));
+        }
+        PreviousHeight = Ground.ImpactPoint.Z;
+        ++Checked;
+    }
+    const auto Capture = [&](const TCHAR* Name)
+    {
+        const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, Name);
+        if (Frame) DiagnosticReport->SetObjectField(Name, Frame);
+        return Frame.IsValid();
+    };
+    bool bRendered = false, bMapVerified = false;
+    if (Checked == Steps + 1)
+    {
+        const FTransform Camera = DiagnosticCapture->GetRelativeTransform();
+        DiagnosticCapture->bCaptureEveryFrame = false;
+        DiagnosticCapture->SetWorldLocationAndRotation(
+            Pawn->GetActorLocation() + FVector(-23500., -25500., 31500.), FRotator(-27., 49., 0.));
+        DiagnosticCapture->CaptureScene();
+        bRendered = Capture(TEXT("aden-west-terrain"));
+        DiagnosticCapture->SetRelativeTransform(Camera);
+        DiagnosticCapture->bCaptureEveryFrame = true;
+
+        const int32 Zoom = Desktop->GetAdenAtlasZoom();
+        Desktop->CycleAdenAtlas();
+        for (int32 I = 0; I < Zoom; ++I) Desktop->ZoomAdenAtlasOut();
+        const auto* State = GetGameState<AVPAdenStoryState>();
+        const FVector Position = Pawn->GetActorLocation();
+        const auto Crop = State ? State->AtlasCrop(Position, Desktop->GetAdenAtlasZoom(), false) : VPAdenAtlas::Local;
+        bMapVerified = Desktop->GetAdenAtlasPage() == 1 && Crop.West == VPAdenAtlas::West.West
+            && Crop.Contains({Position.X, Position.Y})
+            && Source->VisitAtlasLines(VPAdenAtlas::West, [](const FVPAdenAtlasLine&) {}) == 0
+            && Capture(TEXT("aden-west-field-map"));
+        for (int32 I = 0; I < Zoom; ++I) Desktop->ZoomAdenAtlasIn();
+        Desktop->CycleAdenAtlas();
+        Desktop->CycleAdenAtlas();
+    }
+    const bool bRestored = Pawn->TeleportTo(Original.GetLocation(), Original.Rotator());
+    Desktop->SetControlRotation(View);
+    DiagnosticReport->SetNumberField(TEXT("westGroundSamples"), Checked);
+    DiagnosticReport->SetNumberField(TEXT("westCapsuleSweepMetres"), FMath::Max(0, Checked - 1));
+    DiagnosticReport->SetNumberField(TEXT("westMaxRiseCmPerMetre"), MaxRise);
+    DiagnosticReport->SetBoolField(TEXT("westFieldMapVerified"), bMapVerified);
+    return Checked == Steps + 1 && bRendered && bMapVerified && bRestored;
+}
+
 void AVPAdenStoryGameMode::RunDiagnostic()
 {
 #if !UE_BUILD_SHIPPING
@@ -454,12 +529,13 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("regionalRenderTiles"), Backdrop.Tiles);
         Report->SetNumberField(TEXT("regionalCoarsenedTiles"), Backdrop.CoarsenedTiles);
         Report->SetNumberField(TEXT("regionalSharedEdges"), Backdrop.SharedEdges);
-        Report->SetNumberField(TEXT("regionalPilotBorderVertices"), Backdrop.PilotBorderVertices);
+        Report->SetNumberField(TEXT("regionalPlayableBorderVertices"), Backdrop.PlayableBorderVertices);
         Report->SetNumberField(TEXT("regionalGridFitErrorCm"), Backdrop.GridFitErrorCm);
         const auto Terrain = Source->VerifyTerrainSectors();
         Report->SetNumberField(TEXT("terrainRenderSectors"), Terrain.Sectors);
         Report->SetNumberField(TEXT("terrainRenderTriangles"), Terrain.Triangles);
         Report->SetNumberField(TEXT("terrainSharedEdges"), Terrain.SharedEdges);
+        Report->SetNumberField(TEXT("terrainWestJoinEdges"), Terrain.WestJoinEdges);
         Report->SetNumberField(TEXT("terrainCollisionHits"), Terrain.CollisionHits);
         Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
@@ -505,6 +581,7 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Desktop->CycleAdenAtlas();
         Pawn->RequestInteraction();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 0 && Confirmed == 0;
+        bPassed = bPassed && VerifyWestTerrain(Desktop, Pawn);
     }
     for (int32 I = 1; bPassed && I <= Complete; ++I)
     {
@@ -639,7 +716,7 @@ void AVPAdenStoryGameMode::VerifyDispatch()
             const FVector Position = Pawn->GetActorLocation(), Target = GetObjective();
             const VPAdenAtlas::FPoint Player{Position.X, Position.Y};
             VPAdenAtlas::FPoint Objective{Target.X, Target.Y};
-            const auto Crop = VPAdenAtlas::Crop(VPAdenAtlas::Local, Player, Desktop->GetAdenAtlasZoom());
+            const auto Crop = VPAdenAtlas::Crop(VPAdenAtlas::Playable, Player, Desktop->GetAdenAtlasZoom());
             int32 PublicRoadLines = 0, FootprintLines = 0;
             bool bAtlasLinesClipped = true;
             const int32 Candidates = Source->VisitAtlasLines(Crop, [&](const FVPAdenAtlasLine& Line)
@@ -883,7 +960,7 @@ bool AVPAdenStoryGameMode::VerifyAtlasRouteOverview(AVPPlayerController* Desktop
     const auto View = State->AtlasCrop(Player, Desktop->GetAdenAtlasZoom(), Desktop->IsAdenAtlasRouteOverview());
     bool bPassed = Desktop->IsAdenAtlasRouteOverview() && Desktop->GetAdenAtlasZoom() == MaxZoomLevel
         && View.Contains({Player.X, Player.Y}) && View.Contains({State->Objective.X, State->Objective.Y})
-        && Local.Contains({View.West, View.North}) && Local.Contains({View.East, View.South})
+        && Playable.Contains({View.West, View.North}) && Playable.Contains({View.East, View.South})
         && (bWitness || !Follow.Contains({State->Objective.X, State->Objective.Y}));
     for (const FVector& Point : State->ActiveLeg) bPassed &= View.Contains({Point.X, Point.Y});
     const TCHAR* Name = bWitness ? TEXT("aden-route-overview-witness") : TEXT("aden-route-overview-notice");

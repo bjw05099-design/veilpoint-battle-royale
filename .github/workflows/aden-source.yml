@@ -10,6 +10,8 @@ on:
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
       - scripts/build-native-aden-region.py
+      - scripts/aden_west_source.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenWestData.h
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
       - scripts/build-native-aden-atlas.py
       - scripts/build-native-aden-dispatch.py
@@ -26,6 +28,8 @@ on:
       - scripts/aden_source_geometry.py
       - scripts/build-native-aden-source.py
       - scripts/build-native-aden-region.py
+      - scripts/aden_west_source.py
+      - Unreal/Veilpoint/Source/Veilpoint/VPAdenWestData.h
       - Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
       - scripts/build-native-aden-atlas.py
       - scripts/build-native-aden-dispatch.py
@@ -77,6 +81,8 @@ jobs:
           cmp "$RUNNER_TEMP/VPAdenEmbedded.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenEmbedded.h
           python scripts/build-native-aden-region.py dist/aden-source "$RUNNER_TEMP/VPAdenRegionalData.h"
           cmp "$RUNNER_TEMP/VPAdenRegionalData.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenRegionalData.h
+          python scripts/aden_west_source.py dist/aden-source "$RUNNER_TEMP/VPAdenWestData.h"
+          cmp "$RUNNER_TEMP/VPAdenWestData.h" Unreal/Veilpoint/Source/Veilpoint/VPAdenWestData.h
           sha256sum "$RUNNER_TEMP/VPAdenEmbedded.h"
       - name: Verify follow-up routes against registered public roads and clearance
         run: |

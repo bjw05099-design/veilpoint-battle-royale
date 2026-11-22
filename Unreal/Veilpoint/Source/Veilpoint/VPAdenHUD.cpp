@@ -14,16 +14,17 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const bool bRegional = Page == 2;
     const FVector World = Pawn->GetActorLocation();
     const VPAdenAtlas::FPoint Player{World.X, World.Y};
-    const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Local;
+    const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Playable;
     const auto Crop = bRegional ? Full : Aden->AtlasCrop(World, Zoom, bRouteOverview);
     const auto* Source = Aden->Source.Get();
     const bool bDetailed = !bRegional && Crop.Width() <= Full.Width() / (1 << VPAdenAtlas::DetailZoomLevel)
         && Source && Source->DetailReliefAtlas;
     UTexture2D* Map = Source ? Source->AtlasTexture(bRegional, bDetailed) : nullptr;
-    if (!Map) return;
+    if (!Map || (!bRegional && !Source->WestAtlas)) return;
 
     const FLinearColor Ink(.89f, .92f, .86f), Muted(.61f, .72f, .71f);
     const FLinearColor Accent(.94f, .76f, .44f), PlayerColor(.36f, .88f, .85f), Edge(.23f, .37f, .37f);
+    const FLinearColor WestJoin(.69f, .79f, .83f, .75f);
     const FLinearColor RoadInk(.88f, .71f, .45f), RoadCasing(.19f, .14f, .085f), FootprintInk(.17f, .23f, .21f);
     const float Scale = FMath::Clamp(Canvas->ClipX / 1440.f, .70f, 1.55f);
     const float W = FMath::Min(1130.f * Scale, Canvas->ClipX - 35.f * Scale);
@@ -50,9 +51,6 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const float MapH = float(MapW * Crop.Height() / Crop.Width());
     const float MapX = X + Inset + (AreaWidth - MapW) * .5f;
     const float MapY = Y + Head + (AreaHeight - MapH) * .5f;
-    const auto UV = Full.Normalized({Crop.West, Crop.North});
-    DrawTexture(Map, MapX, MapY, MapW, MapH, UV.X, UV.Y,
-        Crop.Width() / Full.Width(), Crop.Height() / Full.Height(), FLinearColor::White, BLEND_Opaque);
     const int32 ScaleMetres = VPAdenAtlas::ScaleBarMetres(Crop);
 
     const auto Pixel = [&](const VPAdenAtlas::FPoint& Point)
@@ -60,9 +58,20 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         const auto P = Crop.Normalized(Point);
         return FVector2D(MapX + P.X * MapW, MapY + P.Y * MapH);
     };
+    const auto DrawRelief = [&](UTexture2D* Texture, VPAdenAtlas::FExtent Extent)
+    {
+        const auto Visible = VPAdenAtlas::Intersection(Crop, Extent);
+        if (Visible.Width() <= 0. || Visible.Height() <= 0.) return;
+        const auto Start = Pixel({Visible.West, Visible.North});
+        const auto End = Pixel({Visible.East, Visible.South});
+        const auto UV = Extent.Normalized({Visible.West, Visible.North});
+        DrawTexture(Texture, Start.X, Start.Y, End.X - Start.X, End.Y - Start.Y, UV.X, UV.Y,
+            Visible.Width() / Extent.Width(), Visible.Height() / Extent.Height(), FLinearColor::White, BLEND_Opaque);
+    };
     if (bRegional)
     {
-        const auto Local = VPAdenAtlas::Local;
+        DrawRelief(Map, Full);
+        const auto Local = VPAdenAtlas::Playable;
         const auto A = Pixel({Local.West, Local.North}), B = Pixel({Local.East, Local.South});
         DrawLine(A.X, A.Y, B.X, A.Y, Accent, 2.f);
         DrawLine(B.X, A.Y, B.X, B.Y, Accent, 2.f);
@@ -71,6 +80,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     }
     else
     {
+        DrawRelief(Map, VPAdenAtlas::Local);
+        DrawRelief(Source->WestAtlas.Get(), VPAdenAtlas::West);
         const double GridStep = 100. * ScaleMetres;
         const FLinearColor Grid(.63f, .72f, .70f, .19f);
         const float Stroke = FMath::Max(1.f, Scale);
@@ -85,6 +96,12 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         {
             const double PY = Pixel({Crop.West, GridY}).Y;
             DrawRect(Grid, MapX, PY, MapW, Stroke);
+        }
+        if (Crop.West < VPAdenAtlas::Local.West && Crop.East > VPAdenAtlas::Local.West)
+        {
+            const float JoinX = Pixel({VPAdenAtlas::Local.West, Crop.North}).X;
+            for (float P = MapY; P < MapY + MapH; P += 12.f * Scale)
+                DrawLine(JoinX, P, JoinX, FMath::Min(P + 6.f * Scale, MapY + MapH), WestJoin, 1.2f);
         }
     }
     if (bDetailed)
@@ -215,7 +232,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (bRegional || bHasObjective)
         {
             DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
-            const TCHAR* Label = bRegional ? TEXT("Playable story area")
+            const TCHAR* Label = bRegional ? TEXT("Playable terrain")
                 : bObjectiveAtEdge ? TEXT("Objective beyond view") : TEXT("Current objective");
             DrawText(Label, Ink, PanelX + 14.f * Scale, PanelY + 55.f * Scale, nullptr, .77f * Scale);
         }
@@ -229,13 +246,20 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawRect(FLinearColor(.57f, .82f, .82f), PanelX, PanelY + 106.f * Scale, 7.f * Scale, 7.f * Scale);
             DrawText(TEXT("Optional field note"), Ink, PanelX + 14.f * Scale, PanelY + 103.f * Scale, nullptr, .77f * Scale);
         }
-        DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("1:1 public streets"),
+        DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("5.12 x 3.584 km"),
             Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
         DrawText(bRegional ? TEXT("256 m source sampling") : TEXT("32 m terrain sampling"),
             Muted, PanelX, PanelY + 159.f * Scale, nullptr, .73f * Scale);
         DrawText(TEXT("Copernicus GLO-30"), Muted, PanelX, PanelY + 192.f * Scale, nullptr, .72f * Scale);
         if (!bRegional)
+        {
             DrawText(TEXT("OpenStreetMap contributors"), Muted, PanelX, PanelY + 211.f * Scale, nullptr, .63f * Scale);
+            if (Crop.West < VPAdenAtlas::Local.West && H > 485.f * Scale)
+            {
+                DrawLine(PanelX, PanelY + 307.f * Scale, PanelX + 9.f * Scale, PanelY + 307.f * Scale, WestJoin, 1.2f);
+                DrawText(TEXT("West terrain extension"), Ink, PanelX + 14.f * Scale, PanelY + 301.f * Scale, nullptr, .73f * Scale);
+            }
+        }
         if (bDetailed)
         {
             DrawLine(PanelX, PanelY + 248.f * Scale, PanelX + 10.f * Scale, PanelY + 248.f * Scale, RoadInk, 2.f);
