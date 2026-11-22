@@ -107,6 +107,7 @@ private:
     TArray<FVector> FollowupToLedger;
     TArray<FVector> FollowupToPublicCopy;
     TArray<FVector> FollowupToDeskCopy;
+    TArray<FVector> ReceiptArchiveLeg;
     bool bAttempted = false;
     int32 RoadTriangleCount = 0;
     int32 FootprintTriangleCount = 0;

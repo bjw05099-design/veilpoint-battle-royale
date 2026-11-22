@@ -31,7 +31,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    const TCHAR* Chapter = Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
+    const TCHAR* Chapter = Aden->bDispatchActive && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH04")
+        : Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
         : Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01");
     DrawText(Chapter, Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
     DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF") : TEXT("ADEN  /  FIELD MAP"),
@@ -121,21 +122,35 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     };
     const FLinearColor RouteColor(.30f, .77f, .67f);
+    const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
     const bool bHasObjective = !bRegional && (Aden->bDispatchActive
         ? VPAdenDispatch::HasObjective(Aden->Dispatch) : Aden->Confirmed < VPAdenMission::Complete);
     const bool bHasNote = !bRegional && Aden->AvailableNote != VPAdenMission::None;
     bool bObjectiveAtEdge = false;
     if (!bRegional)
     {
+        const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, World);
+        const bool bShowEarlier = Guide.SegmentEnd > 0 && Guide.OffsetCm <= 2400.;
+        const auto DrawRoute = [&](const FVector& From, const FVector& To, bool bEarlier)
+        {
+            if (From.Equals(To, .01)) return;
+            VPAdenAtlas::FPoint A{From.X, From.Y}, B{To.X, To.Y};
+            if (!VPAdenAtlas::Clip(Crop, A, B)) return;
+            const auto Start = Pixel(A), End = Pixel(B);
+            if (!bEarlier)
+                DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
+            DrawLine(Start.X, Start.Y, End.X, End.Y, bEarlier ? EarlierRouteColor : RouteColor, bEarlier ? 1.8f : 2.8f);
+        };
         for (int32 I = 1; I < Aden->ActiveLeg.Num(); ++I)
         {
             const auto& From = Aden->ActiveLeg[I - 1];
             const auto& To = Aden->ActiveLeg[I];
-            VPAdenAtlas::FPoint A{From.X, From.Y}, B{To.X, To.Y};
-            if (!VPAdenAtlas::Clip(Crop, A, B)) continue;
-            const auto Start = Pixel(A), End = Pixel(B);
-            DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
-            DrawLine(Start.X, Start.Y, End.X, End.Y, RouteColor, 2.8f);
+            if (bShowEarlier && I == Guide.SegmentEnd)
+            {
+                DrawRoute(From, Guide.Projected, true);
+                DrawRoute(Guide.Projected, To, false);
+            }
+            else DrawRoute(From, To, bShowEarlier && I < Guide.SegmentEnd);
         }
         if (bHasNote) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
         if (bHasObjective)
@@ -206,7 +221,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (!bRegional && !Aden->ActiveLeg.IsEmpty())
         {
             DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
-            DrawText(TEXT("Current walking leg"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
+            DrawText(TEXT("Walking route ahead"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
         }
         if (bHasNote)
         {

@@ -214,6 +214,8 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           assert(session.Phase == d::Complete && session.Route == d::PublicNotice && session.Disposition == d::PublicUpdate);
           assert(!d::Valid({d::Publish, d::Witness, d::Unfiled, d::ReturnToLedger}));
           assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::FollowupComplete + 1}));
+          assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::ReturnToLedger, d::ReceiptAtArchive}));
+          assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::FollowupComplete, d::ReceiptComplete + 1}));
           for (auto finished : {session, internal}) {
             const auto migrated = d::Restore(4, finished);
             assert(migrated.Followup == d::FollowupReady && d::HasObjective(migrated));
@@ -223,8 +225,18 @@ test('compile and exercise the real Unreal atlas projection and save migration r
               assert(finished.Followup == step && finished.Disposition == migrated.Disposition);
               assert(d::Valid(d::Restore(5, finished)));
             }
-            assert(!d::HasObjective(finished));
-            assert(d::Advance(finished, d::EInput::Interact, false) == d::EResult::Ignored);
+            auto legacy = d::Restore(5, finished);
+            assert(d::IsReceiptChapter(legacy) && d::IsChapterHandoff(legacy) && d::HasObjective(legacy));
+            for (int step = d::ReceiptAtLedger; step <= d::ReceiptComplete; ++step) {
+              assert(d::Advance(legacy, d::EInput::OptionOne, true) == d::EResult::Ignored);
+              assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Advanced);
+              assert(legacy.Receipt == step && legacy.Followup == d::FollowupComplete);
+              assert(legacy.Disposition == finished.Disposition && legacy.Route == finished.Route);
+              assert(d::Valid(d::Restore(d::CheckpointVersion, legacy)) && !d::IsChapterHandoff(legacy));
+            }
+            assert(!d::HasObjective(legacy));
+            assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Ignored);
+            assert(finished.Receipt == d::ReceiptReady);
           }
         }
         using namespace VPAdenMission;

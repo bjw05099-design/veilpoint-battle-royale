@@ -628,6 +628,8 @@ bool AVPAdenSourceWorld::BuildSource()
     RegisterLeg(4, VPAdenDispatchData::FromWitness);
     RegisterLeg(5, VPAdenDispatchData::FromNotice);
     RegisterLeg(6, VPAdenDispatchData::Handoff);
+    for (const auto Point : VPAdenDispatchData::ReceiptArchive)
+        ReceiptArchiveLeg.Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
     const auto ReverseLeg = [](const TArray<FVector>& Forward, TArray<FVector>& Reverse)
     {
         Reverse.Reserve(Forward.Num());
@@ -770,6 +772,12 @@ const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState St
 {
     using namespace VPAdenDispatch;
     const bool bWitness = State.Route == Witness;
+    if (IsReceiptChapter(State))
+    {
+        if (State.Receipt >= ReceiptAtArchive) return ReceiptArchiveLeg;
+        if (State.Receipt == ReceiptAtLedger)
+            return DispatchLegs[State.Disposition == PublicUpdate ? 4 : 5];
+    }
     switch (State.Phase)
     {
     case Brief: return DispatchLegs[0];
@@ -790,9 +798,9 @@ FVector AVPAdenSourceWorld::DispatchResume(VPAdenDispatch::FState State) const
     const auto& Leg = DispatchLeg(State);
     if (Leg.IsEmpty()) return Station(0);
     using namespace VPAdenDispatch;
-    if (State.Phase == Complete && State.Followup == FollowupReady)
+    if (IsChapterHandoff(State))
         return Leg.Last() - (Leg.Last() - Leg[Leg.Num() - 2]).GetSafeNormal() * 145.;
-    if (State.Phase == Complete && State.Followup == FollowupComplete) return Leg.Last();
+    if (!HasObjective(State)) return Leg.Last();
     return Leg[0];
 }
 

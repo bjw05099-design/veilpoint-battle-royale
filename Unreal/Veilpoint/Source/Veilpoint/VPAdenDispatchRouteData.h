@@ -11,4 +11,5 @@ inline constexpr FPoint Notice[] = {{421279, 87128}, {414451, 79690}};
 inline constexpr FPoint FromWitness[] = {{425708, 83517}, {419145, 76078}};
 inline constexpr FPoint FromNotice[] = {{414451, 79690}, {419145, 76078}};
 inline constexpr FPoint Handoff[] = {{419145, 76078}, {415785, 72207}};
+inline constexpr FPoint ReceiptArchive[] = {{419145, 76078}, {409640, 65128}};
 }

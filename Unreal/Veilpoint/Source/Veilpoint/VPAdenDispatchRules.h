@@ -6,6 +6,7 @@ enum EPhase { Brief, Choose, Verify, Compare, Publish, Complete };
 enum ERoute { Unselected, Witness, PublicNotice };
 enum EDisposition { Unfiled, PublicUpdate, InternalHandoff };
 enum EFollowup { FollowupReady, ReturnToLedger, DeliverCorrection, FollowupComplete };
+enum EReceiptStep { ReceiptReady, ReceiptAtLedger, ReceiptAtArchive, ReceiptComplete };
 enum class EInput { Interact, OptionOne, OptionTwo, FileInternally };
 enum class EResult { Ignored, ShowChoice, Refused, Advanced };
 
@@ -15,13 +16,29 @@ struct FState
     int Route = Unselected;
     int Disposition = Unfiled;
     int Followup = FollowupReady;
+    int Receipt = ReceiptReady;
 };
+
+inline constexpr int CheckpointVersion = 6;
+
+constexpr bool IsReceiptChapter(FState State)
+{
+    return State.Phase == Complete && State.Followup == FollowupComplete;
+}
+
+constexpr bool IsChapterHandoff(FState State)
+{
+    return State.Phase == Complete && (State.Followup == FollowupReady
+        || (IsReceiptChapter(State) && State.Receipt == ReceiptReady));
+}
 
 constexpr bool Valid(FState State)
 {
     if (State.Phase < Brief || State.Phase > Complete) return false;
     if (State.Followup < FollowupReady || State.Followup > FollowupComplete ||
         (State.Phase != Complete && State.Followup != FollowupReady)) return false;
+    if (State.Receipt < ReceiptReady || State.Receipt > ReceiptComplete ||
+        (State.Receipt != ReceiptReady && !IsReceiptChapter(State))) return false;
     if (State.Phase == Complete
         ? State.Disposition != PublicUpdate && State.Disposition != InternalHandoff
         : State.Disposition != Unfiled) return false;
@@ -39,7 +56,7 @@ constexpr FState Restore(int Version, FState Saved)
 
 constexpr bool HasObjective(FState State)
 {
-    return State.Phase < Complete || State.Followup < FollowupComplete;
+    return !IsReceiptChapter(State) || State.Receipt < ReceiptComplete;
 }
 
 constexpr EResult Advance(FState& State, EInput Input, bool bChoiceOpen)
@@ -47,8 +64,9 @@ constexpr EResult Advance(FState& State, EInput Input, bool bChoiceOpen)
     if (!Valid(State)) return EResult::Ignored;
     if (State.Phase == Complete)
     {
-        if (Input != EInput::Interact || State.Followup == FollowupComplete) return EResult::Ignored;
-        ++State.Followup;
+        if (Input != EInput::Interact || !HasObjective(State)) return EResult::Ignored;
+        if (IsReceiptChapter(State)) ++State.Receipt;
+        else ++State.Followup;
         return EResult::Advanced;
     }
     const bool bChoicePhase = State.Phase == Choose || State.Phase == Publish;

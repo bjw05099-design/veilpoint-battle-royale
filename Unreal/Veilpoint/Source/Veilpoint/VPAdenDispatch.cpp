@@ -7,7 +7,6 @@ FGuide Guide(TConstArrayView<FVector> Leg, const FVector& Position)
     FGuide Best;
     if (Leg.Num() < 2) return Best;
 
-    int32 Segment = 0;
     double Closest = TNumericLimits<double>::Max();
     for (int32 I = 1; I < Leg.Num(); ++I)
     {
@@ -21,21 +20,32 @@ FGuide Guide(TConstArrayView<FVector> Leg, const FVector& Position)
         if (Squared < Closest)
         {
             Closest = Squared;
-            Segment = I;
+            Best.SegmentEnd = I;
+            Best.Projected = FMath::Lerp(Leg[I - 1], Leg[I], Fraction);
             Best.Waypoint = Leg[I];
             Best.RemainingCm = FVector2D::Distance(Point, B);
         }
     }
     Best.OffsetCm = FMath::Sqrt(Closest);
-    for (int32 I = Segment + 1; I < Leg.Num(); ++I)
+    for (int32 I = Best.SegmentEnd + 1; I < Leg.Num(); ++I)
         Best.RemainingCm += FVector::Dist2D(Leg[I - 1], Leg[I]);
-    if (Segment + 1 < Leg.Num() && FVector::Dist2D(Position, Best.Waypoint) < 210.)
-        Best.Waypoint = Leg[Segment + 1];
+    if (Best.SegmentEnd + 1 < Leg.Num() && FVector::Dist2D(Position, Best.Waypoint) < 210.)
+        Best.Waypoint = Leg[Best.SegmentEnd + 1];
     return Best;
 }
 
 const TCHAR* Objective(FState State)
 {
+    if (IsReceiptChapter(State))
+    {
+        switch (State.Receipt)
+        {
+        case ReceiptReady: return TEXT("Ask who received the correction");
+        case ReceiptAtLedger: return TEXT("Countersign the delivery receipt");
+        case ReceiptAtArchive: return TEXT("File the receipt at the archive desk");
+        default: return TEXT("Delivery receipt archived");
+        }
+    }
     if (State.Phase == Complete)
     {
         switch (State.Followup)
@@ -60,6 +70,17 @@ const TCHAR* Objective(FState State)
 
 const TCHAR* CompletionLine(FState State)
 {
+    if (IsReceiptChapter(State) && State.Receipt != ReceiptReady)
+    {
+        switch (State.Receipt)
+        {
+        case ReceiptAtLedger: return State.Disposition == PublicUpdate
+            ? TEXT("Amina: The board was corrected. Ask Mara who actually received a copy.")
+            : TEXT("Yusuf: I read it back by phone. Ask Mara to record who heard it.");
+        case ReceiptAtArchive: return TEXT("Mara: I signed for the corrected copy. Take this receipt to Nabil at the archive desk.");
+        default: return TEXT("Nabil: The archive has the receipt. The family request stays open.");
+        }
+    }
     if (State.Phase == Complete && State.Followup != FollowupReady)
     {
         switch (State.Followup)
@@ -106,6 +127,19 @@ const TCHAR* DispositionLine(FState State)
 {
     return State.Disposition == InternalHandoff ? TEXT("Filed with the relief desk.")
         : TEXT("Posted a verified public update.");
+}
+
+const TCHAR* ReceiptJournalLine(int Step, FState State)
+{
+    switch (Step)
+    {
+    case ReceiptAtLedger: return State.Disposition == PublicUpdate
+        ? TEXT("Amina requested proof of delivery for the public correction.")
+        : TEXT("Yusuf requested a record of the telephone read-back.");
+    case ReceiptAtArchive: return TEXT("Mara countersigned receipt of the corrected copy.");
+    case ReceiptComplete: return TEXT("Nabil archived the receipt. The family request remains open.");
+    default: return TEXT("The correction was acknowledged. Delivery is still unrecorded.");
+    }
 }
 
 const TCHAR* JournalLine(int Phase, FState State)

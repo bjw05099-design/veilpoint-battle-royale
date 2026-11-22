@@ -36,8 +36,13 @@ test('native active-player count and completion flag are replicated only from au
 
 test('native round state follows existing physical survivors in server GameMode',()=>{
  assert.match(mode,/if\(!HasAuthority\(\)\|\|bRoundComplete\)return/);
- assert.match(mode,/for\(TActorIterator<AVPCharacter> It\(GetWorld\(\)\);It;\+\+It\)/);
- assert.match(mode,/if\(It->IsAlive\(\)\)Living\+\+/);
+ assert.match(mode,/for\s*\(TActorIterator<AVPCharacter> It\(GetWorld\(\)\);\s*It;\s*\+\+It\)/);
+ assert.match(mode,/if\s*\(It->IsAlive\(\)\)\s*\+\+Living/);
+ assert.match(mode,/if \(bOnlineReadyLobby && bAlreadyStarted\)[\s\S]*?for \(const auto& Entry : RoundEntrants\)[\s\S]*?Pawn->GetController\(\) != Entry\.Key\.Get\(\)/);
+ assert.match(mode,/VPBRLobby::AdvanceCountdown[\s\S]*?RoundEntrants\.Add[\s\S]*?bSeenMultiplePlayers = true/);
+ assert.match(mode,/RoundEntrants\.Remove\(Desktop\) > 0[\s\S]*?Match->RecordDeparture\(\)/);
+ assert.match(source,/DOREPLIFETIME\(AVPGameState, DepartedPlayers\)/);
+ assert.match(source,/void AVPGameState::RecordDeparture\(\)[\s\S]*?!HasAuthority\(\) \|\| !bRoundStarted \|\| bRoundComplete[\s\S]*?\+\+DepartedPlayers/);
  assert.match(mode,/if\(bSeenMultiplePlayers&&Living<=1\)\{bRoundComplete=true;/);
  assert.match(mode,/NativeState->UpdateRoundState\(Living,bRoundComplete\)/);
  assert.match(mode,/GetWorld\(\)->GetGameState<AVPGameState>\(\)/);

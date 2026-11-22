@@ -28,6 +28,7 @@ public:
     // Server-authoritative GameMode entrypoint, never a client RPC.
     void UpdateRoundState(int32 AliveCount, bool bFinished);
     void MarkRoundStarted();
+    void RecordDeparture();
     void UpdateLobby(int32 InJoined, int32 InReady, bool bInReadyRequired, int32 InElapsedMs, double InCountdownEndsAt);
     UPROPERTY(Replicated)
     int32 JoinedPlayers = 0;
@@ -39,4 +40,6 @@ public:
     bool bReadyRequired = false;
     UPROPERTY(Replicated)
     double LobbyCountdownEndsAt = 0.;
+    UPROPERTY(Replicated)
+    int32 DepartedPlayers = 0;
 };

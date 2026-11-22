@@ -4,8 +4,6 @@ import argparse
 import math
 from pathlib import Path
 
-from aden_source_geometry import build
-
 # Local projected centimetres. Changed only when the registered source
 # revision or the fictional mission's authored walking legs change.
 ORIGIN = (412321, 85622)
@@ -24,6 +22,7 @@ PATHS = {
     "FromWitness": [WITNESS, MERGE],
     "FromNotice": [NOTICE, MERGE],
     "Handoff": [MERGE, DESK],
+    "ReceiptArchive": [MERGE, (409640, 65128)],
 }
 
 
@@ -74,6 +73,8 @@ def generate(data):
 
 
 if __name__ == "__main__":
+    from aden_source_geometry import build
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path)
     parser.add_argument('header', type=Path)

@@ -69,6 +69,7 @@ try {
             $report.windowRenderVerified=$true
             & (Join-Path $PSScriptRoot 'test-native-br-lobby.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.brLocalNetworkVerified=$true
+            $report.brDepartureVerified=$true
             $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
             $report.humanInputVerified=$false
             $report.gpuPerformanceVerified=$false

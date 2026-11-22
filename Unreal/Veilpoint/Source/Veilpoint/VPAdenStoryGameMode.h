@@ -63,6 +63,9 @@ public:
 
     UPROPERTY(SaveGame)
     int32 DispatchFollowup = 0;
+
+    UPROPERTY(SaveGame)
+    int32 DispatchReceipt = 0;
 };
 
 struct FVPAdenCampaignCheckpoint
@@ -101,8 +104,9 @@ private:
     void RunDiagnostic();
     void CaptureDebrief();
     void VerifyDispatch();
-    void CaptureDispatchCompletion();
+    void CaptureReceiptCompletion();
     bool VerifyDispatchFollowup(AVPCharacter* Pawn);
+    bool VerifyReceiptChapter(AVPCharacter* Pawn);
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
     void FinishDiagnostic(bool bPassed);
     TSharedPtr<FJsonObject> DiagnosticReport;
