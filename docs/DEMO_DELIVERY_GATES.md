@@ -2,7 +2,8 @@
 
 **2026-11-18 production criteria.** VEILPOINT is a Windows PC game developed
 in Unreal Engine 5.8. Story ships first. Battle Royale has a separate release
-and network acceptance plan. Development effort is 75% story and 25% BR.
+and network acceptance plan. As of 2026-11-22, development effort is
+40% maps, 50% story mode, and 10% Battle Royale.
 November 27 remains the demo candidate target.
 
 ## Native story demo gate
