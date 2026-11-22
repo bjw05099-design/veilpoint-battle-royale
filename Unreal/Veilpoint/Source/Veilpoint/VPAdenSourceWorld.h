@@ -22,6 +22,16 @@ struct FVPAdenTerrainCheck
     double MaxCollisionError = 0.;
 };
 
+struct FVPAdenRegionalCheck
+{
+    int32 Tiles = 0;
+    int32 Triangles = 0;
+    int32 SharedEdges = 0;
+    int32 PilotBorderVertices = 0;
+    int32 CoarsenedTiles = 0;
+    double GridFitErrorCm = 0.;
+};
+
 struct FVPAdenAtlasLine
 {
     VPAdenAtlas::FPoint A, B;
@@ -45,7 +55,7 @@ public:
     USoundBase* GetDossierSound() const;
     USoundBase* GetStepSound(int32 Index) const;
     const FString& Revision() const { return SourceRevision; }
-    int32 RegionalBackdropTriangles() const;
+    FVPAdenRegionalCheck VerifyRegionalTiles() const;
     FVPAdenTerrainCheck VerifyTerrainSectors() const;
     int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
     int32 FootprintOverlayTriangles() const { return FootprintTriangleCount; }
@@ -95,7 +105,9 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<UProceduralMeshComponent> TerrainCollision;
     UPROPERTY(Transient)
-    TObjectPtr<UProceduralMeshComponent> RegionalBackdrop;
+    TArray<TObjectPtr<UProceduralMeshComponent>> RegionalTiles;
+    int32 RegionalCoarsenedTiles = 0;
+    double RegionalFitErrorCm = 0.;
     UPROPERTY(Transient)
     TObjectPtr<UProceduralMeshComponent> FootprintCollision;
     TArray<TPair<FVector, FVector>> BlockerProbes;

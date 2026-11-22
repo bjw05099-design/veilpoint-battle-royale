@@ -181,6 +181,25 @@ test('compile and exercise the real Unreal atlas projection and save migration r
             }
           }
           assert(omitted == 196 && stitched == 56 && triangles == 44912);
+          static_assert(TileCount == 56);
+          static_assert(PreferredStep(0, 0) == 4);
+          static_assert(PreferredStep(LocalWest / TileCells, LocalNorth / TileCells) == 1);
+          const auto slope = [](int x, int y) { return 100. + 7. * x - 31. * y; };
+          assert(TileFitError(0, 0, 4, slope) == 0.);
+          const auto ridge = [](int x, int y) { return x == 2 && y == 2 ? 700. : 0.; };
+          assert(TileFitError(0, 0, 4, ridge) > FitToleranceCm);
+          assert(TileFitError(0, 0, 1, ridge) == 0.);
+          FSteps steps;
+          steps.fill(4);
+          steps[TileIndex(1, 0)] = 1;
+          steps[TileIndex(0, 1)] = 2;
+          assert((PatchEdgeSteps(16, 16, steps) == std::array<int, 4>{4, 1, 2, 4}));
+          assert((PatchEdgeSteps(4, 4, steps) == std::array<int, 4>{4, 4, 4, 4}));
+          assert(PatchEdgeSteps(20, 16, steps)[3] == 1);
+          assert(PatchEdgeSteps(16, 20, steps)[0] == 2);
+          for (int y = LocalNorth - 1; y <= LocalSouth; ++y)
+            for (int x = LocalWest - 1; x <= LocalEast; ++x)
+              assert(PreferredStep(x / TileCells, y / TileCells) == 1);
         }
         {
           namespace d = VPAdenDispatch;

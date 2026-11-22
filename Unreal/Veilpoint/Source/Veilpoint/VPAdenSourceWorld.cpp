@@ -277,13 +277,16 @@ bool ReadRegionalHeights(TArray<int32>& Heights)
     return Reader.bValid && Reader.Offset == Raw.Num();
 }
 
-FLinearColor RegionalTint(double HeightCm)
+FLinearColor RegionalTint(double HeightCm, double Slope)
 {
-    const FLinearColor Low(.46f, .34f, .22f), High(.34f, .27f, .19f);
-    return FMath::Lerp(Low, High, FMath::Clamp(float(HeightCm / 38000.), 0.f, 1.f));
+    const FLinearColor Low(.46f, .34f, .22f), Rock(.31f, .26f, .21f), LowRelief(.10f, .23f, .29f);
+    const float Relief = FMath::Max(FMath::SmoothStep(4500.f, 42000.f, float(HeightCm)),
+        FMath::SmoothStep(.08f, .65f, float(Slope)));
+    return FMath::Lerp(LowRelief, FMath::Lerp(Low, Rock, Relief), FMath::SmoothStep(0.f, 550.f, float(HeightCm)));
 }
 
-FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, const TArray<int32>& Heights)
+TArray<FMesh> RegionalTerrainTiles(const FGeometry& LocalGeometry, const FMesh& Pilot,
+    const TArray<int32>& Heights, VPAdenRegionalGrid::FSteps& Steps, double& FitError)
 {
     using namespace VPAdenRegionalGrid;
     constexpr int32 RegionSpacing = VPAdenRegionalGrid::Spacing;
@@ -298,12 +301,23 @@ FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, co
                                  VPAdenAtlas::Region.North + Y * RegionSpacing);
         return OnPilotBorder(X, Y) ? LocalGeometry.Height(Position) : double(Heights[Y * Columns + X]);
     };
-    FMesh Mesh;
-    constexpr int32 SharedEdges = 2 * ((LocalEast - LocalWest) + (LocalSouth - LocalNorth));
-    constexpr int32 VertexCount = Columns * Rows + SharedEdges * Subdivisions;
-    Mesh.Vertices.Reserve(VertexCount);
-    Mesh.Normals.Reserve(VertexCount);
-    Mesh.Colors.Reserve(VertexCount);
+    for (int32 Y = 0; Y < TilesY; ++Y)
+    for (int32 X = 0; X < TilesX; ++X)
+    {
+        int32 Step = PreferredStep(X, Y);
+        double Error = TileFitError(X, Y, Step, Sample);
+        while (Error > FitToleranceCm)
+        {
+            Step /= 2;
+            Error = TileFitError(X, Y, Step, Sample);
+        }
+        Steps[TileIndex(X, Y)] = Step;
+        FitError = FMath::Max(FitError, Error);
+    }
+    FMesh Samples;
+    Samples.Vertices.Reserve(Columns * Rows);
+    Samples.Normals.Reserve(Columns * Rows);
+    Samples.Colors.Reserve(Columns * Rows);
     for (int32 Y = 0; Y < Rows; ++Y)
     {
         for (int32 X = 0; X < Columns; ++X)
@@ -314,62 +328,97 @@ FMesh RegionalTerrainMesh(const FGeometry& LocalGeometry, const FMesh& Pilot, co
             if (OnPilotBorder(X, Y))
             {
                 const int32 Index = PilotIndex(Point);
-                Mesh.Vertices.Add(Pilot.Vertices[Index]);
-                Mesh.Normals.Add(Pilot.Normals[Index]);
-                Mesh.Colors.Add(Pilot.Colors[Index]);
+                Samples.Vertices.Add(Pilot.Vertices[Index]);
+                Samples.Normals.Add(Pilot.Normals[Index]);
+                Samples.Colors.Add(Pilot.Colors[Index]);
                 continue;
             }
             const int32 West = FMath::Max(0, X - 1), East = FMath::Min(X + 1, Columns - 1);
             const int32 North = FMath::Max(0, Y - 1), South = FMath::Min(Y + 1, Rows - 1);
             const double DX = (Sample(East, Y) - Sample(West, Y)) / ((East - West) * RegionSpacing);
             const double DY = (Sample(X, South) - Sample(X, North)) / ((South - North) * RegionSpacing);
-            Mesh.Vertices.Emplace(Point.X, Point.Y, Height);
-            Mesh.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
-            Mesh.Colors.Add(RegionalTint(Height));
+            Samples.Vertices.Emplace(Point.X, Point.Y, Height);
+            Samples.Normals.Add(FVector(-DX, -DY, 1.).GetSafeNormal());
+            Samples.Colors.Add(RegionalTint(Height, FMath::Sqrt(DX * DX + DY * DY)));
         }
     }
-    for (int32 Y = 0; Y < Rows - 1; ++Y)
+    TArray<FMesh> Tiles;
+    Tiles.SetNum(TileCount);
+    for (int32 TileY = 0; TileY < TilesY; ++TileY)
+    for (int32 TileX = 0; TileX < TilesX; ++TileX)
     {
-        for (int32 X = 0; X < Columns - 1; ++X)
+        const int32 Tile = TileIndex(TileX, TileY);
+        const int32 Step = Steps[Tile];
+        auto& Mesh = Tiles[Tile];
+        TMap<int32, int32> Indices;
+        const auto Vertex = [&](const FMesh& Source, int32 Index, int32 Key)
+        {
+            if (const int32* Existing = Indices.Find(Key)) return *Existing;
+            const int32 New = Mesh.Vertices.Add(Source.Vertices[Index]);
+            Mesh.Normals.Add(Source.Normals[Index]);
+            Mesh.Colors.Add(Source.Colors[Index]);
+            Indices.Add(Key, New);
+            return New;
+        };
+        const auto GridVertex = [&](int32 X, int32 Y)
+        {
+            const int32 Index = Y * Columns + X;
+            return Vertex(Samples, Index, Index);
+        };
+        for (int32 Y = TileY * TileCells; Y < (TileY + 1) * TileCells; Y += Step)
+        for (int32 X = TileX * TileCells; X < (TileX + 1) * TileCells; X += Step)
         {
             if (InPilot(X, Y)) continue;
-            const int32 A = Y * Columns + X, B = A + 1, C = A + Columns, D = C + 1;
-            const EEdge Shared = SharedEdge(X, Y);
-            if (Shared == EEdge::None)
+            const int32 A = GridVertex(X, Y), B = GridVertex(X + Step, Y);
+            const int32 C = GridVertex(X, Y + Step), D = GridVertex(X + Step, Y + Step);
+            const EEdge Shared = Step == 1 ? SharedEdge(X, Y) : EEdge::None;
+            const auto EdgeSteps = PatchEdgeSteps(X, Y, Steps);
+            if (Shared == EEdge::None && std::all_of(EdgeSteps.begin(), EdgeSteps.end(), [Step](int32 Edge) { return Edge == Step; }))
             {
                 Mesh.Triangles.Append({A, C, B, B, C, D});
                 continue;
             }
 
-            // Stitch the shared regional edge to all nine pilot vertices.
-            // Both meshes read the same pilot vertices and normals along it.
+            // Use the same source vertices on both sides of a regional or pilot boundary.
             const int32 Corners[] = {A, B, D, C};
             const EEdge Edges[] = {EEdge::North, EEdge::East, EEdge::South, EEdge::West};
-            TArray<int32, TInlineAllocator<Subdivisions + 3>> Ring;
+            TArray<int32, TInlineAllocator<16>> Ring;
             for (int32 Edge = 0; Edge < 4; ++Edge)
             {
                 const int32 From = Corners[Edge], To = Corners[(Edge + 1) % 4];
                 Ring.Add(From);
-                if (Shared != Edges[Edge]) continue;
                 const FVector First = Mesh.Vertices[From], Last = Mesh.Vertices[To];
-                for (int32 I = 1; I < Subdivisions; ++I)
+                const bool bPilotEdge = Shared == Edges[Edge];
+                const int32 Divisions = bPilotEdge ? Subdivisions : Step / EdgeSteps[Edge];
+                for (int32 I = 1; I < Divisions; ++I)
                 {
-                    const FVector Mid = FMath::Lerp(First, Last, double(I) / Subdivisions);
-                    const int32 Index = PilotIndex(FVector2D(Mid));
-                    Ring.Add(Mesh.Vertices.Add(Pilot.Vertices[Index]));
-                    Mesh.Normals.Add(Pilot.Normals[Index]);
-                    Mesh.Colors.Add(Pilot.Colors[Index]);
+                    const FVector Mid = FMath::Lerp(First, Last, double(I) / Divisions);
+                    if (bPilotEdge)
+                    {
+                        const int32 Index = PilotIndex(FVector2D(Mid));
+                        Ring.Add(Vertex(Pilot, Index, Columns * Rows + Index));
+                    }
+                    else
+                    {
+                        Ring.Add(GridVertex(FMath::RoundToInt((Mid.X - VPAdenAtlas::Region.West) / RegionSpacing),
+                            FMath::RoundToInt((Mid.Y - VPAdenAtlas::Region.North) / RegionSpacing)));
+                    }
                 }
             }
-            const FVector Mid = (Mesh.Vertices[B] + Mesh.Vertices[C]) * .5;
-            const int32 Centre = Mesh.Vertices.Add(Mid);
-            Mesh.Normals.Add((Mesh.Normals[B] + Mesh.Normals[C]).GetSafeNormal());
-            Mesh.Colors.Add(RegionalTint(Mid.Z));
+            int32 Centre;
+            if (Step == 1)
+            {
+                const FVector Mid = (Mesh.Vertices[B] + Mesh.Vertices[C]) * .5;
+                Centre = Mesh.Vertices.Add(Mid);
+                Mesh.Normals.Add((Mesh.Normals[B] + Mesh.Normals[C]).GetSafeNormal());
+                Mesh.Colors.Add(FMath::Lerp(Mesh.Colors[B], Mesh.Colors[C], .5f));
+            }
+            else Centre = GridVertex(X + Step / 2, Y + Step / 2);
             for (int32 I = 0; I < Ring.Num(); ++I)
                 Mesh.Triangles.Append({Centre, Ring[(I + 1) % Ring.Num()], Ring[I]});
         }
     }
-    return Mesh;
+    return Tiles;
 }
 
 template <std::size_t CornerCount>
@@ -555,10 +604,16 @@ bool AVPAdenSourceWorld::BuildSource()
     auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
     if (!RegionalMaterial) return false;
     RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
-    const FMesh Backdrop = RegionalTerrainMesh(Geometry, Terrain, RegionalHeights);
-    RegionalBackdrop = AddMesh(Backdrop, false, true, VPAdenAtlas::Region, RegionalMaterial);
-    // The panorama does not contribute to local collision or dynamic shadows.
-    RegionalBackdrop->SetCastShadow(false);
+    VPAdenRegionalGrid::FSteps RegionalSteps{};
+    const auto Backdrop = RegionalTerrainTiles(Geometry, Terrain, RegionalHeights, RegionalSteps, RegionalFitErrorCm);
+    RegionalTiles.Reserve(Backdrop.Num());
+    for (int32 Tile = 0; Tile < Backdrop.Num(); ++Tile)
+    {
+        auto* Mesh = AddMesh(Backdrop[Tile], false, true, VPAdenAtlas::Region, RegionalMaterial);
+        Mesh->SetCastShadow(false);
+        RegionalTiles.Add(Mesh);
+        if (RegionalSteps[Tile] > 1) ++RegionalCoarsenedTiles;
+    }
     TArray<FMesh> Surfaces;
     Surfaces.SetNum(SurfaceSectors);
     RoadTriangleCount = AddShapeOutlines(Geometry, Geometry.Roads, false, Surfaces, MaxOverlayGapError);
@@ -645,12 +700,81 @@ bool AVPAdenSourceWorld::BuildSource()
     return true;
 }
 
-int32 AVPAdenSourceWorld::RegionalBackdropTriangles() const
+FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
 {
-    if (!RegionalBackdrop || !RegionalBackdrop->IsVisible()
-        || RegionalBackdrop->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return 0;
-    const auto* Section = RegionalBackdrop->GetProcMeshSection(0);
-    return Section ? Section->ProcIndexBuffer.Num() / 3 : 0;
+    using namespace VPAdenRegionalGrid;
+    using VPAdenAtlas::Region;
+    FVPAdenRegionalCheck Result;
+    if (RegionalTiles.Num() != TileCount || TerrainSectors.Num() != VPAdenWorld::SurfaceSectors) return Result;
+    Result.CoarsenedTiles = RegionalCoarsenedTiles;
+    Result.GridFitErrorCm = RegionalFitErrorCm;
+    const FProcMeshSection* Sections[TileCount];
+    const auto Equal = [](const FProcMeshVertex& A, const FProcMeshVertex& B)
+    {
+        return A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color;
+    };
+    constexpr int32 TileWidth = TileCells * VPAdenRegionalGrid::Spacing;
+    for (int32 Tile = 0; Tile < TileCount; ++Tile)
+    {
+        const auto* Mesh = RegionalTiles[Tile].Get();
+        if (!Mesh || !Mesh->IsVisible() || Mesh->GetCollisionEnabled() != ECollisionEnabled::NoCollision) return Result;
+        const auto* Section = RegionalTiles[Tile]->GetProcMeshSection(0);
+        if (!Section || Section->ProcIndexBuffer.IsEmpty()) return Result;
+        const FVector Bounds = Section->SectionLocalBox.GetSize();
+        if (Bounds.X != TileWidth || Bounds.Y != TileWidth) return Result;
+        Sections[Tile] = Section;
+        ++Result.Tiles;
+        Result.Triangles += Section->ProcIndexBuffer.Num() / 3;
+    }
+    const auto SharedEdgeMatches = [&](const FProcMeshSection& A, const FProcMeshSection& B, int32 Axis, double Coord)
+    {
+        TMap<int32, const FProcMeshVertex*> Edge;
+        for (const auto& Vertex : A.ProcVertexBuffer)
+            if (Vertex.Position[Axis] == Coord) Edge.Add(int32(Vertex.Position[1 - Axis]), &Vertex);
+        int32 Matched = 0;
+        for (const auto& Vertex : B.ProcVertexBuffer)
+        {
+            if (Vertex.Position[Axis] != Coord) continue;
+            const auto* Other = Edge.Find(int32(Vertex.Position[1 - Axis]));
+            if (!Other || !Equal(**Other, Vertex) || (*Other)->UV0 != Vertex.UV0) return false;
+            ++Matched;
+        }
+        return Matched > 0 && Matched == Edge.Num();
+    };
+    for (int32 Y = 0; Y < TilesY; ++Y)
+    for (int32 X = 0; X < TilesX; ++X)
+    {
+        const auto& Tile = *Sections[TileIndex(X, Y)];
+        if (X + 1 < TilesX && SharedEdgeMatches(Tile, *Sections[TileIndex(X + 1, Y)], 0, Region.West + (X + 1) * TileWidth))
+            ++Result.SharedEdges;
+        if (Y + 1 < TilesY && SharedEdgeMatches(Tile, *Sections[TileIndex(X, Y + 1)], 1, Region.North + (Y + 1) * TileWidth))
+            ++Result.SharedEdges;
+    }
+
+    // Only the world-space attributes are shared with the playable patch. Its atlas projection differs by design.
+    TSet<FIntPoint> PilotBorder;
+    constexpr int32 PilotCells = VPAdenWorld::Side - 1;
+    constexpr int32 CellTile = VPAdenWorld::SectorCells;
+    constexpr int32 LastSector = VPAdenDrape::SectorsPerAxis - 1;
+    for (const auto* Section : Sections)
+    for (const auto& Vertex : Section->ProcVertexBuffer)
+    {
+        const FVector2D P(Vertex.Position);
+        if (!VPAdenWorld::InBounds(int64(P.X), int64(P.Y))) continue;
+        const int32 X = int32(P.X) - VPAdenWorld::OriginX, Y = int32(P.Y) - VPAdenWorld::OriginY;
+        if (X % LocalSpacing != 0 || Y % LocalSpacing != 0) continue;
+        const int32 Col = X / LocalSpacing, Row = Y / LocalSpacing;
+        if (Col != 0 && Col != PilotCells && Row != 0 && Row != PilotCells) continue;
+        const int32 SX = FMath::Min(Col / CellTile, LastSector), SY = FMath::Min(Row / CellTile, LastSector);
+        const int32 Tile = SY * VPAdenDrape::SectorsPerAxis + SX;
+        const auto* Pilot = TerrainSectors[Tile]->GetProcMeshSection(0);
+        const int32 Index = (Row - SY * CellTile) * VPAdenWorld::SectorSide + Col - SX * CellTile;
+        if (!Pilot || !Pilot->ProcVertexBuffer.IsValidIndex(Index) || !Equal(Pilot->ProcVertexBuffer[Index], Vertex))
+            return Result;
+        PilotBorder.Add(FIntPoint(Col, Row));
+    }
+    Result.PilotBorderVertices = PilotBorder.Num();
+    return Result;
 }
 
 FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
