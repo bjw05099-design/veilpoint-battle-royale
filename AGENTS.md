@@ -4,6 +4,11 @@
   development target for the game, maps, Story and Battle Royale. Add playable
   features and release builds through Unreal. Browser and WebView2 prototypes
   are historical references and legacy regression fixtures.
+- Author all game scenes directly in the Unreal project, including cinematics,
+  in-world broadcasts, lighting, character animation and visual effects. Do not
+  use Higgsfield or other external generative media services for VEILPOINT.
+  Use source data and supporting tools for asset preparation and validation
+  before assembling, rendering and testing the game in Unreal.
 
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
   marking. Story and Battle Royale ship separately, with story first. Allocate
