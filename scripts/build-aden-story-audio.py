@@ -44,25 +44,37 @@ def create(destination: Path):
     write(destination / "SW_AdenDossierCue.wav", chime)
 
 
-def create_prologue_beds(destination: Path):
+def create_prologue_beds(destination: Path, timings):
     """Create the opening's original atmosphere and timed practical cues."""
     destination.mkdir(parents=True, exist_ok=True)
-    # Each peak is a cinematic sound cue. The two street pulses and the
-    # change of broadcast speaker line up with the motion in the camera rig.
+    # Practical cues mark the edit; the wind, room tone and engines carry the quiet shots.
     scenes = [
-        ("Port", 9, 52, .08, .075, []),
-        ("News", 13, 60, .04, .045, [(6.35, .12, 180)]),
-        ("Fighting", 13, 49, .09, .045, [(3.15, .48, 52), (5.35, .40, 66), (8.3, .17, 58)]),
-        ("Blackout", 10, 47, .038, .028, [(1.75, .17, 92)]),
-        ("Voyage", 12, 41, .12, .094, []),
-        ("Landfall", 11, 42, .092, .069, [(5.1, .11, 122), (8.5, .15, 78), (9.7, .18, 98)]),
-        ("Street", 6, 71, .062, .108, [(2.35, .11, 104)]),
+        ("Port", 52, .08, .075, []),
+        ("Government", 59, .038, .046, [(1.0, .12, 180)]),
+        ("Front", 64, .032, .05, [(1.0, .09, 131)]),
+        ("Fighting", 49, .09, .045, [(6.2, .48, 52), (8.4, .40, 66), (10.1, .17, 58)]),
+        ("Aftermath", 47, .038, .028, [(2.5, .17, 92), (13.8, .08, 76)]),
+        ("Execution", 50, .041, .03, [(6.75, .22, 102)]),
+        ("Hostages", 49, .035, .037, [(4.1, .06, 166), (13.8, .04, 171)]),
+        ("Council", 53, .027, .021, [(2.6, .07, 159), (11.4, .045, 137)]),
+        ("Corridor", 52, .021, .022, [(4.2, .08, 106), (12.7, .07, 131)]),
+        ("Briefing", 56, .022, .024, [(9.1, .07, 180), (18.3, .065, 146)]),
+        ("Embark", 43, .088, .058, [(4.2, .1, 83), (8.2, .095, 94), (13.7, .06, 139)]),
+        ("Cabin", 41, .067, .090, [(8.7, .042, 125)]),
+        ("Deck", 42, .13, .075, []),
+        ("Approach", 41, .11, .087, []),
+        ("Landfall", 42, .092, .069, [(5.1, .11, 122), (12.5, .15, 78), (14.6, .18, 98)]),
+        ("Quay", 60, .076, .036, [(2.9, .075, 87), (7.6, .09, 92), (10.4, .08, 71)]),
+        ("Street", 71, .062, .108, [(2.35, .11, 104)]),
     ]
-    for index, (name, length, mode, wind, hum, events) in enumerate(scenes):
+    if len(scenes) != len(timings):
+        raise ValueError("Opening shots and sound beds disagree")
+    for index, ((name, mode, wind, hum, events), timing) in enumerate(zip(scenes, timings)):
+        length = timing[0]
         rng = random.Random(2607 + index)
         samples = []
         low = 0.
-        for frame in range(length * RATE):
+        for frame in range(round(length * RATE)):
             time = frame / RATE
             white = rng.uniform(-1., 1.)
             low = .981 * low + .019 * white

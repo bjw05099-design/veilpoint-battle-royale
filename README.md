@@ -7,10 +7,10 @@ ship separately, with story first. The verified editor authoring command creates
 `CH01_Aden`, then selects it as the native game's startup map.
 [Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)
 
-On a new campaign, an 81-second Unreal opener shows Nahrin's past, two
-competing news broadcasts and the outbreak of fighting under Captain Lee's
-Korean monologue. The view then cuts to his eyes aboard the boat, follows his
-landing and hands control to the player at the first CH01 street.
+A fresh campaign opens with a five-minute, 17-shot Unreal cinematic. Aden's
+coast, competing broadcasts, fighting, a hostage recording and a fictional
+UN meeting set up Captain Lee's assignment in Nahrin. The film then cuts to
+Lee's first-person crossing and hands the camera to the player at CH01.
 
 The native campaign follows Captain Lee's alliance with the fictional Sahir
 regular army against the Kharid Front. The short route through all twelve

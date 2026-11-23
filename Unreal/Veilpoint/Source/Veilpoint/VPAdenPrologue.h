@@ -36,9 +36,11 @@ private:
     void BuildBoat();
     void BuildNewsroom();
     void BuildWarScene();
+    void BuildInteriorSets();
     void PlaceBoat(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look);
     void PlaceNewsroom(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look);
     void PlaceWarScene(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look);
+    void PlaceInterior(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look);
     void PlayCues(VPAdenPrologue::FFrame Frame);
 
     UPROPERTY(Transient)
@@ -51,6 +53,22 @@ private:
     TObjectPtr<USceneComponent> Newsroom;
     UPROPERTY(Transient)
     TObjectPtr<USceneComponent> WarStreet;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> ClosedMarket;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> Detention;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> CouncilRoom;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> BriefingRoom;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> ScreeningDoor;
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<USceneComponent>> Detainees;
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<USceneComponent>> Delegates;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> BriefingOfficer;
     UPROPERTY(Transient)
     TArray<TObjectPtr<USceneComponent>> Speakers;
     UPROPERTY(Transient)
