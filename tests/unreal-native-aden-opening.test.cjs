@@ -23,11 +23,11 @@ test('the montage runs before the first-person crossing and releases at the end 
       '#include <cassert>',
       'using namespace VPAdenPrologue;',
       'int main() {',
-      '  static_assert(Total == 81.);',
-      '  static_assert(StartOf(Cabin) == 45.);',
-      '  static_assert(StartOf(Street) == 75.);',
-      '  assert(At(-1.).Shot == OldPort && At(81.).Shot == Count);',
-      '  assert(At(80.999).Shot == Street);',
+      '  static_assert(Total == 300.);',
+      '  static_assert(StartOf(Embark) == 186.);',
+      '  static_assert(StartOf(Street) == 294.);',
+      '  assert(At(-1.).Shot == OldPort && At(300.).Shot == Count);',
+      '  assert(At(299.999).Shot == Street);',
       '  for (int i = OldPort; i < Count; ++i) {',
       '    const auto shot = static_cast<EShot>(i);',
       '    const double start = StartOf(shot);',
@@ -37,13 +37,15 @@ test('the montage runs before the first-person crossing and releases at the end 
       '    if (i < NarrationCount) {',
       '      assert(ShowsNarration({shot, Shots[i].VoiceIn}));',
       '      assert(!ShowsNarration({shot, Shots[i].VoiceOut}));',
+      '      assert(!SecondSubtitle({shot, Shots[i].VoiceSplit - .01}));',
+      '      assert(SecondSubtitle({shot, Shots[i].VoiceSplit}));',
       '    } else {',
       '      assert(!ShowsNarration({shot, 2.}));',
       '    }',
       '  }',
       '  double position = 0.;',
       '  int visible[Count] = {};',
-      '  for (int step = 0; step < 470; ++step) {',
+      '  for (int step = 0; step < 1800; ++step) {',
       '    const FFrame frame = At(position);',
       '    if (frame.Shot == Count) break;',
       '    ++visible[frame.Shot];',
@@ -62,17 +64,19 @@ test('the montage runs before the first-person crossing and releases at the end 
   }
 });
 
-test('the four voiced takes contain the authored Korean monologue and fit their subtitle cues', () => {
+test('the ten voiced takes match the Korean monologue and its two subtitle cues', () => {
   const folder = join(project, 'ContentSource/AdenOpening');
   const manifest = JSON.parse(readFileSync(join(folder, 'voice.json'), 'utf8'));
   const subtitleSource = readFileSync(join(runtime, 'VPAdenPrologueLines.inl'), 'utf8');
-  const lines = [...subtitleSource.matchAll(/^TEXT\(("[^"]+")\),$/gm)].map(match => JSON.parse(match[1]));
+  const lines = [...subtitleSource.matchAll(/\{TEXT\((".*?")\),\s*TEXT\((".*?")\)\}/g)]
+    .map(match => [JSON.parse(match[1]), JSON.parse(match[2])]);
   const timing = readFileSync(join(runtime, 'VPAdenPrologueTimeline.h'), 'utf8').split('Shots[] = {')[1].split('};')[0];
-  const window = [...timing.matchAll(/\{\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\}/g)]
-    .map(match => Number(match[3]) - Number(match[2]));
-  assert.equal(manifest.schema, 'veilpoint-aden-opening-voice-v1');
+  const window = [...timing.matchAll(/\{\s*[\d.]+,\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\}/g)]
+    .map(match => ({split: Number(match[2]) - Number(match[1]), duration: Number(match[3]) - Number(match[1])}));
+  assert.equal(manifest.schema, 'veilpoint-aden-opening-voice-v2');
   assert.deepEqual(manifest.takes.map(take => take.text), lines);
-  assert.equal(lines.length, 4);
+  assert.equal(lines.length, 10);
+  assert.equal(window.length, lines.length);
   for (const [index, take] of manifest.takes.entries()) {
     assert.equal(take.asset, 'SW_AdenPrologueVO' + (index + 1));
     const wav = gunzipSync(readFileSync(join(folder, take.asset + '.wav.gz')));
@@ -82,7 +86,9 @@ test('the four voiced takes contain the authored Korean monologue and fit their 
     assert.equal(wav.readUInt16LE(22), 1);
     assert.equal(wav.readUInt16LE(34), 16);
     const duration = wav.readUInt32LE(40) / 32000;
-    assert.ok(duration < window[index] - .15 && duration > 2);
+    assert.ok(duration < window[index].duration - .15 && duration > window[index].split + 1.8);
+    const splitByte = 44 + Math.round(window[index].split * 16000) * 2;
+    assert.ok(wav.subarray(splitByte - 1040, splitByte).every(byte => byte === 0));
     assert.ok(Math.abs(duration - take.seconds) < .001);
   }
 });

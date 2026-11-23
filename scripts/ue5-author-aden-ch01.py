@@ -91,8 +91,8 @@ def import_prologue_audio():
     project = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
     samples = project / "Saved" / "Veilpoint" / "PrologueAudioSource"
     generator = runpy.run_path(str(Path(__file__).with_name("build-aden-story-audio.py")))
-    beds = generator["create_prologue_beds"](samples)
     assets = runpy.run_path(str(Path(__file__).with_name("build-aden-prologue-voice.py")))
+    beds = generator["create_prologue_beds"](samples, assets["prologue_timings"]())
     takes = assets["validated_takes"]()
     for name, wave in takes:
         (samples / (name + ".wav")).write_bytes(wave)

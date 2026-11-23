@@ -699,16 +699,25 @@ bool AVPAdenStoryGameMode::VerifyOpening(AVPPlayerController* Desktop, AVPCharac
 
     struct FShotCapture { FFrame Frame; const TCHAR* Name; };
     constexpr FShotCapture ShotsToCapture[] = {
-        {{OldPort, 3.}, TEXT("aden-opening-old-port")},
-        {{News, 3.}, TEXT("aden-opening-government-news")},
-        {{News, 9.}, TEXT("aden-opening-front-news")},
-        {{Fighting, 5.95}, TEXT("aden-opening-fighting")},
-        {{Blackout, 4.}, TEXT("aden-opening-blackout")},
-        {{Cabin, 3.}, TEXT("aden-opening-first-person")},
-        {{Approach, 6.}, TEXT("aden-opening-approach")},
-        {{Landfall, 10.}, TEXT("aden-opening-landfall")},
+        {{OldPort, 4.}, TEXT("aden-opening-old-port")},
+        {{Government, 7.}, TEXT("aden-opening-government-news")},
+        {{Front, 7.}, TEXT("aden-opening-front-news")},
+        {{Fighting, 9.}, TEXT("aden-opening-fighting")},
+        {{Aftermath, 9.}, TEXT("aden-opening-aftermath")},
+        {{Execution, 10.5}, TEXT("aden-opening-closed-door")},
+        {{Hostages, 10.}, TEXT("aden-opening-hostages")},
+        {{Council, 8.}, TEXT("aden-opening-council")},
+        {{Corridor, 8.}, TEXT("aden-opening-corridor")},
+        {{Briefing, 20.}, TEXT("aden-opening-briefing")},
+        {{Embark, 9.}, TEXT("aden-opening-embark")},
+        {{Cabin, 9.}, TEXT("aden-opening-first-person")},
+        {{Deck, 6.}, TEXT("aden-opening-deck")},
+        {{Approach, 9.}, TEXT("aden-opening-approach")},
+        {{Landfall, 15.}, TEXT("aden-opening-landfall")},
+        {{Quay, 10.}, TEXT("aden-opening-quay")},
         {{Street, 5.8}, TEXT("aden-opening-street")},
     };
+    static_assert(UE_ARRAY_COUNT(ShotsToCapture) == Count);
     const FTransform Original = DiagnosticCapture->GetRelativeTransform();
     const auto Grade = DiagnosticCapture->PostProcessSettings;
     const float OriginalFov = DiagnosticCapture->FOVAngle;
@@ -730,6 +739,7 @@ bool AVPAdenStoryGameMode::VerifyOpening(AVPPlayerController* Desktop, AVPCharac
     DiagnosticCapture->bCaptureEveryFrame = true;
     if (!bCaptured) return false;
     DiagnosticReport->SetNumberField(TEXT("openingFrames"), UE_ARRAY_COUNT(ShotsToCapture));
+    DiagnosticReport->SetNumberField(TEXT("openingSeconds"), Total);
 
     OpeningTime = Total - .16;
     UpdateOpening(Desktop, Pawn, .05f);

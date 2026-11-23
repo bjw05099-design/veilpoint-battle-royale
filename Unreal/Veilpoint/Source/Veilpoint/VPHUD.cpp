@@ -753,10 +753,10 @@ void AVPHUD::DrawAdenOpening(const AVPAdenStoryState* Aden)
     if (!Label.IsEmpty())
     {
         const float X = 52.f * Scale;
-        const float Y = Frame.Shot == News ? Canvas->ClipY * .70f : Mat + 21.f * Scale;
+        const bool bBroadcast = Frame.Shot == Government || Frame.Shot == Front;
+        const float Y = bBroadcast ? Canvas->ClipY * .70f : Mat + 21.f * Scale;
         const FSlateFontInfo Font(VPAdenCampaign::DialogueFontPath(), 15.f * Scale,
             EFontHinting::Default, FFontOutlineSettings());
-        const bool bBroadcast = Frame.Shot == News;
         DrawRect(bBroadcast ? FLinearColor(.045f, .11f, .17f, .96f) : FLinearColor(.01f, .015f, .02f, .69f),
             X, Y, (28.f + 17.f * Label.Len()) * Scale, 36.f * Scale);
         FCanvasTextItem Title(FVector2D(X + 13.f * Scale, Y + 7.f * Scale), FText::FromString(Label), Font,

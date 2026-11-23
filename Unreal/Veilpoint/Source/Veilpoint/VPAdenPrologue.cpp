@@ -13,9 +13,6 @@
 
 namespace
 {
-constexpr int32 SoundBed[] = {0, 1, 2, 3, 4, 4, 5, 6};
-static_assert(UE_ARRAY_COUNT(SoundBed) == VPAdenPrologue::Count);
-constexpr double SecondStatement = 6.35;
 constexpr double SeaLaneY = 116000.;
 
 double EasePrologueShot(double T)
@@ -39,6 +36,7 @@ bool AVPAdenPrologue::Build(AVPAdenSourceWorld& MapSource, UCameraComponent& Fir
     BuildBoat();
     BuildNewsroom();
     BuildWarScene();
+    BuildInteriorSets();
 
     const auto Audio = [this]()
     {
@@ -60,12 +58,12 @@ bool AVPAdenPrologue::Build(AVPAdenSourceWorld& MapSource, UCameraComponent& Fir
     return true;
 }
 
-USceneComponent* AVPAdenPrologue::Stage()
+USceneComponent* AVPAdenPrologue::Stage(USceneComponent* Parent)
 {
     auto* Anchor = NewObject<USceneComponent>(this);
     AddInstanceComponent(Anchor);
-    Anchor->SetupAttachment(GetRootComponent());
-    Anchor->SetAbsolute(true, true, true);
+    Anchor->SetupAttachment(Parent ? Parent : GetRootComponent());
+    if (!Parent) Anchor->SetAbsolute(true, true, true);
     Anchor->RegisterComponent();
     return Anchor;
 }
@@ -225,6 +223,19 @@ void AVPAdenPrologue::BuildWarScene()
     Civilians.Add(Person(WarStreet, FLinearColor(.24f, .17f, .10f), FLinearColor(.41f, .29f, .18f)));
     Civilians.Add(Person(WarStreet, FLinearColor(.10f, .17f, .19f), FLinearColor(.38f, .26f, .16f)));
     Civilians.Add(Person(WarStreet, FLinearColor(.40f, .34f, .25f), FLinearColor(.49f, .33f, .21f)));
+    ClosedMarket = Stage();
+    FVector Ground = WarStreet->GetComponentTransform().TransformPosition(FVector(635., 92., 0.));
+    Source->TraceStoryGround(Ground, Ground);
+    ClosedMarket->SetWorldLocationAndRotation(Ground, Heading);
+    auto* Shutter = Paint(FLinearColor(.115f, .13f, .12f));
+    auto* Slats = Paint(FLinearColor(.24f, .23f, .18f));
+    auto* Crate = Paint(FLinearColor(.25f, .15f, .08f));
+    Box(ClosedMarket, {69., 44., 101.}, {247., 12., 202.}, Shutter);
+    for (int32 Slat = 0; Slat < 8; ++Slat)
+        Box(ClosedMarket, {69., 36., 16. + Slat * 24.}, {244., 5., 3.}, Slats);
+    Box(ClosedMarket, {20., -21., 27.}, {67., 50., 54.}, Crate, FRotator(0., -15., 0.));
+    Box(ClosedMarket, {-96., -55., 6.}, {23., 12., 8.}, Shutter, FRotator(0., 19., 0.));
+    Box(ClosedMarket, {-78., -61., 6.}, {23., 12., 8.}, Shutter, FRotator(0., -17., 0.));
     DistantFlash = NewObject<UPointLightComponent>(this);
     AddInstanceComponent(DistantFlash);
     DistantFlash->SetupAttachment(WarStreet);
@@ -236,17 +247,170 @@ void AVPAdenPrologue::BuildWarScene()
     DistantFlash->RegisterComponent();
 }
 
+void AVPAdenPrologue::BuildInteriorSets()
+{
+    Detention = Stage();
+    CouncilRoom = Stage();
+    BriefingRoom = Stage();
+    auto* Plaster = Paint(FLinearColor(.13f, .15f, .16f));
+    auto* Concrete = Paint(FLinearColor(.19f, .17f, .14f));
+    auto* Steel = Paint(FLinearColor(.052f, .067f, .074f));
+    auto* Table = Paint(FLinearColor(.17f, .09f, .05f));
+    auto* Paper = Paint(FLinearColor(.65f, .61f, .51f));
+    auto* Blue = Paint(FLinearColor(.051f, .20f, .38f));
+    auto* Amber = Paint(FLinearColor(.61f, .39f, .17f));
+    auto* Petals = Paint(FLinearColor(.42f, .11f, .07f));
+    const auto Enclose = [&](USceneComponent* Set, double Offset, UMaterialInterface* Backdrop)
+    {
+        // Isolated film sets above sea terrain. Nothing in the mission world is replaced.
+        Set->SetWorldLocation(FVector(570000., -80000. + Offset, 41000.));
+        Box(Set, {48., 0., -12.}, {1250., 1320., 24.}, Concrete);
+        Box(Set, {458., 0., 201.}, {22., 1320., 430.}, Backdrop);
+        for (double Side : {-1., 1.})
+            Box(Set, {110., 620. * Side, 201.}, {700., 24., 430.}, Backdrop);
+    };
+    Enclose(Detention, 0., Plaster);
+    Enclose(CouncilRoom, 1800., Blue);
+    Enclose(BriefingRoom, 3600., Plaster);
+
+    for (double Side : {-1., 1.})
+    {
+        Box(Detention, {222., Side * 146., 125.}, {26., 25., 250.}, Steel);
+        Box(Detention, {210., Side * 206., 119.}, {24., 100., 238.}, Concrete);
+    }
+    Box(Detention, {221., 0., 254.}, {35., 312., 24.}, Steel);
+    ScreeningDoor = Stage(Detention.Get());
+    Box(ScreeningDoor, {222., 0., 118.}, {18., 256., 231.}, Steel);
+    for (double Rail : {43., 148., 219.})
+        Box(ScreeningDoor, {210., 0., Rail}, {5., 254., 7.}, Plaster);
+
+    for (int32 Index = 0; Index < 2; ++Index)
+    {
+        Box(Detention, {334., -65. + Index * 99., 28.}, {49., 48., 48.}, Table);
+        auto* Detainee = Person(Detention, Index ? FLinearColor(.32f, .23f, .17f) : FLinearColor(.17f, .23f, .23f),
+            FLinearColor(.40f, .28f, .20f));
+        Detainees.Add(Detainee);
+    }
+    // The cut to the next morning shows the names and flowers left by families.
+    Memorial = Stage(Detention.Get());
+    for (int32 Index = 0; Index < 4; ++Index)
+    {
+        Box(Memorial, {205., -96. + Index * 27., 112. + (Index % 2) * 15.}, {3., 20., 23.}, Paper);
+        Box(Memorial, {174. - Index * 6., -100. + Index * 28., 13.}, {27., 13., 9.}, Petals, FRotator::ZeroRotator, Sphere.Get());
+    }
+
+    Box(CouncilRoom, {140., 0., 76.}, {473., 295., 17.}, Table);
+    Box(CouncilRoom, {135., 0., 35.}, {390., 205., 71.}, Table);
+    for (int32 Index = 0; Index < 6; ++Index)
+    {
+        const double X = -24. + (Index % 3) * 160.;
+        const double Side = Index < 3 ? -1. : 1.;
+        auto* Delegate = Person(CouncilRoom, Index % 2 ? FLinearColor(.23f, .24f, .28f)
+            : FLinearColor(.12f, .16f, .20f), FLinearColor(.38f + (Index % 3) * .05f, .28f, .20f));
+        Delegate->SetRelativeLocationAndRotation({X, 202. * Side, 55.}, FRotator(0., -90. * Side, 0.));
+        Delegates.Add(Delegate);
+        Box(CouncilRoom, {X, Side * 125., 85.}, {53., 31., 2.}, Paper, FRotator(0., Index * 8., 0.));
+        Box(CouncilRoom, {X + 25., Side * 120., 97.}, {6., 6., 24.}, Steel);
+    }
+    Box(CouncilRoom, {125., 0., 87.}, {152., 131., 3.}, Paper, FRotator(0., 17., 0.));
+    Box(CouncilRoom, {118., -21., 90.}, {72., 6., 3.}, Blue, FRotator(0., 31., 0.));
+    Box(CouncilRoom, {154., 14., 90.}, {57., 6., 3.}, Amber, FRotator(0., -11., 0.));
+    Box(CouncilRoom, {176., 22., 92.}, {13., 13., 5.}, Petals, FRotator::ZeroRotator, Sphere.Get());
+
+    Box(BriefingRoom, {436., 59., 216.}, {11., 354., 172.}, Blue);
+    Box(BriefingRoom, {427., 75., 213.}, {5., 309., 129.}, Plaster);
+    for (int32 Index = 0; Index < 3; ++Index)
+        Box(BriefingRoom, {422., 46. + Index * 30., 182. + Index * 11.}, {3., 58., 5.}, Amber,
+            FRotator(0., 0., (Index - 1) * 12.));
+    Box(BriefingRoom, {94., 5., 71.}, {219., 286., 17.}, Table);
+    Box(BriefingRoom, {155., 5., 34.}, {103., 225., 66.}, Steel);
+    Box(BriefingRoom, {71., 15., 81.}, {92., 67., 4.}, Paper, FRotator(0., 9., 0.));
+    Box(BriefingRoom, {72., -48., 81.}, {53., 32., 4.}, Blue, FRotator(0., -8., 0.));
+    BriefingOfficer = Person(BriefingRoom, FLinearColor(.19f, .23f, .17f), FLinearColor(.50f, .35f, .24f));
+}
+
+void AVPAdenPrologue::PlaceInterior(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look)
+{
+    using namespace VPAdenPrologue;
+    const double T = Frame.Position;
+    const double Move = EasePrologueShot(T / Shots[Frame.Shot].Length);
+    USceneComponent* Set = nullptr;
+    FVector LocalEye, LocalFocus;
+    switch (Frame.Shot)
+    {
+    case Execution:
+    case Hostages:
+    {
+        Set = Detention.Get();
+        const bool bClosedDoor = Frame.Shot == Execution;
+        const double Shut = bClosedDoor ? EasePrologueShot((T - 5.7) / 1.2) : 0.;
+        ScreeningDoor->SetRelativeLocation({0., -268. * (1. - Shut), 0.});
+        Memorial->SetVisibility(bClosedDoor && T > 7.1, true);
+        for (int32 Index = 0; Index < Detainees.Num(); ++Index)
+        {
+            Detainees[Index]->SetVisibility(!bClosedDoor, true);
+            Detainees[Index]->SetRelativeLocationAndRotation({334., -65. + Index * 99., 45.},
+                FRotator(FMath::Sin(T * 1.7 + Index) * 4., 180. + (Index ? -12. : 2.), 0.));
+        }
+        if (bClosedDoor && T > 7.1)
+        {
+            const double MoveCloser = EasePrologueShot((T - 7.1) / 4.);
+            LocalEye = {-30. + 27. * MoveCloser, -170., 95. - 36. * MoveCloser};
+            LocalFocus = {190., -58., 90. - 49. * MoveCloser};
+        }
+        else
+        {
+            LocalEye = {-87. + 22. * Move, 13. - 46. * Move, 147. - 16. * Move};
+            LocalFocus = {310., -14., 99.};
+        }
+        break;
+    }
+    case Council:
+    case Corridor:
+        Set = CouncilRoom.Get();
+        for (int32 Index = 0; Index < Delegates.Num(); ++Index)
+        {
+            const double Side = Index < 3 ? -1. : 1.;
+            const bool bSpeaking = Index == (T < 11.4 ? 1 : 4) && Frame.Shot == Council;
+            Delegates[Index]->SetRelativeRotation(FRotator(bSpeaking ? FMath::Sin(T * 2.4) * 3. : 0.,
+                -90. * Side + FMath::Sin(T * .32 + Index) * 5., 0.));
+        }
+        if (Frame.Shot == Council)
+        {
+            LocalEye = {-400. + 128. * Move, -273. + 122. * Move, 218. - 32. * Move};
+            LocalFocus = {158., 23. - 58. * Move, 111.};
+        }
+        else
+        {
+            LocalEye = {-31. + 44. * Move, -133. + 32. * Move, 239. - 36. * Move};
+            LocalFocus = {147., 0., 87.};
+        }
+        break;
+    default:
+        Set = BriefingRoom.Get();
+        BriefingOfficer->SetRelativeLocationAndRotation({289., -24., 76.}, FRotator(FMath::Sin(T * 2.) * 2., 180., 0.));
+        LocalEye = {-200. + 53. * Move, 146. - 60. * Move, 164. - 7. * Move};
+        LocalFocus = FMath::Lerp(FVector(295., -19., 139.), FVector(119., 18., 94.),
+            EasePrologueShot((T - 17.) / 5.));
+        break;
+    }
+    const auto Base = Set->GetComponentTransform();
+    Eye = Base.TransformPosition(LocalEye);
+    Look = (Base.TransformPosition(LocalFocus) - Eye).Rotation();
+}
+
 void AVPAdenPrologue::PlaceNewsroom(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look)
 {
-    const bool bGovernment = Frame.Position < SecondStatement;
-    const double Time = bGovernment ? Frame.Position : Frame.Position - SecondStatement;
+    using namespace VPAdenPrologue;
+    const bool bGovernment = Frame.Shot == Government;
+    const double Time = Frame.Position;
     Speakers[0]->SetVisibility(bGovernment, true);
     Speakers[1]->SetVisibility(!bGovernment, true);
     auto* PersonOnAir = Speakers[bGovernment ? 0 : 1].Get();
     PersonOnAir->SetRelativeLocationAndRotation({44., 0., 74. + FMath::Sin(Time * 3.) * 1.8},
         FRotator(0., 180. + FMath::Sin(Time * 2.2) * 3.5, 0.));
     const FVector Origin = Newsroom->GetComponentLocation();
-    Eye = Origin + FVector(-317. + EasePrologueShot(Time / 8.) * 30., bGovernment ? -15. : 34., bGovernment ? 160. : 149.);
+    Eye = Origin + FVector(-317. + EasePrologueShot(Time / Shots[Frame.Shot].Length) * 30., bGovernment ? -15. : 34., bGovernment ? 160. : 149.);
     Look = (Origin + FVector(21., 0., 135.) - Eye).Rotation();
 }
 
@@ -254,12 +418,14 @@ void AVPAdenPrologue::PlaceWarScene(VPAdenPrologue::FFrame Frame, FVector& Eye, 
 {
     using namespace VPAdenPrologue;
     const bool bFight = Frame.Shot == Fighting;
-    const double Time = bFight ? Frame.Position : Shots[Fighting].Length + Frame.Position;
+    const double Time = Frame.Position;
     const auto Base = WarStreet->GetComponentTransform();
     for (int32 Index = 0; Index < Civilians.Num(); ++Index)
     {
-        const double Hit = Index == 0 ? 3.15 : 5.35;
-        const double Fall = Index < 2 ? EasePrologueShot((Time - Hit) / .66) : EasePrologueShot((Time - 5.45) / 1.15) * .67;
+        Civilians[Index]->SetVisibility(bFight, true);
+        if (!bFight) continue;
+        const double Hit = Index == 0 ? 6.2 : 8.4;
+        const double Fall = Index < 2 ? EasePrologueShot((Time - Hit) / .66) : EasePrologueShot((Time - 8.5) / 1.15) * .67;
         const double Crossing = EasePrologueShot(FMath::Min(Time, Hit) / (Hit + .3));
         const FVector Feet = Base.TransformPosition({610. + Index * 167., (Index == 1 ? -1. : 1.) * (50. - Crossing * 92.), 0.});
         FVector Floor = Feet;
@@ -268,58 +434,86 @@ void AVPAdenPrologue::PlaceWarScene(VPAdenPrologue::FFrame Frame, FVector& Eye, 
         Civilians[Index]->SetWorldLocationAndRotation(Floor + FVector(0., 0., 74. - Fall * 54. + Sway),
             Base.TransformRotation(FRotator(-Fall * 84., (Index - 1) * 51., Sway).Quaternion()).Rotator());
     }
-    const double Pulse = FMath::Max(0., 1. - FMath::Abs(Frame.Position - 3.15) / .22);
+    const double Pulse = FMath::Max(0., 1. - FMath::Abs(Frame.Position - 6.2) / .22);
     DistantFlash->SetVisibility(bFight && Pulse > 0.);
     DistantFlash->SetIntensity(float(Pulse * 5500.));
 
-    const double Dip = bFight ? EasePrologueShot((Frame.Position - 3.15) / 1.) * 49. : 62.;
-    Eye = Base.TransformPosition({130. + EasePrologueShot(Frame.Position / 10.) * 90., bFight ? 16. : -38., 166. - Dip});
-    const FVector Focus = Base.TransformPosition({bFight ? 940. : 735., -19., 90. - Dip * .52});
+    const double Dip = bFight ? EasePrologueShot((Frame.Position - 6.2) / 1.) * 49. : 62.;
+    const double Move = EasePrologueShot(Frame.Position / Shots[Frame.Shot].Length);
+    Eye = Base.TransformPosition({130. + Move * (bFight ? 165. : 230.), bFight ? 16. : -38., 166. - Dip});
+    const FVector Focus = Base.TransformPosition(bFight
+        ? FVector(940. - Move * 175., -19., 90. - Dip * .52)
+        : FVector(793. - 235. * Move, 112. - 22. * Move, 92. - 68. * Move));
     Look = (Focus - Eye).Rotation();
 }
 
 void AVPAdenPrologue::PlaceBoat(VPAdenPrologue::FFrame Frame, FVector& Eye, FRotator& Look)
 {
     using namespace VPAdenPrologue;
+    struct FBoatShot
+    {
+        double From, To;
+        FVector EyeStart, EyeEnd;
+        FRotator LookStart, LookEnd;
+    };
+    // Consecutive shots advance the same vessel. The embark and quay views
+    // stay at eye height and end on either side of the gangway.
+    static const FBoatShot Rail[] = {
+        {549200., 548900., {-744., -238., 350.}, {-390., -241., 369.}, {-8., 7., 0.}, {-2., 11., 0.}},
+        {548900., 545100., {-262., -59., 391.}, {-222., -59., 383.}, {-3., -3., 0.}, {-1., -3., 0.}},
+        {545100., 531300., {212., 103., 351.}, {445., 72., 357.}, {-6., 6., 0.}, {0., -4., 0.}},
+        {531300., 513300., {541., 59., 357.}, {711., -54., 372.}, {-3., 4., 0.}, {-2., -5., 0.}},
+        {513300., 507200., {586., -84., 366.}, {1037., -173., 337.}, {-8., 0., 0.}, {-17., -11., 0.}},
+        {507200., 507200., {1037., -173., 337.}, {1037., -173., 337.}, {-17., -11., 0.}, {-7., 0., 0.}},
+    };
+    static_assert(UE_ARRAY_COUNT(Rail) == Quay - Embark + 1);
+    const auto& Shot = Rail[Frame.Shot - Embark];
     const double Progress = EasePrologueShot(Frame.Position / Shots[Frame.Shot].Length);
     const double WaveTime = StartOf(Frame.Shot) + Frame.Position;
-    const bool bCabin = Frame.Shot == Cabin;
-    const bool bArrival = Frame.Shot == Landfall;
-    const double Along = bCabin ? FMath::Lerp(549200., 545100., Progress)
-        : bArrival ? FMath::Lerp(513300., 507200., Progress) : FMath::Lerp(531300., 520400., Progress);
+    const bool bArrival = Frame.Shot >= Landfall;
+    const double Along = FMath::Lerp(Shot.From, Shot.To, Progress);
     const double Bob = FMath::Sin(WaveTime * 1.7) * (bArrival ? 2.5 : 5.7);
     const FRotator Heading(FMath::Sin(WaveTime * 1.62) * .31, 180., FMath::Sin(WaveTime * 1.28) * .61);
     const FTransform Ship(Heading, FVector(Along, SeaLaneY, Bob));
     Boat->SetWorldTransform(Ship);
-    const FVector RelativeEye = bCabin ? FVector(-262. + 40. * Progress, -59., 391. - Progress * 8.)
-        : bArrival ? FVector(586. + Progress * 451., -84. - Progress * 89., 366. - Progress * 29.)
-        : FVector(212. + Progress * 139., 103. - Progress * 25., 351.);
-    const FRotator RelativeLook(bCabin ? -1.5 : bArrival ? -8. - 9. * Progress : -2.8,
-        bCabin ? -3. : bArrival ? -11. * Progress : 4. - Progress * 9., 0.);
+    const FVector RelativeEye = FMath::Lerp(Shot.EyeStart, Shot.EyeEnd, Progress);
+    const FRotator RelativeLook = FQuat::Slerp(Shot.LookStart.Quaternion(), Shot.LookEnd.Quaternion(), Progress).Rotator();
     Eye = Ship.TransformPosition(RelativeEye);
     Look = Ship.TransformRotation(RelativeLook.Quaternion()).Rotator();
-    if (bArrival)
+    if (Frame.Shot == Landfall)
     {
-        // Follow the end of the gangway from first person as the boat comes to rest.
-        const double StepAshore = EasePrologueShot((Progress - .79) / .21);
+        const double StepAshore = EasePrologueShot((Progress - .75) / .25);
         Eye = FMath::Lerp(Eye, FVector(506055., SeaLaneY + 405., 317.), StepAshore);
         Look.Pitch = FMath::Lerp(Look.Pitch, -7., StepAshore);
     }
+    else if (Frame.Shot == Quay)
+    {
+        Eye = FVector(506055. - Progress * 546., SeaLaneY + 405. + 45. * Progress,
+            317. + FMath::Sin(Frame.Position * 5.6) * 1.7);
+    }
+
 }
 
 void AVPAdenPrologue::Present(VPAdenPrologue::FFrame Frame, bool bPlayAudio)
 {
     using namespace VPAdenPrologue;
     if (Frame.Shot >= Count) return;
-    const bool bBoat = Frame.Shot >= Cabin && Frame.Shot <= Landfall;
-    const bool bNews = Frame.Shot == News;
-    const bool bWar = Frame.Shot == Fighting || Frame.Shot == Blackout;
+    const bool bBoat = Frame.Shot >= Embark && Frame.Shot <= Quay;
+    const bool bNews = Frame.Shot == Government || Frame.Shot == Front;
+    const bool bWar = Frame.Shot == Fighting || Frame.Shot == Aftermath;
+    const bool bDetention = Frame.Shot == Execution || Frame.Shot == Hostages;
+    const bool bCouncil = Frame.Shot == Council || Frame.Shot == Corridor;
+    const bool bBriefing = Frame.Shot == Briefing;
     if (Frame.Shot != PreviousShot)
     {
         Boat->SetVisibility(bBoat, true);
-        Pontoon->SetVisibility(Frame.Shot == Approach || Frame.Shot == Landfall, true);
+        Pontoon->SetVisibility(Frame.Shot >= Approach && Frame.Shot <= Quay, true);
         Newsroom->SetVisibility(bNews, true);
         WarStreet->SetVisibility(bWar, true);
+        ClosedMarket->SetVisibility(Frame.Shot == Aftermath, true);
+        Detention->SetVisibility(bDetention, true);
+        CouncilRoom->SetVisibility(bCouncil, true);
+        BriefingRoom->SetVisibility(bBriefing, true);
     }
     FVector Eye;
     FRotator Look;
@@ -336,6 +530,11 @@ void AVPAdenPrologue::Present(VPAdenPrologue::FFrame Frame, bool bPlayAudio)
     }
     else if (bWar)
         PlaceWarScene(Frame, Eye, Look);
+    else if (bDetention || bCouncil || bBriefing)
+    {
+        PlaceInterior(Frame, Eye, Look);
+        Fov = bCouncil ? 59.f : 52.f;
+    }
     else if (Frame.Shot == Street)
     {
         const auto* PlayerCamera = GameplayCamera.Get();
@@ -359,12 +558,12 @@ void AVPAdenPrologue::Present(VPAdenPrologue::FFrame Frame, bool bPlayAudio)
     Camera->SetFieldOfView(Fov);
     auto& Grade = Camera->PostProcessSettings;
     Grade.bOverride_ColorSaturation = Frame.Shot < Street;
-    Grade.ColorSaturation = FVector4(1., 1., 1., bNews || bWar ? .63 : .85);
+    Grade.ColorSaturation = FVector4(1., 1., 1., bNews || bWar || bDetention ? .63 : .85);
     Grade.bOverride_VignetteIntensity = Frame.Shot < Street;
-    Grade.VignetteIntensity = bNews || bWar ? .54f : .27f;
+    Grade.VignetteIntensity = bNews || bWar || bDetention ? .54f : .27f;
     Grade.bOverride_ColorGain = Frame.Shot < Street;
-    Grade.ColorGain = Frame.Shot == Blackout ? FVector4(.41, .45, .50, 1.)
-        : bNews ? (Frame.Position < SecondStatement ? FVector4(.95, 1., 1.07, 1.) : FVector4(1.04, .91, .80, 1.))
+    Grade.ColorGain = bDetention ? FVector4(.65, .72, .77, 1.)
+        : bNews ? (Frame.Shot == Government ? FVector4(.95, 1., 1.07, 1.) : FVector4(1.04, .91, .80, 1.))
         : bBoat ? FVector4(.88, .97, 1.08, 1.) : FVector4(1.06, 1.01, .92, 1.);
     SetActorLocationAndRotation(Eye, Look);
 
@@ -379,7 +578,7 @@ void AVPAdenPrologue::PlayCues(VPAdenPrologue::FFrame Frame)
     {
         StopAudio();
         bVoiceStarted = false;
-        const int32 Index = SoundBed[Frame.Shot];
+        const int32 Index = Frame.Shot;
         if (Source->PrologueBeds.IsValidIndex(Index) && Source->PrologueBeds[Index])
         {
             Bed->SetSound(Source->PrologueBeds[Index].Get());
@@ -413,17 +612,17 @@ bool AVPAdenPrologue::HasAudio() const
             if (!Wave || Wave->GetDuration() < .5f) return false;
         return true;
     };
-    return Source && Complete(Source->PrologueVoice, NarrationCount) && Complete(Source->PrologueBeds, 7);
+    return Source && Complete(Source->PrologueVoice, NarrationCount) && Complete(Source->PrologueBeds, Count);
 }
 
 const TCHAR* AVPAdenPrologue::Narration(VPAdenPrologue::FFrame Frame)
 {
     using namespace VPAdenPrologue;
-    static const TCHAR* Lines[] = {
+    static const TCHAR* Lines[][2] = {
 #include "VPAdenPrologueLines.inl"
     };
     static_assert(UE_ARRAY_COUNT(Lines) == NarrationCount);
-    return ShowsNarration(Frame) ? Lines[Frame.Shot] : TEXT("");
+    return ShowsNarration(Frame) ? Lines[Frame.Shot][SecondSubtitle(Frame) ? 1 : 0] : TEXT("");
 }
 
 const TCHAR* AVPAdenPrologue::SceneLabel(VPAdenPrologue::FFrame Frame)
@@ -431,10 +630,18 @@ const TCHAR* AVPAdenPrologue::SceneLabel(VPAdenPrologue::FFrame Frame)
     using namespace VPAdenPrologue;
     switch (Frame.Shot)
     {
-    case OldPort: return TEXT("나흐린 | 내전 이전");
-    case News: return Frame.Position < SecondStatement ? TEXT("사히르 정부 발표") : TEXT("카리드 전선 성명");
-    case Fighting: return TEXT("나흐린 | 내전 발발");
-    case Cabin: return Frame.Position < 4.2 ? TEXT("사히르 연안 | 이수혁") : TEXT("");
+    case OldPort: return TEXT("아덴, 예멘 남부  |  20XX년  |  가상 각색");
+    case Government: return TEXT("특별 담화  |  사히르 정부 수반");
+    case Front: return TEXT("긴급 방송  |  카리드 전선 지도자");
+    case Fighting: return TEXT("아덴  |  내전 발발");
+    case Aftermath: return TEXT("아덴  |  이튿날 아침");
+    case Execution: return TEXT("카리드 전선  |  공개 영상");
+    case Hostages: return TEXT("구호 인력 피랍  |  확인 영상");
+    case Council: return TEXT("유엔  |  예멘 내전 긴급회의");
+    case Corridor: return TEXT("유엔  |  민간인 통행 협의");
+    case Briefing: return TEXT("대한민국  |  출국 전 브리핑");
+    case Embark: return Frame.Position < 6. ? TEXT("사히르 연안  |  이수혁") : TEXT("");
+    case Approach: return Frame.Position < 7. ? TEXT("나흐린 외항  |  동트기 전") : TEXT("");
     default: return TEXT("");
     }
 }
@@ -444,8 +651,8 @@ float AVPAdenPrologue::BlackoutAlpha(VPAdenPrologue::FFrame Frame)
     using namespace VPAdenPrologue;
     if (Frame.Shot >= Count) return 0.f;
     if (Frame.Shot == OldPort) return float(1. - EasePrologueShot(Frame.Position / 1.1));
-    if (Frame.Shot == Cabin || Frame.Shot == Street) return float(1. - EasePrologueShot(Frame.Position / .72));
-    if (Frame.Shot == Blackout || Frame.Shot == Landfall)
+    if (Frame.Shot == Embark || Frame.Shot == Street) return float(1. - EasePrologueShot(Frame.Position / .72));
+    if (Frame.Shot == Briefing || Frame.Shot == Quay)
         return float(EasePrologueShot((Frame.Position - Shots[Frame.Shot].Length + .63) / .63));
     return 0.f;
 }
