@@ -39,6 +39,22 @@ struct FVPAdenAtlasLine
     bool bRoad;
 };
 
+struct FVPAdenBlockerSeamProbe
+{
+    int32 Sectors[2];
+    FVector Points[2];
+    FVector Across;
+};
+
+struct FVPAdenBlockerCheck
+{
+    int32 Sectors = 0;
+    int32 Triangles = 0;
+    int32 LargestSector = 0;
+    int32 Seams = 0;
+    int32 SeamsPassed = 0;
+};
+
 UCLASS()
 class VEILPOINT_API AVPAdenSourceWorld : public AActor
 {
@@ -70,6 +86,7 @@ public:
     double BlockerBaseGapError() const { return MaxBlockerBaseError; }
     int32 FootprintCollisionProbeCount() const { return BlockerProbes.Num(); }
     int32 VerifyFootprintCollision(const AActor* Ignore) const;
+    FVPAdenBlockerCheck VerifyFootprintSectors() const;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
@@ -114,8 +131,9 @@ private:
     int32 RegionalCoarsenedTiles = 0;
     double RegionalFitErrorCm = 0.;
     UPROPERTY(Transient)
-    TObjectPtr<UProceduralMeshComponent> FootprintCollision;
+    TArray<TObjectPtr<UProceduralMeshComponent>> FootprintCollisions;
     TArray<TPair<FVector, FVector>> BlockerProbes;
+    TArray<FVPAdenBlockerSeamProbe> BlockerSeamProbes;
     TArray<FVPAdenAtlasLine> AtlasLines;
     TArray<TArray<int32>> AtlasLineSectors;
     FString SourceRevision;
@@ -125,6 +143,7 @@ private:
     TArray<FVector> FollowupToPublicCopy;
     TArray<FVector> FollowupToDeskCopy;
     TArray<FVector> ReceiptArchiveLeg;
+    TArray<FVector> ReplyLegs[5];
     bool bAttempted = false;
     int32 RoadTriangleCount = 0;
     int32 FootprintTriangleCount = 0;

@@ -280,12 +280,34 @@ test('compile and exercise the real Unreal atlas projection and save migration r
               assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Advanced);
               assert(legacy.Receipt == step && legacy.Followup == d::FollowupComplete);
               assert(legacy.Disposition == finished.Disposition && legacy.Route == finished.Route);
-              assert(d::Valid(d::Restore(d::CheckpointVersion, legacy)) && !d::IsChapterHandoff(legacy));
+              assert(d::Valid(d::Restore(6, legacy)));
+              assert(d::IsChapterHandoff(legacy) == (step == d::ReceiptComplete));
             }
-            assert(!d::HasObjective(legacy));
+            assert(d::HasObjective(legacy) && !d::IsReplyChapter(legacy));
+            assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Advanced);
+            assert(d::IsReplyChapter(legacy) && legacy.Reply == d::ReplyAtJunction);
+            assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Advanced);
+            assert(d::IsReplyChoice(legacy));
+            const bool isPublic = legacy.Disposition == d::PublicUpdate;
+            const auto correct = isPublic ? d::EInput::OptionOne : d::EInput::OptionTwo;
+            const auto wrong = isPublic ? d::EInput::OptionTwo : d::EInput::OptionOne;
+            assert(d::Advance(legacy, correct, false) == d::EResult::Ignored);
+            assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::ShowChoice);
+            assert(d::Advance(legacy, d::EInput::FileInternally, true) == d::EResult::Ignored);
+            assert(d::Advance(legacy, wrong, true) == d::EResult::Refused && legacy.Reply == d::ReplyAtContact);
+            assert(d::Advance(legacy, correct, true) == d::EResult::Advanced && legacy.Reply == d::ReplyAtReview);
+            assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Advanced);
+            assert(legacy.Reply == d::ReplyComplete && d::Valid(d::Restore(d::CheckpointVersion, legacy)));
+            assert(!d::HasObjective(legacy) && legacy.Disposition == finished.Disposition && legacy.Route == finished.Route);
             assert(d::Advance(legacy, d::EInput::Interact, false) == d::EResult::Ignored);
             assert(finished.Receipt == d::ReceiptReady);
           }
+          assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::FollowupComplete, d::ReceiptAtArchive, d::ReplyAtContact}));
+          assert(!d::Valid({d::Complete, d::Witness, d::PublicUpdate, d::FollowupComplete, d::ReceiptComplete, d::ReplyComplete + 1}));
+          assert(VPAdenDrape::FootprintSector({Local.West, Local.North}) == 0);
+          assert(VPAdenDrape::FootprintSector({Local.West + 51199., Local.North + 400.}) == 0);
+          assert(VPAdenDrape::FootprintSector({Local.West + 51201., Local.North + 400.}) == 1);
+          assert(VPAdenDrape::FootprintSector({Local.East, Local.South}) == 48);
         }
         using namespace VPAdenMission;
         static_assert(ValidCheckpoint(1, {2, None}));

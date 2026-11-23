@@ -41,6 +41,11 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStations
     $report.receiptRouteRemainingMetres -lt 70 -or $report.receiptRouteRemainingMetres -gt 76) {
     throw 'Aden captured an incomplete native story.'
 }
+if ($report.replyStep -ne 4 -or $report.publicReplyVerified -ne $true -or $report.deskReplyVerified -ne $true -or
+    $report.replyLegacyResumeVerified -ne $true -or $report.publicReplyMetres -lt 350 -or
+    $report.publicReplyMetres -gt 352 -or $report.deskReplyMetres -lt 456 -or $report.deskReplyMetres -gt 459) {
+    throw 'Aden CH05 paths, evidence decisions or version 6 checkpoint migration failed.'
+}
 if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 -or
     $report.regionalBackdropTriangles -lt 20000 -or $report.regionalSharedEdges -ne 97 -or
     $report.regionalPlayableBorderVertices -ne 544 -or $null -eq $report.regionalGridFitErrorCm -or
@@ -69,10 +74,16 @@ if ($report.overlaySectors -lt 2 -or $report.overlaySectors -gt 49 -or
     $report.largestOverlaySectorTriangles -le 0 -or $report.largestOverlaySectorTriangles -ge $surfaceTotal) {
     throw 'Aden visible ground overlays were not divided into independently culled sectors.'
 }
-if ($report.blockerTriangles -lt 4865 -or $null -eq $report.blockerBaseGapErrorCm -or
+if ($report.blockerTriangles -ne 145056 -or $null -eq $report.blockerBaseGapErrorCm -or
     $report.blockerBaseGapErrorCm -gt 0.02 -or $report.blockerCollisionProbes -lt 4 -or
     $report.blockerCollisionProbesPassed -ne $report.blockerCollisionProbes) {
     throw 'Aden footprint collision failed the ground alignment or two-sided traces.'
+}
+if ($report.blockerSectors -lt 2 -or $report.blockerSectors -gt 49 -or
+    $report.blockerSectorTriangles -ne $report.blockerTriangles -or $report.blockerLargestSector -le 0 -or
+    $report.blockerLargestSector -ge $report.blockerSectorTriangles -or
+    $report.blockerSeams -lt 1 -or $report.blockerSeamsPassed -ne $report.blockerSeams) {
+    throw 'Aden footprint blockers failed sector bounds or two-sided seam collision.'
 }
 if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -or
     $report.atlasDetailFootprintLines -le 0 -or $report.atlasDetailClipped -ne $true -or
@@ -80,7 +91,12 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-foreach ($name in @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam','aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-debrief','aden-dispatch-route','aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision','aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive')) {
+$frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam',
+    'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-debrief','aden-dispatch-route',
+    'aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision',
+    'aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive',
+    'aden-reply-public','aden-reply-desk','aden-reply-complete')
+foreach ($name in $frames) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
     if ($frame.map -notmatch 'CH01_Aden$' -or $frame.width -lt 1000 -or $frame.height -lt 600 -or

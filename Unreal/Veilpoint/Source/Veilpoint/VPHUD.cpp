@@ -3,6 +3,7 @@
 #include "VPPlayerController.h"
 #include "VPZone.h"
 #include "VPGameState.h"
+#include "VPBRLobbyRules.h"
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenDispatch.h"
@@ -562,13 +563,23 @@ void AVPHUD::DrawHUD()
             const bool bReady = Desktop && Desktop->IsRoundReady();
             DrawText(bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
                 FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
-            if (RoundState->LobbyCountdownEndsAt > 0.)
+            const auto LobbyStage = VPBRLobby::Stage(RoundState->JoinedPlayers, RoundState->ReadyPlayers,
+                RoundState->LobbyCountdownEndsAt);
+            FString LobbyMessage;
+            if (LobbyStage == VPBRLobby::EStage::Countdown)
             {
                 const double Seconds = RoundState->LobbyCountdownEndsAt - RoundState->GetServerWorldTimeSeconds();
-                const int32 Remaining = FMath::CeilToInt(static_cast<float>(Seconds));
-                const FString Countdown = FString::Printf(TEXT("ROUND STARTS IN %d"), FMath::Max(1, Remaining));
-                DrawText(Countdown, FLinearColor(.95f,.79f,.48f), X, Y + 200.f * Scale, nullptr, .84f * Scale);
+                const int32 Remaining = FMath::CeilToInt(static_cast<float>(FMath::Min(Seconds, VPBRLobby::CountdownSeconds)));
+                LobbyMessage = Remaining > 0 ? FString::Printf(TEXT("ROUND STARTS IN %d"), Remaining)
+                    : FString(TEXT("STARTING ROUND"));
             }
+            else if (LobbyStage == VPBRLobby::EStage::WaitingForPlayers)
+                LobbyMessage = TEXT("WAITING FOR ANOTHER PLAYER");
+            else if (LobbyStage == VPBRLobby::EStage::WaitingForReady)
+                LobbyMessage = TEXT("WAITING FOR ALL PLAYERS TO READY UP");
+            else
+                LobbyMessage = TEXT("ALL READY. WAITING FOR SERVER");
+            DrawText(LobbyMessage, FLinearColor(.95f,.79f,.48f), X, Y + 200.f * Scale, nullptr, .84f * Scale);
             return;
         }
         // A standalone Windows process has no multiplayer lobby to join.
@@ -703,9 +714,11 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         TEXT("Salma received the record. The missing are still unaccounted for.")
     };
     const bool bDispatch = Aden->bDispatchActive;
-    const bool bReceipt = bDispatch && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch);
-    const bool bFollowup = bDispatch && !bReceipt && Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady;
-    const bool bFollowupReady = bDispatch && !bFollowup && !bReceipt && Aden->Dispatch.Phase == VPAdenDispatch::Complete;
+    const bool bReply = bDispatch && VPAdenDispatch::IsReplyChapter(Aden->Dispatch);
+    const bool bReceipt = bDispatch && !bReply && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch);
+    const bool bFollowup = bDispatch && !bReceipt && !bReply && Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady;
+    const bool bFollowupReady = bDispatch && VPAdenDispatch::IsChapterHandoff(Aden->Dispatch)
+        && Aden->Dispatch.Followup == VPAdenDispatch::FollowupReady;
     const bool bPending = bDispatch ? VPAdenDispatch::HasObjective(Aden->Dispatch)
         : Confirmed < VPAdenMission::Complete;
     const FVector Objective = Aden->Objective;
@@ -728,19 +741,21 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const FLinearColor Note(.42f, .83f, .79f);
     const float JournalTop = (bHasNote || bDispatch) ? 136.f : 116.f;
     DrawRect(Plate, X, Y, Width, (bJournalOpen ? JournalTop + 120.f : JournalTop - 7.f) * Scale);
-    DrawText(bReceipt ? TEXT("VEILPOINT  /  CH04  /  SIGNED RECEIPT")
+    DrawText(bReply ? TEXT("VEILPOINT  /  CH05  /  PENDING REPLY")
+        : bReceipt ? TEXT("VEILPOINT  /  CH04  /  SIGNED RECEIPT")
         : bFollowup ? TEXT("VEILPOINT  /  CH03  /  NIGHT ROSTER")
         : bDispatch ? TEXT("VEILPOINT  /  CH02  /  OPEN CHANNEL")
         : TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
         X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
     DrawText(bDispatch ? VPAdenDispatch::Objective(Aden->Dispatch) : Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
-    const int32 Total = bReceipt ? int32(VPAdenDispatch::ReceiptComplete)
+    const int32 Total = bReply ? int32(VPAdenDispatch::ReplyComplete)
+        : bReceipt ? int32(VPAdenDispatch::ReceiptComplete)
         : bFollowup ? int32(VPAdenDispatch::FollowupComplete)
         : bDispatch ? int32(VPAdenDispatch::Complete) : VPAdenMission::Complete;
-    const int32 Done = bReceipt ? Aden->Dispatch.Receipt
+    const int32 Done = bReply ? Aden->Dispatch.Reply : bReceipt ? Aden->Dispatch.Receipt
         : bFollowup ? Aden->Dispatch.Followup : bDispatch ? Aden->Dispatch.Phase : Confirmed;
     const FString Status = bFollowupReady ? FString(TEXT("5 / 5 filed  |  F speak to Salma  |  J notes  |  M map"))
-        : (bFollowup || bReceipt) && bPending
+        : (bFollowup || bReceipt || bReply) && bPending
             ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done, Total, Distance)
         : bPending
         ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done + 1, Total, Distance)
@@ -749,15 +764,19 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(TEXT("Terrain: Copernicus GLO-30   |   Vectors: OpenStreetMap contributors"), Ink,
         X + 12.f * Scale, Y + 82.f * Scale, nullptr, .65f * Scale);
     const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Pawn->GetActorLocation());
+    const auto ChapterJournal = [Aden, bReply, bReceipt](int32 Step)
+    {
+        return bReply ? VPAdenDispatch::ReplyJournalLine(Step, Aden->Dispatch)
+            : bReceipt ? VPAdenDispatch::ReceiptJournalLine(Step, Aden->Dispatch)
+                       : VPAdenDispatch::FollowupJournalLine(Step, Aden->Dispatch);
+    };
     if (bDispatch)
     {
         const FString GuideText = !Aden->ActiveLeg.IsEmpty()
             ? FString::Printf(TEXT("Walking leg %.0fm  |  %.0fm off centreline  |  F6 save  F7 return"),
                 Guide.RemainingCm / 100., Guide.OffsetCm / 100.)
             : FString::Printf(TEXT("%s  |  F6 save  F7 return"),
-                bReceipt ? VPAdenDispatch::ReceiptJournalLine(Done, Aden->Dispatch)
-                : bFollowup ? VPAdenDispatch::FollowupJournalLine(Done, Aden->Dispatch)
-                          : VPAdenDispatch::DispositionLine(Aden->Dispatch));
+                (bReply || bReceipt || bFollowup) ? ChapterJournal(Done) : VPAdenDispatch::DispositionLine(Aden->Dispatch));
         DrawText(GuideText, Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .70f * Scale);
     }
     if (bHasNote)
@@ -768,16 +787,15 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawText(FString::Printf(TEXT("%s  |  %.1f m"), Name, NoteDistance),
             Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .73f * Scale);
     }
-    if (bJournalOpen && (bFollowup || bReceipt))
+    if (bJournalOpen && (bFollowup || bReceipt || bReply))
     {
         DrawText(VPAdenDispatch::DispositionLine(Aden->Dispatch), Note,
             X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
         for (int32 Step = 1; Step <= Done; ++Step)
-            DrawText(bReceipt ? VPAdenDispatch::ReceiptJournalLine(Step, Aden->Dispatch)
-                : VPAdenDispatch::FollowupJournalLine(Step, Aden->Dispatch), Ink,
+            DrawText(ChapterJournal(Step), Ink,
                 X + 12.f * Scale, Y + (JournalTop + Step * 20.f) * Scale, nullptr, .77f * Scale);
     }
-    if (bJournalOpen && bDispatch && !bFollowup && !bReceipt)
+    if (bJournalOpen && bDispatch && !bFollowup && !bReceipt && !bReply)
     {
         for (int32 I = 0; I < Done; ++I)
             DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch), Ink,
@@ -845,7 +863,9 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (Aden->bChoosingReport)
         {
             const TCHAR* Choices = !bDispatch ? TEXT("[1] Same message retransmitted       [2] Two separate incidents")
-                : Aden->Dispatch.Phase == VPAdenDispatch::Choose
+                : VPAdenDispatch::IsReplyChoice(Aden->Dispatch)
+                    ? TEXT("[1] Signed public copy       [2] Telephone read-back")
+                    : Aden->Dispatch.Phase == VPAdenDispatch::Choose
                     ? TEXT("[1] Witness interview           [2] Public notice")
                     : TEXT("[1] Post verified update     [3] File with relief desk");
             DrawText(Choices, Accent,

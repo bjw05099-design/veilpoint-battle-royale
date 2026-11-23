@@ -12,4 +12,9 @@ inline constexpr FPoint FromWitness[] = {{425708, 83517}, {419145, 76078}};
 inline constexpr FPoint FromNotice[] = {{414451, 79690}, {419145, 76078}};
 inline constexpr FPoint Handoff[] = {{419145, 76078}, {415785, 72207}};
 inline constexpr FPoint ReceiptArchive[] = {{419145, 76078}, {409640, 65128}};
+inline constexpr FPoint ReplyJunction[] = {{409640, 65128}, {402345, 56724}, {393281, 45881}};
+inline constexpr FPoint ReplyPublicContact[] = {{393281, 45881}, {389456, 50834}};
+inline constexpr FPoint ReplyDeskContact[] = {{393281, 45881}, {395390, 43561}, {397191, 41768}};
+inline constexpr FPoint ReplyPublicReview[] = {{389456, 50834}, {387150, 53584}};
+inline constexpr FPoint ReplyDeskReview[] = {{397191, 41768}, {406949, 52913}};
 }

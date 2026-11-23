@@ -71,6 +71,9 @@ public:
 
     UPROPERTY(SaveGame)
     int32 DispatchReceipt = 0;
+
+    UPROPERTY(SaveGame)
+    int32 DispatchReply = 0;
 };
 
 struct FVPAdenCampaignCheckpoint
@@ -83,7 +86,7 @@ struct FVPAdenCampaignCheckpoint
         return Broadcast.Confirmed == Other.Broadcast.Confirmed && Broadcast.Notes == Other.Broadcast.Notes &&
             Dispatch.Phase == Other.Dispatch.Phase && Dispatch.Route == Other.Dispatch.Route &&
             Dispatch.Disposition == Other.Dispatch.Disposition && Dispatch.Followup == Other.Dispatch.Followup &&
-            Dispatch.Receipt == Other.Dispatch.Receipt;
+            Dispatch.Receipt == Other.Dispatch.Receipt && Dispatch.Reply == Other.Dispatch.Reply;
     }
 };
 
@@ -118,9 +121,10 @@ private:
     void RunDiagnostic();
     void CaptureDebrief();
     void VerifyDispatch();
-    void CaptureReceiptCompletion();
+    void CaptureReplyCompletion();
     bool VerifyDispatchFollowup(AVPCharacter* Pawn);
     bool VerifyReceiptChapter(AVPCharacter* Pawn);
+    bool VerifyReplyChapter(AVPCharacter* Pawn);
     bool VerifyCheckpointRecovery(AVPCharacter* Pawn);
     bool VerifyAtlasRouteOverview(AVPPlayerController* Desktop, const AVPCharacter* Pawn, bool bWitness);
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
