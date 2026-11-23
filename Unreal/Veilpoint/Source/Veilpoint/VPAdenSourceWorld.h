@@ -68,7 +68,7 @@ public:
     FVector Station(int32 Index) const;
     const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
     void SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);
-    void SetCrossingLight(const FVector& Signal, bool bOn);
+    void SetCrossingLight(const FVector& Signal, bool bOn, bool bFading);
     bool IsRescueBarrierBlocking(int32 Slot) const;
     UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
     int32 VisitAtlasLines(VPAdenAtlas::FExtent View, TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const;

@@ -32,6 +32,9 @@ if ($content -notmatch 'Aden native source loaded: 70 tiles, 183 roads, 4865 foo
 $report=Get-Content -LiteralPath (Join-Path $captures 'visual-smoke.json') -Raw | ConvertFrom-Json
 if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChaptersVerified -ne $true -or
     $report.campaignChapters -ne 12 -or $report.koreanFontStaged -ne $true -or
+    $report.campaignHandoffs -ne 3 -or $report.campaignEscorts -ne 4 -or $report.campaignEncounters -ne 3 -or
+    $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
+    $report.campaignSignalWarningVerified -ne $true -or $report.radioRelayContacts -ne 2 -or $report.runnerRelayContacts -ne 1 -or
     $report.familiesCrossingRadioEnding -ne $true -or $report.clinicBackStreetRunnersEnding -ne $true -or
     $report.escortLeashVerified -ne $true -or $report.finalPairVerified -ne $true -or $report.operationAbortVerified -ne $true -or
     $report.legacyAndBackupVerified -ne $true) {
@@ -85,6 +88,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
 $frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam',
     'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
+    'aden-campaign-contact',
     'aden-campaign-crossing-route','aden-campaign-back-street-route',
     'aden-campaign-ending-crossing','aden-campaign-ending-back-street')
 foreach ($name in $frames) {

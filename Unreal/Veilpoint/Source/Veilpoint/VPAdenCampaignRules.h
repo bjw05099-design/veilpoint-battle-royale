@@ -4,15 +4,16 @@ namespace VPAdenCampaign
 {
 enum EBeat
 {
+    // Checkpoints store the ordinal of each beat, including handoffs.
     Radio, Barrier, LeadMara,
     Junction, Pickup, LeadPassenger,
     RestorePower, ReachSignal,
-    OpenShelter, LeadShelter,
-    LastStop, LeadLast,
+    OpenShelter, HandoffShelter,
+    LastStop, BreakContact,
     FindDogyeom, LeadDogyeom,
     MeetNadia,
-    OpenRelay, LeadVolunteers,
-    ReachWard, LeadWard,
+    OpenRelay, HandoffVolunteers,
+    ReachWard, HandoffWard,
     OpenYard, MoveAssembly,
     FindMara, SecureLane,
     LeadFinal, FinalCall, Complete
@@ -21,13 +22,15 @@ enum ERoute { NoRoute, Families, Clinic };
 enum EPassage { NoPassage, Crossing, BackStreet };
 enum ERelay { NoRelay, RadioOnce, Runners };
 enum class EInput { Interact, OptionOne, OptionTwo };
-enum class EMode { Interact, Operate, Decide, Escort, Finished };
+enum class EMode { Interact, Operate, Decide, Escort, Handoff, Encounter, Finished };
 
 inline constexpr int SaveVersion = 8;
 inline constexpr double ReachCm = 275.;
 inline constexpr double EscortLeashCm = 1500.;
 inline constexpr double EscortArrivalCm = 425.;
 inline constexpr int SignalWindowMs = 32000;
+inline constexpr int SignalWarningMs = 8000;
+inline constexpr float ContactDamage = 24.f;
 
 struct FProgress
 {
@@ -87,11 +90,19 @@ constexpr EMode Mode(int Beat)
     {
     case Barrier: case RestorePower: case OpenShelter: case OpenRelay: case OpenYard: return EMode::Operate;
     case Junction: case MeetNadia: return EMode::Decide;
-    case LeadMara: case LeadPassenger: case LeadShelter: case LeadLast:
-    case LeadDogyeom: case LeadVolunteers: case LeadWard: case LeadFinal: return EMode::Escort;
+    case LeadMara: case LeadPassenger: case LeadDogyeom: case LeadFinal: return EMode::Escort;
+    case HandoffShelter: case HandoffVolunteers: case HandoffWard: return EMode::Handoff;
+    case Pickup: case BreakContact: case SecureLane: return EMode::Encounter;
     case Complete: return EMode::Finished;
     default: return EMode::Interact;
     }
+}
+
+constexpr int EncounterSize(FProgress P)
+{
+    if (P.Beat == Pickup || P.Beat == BreakContact) return 1;
+    if (P.Beat == SecureLane) return P.Relay == RadioOnce ? 2 : 1;
+    return 0;
 }
 
 constexpr double OperationSeconds(int Beat)
@@ -136,6 +147,20 @@ constexpr bool FinishOperation(FProgress& P, double Elapsed, bool bReachable)
 constexpr bool FinishEscort(FProgress& P, bool bEscortArrived, bool bLeaderNearby)
 {
     if (!BeginEscort(P) || !bEscortArrived || !bLeaderNearby) return false;
+    ++P.Beat;
+    return true;
+}
+
+constexpr bool FinishHandoff(FProgress& P, bool bAtMeetingPoint)
+{
+    if (!bAtMeetingPoint || !Valid(P) || Mode(P.Beat) != EMode::Handoff) return false;
+    ++P.Beat;
+    return true;
+}
+
+constexpr bool FinishEncounter(FProgress& P, int StandingContacts, bool bReachable)
+{
+    if (!bReachable || StandingContacts != 0 || !Valid(P) || Mode(P.Beat) != EMode::Encounter) return false;
     ++P.Beat;
     return true;
 }

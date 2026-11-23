@@ -4,7 +4,14 @@ The [current 12-chapter screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md) governs
 chapter names, scene order, dialogue and the ending. Use the established cast,
 premise and campaign-wide activity budget below when producing its scenes.
 
-**Approved by owner:** 2026-10-27. **Priority:** binding narrative/design direction for future campaign work. **Implementation status:** specification, not 12 playable hours or a military combat system.
+**Current direction (2026-11-23).** After the original withdrawal fails, the
+captain joins the fictional Sahir regular army's 3rd Battalion against the
+Kharid Front. Major Rami retains command of his two separated platoons and
+Captain Lee commands the Korean team. The main objectives are the battalion
+link-up, its forward post and the contested relay. When the relay is taken,
+both platoons acknowledge Rami's live order and the Front disengages.
+The current native slice includes three short encounters and a connected
+route to that ending. The chapter budgets describe full production.
 
 ## Binding story inciting incident — 2026-11-08 owner clarification
 
@@ -15,7 +22,7 @@ For production continuity, require every new chapter and introductory scene to p
 - **During:** visible changes to the civilian city, fractured local information, conflicting requests and disrupted expected support/return arrangements; these developments must occur *after* the captain's dispatch and must cause changes in his objectives rather than appearing as arbitrary action scenes.
 - **After:** the captain and his team are caught in the expanding internal conflict and must make credible decisions about colleagues, civilian protection, mission legitimacy and exit, while original civilian partners retain independent agency. Neither government nor military is falsely said to have dispatched the captain specifically to prosecute the civil war.
 - **Chronology and agency:** later chapters should refer back to the initial limited assignment, mark the escalation through grounded observable events, and never quietly rewrite the original deployment purpose. Fictional conflict is not a documentary depiction of Yemen's actual combatants or any real country's deployment.
-- **Current status:** only the short browser CH01 slice exists; 12 chapters / 12 playable hours and fully cinematic escalation are **not** already implemented.
+- **Current status:** see the [native Aden workflow](UE5_NATIVE_ADEN_CH01.md) and the [12-chapter screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md) for the short UE5 route and full chapter production targets.
 
 This explicit owner's storyline takes precedence over earlier ambiguous descriptions such as “in a regional war” that could imply the captain went to war intentionally.
 
@@ -61,20 +68,20 @@ No real names, real unit insignia, genuine current operational procedures or exa
 
 **Target authored first-play length:** 12 chapters, **720 minutes (~12 h)**. These are planning allocations; actual playtime must be verified with testers.
 
-**Latest owner-approved experiential allocation (2026-11-09; planning, NOT implemented playtime):**
+**First-play production allocation (2026-11-23).**
 
 | Exclusive primary activity | Target share | Budget at 12 hours |
 |---|---:|---:|
-| Fictional action/combat encounters | **50%** | 360 min |
-| Urgent physical movement, evacuation and rescue | **20%** | 144 min |
-| Character relationships, causal story scenes and dialogue-led drama | **22%** | 158 min 24 sec |
+| Fictional action/combat encounters | **55%** | 396 min |
+| Urgent physical movement and rescue | **12%** | 86 min 24 sec |
+| Character relationships, causal story scenes and dialogue-led drama | **25%** | 180 min |
 | Short optional exploration and contextual interactions | **8%** | 57 min 36 sec |
 
-The 22% character/story budget is a creative emphasis, **not 22% forced dialogue menus or player-choice screens**. Character moments should frequently unfold while the captain remains in control; do not double-count simultaneous dialogue and movement when measuring actual time. The original Korean briefing and return arrangements precede the fictional Aden-inspired arrival. Escalation follows arrival, never serving as the original deployment purpose. Choices may change later consequences without becoming the core playable verb.
+Character moments frequently unfold while the captain remains in control. Count overlapping activities once, by the main playable objective. The briefing and return arrangements precede the fictional Aden-inspired arrival. The alliance begins after the conflict escalates and the original return route closes. The radio decision affects how quickly the army can regroup and how many opponents reach the final relay.
 
 **Historical framing:** Prefer a **fictional 2015-era** Sahir/Nahrin crisis inspired by Aden's intense March–July 2015 conflict, with earlier Yemeni historical context embedded in credible character memories. The player does not reproduce a real Korean deployment or exact battles, uniforms, troop sites or operational maps. This is a creative reference, not a literal reenactment. **Continuity gate:** 2019/2022 events must not be described as *already happened* inside scenes set in 2015; any legacy CH01 references require a chronology pass before claiming 2015 setting is playable.
 
-These are campaign-wide authored targets, not enforced per-chapter quotas. Actual shares require mutually exclusive first-play time samples from completed chapters; a short offline CH01 prototype cannot prove this budget. Use atmospheric contrast, preserve non-graphic treatment and readable subtitles.
+The [chapter budget](ADEN_CAMPAIGN_SCREENPLAY_KO.md#12시간-제작-배분) gives each chapter its own mix. Measure actual shares in first plays of completed chapters. Use atmospheric contrast, non-graphic treatment and readable subtitles.
 
 ### Combat-facing gameplay goals (game design only, not real-world combat guidance)
 1. Strong fictional FPS feedback: responsive movement/camera, readable hit feedback, believable fictional weapons, distinct encounter objectives and consistent enemy reactions.
@@ -84,7 +91,10 @@ These are campaign-wide authored targets, not enforced per-chapter quotas. Actua
 5. When local civilians are present, they are people with agency rather than indiscriminate targets. No faction defined as evil by race, nationality or religion.
 6. Progression and combat are not allowed to soft-lock the campaign. Difficulty/accessibility options preserve a fully completable main critical path.
 
-## Twelve-mission treatment — same authored runtime, new action focus
+## Earlier twelve-mission treatment
+
+For current missions, use the [Aden screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md).
+The table records the earlier pitch.
 
 | ID | Working chapter (target min) | Combat-forward playable set-piece | Character/story pivot |
 |---|---|---|---|

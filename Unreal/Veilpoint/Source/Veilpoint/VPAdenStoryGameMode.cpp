@@ -2,12 +2,14 @@
 
 #include "VPAdenCampaign.h"
 #include "VPAdenCampaignMigration.h"
+#include "VPAdenContact.h"
 #include "VPAdenSourceWorld.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
 #include "VPLastBroadcastEscort.h"
 #include "VPPlayerController.h"
 #include "VPVisualSmoke.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Dom/JsonObject.h"
 #include "HAL/FileManager.h"
@@ -39,6 +41,11 @@ bool IsAdenDiagnostic()
 const TCHAR* AdenSlot()
 {
     return IsAdenDiagnostic() ? TEXT("AdenCampaignDiagnostic") : TEXT("AdenCH01v1");
+}
+
+const TCHAR* SignalWarning()
+{
+    return TEXT("현지: 불이 약해집니다. 이 대위님, 꺼지면 살마 씨 쪽으로 가십시오.");
 }
 }
 
@@ -120,13 +127,18 @@ bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
     if (!Source || !Pawn || !Pawn->IsAlive() || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
     bool bUsedBackup = false;
     const auto Saved = ReadCheckpoint(&bUsedBackup);
-    if (!Saved.IsSet()) return false;
-    const FTransform Place = RecoveryTransform(Saved.GetValue().Progress);
+    if (!Saved.IsSet() || !RestorePosition(Pawn, Saved.GetValue().Progress)) return false;
+    ApplyCheckpoint(Saved.GetValue());
+    if (bUsedBackup) SetDialogue(TEXT("백업 지점에서 계속합니다."));
+    return true;
+}
+
+bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::FProgress Beat) const
+{
+    const FTransform Place = RecoveryTransform(Beat);
     if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
     Pawn->GetCharacterMovement()->StopMovementImmediately();
     if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Place.Rotator());
-    ApplyCheckpoint(Saved.GetValue());
-    if (bUsedBackup) SetDialogue(TEXT("백업 지점에서 계속합니다."));
     return true;
 }
 
@@ -152,12 +164,13 @@ VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Z
     return FitRoute(Playable, Bounds, MaxZoomLevel);
 }
 
-bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point)
+bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing)
 {
     if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld()
         || FVector::DistSquared2D(Pawn->GetActorLocation(), Point) > FMath::Square(VPAdenCampaign::ReachCm)) return false;
     const FVector Eye = Pawn->GetPawnViewLocation();
-    if (FVector::DotProduct(Pawn->GetViewRotation().Vector(), (Point - Eye).GetSafeNormal()) < .5) return false;
+    if (bRequireFacing && FVector::DotProduct(Pawn->GetViewRotation().Vector(), (Point - Eye).GetSafeNormal()) < .5)
+        return false;
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
     return !Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query);
 }
@@ -191,6 +204,9 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampai
         OperationStarted = GetWorld()->GetTimeSeconds();
         if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bOperating = true;
     }
+    else if (Action == EMode::Encounter && Contacts.Num() == EncounterSize(Progress)
+        && FinishEncounter(Next, StandingContacts(), bReachable))
+        EnterBeat(Next);
     else if (Interact(Next, bReachable, GetWorld()->GetTimeSeconds() < WindowEndsAt))
         EnterBeat(Next);
 }
@@ -208,16 +224,19 @@ void AVPAdenStoryGameMode::ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoin
     Escort = nullptr;
     if (IsValid(FinalNeighbor.Get())) FinalNeighbor->Destroy();
     FinalNeighbor = nullptr;
+    ClearContacts();
     Progress = Checkpoint.Progress;
     OperationStarted = -1.;
     bChoosing = false;
-    bMovingLinePlayed = false;
+    bSignalFading = Progress.Beat == ReachSignal && Checkpoint.WindowMs > 0 && Checkpoint.WindowMs <= SignalWarningMs;
+    bMovingLinePlayed = bSignalFading || (Progress.Beat == ReachSignal && Checkpoint.WindowMs == 0);
     bSaveFailed = false;
     NextEscortAttempt = 0.;
+    NextContactAttempt = 0.;
     WindowEndsAt = Checkpoint.WindowMs > 0 ? GetWorld()->GetTimeSeconds() + Checkpoint.WindowMs * .001 : -1.;
     SetDialogue(Progress.Beat == ReachSignal && Checkpoint.WindowMs == 0
         ? TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 건널목은 닫혔다고 알려 주세요.")
-        : Scene(Progress).Opening);
+        : bSignalFading ? SignalWarning() : Scene(Progress).Opening);
     UpdateRescueProps(0.f);
     PublishScene();
 }
@@ -235,6 +254,8 @@ void AVPAdenStoryGameMode::PublishScene()
     View->bEscortWaiting = false;
     View->bEscortArrived = false;
     View->bSaveFailed = bSaveFailed;
+    View->ContactsRemaining = EncounterSize(Progress);
+    View->bContactAiming = false;
     View->OperationFraction = 0.f;
     View->WindowSeconds = Progress.Beat == VPAdenCampaign::ReachSignal
         ? (CaptureCheckpoint().WindowMs + 999) / 1000 : -1;
@@ -271,7 +292,7 @@ void AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
     }
     auto Signal = Progress;
     Signal.Beat = ReachSignal;
-    Source->SetCrossingLight(Source->CampaignLeg(Signal).Last(), WindowEndsAt >= 0.);
+    Source->SetCrossingLight(Source->CampaignLeg(Signal).Last(), WindowEndsAt >= 0., bSignalFading);
 }
 
 void AVPAdenStoryGameMode::EnsureEscort(AVPCharacter* Pawn)
@@ -299,7 +320,7 @@ void AVPAdenStoryGameMode::EnsureEscort(AVPCharacter* Pawn)
     if (!IsValid(Escort.Get()))
     {
         const bool bCarriesPack = Progress.Beat == LeadPassenger && Progress.Route == Clinic;
-        const bool bSlower = Progress.Beat == LeadDogyeom || Progress.Beat == LeadWard;
+        const bool bSlower = Progress.Beat == LeadDogyeom;
         const FLinearColor Jacket = bCarriesPack ? FLinearColor(.14f, .26f, .35f)
             : bSlower ? FLinearColor(.44f, .41f, .28f) : FLinearColor(.25f, .44f, .41f);
         if (bPair)
@@ -319,6 +340,93 @@ void AVPAdenStoryGameMode::EnsureEscort(AVPCharacter* Pawn)
     }
 }
 
+int32 AVPAdenStoryGameMode::StandingContacts() const
+{
+    int32 Count = 0;
+    for (const auto& Contact : Contacts)
+        if (IsValid(Contact.Get()) && Contact->IsStanding()) ++Count;
+    return Count;
+}
+
+bool AVPAdenStoryGameMode::CanFireInEncounter(const AVPCharacter* Pawn) const
+{
+    const auto* Desktop = GetWorld()->GetFirstPlayerController();
+    return Desktop && Pawn == Desktop->GetPawn() && StandingContacts() > 0;
+}
+
+void AVPAdenStoryGameMode::ClearContacts()
+{
+    for (auto& Contact : Contacts)
+        if (IsValid(Contact.Get())) Contact->Destroy();
+    Contacts.Reset();
+}
+
+void AVPAdenStoryGameMode::PrepareEncounter(AVPCharacter* Pawn, double Now)
+{
+    using namespace VPAdenCampaign;
+    const int32 Count = EncounterSize(Progress);
+    if (Count == 0 || !Contacts.IsEmpty() || Now < NextContactAttempt) return;
+    NextContactAttempt = Now + 1.;
+    const auto& Leg = Source->CampaignLeg(Progress);
+    const FVector Heading = (Leg.Last() - Leg[Leg.Num() - 2]).GetSafeNormal2D();
+    const FVector Across(-Heading.Y, Heading.X, 0.);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    for (int32 Index = 0; Index < Count; ++Index)
+    {
+        FVector Ground;
+        // The sourced route has 78 cm of footprint clearance along this centreline.
+        const double Lateral = Count == 2 ? (Index == 0 ? -38. : 38.) : 0.;
+        const FVector Stand = Leg.Last() - Heading * (900. - Index * 550.) + Across * Lateral;
+        if (!Source->TraceStoryGround(Stand, Ground))
+        {
+            ClearContacts();
+            return;
+        }
+        auto* Contact = GetWorld()->SpawnActor<AVPAdenContact>(AVPAdenContact::StaticClass(),
+            Ground + FVector(0., 0., 90.), (-Heading).Rotation(), Params);
+        if (!IsValid(Contact))
+        {
+            ClearContacts();
+            return;
+        }
+        Contact->SetClothing(Source->StationMaterial.Get());
+        Contacts.Add(Contact);
+    }
+    Pawn->Health = 100.f;
+    Pawn->Charges = 18;
+    Pawn->MagazineRounds = 12;
+    Pawn->bReloading = false;
+    Pawn->ReloadEndsAt = -1.;
+    Pawn->ForceNetUpdate();
+}
+
+bool AVPAdenStoryGameMode::UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now)
+{
+    using namespace VPAdenCampaign;
+    PrepareEncounter(Pawn, Now);
+    if (Contacts.IsEmpty()) return false;
+    View->ContactsRemaining = StandingContacts();
+    View->bContactAiming = false;
+    for (const auto& Contact : Contacts)
+    {
+        if (!IsValid(Contact.Get())) continue;
+        if (Contact->UpdateAim(Pawn, Now))
+        {
+            if (Pawn->Health <= ContactDamage && RestorePosition(Pawn, Progress))
+            {
+                ApplyCheckpoint(CaptureCheckpoint());
+                SetDialogue(TEXT("도겸: 대위님, 후퇴 지점입니다. 이곳에서 다시 들어갑니다."));
+                return true;
+            }
+            UGameplayStatics::ApplyDamage(Pawn, FMath::Clamp(Pawn->Health - 1.f, 0.f, ContactDamage), nullptr,
+                Contact.Get(), nullptr);
+        }
+        View->bContactAiming |= Contact->IsAiming();
+    }
+    return false;
+}
+
 void AVPAdenStoryGameMode::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
@@ -334,6 +442,19 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
     auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
     if (!View) return;
     if (bChoosing && !CanReach(Pawn)) View->bChoosing = bChoosing = false;
+    if (Mode(Progress.Beat) == EMode::Encounter && UpdateEncounter(Pawn, View, Now)) return;
+    if (Mode(Progress.Beat) == EMode::Handoff)
+    {
+        auto Next = Progress;
+        const FVector Point = GetObjective();
+        const bool bAtMeetingPoint = FVector::DistSquared(Pawn->GetActorLocation(), Point) <= FMath::Square(ReachCm)
+            && AVPAdenStoryState::CanReach(Pawn, Point, false);
+        if (FinishHandoff(Next, bAtMeetingPoint))
+        {
+            EnterBeat(Next);
+            return;
+        }
+    }
     if (OperationStarted >= 0.)
     {
         const double Elapsed = Now - OperationStarted;
@@ -367,6 +488,13 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
             UpdateRescueProps(0.f);
             SetDialogue(TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 알려 주세요. 살마 씨가 골목 쪽에 있습니다."));
             PersistStoryCheckpoint();
+        }
+        else if (!bSignalFading && WindowEndsAt >= 0. && WindowEndsAt - Now <= SignalWarningMs * .001)
+        {
+            bSignalFading = true;
+            bMovingLinePlayed = true;
+            UpdateRescueProps(0.f);
+            SetDialogue(SignalWarning());
         }
         View->WindowSeconds = (CaptureCheckpoint().WindowMs + 999) / 1000;
     }
@@ -760,6 +888,66 @@ bool AVPAdenStoryGameMode::VerifyEscort(AVPCharacter* Pawn, const TArray<FVector
 #endif
 }
 
+bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPCharacter* Pawn,
+    const TArray<FVector>& Leg, double Now)
+{
+#if !UE_BUILD_SHIPPING
+    using namespace VPAdenCampaign;
+    auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View) return false;
+    const int32 Expected = EncounterSize(Progress);
+    const FVector Start = Leg[Leg.Num() - 2];
+    const FVector Near = Leg.Last() - (Leg.Last() - Start).GetSafeNormal2D() * 1400.;
+    const auto Approach = [&]()
+    {
+        for (int32 I = 1; I < Leg.Num() - 1; ++I)
+            if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I])) return false;
+        return SweepDiagnosticLeg(Pawn, Start, Near);
+    };
+    PrepareEncounter(Pawn, Now);
+    if (StandingContacts() != Expected || !CanFireInEncounter(Pawn) || !Approach()) return false;
+
+    if (!DiagnosticReport->HasField(TEXT("campaignLiveShotVerified")))
+    {
+        if (UpdateEncounter(Pawn, View, Now) || !View->bContactAiming
+            || UpdateEncounter(Pawn, View, Now + 1.8) || Pawn->Health != 100.f - ContactDamage) return false;
+        if (!ReturnToCheckpoint(Pawn) || !Contacts.IsEmpty()) return false;
+        PrepareEncounter(Pawn, Now);
+        if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach()) return false;
+        DiagnosticReport->SetBoolField(TEXT("campaignContactRetryVerified"), true);
+
+        auto* Contact = Contacts[0].Get();
+        const FVector Target = Contact->GetActorLocation() + FVector(0., 0., 20.);
+        const FVector Eye = Pawn->BodyCamera->GetComponentLocation();
+        const FRotator Facing = (Target - Eye).Rotation();
+        Desktop->SetControlRotation(Facing);
+        const FTransform Camera = DiagnosticCapture->GetRelativeTransform();
+        DiagnosticCapture->SetWorldLocationAndRotation(Eye, Facing);
+        DiagnosticCapture->CaptureScene();
+        const bool bCaptured = CaptureFrame(Desktop, TEXT("aden-campaign-contact"));
+        DiagnosticCapture->SetRelativeTransform(Camera);
+        if (!bCaptured) return false;
+        const int32 Loaded = Pawn->MagazineRounds;
+        Pawn->RequestPrimaryAction();
+        if (Pawn->MagazineRounds != Loaded - 1 || !Contact->IsStanding()
+            || UGameplayStatics::ApplyDamage(Contact, 45.f, Desktop, Pawn, nullptr) != 45.f
+            || Contact->IsStanding()) return false;
+        DiagnosticReport->SetBoolField(TEXT("campaignLiveShotVerified"), true);
+    }
+
+    for (const auto& Contact : Contacts)
+        if (Contact->IsStanding()) UGameplayStatics::ApplyDamage(Contact.Get(), 90.f, Desktop, Pawn, nullptr);
+    if (CanFireInEncounter(Pawn) || !SweepDiagnosticLeg(Pawn, Near, Leg.Last())) return false;
+    if (Progress.Beat == SecureLane)
+        DiagnosticReport->SetNumberField(Progress.Relay == RadioOnce ? TEXT("radioRelayContacts") : TEXT("runnerRelayContacts"),
+            Expected);
+    Pawn->RequestInteraction();
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn,
     int32 Route, bool bOnTime, int32 Relay)
 {
@@ -772,6 +960,9 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
     Pawn->RequestInteraction();
     if (Progress.Beat != Radio) return false;
     int32 CompletedChapters = 0;
+    int32 CompletedHandoffs = 0;
+    int32 CompletedEscorts = 0;
+    int32 CompletedEncounters = 0;
     for (int32 Beat = Radio; Beat < Complete; ++Beat)
     {
         if (Progress.Beat != Beat) return false;
@@ -787,9 +978,15 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                 if (!Escort || !CaptureFrame(Desktop, TEXT("aden-campaign-escort"))) return false;
             }
             if (!VerifyEscort(Pawn, Leg, Now)) return false;
+            ++CompletedEscorts;
         }
         else
         {
+            if (Action == EMode::Handoff)
+            {
+                UpdateBeat(Pawn, Now);
+                if (Progress.Beat != Beat || Escort || FinalNeighbor) return false;
+            }
             if (Beat == OpenShelter && !VerifyAtlasRoute(Desktop, Pawn, bOnTime
                 ? TEXT("aden-campaign-crossing-route") : TEXT("aden-campaign-back-street-route"))) return false;
             if (Beat == Pickup && Route == Clinic)
@@ -822,10 +1019,28 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                 Desktop->CycleAdenAtlas();
                 Desktop->CycleAdenAtlas();
             }
-            for (int32 I = 1; I < Leg.Num(); ++I)
-                if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I])) return false;
+            if (Action != EMode::Encounter)
+            {
+                for (int32 I = 1; I < Leg.Num(); ++I)
+                    if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I])) return false;
+            }
 
-            if (Action == EMode::Decide)
+            if (Action == EMode::Encounter)
+            {
+                if (!VerifyEncounter(Desktop, Pawn, Leg, Now)) return false;
+                ++CompletedEncounters;
+            }
+            else if (Action == EMode::Handoff)
+            {
+                Pawn->RequestInteraction();
+                if (Progress.Beat != Beat) return false;
+                const FRotator Facing = Desktop->GetControlRotation();
+                Desktop->SetControlRotation(Facing + FRotator(0., 180., 0.));
+                UpdateBeat(Pawn, Now);
+                Desktop->SetControlRotation(Facing);
+                ++CompletedHandoffs;
+            }
+            else if (Action == EMode::Decide)
             {
                 const bool bFirst = Beat == Junction ? Route == Families : Relay == RadioOnce;
                 const auto Pick = bFirst ? EInput::OptionOne : EInput::OptionTwo;
@@ -869,6 +1084,9 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                     }
                     else
                     {
+                        UpdateBeat(Pawn, WindowEndsAt - 7.);
+                        if (!bSignalFading || Dialogue != SignalWarning()) return false;
+                        DiagnosticReport->SetBoolField(TEXT("campaignSignalWarningVerified"), true);
                         UpdateBeat(Pawn, WindowEndsAt + .1);
                         if (CaptureCheckpoint().WindowMs != 0) return false;
                         const auto Expired = ReadCheckpoint();
@@ -888,8 +1106,12 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
     }
     const FProgress End{Complete, Route, bOnTime ? Crossing : BackStreet, Relay};
     DiagnosticReport->SetNumberField(TEXT("campaignChapters"), CompletedChapters);
+    DiagnosticReport->SetNumberField(TEXT("campaignHandoffs"), CompletedHandoffs);
+    DiagnosticReport->SetNumberField(TEXT("campaignEscorts"), CompletedEscorts);
+    DiagnosticReport->SetNumberField(TEXT("campaignEncounters"), CompletedEncounters);
     const TCHAR* Name = bOnTime ? TEXT("aden-campaign-ending-crossing") : TEXT("aden-campaign-ending-back-street");
-    if (!(Progress == End) || CompletedChapters != 12) return false;
+    if (!(Progress == End) || CompletedChapters != 12 || CompletedHandoffs != 3 || CompletedEscorts != 4
+        || CompletedEncounters != 3) return false;
     UpdateBeat(Pawn, DialogueStarted + 7.1);
     return Dialogue == Scene(End).Moving && CaptureFrame(Desktop, Name);
 #else
@@ -939,7 +1161,7 @@ void AVPAdenStoryGameMode::FinishDiagnostic(bool bPassed)
     DiagnosticReport->SetBoolField(TEXT("allChaptersVerified"), bPassed);
     bPassed = VPWriteVisualSmokeReport(DiagnosticReport.ToSharedRef()) && bPassed;
     if (bPassed)
-        UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: 12 chapters, paired endings, swept escorts, atlas and checkpoint recovery"));
+        UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: 12 chapters, paired endings, contacts, escorts, atlas and checkpoint recovery"));
     else
         UE_LOG(LogVPAdenStory, Error, TEXT("ADEN_NATIVE_SMOKE_FAILED at campaign beat %d"), Progress.Beat);
     if (Desktop)

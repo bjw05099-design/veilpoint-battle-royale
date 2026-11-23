@@ -7,11 +7,12 @@ ship separately, with story first. The verified editor authoring command creates
 `CH01_Aden`, then selects it as the native game's startup map.
 [Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)
 
-The native campaign rewrite follows a civilian evacuation from the first
-relay call to the return of Mara's radio. It includes a short route through
-all twelve chapters, Korean subtitles, moving escorts, two player choices
-and a crossing that changes if its signal expires. The full 720-minute
-story treatment gives each chapter its events, dialogue and outcome.
+The native campaign follows Captain Lee's alliance with the fictional Sahir
+regular army against the Kharid Front. The short route through all twelve
+chapters includes Korean subtitles, three playable combat encounters, two
+player choices and a crossing that changes if its signal expires. The radio
+choice changes the last encounter. The 720-minute screenplay budgets 55%
+combat, 12% urgent movement and rescue, 25% narrative and 8% exploration.
 [Campaign screenplay](docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md)
 
 Production Aden uses registered real-world public terrain, roads, and ordinary
