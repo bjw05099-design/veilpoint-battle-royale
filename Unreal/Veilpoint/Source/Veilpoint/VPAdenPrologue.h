@@ -28,7 +28,7 @@ public:
     static float BlackoutAlpha(VPAdenPrologue::FFrame Frame);
 
 private:
-    USceneComponent* Stage();
+    USceneComponent* Stage(USceneComponent* Parent = nullptr);
     void Box(USceneComponent* StageRoot, FVector Centre, FVector Dimensions, UMaterialInterface* Material,
         FRotator Angle = FRotator::ZeroRotator, UStaticMesh* Shape = nullptr);
     UMaterialInterface* Paint(FLinearColor Tint);
@@ -63,6 +63,8 @@ private:
     TObjectPtr<USceneComponent> BriefingRoom;
     UPROPERTY(Transient)
     TObjectPtr<USceneComponent> ScreeningDoor;
+    UPROPERTY(Transient)
+    TObjectPtr<USceneComponent> Memorial;
     UPROPERTY(Transient)
     TArray<TObjectPtr<USceneComponent>> Detainees;
     UPROPERTY(Transient)

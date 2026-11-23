@@ -58,12 +58,12 @@ bool AVPAdenPrologue::Build(AVPAdenSourceWorld& MapSource, UCameraComponent& Fir
     return true;
 }
 
-USceneComponent* AVPAdenPrologue::Stage()
+USceneComponent* AVPAdenPrologue::Stage(USceneComponent* Parent)
 {
     auto* Anchor = NewObject<USceneComponent>(this);
     AddInstanceComponent(Anchor);
-    Anchor->SetupAttachment(GetRootComponent());
-    Anchor->SetAbsolute(true, true, true);
+    Anchor->SetupAttachment(Parent ? Parent : GetRootComponent());
+    if (!Parent) Anchor->SetAbsolute(true, true, true);
     Anchor->RegisterComponent();
     return Anchor;
 }
@@ -279,10 +279,7 @@ void AVPAdenPrologue::BuildInteriorSets()
         Box(Detention, {210., Side * 206., 119.}, {24., 100., 238.}, Concrete);
     }
     Box(Detention, {221., 0., 254.}, {35., 312., 24.}, Steel);
-    ScreeningDoor = NewObject<USceneComponent>(this);
-    AddInstanceComponent(ScreeningDoor);
-    ScreeningDoor->SetupAttachment(Detention);
-    ScreeningDoor->RegisterComponent();
+    ScreeningDoor = Stage(Detention.Get());
     Box(ScreeningDoor, {222., 0., 118.}, {18., 256., 231.}, Steel);
     for (double Rail : {43., 148., 219.})
         Box(ScreeningDoor, {210., 0., Rail}, {5., 254., 7.}, Plaster);
@@ -294,11 +291,12 @@ void AVPAdenPrologue::BuildInteriorSets()
             FLinearColor(.40f, .28f, .20f));
         Detainees.Add(Detainee);
     }
-    // Names and flowers remain on the near side after the door closes.
+    // The cut to the next morning shows the names and flowers left by families.
+    Memorial = Stage(Detention.Get());
     for (int32 Index = 0; Index < 4; ++Index)
     {
-        Box(Detention, {205., -96. + Index * 27., 112. + (Index % 2) * 15.}, {3., 20., 23.}, Paper);
-        Box(Detention, {174. - Index * 6., -100. + Index * 28., 13.}, {27., 13., 9.}, Petals, FRotator::ZeroRotator, Sphere.Get());
+        Box(Memorial, {205., -96. + Index * 27., 112. + (Index % 2) * 15.}, {3., 20., 23.}, Paper);
+        Box(Memorial, {174. - Index * 6., -100. + Index * 28., 13.}, {27., 13., 9.}, Petals, FRotator::ZeroRotator, Sphere.Get());
     }
 
     Box(CouncilRoom, {140., 0., 76.}, {473., 295., 17.}, Table);
@@ -347,9 +345,10 @@ void AVPAdenPrologue::PlaceInterior(VPAdenPrologue::FFrame Frame, FVector& Eye, 
         const bool bClosedDoor = Frame.Shot == Execution;
         const double Shut = bClosedDoor ? EasePrologueShot((T - 5.7) / 1.2) : 0.;
         ScreeningDoor->SetRelativeLocation({0., -268. * (1. - Shut), 0.});
+        Memorial->SetVisibility(bClosedDoor && T > 7.1, true);
         for (int32 Index = 0; Index < Detainees.Num(); ++Index)
         {
-            Detainees[Index]->SetVisibility(!bClosedDoor || T < 6.8, true);
+            Detainees[Index]->SetVisibility(!bClosedDoor, true);
             Detainees[Index]->SetRelativeLocationAndRotation({334., -65. + Index * 99., 45.},
                 FRotator(FMath::Sin(T * 1.7 + Index) * 4., 180. + (Index ? -12. : 2.), 0.));
         }
