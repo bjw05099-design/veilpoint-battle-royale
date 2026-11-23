@@ -5,17 +5,17 @@ chapter names, scene order, dialogue and the ending. Use the established cast,
 premise and campaign-wide activity budget below when producing its scenes.
 
 **Current direction (2026-11-23).** After the original withdrawal fails, the
-captain joins the fictional Sahir regular army's 3rd Battalion against the
-Kharid Front. Major Rami retains command of his two separated platoons and
+captain joins Major Rami's Yemeni government army battalion against the
+rebels in Aden. Major Rami retains command of his two separated platoons and
 Captain Lee commands the Korean team. The main objectives are the battalion
 link-up, its forward post and the contested relay. When the relay is taken,
-both platoons acknowledge Rami's live order and the Front disengages.
+both platoons acknowledge Rami's live order and the rebels disengage.
 The current native slice includes three short encounters and a connected
 route to that ending. The chapter budgets describe full production.
 
 ## Binding story inciting incident — 2026-11-08 owner clarification
 
-**Confirmed cause-and-effect premise:** Captain **이수혁** is first dispatched to the fictional Sahir Coast/Nahrin region on a separate, authorized and limited international protection/observation assignment. **He is not deployed there with the original intention of fighting a civil war.** Only **after he arrives and begins that original mission** does a rapidly escalating internal conflict derail the assignment and entangle him and his squad in the civil war. This change of circumstances is the inciting incident of the **entire campaign**, not merely optional lore.
+**Confirmed cause-and-effect premise:** Captain **이수혁** is first dispatched to Aden, Yemen on a separate, authorized and limited international protection/observation assignment. **He is not deployed there with the original intention of fighting a civil war.** Only **after he arrives and begins that original mission** does a rapidly escalating internal conflict derail the assignment and entangle him and his squad in the civil war. This change of circumstances is the inciting incident of the **entire campaign**, not merely optional lore.
 
 For production continuity, require every new chapter and introductory scene to preserve:
 - **Before (in Korea, not Aden):** the captain receives his formal order, a narrow authorized assignment, and expected return arrangements **in Korea before departure**. The officer and his squad know their mission before boarding transport. Introduce that fact through a short pre-departure briefing in later production or through natural team dialogue in the current CH01 slice; **do not invent a dispatch order lying in an Aden street for the captain to discover and read by pressing E**. Exact commanding agency, unit identities and sensitive operational detail remain fictional and unspecified unless written consistently into canon later.
@@ -32,17 +32,17 @@ The owner explicitly rejected the implausible on-site "original deployment order
 
 - The first briefing took place **before departure in Korea**. CH01 should begin after arrival and use brief organic squad radio dialogue to recall only details that matter to current decisions.
 - The first serious disruption is the **unexpected escalation of internal conflict after arrival**, the resulting breakdown of the original schedule and uncertain return conditions. The captain does not begin his operation as a civil-war combatant.
-- Do not require players to search a fictional coastal street for the paperwork they already received in Korea. The on-site dispatch-case object, associated pickup and its factual-debrief claim are retired in CH01. Old checkpoint keys are accepted only for backward compatibility.
+- Do not require players to search an Aden street for the paperwork they already received in Korea. The on-site dispatch-case object, associated pickup and its factual-debrief claim are retired in CH01. Old checkpoint keys are accepted only for backward compatibility.
 - Priority playable verbs: character-led decisions, grounded traversal, urgent civilian assistance and consequential encounters. Keep genuinely useful optional field checks; do not inflate campaign runtime with repeated paper record comparisons, journal filing or long fetch-and-return trips.
 - The public communications mysteries are **background context or a short optional route**, not the central dramatic engine of the entire story. Avoid always-visible distant markers for trivial errands; later chapters should escalate through authored events, team cohesion and regional change.
 - **Implemented cleanup:** the second public-arcade water tap remains a solid, explorable environmental detail shared with BR, but the far-away `waterSite` inspection and `waterReportDesk` paperwork-return objectives are retired from new CH01 gameplay. Archived `waterSurveyed`/`waterReportFiled` v2 checkpoints retain readback compatibility. Do not recreate them as mandatory side chores.
-- Preserve the fictional setting, local civilian agency, existing route outcomes, and save-file compatibility. Future plot/script reviews must explicitly check when and why each character learned a fact, whether they could be at a location in time, and what caused their next decision.
+- Preserve the Aden setting, the fictional cast, local civilian agency, existing route outcomes, and save-file compatibility. Future plot/script reviews must explicitly check when and why each character learned a fact, whether they could be at a location in time, and what caused their next decision.
 
 
 
 ## Canon continuity decision
 
-- **Geographic reference updated 2026-11-07:** The primary **real-world landscape, neighborhood and architectural reference is Aden, southern Yemen, in the 2015-era conflict context**; see [Aden world reference](WORLD_REFERENCE_ADEN.md). Keep **Sahir Coast / Nahrin** as the fictional *narrative* district and keep all named characters and incidents original. Reconstruct natural geography and civilian built environment from dated, licensed sources; do not copy current sensitive facilities, tactical sites or attribute fictional events to real groups. This supersedes the earlier generic-geography/no-specific-historical-reference sentence, **not** the fictional character or combat-first canon. Present browser and native maps remain grayboxes rather than verified historical replicas.
+- **Geographic canon:** The campaign takes place in **Aden, southern Yemen**, using verified real place names and public civilian geography. Use district names only when the scene's location is established. The opening identifies its year as **20XX** and its events as fictional. All named characters are original. Reconstruct natural geography and the civilian built environment from dated, licensed sources. Keep sensitive facilities and tactical sites fictional and avoid attributing invented incidents to actual actors. See [Aden world reference](WORLD_REFERENCE_ADEN.md).
 - **Playable protagonist across all twelve chapters:** **이수혁 (Lee Su-hyeok), 대한민국 특수부대 대위** — an entirely fictional Republic of Korea military officer. The narrative uses an original fictional international protection/observation mission as context; it does **not** claim that a real ROK unit or the Korean government undertook such an operation.
 - Protagonist never abruptly switches to a secondary playable lead; viewpoint changes are optional short cinematics or radio/dialogue interludes only. The captain's first-person perspective anchors the campaign.
 - **국가정보원(국정원) 소속 가상 요원** enter the cast as consequential fictional characters. Their conduct, technology, internal process and authorisation are invented for the story and must never be framed as a description of real intelligence methods or confidential practices.
@@ -62,7 +62,7 @@ The owner explicitly rejected the implausible on-site "original deployment order
 | Former investigator | **사미르 카디르 (Samir Qadir)** | Doubts official versions of events and exposes conflicting timelines |
 | Independent journalist | **나디아 파리스 (Nadia Faris)** | Gives a public voice to evidence, not a universal truth oracle |
 
-No real names, real unit insignia, genuine current operational procedures or exact emblems are required. All dialogue, ranks and fictional affiliations should be reviewed for accuracy and cultural sensitivity before release.
+No real personal names, real unit insignia, genuine current operational procedures or exact emblems are required. All dialogue, ranks and fictional affiliations should be reviewed for accuracy and cultural sensitivity before release.
 
 ## Core creative direction: COMBAT-FIRST, NOT COMBAT-ONLY
 
@@ -77,9 +77,9 @@ No real names, real unit insignia, genuine current operational procedures or exa
 | Character relationships, causal story scenes and dialogue-led drama | **25%** | 180 min |
 | Short optional exploration and contextual interactions | **8%** | 57 min 36 sec |
 
-Character moments frequently unfold while the captain remains in control. Count overlapping activities once, by the main playable objective. The briefing and return arrangements precede the fictional Aden-inspired arrival. The alliance begins after the conflict escalates and the original return route closes. The radio decision affects how quickly the army can regroup and how many opponents reach the final relay.
+Character moments frequently unfold while the captain remains in control. Count overlapping activities once, by the main playable objective. The briefing and return arrangements precede the captain's arrival in Aden. The alliance begins after the conflict escalates and the original return route closes. The radio decision affects how quickly the army can regroup and how many opponents reach the final relay.
 
-**Historical framing:** Prefer a **fictional 2015-era** Sahir/Nahrin crisis inspired by Aden's intense March–July 2015 conflict, with earlier Yemeni historical context embedded in credible character memories. The player does not reproduce a real Korean deployment or exact battles, uniforms, troop sites or operational maps. This is a creative reference, not a literal reenactment. **Continuity gate:** 2019/2022 events must not be described as *already happened* inside scenes set in 2015; any legacy CH01 references require a chronology pass before claiming 2015 setting is playable.
+**Historical framing:** Use Aden's 2015 conflict as the visual and historical reference for the fictional 20XX crisis. Keep historical context grounded in material the characters could plausibly know. The player does not reproduce a real Korean deployment or exact battles, uniforms, troop sites or operational maps. This is a creative reference, not a literal reenactment. **Continuity gate:** 2019/2022 events must not be described as *already happened* inside scenes set in 2015; any legacy CH01 references require a chronology pass before claiming 2015 setting is playable.
 
 The [chapter budget](ADEN_CAMPAIGN_SCREENPLAY_KO.md#12시간-제작-배분) gives each chapter its own mix. Measure actual shares in first plays of completed chapters. Use atmospheric contrast, non-graphic treatment and readable subtitles.
 
