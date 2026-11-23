@@ -36,6 +36,17 @@ FGuide Guide(TConstArrayView<FVector> Leg, const FVector& Position)
 
 const TCHAR* Objective(FState State)
 {
+    if (IsReplyChapter(State))
+    {
+        switch (State.Reply)
+        {
+        case ReplyAtJunction: return TEXT("Collect the pending reply at the junction");
+        case ReplyAtContact: return State.Disposition == PublicUpdate
+            ? TEXT("Check the reply with Amina") : TEXT("Check the reply with Yusuf");
+        case ReplyAtReview: return TEXT("Deliver the verified reply record");
+        default: return TEXT("Reply filed. Family request open");
+        }
+    }
     if (IsReceiptChapter(State))
     {
         switch (State.Receipt)
@@ -43,7 +54,7 @@ const TCHAR* Objective(FState State)
         case ReceiptReady: return TEXT("Ask who received the correction");
         case ReceiptAtLedger: return TEXT("Countersign the delivery receipt");
         case ReceiptAtArchive: return TEXT("File the receipt at the archive desk");
-        default: return TEXT("Delivery receipt archived");
+        default: return TEXT("Ask Nabil about the pending reply");
         }
     }
     if (State.Phase == Complete)
@@ -70,6 +81,22 @@ const TCHAR* Objective(FState State)
 
 const TCHAR* CompletionLine(FState State)
 {
+    if (IsReplyChapter(State))
+    {
+        switch (State.Reply)
+        {
+        case ReplyAtJunction: return TEXT("Nabil: A reply came in after the receipt. Collect the slip at the junction.");
+        case ReplyAtContact: return State.Disposition == PublicUpdate
+            ? TEXT("Nabil: Take the slip to Amina. She signed for the public copy herself.")
+            : TEXT("Nabil: Take the slip to Yusuf. He logged the phone read-back.");
+        case ReplyAtReview: return State.Disposition == PublicUpdate
+            ? TEXT("Amina: Here is my signed copy. It records delivery, and the request is still open.")
+            : TEXT("Yusuf: Here is my call log. It records the read-back, and the request is still open.");
+        default: return State.Disposition == PublicUpdate
+            ? TEXT("Mara: The signed copy is filed. Keep the family request open.")
+            : TEXT("Salma: The call log is filed. Keep the family request open.");
+        }
+    }
     if (IsReceiptChapter(State) && State.Receipt != ReceiptReady)
     {
         switch (State.Receipt)
@@ -139,6 +166,20 @@ const TCHAR* ReceiptJournalLine(int Step, FState State)
     case ReceiptAtArchive: return TEXT("Mara countersigned receipt of the corrected copy.");
     case ReceiptComplete: return TEXT("Nabil archived the receipt. The family request remains open.");
     default: return TEXT("The correction was acknowledged. Delivery is still unrecorded.");
+    }
+}
+
+const TCHAR* ReplyJournalLine(int Step, FState State)
+{
+    switch (Step)
+    {
+    case ReplyAtJunction: return TEXT("Nabil flagged a reply received after the receipt was archived.");
+    case ReplyAtContact: return TEXT("The junction slip identified the person who logged the reply.");
+    case ReplyAtReview: return State.Disposition == PublicUpdate
+        ? TEXT("Amina showed the signed copy confirming delivery.")
+        : TEXT("Yusuf showed the call log confirming a read-back.");
+    case ReplyComplete: return TEXT("Verified reply filed. The original family request is open.");
+    default: return TEXT("");
     }
 }
 

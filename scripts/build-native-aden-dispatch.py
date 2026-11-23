@@ -14,6 +14,10 @@ WITNESS = (425708, 83517)
 NOTICE = (414451, 79690)
 MERGE = (419145, 76078)
 DESK = (415785, 72207)
+ARCHIVE = (409640, 65128)
+CALLBACK_JUNCTION = (393281, 45881)
+PUBLIC_CONTACT = (389456, 50834)
+DESK_CONTACT = (397191, 41768)
 PATHS = {
     "Brief": [ORIGIN, BRIEF],
     "Decision": [BRIEF, FIRST_TURN, JUNCTION],
@@ -22,7 +26,12 @@ PATHS = {
     "FromWitness": [WITNESS, MERGE],
     "FromNotice": [NOTICE, MERGE],
     "Handoff": [MERGE, DESK],
-    "ReceiptArchive": [MERGE, (409640, 65128)],
+    "ReceiptArchive": [MERGE, ARCHIVE],
+    "ReplyJunction": [ARCHIVE, (402345, 56724), CALLBACK_JUNCTION],
+    "ReplyPublicContact": [CALLBACK_JUNCTION, PUBLIC_CONTACT],
+    "ReplyDeskContact": [CALLBACK_JUNCTION, (395390, 43561), DESK_CONTACT],
+    "ReplyPublicReview": [PUBLIC_CONTACT, (387150, 53584)],
+    "ReplyDeskReview": [DESK_CONTACT, (406949, 52913)],
 }
 
 

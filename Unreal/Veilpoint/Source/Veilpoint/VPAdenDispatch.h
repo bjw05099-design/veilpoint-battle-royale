@@ -20,4 +20,5 @@ const TCHAR* DispositionLine(FState State);
 const TCHAR* JournalLine(int Phase, FState State);
 const TCHAR* FollowupJournalLine(int Step, FState State);
 const TCHAR* ReceiptJournalLine(int Step, FState State);
+const TCHAR* ReplyJournalLine(int Step, FState State);
 }

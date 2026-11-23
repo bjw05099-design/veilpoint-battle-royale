@@ -39,6 +39,12 @@ test('native ready lobby restarts its countdown after readiness changes or a pla
     #include <cassert>
     int main() {
       using VPBRLobby::AdvanceCountdown;
+      using VPBRLobby::Stage;
+      using VPBRLobby::EStage;
+      assert(Stage(1, 1, 9.) == EStage::WaitingForPlayers);
+      assert(Stage(2, 1, 9.) == EStage::WaitingForReady);
+      assert(Stage(2, 2, 0.) == EStage::AllReady);
+      assert(Stage(2, 2, 9.) == EStage::Countdown);
       double endsAt = 0.;
       assert(!AdvanceCountdown(0., 1, 1, endsAt) && endsAt == 0.);
       assert(!AdvanceCountdown(5., 2, 2, endsAt) && endsAt == 9.);

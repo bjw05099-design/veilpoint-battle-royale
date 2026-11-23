@@ -550,9 +550,12 @@ int32 AddFootprintFill(const FGeometry& Geometry, TArray<FMesh>& Surfaces, doubl
     return Filled;
 }
 
-FMesh FootprintBlockers(const FGeometry& Geometry, TArray<TPair<FVector, FVector>>& Probes, double& MaxBaseError)
+TArray<FMesh> FootprintBlockers(const FGeometry& Geometry, TArray<TPair<FVector, FVector>>& Probes,
+    TArray<FVPAdenBlockerSeamProbe>& SeamProbes, double& MaxBaseError)
 {
-    FMesh Blockers;
+    TArray<FMesh> Sectors;
+    Sectors.SetNum(SurfaceSectors);
+    TSet<FIntPoint> ProbedSeams;
     const FVector Rise(0., 0., 650.);
     int32 NextProbe = 0;
     for (int32 Item = 0; Item < Geometry.Footprints.Num(); ++Item)
@@ -562,28 +565,50 @@ FMesh FootprintBlockers(const FGeometry& Geometry, TArray<TPair<FVector, FVector
         {
             const FVector2D A = Ring[I], B = Ring[(I + 1) % Ring.Num()];
             if (A.Equals(B, .001)) continue;
+            const FVector2D Direction = (B - A).GetSafeNormal();
+            const FVector Across(-Direction.Y, Direction.X, 0.);
             const auto Breaks = VPAdenDrape::SegmentBreaks({A.X, A.Y}, {B.X, B.Y}, VPAdenAtlas::Local, Spacing);
             FVector Previous = Geometry.Position(A, -80.);
+            FVector PriorStart = Previous;
+            int32 PriorSector = INDEX_NONE;
             for (std::size_t Segment = 1; Segment < Breaks.size(); ++Segment)
             {
                 const FVector EndPoint = Geometry.Position(FMath::Lerp(A, B, Breaks[Segment]), -80.);
+                const FVector Midpoint = (Previous + EndPoint) * .5;
+                const int32 Sector = VPAdenDrape::FootprintSector({Midpoint.X, Midpoint.Y});
+                auto& Blockers = Sectors[Sector];
                 Blockers.Quad(Previous, EndPoint, Previous + Rise, EndPoint + Rise, FLinearColor::White);
                 Blockers.Quad(EndPoint, Previous, EndPoint + Rise, Previous + Rise, FLinearColor::White);
-                const FVector Midpoint = (Previous + EndPoint) * .5;
                 MaxBaseError = FMath::Max(MaxBaseError, FMath::Abs(Midpoint.Z + 80. - Geometry.Height(FVector2D(Midpoint))));
+                if (PriorSector != INDEX_NONE && PriorSector != Sector
+                    && FVector::Dist2D(PriorStart, Previous) >= 20. && FVector::Dist2D(Previous, EndPoint) >= 20.)
+                {
+                    const FIntPoint Pair(FMath::Min(PriorSector, Sector), FMath::Max(PriorSector, Sector));
+                    if (!ProbedSeams.Contains(Pair))
+                    {
+                        ProbedSeams.Add(Pair);
+                        const FVector Up(0., 0., 265.);
+                        const auto NearJoin = [&](const FVector& Other)
+                        {
+                            return FMath::Lerp(Previous, Other, 8. / FVector::Dist2D(Previous, Other)) + Up;
+                        };
+                        SeamProbes.Add(FVPAdenBlockerSeamProbe{
+                            {PriorSector, Sector}, {NearJoin(PriorStart), NearJoin(EndPoint)}, Across * 22.});
+                    }
+                }
+                PriorStart = Previous;
+                PriorSector = Sector;
                 Previous = EndPoint;
             }
             if (Item >= NextProbe && FVector2D::Distance(A, B) >= 300.)
             {
-                const FVector2D Direction = (B - A).GetSafeNormal();
-                const FVector Normal(-Direction.Y, Direction.X, 0.);
                 const FVector Midpoint = Geometry.Position((A + B) * .5, 200.);
-                Probes.Emplace(Midpoint - Normal * 110., Midpoint + Normal * 110.);
+                Probes.Emplace(Midpoint - Across * 110., Midpoint + Across * 110.);
                 NextProbe = Item + 600;
             }
         }
     }
-    return Blockers;
+    return Sectors;
 }
 }
 
@@ -670,9 +695,15 @@ bool AVPAdenSourceWorld::BuildSource()
         Surface.ReverseRenderWinding();
         AddMesh(Surface, false, true)->SetCastShadow(false);
     }
-    const FMesh Blockers = FootprintBlockers(Geometry, BlockerProbes, MaxBlockerBaseError);
-    BlockerTriangleCount = Blockers.Triangles.Num() / 3;
-    FootprintCollision = AddMesh(Blockers, true, false);
+    const auto BlockerMeshes = FootprintBlockers(Geometry, BlockerProbes, BlockerSeamProbes, MaxBlockerBaseError);
+    FootprintCollisions.SetNum(SurfaceSectors);
+    for (int32 Sector = 0; Sector < BlockerMeshes.Num(); ++Sector)
+    {
+        const auto& Blockers = BlockerMeshes[Sector];
+        if (Blockers.Triangles.IsEmpty()) continue;
+        BlockerTriangleCount += Blockers.Triangles.Num() / 3;
+        FootprintCollisions[Sector] = AddMesh(Blockers, true, false);
+    }
 
     AtlasLineSectors.SetNum(SurfaceSectors);
     const auto IndexAtlasShapes = [&](const FShapes& Shapes, bool bRoad)
@@ -716,20 +747,24 @@ bool AVPAdenSourceWorld::BuildSource()
     for (const FVector2D& Point : Geometry.Stations)
         Stations.Add(Geometry.Position(Point));
     CreateFieldStations();
-    const auto RegisterLeg = [&](int32 Index, const auto& Points)
+    const auto RegisterLeg = [&](TArray<FVector>& Leg, const auto& Points)
     {
         for (const auto Point : Points)
-            DispatchLegs[Index].Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
+            Leg.Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
     };
-    RegisterLeg(0, VPAdenDispatchData::Brief);
-    RegisterLeg(1, VPAdenDispatchData::Decision);
-    RegisterLeg(2, VPAdenDispatchData::Witness);
-    RegisterLeg(3, VPAdenDispatchData::Notice);
-    RegisterLeg(4, VPAdenDispatchData::FromWitness);
-    RegisterLeg(5, VPAdenDispatchData::FromNotice);
-    RegisterLeg(6, VPAdenDispatchData::Handoff);
-    for (const auto Point : VPAdenDispatchData::ReceiptArchive)
-        ReceiptArchiveLeg.Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
+    RegisterLeg(DispatchLegs[0], VPAdenDispatchData::Brief);
+    RegisterLeg(DispatchLegs[1], VPAdenDispatchData::Decision);
+    RegisterLeg(DispatchLegs[2], VPAdenDispatchData::Witness);
+    RegisterLeg(DispatchLegs[3], VPAdenDispatchData::Notice);
+    RegisterLeg(DispatchLegs[4], VPAdenDispatchData::FromWitness);
+    RegisterLeg(DispatchLegs[5], VPAdenDispatchData::FromNotice);
+    RegisterLeg(DispatchLegs[6], VPAdenDispatchData::Handoff);
+    RegisterLeg(ReceiptArchiveLeg, VPAdenDispatchData::ReceiptArchive);
+    RegisterLeg(ReplyLegs[0], VPAdenDispatchData::ReplyJunction);
+    RegisterLeg(ReplyLegs[1], VPAdenDispatchData::ReplyPublicContact);
+    RegisterLeg(ReplyLegs[2], VPAdenDispatchData::ReplyDeskContact);
+    RegisterLeg(ReplyLegs[3], VPAdenDispatchData::ReplyPublicReview);
+    RegisterLeg(ReplyLegs[4], VPAdenDispatchData::ReplyDeskReview);
     const auto ReverseLeg = [](const TArray<FVector>& Forward, TArray<FVector>& Reverse)
     {
         Reverse.Reserve(Forward.Num());
@@ -898,18 +933,64 @@ int32 AVPAdenSourceWorld::VerifyFootprintCollision(const AActor* Ignore) const
 {
     int32 Passed = 0;
     const UWorld* World = GetWorld();
-    if (!World || !FootprintCollision) return Passed;
+    if (!World || FootprintCollisions.IsEmpty()) return Passed;
     const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenFootprintProbe), true, Ignore);
     const auto HitsFootprint = [&](const FVector& Start, const FVector& End)
     {
         FHitResult Hit;
-        return World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)
-            && Hit.GetComponent() == FootprintCollision.Get();
+        if (!World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)) return false;
+        return FootprintCollisions.ContainsByPredicate([&](const auto& Mesh)
+        {
+            return Mesh && Hit.GetComponent() == Mesh.Get();
+        });
     };
     for (const auto& Probe : BlockerProbes)
         if (HitsFootprint(Probe.Key, Probe.Value) && HitsFootprint(Probe.Value, Probe.Key))
             ++Passed;
     return Passed;
+}
+
+FVPAdenBlockerCheck AVPAdenSourceWorld::VerifyFootprintSectors() const
+{
+    using namespace VPAdenWorld;
+    FVPAdenBlockerCheck Result;
+    if (FootprintCollisions.Num() != SurfaceSectors) return Result;
+    constexpr double SectorWidth = SectorCells * Spacing;
+    for (int32 Sector = 0; Sector < SurfaceSectors; ++Sector)
+    {
+        auto* Mesh = FootprintCollisions[Sector].Get();
+        if (!Mesh) continue;
+        const auto* Section = Mesh->GetProcMeshSection(0);
+        if (!Section || Section->ProcIndexBuffer.IsEmpty() || Mesh->IsVisible()
+            || Mesh->GetCollisionEnabled() == ECollisionEnabled::NoCollision) return {};
+        const double MinX = OriginX + (Sector % VPAdenDrape::SectorsPerAxis) * SectorWidth;
+        const double MinY = OriginY + (Sector / VPAdenDrape::SectorsPerAxis) * SectorWidth;
+        const auto& Box = Section->SectionLocalBox;
+        if (Box.Min.X < MinX - .1 || Box.Min.Y < MinY - .1
+            || Box.Max.X > MinX + SectorWidth + .1 || Box.Max.Y > MinY + SectorWidth + .1) return {};
+        const int32 Count = Section->ProcIndexBuffer.Num() / 3;
+        ++Result.Sectors;
+        Result.Triangles += Count;
+        Result.LargestSector = FMath::Max(Result.LargestSector, Count);
+    }
+    Result.Seams = BlockerSeamProbes.Num();
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenBlockerSectorSeam), true);
+    for (const auto& Probe : BlockerSeamProbes)
+    {
+        bool bPassed = true;
+        for (int32 SideIndex = 0; SideIndex < 2; ++SideIndex)
+        {
+            auto* Mesh = FootprintCollisions[Probe.Sectors[SideIndex]].Get();
+            const FVector At = Probe.Points[SideIndex];
+            const FVector From = At - Probe.Across, To = At + Probe.Across;
+            FHitResult Forward, Reverse;
+            bPassed &= Mesh && Mesh->LineTraceComponent(Forward, From, To, Params)
+                && Mesh->LineTraceComponent(Reverse, To, From, Params)
+                && Forward.ImpactPoint.Equals(At, 1.) && Reverse.ImpactPoint.Equals(At, 1.);
+        }
+        if (bPassed) ++Result.SeamsPassed;
+    }
+    return Result;
 }
 
 FVector AVPAdenSourceWorld::Station(int32 Index) const
@@ -952,6 +1033,13 @@ const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState St
 {
     using namespace VPAdenDispatch;
     const bool bWitness = State.Route == Witness;
+    if (IsReplyChapter(State))
+    {
+        const bool bPublic = State.Disposition == PublicUpdate;
+        if (State.Reply == ReplyAtJunction) return ReplyLegs[0];
+        if (State.Reply == ReplyAtContact) return ReplyLegs[bPublic ? 1 : 2];
+        return ReplyLegs[bPublic ? 3 : 4];
+    }
     if (IsReceiptChapter(State))
     {
         if (State.Receipt >= ReceiptAtArchive) return ReceiptArchiveLeg;

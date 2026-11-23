@@ -7,6 +7,7 @@ enum ERoute { Unselected, Witness, PublicNotice };
 enum EDisposition { Unfiled, PublicUpdate, InternalHandoff };
 enum EFollowup { FollowupReady, ReturnToLedger, DeliverCorrection, FollowupComplete };
 enum EReceiptStep { ReceiptReady, ReceiptAtLedger, ReceiptAtArchive, ReceiptComplete };
+enum EReplyStep { ReplyReady, ReplyAtJunction, ReplyAtContact, ReplyAtReview, ReplyComplete };
 enum class EInput { Interact, OptionOne, OptionTwo, FileInternally };
 enum class EResult { Ignored, ShowChoice, Refused, Advanced };
 
@@ -17,19 +18,31 @@ struct FState
     int Disposition = Unfiled;
     int Followup = FollowupReady;
     int Receipt = ReceiptReady;
+    int Reply = ReplyReady;
 };
 
-inline constexpr int CheckpointVersion = 6;
+inline constexpr int CheckpointVersion = 7;
 
 constexpr bool IsReceiptChapter(FState State)
 {
     return State.Phase == Complete && State.Followup == FollowupComplete;
 }
 
+constexpr bool IsReplyChapter(FState State)
+{
+    return IsReceiptChapter(State) && State.Receipt == ReceiptComplete && State.Reply != ReplyReady;
+}
+
+constexpr bool IsReplyChoice(FState State)
+{
+    return IsReplyChapter(State) && State.Reply == ReplyAtContact;
+}
+
 constexpr bool IsChapterHandoff(FState State)
 {
     return State.Phase == Complete && (State.Followup == FollowupReady
-        || (IsReceiptChapter(State) && State.Receipt == ReceiptReady));
+        || (IsReceiptChapter(State) && (State.Receipt == ReceiptReady
+            || (State.Receipt == ReceiptComplete && State.Reply == ReplyReady))));
 }
 
 constexpr bool Valid(FState State)
@@ -39,6 +52,8 @@ constexpr bool Valid(FState State)
         (State.Phase != Complete && State.Followup != FollowupReady)) return false;
     if (State.Receipt < ReceiptReady || State.Receipt > ReceiptComplete ||
         (State.Receipt != ReceiptReady && !IsReceiptChapter(State))) return false;
+    if (State.Reply < ReplyReady || State.Reply > ReplyComplete ||
+        (State.Reply != ReplyReady && !IsReplyChapter(State))) return false;
     if (State.Phase == Complete
         ? State.Disposition != PublicUpdate && State.Disposition != InternalHandoff
         : State.Disposition != Unfiled) return false;
@@ -56,7 +71,7 @@ constexpr FState Restore(int Version, FState Saved)
 
 constexpr bool HasObjective(FState State)
 {
-    return !IsReceiptChapter(State) || State.Receipt < ReceiptComplete;
+    return !IsReplyChapter(State) || State.Reply < ReplyComplete;
 }
 
 constexpr EResult Advance(FState& State, EInput Input, bool bChoiceOpen)
@@ -64,8 +79,17 @@ constexpr EResult Advance(FState& State, EInput Input, bool bChoiceOpen)
     if (!Valid(State)) return EResult::Ignored;
     if (State.Phase == Complete)
     {
-        if (Input != EInput::Interact || !HasObjective(State)) return EResult::Ignored;
-        if (IsReceiptChapter(State)) ++State.Receipt;
+        if (!HasObjective(State)) return EResult::Ignored;
+        if (IsReplyChoice(State))
+        {
+            if (Input == EInput::Interact) return EResult::ShowChoice;
+            if (!bChoiceOpen || Input == EInput::FileInternally) return EResult::Ignored;
+            const EInput Supported = State.Disposition == PublicUpdate ? EInput::OptionOne : EInput::OptionTwo;
+            if (Input != Supported) return EResult::Refused;
+        }
+        else if (Input != EInput::Interact) return EResult::Ignored;
+        if (State.Receipt == ReceiptComplete) ++State.Reply;
+        else if (IsReceiptChapter(State)) ++State.Receipt;
         else ++State.Followup;
         return EResult::Advanced;
     }

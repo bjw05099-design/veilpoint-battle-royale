@@ -32,6 +32,12 @@ inline FSectorRange LocalAtlasSectors(FExtent View)
     return {Index(NW.X), Index(NW.Y), Index(SE.X), Index(SE.Y)};
 }
 
+inline int FootprintSector(FPoint Point)
+{
+    const auto Range = LocalAtlasSectors({Point.X, Point.Y, Point.X, Point.Y});
+    return Range.North * SectorsPerAxis + Range.West;
+}
+
 inline std::vector<double> SegmentBreaks(FPoint A, FPoint B, FExtent Bounds, double Step)
 {
     std::vector<double> Breaks{0., 1.};

@@ -37,7 +37,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    const TCHAR* Chapter = Aden->bDispatchActive && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH04")
+    const TCHAR* Chapter = Aden->bDispatchActive && VPAdenDispatch::IsReplyChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH05")
+        : Aden->bDispatchActive && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH04")
         : Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
         : Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01");
     DrawText(Chapter, Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
