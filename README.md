@@ -7,6 +7,9 @@ ship separately, with story first. The verified editor authoring command creates
 `CH01_Aden`, then selects it as the native game's startup map.
 [Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)
 
+The game and its cinematics are authored and rendered directly in Unreal.
+See [production rules](AGENTS.md) for the asset and tool workflow.
+
 A fresh campaign opens with a five-minute, 17-shot Unreal cinematic. Aden's
 coast, competing broadcasts, fighting, a hostage recording and a fictional
 UN meeting set up Captain Lee's assignment in Aden, Yemen. The film then cuts to
