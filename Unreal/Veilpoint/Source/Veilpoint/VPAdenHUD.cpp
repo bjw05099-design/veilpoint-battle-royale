@@ -1,6 +1,7 @@
 #include "VPHUD.h"
 
 #include "VPAdenAtlasProjection.h"
+#include "VPAdenCampaign.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenDispatch.h"
 #include "VPAdenSourceWorld.h"
@@ -37,11 +38,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    const TCHAR* Chapter = Aden->bDispatchActive && VPAdenDispatch::IsReplyChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH05")
-        : Aden->bDispatchActive && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch) ? TEXT("VEILPOINT  /  CH04")
-        : Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady ? TEXT("VEILPOINT  /  CH03")
-        : Aden->bDispatchActive ? TEXT("VEILPOINT  /  CH02") : TEXT("VEILPOINT  /  CH01");
-    DrawText(Chapter, Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
+    DrawText(VPAdenCampaign::Title(Aden->Progress.Beat), Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
     DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF")
         : bRouteOverview ? TEXT("ADEN  /  ROUTE OVERVIEW") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
@@ -139,9 +136,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     };
     const FLinearColor RouteColor(.30f, .77f, .67f);
     const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
-    const bool bHasObjective = !bRegional && (Aden->bDispatchActive
-        ? VPAdenDispatch::HasObjective(Aden->Dispatch) : Aden->Confirmed < VPAdenMission::Complete);
-    const bool bHasNote = !bRegional && Aden->AvailableNote != VPAdenMission::None;
+    const bool bHasObjective = !bRegional && Aden->HasAtlasRoute();
+    const bool bHasEscort = !bRegional && Aden->bHasEscort;
     bool bObjectiveAtEdge = false;
     if (!bRegional)
     {
@@ -168,7 +164,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             }
             else DrawRoute(From, To, bShowEarlier && I < Guide.SegmentEnd);
         }
-        if (bHasNote) DrawMarker(Aden->NotePoint, FLinearColor(.57f, .82f, .82f));
+        if (bHasEscort) DrawMarker(Aden->EscortPoint, FLinearColor(.57f, .82f, .82f));
         if (bHasObjective)
         {
             const VPAdenAtlas::FPoint Objective{Aden->Objective.X, Aden->Objective.Y};
@@ -242,10 +238,11 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
             DrawText(TEXT("Walking route ahead"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
         }
-        if (bHasNote)
+        if (bHasEscort)
         {
             DrawRect(FLinearColor(.57f, .82f, .82f), PanelX, PanelY + 106.f * Scale, 7.f * Scale, 7.f * Scale);
-            DrawText(TEXT("Optional field note"), Ink, PanelX + 14.f * Scale, PanelY + 103.f * Scale, nullptr, .77f * Scale);
+            DrawText(VPAdenCampaign::EscortName(Aden->Progress), Ink,
+                PanelX + 14.f * Scale, PanelY + 103.f * Scale, nullptr, .77f * Scale);
         }
         DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("5.12 x 3.584 km"),
             Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
@@ -275,4 +272,11 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         : TEXT("Wheel  Zoom      M  Regional relief");
     DrawText(Controls,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
+    if (Aden->WindowSeconds >= 0 && W > 700.f * Scale)
+    {
+        const FString Signal = Aden->WindowSeconds > 0
+            ? FString::Printf(TEXT("Crossing light  %02d s"), Aden->WindowSeconds)
+            : FString(TEXT("Crossing light out"));
+        DrawText(Signal, Accent, X + W - 183.f * Scale, Y + H - 25.f * Scale, nullptr, .78f * Scale);
+    }
 }

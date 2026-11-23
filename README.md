@@ -1,4 +1,4 @@
-# VEILPOINT — Story-first PC development · CH01 preview and future Battle Royale
+# VEILPOINT — Story-first PC development
 
 **Production development is Windows PC-only on Unreal Engine 5.8.** Open
 [`Unreal/Veilpoint/Veilpoint.uproject`](Unreal/Veilpoint/Veilpoint.uproject).
@@ -7,9 +7,17 @@ ship separately, with story first. The verified editor authoring command creates
 `CH01_Aden`, then selects it as the native game's startup map.
 [Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)
 
+The native campaign rewrite follows a civilian evacuation from the first
+relay call to the return of Mara's radio. It includes a short route through
+all twelve chapters, Korean subtitles, moving escorts, two player choices
+and a crossing that changes if its signal expires. The full 720-minute
+story treatment gives each chapter its events, dialogue and outcome.
+[Campaign screenplay](docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md)
+
 Production Aden uses registered real-world public terrain, roads, and ordinary
-building outlines at 1:1 scale. Current native scope is the 3.584 × 3.584 km
-pilot, pending citywide work and 2015 comparison. BR continues under the
+building outlines at 1:1 scale. Walkable terrain extends across 5.120 ×
+3.584 km. The civilian road and building inputs cover the registered pilot
+inside that terrain. BR continues under the
 Unreal project as a separate mode.
 [Aden source build](docs/ADEN_PUBLIC_SOURCE_BUILD.md)
 

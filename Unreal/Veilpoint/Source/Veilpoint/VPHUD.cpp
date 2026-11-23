@@ -6,6 +6,9 @@
 #include "VPBRLobbyRules.h"
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
+#include "VPAdenCampaign.h"
+#include "CanvasItem.h"
+#include "Fonts/SlateFontInfo.h"
 #include "VPAdenDispatch.h"
 #include "VPStoryMarker.h"
 #include "VPLastBroadcastMission.h"
@@ -692,37 +695,19 @@ void AVPHUD::DrawLiveFrameTelemetry(float Scale, float X)
 
 void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn)
 {
-    const FLinearColor Ink(.89f, .93f, .90f), Accent(.94f, .82f, .57f), Plate(.008f, .02f, .024f, .92f);
-    const float Scale = FMath::Clamp(Canvas->ClipX / 1600.f, .70f, 1.35f);
-    const float X = 20.f * Scale, Y = 20.f * Scale;
-    const float Width = FMath::Min(Canvas->ClipX - 2.f * X, 740.f * Scale);
+    using namespace VPAdenCampaign;
+    const FLinearColor Ink(.91f, .95f, .94f), Accent(.97f, .75f, .42f), Assist(.47f, .87f, .79f);
+    const FLinearColor Plate(.008f, .02f, .024f, .93f);
+    const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1280.f, Canvas->ClipY / 720.f), .55f, 1.50f);
+    const float Left = 20.f * Scale, Top = 20.f * Scale;
+    const float Width = FMath::Min(Canvas->ClipX - 2.f * Left, 570.f * Scale);
     if (!Pawn || !Aden->bSourceReady)
     {
-        DrawRect(Plate, X, Y, Width, 55.f * Scale);
-        DrawText(TEXT("Aden public source could not be opened."), Accent, X + 12.f * Scale, Y + 14.f * Scale, nullptr, Scale);
+        DrawRect(Plate, Left, Top, Width, 55.f * Scale);
+        DrawText(TEXT("Aden public source could not be opened."), Accent, Left + 12.f * Scale, Top + 14.f * Scale, nullptr, Scale);
         return;
     }
 
-    const int32 Confirmed = Aden->Confirmed;
-    const TCHAR* Objectives[] = {
-        TEXT("Confirm the first receipt"), TEXT("Compare the retransmission"),
-        TEXT("Give Salma the verified report"), TEXT("Report handed over")
-    };
-    const TCHAR* Records[] = {
-        TEXT("04:07  First verified receipt."),
-        TEXT("04:12  Retransmission of the same message."),
-        TEXT("Salma received the record. The missing are still unaccounted for.")
-    };
-    const bool bDispatch = Aden->bDispatchActive;
-    const bool bReply = bDispatch && VPAdenDispatch::IsReplyChapter(Aden->Dispatch);
-    const bool bReceipt = bDispatch && !bReply && VPAdenDispatch::IsReceiptChapter(Aden->Dispatch);
-    const bool bFollowup = bDispatch && !bReceipt && !bReply && Aden->Dispatch.Followup != VPAdenDispatch::FollowupReady;
-    const bool bFollowupReady = bDispatch && VPAdenDispatch::IsChapterHandoff(Aden->Dispatch)
-        && Aden->Dispatch.Followup == VPAdenDispatch::FollowupReady;
-    const bool bPending = bDispatch ? VPAdenDispatch::HasObjective(Aden->Dispatch)
-        : Confirmed < VPAdenMission::Complete;
-    const FVector Objective = Aden->Objective;
-    const double Distance = bPending ? FVector::Dist2D(Pawn->GetActorLocation(), Objective) / 100. : 0.;
     const auto* Desktop = Cast<AVPPlayerController>(PlayerOwner);
     if (Desktop && Desktop->GetAdenAtlasPage())
     {
@@ -735,152 +720,135 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawAdenAtlas(Aden, Pawn, Desktop->GetAdenAtlasPage(), Desktop->GetAdenAtlasZoom(), Desktop->IsAdenAtlasRouteOverview());
         return;
     }
-    const bool bJournalOpen = Desktop && Desktop->IsAdenJournalOpen();
 
-    const bool bHasNote = Aden->AvailableNote != VPAdenMission::None;
-    const FLinearColor Note(.42f, .83f, .79f);
-    const float JournalTop = (bHasNote || bDispatch) ? 136.f : 116.f;
-    DrawRect(Plate, X, Y, Width, (bJournalOpen ? JournalTop + 120.f : JournalTop - 7.f) * Scale);
-    DrawText(bReply ? TEXT("VEILPOINT  /  CH05  /  PENDING REPLY")
-        : bReceipt ? TEXT("VEILPOINT  /  CH04  /  SIGNED RECEIPT")
-        : bFollowup ? TEXT("VEILPOINT  /  CH03  /  NIGHT ROSTER")
-        : bDispatch ? TEXT("VEILPOINT  /  CH02  /  OPEN CHANNEL")
-        : TEXT("VEILPOINT  /  CH01  /  LAST BROADCAST"), Accent,
-        X + 12.f * Scale, Y + 9.f * Scale, nullptr, .76f * Scale);
-    DrawText(bDispatch ? VPAdenDispatch::Objective(Aden->Dispatch) : Objectives[Confirmed], Ink, X + 12.f * Scale, Y + 30.f * Scale, nullptr, 1.14f * Scale);
-    const int32 Total = bReply ? int32(VPAdenDispatch::ReplyComplete)
-        : bReceipt ? int32(VPAdenDispatch::ReceiptComplete)
-        : bFollowup ? int32(VPAdenDispatch::FollowupComplete)
-        : bDispatch ? int32(VPAdenDispatch::Complete) : VPAdenMission::Complete;
-    const int32 Done = bReply ? Aden->Dispatch.Reply : bReceipt ? Aden->Dispatch.Receipt
-        : bFollowup ? Aden->Dispatch.Followup : bDispatch ? Aden->Dispatch.Phase : Confirmed;
-    const FString Status = bFollowupReady ? FString(TEXT("5 / 5 filed  |  F speak to Salma  |  J notes  |  M map"))
-        : (bFollowup || bReceipt || bReply) && bPending
-            ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done, Total, Distance)
-        : bPending
-        ? FString::Printf(TEXT("%d / %d  |  %.1fm to station  |  F inspect  |  J notes  |  M map"), Done + 1, Total, Distance)
-        : FString::Printf(TEXT("%d / %d confirmed  |  J notes  |  M map"), Done, Total);
-    DrawText(Status, Ink, X + 12.f * Scale, Y + 58.f * Scale, nullptr, .81f * Scale);
-    DrawText(TEXT("Terrain: Copernicus GLO-30   |   Vectors: OpenStreetMap contributors"), Ink,
-        X + 12.f * Scale, Y + 82.f * Scale, nullptr, .65f * Scale);
-    const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Pawn->GetActorLocation());
-    const auto ChapterJournal = [Aden, bReply, bReceipt](int32 Step)
+    const int32 Beat = Aden->Progress.Beat;
+    const auto SceneBeat = Scene(Aden->Progress);
+    const auto Action = Mode(Beat);
+    const bool bPending = Action != EMode::Finished;
+    const FVector Position = Pawn->GetActorLocation();
+    const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Position);
+    const bool bStatusOpen = Desktop && Desktop->IsAdenJournalOpen();
+    DrawRect(Plate, Left, Top, Width, (bStatusOpen ? 158.f : 94.f) * Scale);
+    DrawText(Title(Beat), Accent, Left + 12.f * Scale, Top + 8.f * Scale, nullptr, .77f * Scale);
+    DrawText(SceneBeat.Objective, Ink, Left + 12.f * Scale, Top + 29.f * Scale, nullptr, 1.07f * Scale);
+
+    const FString Distance = bPending
+        ? FString::Printf(TEXT("%.0f m to go   |   M  Route   |   F7  Checkpoint"),
+            Guide.SegmentEnd > 0 ? Guide.RemainingCm / 100. : FVector::Dist2D(Position, Aden->Objective) / 100.)
+        : FString(TEXT("Campaign complete"));
+    DrawText(Distance, Assist, Left + 12.f * Scale, Top + 60.f * Scale, nullptr, .77f * Scale);
+    if (bStatusOpen)
     {
-        return bReply ? VPAdenDispatch::ReplyJournalLine(Step, Aden->Dispatch)
-            : bReceipt ? VPAdenDispatch::ReceiptJournalLine(Step, Aden->Dispatch)
-                       : VPAdenDispatch::FollowupJournalLine(Step, Aden->Dispatch);
-    };
-    if (bDispatch)
-    {
-        const FString GuideText = !Aden->ActiveLeg.IsEmpty()
-            ? FString::Printf(TEXT("Walking leg %.0fm  |  %.0fm off centreline  |  F6 save  F7 return"),
-                Guide.RemainingCm / 100., Guide.OffsetCm / 100.)
-            : FString::Printf(TEXT("%s  |  F6 save  F7 return"),
-                (bReply || bReceipt || bFollowup) ? ChapterJournal(Done) : VPAdenDispatch::DispositionLine(Aden->Dispatch));
-        DrawText(GuideText, Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .70f * Scale);
-    }
-    if (bHasNote)
-    {
-        const double NoteDistance = FVector::Dist2D(Pawn->GetActorLocation(), Aden->NotePoint) / 100.;
-        const TCHAR* Name = Aden->AvailableNote == VPAdenMission::ReturnDebrief
-            ? TEXT("Return to Hyunji for debrief") : TEXT("Check the relay slip");
-        DrawText(FString::Printf(TEXT("%s  |  %.1f m"), Name, NoteDistance),
-            Note, X + 12.f * Scale, Y + 105.f * Scale, nullptr, .73f * Scale);
-    }
-    if (bJournalOpen && (bFollowup || bReceipt || bReply))
-    {
-        DrawText(VPAdenDispatch::DispositionLine(Aden->Dispatch), Note,
-            X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
-        for (int32 Step = 1; Step <= Done; ++Step)
-            DrawText(ChapterJournal(Step), Ink,
-                X + 12.f * Scale, Y + (JournalTop + Step * 20.f) * Scale, nullptr, .77f * Scale);
-    }
-    if (bJournalOpen && bDispatch && !bFollowup && !bReceipt && !bReply)
-    {
-        for (int32 I = 0; I < Done; ++I)
-            DrawText(VPAdenDispatch::JournalLine(I, Aden->Dispatch), Ink,
-                X + 12.f * Scale, Y + (JournalTop + I * 20.f) * Scale, nullptr, .77f * Scale);
-        if (Done == 0)
-            DrawText(TEXT("No Open Channel entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
-    }
-    if (bJournalOpen && !bDispatch)
-    {
-        if (Confirmed == 0)
-            DrawText(TEXT("No verified field entries yet."), Ink, X + 12.f * Scale, Y + JournalTop * Scale, nullptr, .77f * Scale);
-        for (int32 I = 0; I < Confirmed; ++I)
-            DrawText(Records[I], Ink, X + 12.f * Scale, Y + (JournalTop + I * 20.f) * Scale, nullptr, .77f * Scale);
-        float Row = JournalTop + Confirmed * 20.f;
-        if (Aden->Notes & VPAdenMission::RelaySlip)
-        {
-            DrawText(TEXT("Relay slip filed. One call was retried."), Note, X + 12.f * Scale, Y + Row * Scale, nullptr, .77f * Scale);
-            Row += 20.f;
-        }
-        if (Aden->Notes & VPAdenMission::ReturnDebrief)
-            DrawText(TEXT("Debrief complete. Unverified reports remain open."), Note,
-                X + 12.f * Scale, Y + Row * Scale, nullptr, .77f * Scale);
+        const TCHAR* FirstStop = Aden->Progress.Route == Families ? TEXT("First stop: families")
+            : Aden->Progress.Route == Clinic ? TEXT("First stop: clinic") : TEXT("Both stops are waiting");
+        const TCHAR* PassageStatus = Aden->Progress.Passage == Crossing ? TEXT("Shelter: lit crossing")
+            : Aden->Progress.Passage == BackStreet ? TEXT("Shelter: back street") : TEXT("");
+        const TCHAR* SignalStatus = Aden->Progress.Relay == RadioOnce ? TEXT("Neighbors: radio")
+            : Aden->Progress.Relay == Runners ? TEXT("Neighbors: runners") : TEXT("");
+        DrawText(FirstStop, Ink, Left + 12.f * Scale, Top + 94.f * Scale, nullptr, .76f * Scale);
+        DrawText(PassageStatus, Ink, Left + 12.f * Scale, Top + 113.f * Scale, nullptr, .76f * Scale);
+        DrawText(SignalStatus, Ink, Left + 12.f * Scale, Top + 132.f * Scale, nullptr, .76f * Scale);
     }
 
-    const auto DrawStation = [&](const FVector& Point, const FLinearColor& Color)
+    const auto DrawVisibleMarker = [&](const FVector& Point, const FLinearColor& Tint, const FString& Text)
     {
         FVector2D Screen;
         const FVector Eye = Pawn->GetPawnViewLocation();
-        FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStationHud), true, Pawn);
-        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Point - Eye) > 0. &&
-            PlayerOwner->ProjectWorldLocationToScreen(Point, Screen) &&
-            Screen.X > 18.f && Screen.Y > 18.f && Screen.X < Canvas->ClipX - 18.f && Screen.Y < Canvas->ClipY - 18.f &&
-            !GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query))
-        {
-            DrawLine(Screen.X - 8.f, Screen.Y, Screen.X + 8.f, Screen.Y, Color, 2.f);
-            DrawLine(Screen.X, Screen.Y - 8.f, Screen.X, Screen.Y + 8.f, Color, 2.f);
-            if (AVPAdenStoryState::CanReach(Pawn, Point))
-                DrawText(TEXT("[F]"), Color, Screen.X + 12.f, Screen.Y - 10.f, nullptr, Scale);
-        }
+        const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenFocusHud), true, Pawn);
+        if (FVector::DotProduct(PlayerOwner->GetControlRotation().Vector(), Point - Eye) <= 0.
+            || !PlayerOwner->ProjectWorldLocationToScreen(Point, Screen)
+            || Screen.X < 18.f || Screen.Y < 18.f || Screen.X > Canvas->ClipX - 18.f || Screen.Y > Canvas->ClipY - 18.f
+            || GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query)) return;
+        DrawLine(Screen.X - 7.f, Screen.Y, Screen.X + 7.f, Screen.Y, Tint, 2.f);
+        DrawLine(Screen.X, Screen.Y - 7.f, Screen.X, Screen.Y + 7.f, Tint, 2.f);
+        if (!Text.IsEmpty())
+            DrawText(Text, Tint, Screen.X + 11.f, Screen.Y - 10.f, nullptr, .81f * Scale);
     };
-    if (bPending) DrawStation(Objective, Accent);
-    if (bDispatch && Aden->ActiveLeg.Num() > 2)
+    if (bPending)
     {
-        if (FVector::Dist2D(Guide.Waypoint, Objective) > 100.)
-        {
-            FVector2D GuideScreen;
-            FCollisionQueryParams Query(SCENE_QUERY_STAT(VPDispatchCorner), true, Pawn);
-            const FVector Corner = Guide.Waypoint + FVector(0., 0., 135.);
-            if (PlayerOwner->ProjectWorldLocationToScreen(Corner, GuideScreen)
-                && GuideScreen.X > 16. && GuideScreen.X < Canvas->ClipX - 16.
-                && GuideScreen.Y > 16. && GuideScreen.Y < Canvas->ClipY - 16.
-                && !GetWorld()->LineTraceTestByChannel(Pawn->GetPawnViewLocation(), Corner, ECC_Visibility, Query))
-                DrawText(TEXT("NEXT TURN"), Note, GuideScreen.X, GuideScreen.Y, nullptr, .66f * Scale);
-        }
+        const bool bPrompt = *SceneBeat.Prompt && !Aden->bOperating && AVPAdenStoryState::CanReach(Pawn, Aden->Objective);
+        const FString Prompt = bPrompt ? FString::Printf(TEXT("[F] %s"), SceneBeat.Prompt) : FString();
+        DrawVisibleMarker(Aden->Objective, Accent, Prompt);
+        if (Aden->ActiveLeg.Num() > 2 && FVector::Dist2D(Guide.Waypoint, Aden->Objective) > 100.)
+            DrawVisibleMarker(Guide.Waypoint + FVector(0., 0., 120.), Assist, FString());
     }
-    if (bHasNote) DrawStation(Aden->NotePoint, Note);
-    DrawLiveFrameTelemetry(Scale, X);
+    if (Aden->bHasEscort)
+        DrawVisibleMarker(Aden->EscortPoint + FVector(0., 0., 96.), Assist, EscortName(Aden->Progress));
 
-    if (!Aden->Notice.IsEmpty() || Aden->bChoosingReport)
+    if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bHasEscort)
     {
-        const bool bFiling = bDispatch && Aden->bChoosingReport && Aden->Dispatch.Phase == VPAdenDispatch::Publish;
-        const float Bottom = Canvas->ClipY - 90.f * Scale;
-        DrawRect(Plate, X, Bottom, Width, 69.f * Scale);
-        DrawText(Aden->Notice, Ink, X + 12.f * Scale, Bottom + 12.f * Scale, nullptr, .78f * Scale);
-        if (Aden->bChoosingReport)
+        const float StatusY = Top + (bStatusOpen ? 164.f : 100.f) * Scale;
+        const float StatusWidth = 350.f * Scale;
+        DrawRect(Plate, Left, StatusY, StatusWidth, (Aden->bOperating ? 48.f : 31.f) * Scale);
+        FString Status;
+        if (Aden->bOperating)
         {
-            const TCHAR* Choices = !bDispatch ? TEXT("[1] Same message retransmitted       [2] Two separate incidents")
-                : VPAdenDispatch::IsReplyChoice(Aden->Dispatch)
-                    ? TEXT("[1] Signed public copy       [2] Telephone read-back")
-                    : Aden->Dispatch.Phase == VPAdenDispatch::Choose
-                    ? TEXT("[1] Witness interview           [2] Public notice")
-                    : TEXT("[1] Post verified update     [3] File with relief desk");
-            DrawText(Choices, Accent,
-                X + 12.f * Scale, Bottom + (bFiling ? 30.f : 35.f) * Scale, nullptr, .78f * Scale);
-            if (bFiling)
-                DrawText(TEXT("[2] Mark every name as confirmed"), Accent,
-                    X + 12.f * Scale, Bottom + 48.f * Scale, nullptr, .78f * Scale);
+            Status = TEXT("Keep facing the mechanism");
+            DrawRect(FLinearColor(.13f, .19f, .20f), Left + 12.f * Scale, StatusY + 33.f * Scale, StatusWidth - 24.f * Scale, 4.f * Scale);
+            DrawRect(Assist, Left + 12.f * Scale, StatusY + 33.f * Scale,
+                (StatusWidth - 24.f * Scale) * Aden->OperationFraction, 4.f * Scale);
         }
+        else if (Aden->WindowSeconds >= 0)
+            Status = Aden->WindowSeconds > 0 ? FString::Printf(TEXT("CROSSING LIGHT  %02d s"), Aden->WindowSeconds)
+                : FString(TEXT("LIGHT OUT   |   CALL THE DRIVER"));
+        else
+            Status = FString::Printf(TEXT("%s   |   %s"), EscortName(Aden->Progress),
+                Aden->bEscortWaiting ? TEXT("WAITING FOR YOU")
+                    : Aden->bEscortArrived ? TEXT("AT THE MEETING POINT") : TEXT("KEEP CLOSE"));
+        DrawText(Status, Aden->WindowSeconds >= 0 ? Accent : Assist, Left + 12.f * Scale, StatusY + 6.f * Scale, nullptr, .79f * Scale);
     }
-    if (Desktop && !Desktop->GetLocalNotice().IsEmpty())
+
+    const float Lower = Canvas->ClipY - 30.f * Scale;
+    const float SubtitleWidth = FMath::Min(Canvas->ClipX - 2.f * Left, 880.f * Scale);
+    const float SubtitleLeft = (Canvas->ClipX - SubtitleWidth) * .5f;
+    float DialogueBottom = Lower;
+    if (Aden->bChoosing)
     {
-        const float NoticeY = Canvas->ClipY - 120.f * Scale;
-        DrawRect(Plate, X, NoticeY, Width, 25.f * Scale);
-        DrawText(Desktop->GetLocalNotice(), Note, X + 12.f * Scale, NoticeY + 4.f * Scale, nullptr, .72f * Scale);
+        const bool bFirstChoice = Beat == Junction;
+        DrawRect(Plate, SubtitleLeft, Lower - 60.f * Scale, SubtitleWidth, 60.f * Scale);
+        DrawText(bFirstChoice ? TEXT("[1] Reach the families first") : TEXT("[1] Announce the open door once"),
+            Accent, SubtitleLeft + 16.f * Scale, Lower - 51.f * Scale, nullptr, .95f * Scale);
+        DrawText(bFirstChoice ? TEXT("[2] Reach the clinic first") : TEXT("[2] Send local runners"),
+            Accent, SubtitleLeft + 16.f * Scale, Lower - 27.f * Scale, nullptr, .95f * Scale);
+        DialogueBottom -= 68.f * Scale;
     }
+    if (!Aden->Dialogue.IsEmpty())
+    {
+        const int32 MaxGlyphs = FMath::Max(14, FMath::FloorToInt((SubtitleWidth - 32.f * Scale) / (21.f * Scale)));
+        TArray<FString> Words, Lines;
+        Aden->Dialogue.ParseIntoArrayWS(Words);
+        FString Row;
+        for (const FString& Word : Words)
+        {
+            if (!Row.IsEmpty() && Row.Len() + 1 + Word.Len() > MaxGlyphs)
+            {
+                Lines.Add(MoveTemp(Row));
+                Row.Reset();
+            }
+            if (!Row.IsEmpty()) Row += TEXT(" ");
+            Row += Word;
+        }
+        if (!Row.IsEmpty()) Lines.Add(MoveTemp(Row));
+        const float PlateHeight = (14.f + 23.f * Lines.Num()) * Scale;
+        DrawRect(Plate, SubtitleLeft, DialogueBottom - PlateHeight, SubtitleWidth, PlateHeight);
+        const FSlateFontInfo SubtitleFont(DialogueFontPath(), 15.f * Scale,
+            EFontHinting::Default, FFontOutlineSettings());
+        for (int32 I = 0; I < Lines.Num(); ++I)
+        {
+            FCanvasTextItem Subtitle(FVector2D(SubtitleLeft + 16.f * Scale, DialogueBottom - PlateHeight + (6.f + I * 23.f) * Scale),
+                FText::FromString(Lines[I]), SubtitleFont, Ink);
+            Canvas->DrawItem(Subtitle);
+        }
+        DialogueBottom -= PlateHeight + 7.f * Scale;
+    }
+    const FString Feedback = Aden->bSaveFailed ? FString(TEXT("Checkpoint could not be written.")) :
+        Desktop ? Desktop->GetLocalNotice() : FString();
+    if (!Feedback.IsEmpty())
+    {
+        DrawRect(Plate, SubtitleLeft, DialogueBottom - 24.f * Scale, SubtitleWidth, 23.f * Scale);
+        DrawText(Feedback, Assist, SubtitleLeft + 16.f * Scale, DialogueBottom - 21.f * Scale, nullptr, .76f * Scale);
+    }
+    DrawLiveFrameTelemetry(Scale, Left);
 }
 
 void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)

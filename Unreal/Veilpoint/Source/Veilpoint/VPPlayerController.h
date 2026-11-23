@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "VPAdenMissionRules.h"
+#include "VPAdenCampaignRules.h"
 #include "VPPlayerController.generated.h"
 
 // Local desktop presentation. Opening a network menu never pauses the server.
@@ -66,7 +66,7 @@ private:
     void TickAdenAudio();
     UPROPERTY(Transient)
     TObjectPtr<class UAudioComponent> AdenWind;
-    FString LastAdenCue;
+    int32 LastAdenBeat = INDEX_NONE;
     FVector PreviousAdenAudioPosition = FVector::ZeroVector;
     double AdenStepDistance = 0.;
     int32 AdenStepIndex = 0;
@@ -78,10 +78,9 @@ private:
     FString LocalNotice;
     double NoticeExpiresAt = 0.0;
     void ShowLocalNotice(const FString& Message);
-    void ReportAdenRetransmission();
-    void ReportAdenTwoIncidents();
-    void FileAdenReportInternally();
-    void SendAdenReport(VPAdenMission::EInput Choice);
+    void ChooseAdenFirst();
+    void ChooseAdenSecond();
+    void SendAdenChoice(VPAdenCampaign::EInput Choice);
     void ToggleAdenJournal();
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;

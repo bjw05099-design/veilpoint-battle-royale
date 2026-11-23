@@ -30,21 +30,12 @@ if ($content -notmatch 'Aden native source loaded: 70 tiles, 183 roads, 4865 foo
     throw 'Packaged Aden collision, progression or SaveGame validation failed.'
 }
 $report=Get-Content -LiteralPath (Join-Path $captures 'visual-smoke.json') -Raw | ConvertFrom-Json
-if ($report.schema -ne 'veilpoint-native-aden-visual-v1' -or $report.allStationsVerified -ne $true -or
-    $report.confirmed -ne 3 -or $report.relaySlipSaved -ne $true -or $report.debriefSaved -ne $true -or
-    $report.dispatchPhase -ne 5 -or $report.witnessCompleted -ne $true -or $report.noticeCompleted -ne $true -or
-    $report.publicUpdateSaved -ne $true -or $report.internalHandoffRestored -ne $true -or
-    $report.followupStep -ne 3 -or $report.publicCorrectionVerified -ne $true -or $report.deskCorrectionVerified -ne $true -or
-    $report.receiptStep -ne 3 -or $report.publicReceiptVerified -ne $true -or $report.deskReceiptVerified -ne $true -or
-    $report.receiptLegacyResumeVerified -ne $true -or $report.receiptPublicBackupVerified -ne $true -or
-    $report.receiptDeskBackupVerified -ne $true -or
-    $report.receiptRouteRemainingMetres -lt 70 -or $report.receiptRouteRemainingMetres -gt 76) {
-    throw 'Aden captured an incomplete native story.'
-}
-if ($report.replyStep -ne 4 -or $report.publicReplyVerified -ne $true -or $report.deskReplyVerified -ne $true -or
-    $report.replyLegacyResumeVerified -ne $true -or $report.publicReplyMetres -lt 350 -or
-    $report.publicReplyMetres -gt 352 -or $report.deskReplyMetres -lt 456 -or $report.deskReplyMetres -gt 459) {
-    throw 'Aden CH05 paths, evidence decisions or version 6 checkpoint migration failed.'
+if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChaptersVerified -ne $true -or
+    $report.campaignChapters -ne 12 -or $report.koreanFontStaged -ne $true -or
+    $report.familiesCrossingRadioEnding -ne $true -or $report.clinicBackStreetRunnersEnding -ne $true -or
+    $report.escortLeashVerified -ne $true -or $report.finalPairVerified -ne $true -or $report.operationAbortVerified -ne $true -or
+    $report.legacyAndBackupVerified -ne $true) {
+    throw 'Aden campaign, alternate endings, Korean subtitles or checkpoint recovery failed.'
 }
 if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 -or
     $report.regionalBackdropTriangles -lt 20000 -or $report.regionalSharedEdges -ne 97 -or
@@ -92,10 +83,10 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
 $frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam',
-    'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-debrief','aden-dispatch-route',
-    'aden-zoomed-field-map','aden-route-overview-witness','aden-route-overview-notice','aden-dispatch-decision',
-    'aden-dispatch-complete','aden-night-roster','aden-receipt-route','aden-receipt-archive',
-    'aden-reply-public','aden-reply-desk','aden-reply-complete')
+    'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
+    'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
+    'aden-campaign-crossing-route','aden-campaign-back-street-route',
+    'aden-campaign-ending-crossing','aden-campaign-ending-back-street')
 foreach ($name in $frames) {
     $frame=$report.$name
     $png=Join-Path $captures ($name+'.png')
@@ -104,9 +95,7 @@ foreach ($name in $frames) {
         throw "Missing or incomplete packaged Aden render: $name"
     }
 }
-foreach ($name in @('aden-world','aden-debrief')) {
-    if ($report.$name.warmGroundFraction -lt .22) {
-        throw "Packaged Aden $name did not render enough visible terrain below the horizon."
-    }
+if ($report.'aden-world'.warmGroundFraction -lt .22) {
+    throw 'Packaged Aden world did not render enough visible terrain below the horizon.'
 }
-Write-Host '[VEILPOINT] Packaged native Aden route, observations, both atlas views, story and SaveGame passed.'
+Write-Host '[VEILPOINT] Packaged native Aden terrain, 12 campaign chapters, paired paths and SaveGame passed.'

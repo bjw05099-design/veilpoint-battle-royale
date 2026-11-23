@@ -4,34 +4,76 @@ import argparse
 import math
 from pathlib import Path
 
-# Local projected centimetres. Changed only when the registered source
-# revision or the fictional mission's authored walking legs change.
+# Registered public centrelines in projected centimetres. The story places
+# fictional people and temporary props on these roads.
 ORIGIN = (412321, 85622)
+RADIO = (411325, 84501)
+BARRIER = (409864, 82856)
+SAFE_LANE = (408336, 81136)
 BRIEF = (414546, 88127)
 FIRST_TURN = (416771, 90631)
 JUNCTION = (421279, 87128)
-WITNESS = (425708, 83517)
-NOTICE = (414451, 79690)
+FAMILY_PICKUP = (425708, 83517)
+CLINIC_PICKUP = (414451, 79690)
 MERGE = (419145, 76078)
-DESK = (415785, 72207)
-ARCHIVE = (409640, 65128)
-CALLBACK_JUNCTION = (393281, 45881)
-PUBLIC_CONTACT = (389456, 50834)
-DESK_CONTACT = (397191, 41768)
+POWER = (415785, 72207)
+LIGHT_SHELTER = (409640, 65128)
+BACK_SHELTER = (398106, 60962)
+LIGHT_TRANSFER = (402345, 56724)
+BACK_TRANSFER = (389456, 50834)
+FORK = (393281, 45881)
+CLINIC_CONTACT = (397191, 41768)
+CLINIC_EXIT = (406949, 52913)
+FAMILY_EXIT = (387150, 53584)
+FAMILY_BACK_EXIT = (383199, 49916)
+WARD_FORK = (400567, 38966)
+NADIA = (405776, 36488)
+RADIO_GATE = (410482, 35868)
+RUNNER_GATE = (401998, 37934)
+RADIO_ASSEMBLY = (412994, 35763)
+RUNNER_ASSEMBLY = (408317, 36152)
+WEST_YARD = (385570, 55287)
+FAR_YARD = (381683, 50140)
 PATHS = {
-    "Brief": [ORIGIN, BRIEF],
-    "Decision": [BRIEF, FIRST_TURN, JUNCTION],
-    "Witness": [JUNCTION, WITNESS],
-    "Notice": [JUNCTION, NOTICE],
-    "FromWitness": [WITNESS, MERGE],
-    "FromNotice": [NOTICE, MERGE],
-    "Handoff": [MERGE, DESK],
-    "ReceiptArchive": [MERGE, ARCHIVE],
-    "ReplyJunction": [ARCHIVE, (402345, 56724), CALLBACK_JUNCTION],
-    "ReplyPublicContact": [CALLBACK_JUNCTION, PUBLIC_CONTACT],
-    "ReplyDeskContact": [CALLBACK_JUNCTION, (395390, 43561), DESK_CONTACT],
-    "ReplyPublicReview": [PUBLIC_CONTACT, (387150, 53584)],
-    "ReplyDeskReview": [DESK_CONTACT, (406949, 52913)],
+    "Radio": [ORIGIN, RADIO],
+    "Barrier": [RADIO, BARRIER],
+    "LeadMara": [BARRIER, SAFE_LANE],
+    "Junction": [SAFE_LANE, ORIGIN, BRIEF, FIRST_TURN, JUNCTION],
+    "FamiliesPickup": [JUNCTION, FAMILY_PICKUP],
+    "ClinicPickup": [JUNCTION, CLINIC_PICKUP],
+    "FamiliesEscort": [FAMILY_PICKUP, MERGE],
+    "ClinicEscort": [CLINIC_PICKUP, MERGE],
+    "RestorePower": [MERGE, POWER],
+    "ReachSignal": [POWER, MERGE],
+    "CrossingShelter": [MERGE, LIGHT_SHELTER],
+    "BackStreetShelter": [MERGE, CLINIC_PICKUP, BACK_SHELTER],
+    "CrossingEscort": [LIGHT_SHELTER, LIGHT_TRANSFER],
+    "BackStreetEscort": [BACK_SHELTER, BACK_TRANSFER],
+    "CrossingFamiliesLastStop": [LIGHT_TRANSFER, FORK, BACK_TRANSFER],
+    "BackStreetFamiliesLastStop": [BACK_TRANSFER, (388034, 49251)],
+    "CrossingClinicLastStop": [LIGHT_TRANSFER, FORK, (395390, 43561), CLINIC_CONTACT],
+    "BackStreetClinicLastStop": [BACK_TRANSFER, FORK, (395390, 43561), CLINIC_CONTACT],
+    "CrossingFamiliesExit": [BACK_TRANSFER, FAMILY_EXIT],
+    "BackStreetFamiliesExit": [(388034, 49251), FAMILY_BACK_EXIT],
+    "ClinicExit": [CLINIC_CONTACT, CLINIC_EXIT],
+    "CrossingFindDogyeom": [FAMILY_EXIT, BACK_TRANSFER, FORK],
+    "BackStreetFindDogyeom": [FAMILY_BACK_EXIT, (388034, 49251), BACK_TRANSFER, FORK],
+    "ClinicFindDogyeom": [CLINIC_EXIT, CLINIC_CONTACT, (395390, 43561), FORK],
+    "LeadDogyeom": [FORK, (395390, 43561), CLINIC_CONTACT, WARD_FORK],
+    "MeetNadia": [WARD_FORK, (401592, 38227), RUNNER_GATE, NADIA],
+    "OpenRadioRelay": [NADIA, (406433, 36379), RUNNER_ASSEMBLY, RADIO_GATE],
+    "OpenRunnerRelay": [NADIA, RUNNER_GATE],
+    "LeadRadioVolunteers": [RADIO_GATE, (411734, 35736), RADIO_ASSEMBLY],
+    "LeadRunnerVolunteers": [RUNNER_GATE, NADIA, (406433, 36379), RUNNER_ASSEMBLY],
+    "ReachRadioWard": [RADIO_ASSEMBLY, (411734, 35736), RADIO_GATE],
+    "ReachRunnerWard": [RUNNER_ASSEMBLY, RADIO_GATE],
+    "LeadWard": [RADIO_GATE, RUNNER_ASSEMBLY, (406433, 36379), NADIA],
+    "OpenYard": [NADIA, RUNNER_GATE],
+    "MoveAssembly": [RUNNER_GATE, (401592, 38227), WARD_FORK, CLINIC_CONTACT],
+    "FindMara": [CLINIC_CONTACT, (395390, 43561), FORK],
+    "SecureLane": [FORK, BACK_TRANSFER],
+    "LeadFinal": [BACK_TRANSFER, FAMILY_EXIT, WEST_YARD],
+    "FinalCall": [WEST_YARD, FAR_YARD, (379654, 50463)],
 }
 
 
@@ -78,6 +120,12 @@ def generate(data):
                 raise ValueError(f"{name}: projected footprint clearance")
         points = ', '.join('{' + str(x) + ', ' + str(y) + '}' for x, y in leg)
         result.append(f'inline constexpr FPoint {name}[] = {{{points}}};')
+    result.append('enum ELeg { ' + ', '.join('L_' + name for name in PATHS) + ', Count };')
+    result.append('struct FLeg { const FPoint* Points; int Length; };')
+    result.append('inline constexpr FLeg Legs[] = {')
+    result.extend(f'    {{{name}, {len(leg)}}},' for name, leg in PATHS.items())
+    result.append('};')
+    result.append('static_assert(sizeof(Legs) / sizeof(Legs[0]) == Count);')
     return '\n'.join([*result, '}', ''])
 
 

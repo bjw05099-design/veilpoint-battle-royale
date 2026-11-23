@@ -6,145 +6,152 @@
 #include "GameFramework/SaveGame.h"
 #include "Misc/Optional.h"
 #include "VPAdenAtlasProjection.h"
-#include "VPAdenMissionRules.h"
-#include "VPAdenDispatchRules.h"
+#include "VPAdenCampaignRules.h"
 #include "VPAdenStoryGameMode.generated.h"
 
 class AVPAdenSourceWorld;
+class AVPLastBroadcastEscort;
 class AVPCharacter;
 class AVPPlayerController;
 class USceneCaptureComponent2D;
 class FJsonObject;
 
-// Presentation state for the standalone story. Only GameMode publishes it.
 UCLASS()
 class AVPAdenStoryState : public AGameStateBase
 {
     GENERATED_BODY()
+
 public:
     static bool CanReach(const AVPCharacter* Pawn, const FVector& Point);
     bool HasAtlasRoute() const { return ActiveLeg.Num() >= 2; }
     VPAdenAtlas::FExtent AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const;
+
     bool bSourceReady = false;
-    bool bChoosingReport = false;
-    int32 Confirmed = 0;
-    int32 Notes = 0;
-    VPAdenMission::ENote AvailableNote = VPAdenMission::None;
-    FVector NotePoint = FVector::ZeroVector;
-    VPAdenDispatch::FState Dispatch;
+    bool bChoosing = false;
+    bool bOperating = false;
+    bool bEscortWaiting = false;
+    bool bEscortArrived = false;
+    bool bHasEscort = false;
+    bool bSaveFailed = false;
+    int32 WindowSeconds = -1;
+    float OperationFraction = 0.f;
+    VPAdenCampaign::FProgress Progress;
     TArray<FVector> ActiveLeg;
-    bool bDispatchActive = false;
     FVector Objective = FVector::ZeroVector;
+    FVector EscortPoint = FVector::ZeroVector;
     TWeakObjectPtr<AVPAdenSourceWorld> Source;
-    FString Notice;
+    FString Dialogue;
 };
 
 UCLASS()
 class UVPAdenStoryCheckpoint : public USaveGame
 {
     GENERATED_BODY()
+
 public:
     UPROPERTY(SaveGame)
-    // Keep the original default for saves written before later versions.
     int32 Version = 1;
 
     UPROPERTY(SaveGame)
     FString Revision;
 
+    // Keep the original property names so versions 1–7 can migrate in place.
     UPROPERTY(SaveGame)
     int32 Confirmed = 0;
-
     UPROPERTY(SaveGame)
     int32 Notes = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchPhase = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchRoute = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchDisposition = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchFollowup = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchReceipt = 0;
-
     UPROPERTY(SaveGame)
     int32 DispatchReply = 0;
-};
 
-struct FVPAdenCampaignCheckpoint
-{
-    VPAdenMission::FProgress Broadcast;
-    VPAdenDispatch::FState Dispatch;
-    bool HasDispatch() const { return (Broadcast.Notes & VPAdenMission::ReturnDebrief) != 0; }
-    bool operator==(const FVPAdenCampaignCheckpoint& Other) const
-    {
-        return Broadcast.Confirmed == Other.Broadcast.Confirmed && Broadcast.Notes == Other.Broadcast.Notes &&
-            Dispatch.Phase == Other.Dispatch.Phase && Dispatch.Route == Other.Dispatch.Route &&
-            Dispatch.Disposition == Other.Dispatch.Disposition && Dispatch.Followup == Other.Dispatch.Followup &&
-            Dispatch.Receipt == Other.Dispatch.Receipt && Dispatch.Reply == Other.Dispatch.Reply;
-    }
+    UPROPERTY(SaveGame)
+    int32 CampaignBeat = 0;
+    UPROPERTY(SaveGame)
+    int32 CampaignRoute = 0;
+    UPROPERTY(SaveGame)
+    int32 CampaignPassage = 0;
+    UPROPERTY(SaveGame)
+    int32 CampaignRelay = 0;
+    UPROPERTY(SaveGame)
+    int32 SignalMilliseconds = 0;
 };
 
 UCLASS()
 class VEILPOINT_API AVPAdenStoryGameMode : public AGameModeBase
 {
     GENERATED_BODY()
+
 public:
     AVPAdenStoryGameMode();
     virtual void StartPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
     virtual AActor* ChoosePlayerStart_Implementation(AController* Controller) override;
 
-    void TryInteraction(const AVPCharacter* Pawn, VPAdenMission::EInput Input);
-    bool CanReach(const AVPCharacter* Pawn) const;
+    void TryInteraction(const AVPCharacter* Pawn, VPAdenCampaign::EInput Input);
+    bool IsChoosing() const { return bChoosing; }
     bool PersistStoryCheckpoint();
     bool ReturnToCheckpoint(AVPCharacter* Pawn);
-    bool IsSourceReady() const { return Source != nullptr; }
-    int32 GetConfirmed() const { return Confirmed; }
-    bool IsChoosingReport() const { return bChoosingReport; }
-    FVector GetObjective() const;
 
 private:
     bool PrepareSource();
-    void PublishState();
-    TOptional<FVPAdenCampaignCheckpoint> ReadCheckpoint(bool* bUsedBackup = nullptr) const;
-    TOptional<FVPAdenCampaignCheckpoint> ReadCheckpointSlot(const FString& Slot) const;
-    bool WriteCheckpointSlot(const FString& Slot, const FVPAdenCampaignCheckpoint& Checkpoint) const;
-    FTransform RecoveryTransform(FVPAdenCampaignCheckpoint Checkpoint) const;
-    void TryDispatch(const AVPCharacter* Pawn, VPAdenMission::EInput Input);
-    FVector GetNotePoint(VPAdenMission::ENote Note) const;
+    void ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoint);
+    void EnterBeat(VPAdenCampaign::FProgress Next);
+    void PublishScene();
+    void UpdateRescueProps(float OperationFraction);
+    void SetDialogue(const TCHAR* Line);
+    void EnsureEscort(AVPCharacter* Pawn);
+    void UpdateBeat(AVPCharacter* Pawn, double Now);
+    bool CanReach(const AVPCharacter* Pawn) const;
+    FVector GetObjective() const;
+
+    VPAdenCampaign::FCheckpoint CaptureCheckpoint() const;
+    TOptional<VPAdenCampaign::FCheckpoint> ReadCheckpoint(bool* bUsedBackup = nullptr) const;
+    TOptional<VPAdenCampaign::FCheckpoint> ReadCheckpointSlot(const FString& Slot) const;
+    bool WriteCheckpointSlot(const FString& Slot, VPAdenCampaign::FCheckpoint Checkpoint) const;
+    FTransform RecoveryTransform(VPAdenCampaign::FProgress Saved) const;
+
     void BeginDiagnostic();
     void RunDiagnostic();
-    void CaptureDebrief();
-    void VerifyDispatch();
-    void CaptureReplyCompletion();
-    bool VerifyDispatchFollowup(AVPCharacter* Pawn);
-    bool VerifyReceiptChapter(AVPCharacter* Pawn);
-    bool VerifyReplyChapter(AVPCharacter* Pawn);
-    bool VerifyCheckpointRecovery(AVPCharacter* Pawn);
-    bool VerifyAtlasRouteOverview(AVPPlayerController* Desktop, const AVPCharacter* Pawn, bool bWitness);
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
     bool VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn);
+    bool VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn, int32 Route, bool bOnTime, int32 Relay);
+    bool VerifyEscort(AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now);
+    bool VerifyAtlasRoute(AVPPlayerController* Desktop, const AVPCharacter* Pawn, const TCHAR* FrameName);
+    bool VerifySavedCampaign(AVPCharacter* Pawn);
+    bool CaptureFrame(AVPPlayerController* Desktop, const TCHAR* Name);
     void FinishDiagnostic(bool bPassed);
+
     TSharedPtr<FJsonObject> DiagnosticReport;
 
     UPROPERTY(Transient)
     TObjectPtr<USceneCaptureComponent2D> DiagnosticCapture;
-
     UPROPERTY(Transient)
     TObjectPtr<AVPAdenSourceWorld> Source;
-
     UPROPERTY(Transient)
     TObjectPtr<AActor> PlayerStart;
+    UPROPERTY(Transient)
+    TObjectPtr<AVPLastBroadcastEscort> Escort;
+    UPROPERTY(Transient)
+    TObjectPtr<AVPLastBroadcastEscort> FinalNeighbor;
 
+    VPAdenCampaign::FProgress Progress;
+    FString Dialogue;
+    double DialogueUntil = -1.;
+    double DialogueStarted = -1.;
+    double OperationStarted = -1.;
+    double WindowEndsAt = -1.;
+    double NextEscortAttempt = 0.;
     bool bSourceChecked = false;
-    bool bChoosingReport = false;
-    int32 Confirmed = 0;
-    int32 Notes = 0;
-    VPAdenDispatch::FState Dispatch;
-    FString Notice;
+    bool bChoosing = false;
+    bool bMovingLinePlayed = false;
+    bool bSaveFailed = false;
 };

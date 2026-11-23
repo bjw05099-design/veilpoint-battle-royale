@@ -1,6 +1,7 @@
 #include "VPAdenSourceWorld.h"
 
 #include "Components/BoxComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -14,7 +15,7 @@
 #include "ProceduralMeshComponent.h"
 #include "VPAdenEmbedded.h"
 #include "VPAdenAtlasProjection.h"
-#include "VPAdenDispatchRouteData.h"
+#include "VPAdenCampaignRoutes.h"
 #include "VPAdenDrape.h"
 #include "VPAdenFootprint.h"
 #include "VPAdenRegionalData.h"
@@ -747,33 +748,17 @@ bool AVPAdenSourceWorld::BuildSource()
     for (const FVector2D& Point : Geometry.Stations)
         Stations.Add(Geometry.Position(Point));
     CreateFieldStations();
-    const auto RegisterLeg = [&](TArray<FVector>& Leg, const auto& Points)
+    CreateRescueProps();
+    CampaignLegs.SetNum(VPAdenDispatchData::Count);
+    for (int32 LegIndex = 0; LegIndex < CampaignLegs.Num(); ++LegIndex)
     {
-        for (const auto Point : Points)
-            Leg.Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
-    };
-    RegisterLeg(DispatchLegs[0], VPAdenDispatchData::Brief);
-    RegisterLeg(DispatchLegs[1], VPAdenDispatchData::Decision);
-    RegisterLeg(DispatchLegs[2], VPAdenDispatchData::Witness);
-    RegisterLeg(DispatchLegs[3], VPAdenDispatchData::Notice);
-    RegisterLeg(DispatchLegs[4], VPAdenDispatchData::FromWitness);
-    RegisterLeg(DispatchLegs[5], VPAdenDispatchData::FromNotice);
-    RegisterLeg(DispatchLegs[6], VPAdenDispatchData::Handoff);
-    RegisterLeg(ReceiptArchiveLeg, VPAdenDispatchData::ReceiptArchive);
-    RegisterLeg(ReplyLegs[0], VPAdenDispatchData::ReplyJunction);
-    RegisterLeg(ReplyLegs[1], VPAdenDispatchData::ReplyPublicContact);
-    RegisterLeg(ReplyLegs[2], VPAdenDispatchData::ReplyDeskContact);
-    RegisterLeg(ReplyLegs[3], VPAdenDispatchData::ReplyPublicReview);
-    RegisterLeg(ReplyLegs[4], VPAdenDispatchData::ReplyDeskReview);
-    const auto ReverseLeg = [](const TArray<FVector>& Forward, TArray<FVector>& Reverse)
-    {
-        Reverse.Reserve(Forward.Num());
-        for (int32 Index = Forward.Num() - 1; Index >= 0; --Index)
-            Reverse.Add(Forward[Index]);
-    };
-    ReverseLeg(DispatchLegs[6], FollowupToLedger);
-    ReverseLeg(DispatchLegs[4], FollowupToPublicCopy);
-    ReverseLeg(DispatchLegs[5], FollowupToDeskCopy);
+        const auto& Leg = VPAdenDispatchData::Legs[LegIndex];
+        for (int32 PointIndex = 0; PointIndex < Leg.Length; ++PointIndex)
+        {
+            const auto Point = Leg.Points[PointIndex];
+            CampaignLegs[LegIndex].Add(Geometry.Position(FVector2D(Point.X, Point.Y)));
+        }
+    }
     SourceRevision = MoveTemp(Geometry.Revision);
     UE_LOG(LogVPAdenSource, Display, TEXT("Aden native source loaded: %d tiles, %d roads, %d footprints (%s)"),
         GroundSectors, Geometry.Roads.Num(), Geometry.Footprints.Num(), *SourceRevision);
@@ -783,6 +768,17 @@ bool AVPAdenSourceWorld::BuildSource()
 bool AVPAdenSourceWorld::IsPlayableGround(const FHitResult& Hit) const
 {
     return TerrainCollision && Hit.GetComponent() == TerrainCollision.Get();
+}
+
+bool AVPAdenSourceWorld::TraceStoryGround(const FVector& Around, FVector& Ground) const
+{
+    if (!TerrainCollision) return false;
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenStoryGround), true);
+    const FVector Up(0., 0., 1500.);
+    FHitResult Hit;
+    if (!TerrainCollision->LineTraceComponent(Hit, Around + Up, Around - Up, Params)) return false;
+    Ground = Hit.ImpactPoint;
+    return true;
 }
 
 FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
@@ -1029,47 +1025,9 @@ int32 AVPAdenSourceWorld::VisitAtlasLines(VPAdenAtlas::FExtent View,
     return Checked;
 }
 
-const TArray<FVector>& AVPAdenSourceWorld::DispatchLeg(VPAdenDispatch::FState State) const
+const TArray<FVector>& AVPAdenSourceWorld::CampaignLeg(VPAdenCampaign::FProgress Progress) const
 {
-    using namespace VPAdenDispatch;
-    const bool bWitness = State.Route == Witness;
-    if (IsReplyChapter(State))
-    {
-        const bool bPublic = State.Disposition == PublicUpdate;
-        if (State.Reply == ReplyAtJunction) return ReplyLegs[0];
-        if (State.Reply == ReplyAtContact) return ReplyLegs[bPublic ? 1 : 2];
-        return ReplyLegs[bPublic ? 3 : 4];
-    }
-    if (IsReceiptChapter(State))
-    {
-        if (State.Receipt >= ReceiptAtArchive) return ReceiptArchiveLeg;
-        if (State.Receipt == ReceiptAtLedger)
-            return DispatchLegs[State.Disposition == PublicUpdate ? 4 : 5];
-    }
-    switch (State.Phase)
-    {
-    case Brief: return DispatchLegs[0];
-    case Choose: return DispatchLegs[1];
-    case Verify: return DispatchLegs[bWitness ? 2 : 3];
-    case Compare: return DispatchLegs[bWitness ? 4 : 5];
-    case Complete:
-        if (State.Followup == ReturnToLedger) return FollowupToLedger;
-        if (State.Followup >= DeliverCorrection)
-            return State.Disposition == PublicUpdate ? FollowupToPublicCopy : FollowupToDeskCopy;
-        return DispatchLegs[6];
-    default: return DispatchLegs[6];
-    }
-}
-
-FVector AVPAdenSourceWorld::DispatchResume(VPAdenDispatch::FState State) const
-{
-    const auto& Leg = DispatchLeg(State);
-    if (Leg.IsEmpty()) return Station(0);
-    using namespace VPAdenDispatch;
-    if (IsChapterHandoff(State))
-        return Leg.Last() - (Leg.Last() - Leg[Leg.Num() - 2]).GetSafeNormal() * 145.;
-    if (!HasObjective(State)) return Leg.Last();
-    return Leg[0];
+    return CampaignLegs[VPAdenCampaign::RouteLeg(Progress)];
 }
 
 namespace
@@ -1121,6 +1079,66 @@ void AVPAdenSourceWorld::ShowFieldStation(int32 Slot, bool bVisible, const FVect
         }
         Mesh->SetVisibility(bVisible);
     }
+}
+
+void AVPAdenSourceWorld::CreateRescueProps()
+{
+    auto* Color = UMaterialInstanceDynamic::Create(StationMaterial, this);
+    Color->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.36f, .19f, .09f));
+    for (int32 Slot = 0; Slot < 4; ++Slot)
+    {
+        auto* Bar = NewObject<UStaticMeshComponent>(this);
+        AddInstanceComponent(Bar);
+        Bar->SetupAttachment(GetRootComponent());
+        Bar->SetMobility(EComponentMobility::Movable);
+        Bar->SetStaticMesh(StationMesh);
+        Bar->SetMaterial(0, Color);
+        Bar->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+        Bar->SetGenerateOverlapEvents(false);
+        Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Bar->SetVisibility(false);
+        Bar->SetRelativeScale3D(FVector(.16, 1.42, 1.16));
+        Bar->RegisterComponent();
+        RescueBarriers.Add(Bar);
+    }
+    CrossingLight = NewObject<UPointLightComponent>(this);
+    AddInstanceComponent(CrossingLight);
+    CrossingLight->SetupAttachment(GetRootComponent());
+    CrossingLight->SetMobility(EComponentMobility::Movable);
+    CrossingLight->SetAttenuationRadius(1850.f);
+    CrossingLight->SetLightColor(FLinearColor(1.f, .52f, .17f));
+    CrossingLight->SetIntensity(4800.f);
+    CrossingLight->SetCastShadows(false);
+    CrossingLight->SetVisibility(false);
+    CrossingLight->RegisterComponent();
+}
+
+void AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised)
+{
+    if (!RescueBarriers.IsValidIndex(Slot)) return;
+    auto* Bar = RescueBarriers[Slot].Get();
+    if (bVisible)
+    {
+        const FVector Direction = (Next - Start).GetSafeNormal2D();
+        FVector Pivot = Start + Direction * 85.;
+        TraceStoryGround(Pivot, Pivot);
+        Bar->SetWorldLocationAndRotation(Pivot + FVector(0., 0., 58. + 244. * Raised), Direction.Rotation());
+    }
+    Bar->SetVisibility(bVisible);
+    Bar->SetCollisionEnabled(bVisible && Raised < 1.f ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+}
+
+void AVPAdenSourceWorld::SetCrossingLight(const FVector& Signal, bool bOn)
+{
+    if (!CrossingLight) return;
+    if (bOn)
+        CrossingLight->SetWorldLocation(Signal + FVector(0., 0., 230.));
+    CrossingLight->SetVisibility(bOn);
+}
+
+bool AVPAdenSourceWorld::IsRescueBarrierBlocking(int32 Slot) const
+{
+    return RescueBarriers.IsValidIndex(Slot) && RescueBarriers[Slot]->GetCollisionEnabled() != ECollisionEnabled::NoCollision;
 }
 
 USoundBase* AVPAdenSourceWorld::GetWindSound() const { return WindSound.Get(); }

@@ -1,5 +1,9 @@
 # VEILPOINT — Canon update: Korean special-forces captain, NIS cast, combat-first campaign
 
+The [current 12-chapter screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md) governs
+chapter names, scene order, dialogue and the ending. Use the established cast,
+premise and campaign-wide activity budget below when producing its scenes.
+
 **Approved by owner:** 2026-10-27. **Priority:** binding narrative/design direction for future campaign work. **Implementation status:** specification, not 12 playable hours or a military combat system.
 
 ## Binding story inciting incident — 2026-11-08 owner clarification

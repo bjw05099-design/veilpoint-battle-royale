@@ -1,4 +1,8 @@
 # VEILPOINT — STORY / The Broken Signal
+
+See the [current campaign screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md) for
+the production plot, character dialogue and ending.
+
 **Narrative blueprint 0.1 · earlier 8-chapter outline, now superseded by 12-chapter production target**
 > **New playable protagonist and combat focus:** The binding current story design is [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md): Korean special-forces captain **이수혁 대위**, fictional NIS agents, and a combat-led 12-hour campaign. All appearances below of Mara as a playable lead or the eight-chapter outline are historical brainstorming, not current design. The existing CH01 browser slice now contains movement/records plus a short, non-graphic fictional three-human-opponent encounter with finite ammunition and cover-aware perception, but it is **not** a completed authored combat-first chapter or native battle scene.
 

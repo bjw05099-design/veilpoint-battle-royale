@@ -315,13 +315,13 @@ void AVPPlayerController::TickAdenAudio()
         }
         bHasAdenAudioPosition = false;
         AdenStepDistance = 0.;
-        if (State) LastAdenCue = State->Notice;
+        if (State) LastAdenBeat = State->Progress.Beat;
         return;
     }
     if (!AdenWind)
     {
         AdenWind = UGameplayStatics::SpawnSound2D(this, Source->GetWindSound(), .22f, 1.f, 0.f, nullptr, false, false);
-        LastAdenCue = State->Notice;
+        LastAdenBeat = State->Progress.Beat;
     }
     if (AdenWind && bAdenAudioPaused != bDesktopMenuOpen)
     {
@@ -329,11 +329,11 @@ void AVPPlayerController::TickAdenAudio()
         AdenWind->SetPaused(bAdenAudioPaused);
     }
 
-    if (LastAdenCue != State->Notice)
+    if (LastAdenBeat != State->Progress.Beat)
     {
-        LastAdenCue = State->Notice;
-        if (LastAdenCue.EndsWith(TEXT("  |  Saved.")) && !bDesktopMenuOpen)
-            UGameplayStatics::PlaySound2D(this, Source->GetDossierSound(), .15f);
+        LastAdenBeat = State->Progress.Beat;
+        if (!bDesktopMenuOpen && (LastAdenBeat == VPAdenCampaign::Barrier || LastAdenBeat == VPAdenCampaign::ReachSignal))
+            UGameplayStatics::PlaySoundAtLocation(this, Source->GetDossierSound(), State->Objective, .28f);
     }
     const FVector Position = ControlledCharacter->GetActorLocation();
     const double Moved = bHasAdenAudioPosition ? FVector::Dist2D(Position, PreviousAdenAudioPosition) : 0.;
@@ -386,9 +386,8 @@ void AVPPlayerController::SetupInputComponent()
     // Consume the controller click: menu clicks must never also fire the pawn.
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AVPPlayerController::MenuClick).bExecuteWhenPaused = true;
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
-    InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ReportAdenRetransmission);
-    InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ReportAdenTwoIncidents);
-    InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVPPlayerController::FileAdenReportInternally);
+    InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ChooseAdenFirst);
+    InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ChooseAdenSecond);
     InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
     InputComponent->BindKey(EKeys::G, IE_Pressed, this, &AVPPlayerController::ToggleAdenAtlasRouteOverview).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
@@ -439,14 +438,13 @@ void AVPPlayerController::ToggleAdenJournal()
         bAdenJournalOpen = !bAdenJournalOpen;
 }
 
-void AVPPlayerController::ReportAdenRetransmission() { SendAdenReport(VPAdenMission::EInput::SameMessage); }
-void AVPPlayerController::ReportAdenTwoIncidents() { SendAdenReport(VPAdenMission::EInput::TwoIncidents); }
-void AVPPlayerController::FileAdenReportInternally() { SendAdenReport(VPAdenMission::EInput::FileInternally); }
+void AVPPlayerController::ChooseAdenFirst() { SendAdenChoice(VPAdenCampaign::EInput::OptionOne); }
+void AVPPlayerController::ChooseAdenSecond() { SendAdenChoice(VPAdenCampaign::EInput::OptionTwo); }
 
-void AVPPlayerController::SendAdenReport(VPAdenMission::EInput Choice)
+void AVPPlayerController::SendAdenChoice(VPAdenCampaign::EInput Choice)
 {
     if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
-    if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosingReport())
+    if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosing())
         Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()), Choice);
 }
 
