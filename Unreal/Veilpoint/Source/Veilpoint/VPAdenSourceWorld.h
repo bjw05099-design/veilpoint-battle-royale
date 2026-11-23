@@ -122,6 +122,12 @@ public:
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<USoundBase> DossierSound;
 
+    UPROPERTY(EditAnywhere, Category="Aden prologue")
+    TArray<TObjectPtr<USoundBase>> PrologueVoice;
+
+    UPROPERTY(EditAnywhere, Category="Aden prologue")
+    TArray<TObjectPtr<USoundBase>> PrologueBeds;
+
 private:
     void CreateFieldStations();
     void CreateRescueProps();

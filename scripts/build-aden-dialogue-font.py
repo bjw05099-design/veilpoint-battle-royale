@@ -17,7 +17,8 @@ POSTSCRIPT = "VeilpointDialogueKR-Regular"
 
 def characters():
     chars = set(range(32, 127))
-    for source in ("VPAdenCampaign.cpp", "VPAdenStoryGameMode.cpp"):
+    for source in ("VPAdenCampaign.cpp", "VPAdenStoryGameMode.cpp",
+                   "VPAdenPrologue.cpp", "VPAdenPrologueLines.inl"):
         chars.update(ord(c) for c in (RUNTIME / source).read_text(encoding="utf-8")
                      if 0xAC00 <= ord(c) <= 0xD7A3)
     return chars

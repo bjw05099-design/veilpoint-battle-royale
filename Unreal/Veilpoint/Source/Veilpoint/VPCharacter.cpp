@@ -125,7 +125,7 @@ void AVPCharacter::Turn(float Value) { if (IsAlive()) AddControllerYawInput(Valu
 bool AVPCharacter::IsDesktopInputBlocked() const
 {
     const AVPPlayerController* Desktop = Cast<AVPPlayerController>(Controller);
-    return Desktop && (Desktop->IsDesktopMenuOpen() || Desktop->GetAdenAtlasPage() != 0);
+    return Desktop && (Desktop->IsDesktopMenuOpen() || Desktop->IsAdenOpening() || Desktop->GetAdenAtlasPage() != 0);
 }
 void AVPCharacter::BeginSprint()
 {

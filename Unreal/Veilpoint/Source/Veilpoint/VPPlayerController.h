@@ -18,6 +18,7 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     bool IsRoundReady() const { return bRoundReady; }
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
+    bool IsAdenOpening() const;
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
     bool IsAdenAtlasRouteOverview() const;

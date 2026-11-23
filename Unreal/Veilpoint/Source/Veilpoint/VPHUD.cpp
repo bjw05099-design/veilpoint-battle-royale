@@ -7,6 +7,7 @@
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenCampaign.h"
+#include "VPAdenPrologue.h"
 #include "CanvasItem.h"
 #include "Fonts/SlateFontInfo.h"
 #include "VPAdenDispatch.h"
@@ -122,6 +123,11 @@ void AVPHUD::DrawHUD()
     DesktopMenuBounds.Reset();
     const AVPCharacter* Pawn = Cast<AVPCharacter>(PlayerOwner->GetPawn());
     const auto* Aden = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (Aden && Aden->bOpeningActive)
+    {
+        DrawAdenOpening(Aden);
+        return;
+    }
     if (!Pawn)
     {
         if (Aden) DrawAdenStory(Aden, Pawn);
@@ -693,6 +699,76 @@ void AVPHUD::DrawLiveFrameTelemetry(float Scale, float X)
 
 }
 
+float AVPHUD::DrawAdenSubtitle(const FString& Line, float Bottom, float Left, float Width, float Scale,
+    const FLinearColor& Plate, const FLinearColor& Ink)
+{
+    if (Line.IsEmpty()) return Bottom;
+    const int32 MaxGlyphs = FMath::Max(14, FMath::FloorToInt((Width - 32.f * Scale) / (21.f * Scale)));
+    TArray<FString> Paragraphs, Lines;
+    Line.ParseIntoArrayLines(Paragraphs);
+    for (const FString& Paragraph : Paragraphs)
+    {
+        TArray<FString> Words;
+        Paragraph.ParseIntoArrayWS(Words);
+        FString Row;
+        for (const FString& Word : Words)
+        {
+            if (!Row.IsEmpty() && Row.Len() + 1 + Word.Len() > MaxGlyphs)
+            {
+                Lines.Add(MoveTemp(Row));
+                Row.Reset();
+            }
+            if (!Row.IsEmpty()) Row += TEXT(" ");
+            Row += Word;
+        }
+        if (!Row.IsEmpty()) Lines.Add(MoveTemp(Row));
+    }
+    const float Height = (14.f + 23.f * Lines.Num()) * Scale;
+    DrawRect(Plate, Left, Bottom - Height, Width, Height);
+    const FSlateFontInfo Font(VPAdenCampaign::DialogueFontPath(), 15.f * Scale,
+        EFontHinting::Default, FFontOutlineSettings());
+    for (int32 Index = 0; Index < Lines.Num(); ++Index)
+    {
+        FCanvasTextItem Item(FVector2D(Left + 16.f * Scale, Bottom - Height + (6.f + Index * 23.f) * Scale),
+            FText::FromString(Lines[Index]), Font, Ink);
+        Canvas->DrawItem(Item);
+    }
+    return Bottom - Height - 7.f * Scale;
+}
+
+void AVPHUD::DrawAdenOpening(const AVPAdenStoryState* Aden)
+{
+    using namespace VPAdenPrologue;
+    const FFrame Frame = Aden->OpeningFrame;
+    const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1280.f, Canvas->ClipY / 720.f), .55f, 1.65f);
+    const float Reveal = Frame.Shot == Street ? float(FMath::Clamp((Frame.Position - 2.9) / 2.9, 0., 1.)) : 0.f;
+    const float Mat = Canvas->ClipY * .102f * (1.f - Reveal);
+    DrawRect(FLinearColor::Black, 0.f, 0.f, Canvas->ClipX, Mat);
+    DrawRect(FLinearColor::Black, 0.f, Canvas->ClipY - Mat, Canvas->ClipX, Mat);
+    const float Fade = AVPAdenPrologue::BlackoutAlpha(Frame);
+    if (Fade > 0.f) DrawRect(FLinearColor(0.f, 0.f, 0.f, Fade), 0.f, 0.f, Canvas->ClipX, Canvas->ClipY);
+    if (Fade > .85f) return;
+
+    const FString Label = AVPAdenPrologue::SceneLabel(Frame);
+    if (!Label.IsEmpty())
+    {
+        const float X = 52.f * Scale;
+        const float Y = Frame.Shot == News ? Canvas->ClipY * .70f : Mat + 21.f * Scale;
+        const FSlateFontInfo Font(VPAdenCampaign::DialogueFontPath(), 15.f * Scale,
+            EFontHinting::Default, FFontOutlineSettings());
+        const bool bBroadcast = Frame.Shot == News;
+        DrawRect(bBroadcast ? FLinearColor(.045f, .11f, .17f, .96f) : FLinearColor(.01f, .015f, .02f, .69f),
+            X, Y, (28.f + 17.f * Label.Len()) * Scale, 36.f * Scale);
+        FCanvasTextItem Title(FVector2D(X + 13.f * Scale, Y + 7.f * Scale), FText::FromString(Label), Font,
+            FLinearColor(.91f, .93f, .93f));
+        Canvas->DrawItem(Title);
+    }
+    const float Width = FMath::Min(Canvas->ClipX - 64.f * Scale, 940.f * Scale);
+    DrawAdenSubtitle(AVPAdenPrologue::Narration(Frame), Canvas->ClipY - Mat - 11.f * Scale,
+        (Canvas->ClipX - Width) * .5f, Width, Scale, FLinearColor(.008f, .014f, .019f, .89f),
+        FLinearColor(.96f, .96f, .93f));
+}
+
 void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn)
 {
     using namespace VPAdenCampaign;
@@ -823,35 +899,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             Accent, SubtitleLeft + 16.f * Scale, Lower - 27.f * Scale, nullptr, .95f * Scale);
         DialogueBottom -= 68.f * Scale;
     }
-    if (!Aden->Dialogue.IsEmpty())
-    {
-        const int32 MaxGlyphs = FMath::Max(14, FMath::FloorToInt((SubtitleWidth - 32.f * Scale) / (21.f * Scale)));
-        TArray<FString> Words, Lines;
-        Aden->Dialogue.ParseIntoArrayWS(Words);
-        FString Row;
-        for (const FString& Word : Words)
-        {
-            if (!Row.IsEmpty() && Row.Len() + 1 + Word.Len() > MaxGlyphs)
-            {
-                Lines.Add(MoveTemp(Row));
-                Row.Reset();
-            }
-            if (!Row.IsEmpty()) Row += TEXT(" ");
-            Row += Word;
-        }
-        if (!Row.IsEmpty()) Lines.Add(MoveTemp(Row));
-        const float PlateHeight = (14.f + 23.f * Lines.Num()) * Scale;
-        DrawRect(Plate, SubtitleLeft, DialogueBottom - PlateHeight, SubtitleWidth, PlateHeight);
-        const FSlateFontInfo SubtitleFont(DialogueFontPath(), 15.f * Scale,
-            EFontHinting::Default, FFontOutlineSettings());
-        for (int32 I = 0; I < Lines.Num(); ++I)
-        {
-            FCanvasTextItem Subtitle(FVector2D(SubtitleLeft + 16.f * Scale, DialogueBottom - PlateHeight + (6.f + I * 23.f) * Scale),
-                FText::FromString(Lines[I]), SubtitleFont, Ink);
-            Canvas->DrawItem(Subtitle);
-        }
-        DialogueBottom -= PlateHeight + 7.f * Scale;
-    }
+    DialogueBottom = DrawAdenSubtitle(Aden->Dialogue, DialogueBottom, SubtitleLeft, SubtitleWidth, Scale, Plate, Ink);
     const FString Feedback = Aden->bSaveFailed ? FString(TEXT("Checkpoint could not be written.")) :
         Desktop ? Desktop->GetLocalNotice() : FString();
     if (!Feedback.IsEmpty())

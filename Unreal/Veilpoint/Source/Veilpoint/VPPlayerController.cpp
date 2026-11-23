@@ -245,10 +245,16 @@ FString AVPPlayerController::GetLocalNotice() const
     return FPlatformTime::Seconds()<NoticeExpiresAt?LocalNotice:FString();
 }
 
+bool AVPPlayerController::IsAdenOpening() const
+{
+    const auto* Aden = GetWorld() ? GetWorld()->GetGameState<AVPAdenStoryState>() : nullptr;
+    return Aden && Aden->bOpeningActive;
+}
+
 bool AVPPlayerController::CanSaveMissionProgress() const
 {
     const AVPCharacter* ControlledPawn=Cast<AVPCharacter>(GetPawn());
-    return IsLocalController() && GetNetMode()==NM_Standalone && ControlledPawn && ControlledPawn->IsAlive() &&
+    return !IsAdenOpening() && IsLocalController() && GetNetMode()==NM_Standalone && ControlledPawn && ControlledPawn->IsAlive() &&
         GetWorld() && (GetWorld()->GetAuthGameMode<AVPStoryGameMode>() || GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>());
 }
 
@@ -279,7 +285,7 @@ void AVPPlayerController::QuickSaveAden()
 
 void AVPPlayerController::QuickRecoverAden()
 {
-    if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
+    if (IsAdenOpening() || bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
     auto* Mode = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>();
     if (Mode && !Mode->ReturnToCheckpoint(Cast<AVPCharacter>(GetPawn())))
         ShowLocalNotice(TEXT("Could not safely return to the saved checkpoint."));
@@ -303,7 +309,7 @@ void AVPPlayerController::TickAdenAudio()
     const auto* Source = State ? State->Source.Get() : nullptr;
     const auto* ControlledCharacter = Cast<AVPCharacter>(GetPawn());
     const auto* Settings = UVPGameUserSettings::GetVeilpointSettings();
-    const bool bAudible = Source && ControlledCharacter && !FApp::IsUnattended() &&
+    const bool bAudible = Source && !State->bOpeningActive && ControlledCharacter && !FApp::IsUnattended() &&
         (!Settings || Settings->bFieldAudioEnabled);
     if (!bAudible)
     {
@@ -400,7 +406,7 @@ void AVPPlayerController::SetupInputComponent()
 
 void AVPPlayerController::CycleAdenAtlas()
 {
-    if (!bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
+    if (!IsAdenOpening() && !bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
     {
         AdenAtlasPage = (AdenAtlasPage + 1) % 3;
         bAdenAtlasRouteOverview = false;
@@ -434,7 +440,7 @@ void AVPPlayerController::ZoomAdenAtlasOut()
 
 void AVPPlayerController::ToggleAdenJournal()
 {
-    if (!bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
+    if (!IsAdenOpening() && !bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
         bAdenJournalOpen = !bAdenJournalOpen;
 }
 
@@ -731,7 +737,7 @@ FString AVPPlayerController::GetMenuLabel(int32 Row) const
 void AVPPlayerController::PlaceLocalFieldMark()
 {
     const AVPCharacter* ControlledPawn = Cast<AVPCharacter>(GetPawn());
-    if (bDesktopMenuOpen || AdenAtlasPage || !ControlledPawn || !ControlledPawn->IsAlive() || !GetWorld()) return;
+    if (IsAdenOpening() || bDesktopMenuOpen || AdenAtlasPage || !ControlledPawn || !ControlledPawn->IsAlive() || !GetWorld()) return;
     FVector Eye;
     FRotator View;
     GetPlayerViewPoint(Eye, View);
