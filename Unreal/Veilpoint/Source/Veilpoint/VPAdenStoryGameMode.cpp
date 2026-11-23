@@ -1,20 +1,22 @@
 #include "VPAdenStoryGameMode.h"
 
-#include "VPAdenAtlasProjection.h"
+#include "VPAdenCampaign.h"
+#include "VPAdenCampaignMigration.h"
 #include "VPAdenSourceWorld.h"
-#include "VPAdenDispatch.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
+#include "VPLastBroadcastEscort.h"
 #include "VPPlayerController.h"
 #include "VPVisualSmoke.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Dom/JsonObject.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformMisc.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
-#include "GameFramework/PlayerStart.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "HAL/PlatformMisc.h"
+#include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/CommandLine.h"
@@ -34,9 +36,9 @@ bool IsAdenDiagnostic()
 #endif
 }
 
-FString AdenSlot()
+const TCHAR* AdenSlot()
 {
-    return IsAdenDiagnostic() ? TEXT("AdenCH01Diagnostic") : TEXT("AdenCH01v1");
+    return IsAdenDiagnostic() ? TEXT("AdenCampaignDiagnostic") : TEXT("AdenCH01v1");
 }
 }
 
@@ -46,16 +48,15 @@ AVPAdenStoryGameMode::AVPAdenStoryGameMode()
     PlayerControllerClass = AVPPlayerController::StaticClass();
     GameStateClass = AVPAdenStoryState::StaticClass();
     HUDClass = AVPHUD::StaticClass();
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 bool AVPAdenStoryGameMode::PrepareSource()
 {
-    if (bSourceChecked)
-        return IsSourceReady();
+    if (bSourceChecked) return Source != nullptr;
     bSourceChecked = true;
-    // The story builds its world and checkpoint on the offline authority.
-    if (GetNetMode() != NM_Standalone)
-        return false;
+    if (GetNetMode() != NM_Standalone) return false;
     for (TActorIterator<AVPAdenSourceWorld> It(GetWorld()); It; ++It)
     {
         if (Source)
@@ -75,25 +76,17 @@ bool AVPAdenStoryGameMode::PrepareSource()
     if (IsAdenDiagnostic())
     {
         UGameplayStatics::DeleteGameInSlot(AdenSlot(), 0);
-        UGameplayStatics::DeleteGameInSlot(AdenSlot() + TEXT("-backup"), 0);
+        UGameplayStatics::DeleteGameInSlot(FString(AdenSlot()) + TEXT("-backup"), 0);
     }
-    const auto Checkpoint = ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{});
-    Confirmed = Checkpoint.Broadcast.Confirmed;
-    Notes = Checkpoint.Broadcast.Notes;
-    Dispatch = Checkpoint.Dispatch;
-    if (Confirmed)
-        Notice = TEXT("Checkpoint restored.");
+    ApplyCheckpoint(ReadCheckpoint().Get(VPAdenCampaign::FCheckpoint{}));
     return true;
 }
 
 AActor* AVPAdenStoryGameMode::ChoosePlayerStart_Implementation(AController* Controller)
 {
-    if (!PrepareSource())
-        return nullptr;
-    if (IsValid(PlayerStart))
-        return PlayerStart;
-
-    const FTransform Spawn = RecoveryTransform({{Confirmed, Notes}, Dispatch});
+    if (!PrepareSource()) return nullptr;
+    if (IsValid(PlayerStart)) return PlayerStart;
+    const FTransform Spawn = RecoveryTransform(Progress);
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     PlayerStart = GetWorld()->SpawnActor<APlayerStart>(APlayerStart::StaticClass(),
@@ -101,51 +94,10 @@ AActor* AVPAdenStoryGameMode::ChoosePlayerStart_Implementation(AController* Cont
     return PlayerStart;
 }
 
-FTransform AVPAdenStoryGameMode::RecoveryTransform(FVPAdenCampaignCheckpoint Checkpoint) const
-{
-    const int32 Count = Checkpoint.Broadcast.Confirmed;
-    FVector Here = Source->Station(Count), Ahead = Source->Station(FMath::Min(Count + 1, VPAdenMission::Complete));
-    if (Checkpoint.HasDispatch())
-    {
-        const auto& Leg = Source->DispatchLeg(Checkpoint.Dispatch);
-        Here = Source->DispatchResume(Checkpoint.Dispatch);
-        if (VPAdenDispatch::IsChapterHandoff(Checkpoint.Dispatch))
-            Ahead = Leg.Last();
-        else
-            Ahead = VPAdenDispatch::HasObjective(Checkpoint.Dispatch) ? Leg[1] : Leg[0];
-    }
-    else if (Count == VPAdenMission::Complete)
-        Ahead = Source->Station(0);
-    return FTransform(FRotator(0., (Ahead - Here).Rotation().Yaw, 0.), Here + FVector(0., 0., 102.));
-}
-
-bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
-{
-    if (!Source || !Pawn || !Pawn->IsAlive() || GetNetMode() != NM_Standalone || !HasAuthority())
-        return false;
-    bool bUsedBackup = false;
-    const auto Checkpoint = ReadCheckpoint(&bUsedBackup);
-    if (!Checkpoint.IsSet()) return false;
-    const auto& Saved = Checkpoint.GetValue();
-    const FTransform Place = RecoveryTransform(Saved);
-    if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
-    Pawn->GetCharacterMovement()->StopMovementImmediately();
-    if (AController* Controller = Pawn->GetController())
-        Controller->SetControlRotation(Place.Rotator());
-    Confirmed = Saved.Broadcast.Confirmed;
-    Notes = Saved.Broadcast.Notes;
-    Dispatch = Saved.Dispatch;
-    bChoosingReport = false;
-    Notice = bUsedBackup ? TEXT("Recovered the backup field checkpoint.")
-        : TEXT("Returned to the last saved field checkpoint.");
-    PublishState();
-    return true;
-}
-
 void AVPAdenStoryGameMode::StartPlay()
 {
     PrepareSource();
-    PublishState();
+    PublishScene();
     Super::StartPlay();
     if (IsAdenDiagnostic())
     {
@@ -154,30 +106,39 @@ void AVPAdenStoryGameMode::StartPlay()
     }
 }
 
-FVector AVPAdenStoryGameMode::GetObjective() const
+FTransform AVPAdenStoryGameMode::RecoveryTransform(VPAdenCampaign::FProgress Saved) const
 {
-    if (!Source) return FVector::ZeroVector;
-    if (Notes & VPAdenMission::ReturnDebrief)
-        return !VPAdenDispatch::HasObjective(Dispatch) ? FVector::ZeroVector
-            : Source->DispatchLeg(Dispatch).Last() + FVector(0., 0., 130.);
-    if (Confirmed >= VPAdenMission::Complete) return FVector::ZeroVector;
-    return Source->Station(Confirmed + 1) + FVector(0., 0., 130.);
+    const auto& Leg = Source->CampaignLeg(Saved);
+    const bool bDone = Saved.Beat == VPAdenCampaign::Complete;
+    const FVector Here = bDone ? Leg.Last() : Leg[0];
+    const FVector Facing = bDone ? Leg.Last() - Leg[Leg.Num() - 2] : Leg[1] - Leg[0];
+    return FTransform(FRotator(0., Facing.Rotation().Yaw, 0.), Here + FVector(0., 0., 102.));
 }
 
-FVector AVPAdenStoryGameMode::GetNotePoint(VPAdenMission::ENote Note) const
+bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
 {
-    if (!Source || Note == VPAdenMission::None)
-        return FVector::ZeroVector;
-    const FVector Ground = Note == VPAdenMission::ReturnDebrief ? Source->Station(0)
-        : FMath::Lerp(Source->Station(1), Source->Station(2), .5);
-    return Ground + FVector(0., 0., 130.);
+    if (!Source || !Pawn || !Pawn->IsAlive() || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
+    bool bUsedBackup = false;
+    const auto Saved = ReadCheckpoint(&bUsedBackup);
+    if (!Saved.IsSet()) return false;
+    const FTransform Place = RecoveryTransform(Saved.GetValue().Progress);
+    if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
+    Pawn->GetCharacterMovement()->StopMovementImmediately();
+    if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Place.Rotator());
+    ApplyCheckpoint(Saved.GetValue());
+    if (bUsedBackup) SetDialogue(TEXT("백업 지점에서 계속합니다."));
+    return true;
+}
+
+FVector AVPAdenStoryGameMode::GetObjective() const
+{
+    return Source && Progress.Beat != VPAdenCampaign::Complete
+        ? Source->CampaignLeg(Progress).Last() + FVector(0., 0., 130.) : FVector::ZeroVector;
 }
 
 bool AVPAdenStoryGameMode::CanReach(const AVPCharacter* Pawn) const
 {
-    const bool bActive = Notes & VPAdenMission::ReturnDebrief
-        ? VPAdenDispatch::HasObjective(Dispatch) : Confirmed < VPAdenMission::Complete;
-    return Source && bActive && AVPAdenStoryState::CanReach(Pawn, GetObjective());
+    return Source && Progress.Beat != VPAdenCampaign::Complete && AVPAdenStoryState::CanReach(Pawn, GetObjective());
 }
 
 VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const
@@ -185,155 +146,276 @@ VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Z
     using namespace VPAdenAtlas;
     if (!bRouteOverview || !HasAtlasRoute()) return Crop(Playable, {Player.X, Player.Y}, Zoom);
     FExtent Bounds{Player.X, Player.Y, Player.X, Player.Y};
-    for (const FVector& Point : ActiveLeg)
-        Bounds.Include({Point.X, Point.Y});
+    for (const FVector& Point : ActiveLeg) Bounds.Include({Point.X, Point.Y});
+    if (bHasEscort) Bounds.Include({EscortPoint.X, EscortPoint.Y});
     Bounds.Include({Objective.X, Objective.Y});
     return FitRoute(Playable, Bounds, MaxZoomLevel);
 }
 
 bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point)
 {
-    if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld())
-        return false;
+    if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld()
+        || FVector::DistSquared2D(Pawn->GetActorLocation(), Point) > FMath::Square(VPAdenCampaign::ReachCm)) return false;
     const FVector Eye = Pawn->GetPawnViewLocation();
-    if (FVector::DistSquared2D(Pawn->GetActorLocation(), Point) > FMath::Square(VPAdenMission::ReachCm))
-        return false;
-    const FVector ToPoint = Point - Eye;
-    const FVector Forward = Pawn->GetViewRotation().Vector();
-    if (FVector::DotProduct(Forward, ToPoint.GetSafeNormal()) < .5)
-        return false;
-    FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
+    if (FVector::DotProduct(Pawn->GetViewRotation().Vector(), (Point - Eye).GetSafeNormal()) < .5) return false;
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
     return !Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query);
 }
 
-void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenMission::EInput Input)
+void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampaign::EInput Input)
 {
-    using namespace VPAdenMission;
-    if (!HasAuthority() || !GetWorld() || !Source) return;
-    if (Input == EInput::FileInternally && !(Notes & ReturnDebrief)) return;
-    if (Notes & ReturnDebrief)
+    using namespace VPAdenCampaign;
+    if (!HasAuthority() || !Source) return;
+    const bool bReachable = CanReach(Pawn);
+    if (!bReachable)
     {
-        TryDispatch(Pawn, Input);
+        bChoosing = false;
+        if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bChoosing = false;
         return;
     }
-    if (!CanReach(Pawn))
+
+    auto Next = Progress;
+    if (Input != EInput::Interact)
     {
-        const ENote Note = AvailableNote({Confirmed, Notes});
-        if (Input == EInput::Inspect && Note != None && AVPAdenStoryState::CanReach(Pawn, GetNotePoint(Note)))
-        {
-            Notes |= Note;
-            Notice = Note == RelaySlip
-                ? TEXT("Hyunji: The slip records a retry of the same call. File it with the verified times.")
-                : TEXT("Hyunji: We delivered one verified report. We leave the rest open until the families hear from us.");
-            Notice += PersistStoryCheckpoint() ? TEXT("  |  Saved.") : TEXT("  |  Save failed.");
-        }
-        bChoosingReport = false;
-        PublishState();
+        if (Decide(Next, Input, bChoosing, bReachable)) EnterBeat(Next);
         return;
     }
-    if (Confirmed == 2 && Input == EInput::Inspect)
+    const auto Action = Mode(Progress.Beat);
+    if (Action == EMode::Decide)
     {
-        bChoosingReport = true;
-        Notice = TEXT("Salma: What did you verify?");
-        PublishState();
-        return;
+        bChoosing = true;
+        if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bChoosing = true;
     }
-    if (Input != EInput::Inspect && !bChoosingReport)
-        return;
-    if (!CanAdvance(Confirmed, Input))
+    else if (Action == EMode::Operate && OperationStarted < 0.)
     {
-        Notice = TEXT("Salma: Two times alone do not prove two incidents.");
-        PublishState();
-        return;
+        OperationStarted = GetWorld()->GetTimeSeconds();
+        if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bOperating = true;
     }
-    const TCHAR* Results[] = {
-        TEXT("Hyunji: The first verified receipt is logged at 04:07."),
-        TEXT("Mara: The 04:12 entry is a retransmission of that message."),
-        TEXT("Salma: I have the record. We are still waiting for news of the missing.")
+    else if (Interact(Next, bReachable, GetWorld()->GetTimeSeconds() < WindowEndsAt))
+        EnterBeat(Next);
+}
+
+void AVPAdenStoryGameMode::EnterBeat(VPAdenCampaign::FProgress Next)
+{
+    ApplyCheckpoint({Next, Next.Beat == VPAdenCampaign::ReachSignal ? VPAdenCampaign::SignalWindowMs : 0});
+    PersistStoryCheckpoint();
+}
+
+void AVPAdenStoryGameMode::ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoint)
+{
+    using namespace VPAdenCampaign;
+    if (IsValid(Escort.Get())) Escort->Destroy();
+    Escort = nullptr;
+    if (IsValid(FinalNeighbor.Get())) FinalNeighbor->Destroy();
+    FinalNeighbor = nullptr;
+    Progress = Checkpoint.Progress;
+    OperationStarted = -1.;
+    bChoosing = false;
+    bMovingLinePlayed = false;
+    bSaveFailed = false;
+    NextEscortAttempt = 0.;
+    WindowEndsAt = Checkpoint.WindowMs > 0 ? GetWorld()->GetTimeSeconds() + Checkpoint.WindowMs * .001 : -1.;
+    SetDialogue(Progress.Beat == ReachSignal && Checkpoint.WindowMs == 0
+        ? TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 건널목은 닫혔다고 알려 주세요.")
+        : Scene(Progress).Opening);
+    UpdateRescueProps(0.f);
+    PublishScene();
+}
+
+void AVPAdenStoryGameMode::PublishScene()
+{
+    auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View) return;
+    View->bSourceReady = Source != nullptr;
+    View->Source = Source.Get();
+    View->Progress = Progress;
+    View->bChoosing = false;
+    View->bOperating = false;
+    View->bHasEscort = false;
+    View->bEscortWaiting = false;
+    View->bEscortArrived = false;
+    View->bSaveFailed = bSaveFailed;
+    View->OperationFraction = 0.f;
+    View->WindowSeconds = Progress.Beat == VPAdenCampaign::ReachSignal
+        ? (CaptureCheckpoint().WindowMs + 999) / 1000 : -1;
+    View->Dialogue = Dialogue;
+    View->ActiveLeg.Reset();
+    if (!Source) return;
+    const bool bActive = Progress.Beat != VPAdenCampaign::Complete;
+    if (bActive) View->ActiveLeg = Source->CampaignLeg(Progress);
+    View->Objective = GetObjective();
+    const auto& Leg = Source->CampaignLeg(Progress);
+    Source->ShowFieldStation(0, bActive, View->Objective, Leg.Last() - Leg[Leg.Num() - 2]);
+}
+
+void AVPAdenStoryGameMode::SetDialogue(const TCHAR* Line)
+{
+    Dialogue = Line;
+    DialogueStarted = GetWorld()->GetTimeSeconds();
+    DialogueUntil = DialogueStarted + FMath::Clamp(3. + Dialogue.Len() * .085, 5., 11.);
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->Dialogue = Dialogue;
+}
+
+void AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
+{
+    if (!Source) return;
+    using namespace VPAdenCampaign;
+    constexpr int32 BarrierBeats[] = {Barrier, OpenShelter, OpenRelay, OpenYard};
+    for (int32 Slot = 0; Slot < UE_ARRAY_COUNT(BarrierBeats); ++Slot)
+    {
+        auto Pose = Progress;
+        Pose.Beat = BarrierBeats[Slot] + 1;
+        const bool bVisible = Progress.Beat >= BarrierBeats[Slot];
+        const auto& Leg = Source->CampaignLeg(Pose);
+        Source->SetRescueBarrier(Slot, bVisible, Leg[0], Leg[1], Progress.Beat > BarrierBeats[Slot] ? 1.f : Fraction);
+    }
+    auto Signal = Progress;
+    Signal.Beat = ReachSignal;
+    Source->SetCrossingLight(Source->CampaignLeg(Signal).Last(), WindowEndsAt >= 0.);
+}
+
+void AVPAdenStoryGameMode::EnsureEscort(AVPCharacter* Pawn)
+{
+    using namespace VPAdenCampaign;
+    const double Now = GetWorld()->GetTimeSeconds();
+    const bool bPair = Progress.Beat == LeadFinal;
+    if (!BeginEscort(Progress) || Now < NextEscortAttempt
+        || (IsValid(Escort.Get()) && (!bPair || IsValid(FinalNeighbor.Get())))) return;
+    NextEscortAttempt = Now + 1.;
+    const auto& Leg = Source->CampaignLeg(Progress);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    const FVector Direction = (Leg[1] - Leg[0]).GetSafeNormal2D();
+    const auto Spawn = [&](const TArray<FVector>& Walk, float Pace, const FLinearColor& Jacket, bool bCarriesPack)
+        -> AVPLastBroadcastEscort*
+    {
+        FVector Ground;
+        if (!Source->TraceStoryGround(Walk[0], Ground)) return nullptr;
+        auto* Person = GetWorld()->SpawnActor<AVPLastBroadcastEscort>(AVPLastBroadcastEscort::StaticClass(),
+            Ground + FVector(0., 0., 100.), Direction.Rotation(), Params);
+        if (Person) Person->FollowAden(Walk, Pawn, Source.Get(), Pace, Source->StationMaterial.Get(), Jacket, bCarriesPack);
+        return Person;
     };
-    Notice = Results[Confirmed++];
-    if (Confirmed == Complete && (Notes & RelaySlip))
-        Notice = TEXT("Salma: I have both the verified report and the relay slip for the families.");
-    bChoosingReport = false;
-    Notice += PersistStoryCheckpoint() ? TEXT("  |  Saved.") : TEXT("  |  Save failed.");
-    PublishState();
-}
-
-void AVPAdenStoryGameMode::TryDispatch(const AVPCharacter* Pawn, VPAdenMission::EInput Input)
-{
-    using namespace VPAdenDispatch;
-    if (!CanReach(Pawn))
+    if (!IsValid(Escort.Get()))
     {
-        bChoosingReport = false;
-        PublishState();
-        return;
-    }
-    EInput Action = EInput::Interact;
-    switch (Input)
-    {
-    case VPAdenMission::EInput::SameMessage: Action = EInput::OptionOne; break;
-    case VPAdenMission::EInput::TwoIncidents: Action = EInput::OptionTwo; break;
-    case VPAdenMission::EInput::FileInternally: Action = EInput::FileInternally; break;
-    case VPAdenMission::EInput::Inspect: break;
-    }
-    const EResult Result = Advance(Dispatch, Action, bChoosingReport);
-    if (Result == EResult::Ignored) return;
-    if (Result == EResult::ShowChoice)
-    {
-        bChoosingReport = true;
-        Notice = IsReplyChoice(Dispatch)
-            ? (Dispatch.Disposition == PublicUpdate ? TEXT("Amina: I signed my copy at the board. What can you file?")
-                : TEXT("Yusuf: I read the correction back by phone. What can you file?"))
-            : Dispatch.Phase == Choose ? TEXT("Hyunji: Which source will you check?")
-                : TEXT("Salma: The delivery is confirmed. How should we file it?");
-    }
-    else if (Result == EResult::Refused)
-        Notice = IsReplyChoice(Dispatch)
-            ? TEXT("That entry needs a different source. File only what this contact showed.")
-            : TEXT("Salma: A delivery record cannot identify every missing caller.");
-    else
-    {
-        bChoosingReport = false;
-        Notice = CompletionLine(Dispatch);
-        Notice += PersistStoryCheckpoint() ? TEXT("  |  Saved.") : TEXT("  |  Save failed.");
-    }
-    PublishState();
-}
-
-void AVPAdenStoryGameMode::PublishState()
-{
-    if (auto* State = GetWorld()->GetGameState<AVPAdenStoryState>())
-    {
-        State->bSourceReady = IsSourceReady();
-        State->Source = Source.Get();
-        State->bChoosingReport = bChoosingReport;
-        State->Confirmed = Confirmed;
-        State->Notes = Notes;
-        State->Dispatch = Dispatch;
-        State->bDispatchActive = bool(Notes & VPAdenMission::ReturnDebrief);
-        State->ActiveLeg.Reset();
-        if (Source && State->bDispatchActive && VPAdenDispatch::HasObjective(Dispatch)
-            && !VPAdenDispatch::IsChapterHandoff(Dispatch))
-            State->ActiveLeg = Source->DispatchLeg(Dispatch);
-        State->AvailableNote = VPAdenMission::AvailableNote({Confirmed, Notes});
-        State->NotePoint = GetNotePoint(State->AvailableNote);
-        State->Objective = GetObjective();
-        State->Notice = Notice;
-        if (Source)
+        const bool bCarriesPack = Progress.Beat == LeadPassenger && Progress.Route == Clinic;
+        const bool bSlower = Progress.Beat == LeadDogyeom || Progress.Beat == LeadWard;
+        const FLinearColor Jacket = bCarriesPack ? FLinearColor(.14f, .26f, .35f)
+            : bSlower ? FLinearColor(.44f, .41f, .28f) : FLinearColor(.25f, .44f, .41f);
+        if (bPair)
         {
-            const bool bActive = State->bDispatchActive ? VPAdenDispatch::HasObjective(Dispatch)
-                : Confirmed < VPAdenMission::Complete;
-            const FVector From = State->ActiveLeg.Num() > 1
-                ? State->ActiveLeg[State->ActiveLeg.Num() - 2]
-                : State->bDispatchActive ? Source->DispatchResume(Dispatch) : Source->Station(Confirmed);
-            Source->ShowFieldStation(0, bActive, State->Objective, State->Objective - From);
-            Source->ShowFieldStation(1, State->AvailableNote != VPAdenMission::None, State->NotePoint,
-                Source->Station(1) - Source->Station(0));
+            TArray<FVector> Front = Leg;
+            Front[0] += Direction * 140.;
+            Escort = Spawn(Front, 245.f, Jacket, false);
+        }
+        else Escort = Spawn(Leg, bSlower ? 230.f : 310.f, Jacket, bCarriesPack);
+    }
+    if (bPair && !IsValid(FinalNeighbor.Get()))
+        FinalNeighbor = Spawn(Leg, 230.f, FLinearColor(.49f, .36f, .20f), false);
+    if (IsValid(FinalNeighbor.Get()) && IsValid(Escort.Get()))
+    {
+        Escort->Capsule->IgnoreActorWhenMoving(FinalNeighbor.Get(), true);
+        FinalNeighbor->Capsule->IgnoreActorWhenMoving(Escort.Get(), true);
+    }
+}
+
+void AVPAdenStoryGameMode::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (!Source) return;
+    const auto* Desktop = GetWorld()->GetFirstPlayerController();
+    auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
+    if (Pawn && Pawn->IsAlive()) UpdateBeat(Pawn, GetWorld()->GetTimeSeconds());
+}
+
+void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
+{
+    using namespace VPAdenCampaign;
+    auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View) return;
+    if (bChoosing && !CanReach(Pawn)) View->bChoosing = bChoosing = false;
+    if (OperationStarted >= 0.)
+    {
+        const double Elapsed = Now - OperationStarted;
+        auto Next = Progress;
+        if (!CanReach(Pawn))
+        {
+            OperationStarted = -1.;
+            View->bOperating = false;
+            View->OperationFraction = 0.f;
+            UpdateRescueProps(0.f);
+            SetDialogue(TEXT("수혁: 잠깐. 다시 잡고 올리겠습니다."));
+        }
+        else if (FinishOperation(Next, Elapsed, true))
+        {
+            EnterBeat(Next);
+            return;
+        }
+        else
+        {
+            View->OperationFraction = float(FMath::Clamp(Elapsed / OperationSeconds(Progress.Beat), 0., 1.));
+            UpdateRescueProps(View->OperationFraction);
         }
     }
+
+    if (Progress.Beat == ReachSignal)
+    {
+        if (WindowEndsAt >= 0. && Now >= WindowEndsAt)
+        {
+            WindowEndsAt = -1.;
+            bMovingLinePlayed = true;
+            UpdateRescueProps(0.f);
+            SetDialogue(TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 알려 주세요. 살마 씨가 골목 쪽에 있습니다."));
+            PersistStoryCheckpoint();
+        }
+        View->WindowSeconds = (CaptureCheckpoint().WindowMs + 999) / 1000;
+    }
+
+    EnsureEscort(Pawn);
+    if (IsValid(Escort.Get()))
+    {
+        const auto* Nearby = IsValid(FinalNeighbor.Get()) ? FinalNeighbor.Get() : Escort.Get();
+        const bool bAllArrived = Escort->bAtGoal && (Progress.Beat != LeadFinal
+            || (IsValid(FinalNeighbor.Get()) && FinalNeighbor->bAtGoal));
+        View->bHasEscort = true;
+        View->bEscortWaiting = Nearby->IsWaitingForAdenLeader() && !Nearby->bAtGoal;
+        View->bEscortArrived = bAllArrived;
+        View->EscortPoint = Nearby->GetActorLocation();
+        const bool bClose = FVector::DistSquared2D(Pawn->GetActorLocation(), View->EscortPoint)
+            <= FMath::Square(EscortArrivalCm);
+        auto Next = Progress;
+        if (FinishEscort(Next, bAllArrived, bClose))
+        {
+            EnterBeat(Next);
+            return;
+        }
+    }
+
+    const auto& Leg = Source->CampaignLeg(Progress);
+    const auto* Moving = Scene(Progress).Moving;
+    const bool bCueReady = Progress.Beat == Complete ? Now - DialogueStarted >= 7.
+        : Now - DialogueStarted >= 3. && FVector::DistSquared2D(Pawn->GetActorLocation(), Leg[0]) >= FMath::Square(650.);
+    if (!bMovingLinePlayed && *Moving && bCueReady)
+    {
+        bMovingLinePlayed = true;
+        SetDialogue(Moving);
+        return;
+    }
+    if (!Dialogue.IsEmpty() && Now >= DialogueUntil)
+    {
+        Dialogue.Reset();
+        View->Dialogue.Reset();
+    }
 }
 
-TOptional<FVPAdenCampaignCheckpoint> AVPAdenStoryGameMode::ReadCheckpoint(bool* bUsedBackup) const
+VPAdenCampaign::FCheckpoint AVPAdenStoryGameMode::CaptureCheckpoint() const
+{
+    using namespace VPAdenCampaign;
+    const double Remaining = Progress.Beat == ReachSignal ? (WindowEndsAt - GetWorld()->GetTimeSeconds()) * 1000. : 0.;
+    return {Progress, FMath::CeilToInt(float(FMath::Clamp(Remaining, 0., double(SignalWindowMs))))};
+}
+
+TOptional<VPAdenCampaign::FCheckpoint> AVPAdenStoryGameMode::ReadCheckpoint(bool* bUsedBackup) const
 {
     if (bUsedBackup) *bUsedBackup = false;
     const FString Slot = AdenSlot();
@@ -343,40 +425,36 @@ TOptional<FVPAdenCampaignCheckpoint> AVPAdenStoryGameMode::ReadCheckpoint(bool* 
     return Backup;
 }
 
-TOptional<FVPAdenCampaignCheckpoint> AVPAdenStoryGameMode::ReadCheckpointSlot(const FString& Slot) const
+TOptional<VPAdenCampaign::FCheckpoint> AVPAdenStoryGameMode::ReadCheckpointSlot(const FString& Slot) const
 {
+    using namespace VPAdenCampaign;
     if (!Source || !UGameplayStatics::DoesSaveGameExist(Slot, 0)) return {};
     const auto* Saved = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
-    if (!Saved || Saved->Revision != Source->Revision() || Saved->Version < 1 ||
-        Saved->Version > VPAdenDispatch::CheckpointVersion) return {};
-
-    const auto RestoredDispatch = VPAdenDispatch::Restore(Saved->Version,
+    if (!Saved || Saved->Revision != Source->Revision()) return {};
+    if (Saved->Version == SaveVersion)
+    {
+        const FCheckpoint Candidate{{Saved->CampaignBeat, Saved->CampaignRoute, Saved->CampaignPassage, Saved->CampaignRelay},
+            Saved->SignalMilliseconds};
+        return ValidCheckpoint(Candidate) ? TOptional<FCheckpoint>(Candidate) : TOptional<FCheckpoint>();
+    }
+    FCheckpoint Migrated;
+    if (Migrate(Saved->Version, {Saved->Confirmed, Saved->Notes},
         {Saved->DispatchPhase, Saved->DispatchRoute, Saved->DispatchDisposition, Saved->DispatchFollowup,
-            Saved->DispatchReceipt, Saved->DispatchReply});
-    const FVPAdenCampaignCheckpoint Candidate{{Saved->Confirmed, Saved->Notes}, RestoredDispatch};
-    if (!VPAdenMission::ValidCheckpoint(FMath::Min(Saved->Version, 2), Candidate.Broadcast)) return {};
-    const bool bStarted = Candidate.Dispatch.Phase != VPAdenDispatch::Brief || Candidate.Dispatch.Route != VPAdenDispatch::Unselected;
-    if ((bStarted && (!Candidate.HasDispatch() || Saved->Version < 3)) ||
-        (Saved->Version < 5 && RestoredDispatch.Followup != VPAdenDispatch::FollowupReady) ||
-        (Saved->Version < 6 && RestoredDispatch.Receipt != VPAdenDispatch::ReceiptReady) ||
-        (Saved->Version < 7 && RestoredDispatch.Reply != VPAdenDispatch::ReplyReady) ||
-        !VPAdenDispatch::Valid(Candidate.Dispatch)) return {};
-    return Candidate;
+         Saved->DispatchReceipt, Saved->DispatchReply}, Migrated)) return Migrated;
+    return {};
 }
 
-bool AVPAdenStoryGameMode::WriteCheckpointSlot(const FString& Slot, const FVPAdenCampaignCheckpoint& Checkpoint) const
+bool AVPAdenStoryGameMode::WriteCheckpointSlot(const FString& Slot, VPAdenCampaign::FCheckpoint Checkpoint) const
 {
+    if (!VPAdenCampaign::ValidCheckpoint(Checkpoint)) return false;
     auto* Saved = NewObject<UVPAdenStoryCheckpoint>();
     Saved->Revision = Source->Revision();
-    Saved->Version = VPAdenDispatch::CheckpointVersion;
-    Saved->Confirmed = Checkpoint.Broadcast.Confirmed;
-    Saved->Notes = Checkpoint.Broadcast.Notes;
-    Saved->DispatchPhase = Checkpoint.Dispatch.Phase;
-    Saved->DispatchRoute = Checkpoint.Dispatch.Route;
-    Saved->DispatchDisposition = Checkpoint.Dispatch.Disposition;
-    Saved->DispatchFollowup = Checkpoint.Dispatch.Followup;
-    Saved->DispatchReceipt = Checkpoint.Dispatch.Receipt;
-    Saved->DispatchReply = Checkpoint.Dispatch.Reply;
+    Saved->Version = VPAdenCampaign::SaveVersion;
+    Saved->CampaignBeat = Checkpoint.Progress.Beat;
+    Saved->CampaignRoute = Checkpoint.Progress.Route;
+    Saved->CampaignPassage = Checkpoint.Progress.Passage;
+    Saved->CampaignRelay = Checkpoint.Progress.Relay;
+    Saved->SignalMilliseconds = Checkpoint.WindowMs;
     if (!UGameplayStatics::SaveGameToSlot(Saved, Slot, 0)) return false;
     const auto Observed = ReadCheckpointSlot(Slot);
     return Observed.IsSet() && Observed.GetValue() == Checkpoint;
@@ -387,11 +465,11 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
     if (!Source || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
     const FString Slot = AdenSlot();
     const auto Primary = ReadCheckpointSlot(Slot);
-    // Rotate a verified primary before overwriting it. A recovered backup
-    // remains available through the first write of a repaired primary.
-    if (Primary.IsSet() && !WriteCheckpointSlot(Slot + TEXT("-backup"), Primary.GetValue()))
-        return false;
-    return WriteCheckpointSlot(Slot, {{Confirmed, Notes}, Dispatch});
+    const bool bRotated = !Primary.IsSet() || WriteCheckpointSlot(Slot + TEXT("-backup"), Primary.GetValue());
+    const bool bSaved = bRotated && WriteCheckpointSlot(Slot, CaptureCheckpoint());
+    bSaveFailed = !bSaved;
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bSaveFailed = bSaveFailed;
+    return bSaved;
 }
 
 void AVPAdenStoryGameMode::BeginDiagnostic()
@@ -486,7 +564,7 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
         const int32 Zoom = Desktop->GetAdenAtlasZoom();
         Desktop->CycleAdenAtlas();
         for (int32 I = 0; I < Zoom; ++I) Desktop->ZoomAdenAtlasOut();
-        const auto* State = GetGameState<AVPAdenStoryState>();
+        const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
         const FVector Position = Pawn->GetActorLocation();
         const auto Crop = State ? State->AtlasCrop(Position, Desktop->GetAdenAtlasZoom(), false) : VPAdenAtlas::Local;
         bMapVerified = Desktop->GetAdenAtlasPage() == 1 && Crop.West == VPAdenAtlas::West.West
@@ -509,24 +587,16 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
 void AVPAdenStoryGameMode::RunDiagnostic()
 {
 #if !UE_BUILD_SHIPPING
-    using namespace VPAdenMission;
+    using namespace VPAdenCampaign;
     auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
     auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
     DiagnosticReport = MakeShared<FJsonObject>();
     auto& Report = DiagnosticReport;
-    Report->SetStringField(TEXT("schema"), TEXT("veilpoint-native-aden-visual-v1"));
-    const auto ReadFrame = [&](const TCHAR* Name)
-    {
-        const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, Name);
-        if (Frame.IsValid()) Report->SetObjectField(Name, Frame);
-        return Frame.IsValid();
-    };
-    const auto Approach = [&](const FVector& A, const FVector& B)
-    {
-        return SweepDiagnosticLeg(Pawn, A, B);
-    };
-
-    bool bPassed = Pawn && Source && Confirmed == 0 && Notes == None && DiagnosticCapture;
+    Report->SetStringField(TEXT("schema"), TEXT("veilpoint-native-aden-visual-v2"));
+    const auto ReadFrame = [&](const TCHAR* Name) { return CaptureFrame(Desktop, Name); };
+    const bool bKoreanFont = IFileManager::Get().FileExists(*DialogueFontPath());
+    Report->SetBoolField(TEXT("koreanFontStaged"), bKoreanFont);
+    bool bPassed = Pawn && Source && Progress.Beat == Radio && DiagnosticCapture && bKoreanFont;
     if (bPassed)
     {
         bPassed = ReadFrame(TEXT("aden-world"));
@@ -587,494 +657,278 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         else
             bPassed = false;
         Desktop->CycleAdenAtlas();
-        Desktop->ToggleAdenAtlasRouteOverview();
-        bPassed = bPassed && Desktop->GetAdenAtlasPage() == 1 && !Desktop->IsAdenAtlasRouteOverview()
-            && ReadFrame(TEXT("aden-field-map"));
+        bPassed = bPassed && Desktop->GetAdenAtlasPage() == 1 && ReadFrame(TEXT("aden-field-map"));
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 2 && ReadFrame(TEXT("aden-regional-map"));
         Desktop->CycleAdenAtlas();
-        Pawn->RequestInteraction();
-        bPassed = bPassed && Desktop->GetAdenAtlasPage() == 0 && Confirmed == 0;
-        bPassed = bPassed && VerifyWestTerrain(Desktop, Pawn);
+        bPassed = bPassed && Desktop->GetAdenAtlasPage() == 0 && VerifyWestTerrain(Desktop, Pawn);
+        const bool bFamilies = bPassed && VerifyCampaign(Desktop, Pawn, Families, true, RadioOnce);
+        const bool bClinic = bFamilies && VerifyCampaign(Desktop, Pawn, Clinic, false, Runners);
+        Report->SetBoolField(TEXT("familiesCrossingRadioEnding"), bFamilies);
+        Report->SetBoolField(TEXT("clinicBackStreetRunnersEnding"), bClinic);
+        const bool bSave = bClinic && VerifySavedCampaign(Pawn);
+        Report->SetBoolField(TEXT("legacyAndBackupVerified"), bSave);
+        bPassed = bClinic && bSave;
     }
-    for (int32 I = 1; bPassed && I <= Complete; ++I)
-    {
-        const FVector A = I == 2 ? GetNotePoint(RelaySlip) - FVector(0., 0., 130.) : Source->Station(I - 1);
-        const FVector B = Source->Station(I);
-        bPassed = Approach(A, B);
-        if (!bPassed) break;
-        const double AimYaw = (B - A).Rotation().Yaw;
-        Desktop->SetControlRotation(FRotator(0., AimYaw + 180., 0.));
-        Pawn->RequestInteraction();
-        bPassed = Confirmed == I - 1;
-        Desktop->SetControlRotation(FRotator(0., AimYaw, 0.));
-        Pawn->RequestInteraction();
-        if (I == Complete)
-        {
-            TryInteraction(Pawn, EInput::TwoIncidents);
-            bPassed = bPassed && bChoosingReport && Confirmed == I - 1;
-            TryInteraction(Pawn, EInput::SameMessage);
-            bPassed = bPassed && Notice.Contains(TEXT("relay slip"));
-        }
-        bPassed = bPassed && Confirmed == I && ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{}).Broadcast.Confirmed == I;
-        if (bPassed && I == 1)
-        {
-            const FVector Note = GetNotePoint(RelaySlip) - FVector(0., 0., 130.);
-            bPassed = Approach(B, Note);
-            Pawn->RequestInteraction();
-            bPassed = bPassed && (Notes & RelaySlip) && ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{}).Broadcast.Notes == RelaySlip;
-        }
-    }
-    if (bPassed && Approach(Source->Station(Complete), Source->Station(0)))
-    {
-        Pawn->RequestInteraction();
-        bPassed = Notes == (RelaySlip | ReturnDebrief) && ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{}).Broadcast.Notes == Notes;
-        if (bPassed)
-        {
-            Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
-            FTimerHandle Timer;
-            GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::CaptureDebrief, 1.5f, false);
-            return;
-        }
-    }
-    FinishDiagnostic(false);
+    FinishDiagnostic(bPassed);
 #endif
 }
 
-void AVPAdenStoryGameMode::CaptureDebrief()
+bool AVPAdenStoryGameMode::CaptureFrame(AVPPlayerController* Desktop, const TCHAR* Name)
 {
 #if !UE_BUILD_SHIPPING
-    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
-    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-debrief"));
-    if (Frame && DiagnosticReport)
-        DiagnosticReport->SetObjectField(TEXT("aden-debrief"), Frame);
-    if (!Frame.IsValid())
-    {
-        FinishDiagnostic(false);
-        return;
-    }
-    VerifyDispatch();
-#endif
-}
-
-void AVPAdenStoryGameMode::VerifyDispatch()
-{
-#if !UE_BUILD_SHIPPING
-    using namespace VPAdenDispatch;
-    using BroadcastInput = VPAdenMission::EInput;
-    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
-    auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
-    if (!Pawn || !Source || Dispatch.Phase != Brief)
-    {
-        FinishDiagnostic(false);
-        return;
-    }
-    const auto Follow = [&]()
-    {
-        const auto& Leg = Source->DispatchLeg(Dispatch);
-        for (int32 I = 1; I < Leg.Num(); ++I)
-            if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I]))
-            {
-                UE_LOG(LogVPAdenStory, Error, TEXT("Dispatch collision on phase %d leg %d route %d"), Dispatch.Phase, I, Dispatch.Route);
-                return false;
-            }
-        return true;
-    };
-
-    Pawn->RequestInteraction();
-    bool bPassed = Dispatch.Phase == Brief && Follow();
-    if (bPassed) Pawn->RequestInteraction();
-    bPassed = bPassed && Dispatch.Phase == Choose && Follow();
-    if (bPassed)
-    {
-        Pawn->RequestInteraction();
-        bPassed = bChoosingReport && Dispatch.Phase == Choose;
-    }
-    for (const ERoute Route : {Witness, PublicNotice})
-    {
-        if (!bPassed) break;
-        if (Route == PublicNotice)
-        {
-            // Second branch of the diagnostic uses only the isolated virtual
-            // slot and restarts at the already-verified junction.
-            Dispatch = {Choose, Unselected};
-            const FVector A = Source->DispatchLeg(Dispatch).Last();
-            const FVector B = Source->DispatchLeg({Verify, PublicNotice}).Last();
-            const FRotator Facing(0., (A - B).Rotation().Yaw, 0.);
-            const FVector Start = A + (B - A).GetSafeNormal2D() * 145. + FVector(0., 0., 108.);
-            bPassed = Pawn->TeleportTo(Start, Facing);
-            Desktop->SetControlRotation(Facing);
-            PublishState();
-            Pawn->RequestInteraction();
-            bPassed = bPassed && bChoosingReport;
-        }
-        if (!bPassed) break;
-        TryInteraction(Pawn, Route == Witness ? BroadcastInput::SameMessage : BroadcastInput::TwoIncidents);
-        bPassed = Dispatch.Phase == Verify && Dispatch.Route == Route && ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{}).Dispatch.Route == Route;
-        if (bPassed && Route == Witness)
-        {
-            bPassed = ReturnToCheckpoint(Pawn) && Dispatch.Route == Witness;
-            Desktop->CycleAdenAtlas();
-            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-dispatch-route"));
-            Desktop->CycleAdenAtlas();
-            Desktop->CycleAdenAtlas();
-            if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-dispatch-route"), Frame);
-            bPassed = bPassed && Frame.IsValid();
-        }
-        if (bPassed && Route == PublicNotice)
-        {
-            Desktop->CycleAdenAtlas();
-            const int32 OriginalZoom = Desktop->GetAdenAtlasZoom();
-            for (int32 Zoom = OriginalZoom; Zoom < VPAdenAtlas::MaxZoomLevel; ++Zoom)
-                Desktop->ZoomAdenAtlasIn();
-            const FVector Position = Pawn->GetActorLocation(), Target = GetObjective();
-            const VPAdenAtlas::FPoint Player{Position.X, Position.Y};
-            VPAdenAtlas::FPoint Objective{Target.X, Target.Y};
-            const auto Crop = VPAdenAtlas::Crop(VPAdenAtlas::Playable, Player, Desktop->GetAdenAtlasZoom());
-            int32 PublicRoadLines = 0, FootprintLines = 0;
-            bool bAtlasLinesClipped = true;
-            const int32 Candidates = Source->VisitAtlasLines(Crop, [&](const FVPAdenAtlasLine& Line)
-            {
-                for (const auto Point : {Line.A, Line.B})
-                {
-                    const auto UV = Crop.Normalized(Point);
-                    bAtlasLinesClipped &= UV.X >= -1.e-9 && UV.X <= 1. + 1.e-9 && UV.Y >= -1.e-9 && UV.Y <= 1. + 1.e-9;
-                }
-                if (Line.bRoad) ++PublicRoadLines;
-                else ++FootprintLines;
-            });
-            int32 TotalLines = 0;
-            Source->VisitAtlasLines(VPAdenAtlas::Local, [&](const FVPAdenAtlasLine&) { ++TotalLines; });
-            DiagnosticReport->SetNumberField(TEXT("atlasSourceLines"), TotalLines);
-            DiagnosticReport->SetNumberField(TEXT("atlasDetailCandidates"), Candidates);
-            DiagnosticReport->SetNumberField(TEXT("atlasDetailRoadLines"), PublicRoadLines);
-            DiagnosticReport->SetNumberField(TEXT("atlasDetailFootprintLines"), FootprintLines);
-            DiagnosticReport->SetBoolField(TEXT("atlasDetailClipped"), bAtlasLinesClipped);
-            bPassed = Desktop->GetAdenAtlasPage() == 1 && Desktop->GetAdenAtlasZoom() == VPAdenAtlas::MaxZoomLevel
-                && VPAdenAtlas::ObjectiveAtEdge(Crop, Player, Objective, 0.)
-                && Source->DetailReliefAtlas && PublicRoadLines > 0 && FootprintLines > 0 && bAtlasLinesClipped;
-            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-zoomed-field-map"));
-            if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-zoomed-field-map"), Frame);
-            bPassed = bPassed && Frame.IsValid();
-            for (int32 Zoom = VPAdenAtlas::MaxZoomLevel; Zoom > OriginalZoom; --Zoom)
-                Desktop->ZoomAdenAtlasOut();
-            Desktop->CycleAdenAtlas();
-            Desktop->CycleAdenAtlas();
-        }
-        bPassed = bPassed && VerifyAtlasRouteOverview(Desktop, Pawn, Route == Witness);
-        if (bPassed && Follow()) Pawn->RequestInteraction(); else bPassed = false;
-        bPassed = bPassed && Dispatch.Phase == Compare && Follow();
-        if (bPassed) Pawn->RequestInteraction();
-        bPassed = bPassed && Dispatch.Phase == Publish && Follow();
-        if (bPassed)
-        {
-            Pawn->RequestInteraction();
-            if (Route == PublicNotice)
-            {
-                const auto DecisionFrame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-dispatch-decision"));
-                bPassed = DecisionFrame.IsValid();
-                if (DecisionFrame)
-                    DiagnosticReport->SetObjectField(TEXT("aden-dispatch-decision"), DecisionFrame);
-            }
-            TryInteraction(Pawn, BroadcastInput::TwoIncidents);
-            bPassed = bPassed && Dispatch.Phase == Publish && bChoosingReport && Notice.Contains(TEXT("cannot identify every"));
-            const EDisposition Expected = Route == Witness ? PublicUpdate : InternalHandoff;
-            TryInteraction(Pawn, Route == Witness ? BroadcastInput::SameMessage : BroadcastInput::FileInternally);
-            const auto Saved = ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{});
-            bPassed = bPassed && Dispatch.Phase == Complete && Dispatch.Disposition == Expected
-                && Saved.Dispatch.Phase == Complete && Saved.Dispatch.Route == Route && Saved.Dispatch.Disposition == Expected;
-            if (bPassed && Route == PublicNotice)
-                bPassed = ReturnToCheckpoint(Pawn) && Dispatch.Phase == Complete && Dispatch.Disposition == Expected;
-            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicUpdateSaved") : TEXT("internalHandoffRestored"), bPassed);
-            if (bPassed && Route == PublicNotice)
-            {
-                const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-dispatch-complete"));
-                bPassed = Frame.IsValid();
-                if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-dispatch-complete"), Frame);
-            }
-        }
-        DiagnosticReport->SetBoolField(Route == Witness ? TEXT("witnessCompleted") : TEXT("noticeCompleted"), bPassed);
-        if (bPassed)
-        {
-            bPassed = VerifyDispatchFollowup(Pawn);
-            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicCorrectionVerified") : TEXT("deskCorrectionVerified"), bPassed);
-        }
-        if (bPassed)
-        {
-            bPassed = VerifyReceiptChapter(Pawn);
-            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicReceiptVerified") : TEXT("deskReceiptVerified"), bPassed);
-        }
-        if (bPassed)
-        {
-            if (Route == PublicNotice)
-            {
-                const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-receipt-archive"));
-                if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-receipt-archive"), Frame);
-                bPassed = Frame.IsValid();
-            }
-            bPassed = bPassed && VerifyReplyChapter(Pawn);
-            DiagnosticReport->SetBoolField(Route == Witness ? TEXT("publicReplyVerified") : TEXT("deskReplyVerified"), bPassed);
-        }
-    }
-    if (!bPassed)
-    {
-        FinishDiagnostic(false);
-        return;
-    }
-    Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
-    FTimerHandle Timer;
-    GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::CaptureReplyCompletion, 1.5f, false);
-#endif
-}
-
-bool AVPAdenStoryGameMode::VerifyDispatchFollowup(AVPCharacter* Pawn)
-{
-#if !UE_BUILD_SHIPPING
-    using namespace VPAdenDispatch;
-    if (!ReturnToCheckpoint(Pawn) || Dispatch.Phase != Complete || Dispatch.Followup != FollowupReady)
-        return false;
-    const int32 OriginalDisposition = Dispatch.Disposition;
-    Pawn->RequestInteraction();
-    if (Dispatch.Followup != ReturnToLedger || !ReturnToCheckpoint(Pawn))
-        return false;
-    for (const EFollowup Step : {ReturnToLedger, DeliverCorrection})
-    {
-        if (Dispatch.Followup != Step) return false;
-        const auto& Leg = Source->DispatchLeg(Dispatch);
-        for (int32 Index = 1; Index < Leg.Num(); ++Index)
-            if (!SweepDiagnosticLeg(Pawn, Leg[Index - 1], Leg[Index]))
-            {
-                UE_LOG(LogVPAdenStory, Error, TEXT("Follow-up route collision on step %d"), Step);
-                return false;
-            }
-        if (Step == DeliverCorrection && OriginalDisposition == PublicUpdate)
-        {
-            auto* Desktop = Cast<AVPPlayerController>(Pawn->GetController());
-            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-night-roster"));
-            if (!Frame) return false;
-            DiagnosticReport->SetObjectField(TEXT("aden-night-roster"), Frame);
-        }
-        Pawn->RequestInteraction();
-        if (Dispatch.Followup != Step + 1 || ReadCheckpoint().Get(FVPAdenCampaignCheckpoint{}).Dispatch.Followup != Step + 1)
-            return false;
-    }
-    const TCHAR* ExpectedName = OriginalDisposition == PublicUpdate ? TEXT("Amina") : TEXT("Yusuf");
-    if (!Notice.StartsWith(ExpectedName) || !ReturnToCheckpoint(Pawn)) return false;
-    return Dispatch.Followup == FollowupComplete && Dispatch.Disposition == OriginalDisposition;
+    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, Name);
+    if (!Frame) return false;
+    DiagnosticReport->SetObjectField(Name, Frame);
+    return true;
 #else
     return false;
 #endif
 }
 
-bool AVPAdenStoryGameMode::VerifyReceiptChapter(AVPCharacter* Pawn)
-{
-#if !UE_BUILD_SHIPPING
-    using namespace VPAdenDispatch;
-    if (!IsReceiptChapter(Dispatch) || Dispatch.Receipt != ReceiptReady) return false;
-    const bool bPublic = Dispatch.Disposition == PublicUpdate;
-    if (bPublic)
-    {
-        // Reopen the independently isolated diagnostic slot as a pre-CH04 save.
-        auto* Legacy = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(AdenSlot(), 0));
-        if (!Legacy || Legacy->DispatchFollowup != FollowupComplete) return false;
-        Legacy->Version = 5;
-        if (!UGameplayStatics::SaveGameToSlot(Legacy, AdenSlot(), 0) || !ReturnToCheckpoint(Pawn)
-            || !IsReceiptChapter(Dispatch) || Dispatch.Receipt != ReceiptReady) return false;
-        DiagnosticReport->SetBoolField(TEXT("receiptLegacyResumeVerified"), true);
-    }
-    Pawn->RequestInteraction();
-    if (Dispatch.Receipt != ReceiptAtLedger || !Notice.StartsWith(bPublic ? TEXT("Amina") : TEXT("Yusuf"))
-        || !ReturnToCheckpoint(Pawn) || Dispatch.Receipt != ReceiptAtLedger) return false;
-    Pawn->RequestInteraction();
-    if (Dispatch.Receipt != ReceiptAtLedger) return false;
-    for (const EReceiptStep Step : {ReceiptAtLedger, ReceiptAtArchive})
-    {
-        const auto& Leg = Source->DispatchLeg(Dispatch);
-        if (Dispatch.Receipt != Step || Leg.Num() != 2) return false;
-        const FVector Middle = FMath::Lerp(Leg[0], Leg[1], .5);
-        if (!SweepDiagnosticLeg(Pawn, Leg[0], Middle)) return false;
-        if (Step == ReceiptAtArchive && bPublic)
-        {
-            auto* Desktop = Cast<AVPPlayerController>(Pawn->GetController());
-            if (!Desktop) return false;
-            const FGuide RouteGuide = Guide(Leg, Pawn->GetActorLocation());
-            if (RouteGuide.SegmentEnd != 1 || RouteGuide.OffsetCm > 1. ||
-                RouteGuide.RemainingCm < 7000. || RouteGuide.RemainingCm > 7600.) return false;
-            DiagnosticReport->SetNumberField(TEXT("receiptRouteRemainingMetres"), RouteGuide.RemainingCm / 100.);
-            Desktop->CycleAdenAtlas();
-            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-receipt-route"));
-            Desktop->CycleAdenAtlas();
-            Desktop->CycleAdenAtlas();
-            if (!Frame) return false;
-            DiagnosticReport->SetObjectField(TEXT("aden-receipt-route"), Frame);
-        }
-        if (!SweepDiagnosticLeg(Pawn, Middle, Leg[1])) return false;
-        Pawn->RequestInteraction();
-        if (Dispatch.Receipt != Step + 1 || !ReturnToCheckpoint(Pawn) || Dispatch.Receipt != Step + 1)
-            return false;
-        if (Step == ReceiptAtLedger)
-        {
-            const bool bRecovered = VerifyCheckpointRecovery(Pawn);
-            DiagnosticReport->SetBoolField(bPublic ? TEXT("receiptPublicBackupVerified") : TEXT("receiptDeskBackupVerified"), bRecovered);
-            if (!bRecovered) return false;
-        }
-    }
-    return Dispatch.Receipt == ReceiptComplete && Dispatch.Reply == ReplyReady
-        && Dispatch.Disposition == (bPublic ? PublicUpdate : InternalHandoff);
-#else
-    return false;
-#endif
-}
-
-bool AVPAdenStoryGameMode::VerifyReplyChapter(AVPCharacter* Pawn)
-{
-#if !UE_BUILD_SHIPPING
-    using namespace VPAdenDispatch;
-    using StoryInput = VPAdenMission::EInput;
-    if (Dispatch.Receipt != ReceiptComplete || Dispatch.Reply != ReplyReady) return false;
-    const bool bPublic = Dispatch.Disposition == PublicUpdate;
-    const int32 Disposition = Dispatch.Disposition, Route = Dispatch.Route;
-    if (bPublic)
-    {
-        auto* Legacy = Cast<UVPAdenStoryCheckpoint>(UGameplayStatics::LoadGameFromSlot(AdenSlot(), 0));
-        if (!Legacy) return false;
-        Legacy->Version = 6;
-        if (!UGameplayStatics::SaveGameToSlot(Legacy, AdenSlot(), 0) || !ReturnToCheckpoint(Pawn)
-            || Dispatch.Receipt != ReceiptComplete || Dispatch.Reply != ReplyReady || !CanReach(Pawn)) return false;
-        DiagnosticReport->SetBoolField(TEXT("replyLegacyResumeVerified"), true);
-    }
-    Pawn->RequestInteraction();
-    auto* Desktop = Cast<AVPPlayerController>(Pawn->GetController());
-    double Walked = 0.;
-    for (const EReplyStep Step : {ReplyAtJunction, ReplyAtContact, ReplyAtReview})
-    {
-        if (!Desktop || Dispatch.Reply != Step || !ReturnToCheckpoint(Pawn)) return false;
-        const auto& Leg = Source->DispatchLeg(Dispatch);
-        if (Leg.Num() < 2) return false;
-        if (Step == ReplyAtContact)
-        {
-            Pawn->RequestInteraction();
-            if (Dispatch.Reply != Step || bChoosingReport) return false;
-        }
-        for (int32 I = 1; I < Leg.Num(); ++I)
-        {
-            if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I])) return false;
-            Walked += FVector::Dist2D(Leg[I - 1], Leg[I]);
-        }
-        const StoryInput Correct = bPublic ? StoryInput::SameMessage : StoryInput::TwoIncidents;
-        if (Step == ReplyAtContact)
-        {
-            TryInteraction(Pawn, Correct);
-            if (Dispatch.Reply != Step || bChoosingReport) return false;
-        }
-        Pawn->RequestInteraction();
-        if (Step == ReplyAtContact)
-        {
-            if (!bChoosingReport || Dispatch.Reply != Step) return false;
-            TryInteraction(Pawn, bPublic ? StoryInput::TwoIncidents : StoryInput::SameMessage);
-            if (!bChoosingReport || Dispatch.Reply != Step || !Notice.StartsWith(TEXT("That entry"))) return false;
-            const TCHAR* Name = bPublic ? TEXT("aden-reply-public") : TEXT("aden-reply-desk");
-            const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, Name);
-            if (!Frame) return false;
-            DiagnosticReport->SetObjectField(Name, Frame);
-            TryInteraction(Pawn, Correct);
-        }
-        const auto Saved = ReadCheckpoint();
-        if (Dispatch.Reply != Step + 1 || !Saved.IsSet() || Saved.GetValue().Dispatch.Reply != Dispatch.Reply
-            || Saved.GetValue().Dispatch.Disposition != Disposition || Saved.GetValue().Dispatch.Route != Route) return false;
-    }
-    if (!ReturnToCheckpoint(Pawn) || HasObjective(Dispatch) || CanReach(Pawn)) return false;
-    Pawn->RequestInteraction();
-    DiagnosticReport->SetNumberField(bPublic ? TEXT("publicReplyMetres") : TEXT("deskReplyMetres"), Walked / 100.);
-    return Dispatch.Reply == ReplyComplete && Dispatch.Disposition == Disposition && Dispatch.Route == Route;
-#else
-    return false;
-#endif
-}
-
-bool AVPAdenStoryGameMode::VerifyCheckpointRecovery(AVPCharacter* Pawn)
-{
-#if !UE_BUILD_SHIPPING
-    if (!IsAdenDiagnostic()) return false;
-    const FString Slot = AdenSlot(), BackupSlot = Slot + TEXT("-backup");
-    const auto Previous = ReadCheckpointSlot(BackupSlot);
-    const auto Current = ReadCheckpointSlot(Slot);
-    TArray<uint8> PrimaryData, BackupData;
-    if (!Previous.IsSet() || !Current.IsSet() || Previous.GetValue().Dispatch.Receipt != VPAdenDispatch::ReceiptAtLedger
-        || Current.GetValue().Dispatch.Receipt != VPAdenDispatch::ReceiptAtArchive
-        || !UGameplayStatics::LoadDataFromSlot(PrimaryData, Slot, 0)
-        || !UGameplayStatics::LoadDataFromSlot(BackupData, BackupSlot, 0)) return false;
-
-    const TArray<uint8> Damaged{0, 0, 0, 0, 0, 0, 0, 0};
-    const auto& Expected = Previous.GetValue();
-    const FTransform Resume = RecoveryTransform(Expected);
-    const auto& Leg = Source->DispatchLeg(Expected.Dispatch);
-    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
-    bool bPassed = State && UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0) && ReturnToCheckpoint(Pawn)
-        && FVPAdenCampaignCheckpoint{{Confirmed, Notes}, Dispatch} == Expected
-        && Pawn->GetActorLocation().Equals(Resume.GetLocation(), 1.) && State->ActiveLeg == Leg
-        && State->Objective.Equals(Leg.Last() + FVector(0., 0., 130.))
-        && Notice.StartsWith(TEXT("Recovered the backup"));
-
-    TArray<uint8> BackupAfterRepair;
-    bPassed = bPassed && PersistStoryCheckpoint()
-        && UGameplayStatics::LoadDataFromSlot(BackupAfterRepair, BackupSlot, 0) && BackupAfterRepair == BackupData;
-    const FTransform Before = Pawn->GetActorTransform();
-    bPassed = bPassed && UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0)
-        && UGameplayStatics::SaveDataToSlot(Damaged, BackupSlot, 0)
-        && !ReturnToCheckpoint(Pawn) && Pawn->GetActorTransform().Equals(Before)
-        && FVPAdenCampaignCheckpoint{{Confirmed, Notes}, Dispatch} == Expected
-        && State->ActiveLeg == Leg;
-
-    const bool bBackupRestored = UGameplayStatics::SaveDataToSlot(BackupData, BackupSlot, 0);
-    const bool bPrimaryRestored = UGameplayStatics::SaveDataToSlot(PrimaryData, Slot, 0);
-    return bPassed && bBackupRestored && bPrimaryRestored && ReturnToCheckpoint(Pawn)
-        && FVPAdenCampaignCheckpoint{{Confirmed, Notes}, Dispatch} == Current.GetValue();
-#else
-    return false;
-#endif
-}
-
-bool AVPAdenStoryGameMode::VerifyAtlasRouteOverview(AVPPlayerController* Desktop, const AVPCharacter* Pawn, bool bWitness)
+bool AVPAdenStoryGameMode::VerifyAtlasRoute(AVPPlayerController* Desktop, const AVPCharacter* Pawn, const TCHAR* FrameName)
 {
 #if !UE_BUILD_SHIPPING
     using namespace VPAdenAtlas;
-    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
-    if (!State || !State->HasAtlasRoute() || Desktop->GetAdenAtlasPage() != 0) return false;
+    const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View || !View->HasAtlasRoute() || Desktop->GetAdenAtlasPage() != 0) return false;
     Desktop->CycleAdenAtlas();
-    const int32 OriginalZoom = Desktop->GetAdenAtlasZoom();
-    for (int32 Zoom = OriginalZoom; Zoom < MaxZoomLevel; ++Zoom) Desktop->ZoomAdenAtlasIn();
+    const int32 ZoomBefore = Desktop->GetAdenAtlasZoom();
+    for (int32 Zoom = ZoomBefore; Zoom < MaxZoomLevel; ++Zoom) Desktop->ZoomAdenAtlasIn();
     const FVector Player = Pawn->GetActorLocation();
-    const auto Follow = State->AtlasCrop(Player, MaxZoomLevel, false);
     Desktop->ToggleAdenAtlasRouteOverview();
-    Desktop->ZoomAdenAtlasOut();
-    const auto View = State->AtlasCrop(Player, Desktop->GetAdenAtlasZoom(), Desktop->IsAdenAtlasRouteOverview());
-    bool bPassed = Desktop->IsAdenAtlasRouteOverview() && Desktop->GetAdenAtlasZoom() == MaxZoomLevel
-        && View.Contains({Player.X, Player.Y}) && View.Contains({State->Objective.X, State->Objective.Y})
-        && Playable.Contains({View.West, View.North}) && Playable.Contains({View.East, View.South})
-        && (bWitness || !Follow.Contains({State->Objective.X, State->Objective.Y}));
-    for (const FVector& Point : State->ActiveLeg) bPassed &= View.Contains({Point.X, Point.Y});
-    const TCHAR* Name = bWitness ? TEXT("aden-route-overview-witness") : TEXT("aden-route-overview-notice");
-    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, Name);
-    if (Frame) DiagnosticReport->SetObjectField(Name, Frame);
+    const auto Crop = View->AtlasCrop(Player, MaxZoomLevel, Desktop->IsAdenAtlasRouteOverview());
+    bool bPassed = Desktop->IsAdenAtlasRouteOverview() && Crop.Contains({Player.X, Player.Y})
+        && Crop.Contains({View->Objective.X, View->Objective.Y});
+    for (const FVector& Point : View->ActiveLeg) bPassed &= Crop.Contains({Point.X, Point.Y});
+    bPassed = bPassed && CaptureFrame(Desktop, FrameName);
     Desktop->ToggleAdenAtlasRouteOverview();
-    bPassed = bPassed && Frame.IsValid() && !Desktop->IsAdenAtlasRouteOverview() && Desktop->GetAdenAtlasZoom() == MaxZoomLevel;
-    for (int32 Zoom = MaxZoomLevel; Zoom > OriginalZoom; --Zoom) Desktop->ZoomAdenAtlasOut();
+    for (int32 Zoom = MaxZoomLevel; Zoom > ZoomBefore; --Zoom) Desktop->ZoomAdenAtlasOut();
     Desktop->CycleAdenAtlas();
     Desktop->CycleAdenAtlas();
-    return bPassed && Desktop->GetAdenAtlasPage() == 0 && Desktop->GetAdenAtlasZoom() == OriginalZoom;
+    return bPassed && Desktop->GetAdenAtlasPage() == 0 && Desktop->GetAdenAtlasZoom() == ZoomBefore;
 #else
     return false;
 #endif
 }
 
-void AVPAdenStoryGameMode::CaptureReplyCompletion()
+bool AVPAdenStoryGameMode::VerifyEscort(AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now)
 {
 #if !UE_BUILD_SHIPPING
-    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
-    const auto Frame = VPReadVisualSmokeFrame(Desktop, DiagnosticCapture, TEXT("aden-reply-complete"));
-    if (Frame) DiagnosticReport->SetObjectField(TEXT("aden-reply-complete"), Frame);
-    FinishDiagnostic(Frame.IsValid());
+    using namespace VPAdenCampaign;
+    EnsureEscort(Pawn);
+    if (!Escort || Escort->bAtGoal) return false;
+    if (Progress.Beat == LeadMara)
+    {
+        // A fast player can get more than 15 m ahead. The escort must wait.
+        const FVector Initial = Escort->GetActorLocation();
+        if (!SweepDiagnosticLeg(Pawn, Leg[0], Leg.Last()) || !Escort->IsWaitingForAdenLeader()) return false;
+        Escort->Tick(.05f);
+        if (!Escort->GetActorLocation().Equals(Initial, .01)) return false;
+        const FTransform Place = RecoveryTransform(Progress);
+        if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
+        DiagnosticReport->SetBoolField(TEXT("escortLeashVerified"), true);
+    }
+    for (int32 I = 1; I < Leg.Num(); ++I)
+    {
+        FVector From = Leg[I - 1];
+        const FVector To = Leg[I];
+        const int32 Chunks = FMath::Max(1, FMath::CeilToInt(float(FVector::Dist2D(From, To) / 600.)));
+        for (int32 Part = 1; Part <= Chunks; ++Part)
+        {
+            const FVector Target = FMath::Lerp(Leg[I - 1], To, double(Part) / Chunks);
+            if (!SweepDiagnosticLeg(Pawn, From, Target)) return false;
+            From = Target;
+            for (int32 TickIndex = 0; TickIndex < 66; ++TickIndex)
+            {
+                if (!Escort->bAtGoal) Escort->Tick(.05f);
+                if (FinalNeighbor && !FinalNeighbor->bAtGoal) FinalNeighbor->Tick(.05f);
+                if (Escort->bAtGoal && (!FinalNeighbor || FinalNeighbor->bAtGoal)) break;
+            }
+        }
+    }
+    if (!Escort->bAtGoal) return false;
+    if (Progress.Beat == LeadFinal)
+    {
+        if (!FinalNeighbor || !FinalNeighbor->bAtGoal) return false;
+        DiagnosticReport->SetBoolField(TEXT("finalPairVerified"), true);
+    }
+    UpdateBeat(Pawn, Now);
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn,
+    int32 Route, bool bOnTime, int32 Relay)
+{
+#if !UE_BUILD_SHIPPING
+    using namespace VPAdenCampaign;
+    ApplyCheckpoint({});
+    const FTransform Place = RecoveryTransform(Progress);
+    if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
+    Desktop->SetControlRotation(Place.Rotator());
+    Pawn->RequestInteraction();
+    if (Progress.Beat != Radio) return false;
+    int32 CompletedChapters = 0;
+    for (int32 Beat = Radio; Beat < Complete; ++Beat)
+    {
+        if (Progress.Beat != Beat) return false;
+        const auto& Leg = Source->CampaignLeg(Progress);
+        const auto Action = Mode(Beat);
+        const double Now = GetWorld()->GetTimeSeconds();
+        const bool bCapture = Route == Families;
+        if (Action == EMode::Escort)
+        {
+            if (Beat == LeadMara && bCapture)
+            {
+                EnsureEscort(Pawn);
+                if (!Escort || !CaptureFrame(Desktop, TEXT("aden-campaign-escort"))) return false;
+            }
+            if (!VerifyEscort(Pawn, Leg, Now)) return false;
+        }
+        else
+        {
+            if (Beat == OpenShelter && !VerifyAtlasRoute(Desktop, Pawn, bOnTime
+                ? TEXT("aden-campaign-crossing-route") : TEXT("aden-campaign-back-street-route"))) return false;
+            if (Beat == Pickup && Route == Clinic)
+            {
+                Desktop->CycleAdenAtlas();
+                const int32 ZoomBefore = Desktop->GetAdenAtlasZoom();
+                for (int32 Zoom = ZoomBefore; Zoom < VPAdenAtlas::MaxZoomLevel; ++Zoom) Desktop->ZoomAdenAtlasIn();
+                const FVector Position = Pawn->GetActorLocation();
+                const auto View = VPAdenAtlas::Crop(VPAdenAtlas::Playable, {Position.X, Position.Y}, Desktop->GetAdenAtlasZoom());
+                int32 Roads = 0, Footprints = 0, Total = 0;
+                bool bClipped = true;
+                const int32 Candidates = Source->VisitAtlasLines(View, [&](const FVPAdenAtlasLine& Line)
+                {
+                    for (const auto Point : {Line.A, Line.B})
+                    {
+                        const auto UV = View.Normalized(Point);
+                        bClipped &= UV.X >= -1.e-9 && UV.X <= 1. + 1.e-9 && UV.Y >= -1.e-9 && UV.Y <= 1. + 1.e-9;
+                    }
+                    if (Line.bRoad) ++Roads;
+                    else ++Footprints;
+                });
+                Source->VisitAtlasLines(VPAdenAtlas::Local, [&](const FVPAdenAtlasLine&) { ++Total; });
+                DiagnosticReport->SetNumberField(TEXT("atlasSourceLines"), Total);
+                DiagnosticReport->SetNumberField(TEXT("atlasDetailCandidates"), Candidates);
+                DiagnosticReport->SetNumberField(TEXT("atlasDetailRoadLines"), Roads);
+                DiagnosticReport->SetNumberField(TEXT("atlasDetailFootprintLines"), Footprints);
+                DiagnosticReport->SetBoolField(TEXT("atlasDetailClipped"), bClipped);
+                if (!CaptureFrame(Desktop, TEXT("aden-zoomed-field-map"))) return false;
+                for (int32 Zoom = VPAdenAtlas::MaxZoomLevel; Zoom > ZoomBefore; --Zoom) Desktop->ZoomAdenAtlasOut();
+                Desktop->CycleAdenAtlas();
+                Desktop->CycleAdenAtlas();
+            }
+            for (int32 I = 1; I < Leg.Num(); ++I)
+                if (!SweepDiagnosticLeg(Pawn, Leg[I - 1], Leg[I])) return false;
+
+            if (Action == EMode::Decide)
+            {
+                const bool bFirst = Beat == Junction ? Route == Families : Relay == RadioOnce;
+                const auto Pick = bFirst ? EInput::OptionOne : EInput::OptionTwo;
+                TryInteraction(Pawn, Pick);
+                if (Progress.Beat != Beat || bChoosing) return false;
+                Pawn->RequestInteraction();
+                if (!bChoosing) return false;
+                if (bCapture && Beat == Junction && !CaptureFrame(Desktop, TEXT("aden-campaign-choice"))) return false;
+                TryInteraction(Pawn, Pick);
+            }
+            else if (Action == EMode::Operate)
+            {
+                if (Beat == Barrier)
+                {
+                    const FRotator Facing = Desktop->GetControlRotation();
+                    if (!Source->IsRescueBarrierBlocking(0)) return false;
+                    Pawn->RequestInteraction();
+                    if (OperationStarted < 0.) return false;
+                    Desktop->SetControlRotation(Facing + FRotator(0., 180., 0.));
+                    UpdateBeat(Pawn, OperationStarted + .3);
+                    if (OperationStarted >= 0. || Progress.Beat != Beat || !Source->IsRescueBarrierBlocking(0)) return false;
+                    Desktop->SetControlRotation(Facing);
+                    DiagnosticReport->SetBoolField(TEXT("operationAbortVerified"), true);
+                }
+                Pawn->RequestInteraction();
+                if (OperationStarted < 0.) return false;
+                UpdateBeat(Pawn, OperationStarted + OperationSeconds(Beat) * .5);
+                if (Progress.Beat != Beat) return false;
+                if (bCapture && Beat == Barrier && !CaptureFrame(Desktop, TEXT("aden-campaign-shutter"))) return false;
+                UpdateBeat(Pawn, OperationStarted + OperationSeconds(Beat) + .1);
+                if (Beat == Barrier && Source->IsRescueBarrierBlocking(0)) return false;
+            }
+            else
+            {
+                if (Beat == ReachSignal)
+                {
+                    if (CaptureCheckpoint().WindowMs <= 0) return false;
+                    if (bOnTime)
+                    {
+                        if (!CaptureFrame(Desktop, TEXT("aden-campaign-signal"))) return false;
+                    }
+                    else
+                    {
+                        UpdateBeat(Pawn, WindowEndsAt + .1);
+                        if (CaptureCheckpoint().WindowMs != 0) return false;
+                        const auto Expired = ReadCheckpoint();
+                        if (!Expired.IsSet() || Expired.GetValue().WindowMs != 0) return false;
+                    }
+                }
+                Pawn->RequestInteraction();
+            }
+        }
+        const auto Saved = ReadCheckpoint();
+        if (Progress.Beat != Beat + 1 || !Saved.IsSet() || !(Saved.GetValue().Progress == Progress))
+        {
+            UE_LOG(LogVPAdenStory, Error, TEXT("Campaign diagnostic did not complete beat %d"), Beat);
+            return false;
+        }
+        if (Chapter(Beat) != Chapter(Progress.Beat) || Progress.Beat == Complete) ++CompletedChapters;
+    }
+    const FProgress End{Complete, Route, bOnTime ? Crossing : BackStreet, Relay};
+    DiagnosticReport->SetNumberField(TEXT("campaignChapters"), CompletedChapters);
+    const TCHAR* Name = bOnTime ? TEXT("aden-campaign-ending-crossing") : TEXT("aden-campaign-ending-back-street");
+    if (!(Progress == End) || CompletedChapters != 12) return false;
+    UpdateBeat(Pawn, DialogueStarted + 7.1);
+    return Dialogue == Scene(End).Moving && CaptureFrame(Desktop, Name);
+#else
+    return false;
+#endif
+}
+
+bool AVPAdenStoryGameMode::VerifySavedCampaign(AVPCharacter* Pawn)
+{
+#if !UE_BUILD_SHIPPING
+    using namespace VPAdenCampaign;
+    if (!IsAdenDiagnostic()) return false;
+    const auto Ending = ReadCheckpoint();
+    if (!Ending.IsSet() || Ending.GetValue().Progress.Beat != Complete) return false;
+    const FString Slot = AdenSlot(), Backup = Slot + TEXT("-backup");
+    auto* Legacy = NewObject<UVPAdenStoryCheckpoint>();
+    Legacy->Version = 7;
+    Legacy->Revision = Source->Revision();
+    Legacy->Confirmed = VPAdenMission::Complete;
+    Legacy->Notes = VPAdenMission::ReturnDebrief;
+    Legacy->DispatchPhase = VPAdenDispatch::Complete;
+    Legacy->DispatchRoute = VPAdenDispatch::Witness;
+    Legacy->DispatchDisposition = VPAdenDispatch::PublicUpdate;
+    Legacy->DispatchFollowup = VPAdenDispatch::FollowupComplete;
+    Legacy->DispatchReceipt = VPAdenDispatch::ReceiptComplete;
+    Legacy->DispatchReply = VPAdenDispatch::ReplyComplete;
+    if (!UGameplayStatics::SaveGameToSlot(Legacy, Slot, 0) || !ReturnToCheckpoint(Pawn)
+        || !(Progress == FProgress{LastStop, Families, BackStreet, NoRelay})) return false;
+    if (!PersistStoryCheckpoint() || !WriteCheckpointSlot(Backup, Ending.GetValue())) return false;
+    const TArray<uint8> Damaged{0, 0, 0, 0, 0, 0, 0, 0};
+    if (!UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0) || !ReturnToCheckpoint(Pawn)
+        || !(Progress == Ending.GetValue().Progress)) return false;
+    const FTransform Before = Pawn->GetActorTransform();
+    if (!UGameplayStatics::SaveDataToSlot(Damaged, Backup, 0) || ReturnToCheckpoint(Pawn)
+        || !Pawn->GetActorTransform().Equals(Before) || !(Progress == Ending.GetValue().Progress)) return false;
+    return WriteCheckpointSlot(Slot, Ending.GetValue()) && ReturnToCheckpoint(Pawn)
+        && Progress == Ending.GetValue().Progress;
+#else
+    return false;
 #endif
 }
 
@@ -1082,23 +936,12 @@ void AVPAdenStoryGameMode::FinishDiagnostic(bool bPassed)
 {
 #if !UE_BUILD_SHIPPING
     auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
-    DiagnosticReport->SetBoolField(TEXT("allStationsVerified"), bPassed);
-    DiagnosticReport->SetNumberField(TEXT("confirmed"), Confirmed);
-    DiagnosticReport->SetBoolField(TEXT("relaySlipSaved"), bool(Notes & VPAdenMission::RelaySlip));
-    DiagnosticReport->SetBoolField(TEXT("debriefSaved"), bool(Notes & VPAdenMission::ReturnDebrief));
-    DiagnosticReport->SetNumberField(TEXT("dispatchPhase"), Dispatch.Phase);
-    DiagnosticReport->SetNumberField(TEXT("followupStep"), Dispatch.Followup);
-    DiagnosticReport->SetNumberField(TEXT("receiptStep"), Dispatch.Receipt);
-    DiagnosticReport->SetNumberField(TEXT("replyStep"), Dispatch.Reply);
+    DiagnosticReport->SetBoolField(TEXT("allChaptersVerified"), bPassed);
     bPassed = VPWriteVisualSmokeReport(DiagnosticReport.ToSharedRef()) && bPassed;
     if (bPassed)
-    {
-        UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: swept route, observations, atlas, choices, callbacks, checkpoint"));
-    }
+        UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: 12 chapters, paired endings, swept escorts, atlas and checkpoint recovery"));
     else
-    {
-        UE_LOG(LogVPAdenStory, Error, TEXT("ADEN_NATIVE_SMOKE_FAILED at %d confirmations and field flags %d"), Confirmed, Notes);
-    }
+        UE_LOG(LogVPAdenStory, Error, TEXT("ADEN_NATIVE_SMOKE_FAILED at campaign beat %d"), Progress.Beat);
     if (Desktop)
         UKismetSystemLibrary::QuitGame(this, Desktop, EQuitPreference::Quit, false);
     else

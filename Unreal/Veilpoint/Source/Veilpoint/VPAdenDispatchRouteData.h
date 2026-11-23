@@ -4,17 +4,87 @@
 namespace VPAdenDispatchData {
 struct FPoint { int X; int Y; };
 inline constexpr char Revision[] = "30b78f40feeb65103707c6f5880f38f24c2b52152fc01c61839965eeb4d26e62";
-inline constexpr FPoint Brief[] = {{412321, 85622}, {414546, 88127}};
-inline constexpr FPoint Decision[] = {{414546, 88127}, {416771, 90631}, {421279, 87128}};
-inline constexpr FPoint Witness[] = {{421279, 87128}, {425708, 83517}};
-inline constexpr FPoint Notice[] = {{421279, 87128}, {414451, 79690}};
-inline constexpr FPoint FromWitness[] = {{425708, 83517}, {419145, 76078}};
-inline constexpr FPoint FromNotice[] = {{414451, 79690}, {419145, 76078}};
-inline constexpr FPoint Handoff[] = {{419145, 76078}, {415785, 72207}};
-inline constexpr FPoint ReceiptArchive[] = {{419145, 76078}, {409640, 65128}};
-inline constexpr FPoint ReplyJunction[] = {{409640, 65128}, {402345, 56724}, {393281, 45881}};
-inline constexpr FPoint ReplyPublicContact[] = {{393281, 45881}, {389456, 50834}};
-inline constexpr FPoint ReplyDeskContact[] = {{393281, 45881}, {395390, 43561}, {397191, 41768}};
-inline constexpr FPoint ReplyPublicReview[] = {{389456, 50834}, {387150, 53584}};
-inline constexpr FPoint ReplyDeskReview[] = {{397191, 41768}, {406949, 52913}};
+inline constexpr FPoint Radio[] = {{412321, 85622}, {411325, 84501}};
+inline constexpr FPoint Barrier[] = {{411325, 84501}, {409864, 82856}};
+inline constexpr FPoint LeadMara[] = {{409864, 82856}, {408336, 81136}};
+inline constexpr FPoint Junction[] = {{408336, 81136}, {412321, 85622}, {414546, 88127}, {416771, 90631}, {421279, 87128}};
+inline constexpr FPoint FamiliesPickup[] = {{421279, 87128}, {425708, 83517}};
+inline constexpr FPoint ClinicPickup[] = {{421279, 87128}, {414451, 79690}};
+inline constexpr FPoint FamiliesEscort[] = {{425708, 83517}, {419145, 76078}};
+inline constexpr FPoint ClinicEscort[] = {{414451, 79690}, {419145, 76078}};
+inline constexpr FPoint RestorePower[] = {{419145, 76078}, {415785, 72207}};
+inline constexpr FPoint ReachSignal[] = {{415785, 72207}, {419145, 76078}};
+inline constexpr FPoint CrossingShelter[] = {{419145, 76078}, {409640, 65128}};
+inline constexpr FPoint BackStreetShelter[] = {{419145, 76078}, {414451, 79690}, {398106, 60962}};
+inline constexpr FPoint CrossingEscort[] = {{409640, 65128}, {402345, 56724}};
+inline constexpr FPoint BackStreetEscort[] = {{398106, 60962}, {389456, 50834}};
+inline constexpr FPoint CrossingFamiliesLastStop[] = {{402345, 56724}, {393281, 45881}, {389456, 50834}};
+inline constexpr FPoint BackStreetFamiliesLastStop[] = {{389456, 50834}, {388034, 49251}};
+inline constexpr FPoint CrossingClinicLastStop[] = {{402345, 56724}, {393281, 45881}, {395390, 43561}, {397191, 41768}};
+inline constexpr FPoint BackStreetClinicLastStop[] = {{389456, 50834}, {393281, 45881}, {395390, 43561}, {397191, 41768}};
+inline constexpr FPoint CrossingFamiliesExit[] = {{389456, 50834}, {387150, 53584}};
+inline constexpr FPoint BackStreetFamiliesExit[] = {{388034, 49251}, {383199, 49916}};
+inline constexpr FPoint ClinicExit[] = {{397191, 41768}, {406949, 52913}};
+inline constexpr FPoint CrossingFindDogyeom[] = {{387150, 53584}, {389456, 50834}, {393281, 45881}};
+inline constexpr FPoint BackStreetFindDogyeom[] = {{383199, 49916}, {388034, 49251}, {389456, 50834}, {393281, 45881}};
+inline constexpr FPoint ClinicFindDogyeom[] = {{406949, 52913}, {397191, 41768}, {395390, 43561}, {393281, 45881}};
+inline constexpr FPoint LeadDogyeom[] = {{393281, 45881}, {395390, 43561}, {397191, 41768}, {400567, 38966}};
+inline constexpr FPoint MeetNadia[] = {{400567, 38966}, {401592, 38227}, {401998, 37934}, {405776, 36488}};
+inline constexpr FPoint OpenRadioRelay[] = {{405776, 36488}, {406433, 36379}, {408317, 36152}, {410482, 35868}};
+inline constexpr FPoint OpenRunnerRelay[] = {{405776, 36488}, {401998, 37934}};
+inline constexpr FPoint LeadRadioVolunteers[] = {{410482, 35868}, {411734, 35736}, {412994, 35763}};
+inline constexpr FPoint LeadRunnerVolunteers[] = {{401998, 37934}, {405776, 36488}, {406433, 36379}, {408317, 36152}};
+inline constexpr FPoint ReachRadioWard[] = {{412994, 35763}, {411734, 35736}, {410482, 35868}};
+inline constexpr FPoint ReachRunnerWard[] = {{408317, 36152}, {410482, 35868}};
+inline constexpr FPoint LeadWard[] = {{410482, 35868}, {408317, 36152}, {406433, 36379}, {405776, 36488}};
+inline constexpr FPoint OpenYard[] = {{405776, 36488}, {401998, 37934}};
+inline constexpr FPoint MoveAssembly[] = {{401998, 37934}, {401592, 38227}, {400567, 38966}, {397191, 41768}};
+inline constexpr FPoint FindMara[] = {{397191, 41768}, {395390, 43561}, {393281, 45881}};
+inline constexpr FPoint SecureLane[] = {{393281, 45881}, {389456, 50834}};
+inline constexpr FPoint LeadFinal[] = {{389456, 50834}, {387150, 53584}, {385570, 55287}};
+inline constexpr FPoint FinalCall[] = {{385570, 55287}, {381683, 50140}, {379654, 50463}};
+enum ELeg { L_Radio, L_Barrier, L_LeadMara, L_Junction, L_FamiliesPickup, L_ClinicPickup, L_FamiliesEscort, L_ClinicEscort, L_RestorePower, L_ReachSignal, L_CrossingShelter, L_BackStreetShelter, L_CrossingEscort, L_BackStreetEscort, L_CrossingFamiliesLastStop, L_BackStreetFamiliesLastStop, L_CrossingClinicLastStop, L_BackStreetClinicLastStop, L_CrossingFamiliesExit, L_BackStreetFamiliesExit, L_ClinicExit, L_CrossingFindDogyeom, L_BackStreetFindDogyeom, L_ClinicFindDogyeom, L_LeadDogyeom, L_MeetNadia, L_OpenRadioRelay, L_OpenRunnerRelay, L_LeadRadioVolunteers, L_LeadRunnerVolunteers, L_ReachRadioWard, L_ReachRunnerWard, L_LeadWard, L_OpenYard, L_MoveAssembly, L_FindMara, L_SecureLane, L_LeadFinal, L_FinalCall, Count };
+struct FLeg { const FPoint* Points; int Length; };
+inline constexpr FLeg Legs[] = {
+    {Radio, 2},
+    {Barrier, 2},
+    {LeadMara, 2},
+    {Junction, 5},
+    {FamiliesPickup, 2},
+    {ClinicPickup, 2},
+    {FamiliesEscort, 2},
+    {ClinicEscort, 2},
+    {RestorePower, 2},
+    {ReachSignal, 2},
+    {CrossingShelter, 2},
+    {BackStreetShelter, 3},
+    {CrossingEscort, 2},
+    {BackStreetEscort, 2},
+    {CrossingFamiliesLastStop, 3},
+    {BackStreetFamiliesLastStop, 2},
+    {CrossingClinicLastStop, 4},
+    {BackStreetClinicLastStop, 4},
+    {CrossingFamiliesExit, 2},
+    {BackStreetFamiliesExit, 2},
+    {ClinicExit, 2},
+    {CrossingFindDogyeom, 3},
+    {BackStreetFindDogyeom, 4},
+    {ClinicFindDogyeom, 4},
+    {LeadDogyeom, 4},
+    {MeetNadia, 4},
+    {OpenRadioRelay, 4},
+    {OpenRunnerRelay, 2},
+    {LeadRadioVolunteers, 3},
+    {LeadRunnerVolunteers, 4},
+    {ReachRadioWard, 3},
+    {ReachRunnerWard, 2},
+    {LeadWard, 4},
+    {OpenYard, 2},
+    {MoveAssembly, 4},
+    {FindMara, 3},
+    {SecureLane, 2},
+    {LeadFinal, 3},
+    {FinalCall, 3},
+};
+static_assert(sizeof(Legs) / sizeof(Legs[0]) == Count);
 }

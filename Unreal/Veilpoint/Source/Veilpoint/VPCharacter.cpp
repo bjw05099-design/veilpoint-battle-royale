@@ -360,7 +360,7 @@ void AVPCharacter::ServerTryInteract_Implementation()
     if (!IsAlive() || !GetWorld()) return;
     if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>())
     {
-        Aden->TryInteraction(this, VPAdenMission::EInput::Inspect);
+        Aden->TryInteraction(this, VPAdenCampaign::EInput::Interact);
         return;
     }
     // Native CH01 uses the PC F key, but the server alone

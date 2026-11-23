@@ -1,7 +1,10 @@
 #include "VPLastBroadcastEscort.h"
+#include "VPAdenSourceWorld.h"
+#include "VPCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
 
@@ -44,18 +47,74 @@ void AVPLastBroadcastEscort::Follow(const TArray<FVector>& Points)
 {
     if(!HasAuthority())return; Path=Points; NextPoint=0; bAtGoal=Path.IsEmpty(); ForceNetUpdate();
 }
+
+void AVPLastBroadcastEscort::FollowAden(const TArray<FVector>& Points, AVPCharacter* Leader,
+    AVPAdenSourceWorld* Ground, float WalkPace, UMaterialInterface* Base, const FLinearColor& Jacket, bool bCarriesPack)
+{
+    if (!HasAuthority() || !Leader || !Ground) return;
+    AdenLeader = Leader;
+    AdenGround = Ground;
+    AdenPace = WalkPace;
+    Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+    Capsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+    if (Base)
+    {
+        auto* Cloth = UMaterialInstanceDynamic::Create(Base, this);
+        Cloth->SetVectorParameterValue(TEXT("Tint"), Jacket);
+        Body->SetMaterial(0, Cloth);
+        auto* Face = UMaterialInstanceDynamic::Create(Base, this);
+        Face->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.45f, .30f, .22f));
+        Head->SetMaterial(0, Face);
+    }
+    if (bCarriesPack)
+    {
+        auto* Pack = NewObject<UStaticMeshComponent>(this);
+        AddInstanceComponent(Pack);
+        Pack->SetupAttachment(Capsule);
+        Pack->SetStaticMesh(Body->GetStaticMesh());
+        Pack->SetRelativeLocation(FVector(26., 0., -20.));
+        Pack->SetRelativeScale3D(FVector(.26, .36, .22));
+        Pack->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        if (Base)
+        {
+            auto* Case = UMaterialInstanceDynamic::Create(Base, this);
+            Case->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.60f, .68f, .70f));
+            Pack->SetMaterial(0, Case);
+        }
+        Pack->RegisterComponent();
+    }
+    Follow(Points);
+}
+
+bool AVPLastBroadcastEscort::IsWaitingForAdenLeader() const
+{
+    const auto* Leader = AdenLeader.Get();
+    return AdenGround.IsValid() && (!Leader || !Leader->IsAlive()
+        || FVector::DistSquared2D(GetActorLocation(), Leader->GetActorLocation())
+            > FMath::Square(VPAdenCampaign::EscortLeashCm));
+}
+
 void AVPLastBroadcastEscort::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds); ApplyAppearance();
     if(!HasAuthority() || bAtGoal || !Path.IsValidIndex(NextPoint))return;
-    FVector Delta=Path[NextPoint]-GetActorLocation();
+    if (IsWaitingForAdenLeader()) return;
+    const FVector Position = GetActorLocation();
+    FVector Delta=Path[NextPoint]-Position;
     Delta.Z=0; // Route points never drag a swept capsule into the ground.
     if(Delta.SizeSquared()<100.f)
     {
         ++NextPoint; bAtGoal=!Path.IsValidIndex(NextPoint); ForceNetUpdate(); return;
     }
     // Fixed maximum substep prevents a hitch from tunnelling through a body.
-    const FVector Step=Delta.GetClampedToMaxSize(140.f*FMath::Clamp(DeltaSeconds,0.f,.05f));
+    FVector Step=Delta.GetClampedToMaxSize((AdenPace > 0.f ? AdenPace : 140.f) * FMath::Clamp(DeltaSeconds,0.f,.05f));
+    if (const auto* Ground = AdenGround.Get())
+    {
+        FVector Foot;
+        if (!Ground->TraceStoryGround(Position + Step, Foot)) return;
+        Step.Z = Foot.Z + Capsule->GetScaledCapsuleHalfHeight() + 14. - Position.Z;
+        SetActorRotation(FRotator(0., Delta.Rotation().Yaw, 0.));
+    }
     FHitResult Hit;
     AddActorWorldOffset(Step,true,&Hit,ETeleportType::None);
     if(Hit.bBlockingHit)

@@ -1,5 +1,8 @@
 # VEILPOINT — 12-hour campaign & original multiplayer direction
 
+The [current screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md) contains the full
+720-minute chapter treatment and supersedes the older story events below.
+
 > **GEOGRAPHIC CANON UPDATE — 2026-11-07:** [Aden historical world reference](WORLD_REFERENCE_ADEN.md) is approved as the primary factual source for terrain, coasts, city silhouettes and architecture. Use the southern Yemen **Aden 2015-era historical environment** while keeping the fictional Sahir Coast/Nahrin narrative, cast and scenarios; do not claim existing grayboxes are geographically accurate or present invented incidents as historical events.
 
 > **LATEST CANON UPDATE — 2026-10-27:** [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md) is authoritative for the **playable lead (대한민국 특수부대 이수혁 대위)**, fictional **국정원 요원 김지윤·조현지**, and **50% combat-led gameplay, 20% urgent movement/rescue, 22% character and story, and 8% exploration**. Sahir Coast/Nahrin and the 12-chapter 720-minute budget remain, while Mara Dahan is a supporting local engineer rather than the playable protagonist. Existing earlier story emphasis below is historical/preliminary. The first browser CH01 now has a short playable finite-ammo human-opponent encounter with bounded sight and sound awareness with one-use ally support and versioned checkpoint recovery; the complete authored combat-first 50-minute M01 is still unimplemented and unmeasured.

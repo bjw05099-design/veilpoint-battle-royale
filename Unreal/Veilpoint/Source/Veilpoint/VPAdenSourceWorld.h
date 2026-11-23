@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "VPAdenAtlasProjection.h"
-#include "VPAdenDispatchRules.h"
+#include "VPAdenCampaignRules.h"
 #include "VPAdenSourceWorld.generated.h"
 
 class UMaterialInterface;
@@ -12,6 +12,7 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UProceduralMeshComponent;
 class USoundBase;
+class UPointLightComponent;
 
 struct FVPAdenTerrainCheck
 {
@@ -63,9 +64,12 @@ public:
     AVPAdenSourceWorld();
     bool BuildSource();
     bool IsPlayableGround(const FHitResult& Hit) const;
+    bool TraceStoryGround(const FVector& Around, FVector& Ground) const;
     FVector Station(int32 Index) const;
-    const TArray<FVector>& DispatchLeg(VPAdenDispatch::FState State) const;
-    FVector DispatchResume(VPAdenDispatch::FState State) const;
+    const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
+    void SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);
+    void SetCrossingLight(const FVector& Signal, bool bOn);
+    bool IsRescueBarrierBlocking(int32 Slot) const;
     UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
     int32 VisitAtlasLines(VPAdenAtlas::FExtent View, TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const;
     void ShowFieldStation(int32 Slot, bool bVisible, const FVector& Point, const FVector& Direction);
@@ -120,8 +124,13 @@ public:
 
 private:
     void CreateFieldStations();
+    void CreateRescueProps();
     UPROPERTY(Transient)
     TArray<TObjectPtr<UStaticMeshComponent>> FieldStationParts;
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UStaticMeshComponent>> RescueBarriers;
+    UPROPERTY(Transient)
+    TObjectPtr<UPointLightComponent> CrossingLight;
     UPROPERTY(Transient)
     TArray<TObjectPtr<UProceduralMeshComponent>> TerrainSectors;
     UPROPERTY(Transient)
@@ -138,12 +147,7 @@ private:
     TArray<TArray<int32>> AtlasLineSectors;
     FString SourceRevision;
     TArray<FVector> Stations;
-    TArray<FVector> DispatchLegs[7];
-    TArray<FVector> FollowupToLedger;
-    TArray<FVector> FollowupToPublicCopy;
-    TArray<FVector> FollowupToDeskCopy;
-    TArray<FVector> ReceiptArchiveLeg;
-    TArray<FVector> ReplyLegs[5];
+    TArray<TArray<FVector>> CampaignLegs;
     bool bAttempted = false;
     int32 RoadTriangleCount = 0;
     int32 FootprintTriangleCount = 0;

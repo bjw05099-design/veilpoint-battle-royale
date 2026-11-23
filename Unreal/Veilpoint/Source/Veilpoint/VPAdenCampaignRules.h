@@ -1,0 +1,142 @@
+#pragma once
+
+namespace VPAdenCampaign
+{
+enum EBeat
+{
+    Radio, Barrier, LeadMara,
+    Junction, Pickup, LeadPassenger,
+    RestorePower, ReachSignal,
+    OpenShelter, LeadShelter,
+    LastStop, LeadLast,
+    FindDogyeom, LeadDogyeom,
+    MeetNadia,
+    OpenRelay, LeadVolunteers,
+    ReachWard, LeadWard,
+    OpenYard, MoveAssembly,
+    FindMara, SecureLane,
+    LeadFinal, FinalCall, Complete
+};
+enum ERoute { NoRoute, Families, Clinic };
+enum EPassage { NoPassage, Crossing, BackStreet };
+enum ERelay { NoRelay, RadioOnce, Runners };
+enum class EInput { Interact, OptionOne, OptionTwo };
+enum class EMode { Interact, Operate, Decide, Escort, Finished };
+
+inline constexpr int SaveVersion = 8;
+inline constexpr double ReachCm = 275.;
+inline constexpr double EscortLeashCm = 1500.;
+inline constexpr double EscortArrivalCm = 425.;
+inline constexpr int SignalWindowMs = 32000;
+
+struct FProgress
+{
+    int Beat = Radio;
+    int Route = NoRoute;
+    int Passage = NoPassage;
+    int Relay = NoRelay;
+    constexpr bool operator==(const FProgress& Other) const
+    {
+        return Beat == Other.Beat && Route == Other.Route && Passage == Other.Passage && Relay == Other.Relay;
+    }
+};
+
+struct FCheckpoint
+{
+    FProgress Progress;
+    int WindowMs = 0;
+    constexpr bool operator==(const FCheckpoint& Other) const
+    {
+        return Progress == Other.Progress && WindowMs == Other.WindowMs;
+    }
+};
+
+constexpr bool Valid(FProgress P)
+{
+    if (P.Beat < Radio || P.Beat > Complete) return false;
+    if (P.Beat < Pickup ? P.Route != NoRoute : P.Route != Families && P.Route != Clinic) return false;
+    if (P.Beat < OpenShelter ? P.Passage != NoPassage : P.Passage != Crossing && P.Passage != BackStreet) return false;
+    return P.Beat < OpenRelay ? P.Relay == NoRelay : P.Relay == RadioOnce || P.Relay == Runners;
+}
+
+constexpr bool ValidCheckpoint(FCheckpoint C)
+{
+    return Valid(C.Progress) && C.WindowMs >= 0
+        && C.WindowMs <= (C.Progress.Beat == ReachSignal ? SignalWindowMs : 0);
+}
+
+constexpr int Chapter(int Beat)
+{
+    if (Beat < Junction) return 1;
+    if (Beat < RestorePower) return 2;
+    if (Beat < OpenShelter) return 3;
+    if (Beat < LastStop) return 4;
+    if (Beat < FindDogyeom) return 5;
+    if (Beat < MeetNadia) return 6;
+    if (Beat < OpenRelay) return 7;
+    if (Beat < ReachWard) return 8;
+    if (Beat < OpenYard) return 9;
+    if (Beat < FindMara) return 10;
+    if (Beat < LeadFinal) return 11;
+    return 12;
+}
+
+constexpr EMode Mode(int Beat)
+{
+    switch (Beat)
+    {
+    case Barrier: case RestorePower: case OpenShelter: case OpenRelay: case OpenYard: return EMode::Operate;
+    case Junction: case MeetNadia: return EMode::Decide;
+    case LeadMara: case LeadPassenger: case LeadShelter: case LeadLast:
+    case LeadDogyeom: case LeadVolunteers: case LeadWard: case LeadFinal: return EMode::Escort;
+    case Complete: return EMode::Finished;
+    default: return EMode::Interact;
+    }
+}
+
+constexpr double OperationSeconds(int Beat)
+{
+    switch (Beat)
+    {
+    case Barrier: return 2.8;
+    case RestorePower: return 2.4;
+    case OpenShelter: return 3.2;
+    case OpenRelay: return 3.;
+    case OpenYard: return 3.5;
+    default: return 0.;
+    }
+}
+
+constexpr bool BeginEscort(FProgress P) { return Valid(P) && Mode(P.Beat) == EMode::Escort; }
+
+constexpr bool Interact(FProgress& P, bool bReachable, bool bWindowOpen)
+{
+    if (!bReachable || !Valid(P) || Mode(P.Beat) != EMode::Interact) return false;
+    if (P.Beat == ReachSignal) P.Passage = bWindowOpen ? Crossing : BackStreet;
+    ++P.Beat;
+    return true;
+}
+
+constexpr bool Decide(FProgress& P, EInput Input, bool bChoiceOpen, bool bReachable)
+{
+    if (!Valid(P) || Mode(P.Beat) != EMode::Decide || !bChoiceOpen || !bReachable || Input == EInput::Interact) return false;
+    if (P.Beat == Junction) P.Route = Input == EInput::OptionOne ? Families : Clinic;
+    else P.Relay = Input == EInput::OptionOne ? RadioOnce : Runners;
+    ++P.Beat;
+    return true;
+}
+
+constexpr bool FinishOperation(FProgress& P, double Elapsed, bool bReachable)
+{
+    if (!Valid(P) || Mode(P.Beat) != EMode::Operate || !bReachable || !(Elapsed >= OperationSeconds(P.Beat))) return false;
+    ++P.Beat;
+    return true;
+}
+
+constexpr bool FinishEscort(FProgress& P, bool bEscortArrived, bool bLeaderNearby)
+{
+    if (!BeginEscort(P) || !bEscortArrived || !bLeaderNearby) return false;
+    ++P.Beat;
+    return true;
+}
+}
