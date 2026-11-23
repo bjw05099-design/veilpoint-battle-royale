@@ -25,6 +25,9 @@ private:
     void DrawLiveFrameTelemetry(float Scale, float X);
     void DrawAdenAtlas(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn, int32 Page, int32 Zoom, bool bRouteOverview);
     void DrawAdenStory(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn);
+    void DrawAdenOpening(const class AVPAdenStoryState* Aden);
+    float DrawAdenSubtitle(const FString& Line, float Bottom, float Left, float Width, float Scale,
+        const FLinearColor& Plate, const FLinearColor& Ink);
     void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
     bool bRoundReviewOpen = false;
     int32 RoundReviewCursor = INDEX_NONE;

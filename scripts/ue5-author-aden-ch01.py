@@ -55,18 +55,12 @@ def import_atlas_textures():
     return textures
 
 
-def import_field_audio():
-    project = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
-    samples = project / "Saved" / "Veilpoint" / "FieldAudioSource"
-    generator = runpy.run_path(str(Path(__file__).with_name("build-aden-story-audio.py")))
-    generator["create"](samples)
-    names = ["SW_AdenStreetWind", "SW_AdenFoot1", "SW_AdenFoot2", "SW_AdenFoot3", "SW_AdenDossierCue"]
-    output = "/Game/Audio/Aden"
+def import_sounds(samples, names, output):
     sounds = []
     for name in names:
         target = output + "/" + name
         if unreal.EditorAssetLibrary.does_asset_exist(target):
-            raise RuntimeError("Refusing to overwrite existing field audio: " + target)
+            raise RuntimeError("Refusing to overwrite existing Aden audio: " + target)
         task = unreal.AssetImportTask()
         task.set_editor_property("filename", str(samples / (name + ".wav")))
         task.set_editor_property("destination_path", output)
@@ -75,13 +69,35 @@ def import_field_audio():
         unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
         sound = unreal.EditorAssetLibrary.load_asset(target)
         if not isinstance(sound, unreal.SoundWave):
-            raise RuntimeError("Field audio import produced no SoundWave: " + name)
+            raise RuntimeError("Aden audio import produced no SoundWave: " + name)
         if name == "SW_AdenStreetWind":
             sound.set_editor_property("looping", True)
         if not unreal.EditorAssetLibrary.save_loaded_asset(sound):
-            raise RuntimeError("Could not save native field audio: " + target)
+            raise RuntimeError("Could not save Aden audio: " + target)
         sounds.append(sound)
     return sounds
+
+
+def import_field_audio():
+    project = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
+    samples = project / "Saved" / "Veilpoint" / "FieldAudioSource"
+    generator = runpy.run_path(str(Path(__file__).with_name("build-aden-story-audio.py")))
+    generator["create"](samples)
+    names = ["SW_AdenStreetWind", "SW_AdenFoot1", "SW_AdenFoot2", "SW_AdenFoot3", "SW_AdenDossierCue"]
+    return import_sounds(samples, names, "/Game/Audio/Aden")
+
+
+def import_prologue_audio():
+    project = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
+    samples = project / "Saved" / "Veilpoint" / "PrologueAudioSource"
+    generator = runpy.run_path(str(Path(__file__).with_name("build-aden-story-audio.py")))
+    beds = generator["create_prologue_beds"](samples)
+    assets = runpy.run_path(str(Path(__file__).with_name("build-aden-prologue-voice.py")))
+    takes = assets["validated_takes"]()
+    for name, wave in takes:
+        (samples / (name + ".wav")).write_bytes(wave)
+    output = "/Game/Audio/Aden/Opening"
+    return import_sounds(samples, [name for name, _ in takes], output), import_sounds(samples, beds, output)
 
 
 def create_station_material():
@@ -116,6 +132,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
 
     atlas = import_atlas_textures()
     ambience, *cues = import_field_audio()
+    voice, beds = import_prologue_audio()
     station_material = create_station_material()
     station_mesh = assets.load_asset("/Engine/BasicShapes/Cube")
     if not station_mesh:
@@ -157,6 +174,8 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     source.set_editor_property("wind_sound", ambience)
     source.set_editor_property("step_sounds", cues[:3])
     source.set_editor_property("dossier_sound", cues[3])
+    source.set_editor_property("prologue_voice", voice)
+    source.set_editor_property("prologue_beds", beds)
     for prop, texture in atlas.items():
         source.set_editor_property(prop, texture)
     source.set_actor_label("VP_Aden_PublicGeometry")
@@ -189,6 +208,10 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         raise RuntimeError("Reloaded map lost field station references")
     if not station.get_editor_property("wind_sound") or not station.get_editor_property("dossier_sound")             or len(station.get_editor_property("step_sounds")) != 3:
         raise RuntimeError("Reloaded map lost field audio references")
+    for prop, expected in (("prologue_voice", voice), ("prologue_beds", beds)):
+        observed = station.get_editor_property(prop)
+        if [sound.get_path_name() for sound in observed if sound] != [sound.get_path_name() for sound in expected]:
+            raise RuntimeError("Reloaded Aden map lost prologue sound references: " + prop)
     daylight = verify_saved_daylight(actors.get_all_level_actors())
     content = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     map_file = os.path.join(content, "Maps", "CH01_Aden.umap")
@@ -198,7 +221,9 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         raise RuntimeError("Native Aden level has no valid saved map bytes")
     receipt = {"schema": "veilpoint-native-aden-authoring-v1", "map": ADEN_PACKAGE, "gameMode": ADEN_MODE,
                "mapSha256": hashlib.sha256(binary).hexdigest(), "mapBytes": len(binary),
-               "sourceActorCount": len(reloaded), "atlasTextureCount": len(atlas), "fieldAudioCount": 5, "fieldStationSaved": True, "savedReloadVerified": True, "daylight": daylight}
+               "sourceActorCount": len(reloaded), "atlasTextureCount": len(atlas), "fieldAudioCount": 5,
+               "prologueVoiceCount": len(voice), "prologueBedCount": len(beds),
+               "fieldStationSaved": True, "savedReloadVerified": True, "daylight": daylight}
     saved = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
     target = os.path.join(saved, "Veilpoint", "ch01-aden-map-receipt.json")
     os.makedirs(os.path.dirname(target), exist_ok=True)

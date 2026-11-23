@@ -7,10 +7,12 @@
 #include "Misc/Optional.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRules.h"
+#include "VPAdenPrologueTimeline.h"
 #include "VPAdenStoryGameMode.generated.h"
 
 class AVPAdenSourceWorld;
 class AVPAdenContact;
+class AVPAdenPrologue;
 class AVPLastBroadcastEscort;
 class AVPCharacter;
 class AVPPlayerController;
@@ -28,6 +30,8 @@ public:
     VPAdenAtlas::FExtent AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const;
 
     bool bSourceReady = false;
+    bool bOpeningActive = false;
+    VPAdenPrologue::FFrame OpeningFrame;
     bool bChoosing = false;
     bool bOperating = false;
     bool bEscortWaiting = false;
@@ -113,6 +117,8 @@ private:
     void UpdateRescueProps(float OperationFraction);
     void SetDialogue(const TCHAR* Line);
     void EnsureEscort(AVPCharacter* Pawn);
+    void UpdateOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn, float DeltaSeconds);
+    void FinishOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     void ClearContacts();
     void PrepareEncounter(AVPCharacter* Pawn, double Now);
     bool UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now);
@@ -132,6 +138,7 @@ private:
     void RunDiagnostic();
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
     bool VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn);
+    bool VerifyOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     bool VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn, int32 Route, bool bOnTime, int32 Relay);
     bool VerifyEscort(AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now);
     bool VerifyEncounter(AVPPlayerController* Desktop, AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now);
@@ -149,6 +156,8 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<AActor> PlayerStart;
     UPROPERTY(Transient)
+    TObjectPtr<AVPAdenPrologue> Opening;
+    UPROPERTY(Transient)
     TObjectPtr<AVPLastBroadcastEscort> Escort;
     UPROPERTY(Transient)
     TObjectPtr<AVPLastBroadcastEscort> FinalNeighbor;
@@ -163,6 +172,8 @@ private:
     double WindowEndsAt = -1.;
     double NextEscortAttempt = 0.;
     double NextContactAttempt = 0.;
+    double OpeningTime = 0.;
+    bool bOpeningActive = false;
     bool bSourceChecked = false;
     bool bChoosing = false;
     bool bMovingLinePlayed = false;

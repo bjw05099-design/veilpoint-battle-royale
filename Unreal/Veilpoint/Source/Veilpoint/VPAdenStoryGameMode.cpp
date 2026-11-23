@@ -3,6 +3,7 @@
 #include "VPAdenCampaign.h"
 #include "VPAdenCampaignMigration.h"
 #include "VPAdenContact.h"
+#include "VPAdenPrologue.h"
 #include "VPAdenSourceWorld.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
@@ -85,7 +86,9 @@ bool AVPAdenStoryGameMode::PrepareSource()
         UGameplayStatics::DeleteGameInSlot(AdenSlot(), 0);
         UGameplayStatics::DeleteGameInSlot(FString(AdenSlot()) + TEXT("-backup"), 0);
     }
-    ApplyCheckpoint(ReadCheckpoint().Get(VPAdenCampaign::FCheckpoint{}));
+    const auto Saved = ReadCheckpoint();
+    bOpeningActive = !Saved.IsSet();
+    ApplyCheckpoint(Saved.Get(VPAdenCampaign::FCheckpoint{}));
     return true;
 }
 
@@ -124,7 +127,7 @@ FTransform AVPAdenStoryGameMode::RecoveryTransform(VPAdenCampaign::FProgress Sav
 
 bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
 {
-    if (!Source || !Pawn || !Pawn->IsAlive() || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
+    if (bOpeningActive || !Source || !Pawn || !Pawn->IsAlive() || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
     bool bUsedBackup = false;
     const auto Saved = ReadCheckpoint(&bUsedBackup);
     if (!Saved.IsSet() || !RestorePosition(Pawn, Saved.GetValue().Progress)) return false;
@@ -178,7 +181,7 @@ bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point,
 void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampaign::EInput Input)
 {
     using namespace VPAdenCampaign;
-    if (!HasAuthority() || !Source) return;
+    if (bOpeningActive || !HasAuthority() || !Source) return;
     const bool bReachable = CanReach(Pawn);
     if (!bReachable)
     {
@@ -246,6 +249,7 @@ void AVPAdenStoryGameMode::PublishScene()
     auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
     if (!View) return;
     View->bSourceReady = Source != nullptr;
+    View->bOpeningActive = bOpeningActive;
     View->Source = Source.Get();
     View->Progress = Progress;
     View->bChoosing = false;
@@ -262,7 +266,7 @@ void AVPAdenStoryGameMode::PublishScene()
     View->Dialogue = Dialogue;
     View->ActiveLeg.Reset();
     if (!Source) return;
-    const bool bActive = Progress.Beat != VPAdenCampaign::Complete;
+    const bool bActive = !bOpeningActive && Progress.Beat != VPAdenCampaign::Complete;
     if (bActive) View->ActiveLeg = Source->CampaignLeg(Progress);
     View->Objective = GetObjective();
     const auto& Leg = Source->CampaignLeg(Progress);
@@ -351,7 +355,7 @@ int32 AVPAdenStoryGameMode::StandingContacts() const
 bool AVPAdenStoryGameMode::CanFireInEncounter(const AVPCharacter* Pawn) const
 {
     const auto* Desktop = GetWorld()->GetFirstPlayerController();
-    return Desktop && Pawn == Desktop->GetPawn() && StandingContacts() > 0;
+    return !bOpeningActive && Desktop && Pawn == Desktop->GetPawn() && StandingContacts() > 0;
 }
 
 void AVPAdenStoryGameMode::ClearContacts()
@@ -431,9 +435,61 @@ void AVPAdenStoryGameMode::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (!Source) return;
-    const auto* Desktop = GetWorld()->GetFirstPlayerController();
+    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
     auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
-    if (Pawn && Pawn->IsAlive()) UpdateBeat(Pawn, GetWorld()->GetTimeSeconds());
+    if (!Pawn || !Pawn->IsAlive()) return;
+    if (bOpeningActive) UpdateOpening(Desktop, Pawn, DeltaSeconds);
+    else UpdateBeat(Pawn, GetWorld()->GetTimeSeconds());
+}
+
+void AVPAdenStoryGameMode::UpdateOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn, float DeltaSeconds)
+{
+    if (!Opening)
+    {
+        auto* Camera = Pawn->BodyCamera.Get();
+        const FRotator FirstLook = RecoveryTransform(Progress).Rotator();
+        Opening = GetWorld()->SpawnActor<AVPAdenPrologue>();
+        if (!Opening || !Camera || !Opening->Build(*Source.Get(), *Camera, FirstLook))
+        {
+            UE_LOG(LogVPAdenStory, Error, TEXT("Aden opening camera could not be prepared"));
+            if (Opening) Opening->Destroy();
+            Opening = nullptr;
+            bOpeningActive = false;
+            SetDialogue(VPAdenCampaign::Scene(Progress).Opening);
+            PublishScene();
+            return;
+        }
+        Desktop->SetIgnoreMoveInput(true);
+        Desktop->SetIgnoreLookInput(true);
+        Pawn->ReleaseDesktopActions();
+        Desktop->SetViewTarget(Opening.Get());
+        return;
+    }
+
+    OpeningTime = VPAdenPrologue::Advance(OpeningTime, DeltaSeconds);
+    const auto Frame = VPAdenPrologue::At(OpeningTime);
+    if (Frame.Shot == VPAdenPrologue::Count)
+    {
+        FinishOpening(Desktop, Pawn);
+        return;
+    }
+    Opening->Present(Frame, true);
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->OpeningFrame = Frame;
+}
+
+void AVPAdenStoryGameMode::FinishOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn)
+{
+    Desktop->SetControlRotation(RecoveryTransform(Progress).Rotator());
+    Desktop->SetViewTarget(Pawn);
+    Desktop->SetIgnoreMoveInput(false);
+    Desktop->SetIgnoreLookInput(false);
+    Opening->StopAudio();
+    Opening->Destroy();
+    Opening = nullptr;
+    bOpeningActive = false;
+    SetDialogue(VPAdenCampaign::Scene(Progress).Opening);
+    PublishScene();
+    PersistStoryCheckpoint();
 }
 
 void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
@@ -590,7 +646,7 @@ bool AVPAdenStoryGameMode::WriteCheckpointSlot(const FString& Slot, VPAdenCampai
 
 bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
 {
-    if (!Source || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
+    if (bOpeningActive || !Source || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
     const FString Slot = AdenSlot();
     const auto Primary = ReadCheckpointSlot(Slot);
     const bool bRotated = !Primary.IsSet() || WriteCheckpointSlot(Slot + TEXT("-backup"), Primary.GetValue());
@@ -603,13 +659,92 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
 void AVPAdenStoryGameMode::BeginDiagnostic()
 {
 #if !UE_BUILD_SHIPPING
-    if (auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController()))
+    DiagnosticReport = MakeShared<FJsonObject>();
+    DiagnosticReport->SetStringField(TEXT("schema"), TEXT("veilpoint-native-aden-visual-v2"));
+    auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
+    auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
+    if (Pawn && bOpeningActive)
     {
-        Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
+        if (!Opening) UpdateOpening(Desktop, Pawn, 0.f);
         DiagnosticCapture = VPCreateVisualSmokeCapture(Desktop);
+        if (DiagnosticCapture && VerifyOpening(Desktop, Pawn))
+        {
+            Desktop->SetControlRotation(FRotator(-19., Desktop->GetControlRotation().Yaw, 0.));
+            FTimerHandle Timer;
+            GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::RunDiagnostic, 8.f, false);
+            return;
+        }
     }
-    FTimerHandle Timer;
-    GetWorldTimerManager().SetTimer(Timer, this, &AVPAdenStoryGameMode::RunDiagnostic, 8.f, false);
+    UE_LOG(LogVPAdenStory, Error, TEXT("Aden opening failed camera, audio, or gameplay-handoff validation"));
+    FinishDiagnostic(false);
+#endif
+}
+
+bool AVPAdenStoryGameMode::VerifyOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn)
+{
+#if !UE_BUILD_SHIPPING
+    using namespace VPAdenPrologue;
+    auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View || !Opening || !Opening->HasAudio() || !View->bOpeningActive || Desktop->GetViewTarget() != Opening.Get()
+        || !Desktop->IsMoveInputIgnored() || !Desktop->IsLookInputIgnored() || View->HasAtlasRoute()) return false;
+    const FVector Start = Pawn->GetActorLocation();
+    const int32 Ammo = Pawn->Charges;
+    Desktop->CycleAdenAtlas();
+    Pawn->RequestInteraction();
+    Pawn->RequestPrimaryAction();
+    if (Desktop->GetAdenAtlasPage() != 0 || Pawn->Charges != Ammo || Progress.Beat != VPAdenCampaign::Radio
+        || PersistStoryCheckpoint() || ReturnToCheckpoint(Pawn) || ReadCheckpoint().IsSet()) return false;
+    DiagnosticReport->SetBoolField(TEXT("openingInputLocked"), true);
+    DiagnosticReport->SetBoolField(TEXT("openingAudioStaged"), true);
+
+    struct FShotCapture { FFrame Frame; const TCHAR* Name; };
+    constexpr FShotCapture ShotsToCapture[] = {
+        {{OldPort, 3.}, TEXT("aden-opening-old-port")},
+        {{News, 3.}, TEXT("aden-opening-government-news")},
+        {{News, 9.}, TEXT("aden-opening-front-news")},
+        {{Fighting, 5.95}, TEXT("aden-opening-fighting")},
+        {{Blackout, 4.}, TEXT("aden-opening-blackout")},
+        {{Cabin, 3.}, TEXT("aden-opening-first-person")},
+        {{Approach, 6.}, TEXT("aden-opening-approach")},
+        {{Landfall, 10.}, TEXT("aden-opening-landfall")},
+        {{Street, 5.8}, TEXT("aden-opening-street")},
+    };
+    const FTransform Original = DiagnosticCapture->GetRelativeTransform();
+    const auto Grade = DiagnosticCapture->PostProcessSettings;
+    const float OriginalFov = DiagnosticCapture->FOVAngle;
+    DiagnosticCapture->bCaptureEveryFrame = false;
+    bool bCaptured = true;
+    for (const auto& Sample : ShotsToCapture)
+    {
+        Opening->Present(Sample.Frame, false);
+        View->OpeningFrame = Sample.Frame;
+        DiagnosticCapture->SetWorldLocationAndRotation(Opening->GetActorLocation(), Opening->GetActorRotation());
+        DiagnosticCapture->FOVAngle = Opening->GetCameraComponent()->FieldOfView;
+        DiagnosticCapture->PostProcessSettings = Opening->GetCameraComponent()->PostProcessSettings;
+        DiagnosticCapture->CaptureScene();
+        bCaptured &= CaptureFrame(Desktop, Sample.Name);
+    }
+    DiagnosticCapture->PostProcessSettings = Grade;
+    DiagnosticCapture->FOVAngle = OriginalFov;
+    DiagnosticCapture->SetRelativeTransform(Original);
+    DiagnosticCapture->bCaptureEveryFrame = true;
+    if (!bCaptured) return false;
+    DiagnosticReport->SetNumberField(TEXT("openingFrames"), UE_ARRAY_COUNT(ShotsToCapture));
+
+    OpeningTime = Total - .16;
+    UpdateOpening(Desktop, Pawn, .05f);
+    if (!bOpeningActive || View->OpeningFrame.Shot != Street || !Desktop->IsMoveInputIgnored()
+        || !Opening->GetActorLocation().Equals(Pawn->BodyCamera->GetComponentLocation(), 1.)) return false;
+    UpdateOpening(Desktop, Pawn, .2f);
+    const auto Saved = ReadCheckpoint();
+    const bool bPassed = !bOpeningActive && !View->bOpeningActive && !Opening
+        && Desktop->GetViewTarget() == Pawn && !Desktop->IsMoveInputIgnored() && !Desktop->IsLookInputIgnored()
+        && Pawn->GetActorLocation().Equals(Start, 1.) && View->HasAtlasRoute() && !View->Dialogue.IsEmpty()
+        && Saved.IsSet() && Saved.GetValue().Progress.Beat == VPAdenCampaign::Radio;
+    DiagnosticReport->SetBoolField(TEXT("openingHandoffVerified"), bPassed);
+    return bPassed;
+#else
+    return false;
 #endif
 }
 
@@ -718,9 +853,7 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     using namespace VPAdenCampaign;
     auto* Desktop = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
     auto* Pawn = Desktop ? Cast<AVPCharacter>(Desktop->GetPawn()) : nullptr;
-    DiagnosticReport = MakeShared<FJsonObject>();
     auto& Report = DiagnosticReport;
-    Report->SetStringField(TEXT("schema"), TEXT("veilpoint-native-aden-visual-v2"));
     const auto ReadFrame = [&](const TCHAR* Name) { return CaptureFrame(Desktop, Name); };
     const bool bKoreanFont = IFileManager::Get().FileExists(*DialogueFontPath());
     Report->SetBoolField(TEXT("koreanFontStaged"), bKoreanFont);

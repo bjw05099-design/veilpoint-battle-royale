@@ -40,6 +40,10 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.legacyAndBackupVerified -ne $true) {
     throw 'Aden campaign, alternate endings, Korean subtitles or checkpoint recovery failed.'
 }
+if ($report.openingAudioStaged -ne $true -or $report.openingFrames -ne 9 -or
+    $report.openingInputLocked -ne $true -or $report.openingHandoffVerified -ne $true) {
+    throw 'Aden cinematic audio, captured shots or first-person gameplay handoff failed.'
+}
 if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 -or
     $report.regionalBackdropTriangles -lt 20000 -or $report.regionalSharedEdges -ne 97 -or
     $report.regionalPlayableBorderVertices -ne 544 -or $null -eq $report.regionalGridFitErrorCm -or
@@ -86,6 +90,9 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
 $frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam',
+    'aden-opening-old-port','aden-opening-government-news','aden-opening-front-news',
+    'aden-opening-fighting','aden-opening-blackout','aden-opening-first-person',
+    'aden-opening-approach','aden-opening-landfall','aden-opening-street',
     'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
     'aden-campaign-contact',
