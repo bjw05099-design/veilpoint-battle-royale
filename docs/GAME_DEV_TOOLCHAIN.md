@@ -4,6 +4,8 @@
 
 ## Windows에서 처음 한 번
 
+연결이 끝난 PC에서 다음 빌드를 준비할 때는 [Windows 검증 대기 목록](VEILPOINT_PC_VALIDATION_QUEUE_KO.md)을 따른다.
+
 1. Git이 없다면 PowerShell에서 `winget install --id Git.Git --exact --source winget`을 실행하고 새 터미널을 연다.
 2. 기존 체크아웃이 없으면 아래 명령으로 받는다. 기존 작업 폴더가 있다면 변경 사항을 보존하면서 최신 main을 받는다.
 
