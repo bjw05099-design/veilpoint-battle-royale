@@ -630,7 +630,7 @@ const TCHAR* AVPAdenPrologue::SceneLabel(VPAdenPrologue::FFrame Frame)
     using namespace VPAdenPrologue;
     switch (Frame.Shot)
     {
-    case OldPort: return TEXT("아덴, 예멘 남부  |  20XX년  |  가상 각색");
+    case OldPort: return TEXT("아덴, 예멘 남부  |  2015년");
     case Government: return TEXT("예멘 정부 담화  |  만수르 알하림");
     case Front: return TEXT("반군 긴급 방송  |  압둘 카림 알하디르");
     case Fighting: return TEXT("아덴  |  내전 발발");
