@@ -1,6 +1,6 @@
 # VEILPOINT — Aden geographic & architectural reference (owner-approved, 2026-11-07)
 
-**Primary real-world reference:** Aden, southern Yemen; **historical visual baseline:** approximately 2015, the year in which the conflict escalated significantly. The native campaign uses actual names for **Aden, southern Yemen**, and the **Gulf of Aden**. Use a real district name only where public geographic evidence places the scene in that district. The game's 20XX political figures, incidents and Korean deployment are fictional. [UNESCO historic city entry](https://whc.unesco.org/en/tentativelists/6858/) · [World Bank district map](https://documents1.worldbank.org/curated/en/178151468340853860/pdf/687890ESW0P077075230Aden0CDS0090908.pdf)
+**Primary real-world reference:** Aden, southern Yemen; **historical visual baseline:** approximately 2015, the year in which the conflict escalated significantly. The native campaign uses actual names for **Aden, southern Yemen**, and the **Gulf of Aden**. Use a real district name only where public geographic evidence places the scene in that district. The campaign takes place in 2015. Its named political figures, plot events and Korean deployment are fictional. [UNESCO historic city entry](https://whc.unesco.org/en/tentativelists/6858/) · [World Bank district map](https://documents1.worldbank.org/curated/en/178151468340853860/pdf/687890ESW0P077075230Aden0CDS0090908.pdf)
 
 ## Scope supersession — 2026-11-09 (owner decision)
 

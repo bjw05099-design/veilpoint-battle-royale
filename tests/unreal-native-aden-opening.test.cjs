@@ -69,7 +69,7 @@ test('the native campaign uses Aden from the opening location cards to the final
   const narration = readFileSync(join(runtime, 'VPAdenPrologueLines.inl'), 'utf8');
   const campaign = readFileSync(join(runtime, 'VPAdenCampaign.cpp'), 'utf8');
   const screenplay = readFileSync(join(__dirname, '../docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md'), 'utf8');
-  assert.match(opening, /case OldPort:.*아덴, 예멘 남부.*20XX년.*가상 각색/);
+  assert.match(opening, /case OldPort: return TEXT\("아덴, 예멘 남부  \|  2015년"\);/);
   assert.match(opening, /case Embark:.*아덴만/);
   assert.match(opening, /case Approach:.*아덴 앞바다/);
   assert.match(narration, /아덴에서 한국 구호 인력/);
