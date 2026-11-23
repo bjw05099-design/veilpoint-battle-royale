@@ -725,6 +725,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const auto SceneBeat = Scene(Aden->Progress);
     const auto Action = Mode(Beat);
     const bool bPending = Action != EMode::Finished;
+    const bool bEncounter = Action == EMode::Encounter;
     const FVector Position = Pawn->GetActorLocation();
     const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Position);
     const bool bStatusOpen = Desktop && Desktop->IsAdenJournalOpen();
@@ -739,12 +740,12 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(Distance, Assist, Left + 12.f * Scale, Top + 60.f * Scale, nullptr, .77f * Scale);
     if (bStatusOpen)
     {
-        const TCHAR* FirstStop = Aden->Progress.Route == Families ? TEXT("First stop: families")
-            : Aden->Progress.Route == Clinic ? TEXT("First stop: clinic") : TEXT("Both stops are waiting");
-        const TCHAR* PassageStatus = Aden->Progress.Passage == Crossing ? TEXT("Shelter: lit crossing")
-            : Aden->Progress.Passage == BackStreet ? TEXT("Shelter: back street") : TEXT("");
-        const TCHAR* SignalStatus = Aden->Progress.Relay == RadioOnce ? TEXT("Neighbors: radio")
-            : Aden->Progress.Relay == Runners ? TEXT("Neighbors: runners") : TEXT("");
+        const TCHAR* FirstStop = Aden->Progress.Route == Families ? TEXT("Link-up: Amina's road")
+            : Aden->Progress.Route == Clinic ? TEXT("Link-up: Yusuf's clinic") : TEXT("Choose a link-up road");
+        const TCHAR* PassageStatus = Aden->Progress.Passage == Crossing ? TEXT("Army route: lit crossing")
+            : Aden->Progress.Passage == BackStreet ? TEXT("Army route: back street") : TEXT("");
+        const TCHAR* SignalStatus = Aden->Progress.Relay == RadioOnce ? TEXT("Orders relayed by radio")
+            : Aden->Progress.Relay == Runners ? TEXT("Orders relayed by runners") : TEXT("");
         DrawText(FirstStop, Ink, Left + 12.f * Scale, Top + 94.f * Scale, nullptr, .76f * Scale);
         DrawText(PassageStatus, Ink, Left + 12.f * Scale, Top + 113.f * Scale, nullptr, .76f * Scale);
         DrawText(SignalStatus, Ink, Left + 12.f * Scale, Top + 132.f * Scale, nullptr, .76f * Scale);
@@ -766,7 +767,8 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     };
     if (bPending)
     {
-        const bool bPrompt = *SceneBeat.Prompt && !Aden->bOperating && AVPAdenStoryState::CanReach(Pawn, Aden->Objective);
+        const bool bPrompt = *SceneBeat.Prompt && !Aden->bOperating && (!bEncounter || Aden->ContactsRemaining == 0)
+            && AVPAdenStoryState::CanReach(Pawn, Aden->Objective);
         const FString Prompt = bPrompt ? FString::Printf(TEXT("[F] %s"), SceneBeat.Prompt) : FString();
         DrawVisibleMarker(Aden->Objective, Accent, Prompt);
         if (Aden->ActiveLeg.Num() > 2 && FVector::Dist2D(Guide.Waypoint, Aden->Objective) > 100.)
@@ -775,7 +777,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     if (Aden->bHasEscort)
         DrawVisibleMarker(Aden->EscortPoint + FVector(0., 0., 96.), Assist, EscortName(Aden->Progress));
 
-    if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bHasEscort)
+    if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bHasEscort || bEncounter)
     {
         const float StatusY = Top + (bStatusOpen ? 164.f : 100.f) * Scale;
         const float StatusWidth = 350.f * Scale;
@@ -789,13 +791,22 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 (StatusWidth - 24.f * Scale) * Aden->OperationFraction, 4.f * Scale);
         }
         else if (Aden->WindowSeconds >= 0)
-            Status = Aden->WindowSeconds > 0 ? FString::Printf(TEXT("CROSSING LIGHT  %02d s"), Aden->WindowSeconds)
+            Status = Aden->WindowSeconds > 0 ? FString::Printf(
+                Aden->WindowSeconds <= SignalWarningMs / 1000 ? TEXT("LIGHT FADING  %02d s") : TEXT("CROSSING LIGHT  %02d s"),
+                Aden->WindowSeconds)
                 : FString(TEXT("LIGHT OUT   |   CALL THE DRIVER"));
+        else if (bEncounter)
+            Status = Aden->ContactsRemaining == 0 ? FString(TEXT("CONTACT CLEAR   |   MOVE TO THE POST"))
+                : Pawn->Charges == 0 ? FString(TEXT("OUT OF AMMO   |   F7  RESTART CONTACT"))
+                : FString::Printf(TEXT("%s   |   %.0f HP   |   %02d / %02d"),
+                    Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->Health,
+                    Pawn->MagazineRounds, Pawn->Charges - Pawn->MagazineRounds);
         else
             Status = FString::Printf(TEXT("%s   |   %s"), EscortName(Aden->Progress),
                 Aden->bEscortWaiting ? TEXT("WAITING FOR YOU")
                     : Aden->bEscortArrived ? TEXT("AT THE MEETING POINT") : TEXT("KEEP CLOSE"));
-        DrawText(Status, Aden->WindowSeconds >= 0 ? Accent : Assist, Left + 12.f * Scale, StatusY + 6.f * Scale, nullptr, .79f * Scale);
+        DrawText(Status, Aden->WindowSeconds >= 0 || Aden->bContactAiming ? Accent : Assist,
+            Left + 12.f * Scale, StatusY + 6.f * Scale, nullptr, .79f * Scale);
     }
 
     const float Lower = Canvas->ClipY - 30.f * Scale;
@@ -806,9 +817,9 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     {
         const bool bFirstChoice = Beat == Junction;
         DrawRect(Plate, SubtitleLeft, Lower - 60.f * Scale, SubtitleWidth, 60.f * Scale);
-        DrawText(bFirstChoice ? TEXT("[1] Reach the families first") : TEXT("[1] Announce the open door once"),
+        DrawText(bFirstChoice ? TEXT("[1] Link up via Amina's road") : TEXT("[1] Call the separated units by radio"),
             Accent, SubtitleLeft + 16.f * Scale, Lower - 51.f * Scale, nullptr, .95f * Scale);
-        DrawText(bFirstChoice ? TEXT("[2] Reach the clinic first") : TEXT("[2] Send local runners"),
+        DrawText(bFirstChoice ? TEXT("[2] Link up via Yusuf's clinic") : TEXT("[2] Send local runners with the order"),
             Accent, SubtitleLeft + 16.f * Scale, Lower - 27.f * Scale, nullptr, .95f * Scale);
         DialogueBottom -= 68.f * Scale;
     }

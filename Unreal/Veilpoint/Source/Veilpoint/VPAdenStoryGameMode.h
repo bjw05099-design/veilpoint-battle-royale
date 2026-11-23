@@ -10,6 +10,7 @@
 #include "VPAdenStoryGameMode.generated.h"
 
 class AVPAdenSourceWorld;
+class AVPAdenContact;
 class AVPLastBroadcastEscort;
 class AVPCharacter;
 class AVPPlayerController;
@@ -22,7 +23,7 @@ class AVPAdenStoryState : public AGameStateBase
     GENERATED_BODY()
 
 public:
-    static bool CanReach(const AVPCharacter* Pawn, const FVector& Point);
+    static bool CanReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing = true);
     bool HasAtlasRoute() const { return ActiveLeg.Num() >= 2; }
     VPAdenAtlas::FExtent AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const;
 
@@ -33,6 +34,8 @@ public:
     bool bEscortArrived = false;
     bool bHasEscort = false;
     bool bSaveFailed = false;
+    bool bContactAiming = false;
+    int32 ContactsRemaining = 0;
     int32 WindowSeconds = -1;
     float OperationFraction = 0.f;
     VPAdenCampaign::FProgress Progress;
@@ -97,6 +100,7 @@ public:
     virtual AActor* ChoosePlayerStart_Implementation(AController* Controller) override;
 
     void TryInteraction(const AVPCharacter* Pawn, VPAdenCampaign::EInput Input);
+    bool CanFireInEncounter(const AVPCharacter* Pawn) const;
     bool IsChoosing() const { return bChoosing; }
     bool PersistStoryCheckpoint();
     bool ReturnToCheckpoint(AVPCharacter* Pawn);
@@ -109,6 +113,10 @@ private:
     void UpdateRescueProps(float OperationFraction);
     void SetDialogue(const TCHAR* Line);
     void EnsureEscort(AVPCharacter* Pawn);
+    void ClearContacts();
+    void PrepareEncounter(AVPCharacter* Pawn, double Now);
+    bool UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now);
+    int32 StandingContacts() const;
     void UpdateBeat(AVPCharacter* Pawn, double Now);
     bool CanReach(const AVPCharacter* Pawn) const;
     FVector GetObjective() const;
@@ -118,6 +126,7 @@ private:
     TOptional<VPAdenCampaign::FCheckpoint> ReadCheckpointSlot(const FString& Slot) const;
     bool WriteCheckpointSlot(const FString& Slot, VPAdenCampaign::FCheckpoint Checkpoint) const;
     FTransform RecoveryTransform(VPAdenCampaign::FProgress Saved) const;
+    bool RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::FProgress Beat) const;
 
     void BeginDiagnostic();
     void RunDiagnostic();
@@ -125,6 +134,7 @@ private:
     bool VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     bool VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn, int32 Route, bool bOnTime, int32 Relay);
     bool VerifyEscort(AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now);
+    bool VerifyEncounter(AVPPlayerController* Desktop, AVPCharacter* Pawn, const TArray<FVector>& Leg, double Now);
     bool VerifyAtlasRoute(AVPPlayerController* Desktop, const AVPCharacter* Pawn, const TCHAR* FrameName);
     bool VerifySavedCampaign(AVPCharacter* Pawn);
     bool CaptureFrame(AVPPlayerController* Desktop, const TCHAR* Name);
@@ -142,6 +152,8 @@ private:
     TObjectPtr<AVPLastBroadcastEscort> Escort;
     UPROPERTY(Transient)
     TObjectPtr<AVPLastBroadcastEscort> FinalNeighbor;
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<AVPAdenContact>> Contacts;
 
     VPAdenCampaign::FProgress Progress;
     FString Dialogue;
@@ -150,8 +162,10 @@ private:
     double OperationStarted = -1.;
     double WindowEndsAt = -1.;
     double NextEscortAttempt = 0.;
+    double NextContactAttempt = 0.;
     bool bSourceChecked = false;
     bool bChoosing = false;
     bool bMovingLinePlayed = false;
+    bool bSignalFading = false;
     bool bSaveFailed = false;
 };

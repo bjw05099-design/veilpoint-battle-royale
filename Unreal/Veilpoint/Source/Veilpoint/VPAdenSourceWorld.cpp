@@ -1128,11 +1128,14 @@ void AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVect
     Bar->SetCollisionEnabled(bVisible && Raised < 1.f ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 }
 
-void AVPAdenSourceWorld::SetCrossingLight(const FVector& Signal, bool bOn)
+void AVPAdenSourceWorld::SetCrossingLight(const FVector& Signal, bool bOn, bool bFading)
 {
     if (!CrossingLight) return;
     if (bOn)
+    {
         CrossingLight->SetWorldLocation(Signal + FVector(0., 0., 230.));
+        CrossingLight->SetIntensity(bFading ? 1300.f : 4800.f);
+    }
     CrossingLight->SetVisibility(bOn);
 }
 

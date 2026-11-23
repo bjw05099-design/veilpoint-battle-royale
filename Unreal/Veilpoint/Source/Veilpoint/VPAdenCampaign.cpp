@@ -12,11 +12,11 @@ const FString& DialogueFontPath()
 const TCHAR* Title(int Beat)
 {
     static const TCHAR* Titles[] = {
-        TEXT("CH01  /  THE LAST BROADCAST"), TEXT("CH02  /  TWO ROADS"),
-        TEXT("CH03  /  WHILE THE LIGHT HOLDS"), TEXT("CH04  /  THE OTHER DOOR"),
-        TEXT("CH05  /  THE LAST SEAT"), TEXT("CH06  /  THE WAY BACK"),
-        TEXT("CH07  /  ONE VOICE"), TEXT("CH08  /  THE STREETS THAT ANSWER"),
-        TEXT("CH09  /  BEFORE THE DOORS CLOSE"), TEXT("CH10  /  THE WEIGHT WE SHARE"),
+        TEXT("CH01  /  THE LAST BROADCAST"), TEXT("CH02  /  TWO LINES"),
+        TEXT("CH03  /  WHILE THE LIGHT HOLDS"), TEXT("CH04  /  THE OTHER ORDER"),
+        TEXT("CH05  /  OUR OWN VOICE"), TEXT("CH06  /  THE WAY BACK"),
+        TEXT("CH07  /  ONE ORDER"), TEXT("CH08  /  THE STREETS THAT ANSWER"),
+        TEXT("CH09  /  BEFORE THEY OPEN FIRE"), TEXT("CH10  /  A SPLIT COMMAND"),
         TEXT("CH11  /  NAMES IN THE DARK"), TEXT("CH12  /  AFTER THE SIRENS")
     };
     return Titles[Chapter(Beat) - 1];
@@ -27,12 +27,8 @@ const TCHAR* EscortName(FProgress P)
     switch (P.Beat)
     {
     case LeadMara: return TEXT("Mara");
-    case LeadPassenger:
-    case LeadLast: return P.Route == Families ? TEXT("Amina") : TEXT("Yusuf");
-    case LeadShelter: return P.Passage == Crossing ? TEXT("Nabil") : TEXT("Salma");
+    case LeadPassenger: return P.Route == Families ? TEXT("Amina") : TEXT("Yusuf");
     case LeadDogyeom: return TEXT("Do-gyeom");
-    case LeadVolunteers: return P.Relay == RadioOnce ? TEXT("Nadia") : TEXT("Samir");
-    case LeadWard: return TEXT("Hana");
     case LeadFinal: return TEXT("Mara and her neighbor");
     default: return TEXT("");
     }
@@ -45,145 +41,136 @@ FScene Scene(FProgress P)
     switch (P.Beat)
     {
     case Radio:
-        return {TEXT("Reach the relay"), TEXT("Answer the call"),
-            TEXT("도겸: 대위님, 철수 차량이 돌아섭니다. 동틀 때 합류하기로 한 그 차 맞습니다."),
-            TEXT("도겸: 셔터 안에 한 사람 남았습니다. 제가 무전 살려 놓겠습니다.")};
+        return {TEXT("Reach the relay"), TEXT("Answer Do-gyeom"),
+            TEXT("도겸: 대위님, 우리 차가 먼저 갑니다. 교차로 비우라는 방송을 기사도 들었답니다."),
+            TEXT("도겸: 차가 멈췄습니다. 앞에서 총성이 났어요. 셔터 쪽으로 오십시오.")};
     case Barrier:
-        return {TEXT("Get Mara out of the passage"), TEXT("Lift the jammed barrier"),
-            TEXT("마라: 여기 있어요. 셔터 아래에 신발이 끼었어요."),
-            TEXT("수혁: 마라 씨, 제가 들면 발부터 빼세요. 몸은 그다음입니다.")};
+        return {TEXT("Free Mara from the passage"), TEXT("Lift the jammed barrier"),
+            TEXT("마라: 여기 있어요. 셔터 아래에 발이 끼었어요. 저 차, 돌아오나요?"),
+            TEXT("수혁: 모르겠습니다. 마라 씨, 제가 들면 발부터 빼세요.")};
     case LeadMara:
-        return {TEXT("Lead Mara to the clear lane"), TEXT(""),
-            TEXT("마라: 발은 움직여요. 모퉁이까지만 천천히 가요."),
-            TEXT("마라: 저기 불 켜진 데 보이죠? 저쪽에서 아직도 차를 기다리고 있어요.")};
+        return {TEXT("Get Mara to the corner"), TEXT(""),
+            TEXT("마라: 라미 소령 목소리였어요. 저 말, 아침에도 똑같이 들었는데요."),
+            TEXT("도겸: 대위님, 저 차는 못 옵니다. 카리드 전선이 길로 들어왔습니다.")};
     case Junction:
-        return {TEXT("Reach the fork"), TEXT("Decide which stop to take"),
-            TEXT("현지: 이 대위님, 아미나는 아이들 쪽에 있고 유수프는 진료소 짐을 챙기고 있습니다. 두 곳이 서로 반대입니다."),
-            TEXT("수혁: 현지 요원님, 위치만 한 번 더 부탁드립니다. 김 중사, 내가 고르면 나머지 쪽 맡아 주게.")};
+        return {TEXT("Link up with the Sahir army"), TEXT("Choose the link-up road"),
+            TEXT("지윤: 이 대위님, 현장 공조 승인 받았습니다. 라미 소령과 연결하겠습니다."),
+            TEXT("라미: 사히르 정부군 3대댑니다. 우리 중계소가 넘어갔어요. 아미나 씨 쪽이나 진료소로 와 주십시오.")};
     case Pickup:
         return bFamily
-            ? FScene{TEXT("Meet Amina on the family road"), TEXT("Tell Amina you are here"),
-                TEXT("아미나: 아이들은 동생한테 보냈어요. 삼촌이 뒤에 남았는데, 마주칠까 봐 여기서 기다렸어요."),
-                TEXT("아미나: 동생한테서 답이 왔어요. 삼촌이 같이 있대요. 이제 갈 수 있어요.")}
-            : FScene{TEXT("Meet Yusuf on the clinic road"), TEXT("Bring Yusuf onto the route"),
-                TEXT("유수프: 환자는 구호차에 탔어요. 약은 아직 여기 있습니다. 제가 들고 갈게요."),
-                TEXT("유수프: 기사한테 모퉁이까지만 기다려 달라고 했어요. 제가 늦으면 불러 주세요.")};
+            ? FScene{TEXT("Clear the approach to Amina's post"), TEXT("Link up at Amina's post"),
+                TEXT("아미나: 옆집 사람 아니에요. 전선 사람들이 골목을 막았어요. 저는 문 안에 있어요."),
+                TEXT("수혁: 아미나 씨, 나오지 마십시오. 길 열면 제가 부르겠습니다.")}
+            : FScene{TEXT("Clear the approach to Yusuf's post"), TEXT("Link up at Yusuf's post"),
+                TEXT("유수프: 진료소 앞에 카리드 전선 사람들이 섰어요. 라미 소령 쪽 사람은 문 안에 있어요."),
+                TEXT("수혁: 유수프 씨, 문에서 떨어져 계세요. 정리되면 부르겠습니다.")};
     case LeadPassenger:
         return bFamily
-            ? FScene{TEXT("Bring Amina to the relief stop"), TEXT(""),
-                TEXT("아미나: 아이들이 저를 찾아요. 제가 뒤처지면 얼굴 보이는 데서 기다려 주세요."),
-                TEXT("아미나: 저 앞이네요. 아이들이 먼저 저를 보게 해 주세요.")}
-            : FScene{TEXT("Bring Yusuf and the cold pack through"), TEXT(""),
-                TEXT("유수프: 먼저 가세요. 제가 짐 내려놓으면 한 번만 멈춰 주세요."),
-                TEXT("유수프: 저 차예요. 기사한테 냉장팩을 먼저 건네야 해요.")};
+            ? FScene{TEXT("Follow Amina to the rendezvous"), TEXT(""),
+                TEXT("아미나: 정부군 차는 이쪽으로 갔어요. 삼촌이 창문에서 봤대요. 제가 앞장설게요."),
+                TEXT("라미: 이 대위님, 보입니다. 불이 안 들어오면 우리 소대가 어느 쪽으로 오는지도 모릅니다.")}
+            : FScene{TEXT("Follow Yusuf to the rendezvous"), TEXT(""),
+                TEXT("유수프: 우리 진료소 뒤쪽은 아직 돼요. 이 짐만 먼저 갖다주고 길 알려 드릴게요."),
+                TEXT("라미: 이 대위님, 보입니다. 건널목에 불을 켜면 앞 소대가 우리 쪽을 찾을 수 있습니다.")};
     case RestorePower:
-        return {TEXT("Bring back the crossing light"), TEXT("Brace the power lever"),
-            TEXT("지윤: 이 대위님, 기사는 건널목 불을 보고 출발합니다. 마라 씨가 그쪽에 있습니다."),
-            TEXT("수혁: 김 요원님, 불 들어오면 기사한테 알려 주십시오. 제가 건널목까지 가겠습니다.")};
+        return {TEXT("Power the army's crossing signal"), TEXT("Brace the power lever"),
+            TEXT("수혁: 김 요원님, 라미 소령 쪽에 알려 주십시오. 불이 들어오면 그때 움직이는 겁니다."),
+            TEXT("지윤: 전달했습니다. 차가 이미 움직이면 걸어오는 쪽부터 받겠답니다.")};
     case ReachSignal:
-        return {TEXT("Reach the driver while the light holds"), TEXT("Call the driver"),
-            TEXT("현지: 불 들어왔습니다. 이 대위님, 길어야 삼십 초쯤 버팁니다."),
-            TEXT("도겸: 대위님, 갈림길에 있습니다. 불 꺼지면 살마 씨 쪽으로 도세요.")};
+        return {TEXT("Reach the crossing while the light holds"), TEXT("Call the driver"),
+            TEXT("현지: 이 대위님, 불 들어왔습니다. 삼십 초쯤 버틸 것 같습니다."),
+            TEXT("도겸: 대위님, 불 꺼지면 살마 씨한테 가십시오. 제가 뒤쪽 알리겠습니다.")};
     case OpenShelter:
         return P.Passage == Crossing
-            ? FScene{TEXT("Open the shelter on the lit crossing"), TEXT("Raise the shelter barrier"),
-                TEXT("나빌: 기사가 손짓을 봤어요. 이쪽 문 열면 사람이 한 줄로 지나갈 수 있어요."),
-                TEXT("나빌: 불빛 보입니다. 문 뒤에 있을게요.")}
-            : FScene{TEXT("Reach Salma through the back street"), TEXT("Raise the shelter barrier"),
-                TEXT("살마: 건널목 차가 빠졌어요. 저희는 이 골목 쪽으로 옮겼어요. 제 목소리 따라오세요."),
-                TEXT("살마: 모퉁이 지나면 제가 보일 거예요. 여기 문이 안 열려요.")};
-    case LeadShelter:
+            ? FScene{TEXT("Open the crossing for the first platoon"), TEXT("Raise the crossing barrier"),
+                TEXT("나빌: 기사 손짓 봤어요. 차는 못 들어와도 여길 열면 사람은 건너옵니다."),
+                TEXT("라미: 첫 소대가 보입니다. 대위님, 저 사람들 이쪽인 줄 알게 문을 열어 주십시오.")}
+            : FScene{TEXT("Open the rear lane for the first platoon"), TEXT("Raise the back-street barrier"),
+                TEXT("살마: 불 꺼지니까 차가 돌아섰어요. 기다리던 군인들은 이 골목으로 돌렸어요."),
+                TEXT("라미: 그 소대가 우리 쪽입니다. 살마 씨와 만나면 제 이름부터 대십시오.")};
+    case HandoffShelter:
         return P.Passage == Crossing
-            ? FScene{TEXT("Walk Nabil to the next relief crew"), TEXT(""),
-                TEXT("나빌: 앞 사람들은 차에 탔어요. 두 번째 집에 누가 남았는지 제가 알아요."),
-                TEXT("나빌: 뒤에 불이 꺼졌네요. 앞에 있는 분들은 아직 기다리고 있어요.")}
-            : FScene{TEXT("Walk Salma to the next relief crew"), TEXT(""),
-                TEXT("살마: 옆집 사람들은 먼저 보냈어요. 저하고 같은 쪽으로 걸어 주세요."),
-                TEXT("살마: 다행이네요. 우리가 안 왔으면 저분들 다시 건널목으로 갔을 거예요.")};
+            ? FScene{TEXT("Reach the army's forward post"), TEXT(""),
+                TEXT("나빌: 뒤는 제가 볼게요. 대위님은 앞에 가세요. 또 철수 방송 나옵니다."),
+                TEXT("라미: 저번이랑 똑같이 제 목소리네요. 지금 저는 보내지 않았습니다.")}
+            : FScene{TEXT("Reach the army's rear post"), TEXT(""),
+                TEXT("살마: 이 길은 제가 맡을게요. 대위님은 먼저 가세요. 건널목 쪽 방송은 제가 막겠습니다."),
+                TEXT("라미: 방금 들린 건 제 목소리 맞습니다. 지금 제 무전은 통화 중이었습니다.")};
     case LastStop:
-        return bFamily
-            ? FScene{TEXT("Meet Amina at the last pickup"), TEXT("Walk out with Amina"),
-                TEXT("아미나: 애들은 동생이 데리고 탔어요. 자리가 하나 남았대요. 삼촌이 아직 저쪽에 있어요."),
-                TEXT("도겸: 대위님, 이쪽은 다 건넜습니다. 먼저 보내세요. 저는 걸어서 돌아가겠습니다.")}
-            : FScene{TEXT("Meet Yusuf at the last pickup"), TEXT("Walk out with Yusuf"),
-                TEXT("유수프: 약은 도착했어요. 환자가 다음 길은 못 걸어요. 남은 자리를 그분한테 주세요."),
-                TEXT("도겸: 대위님, 주민들 보냈습니다. 저는 먼저 나가신 분들 따라 걸어가겠습니다.")};
-    case LeadLast:
-        return bFamily
-            ? FScene{TEXT("See Amina through to the pickup"), TEXT(""),
-                TEXT("아미나: 삼촌부터 태워요. 애들은 제 목소리 들으면 기다릴 줄 알아요."),
-                TEXT("아미나: 이 무전기, 제가 들고 있을게요. 애들이 제 목소리 알아요.")}
-            : FScene{TEXT("See Yusuf through to the pickup"), TEXT(""),
-                TEXT("유수프: 저 자리는 그분 자리예요. 저는 김 중사님이 간 길을 알아요."),
-                TEXT("유수프: 이 무전기 가져가세요. 그분 만나면 직접 건네 주세요.")};
+        return {TEXT("Find the army's forward post"), TEXT("Check in with Major Rami"),
+            TEXT("라미: 아침에 제가 낸 철수 명령을 다시 틉니다. 우리 뒤쪽 소대가 들으면 돌아섭니다."),
+            TEXT("현지: 이 대위님, 본부는 그 구역이 비었다고 들었습니다. 저희가 본 것과 다릅니다.")};
+    case BreakContact:
+        return {TEXT("Break the line at the forward post"), TEXT("Take back the field post"),
+            TEXT("라미: 앞 소대가 후퇴합니다. 이 대위님, 이곳을 내주면 돌아올 길이 없습니다."),
+            TEXT("도겸: 대위님, 뒤쪽에 남은 병력이 있습니다. 제가 데리고 돌아가겠습니다. 대위님, 들리십니까?")};
     case FindDogyeom:
-        return {TEXT("Find Do-gyeom at the meeting point"), TEXT("Help Do-gyeom stand"),
-            TEXT("수혁: 현지 요원님, 김 중사가 돌아온다고 한 갈림길부터 보겠습니다. 마지막 교신 시각 부탁드립니다."),
-            TEXT("도겸: 대위님, 들립니다. 길가에 앉아 있습니다. 발목이 돌아갔습니다.")};
+        return {TEXT("Find Do-gyeom after the call cuts"), TEXT("Help Do-gyeom stand"),
+            TEXT("수혁: 조 요원님, 김 중사 마지막 통화가 어디였습니까? 저는 갈림길부터 보겠습니다."),
+            TEXT("도겸: 대위님, 여기 있습니다. 발목 좀 삐었습니다. 뒤에 있던 소대는 반대편으로 갔습니다.")};
     case LeadDogyeom:
-        return {TEXT("Bring Do-gyeom to the next crew"), TEXT(""),
-            TEXT("수혁: 김 중사, 일단 여기서 일어나세. 걸음은 자네가 맞춰."),
-            TEXT("도겸: 승차 순서 제가 바꿨습니다. 그분들이 차에서 내릴까 봐 설명도 못 했습니다.")};
+        return {TEXT("Get Do-gyeom to the army post"), TEXT(""),
+            TEXT("수혁: 김 중사, 일어날 수 있겠나? 보고는 내가 같이 하겠네."),
+            TEXT("도겸: 소대가 소령님 목소리를 듣고 돌아섰습니다. 저도 처음엔 맞는 줄 알았습니다.")};
     case MeetNadia:
-        return {TEXT("Meet Nadia before the next crowd moves"), TEXT("Choose how to reach the other streets"),
-            TEXT("나디아: 제가 사람들한테 건널목으로 가라고 했어요. 그게 마지막으로 확인한 길이었어요."),
-            TEXT("수혁: 이미 출발한 분들부터 돌려세워야 합니다. 나디아 씨, 어디까지 직접 닿을 수 있습니까?")};
+        return {TEXT("Choose how to reach the separated units"), TEXT("Set the communication plan"),
+            TEXT("라미: 두 소대가 다른 명령을 받고 있습니다. 다음에 마주치면 서로 못 알아볼 겁니다."),
+            TEXT("나디아: 방송은 양쪽 다 들려요. 사미르 씨가 가면 우리 편에만 닿지만, 한 곳부터 가야 해요.")};
     case OpenRelay:
         return bRadio
-            ? FScene{TEXT("Open the shelter door for the broadcast"), TEXT("Release the relay door"),
-                TEXT("지윤: 이 대위님, 방송은 한 번 붙을 수 있습니다. 실제로 열린 문부터 알려 주시죠."),
-                TEXT("나디아: 이 문 여는 걸 제가 보고 말할게요. 제 이름도 같이 내보내요.")}
-            : FScene{TEXT("Open the courtyard for the runners"), TEXT("Release the courtyard door"),
-                TEXT("사미르: 골목마다 듣는 방송이 달라요. 두 집에 제가 직접 다녀올게요."),
-                TEXT("수혁: 사미르 씨, 사람들부터 안으로 들이십시오. 출발은 그 뒤에 하시죠.")};
-    case LeadVolunteers:
+            ? FScene{TEXT("Open the relay for an army broadcast"), TEXT("Release the relay door"),
+                TEXT("지윤: 이 대위님, 두 곳이 다 들을 겁니다. 반대쪽도요. 그래도 연결할까요?"),
+                TEXT("라미: 열어 주십시오. 우리 소대가 돌아올 때 보라고 제 이름을 대겠습니다.")}
+            : FScene{TEXT("Open the courtyard for Samir"), TEXT("Release the courtyard door"),
+                TEXT("사미르: 길 아는 사람이 저쪽에 있어요. 가까운 소대부터 데리고 오겠습니다."),
+                TEXT("수혁: 두 번째 소대 소식은 들어오는 대로 알려 주십시오.")};
+    case HandoffVolunteers:
         return bRadio
-            ? FScene{TEXT("Walk with Nadia to the listeners"), TEXT(""),
-                TEXT("나디아: 저 앞에서 제 목소리 듣고 왔대요. 문 하나만 열었다고 다시 말해야겠어요."),
-                TEXT("나디아: 여기까지 오세요. 다음 집은 직접 걸어서 확인할게요.")}
-            : FScene{TEXT("Walk with Samir to the neighbors"), TEXT(""),
-                TEXT("사미르: 옆길도 돌아섰습니다. 이쪽은 저보다 이웃 말이 잘 통합니다."),
-                TEXT("사미르: 저분이 집집마다 다니겠답니다. 제가 따라가면 돼요.")};
+            ? FScene{TEXT("Reach the place Rami called out"), TEXT(""),
+                TEXT("나디아: 두 소대 다 들었어요. 그런데 저쪽도 방송 끝나기 전에 움직였어요."), TEXT("")}
+            : FScene{TEXT("Reach Samir's contact point"), TEXT(""),
+                TEXT("사미르: 한 소대 만났습니다. 다른 쪽은 앞으로 한 블록 먼저 가 버렸대요."), TEXT("")};
     case ReachWard:
-        return {TEXT("Reach Hana before the ward closes"), TEXT("Offer Hana an arm"),
-            TEXT("현지: 이 대위님, 하나 씨가 마지막 환자 데리고 나옵니다. 앞에 사람들 있으면 통로 좀 비워 주세요."),
-            TEXT("하나: 먼저 나가신 분 옆에 앉혀 주세요. 저는 저쪽 문까진 걸을 수 있어요.")};
-    case LeadWard:
-        return {TEXT("Bring Hana to the assembly lane"), TEXT(""),
-            TEXT("하나: 제 왼쪽으로 와 주세요. 발이 아니라 팔에 힘이 안 들어가요."),
-            TEXT("하나: 저 앞에 도겸 씨 보이네요. 아까 제 환자부터 태워 준 분이에요.")};
+        return {TEXT("Reach Hana's contact at the ward"), TEXT("Send the platoon on"),
+            bRadio ? TEXT("현지: 이 대위님, 두 소대가 답했습니다. 하나 씨가 빠져나오는 길을 알고 있습니다.")
+                   : TEXT("현지: 이 대위님, 두 번째 소대가 하나 씨 쪽에 있습니다. 그분이 찾았답니다."),
+            TEXT("하나: 서로 알아보게 제가 앞에 설게요. 김 중사님은 제 뒤로 오세요.")};
+    case HandoffWard:
+        return {TEXT("Regroup at the army command lane"), TEXT(""),
+            TEXT("하나: 제 환자한테 자리 내준 사람이 김 중사님이었어요. 이번엔 제가 팔 잡을게요."),
+            TEXT("도겸: 대위님, 두 소대 다 올 길은 잡혔습니다. 마당 입구에서 뵙겠습니다.")};
     case OpenYard:
-        return {TEXT("Free the relief yard gate"), TEXT("Lift the yard barrier"),
-            TEXT("유수프: 사람들은 다 왔는데 안에서 문이 걸렸어요. 차를 돌릴 자리부터 내 주세요."),
-            TEXT("수혁: 김 요원님, 앞차에 조금만 기다려 달라고 전해 주시겠습니까? 제가 문을 열고 있습니다.")};
+        return {TEXT("Reopen the army command yard"), TEXT("Lift the command yard barrier"),
+            TEXT("도겸: 대위님, 한 소대 들어왔습니다. 다른 소대 길목에 총성이 납니다. 마당 문은 걸렸습니다."),
+            TEXT("수혁: 김 요원님, 새 명령은 아직 넘기지 말아 주십시오. 라미 소령이 직접 말할 겁니다.")};
     case MoveAssembly:
-        return {TEXT("Move ahead with the next relief crew"), TEXT("Send the group through"),
-            TEXT("도겸: 대위님, 저는 이분들이랑 갑니다. 마라 씨는 마지막 집 보고 온다고 했습니다."),
-            TEXT("수혁: 김 중사, 거기까지 자네가 맡아. 정차하면 인원부터 확인해 주게.")};
+        return {TEXT("Get the first platoon in position"), TEXT("Pass command to Do-gyeom"),
+            TEXT("도겸: 대위님, 마라 씨가 중계소 선이 어디로 가는지 안답니다. 먼저 나가셨습니다."),
+            TEXT("수혁: 김 중사, 여기 자네가 맡아. 두 번째 소대 오면 바로 연락하겠네.")};
     case FindMara:
-        return {TEXT("Find Mara by the last occupied house"), TEXT("Let Mara know you can see her"),
-            TEXT("마라: 집 안에 사람 없어요. 문 열어 놓고 나온 어르신이 계세요. 밖에서 기다리고 있어요."),
-            TEXT("수혁: 마라 씨, 모퉁이까지만 나오십시오. 제가 거기 있습니다.")};
+        return {TEXT("Find Mara by the relay approach"), TEXT("Tell Mara the army is in place"),
+            TEXT("현지: 이 대위님, 마라 씨 응답이 끊겼습니다. 뒤에 두 번째 소대가 가까워집니다."),
+            TEXT("마라: 들려요. 이쪽 중계소는 아직 살아 있어요. 저 사람들이 먼저 들어갔어요.")};
     case SecureLane:
         return bRadio
-            ? FScene{TEXT("Reach the lane Nadia announced"), TEXT("Call the relief crew forward"),
-                TEXT("나디아: 마지막 방송은 여기까지만 했어요. 남은 사람들은 제 옆에 있어요."),
-                TEXT("현지: 이 대위님, 나디아 씨 쪽하고 기사 쪽 모두 응답했습니다. 만나실 수 있습니다.")}
-            : FScene{TEXT("Reach the lane the runners cleared"), TEXT("Call the relief crew forward"),
-                TEXT("사미르: 두 집 다 비었습니다. 이웃들이 입구에 와 있어요. 앞집 분이 마지막입니다."),
-                TEXT("현지: 이 대위님, 돌아갈 길에 사람이 없습니다. 지금 합류하시면 됩니다.")};
+            ? FScene{TEXT("Retake the relay from the Kharid Front"), TEXT("Secure the relay post"),
+                TEXT("라미: 우리 방송 듣고 두 사람이 먼저 올라왔습니다. 이 대위님, 제가 아래쪽 소대를 잡아 두겠습니다."),
+                TEXT("수혁: 마라 씨, 아직 나오지 마십시오. 중계소 앞이 비면 제가 부르겠습니다.")}
+            : FScene{TEXT("Retake the relay from the Kharid Front"), TEXT("Secure the relay post"),
+                TEXT("사미르: 반대편은 소대가 오는 줄 알았나 봐요. 중계소 쪽에 한 사람만 남았습니다."),
+                TEXT("수혁: 라미 소령님, 중계소부터 잡겠습니다. 양쪽 소대가 서로 보이면 먼저 부르십시오.")};
     case LeadFinal:
-        return {TEXT("Take Mara and the last neighbor to safety"), TEXT(""),
-            TEXT("마라: 뒤에 어르신 계세요. 저분이 우리보다 느려요. 같이 갈 수 있죠?"),
-            TEXT("수혁: 예. 저분 걸음에 맞추겠습니다.")};
+        return {TEXT("Bring Mara past the retaken relay"), TEXT(""),
+            TEXT("마라: 중계소는 이제 우리 쪽이 맞죠? 옆집 어르신만 모시고 바로 갈게요."),
+            TEXT("라미: 두 소대 다 들리나? 3대대 라미다. 내가 보낸 철수 명령은 취소됐다. 그 자리에서 기다려.")};
     case FinalCall:
-        return {TEXT("Give the radio back at the relief yard"), TEXT("Hand the radio to Mara"),
-            TEXT("지윤: 이 대위님, 차 두 대 모두 도착했습니다. 조 요원님도 인원 확인했습니다."),
-            TEXT("수혁: 두 분 다 수고하셨습니다. 마라 씨께 무전기만 돌려드리고 가겠습니다.")};
+        return {TEXT("Return the radio to Mara"), TEXT("Hand the radio to Mara"),
+            TEXT("지윤: 이 대위님, 두 소대 다 응답했습니다. 카리드 전선도 물러났답니다."),
+            TEXT("수혁: 김 요원님, 확인했습니다. 마라 씨께 무전기를 돌려드리고 가겠습니다.")};
     default:
-        return {TEXT("The evacuation is complete"), TEXT(""),
-            bFamily ? TEXT("아미나: 삼촌이 왔어요. 애들이 먼저 알아봤어요. 이제 제 차례네요.")
-                    : TEXT("유수프: 환자분 도착했어요. 제가 전화기 옆에 있을게요. 가족 찾으면 직접 말해 주려고요."),
+        return {TEXT("Both platoons are standing down"), TEXT(""),
+            bFamily ? TEXT("아미나: 삼촌 왔어요. 뒷골목에도 이제 우리 쪽 사람만 남았대요.")
+                    : TEXT("유수프: 양쪽 다 멈췄답니다. 이제 진료소 문 다시 열 수 있어요."),
             TEXT("마라: 여기는 나흐린입니다. 들리세요? 저는 여기 있어요.")};
     }
 }

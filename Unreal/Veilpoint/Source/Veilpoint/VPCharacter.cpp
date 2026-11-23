@@ -8,6 +8,7 @@
 #include "VPStoryPublicVan.h"
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
+#include "VPAdenContact.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -288,10 +289,13 @@ float AVPCharacter::TakeDamage(float Incoming, FDamageEvent const& Event, AContr
 bool AVPCharacter::IsWeaponPhaseActive() const
 {
     if(!GetWorld())return false;
+    using VPCombatRules::Phase;
+    if (const auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>())
+        return VPCombatRules::CanFire(Aden->CanFireInEncounter(this) ? Phase::StoryActive : Phase::Unavailable,
+            HasAuthority(), IsAlive(), Charges);
     const auto* State=GetWorld()->GetGameState<AVPGameState>();
     const auto* Story=Cast<AVPStoryGameState>(State);
     const auto* Broadcast=AVPLastBroadcastMission::Find(GetWorld());
-    using VPCombatRules::Phase;
     const bool ActiveBroadcast=Broadcast && Broadcast->Phase>0 && Broadcast->Phase<8;
     const Phase Current=Story?(Story->StoryStage==EVPStoryStage::Complete && !ActiveBroadcast?Phase::Complete:Phase::StoryActive):
         !State?Phase::Unavailable:State->bRoundComplete?Phase::Complete:State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
@@ -323,17 +327,8 @@ void AVPCharacter::TryTag()
 void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction)
 {
     if(!GetWorld()) return;
-    const AVPGameState* State=GetWorld()->GetGameState<AVPGameState>();
-    const AVPStoryGameState* Story=Cast<AVPStoryGameState>(State);
-    using VPCombatRules::Phase;
-    const auto* Broadcast=AVPLastBroadcastMission::Find(GetWorld());
-    const bool bBroadcastActive=Broadcast && Broadcast->Phase>0 && Broadcast->Phase<8;
-    const Phase CombatPhase=Story?(Story->StoryStage==EVPStoryStage::Complete && !bBroadcastActive?Phase::Complete:Phase::StoryActive):
-        !State?Phase::Unavailable:State->bRoundComplete?Phase::Complete:
-        State->bRoundStarted?Phase::RoundActive:Phase::Waiting;
     // Waiting players and finished rounds neither spend ammunition nor damage.
-    if(!VPCombatRules::CanFire(CombatPhase,HasAuthority(),IsAlive(),Charges)) return;
-    if(!VPWeaponRules::CanShoot(true,HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
+    if(!VPWeaponRules::CanShoot(IsWeaponPhaseActive(),HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
     const double Time = GetWorld()->GetTimeSeconds();
     if (Time - LastServerTagTime < .22) return;
     // Authoritative start location and aiming direction: ignore untrusted client vectors.
@@ -345,8 +340,15 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
     ForceNetUpdate();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(VPTag), true, this);
     FHitResult Hit;
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir*11000.f, ECC_Pawn, Params))
+    const bool bAden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>() != nullptr;
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir*11000.f, bAden ? ECC_Visibility : ECC_Pawn, Params))
     {
+        if (bAden)
+        {
+            if (auto* Contact = Cast<AVPAdenContact>(Hit.GetActor()))
+                UGameplayStatics::ApplyDamage(Contact, 45.f, Controller, this, nullptr);
+            return;
+        }
         if (AVPCharacter* Target = Cast<AVPCharacter>(Hit.GetActor()))
         {
             if (Target != this && Target->IsAlive())

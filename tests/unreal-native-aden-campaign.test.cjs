@@ -23,6 +23,7 @@ test('the native Aden rules reach the finale through all eight choices with cont
         int main() {
           using namespace VPAdenCampaign;
           namespace d = VPAdenDispatch;
+          static_assert(HandoffShelter == 9 && BreakContact == 11 && HandoffVolunteers == 16 && HandoffWard == 18);
           const auto leg = [](FProgress p) { return VPAdenDispatchData::Legs[RouteLeg(p)]; };
           const auto same = [](auto a, auto b) { return a.X == b.X && a.Y == b.Y; };
           for (const int people : {Families, Clinic})
@@ -30,6 +31,7 @@ test('the native Aden rules reach the finale through all eight choices with cont
           for (const int signal : {RadioOnce, Runners}) {
             FProgress progress;
             int chapters = 1, escorts = 0, mechanisms = 0, decisions = 0;
+            int handoffs = 0, encounters = 0;
             double metres = 0.;
             assert(!Interact(progress, false, true));
             for (int beat = Radio; beat < Complete; ++beat) {
@@ -56,6 +58,21 @@ test('the native Aden rules reach the finale through all eight choices with cont
                 assert(!Interact(progress, true, lit));
                 assert(FinishEscort(progress, true, true));
                 ++escorts;
+              } else if (type == EMode::Handoff) {
+                assert(!BeginEscort(progress));
+                assert(!Interact(progress, true, lit));
+                assert(!FinishHandoff(progress, false));
+                assert(FinishHandoff(progress, true));
+                ++handoffs;
+              } else if (type == EMode::Encounter) {
+                const auto from = route.Points[route.Length - 2], to = route.Points[route.Length - 1];
+                assert(std::hypot(from.X - to.X, from.Y - to.Y) > 1400.);
+                assert(EncounterSize(progress) == (beat == SecureLane && signal == RadioOnce ? 2 : 1));
+                assert(!Interact(progress, true, lit));
+                assert(!FinishEncounter(progress, 1, true));
+                assert(!FinishEncounter(progress, 0, false));
+                assert(FinishEncounter(progress, 0, true));
+                ++encounters;
               } else if (type == EMode::Operate) {
                 const double duration = OperationSeconds(beat);
                 assert(duration > 0.);
@@ -82,7 +99,7 @@ test('the native Aden rules reach the finale through all eight choices with cont
             }
             const FProgress end{Complete, people, lit ? Crossing : BackStreet, signal};
             assert(progress == end && Mode(progress.Beat) == EMode::Finished);
-            assert(chapters == 12 && escorts == 8 && mechanisms == 5 && decisions == 2);
+            assert(chapters == 12 && escorts == 4 && handoffs == 3 && encounters == 3 && mechanisms == 5 && decisions == 2);
             assert(metres > 1200. && metres < 3000.);
             assert(!Interact(progress, true, lit));
             assert(!Decide(progress, EInput::OptionOne, true, true));
@@ -120,7 +137,7 @@ test('the native Aden rules reach the finale through all eight choices with cont
     }
   });
 
-test('the screenplay budgets 720 minutes, anchors CH01 to the Korean briefing, and closes the main story in CH12', () => {
+test('the 720-minute screenplay budgets the new activity mix, sets up the alliance, and resolves it in CH12', () => {
   const screenplay = fs.readFileSync(path.resolve(__dirname, '../docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md'), 'utf8');
   const scenes = [...screenplay.matchAll(/^### CH(\d{2}) · .* — (\d+)분\n([\s\S]*?)(?=^### CH|^## 플레이로|$(?![\s\S]))/gm)];
   assert.deepEqual(scenes.map(scene => +scene[1]), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
@@ -131,5 +148,22 @@ test('the screenplay budgets 720 minutes, anchors CH01 to the Korean briefing, a
     assert.equal(budget.reduce((sum, time) => sum + time, 0), +scene[2], `CH${scene[1]} duration`);
   }
   assert.match(scenes[0][3], /한국, 출국 전[\s\S]*김 요원님/);
-  assert.match(scenes.at(-1)[3], /두 차량이 도착[\s\S]*무전기를 건네는[\s\S]*마라 씨는 남으셨고요[\s\S]*들려요/);
+  assert.match(scenes[1][3], /현장 공조 확인[\s\S]*첫 교전/);
+  assert.match(scenes.at(-1)[3], /두 소대가 답한다[\s\S]*무전기를 건네는[\s\S]*마라 씨는 남으셨고요[\s\S]*들려요/);
+
+  const chapterMix = [...screenplay.matchAll(/^\| CH(\d{2}) \| (\d+:\d{2}) \| (\d+:\d{2}) \| (\d+:\d{2}) \| (\d+:\d{2}) \| (\d+:\d{2}) \|$/gm)];
+  const seconds = clock => {
+    const [minutes, remainder] = clock.split(':').map(Number);
+    assert.ok(remainder < 60);
+    return minutes * 60 + remainder;
+  };
+  assert.deepEqual(chapterMix.map(row => row[1]), scenes.map(scene => scene[1]));
+  const categoryTotals = [0, 0, 0, 0];
+  for (const [index, row] of chapterMix.entries()) {
+    const activity = row.slice(2, 6).map(seconds);
+    assert.equal(activity.reduce((sum, time) => sum + time), seconds(row[6]), `CH${row[1]} activity budget`);
+    assert.equal(seconds(row[6]), +scenes[index][2] * 60);
+    activity.forEach((time, category) => { categoryTotals[category] += time; });
+  }
+  assert.deepEqual(categoryTotals, [55, 12, 25, 8].map(share => 720 * 60 * share / 100));
 });
