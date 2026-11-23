@@ -124,7 +124,7 @@ explicit `story.html` dependency.
   measurement provenance; avoid sensitive operational locations.
 - The 12-hour story campaign targets **55% combat, 12% urgent movement and
   rescue, 25% character and story, and 8% exploration**. Its main arc follows
-  the alliance with the fictional Sahir regular army. [Campaign screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md)
+  the alliance with Major Rami's Yemeni government army battalion in Aden. [Campaign screenplay](ADEN_CAMPAIGN_SCREENPLAY_KO.md)
 - No 165FPS, RTX3070 performance, UE5 UBT/PIE, full-city surveyed accuracy,
   12-hour playable campaign or internet 96-human match can be asserted from
   Node/browser contract tests alone.

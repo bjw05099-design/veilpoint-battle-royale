@@ -9,11 +9,12 @@ ship separately, with story first. The verified editor authoring command creates
 
 A fresh campaign opens with a five-minute, 17-shot Unreal cinematic. Aden's
 coast, competing broadcasts, fighting, a hostage recording and a fictional
-UN meeting set up Captain Lee's assignment in Nahrin. The film then cuts to
+UN meeting set up Captain Lee's assignment in Aden, Yemen. The film then cuts to
 Lee's first-person crossing and hands the camera to the player at CH01.
 
-The native campaign follows Captain Lee's alliance with the fictional Sahir
-regular army against the Kharid Front. The short route through all twelve
+The native campaign follows Captain Lee's alliance with Major Rami's Yemeni
+army battalion against the rebels. The cast and depicted events are fictional.
+The short route through all twelve
 chapters includes Korean subtitles, three playable combat encounters, two
 player choices and a crossing that changes if its signal expires. The radio
 choice changes the last encounter. The 720-minute screenplay budgets 55%

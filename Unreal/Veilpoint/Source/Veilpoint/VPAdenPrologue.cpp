@@ -631,17 +631,17 @@ const TCHAR* AVPAdenPrologue::SceneLabel(VPAdenPrologue::FFrame Frame)
     switch (Frame.Shot)
     {
     case OldPort: return TEXT("아덴, 예멘 남부  |  20XX년  |  가상 각색");
-    case Government: return TEXT("특별 담화  |  사히르 정부 수반");
-    case Front: return TEXT("긴급 방송  |  카리드 전선 지도자");
+    case Government: return TEXT("예멘 정부 담화  |  만수르 알하림");
+    case Front: return TEXT("반군 긴급 방송  |  압둘 카림 알하디르");
     case Fighting: return TEXT("아덴  |  내전 발발");
     case Aftermath: return TEXT("아덴  |  이튿날 아침");
-    case Execution: return TEXT("카리드 전선  |  공개 영상");
+    case Execution: return TEXT("반군  |  공개 영상");
     case Hostages: return TEXT("구호 인력 피랍  |  확인 영상");
     case Council: return TEXT("유엔  |  예멘 내전 긴급회의");
     case Corridor: return TEXT("유엔  |  민간인 통행 협의");
     case Briefing: return TEXT("대한민국  |  출국 전 브리핑");
-    case Embark: return Frame.Position < 6. ? TEXT("사히르 연안  |  이수혁") : TEXT("");
-    case Approach: return Frame.Position < 7. ? TEXT("나흐린 외항  |  동트기 전") : TEXT("");
+    case Embark: return Frame.Position < 6. ? TEXT("아덴만  |  이수혁") : TEXT("");
+    case Approach: return Frame.Position < 7. ? TEXT("아덴 앞바다  |  동트기 전") : TEXT("");
     default: return TEXT("");
     }
 }

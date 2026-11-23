@@ -51,18 +51,18 @@ FScene Scene(FProgress P)
     case LeadMara:
         return {TEXT("Get Mara to the corner"), TEXT(""),
             TEXT("마라: 라미 소령 목소리였어요. 저 말, 아침에도 똑같이 들었는데요."),
-            TEXT("도겸: 대위님, 저 차는 못 옵니다. 카리드 전선이 길로 들어왔습니다.")};
+            TEXT("도겸: 대위님, 저 차는 못 옵니다. 반군이 길을 막았습니다.")};
     case Junction:
-        return {TEXT("Link up with the Sahir army"), TEXT("Choose the link-up road"),
+        return {TEXT("Link up with the Yemeni army"), TEXT("Choose the link-up road"),
             TEXT("지윤: 이 대위님, 현장 공조 승인 받았습니다. 라미 소령과 연결하겠습니다."),
-            TEXT("라미: 사히르 정부군 3대댑니다. 우리 중계소가 넘어갔어요. 아미나 씨 쪽이나 진료소로 와 주십시오.")};
+            TEXT("라미: 예멘 정부군 3대대 라미입니다. 중계소를 빼앗겼습니다. 아미나 씨 쪽이나 진료소로 와 주십시오.")};
     case Pickup:
         return bFamily
             ? FScene{TEXT("Clear the approach to Amina's post"), TEXT("Link up at Amina's post"),
-                TEXT("아미나: 옆집 사람 아니에요. 전선 사람들이 골목을 막았어요. 저는 문 안에 있어요."),
+                TEXT("아미나: 옆집 사람이 아니에요. 반군이 골목을 막았어요. 저는 문 안에 있어요."),
                 TEXT("수혁: 아미나 씨, 나오지 마십시오. 길 열면 제가 부르겠습니다.")}
             : FScene{TEXT("Clear the approach to Yusuf's post"), TEXT("Link up at Yusuf's post"),
-                TEXT("유수프: 진료소 앞에 카리드 전선 사람들이 섰어요. 라미 소령 쪽 사람은 문 안에 있어요."),
+                TEXT("유수프: 진료소 앞에 반군이 와 있어요. 라미 소령 쪽 사람은 문 안에 있어요."),
                 TEXT("수혁: 유수프 씨, 문에서 떨어져 계세요. 정리되면 부르겠습니다.")};
     case LeadPassenger:
         return bFamily
@@ -153,10 +153,10 @@ FScene Scene(FProgress P)
             TEXT("마라: 들려요. 이쪽 중계소는 아직 살아 있어요. 저 사람들이 먼저 들어갔어요.")};
     case SecureLane:
         return bRadio
-            ? FScene{TEXT("Retake the relay from the Kharid Front"), TEXT("Secure the relay post"),
+            ? FScene{TEXT("Retake the relay from the rebels"), TEXT("Secure the relay post"),
                 TEXT("라미: 우리 방송 듣고 두 사람이 먼저 올라왔습니다. 이 대위님, 제가 아래쪽 소대를 잡아 두겠습니다."),
                 TEXT("수혁: 마라 씨, 아직 나오지 마십시오. 중계소 앞이 비면 제가 부르겠습니다.")}
-            : FScene{TEXT("Retake the relay from the Kharid Front"), TEXT("Secure the relay post"),
+            : FScene{TEXT("Retake the relay from the rebels"), TEXT("Secure the relay post"),
                 TEXT("사미르: 반대편은 소대가 오는 줄 알았나 봐요. 중계소 쪽에 한 사람만 남았습니다."),
                 TEXT("수혁: 라미 소령님, 중계소부터 잡겠습니다. 양쪽 소대가 서로 보이면 먼저 부르십시오.")};
     case LeadFinal:
@@ -165,13 +165,13 @@ FScene Scene(FProgress P)
             TEXT("라미: 두 소대 다 들리나? 3대대 라미다. 내가 보낸 철수 명령은 취소됐다. 그 자리에서 기다려.")};
     case FinalCall:
         return {TEXT("Return the radio to Mara"), TEXT("Hand the radio to Mara"),
-            TEXT("지윤: 이 대위님, 두 소대 다 응답했습니다. 카리드 전선도 물러났답니다."),
+            TEXT("지윤: 이 대위님, 두 소대 다 응답했습니다. 반군도 물러났답니다."),
             TEXT("수혁: 김 요원님, 확인했습니다. 마라 씨께 무전기를 돌려드리고 가겠습니다.")};
     default:
         return {TEXT("Both platoons are standing down"), TEXT(""),
             bFamily ? TEXT("아미나: 삼촌 왔어요. 뒷골목에도 이제 우리 쪽 사람만 남았대요.")
                     : TEXT("유수프: 양쪽 다 멈췄답니다. 이제 진료소 문 다시 열 수 있어요."),
-            TEXT("마라: 여기는 나흐린입니다. 들리세요? 저는 여기 있어요.")};
+            TEXT("마라: 여기는 아덴입니다. 들리세요? 저는 여기 있어요.")};
     }
 }
 }

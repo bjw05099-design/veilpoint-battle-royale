@@ -1,6 +1,6 @@
 # VEILPOINT — Aden geographic & architectural reference (owner-approved, 2026-11-07)
 
-**Primary real-world reference:** Aden, southern Yemen; **historical visual baseline:** approximately 2015, the year in which the conflict escalated significantly. The project is still original fiction: **Nahrin / Sahir Coast** is a fictionalized playable district, not a claim to portray real events or actors, and the fictional Korean captain, NIS cast, and twelve-chapter campaign retain their established canon.
+**Primary real-world reference:** Aden, southern Yemen; **historical visual baseline:** approximately 2015, the year in which the conflict escalated significantly. The native campaign uses actual names for **Aden, southern Yemen**, and the **Gulf of Aden**. Use a real district name only where public geographic evidence places the scene in that district. The game's 20XX political figures, incidents and Korean deployment are fictional. [UNESCO historic city entry](https://whc.unesco.org/en/tentativelists/6858/) · [World Bank district map](https://documents1.worldbank.org/curated/en/178151468340853860/pdf/687890ESW0P077075230Aden0CDS0090908.pdf)
 
 ## Scope supersession — 2026-11-09 (owner decision)
 
@@ -10,7 +10,7 @@
 
 **Data & safety:** publicly licensed, date-provenanced civil geography, topography, shorelines and streets can inform the visual city. No real-time conflict intelligence, protected/restricted building internals, current checkpoint layout or tactical operational site placement; fictionalize such locations. Collect attribution/ODbL/Copernicus notices and verify rights before import. New target requires native UE5 World Partition + Landscape + assets + real QA; source-only math is not that implementation.
 
-**Decision:** Real-world geographical, urban and architectural fidelity is required. Do not substitute a generic sand-desert map, random box-city, or undifferentiated Middle Eastern architecture for researched Aden landscapes. The **current** BR browser terrain, CH01 low-poly port, and native UE5 blockout are **NOT** measured against Aden reference data; this file is a production requirement, **not** an implementation or accuracy claim.
+**Decision:** Real-world geographical, urban and architectural fidelity is required. Do not substitute a generic sand-desert map, random box-city, or undifferentiated Middle Eastern architecture for researched Aden landscapes. The earlier browser terrain and the original UE5 port blockout are prototype references. For native geographic coverage and limitations, see the registered source build below.
 
 ## Non-negotiable world-building reference
 
@@ -39,6 +39,4 @@ Historical details and 2015-era city state must be cross-checked rather than inf
 5. **Acceptance evidence:** dated-source comparison images and human PC traversal screenshots; explicit scene-scale collision audit; actual UE5 editor compile/package evidence; RTX 3070 / QHD 2560×1440 / 16GB RAM measurement, with 165 Hz *display capability* not asserted as a verified FPS.
 6. **Historical review:** independent factual and cultural review, including everyday civic detail, meaningful civilian agency and non-graphic, respectful representation.
 
-**Current state:** Approved **reference and target**, not 1:1 reconstruction. The November 27 offline demo remains a prototype; a fully mapped Aden-derived native world is later work. Do not falsely label the current Nahrin or BR grayboxes "real Aden" until the acceptance evidence exists.
-
-**Compatibility:** The fictional original character names and Nahrin/Sahir narrative labels remain, while landscape and building references use this documented historical Aden source. No existing BR, CH01, team gameplay, saves, FortisGuard, or automations are changed by this reference decision.
+**Native coverage:** The registered source build documents available 1:1 terrain, civilian roads and building outlines. The district names of future scenes must follow their actual locations inside that coverage. [Aden public source build](ADEN_PUBLIC_SOURCE_BUILD.md)

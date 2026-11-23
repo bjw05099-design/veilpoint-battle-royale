@@ -64,6 +64,24 @@ test('the montage runs before the first-person crossing and releases at the end 
   }
 });
 
+test('the native campaign uses Aden from the opening location cards to the final broadcast', () => {
+  const opening = readFileSync(join(runtime, 'VPAdenPrologue.cpp'), 'utf8');
+  const narration = readFileSync(join(runtime, 'VPAdenPrologueLines.inl'), 'utf8');
+  const campaign = readFileSync(join(runtime, 'VPAdenCampaign.cpp'), 'utf8');
+  const screenplay = readFileSync(join(__dirname, '../docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md'), 'utf8');
+  assert.match(opening, /case OldPort:.*아덴, 예멘 남부.*20XX년.*가상 각색/);
+  assert.match(opening, /case Embark:.*아덴만/);
+  assert.match(opening, /case Approach:.*아덴 앞바다/);
+  assert.match(narration, /아덴에서 한국 구호 인력/);
+  assert.match(campaign, /마라: 여기는 아덴입니다/);
+  for (const name of ['만수르 알하림', '압둘 카림 알하디르']) {
+    assert.ok(opening.includes(name) && screenplay.includes(name));
+  }
+  for (const text of [opening, narration, campaign, screenplay]) {
+    assert.doesNotMatch(text, /나흐린|사히르|카리드|\b(?:nahrin|sahir|kharid)\b/i);
+  }
+});
+
 test('the ten voiced takes match the Korean monologue and its two subtitle cues', () => {
   const folder = join(project, 'ContentSource/AdenOpening');
   const manifest = JSON.parse(readFileSync(join(folder, 'voice.json'), 'utf8'));

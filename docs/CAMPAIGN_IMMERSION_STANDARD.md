@@ -6,7 +6,7 @@
 
 **2026-11-09 gameplay-reference integration:** [Causal CH01 gameplay/companion/city production specification](CH01_CAUSAL_GAMEPLAY_REFERENCE_2026-11-09.md) is the actionable scene-design supplement based on the owner's annotated ~14m18s video analysis. It is *not* a claim that the full reference video was independently watched, nor that the proposed moments are implemented. Prior scene names, dialogue, locations and choreography must not be copied.
 
-**Binding canon.** The 12-chapter, 720-minute production target follows Captain **Lee Su-hyeok** and NIS liaisons **Kim Ji-yun** and **Jo Hyeon-ji** as the Korean team joins the fictional Sahir regular army after the withdrawal fails. Campaign and Battle Royale are separate releases. [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md)
+**Binding canon.** The 12-chapter, 720-minute production target follows Captain **Lee Su-hyeok** and NIS liaisons **Kim Ji-yun** and **Jo Hyeon-ji** as the Korean team joins Major Rami's Yemeni government army battalion in Aden after the withdrawal fails. Campaign and Battle Royale are separate releases. [Combat Campaign Canon](COMBAT_CAMPAIGN_CANON.md)
 
 **Playthrough timestamp-to-implementation mapping:** [Owner-provided scene-by-scene 14m18s breakdown and original Nahrin acceptance checks](REFERENCE_PLAYTHROUGH_CAUSALITY_2026_11_09.md) complements the main [causal CH01 gameplay specification](CH01_CAUSAL_GAMEPLAY_REFERENCE_2026-11-09.md). Its first coded follow-up is locally different **synthetic** urban ambience before/after the real in-game escalation. This does not certify authentic field recordings or full cinematic implementation.
 
