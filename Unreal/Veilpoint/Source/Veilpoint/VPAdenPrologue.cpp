@@ -16,7 +16,7 @@ namespace
 constexpr int32 SoundBed[] = {0, 1, 2, 3, 4, 4, 5, 6};
 static_assert(UE_ARRAY_COUNT(SoundBed) == VPAdenPrologue::Count);
 constexpr double SecondStatement = 6.35;
-constexpr double SeaLaneY = 95300.;
+constexpr double SeaLaneY = 116000.;
 
 double EasePrologueShot(double T)
 {
