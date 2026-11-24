@@ -11,13 +11,14 @@
   before assembling, rendering and testing the game in Unreal.
 
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
-  marking. Story and Battle Royale ship separately, with story first. Allocate
-  development effort 65% to firearms, the physics engine and maps as a group,
-  20% to story mode, and 15% to Battle Royale. Count reusable weapon and physics
-  systems, terrain and map collision under the combined 65%. Count chapter
-  integration under story mode and mode-specific integration under Battle
-  Royale. Count stabilization under the area being improved. Follow explicit
-  session scope while keeping this allocation for ongoing development.
+  marking. Story and Battle Royale ship separately, with story first.
+- Allocate ongoing development effort 80% to firearms, the weapon engine,
+  the physics engine and maps as a group, 20% to story mode, and 0% to Battle
+  Royale. Pause Battle Royale-specific development until the user assigns it
+  a new share. Count shared weapon and physics systems, terrain and map
+  collision once in the 80% group. Count chapter integration under story
+  mode and stabilization under the area being improved. Follow explicit
+  user instructions for individual sessions.
 - Prioritize reusable Unreal foundations within that allocation: maps, textures
   and materials, character animation, physics and collision, and gameplay
   weapon and combat systems. Author dialogue, cinematics, objectives, branches

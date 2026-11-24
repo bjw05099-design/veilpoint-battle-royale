@@ -8,15 +8,14 @@ material for regression and migration.
 
 | Development area | Share | Acceptance focus |
 |---|---:|---|
-| Firearms, physics engine and maps | **65%** | Reusable weapon systems and assets, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
+| Firearms, weapon engine, physics engine and maps | **80%** | Firearm assets, reusable weapon systems, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
 | Single-player story campaign | **20%** | Playable chapters, dialogue and cinematics, authored encounters, chapter integration, solo save/recovery and offline completion |
-| Battle Royale | **15%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
+| Battle Royale | **0%** | Mode-specific development is paused pending a new allocation from the user |
 
-The November 24 allocation applies to ongoing development effort. Select the
-mix of firearms, physics and map work within their combined share according
-to the next playable milestone. Count shared system work once in that share.
-Count chapter and BR integration under their respective modes. Stabilization
-counts under the area being improved.
+The November 25 allocation applies to ongoing development effort. Select
+the mix within the combined 80% according to the next playable milestone.
+Count shared system work once in that share and chapter integration under
+story mode. Count stabilization under the area being improved.
 
 ## Reusable foundations and chapter content
 
@@ -54,7 +53,8 @@ was verified before applying the pattern to more chapters.
    The native Unreal game starts Chapter 01 in `CH01_Aden`. Completion requires separately verified playable chapters, genuine story
    flow, human Windows launch, assets, localization/accessibility, save recovery,
    offline package, license provenance and real performance measurement.
-2. **Second release: Battle Royale.** Reuse as much of the proven story's
+2. **Later release: Battle Royale.** Resume this track when the user
+   assigns it a development share. Reuse as much of the proven story's
    environment, maps, materials, actor animation, physics, sound, interactions,
    vehicles and PC interface as appropriate. BR networking, authority,
    competitive fairness and 96 concurrent players require their **own**
