@@ -9,6 +9,15 @@ const {spawnSync} = require('node:child_process');
 
 const include = path.resolve(__dirname, '../Unreal/Veilpoint/Source/Veilpoint');
 
+test('Aden signal notices use the same tick clock as their subtitle expiry', () => {
+  const mode = fs.readFileSync(path.join(include, 'VPAdenStoryGameMode.cpp'), 'utf8');
+  const beat = mode.slice(mode.indexOf('void AVPAdenStoryGameMode::UpdateBeat'),
+    mode.indexOf('VPAdenCampaign::FCheckpoint AVPAdenStoryGameMode::CaptureCheckpoint'));
+  assert.match(mode, /DialogueStarted = CueTime >= 0\. \? CueTime : GetWorld\(\)->GetTimeSeconds\(\);/);
+  assert.match(beat, /Now >= WindowEndsAt[\s\S]*?SetDialogue\(TEXT\([^\n]+\), Now\);/);
+  assert.match(beat, /WindowEndsAt - Now <= SignalWarningMs \* \.001[\s\S]*?SetDialogue\(SignalWarning\(\), Now\);[\s\S]*?Now >= DialogueUntil/);
+});
+
 test('the native Aden rules reach the finale through all eight choices with continuous roads and honest checkpoints',
   {skip: process.platform === 'win32'}, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aden-campaign-'));

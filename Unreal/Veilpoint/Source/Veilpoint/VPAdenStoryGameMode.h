@@ -123,7 +123,7 @@ private:
     void EnterBeat(VPAdenCampaign::FProgress Next);
     void PublishScene();
     bool UpdateRescueProps(float OperationFraction);
-    void SetDialogue(const TCHAR* Line);
+    void SetDialogue(const TCHAR* Line, double CueTime = -1.);
     void ShowChapterCard(VPAdenCampaign::EChapterCard Card);
     void EnsureEscort(AVPCharacter* Pawn);
     void UpdateOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn, float DeltaSeconds);

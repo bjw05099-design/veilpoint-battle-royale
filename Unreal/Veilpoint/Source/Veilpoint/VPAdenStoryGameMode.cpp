@@ -353,10 +353,10 @@ void AVPAdenStoryGameMode::ShowChapterCard(VPAdenCampaign::EChapterCard Card)
     }
 }
 
-void AVPAdenStoryGameMode::SetDialogue(const TCHAR* Line)
+void AVPAdenStoryGameMode::SetDialogue(const TCHAR* Line, double CueTime)
 {
     Dialogue = Line;
-    DialogueStarted = GetWorld()->GetTimeSeconds();
+    DialogueStarted = CueTime >= 0. ? CueTime : GetWorld()->GetTimeSeconds();
     DialogueUntil = DialogueStarted + FMath::Clamp(3. + Dialogue.Len() * .085, 5., 11.);
     if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>())
     {
@@ -664,7 +664,7 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
             WindowEndsAt = -1.;
             bMovingLinePlayed = true;
             UpdateRescueProps(0.f);
-            SetDialogue(TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 알려 주세요. 살마 씨가 골목 쪽에 있습니다."));
+            SetDialogue(TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 알려 주세요. 살마 씨가 골목 쪽에 있습니다."), Now);
             PersistStoryCheckpoint();
         }
         else if (!bSignalFading && WindowEndsAt >= 0. && WindowEndsAt - Now <= SignalWarningMs * .001)
@@ -672,7 +672,7 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
             bSignalFading = true;
             bMovingLinePlayed = true;
             UpdateRescueProps(0.f);
-            SetDialogue(SignalWarning());
+            SetDialogue(SignalWarning(), Now);
         }
         View->WindowSeconds = (CaptureCheckpoint().WindowMs + 999) / 1000;
     }
