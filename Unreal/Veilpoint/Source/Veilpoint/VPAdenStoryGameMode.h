@@ -25,6 +25,7 @@ class AVPAdenStoryState : public AGameStateBase
     GENERATED_BODY()
 
 public:
+    static VPAdenCampaign::EReach InspectReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing = true);
     static bool CanReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing = true);
     bool HasAtlasRoute() const { return ActiveLeg.Num() >= 2; }
     VPAdenAtlas::FExtent AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const;
@@ -140,6 +141,7 @@ private:
     void BeginDiagnostic();
     void RunDiagnostic();
     bool SweepDiagnosticLeg(AVPCharacter* Pawn, const FVector& From, const FVector& To) const;
+    bool VerifyCheckpointFooting(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     bool VerifyWestTerrain(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     bool VerifyOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn);
     bool VerifyCampaign(AVPPlayerController* Desktop, AVPCharacter* Pawn, int32 Route, bool bOnTime, int32 Relay);

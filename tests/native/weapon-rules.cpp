@@ -87,6 +87,25 @@ int main()
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);
 
+    static_assert(VPAdenCampaign::RecoveryOffset(300., 225.) == 225.);
+    static_assert(VPAdenCampaign::RecoveryOffset(150., 900.) == 150.);
+    using VPAdenCampaign::EReach;
+    using VPAdenCampaign::ReachWithoutTrace;
+    static_assert(ReachWithoutTrace(275. * 275., 0., .5, true) == EReach::Ready);
+    static_assert(ReachWithoutTrace(276. * 276., 0., 1., true) == EReach::TooFar);
+    static_assert(ReachWithoutTrace(0., 181., 1., true) == EReach::DifferentLevel);
+    static_assert(ReachWithoutTrace(0., -181., 1., true) == EReach::DifferentLevel);
+    static_assert(ReachWithoutTrace(0., 0., .49, true) == EReach::FaceObjective);
+    static_assert(ReachWithoutTrace(0., 0., .49, false) == EReach::Ready);
+
+    using VPWeaponView::ApproachClearance;
+    using VPWeaponView::ClearanceBlend;
+    assert(ClearanceBlend(0.) == 1. && ClearanceBlend(24.) == 1.);
+    assert(ClearanceBlend(54.) == .5 && ClearanceBlend(84.) == 0.);
+    assert(ApproachClearance(0., 1., .1) == 1.);
+    assert(ApproachClearance(1., 0., .1) > 0. && ApproachClearance(1., 0., .1) < 1.);
+    assert(ApproachClearance(ApproachClearance(1., 0., .1), 0., .1) == 0.);
+
     double StepPhase = 0.;
     assert(!VPFooting::AdvanceStep(StepPhase, 69.5, 139.) && StepPhase == .5);
     assert(!VPFooting::AdvanceStep(StepPhase, 0., 105.) && StepPhase == .5);

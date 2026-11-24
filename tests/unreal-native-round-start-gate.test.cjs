@@ -58,6 +58,10 @@ test('native ready lobby restarts its countdown after readiness changes or a pla
       assert(Stage(2, 1, 9.) == EStage::WaitingForReady);
       assert(Stage(2, 2, 0.) == EStage::AllReady);
       assert(Stage(2, 2, 9.) == EStage::Countdown);
+      static_assert(VPBRLobby::PublishedElapsed(249, false) == 0);
+      static_assert(VPBRLobby::PublishedElapsed(250, false) == 250);
+      static_assert(VPBRLobby::PublishedElapsed(499, false) == 250);
+      static_assert(VPBRLobby::PublishedElapsed(499, true) == 499);
       double endsAt = 0.;
       assert(!AdvanceCountdown(0., 1, 1, endsAt) && endsAt == 0.);
       assert(!AdvanceCountdown(5., 2, 2, endsAt) && endsAt == 9.);
@@ -81,6 +85,12 @@ test('native ready lobby restarts its countdown after readiness changes or a pla
    fs.rmSync(temp, {recursive: true, force: true});
   }
  });
+
+test('native BR publishes a bounded live clock, keeping precise result and replay stamps',()=>{
+ assert.match(mode,/PublishedElapsed\(ElapsedMs, bRoundComplete\)[\s\S]*?UpdateLobby\(Joined, Ready, bOnlineReadyLobby, PublishedMs/);
+ assert.match(mode,/ObserveRoundReview\(ElapsedMs, bSample, bRoundComplete, Living\)/);
+ assert.match(hud,/RoundElapsedMs \/ 1000[\s\S]*?ROUND  %02d:%02d/);
+});
 
 test('native zone does not shrink during waiting lobby and starts its clock from observed server start',()=>{
  const update=zone.slice(zone.indexOf('void AVPZone::UpdateZone()'),zone.indexOf('void AVPZone::GetLifetimeReplicatedProps('));

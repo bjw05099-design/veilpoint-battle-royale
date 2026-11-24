@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include "VPAdenRoadStyle.h"
 
 namespace VPAdenAtlas
 {
@@ -172,5 +173,6 @@ inline bool ObjectiveAtEdge(FExtent View, FPoint Player, FPoint& Objective, doub
 struct FVPAdenAtlasLine
 {
     VPAdenAtlas::FPoint A, B;
-    bool bRoad;
+    VPAdenRoads::EHighway Highway = VPAdenRoads::EHighway::None;
+    bool IsRoad() const { return Highway != VPAdenRoads::EHighway::None; }
 };

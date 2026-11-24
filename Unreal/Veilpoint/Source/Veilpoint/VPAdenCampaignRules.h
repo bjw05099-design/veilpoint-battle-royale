@@ -26,6 +26,23 @@ enum class EMode { Interact, Operate, Decide, Escort, Handoff, Encounter, Finish
 
 inline constexpr int SaveVersion = 8;
 inline constexpr double ReachCm = 275.;
+inline constexpr double ReachHeightCm = 180.;
+inline constexpr double RecoveryOffsetsCm[] = {0., 75., 150., 225., 300.};
+
+enum class EReach { Unavailable, TooFar, DifferentLevel, FaceObjective, Occluded, Ready };
+
+constexpr EReach ReachWithoutTrace(double HorizontalSq, double HeightDelta, double FacingDot, bool RequireFacing)
+{
+    if (HorizontalSq > ReachCm * ReachCm) return EReach::TooFar;
+    if (HeightDelta > ReachHeightCm || HeightDelta < -ReachHeightCm) return EReach::DifferentLevel;
+    if (RequireFacing && FacingDot < .5) return EReach::FaceObjective;
+    return EReach::Ready;
+}
+
+constexpr double RecoveryOffset(double Requested, double SegmentLength)
+{
+    return Requested < SegmentLength ? Requested : SegmentLength;
+}
 inline constexpr double EscortLeashCm = 1500.;
 inline constexpr double EscortArrivalCm = 425.;
 inline constexpr int SignalWindowMs = 32000;

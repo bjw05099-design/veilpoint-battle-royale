@@ -30,7 +30,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const FLinearColor Ink(.89f, .92f, .86f), Muted(.61f, .72f, .71f);
     const FLinearColor Accent(.94f, .76f, .44f), PlayerColor(.36f, .88f, .85f), Edge(.23f, .37f, .37f);
     const FLinearColor WestJoin(.69f, .79f, .83f, .75f);
-    const FLinearColor RoadInk(.88f, .71f, .45f), RoadCasing(.19f, .14f, .085f), FootprintInk(.17f, .23f, .21f);
+    const FLinearColor RoadCasing(.19f, .14f, .085f), FootprintInk(.17f, .23f, .21f);
     const auto Screen = VPAdenAtlas::ScreenMap(Crop, Canvas->ClipX, Canvas->ClipY);
     if (!Screen.IsValid()) return;
     const float Scale = Screen.Scale, W = Screen.W, H = Screen.H, X = Screen.X, Y = Screen.Y;
@@ -121,12 +121,22 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             AdenFootprintStrokes.Reset();
             Source->VisitAtlasLines(Strokes, [&](const FVPAdenAtlasLine& Line)
             {
-                (Line.bRoad ? AdenRoadStrokes : AdenFootprintStrokes).Add(Line);
+                (Line.IsRoad() ? AdenRoadStrokes : AdenFootprintStrokes).Add(Line);
+            });
+            AdenRoadStrokes.Sort([](const FVPAdenAtlasLine& A, const FVPAdenAtlasLine& B)
+            {
+                return VPAdenRoads::Group(A.Highway) < VPAdenRoads::Group(B.Highway);
             });
         }
         for (const auto& Footprint : AdenFootprintStrokes) DrawStroke(Footprint, FootprintInk, 1.4f);
-        for (const auto& Road : AdenRoadStrokes) DrawStroke(Road, RoadCasing, 3.8f);
-        for (const auto& Road : AdenRoadStrokes) DrawStroke(Road, RoadInk, 2.0f);
+        using namespace VPAdenRoads;
+        for (const auto& Road : AdenRoadStrokes)
+            DrawStroke(Road, RoadCasing, Stroke(Group(Road.Highway)).CanvasWidth + 1.2f);
+        for (const auto& Road : AdenRoadStrokes)
+        {
+            const auto Style = Stroke(Group(Road.Highway));
+            DrawStroke(Road, FLinearColor(Style.Red, Style.Green, Style.Blue), Style.CanvasWidth);
+        }
     }
     const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
     {
@@ -292,16 +302,25 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawText(TEXT("OpenStreetMap contributors"), Muted, PanelX, PanelY + 211.f * Scale, nullptr, .63f * Scale);
             if (Crop.West < VPAdenAtlas::Local.West && H > 485.f * Scale)
             {
-                DrawLine(PanelX, PanelY + 307.f * Scale, PanelX + 9.f * Scale, PanelY + 307.f * Scale, WestJoin, 1.2f);
-                DrawText(TEXT("West terrain extension"), Ink, PanelX + 14.f * Scale, PanelY + 301.f * Scale, nullptr, .73f * Scale);
+                DrawLine(PanelX, PanelY + 333.f * Scale, PanelX + 9.f * Scale, PanelY + 333.f * Scale, WestJoin, 1.2f);
+                DrawText(TEXT("West terrain extension"), Ink, PanelX + 14.f * Scale, PanelY + 327.f * Scale, nullptr, .73f * Scale);
             }
         }
         if (bDetailed)
         {
-            DrawLine(PanelX, PanelY + 248.f * Scale, PanelX + 10.f * Scale, PanelY + 248.f * Scale, RoadInk, 2.f);
-            DrawText(TEXT("Public road centreline"), Ink, PanelX + 14.f * Scale, PanelY + 242.f * Scale, nullptr, .77f * Scale);
-            DrawLine(PanelX, PanelY + 271.f * Scale, PanelX + 10.f * Scale, PanelY + 271.f * Scale, FootprintInk, 2.f);
-            DrawText(TEXT("Building footprint"), Ink, PanelX + 14.f * Scale, PanelY + 265.f * Scale, nullptr, .77f * Scale);
+            using namespace VPAdenRoads;
+            const auto Legend = [&](float Offset, EGroup GroupToDraw, const TCHAR* Label)
+            {
+                const auto Style = Stroke(GroupToDraw);
+                DrawLine(PanelX, PanelY + (Offset + 6.f) * Scale, PanelX + 10.f * Scale,
+                    PanelY + (Offset + 6.f) * Scale, FLinearColor(Style.Red, Style.Green, Style.Blue),
+                    Style.CanvasWidth * Scale);
+                DrawText(Label, Ink, PanelX + 14.f * Scale, PanelY + Offset * Scale, nullptr, .72f * Scale);
+            };
+            Legend(238.f, EGroup::Arterial, TEXT("Primary roads"));
+            Legend(257.f, EGroup::Connector, TEXT("Tertiary roads"));
+            Legend(276.f, EGroup::Local, TEXT("Local streets"));
+            Legend(295.f, EGroup::Footprint, TEXT("Building footprint"));
         }
     }
     const TCHAR* Controls = bRegional ? TEXT("M  Close map")

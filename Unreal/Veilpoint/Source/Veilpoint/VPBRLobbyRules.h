@@ -3,6 +3,12 @@
 namespace VPBRLobby
 {
 constexpr double CountdownSeconds = 4.;
+constexpr int LiveClockStepMs = 250;
+
+constexpr int PublishedElapsed(int ElapsedMs, bool Finished)
+{
+    return Finished ? ElapsedMs : ElapsedMs / LiveClockStepMs * LiveClockStepMs;
+}
 enum class EStage { WaitingForPlayers, WaitingForReady, AllReady, Countdown };
 
 constexpr EStage Stage(int Joined, int Ready, double EndsAt)
