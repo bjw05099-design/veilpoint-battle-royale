@@ -23,6 +23,12 @@ materials, character animation, physics interactions, and gameplay weapon and
 combat systems through representative playable sections. Reuse the systems
 across chapters and in Battle Royale where appropriate.
 
+Develop motion, collision and physical interactions according to the
+[native physics production standard](NATIVE_PHYSICS_STANDARD.md). Start with
+the sourced Aden ground and a representative playable route. Extend verified
+behavior to movable props, doors, vehicles and breakable assets as they enter
+production.
+
 Develop weapons according to the [firearm production standard](NATIVE_WEAPON_RELOAD.md#firearm-production-standard).
 Validate a complete weapon through its playable UE5 assets, weapon profile
 and shared behavior before expanding the roster.
