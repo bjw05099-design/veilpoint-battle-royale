@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace VPFooting
 {
 // Local dimensions of the authored coastal apron, in centimetres.
@@ -9,6 +11,15 @@ inline constexpr double HalfWidth = 700.;
 inline constexpr double HalfLength = 900.;
 inline constexpr float WetSpeedScale = .86f;
 inline constexpr float WetGripScale = .68f;
+
+// Normalized progress preserves the next footfall when the stance changes.
+inline bool AdvanceStep(double& Phase, double TravelCm, double StrideCm)
+{
+    if (TravelCm <= .1 || StrideCm <= 0.) return false;
+    const double Advanced = Phase + TravelCm / StrideCm;
+    Phase = std::fmod(Advanced, 1.);
+    return Advanced >= 1.;
+}
 
 // Ignore shallow noise between the sampled triangles of the terrain mesh.
 constexpr float AdenGradeScale(bool OnSourceGround, double NormalX, double NormalY,

@@ -50,6 +50,7 @@ public:
     AVPCharacter();
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     virtual void Tick(float DeltaSeconds) override;
+    virtual void Landed(const FHitResult& Hit) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
         class AController* EventInstigator, AActor* DamageCauser) override;
@@ -163,6 +164,8 @@ private:
     void CreateWeaponPresentation(FVPFirstPersonWeapon& View, EVPWeaponModel Model);
     void UpdateWeaponView(float DeltaSeconds);
     bool bSightHeld = false;
+    double LandedAt = -1000.;
+    double LandedStrength = 0.;
     double SightBlend = 0.;
     double ObstructionBlend = 0.;
     UPROPERTY()

@@ -8,6 +8,7 @@
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenSourceWorld.h"
+#include "VPFootingRules.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
@@ -320,7 +321,7 @@ void AVPPlayerController::TickAdenAudio()
             bAdenAudioPaused = false;
         }
         bHasAdenAudioPosition = false;
-        AdenStepDistance = 0.;
+        AdenStepPhase = 0.;
         if (State) LastAdenBeat = State->Progress.Beat;
         return;
     }
@@ -350,19 +351,17 @@ void AVPPlayerController::TickAdenAudio()
     if (bDesktopMenuOpen || AdenAtlasPage != 0 || !Movement->IsMovingOnGround() || !Floor.IsWalkableFloor()
         || !Source->IsPlayableGround(Floor.HitResult) || Travel.SizeSquared() > FMath::Square(300.))
     {
-        AdenStepDistance = 0.;
+        AdenStepPhase = 0.;
         return;
     }
     if (Travel.SizeSquared2D() <= .01) return;
-    AdenStepDistance += Travel.Size();
     const bool bCrouched = Movement->IsCrouching();
     const double Stride = bCrouched ? 105. : ControlledCharacter->bSprinting ? 165. : 139.;
-    if (AdenStepDistance >= Stride)
+    if (VPFooting::AdvanceStep(AdenStepPhase, Travel.Size(), Stride))
     {
-        AdenStepDistance = FMath::Fmod(AdenStepDistance, Stride);
         USoundBase* Clip = Source->GetStepSound(AdenStepIndex++ % 3);
         if (Clip)
-            UGameplayStatics::PlaySound2D(this, Clip, bCrouched ? .11f : .23f);
+            UGameplayStatics::PlaySoundAtLocation(this, Clip, Floor.HitResult.ImpactPoint, bCrouched ? .11f : .23f);
     }
 }
 
@@ -417,6 +416,7 @@ void AVPPlayerController::CycleAdenAtlas()
     if (!IsAdenOpening() && !bDesktopMenuOpen && GetWorld() && GetWorld()->GetGameState<AVPAdenStoryState>())
     {
         AdenAtlasPage = (AdenAtlasPage + 1) % 3;
+        ApplyDesktopCursorMode();
         bAdenAtlasRouteOverview = false;
         AdenAtlasCentre.Reset();
         AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
@@ -450,16 +450,35 @@ void AVPPlayerController::ToggleAdenAtlasRouteOverview()
 
 void AVPPlayerController::ZoomAdenAtlasIn()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview()
-        && AdenPreviewChoice == VPAdenCampaign::EInput::Interact)
-        AdenAtlasZoom = FMath::Min(AdenAtlasZoom + 1, VPAdenAtlas::MaxZoomLevel);
+    ZoomAdenAtlas(1);
 }
 
 void AVPPlayerController::ZoomAdenAtlasOut()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview()
-        && AdenPreviewChoice == VPAdenCampaign::EInput::Interact)
-        AdenAtlasZoom = FMath::Max(AdenAtlasZoom - 1, 0);
+    ZoomAdenAtlas(-1);
+}
+
+void AVPPlayerController::ZoomAdenAtlas(int32 Direction)
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || IsAdenAtlasRouteOverview()
+        || AdenPreviewChoice != VPAdenCampaign::EInput::Interact || !GetWorld() || !GetPawn()) return;
+    const int32 Next = FMath::Clamp(AdenAtlasZoom + Direction, 0, VPAdenAtlas::MaxZoomLevel);
+    if (Next == AdenAtlasZoom) return;
+    if (const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
+        const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
+        int32 Width = 0, Height = 0;
+        GetViewportSize(Width, Height);
+        float X = 0.f, Y = 0.f;
+        VPAdenAtlas::FPoint Anchor;
+        if (GetMousePosition(X, Y)
+            && VPAdenAtlas::PointAtPixel(VPAdenAtlas::ScreenMap(View, Width, Height), View, {X, Y}, Anchor))
+        {
+            const auto Focus = VPAdenAtlas::Centre(VPAdenAtlas::ZoomAt(VPAdenAtlas::Playable, View, Anchor, Next));
+            AdenAtlasCentre.Emplace(Focus.X, Focus.Y);
+        }
+    }
+    AdenAtlasZoom = Next;
 }
 
 VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& Player) const
@@ -505,6 +524,21 @@ void AVPPlayerController::PlaceAdenPin()
     const auto Point = VPAdenAtlas::Centre(AdenFieldCrop(*State, GetPawn()->GetActorLocation()));
     FVector Floor;
     if (Source->TraceAtlasGround(Point, Floor)) AdenPin = Floor;
+}
+
+bool AVPPlayerController::PlaceAdenPinAtPixel(FVector2D Pixel, int32 Width, int32 Height)
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld() || !GetPawn()) return false;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    const auto* Source = State ? State->Source.Get() : nullptr;
+    if (!Source) return false;
+    const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
+    VPAdenAtlas::FPoint Point;
+    FVector Floor;
+    if (!VPAdenAtlas::PointAtPixel(VPAdenAtlas::ScreenMap(View, Width, Height), View, {Pixel.X, Pixel.Y}, Point)
+        || !Source->TraceAtlasGround(Point, Floor)) return false;
+    AdenPin = Floor;
+    return true;
 }
 
 void AVPPlayerController::ClearAdenPin()
@@ -565,10 +599,7 @@ void AVPPlayerController::ToggleDesktopMenu()
     SetIgnoreMoveInput(true);
     SetIgnoreLookInput(true);
     if (AVPCharacter* ControlledPawn = Cast<AVPCharacter>(GetPawn())) ControlledPawn->ReleaseDesktopActions();
-    bShowMouseCursor = true;
-    FInputModeGameAndUI Mode;
-    Mode.SetHideCursorDuringCapture(false);
-    SetInputMode(Mode);
+    ApplyDesktopCursorMode();
     bOwnsPause = GetNetMode() == NM_Standalone && !IsPaused() && SetPause(true);
 }
 
@@ -580,8 +611,20 @@ void AVPPlayerController::CloseDesktopMenu()
     bOwnsPause = false;
     SetIgnoreMoveInput(false);
     SetIgnoreLookInput(false);
-    bShowMouseCursor = false;
-    SetInputMode(FInputModeGameOnly());
+    ApplyDesktopCursorMode();
+}
+
+void AVPPlayerController::ApplyDesktopCursorMode()
+{
+    bShowMouseCursor = bDesktopMenuOpen || AdenAtlasPage != 0;
+    if (bShowMouseCursor)
+    {
+        FInputModeGameAndUI Mode;
+        Mode.SetHideCursorDuringCapture(false);
+        SetInputMode(Mode);
+    }
+    else
+        SetInputMode(FInputModeGameOnly());
 }
 
 void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -841,6 +884,13 @@ void AVPPlayerController::MenuClick()
         float X = 0.f, Y = 0.f;
         if (AVPHUD* HUD = Cast<AVPHUD>(GetHUD()); HUD && GetMousePosition(X, Y))
             HUD->ClickDesktopMenu(FVector2D(X, Y));
+    }
+    else if (AdenAtlasPage != 0)
+    {
+        float X = 0.f, Y = 0.f;
+        int32 Width = 0, Height = 0;
+        GetViewportSize(Width, Height);
+        if (GetMousePosition(X, Y)) PlaceAdenPinAtPixel({X, Y}, Width, Height);
     }
     else if (AVPCharacter* ControlledPawn = Cast<AVPCharacter>(GetPawn()))
         ControlledPawn->RequestPrimaryAction();

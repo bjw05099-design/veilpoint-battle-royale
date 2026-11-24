@@ -180,6 +180,7 @@ private:
     bool bSourceChecked = false;
     bool bChoosing = false;
     bool bMovingLinePlayed = false;
+    bool bEncounterResolvedCall = false;
     bool bSignalFading = false;
     bool bSaveFailed = false;
 };

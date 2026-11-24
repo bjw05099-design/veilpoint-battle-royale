@@ -33,6 +33,7 @@ public:
     void PanAdenAtlas(double X, double Y);
     void RecenterAdenAtlas();
     void PlaceAdenPin();
+    bool PlaceAdenPinAtPixel(FVector2D Pixel, int32 Width, int32 Height);
     void ClearAdenPin();
     const TOptional<FVector>& GetAdenPin() const { return AdenPin; }
     bool PreviewAdenRoute(VPAdenCampaign::EInput Choice);
@@ -89,7 +90,7 @@ private:
     TObjectPtr<class UAudioComponent> AdenWind;
     int32 LastAdenBeat = INDEX_NONE;
     FVector PreviousAdenAudioPosition = FVector::ZeroVector;
-    double AdenStepDistance = 0.;
+    double AdenStepPhase = 0.;
     int32 AdenStepIndex = 0;
     bool bHasAdenAudioPosition = false;
     bool bAdenAudioPaused = false;
@@ -128,6 +129,8 @@ private:
     void MenuRight();
     void MenuActivate();
     void MenuClick();
+    void ApplyDesktopCursorMode();
+    void ZoomAdenAtlas(int32 Direction);
     void ChangeMenuValue(int32 Direction);
     void PlaceLocalFieldMark();
 };

@@ -31,13 +31,11 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const FLinearColor Accent(.94f, .76f, .44f), PlayerColor(.36f, .88f, .85f), Edge(.23f, .37f, .37f);
     const FLinearColor WestJoin(.69f, .79f, .83f, .75f);
     const FLinearColor RoadInk(.88f, .71f, .45f), RoadCasing(.19f, .14f, .085f), FootprintInk(.17f, .23f, .21f);
-    const float Scale = FMath::Clamp(Canvas->ClipX / 1440.f, .70f, 1.55f);
-    const float W = FMath::Min(1130.f * Scale, Canvas->ClipX - 35.f * Scale);
-    const float H = FMath::Min(740.f * Scale, Canvas->ClipY - 36.f * Scale);
-    if (W < 380.f * Scale || H < 280.f * Scale) return;
-    const float X = (Canvas->ClipX - W) * .5f, Y = (Canvas->ClipY - H) * .5f;
-    const float Inset = 20.f * Scale, Head = 72.f * Scale, Foot = 34.f * Scale;
-    const bool bSide = W > 750.f * Scale;
+    const auto Screen = VPAdenAtlas::ScreenMap(Crop, Canvas->ClipX, Canvas->ClipY);
+    if (!Screen.IsValid()) return;
+    const float Scale = Screen.Scale, W = Screen.W, H = Screen.H, X = Screen.X, Y = Screen.Y;
+    const float Inset = 20.f * Scale, Head = 72.f * Scale;
+    const bool bSide = Screen.Side;
     const float Side = bSide ? 230.f * Scale : 0.f;
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
@@ -49,12 +47,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         : bRouteOverview ? TEXT("ADEN  /  ROUTE OVERVIEW") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
 
-    const float AreaWidth = W - 2.f * Inset - Side;
-    const float AreaHeight = H - Head - Foot;
-    const float MapW = FMath::Min(AreaWidth, float(AreaHeight * Crop.Width() / Crop.Height()));
-    const float MapH = float(MapW * Crop.Height() / Crop.Width());
-    const float MapX = X + Inset + (AreaWidth - MapW) * .5f;
-    const float MapY = Y + Head + (AreaHeight - MapH) * .5f;
+    const float MapW = float(Screen.Map.Width()), MapH = float(Screen.Map.Height());
+    const float MapX = float(Screen.Map.West), MapY = float(Screen.Map.North);
     const int32 ScaleMetres = VPAdenAtlas::ScaleBarMetres(Crop);
 
     const auto Pixel = [&](const VPAdenAtlas::FPoint& Point)
@@ -119,14 +113,20 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             const auto A = Pixel(Line.A), B = Pixel(Line.B);
             DrawLine(A.X, A.Y, B.X, B.Y, Color, Thickness * Scale);
         };
-        TArray<FVPAdenAtlasLine, TInlineAllocator<64>> Roads;
-        Source->VisitAtlasLines(Strokes, [&](const FVPAdenAtlasLine& Line)
+        if (AdenStrokeSource.Get() != Source || !(AdenStrokeExtent == Strokes))
         {
-            if (Line.bRoad) Roads.Add(Line);
-            else DrawStroke(Line, FootprintInk, 1.4f);
-        });
-        for (const auto& Road : Roads) DrawStroke(Road, RoadCasing, 3.8f);
-        for (const auto& Road : Roads) DrawStroke(Road, RoadInk, 2.0f);
+            AdenStrokeSource = Aden->Source;
+            AdenStrokeExtent = Strokes;
+            AdenRoadStrokes.Reset();
+            AdenFootprintStrokes.Reset();
+            Source->VisitAtlasLines(Strokes, [&](const FVPAdenAtlasLine& Line)
+            {
+                (Line.bRoad ? AdenRoadStrokes : AdenFootprintStrokes).Add(Line);
+            });
+        }
+        for (const auto& Footprint : AdenFootprintStrokes) DrawStroke(Footprint, FootprintInk, 1.4f);
+        for (const auto& Road : AdenRoadStrokes) DrawStroke(Road, RoadCasing, 3.8f);
+        for (const auto& Road : AdenRoadStrokes) DrawStroke(Road, RoadInk, 2.0f);
     }
     const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
     {
@@ -305,10 +305,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     }
     const TCHAR* Controls = bRegional ? TEXT("M  Close map")
-        : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   P Pin   Del Clear   Home Center   M Next")
-        : bRouteOverview ? TEXT("G Back   P Pin   Del Clear   Home Center   M Next")
-        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home Center   G Route   P Pin   Del Clear   M Next")
-        : TEXT("Arrows Pan   Wheel Zoom   Home Center   P Pin   Del Clear   M Next");
+        : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   Click/P Pin   Del Clear   Home Center   M Next")
+        : bRouteOverview ? TEXT("G Back   Click/P Pin   Del Clear   Home Center   M Next")
+        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home Center   G Route   Click/P Pin   Del Clear   M Next")
+        : TEXT("Arrows Pan   Wheel Zoom   Home Center   Click/P Pin   Del Clear   M Next");
     DrawText(Controls,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
     if (Aden->WindowSeconds >= 0 && W > 700.f * Scale)

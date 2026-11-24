@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "VPFrameTelemetry.h"
+#include "VPAdenAtlasProjection.h"
 #include "VPRoundReviewPlayback.h"
 #include "VPHUD.generated.h"
 
@@ -32,8 +33,12 @@ private:
     float DrawAdenSubtitle(const FString& Line, float Bottom, float Left, float Width, float Scale,
         const FLinearColor& Plate, const FLinearColor& Ink);
     void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
+    TWeakObjectPtr<class AVPAdenSourceWorld> AdenStrokeSource;
+    VPAdenAtlas::FExtent AdenStrokeExtent{};
+    TArray<FVPAdenAtlasLine> AdenRoadStrokes;
+    TArray<FVPAdenAtlasLine> AdenFootprintStrokes;
     bool bRoundReviewOpen = false;
-    int32 RoundReviewCursor = INDEX_NONE;
+    double ReviewPlayheadMs = -1.;
     bool bRoundReviewPlaying = false;
     double ReviewPlaybackBeganAt = 0.;
     double ReviewPlaybackStartMs = 0.;

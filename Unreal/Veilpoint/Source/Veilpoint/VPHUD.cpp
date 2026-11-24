@@ -118,6 +118,7 @@ void AVPHUD::DrawHUD()
             LastNativeBenchmarkStatus = TEXT("CAPTURE CANCELLED BY MENU | F9 TO START AGAIN");
         }
         FrameTelemetry.Reset();
+        bRoundReviewPlaying = false;
         DrawDesktopMenu(Desktop);
         return;
     }
@@ -538,6 +539,12 @@ void AVPHUD::DrawHUD()
         }
         DrawText(TEXT("M: REVIEW MY MOVEMENT"), FLinearColor(.86f,.85f,.68f),
             X, Y + 173.f * Scale, nullptr, .8f * Scale);
+    }
+    else
+    {
+        bRoundReviewOpen = false;
+        bRoundReviewPlaying = false;
+        ReviewPlayheadMs = -1.;
     }
 
     if (!Pawn->IsAlive())
@@ -1002,8 +1009,26 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
         return;
     }
     const int32 Last = Track.Num() - 1;
-    if (RoundReviewCursor == INDEX_NONE)
-        RoundReviewCursor = Last;
+    const double BeginMs = Track[0].Milliseconds, EndMs = Track.Last().Milliseconds;
+    const double Now = FPlatformTime::Seconds();
+    if (ReviewPlayheadMs < 0.) ReviewPlayheadMs = EndMs;
+    if (bRoundReviewPlaying)
+    {
+        ReviewPlayheadMs = FMath::Clamp(VPRoundReview::Playhead(ReviewPlaybackStartMs,
+            Now - ReviewPlaybackBeganAt, VPRoundReview::Rates[RoundReviewRateIndex]), BeginMs, EndMs);
+        if (ReviewPlayheadMs >= EndMs) bRoundReviewPlaying = false;
+    }
+    const auto ObservationAt = [&](double Time)
+    {
+        int32 Low = 0, High = Last;
+        while (Low < High)
+        {
+            const int32 Midpoint = Low + (High - Low + 1) / 2;
+            if (Track[Midpoint].Milliseconds <= Time) Low = Midpoint;
+            else High = Midpoint - 1;
+        }
+        return Low;
+    };
     const int32 Step = int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Right))
         - int32(PlayerOwner->WasInputKeyJustPressed(EKeys::Left));
     const bool bHome = PlayerOwner->WasInputKeyJustPressed(EKeys::Home);
@@ -1011,37 +1036,38 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     if (Step || bHome || bEnd)
     {
         bRoundReviewPlaying = false;
-        RoundReviewCursor = bHome ? 0 : bEnd ? Last : FMath::Clamp(RoundReviewCursor + Step, 0, Last);
+        const bool bSkip = PlayerOwner->IsInputKeyDown(EKeys::LeftShift) || PlayerOwner->IsInputKeyDown(EKeys::RightShift);
+        if (bHome || bEnd) ReviewPlayheadMs = bHome ? BeginMs : EndMs;
+        else if (bSkip)
+            ReviewPlayheadMs = FMath::Clamp(ReviewPlayheadMs + Step * VPRoundReview::SkipMs, BeginMs, EndMs);
+        else
+        {
+            const int32 Base = ObservationAt(ReviewPlayheadMs);
+            const int32 Target = Step < 0 && ReviewPlayheadMs > Track[Base].Milliseconds ? Base : Base + Step;
+            ReviewPlayheadMs = Track[FMath::Clamp(Target, 0, Last)].Milliseconds;
+        }
     }
-    const double Now = FPlatformTime::Seconds();
-    if (PlayerOwner->WasInputKeyJustPressed(EKeys::SpaceBar) && Last > 0)
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::SpaceBar) && EndMs > BeginMs)
     {
         bRoundReviewPlaying = !bRoundReviewPlaying;
         if (bRoundReviewPlaying)
         {
-            if (RoundReviewCursor == Last) RoundReviewCursor = 0;
+            if (ReviewPlayheadMs >= EndMs) ReviewPlayheadMs = BeginMs;
             ReviewPlaybackBeganAt = Now;
-            ReviewPlaybackStartMs = Track[RoundReviewCursor].Milliseconds;
+            ReviewPlaybackStartMs = ReviewPlayheadMs;
         }
     }
     if (PlayerOwner->WasInputKeyJustPressed(EKeys::T))
     {
         if (bRoundReviewPlaying)
         {
-            ReviewPlaybackStartMs = VPRoundReview::Playhead(ReviewPlaybackStartMs,
-                Now - ReviewPlaybackBeganAt, VPRoundReview::Rates[RoundReviewRateIndex]);
+            ReviewPlaybackStartMs = ReviewPlayheadMs;
             ReviewPlaybackBeganAt = Now;
         }
         RoundReviewRateIndex = (RoundReviewRateIndex + 1) % VPRoundReview::RateCount;
     }
+    const int32 Cursor = ObservationAt(ReviewPlayheadMs);
     const int32 Rate = VPRoundReview::Rates[RoundReviewRateIndex];
-    if (bRoundReviewPlaying)
-    {
-        const double Playhead = VPRoundReview::Playhead(ReviewPlaybackStartMs, Now - ReviewPlaybackBeganAt, Rate);
-        while (RoundReviewCursor < Last && Track[RoundReviewCursor + 1].Milliseconds <= Playhead)
-            ++RoundReviewCursor;
-        if (RoundReviewCursor == Last) bRoundReviewPlaying = false;
-    }
 
     FBox2D Bounds(ForceInit);
     double SampledDistance = 0.;
@@ -1052,7 +1078,8 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
         if (I > 0)
         {
             const auto& Previous = Track[I - 1].PositionMetres;
-            SampledDistance += FVector2D(double(Position.X) - Previous.X, double(Position.Y) - Previous.Y).Size();
+            if (VPRoundReview::IsContinuous(Track[I - 1].Milliseconds, Track[I].Milliseconds))
+                SampledDistance += FVector2D(double(Position.X) - Previous.X, double(Position.Y) - Previous.Y).Size();
         }
     }
     DrawText(FString::Printf(TEXT("%d observations  |  ~%.0f m sampled  |  %.1f s observed"),
@@ -1063,27 +1090,45 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
         (Height - 197. * Scale) / FMath::Max(1., Range.Y));
     const FVector2D Origin(Left + Width * .5, Top + Height * .5 + 2. * Scale);
     const FVector2D Mid = Bounds.GetCenter();
+    const auto At = [&](int32 I)
+    {
+        const auto Point = Track[I].PositionMetres;
+        return Origin + (FVector2D(Point.X, Point.Y) - Mid) * UnitsToPixels;
+    };
+    for (int32 I = 1; I <= Last; ++I)
+    {
+        if (!VPRoundReview::IsContinuous(Track[I - 1].Milliseconds, Track[I].Milliseconds)) continue;
+        const auto A = At(I - 1), B = At(I);
+        DrawLine(A.X, A.Y, B.X, B.Y, I <= Cursor ? FLinearColor(.28f, .64f, .58f)
+            : FLinearColor(.17f, .27f, .29f), 1.5f * Scale);
+    }
     for (int32 I = 0; I <= Last; ++I)
     {
-        const FIntPoint Point = Track[I].PositionMetres;
-        const FVector2D Pixel = Origin + (FVector2D(Point.X, Point.Y) - Mid) * UnitsToPixels;
-        const bool bCursor = I == RoundReviewCursor;
-        const float Size = (bCursor ? 10.f : 5.f) * Scale;
-        const FLinearColor Dot = bCursor ? FLinearColor(.99f, .76f, .32f) :
-            I < RoundReviewCursor ? FLinearColor(.39f, .80f, .74f) : FLinearColor(.27f, .38f, .40f);
-        DrawRect(Dot, Pixel.X - Size * .5f, Pixel.Y - Size * .5f, Size, Size);
+        const auto Pixel = At(I);
+        const float Size = 5.f * Scale;
+        DrawRect(I <= Cursor ? FLinearColor(.39f, .80f, .74f) : FLinearColor(.27f, .38f, .40f),
+            Pixel.X - Size * .5f, Pixel.Y - Size * .5f, Size, Size);
     }
+    auto Marker = At(Cursor);
+    const bool bGap = Cursor < Last
+        && !VPRoundReview::IsContinuous(Track[Cursor].Milliseconds, Track[Cursor + 1].Milliseconds);
+    if (Cursor < Last && !bGap)
+    {
+        const double Fraction = VPRoundReview::Fraction(ReviewPlayheadMs,
+            Track[Cursor].Milliseconds, Track[Cursor + 1].Milliseconds);
+        Marker = FMath::Lerp(Marker, At(Cursor + 1), Fraction);
+    }
+    DrawRect(FLinearColor(.99f, .76f, .32f), Marker.X - 5.f * Scale, Marker.Y - 5.f * Scale,
+        10.f * Scale, 10.f * Scale);
     const FLinearColor Progress(.39f, .80f, .74f);
     const float RailX = Left + 18.f * Scale, RailY = Top + Height - 67.f * Scale, RailW = Width - 36.f * Scale;
-    const int32 RangeMs = Track.Last().Milliseconds - Track[0].Milliseconds;
-    const int32 OffsetMs = Track[RoundReviewCursor].Milliseconds - Track[0].Milliseconds;
-    const float Ratio = RangeMs > 0 ? float(OffsetMs) / RangeMs : 1.f;
+    const float Ratio = EndMs > BeginMs ? float((ReviewPlayheadMs - BeginMs) / (EndMs - BeginMs)) : 1.f;
     DrawRect(FLinearColor(.12f, .22f, .24f), RailX, RailY, RailW, 3.f * Scale);
     DrawRect(Progress, RailX, RailY, RailW * Ratio, 3.f * Scale);
-    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s %dX"),
-        RoundReviewCursor + 1, Track.Num(), Track[RoundReviewCursor].Milliseconds / 1000.,
-        bRoundReviewPlaying ? TEXT("PLAYING") : TEXT("PAUSED"), Rate),
+    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s %dX%s"),
+        Cursor + 1, Track.Num(), ReviewPlayheadMs / 1000.,
+        bRoundReviewPlaying ? TEXT("PLAYING") : TEXT("PAUSED"), Rate, bGap ? TEXT("  |  SAMPLE GAP") : TEXT("")),
         Ink, RailX, RailY + 11.f * Scale, nullptr, .8f * Scale);
-    DrawText(TEXT("SPACE Play/Pause   T Speed   ARROWS Step   HOME/END   M Close"),
+    DrawText(TEXT("SPACE Play/Pause   T Speed   ARROWS Step   SHIFT+ARROW 15s   M Close"),
         Ink, RailX, RailY + 35.f * Scale, nullptr, .74f * Scale);
 }

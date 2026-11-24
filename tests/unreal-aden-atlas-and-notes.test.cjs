@@ -23,6 +23,14 @@ test('Aden field pin is local and samples the sourced playable terrain mesh', ()
   assert.match(world, /TraceAtlasGround[\s\S]*?Playable\.Contains\(Point\)[\s\S]*?TerrainCollision->LineTraceComponent/);
 });
 
+test('atlas drawing and pointer pins share projection and reuse unchanged road and footprint strokes', () => {
+  const controller = fs.readFileSync(path.join(include, 'VPPlayerController.cpp'), 'utf8');
+  const hud = fs.readFileSync(path.join(include, 'VPAdenHUD.cpp'), 'utf8');
+  assert.match(controller, /PointAtPixel\(VPAdenAtlas::ScreenMap[\s\S]*?TraceAtlasGround\(Point, Floor\)/);
+  assert.match(hud, /ScreenMap\(Crop, Canvas->ClipX, Canvas->ClipY\)/);
+  assert.match(hud, /AdenStrokeSource\.Get\(\) != Source \|\| !\(AdenStrokeExtent == Strokes\)[\s\S]*?VisitAtlasLines/);
+});
+
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
   const maps = path.join(root, 'ContentSource/Aden');
   const manifest = JSON.parse(fs.readFileSync(path.join(maps, 'aden-atlas.json'), 'utf8'));
@@ -80,10 +88,32 @@ test('compile and exercise the real Unreal atlas projection and save migration r
       #include "VPAdenMissionRules.h"
       #include "VPAdenDispatchRules.h"
       #include <cassert>
+      #include <cmath>
       int main() {
         using namespace VPAdenAtlas;
         assert(Local.Width() == 358400 && Region.Width() == 4096000 && Region.Height() == 3584000);
         assert(Playable.Width() == 512000 && Playable.Height() == 358400);
+        {
+          const auto view = Crop(Playable, Centre(Playable), 2);
+          const auto hd = ScreenMap(view, 1440, 900);
+          const auto narrow = ScreenMap(view, 500, 480);
+          assert(hd.IsValid() && hd.Side && narrow.IsValid() && !narrow.Side);
+          assert(!ScreenMap(view, 200, 160).IsValid());
+          const auto pixel = FPoint{hd.Map.West + .68 * hd.Map.Width(), hd.Map.North + .32 * hd.Map.Height()};
+          FPoint world{};
+          assert(PointAtPixel(hd, view, pixel, world));
+          const auto anchor = view.Normalized(world);
+          const auto zoomed = ZoomAt(Playable, view, world, 3);
+          const auto anchored = zoomed.Normalized(world);
+          assert(std::abs(anchored.X - anchor.X) < 1.e-9 && std::abs(anchored.Y - anchor.Y) < 1.e-9);
+          assert(PointAtPixel(narrow, view, Centre(narrow.Map), world));
+          assert(world.X == Centre(view).X && world.Y == Centre(view).Y);
+          assert(!PointAtPixel(hd, view, {hd.Map.West - .01, pixel.Y}, world));
+          assert(!PointAtPixel(hd, view, {hd.Map.East + .01, pixel.Y}, world));
+          const auto edgeZoom = ZoomAt(Playable, Crop(Playable, {Playable.West, Playable.North}, 5),
+              {Playable.West, Playable.North}, 2);
+          assert(edgeZoom.West == Playable.West && edgeZoom.North == Playable.North);
+        }
         const auto split = Crop(Playable, {West.East, 0.}, 3);
         const auto left = Intersection(split, West), right = Intersection(split, Local);
         assert(left.East == right.West && left.Width() + right.Width() == split.Width());
