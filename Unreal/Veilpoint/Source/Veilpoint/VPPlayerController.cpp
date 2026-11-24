@@ -416,6 +416,7 @@ void AVPPlayerController::CycleAdenAtlas()
         AdenAtlasPage = (AdenAtlasPage + 1) % 3;
         bAdenAtlasRouteOverview = false;
         AdenAtlasCentre.Reset();
+        AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
         if (AdenAtlasPage == 1)
         {
             if (auto* Character = Cast<AVPCharacter>(GetPawn()))
@@ -438,23 +439,35 @@ void AVPPlayerController::ToggleAdenAtlasRouteOverview()
 {
     if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld()) return;
     if (const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>(); State && State->HasAtlasRoute())
+    {
+        AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
         bAdenAtlasRouteOverview = !bAdenAtlasRouteOverview;
+    }
 }
 
 void AVPPlayerController::ZoomAdenAtlasIn()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview())
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview()
+        && AdenPreviewChoice == VPAdenCampaign::EInput::Interact)
         AdenAtlasZoom = FMath::Min(AdenAtlasZoom + 1, VPAdenAtlas::MaxZoomLevel);
 }
 
 void AVPPlayerController::ZoomAdenAtlasOut()
 {
-    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview())
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview()
+        && AdenPreviewChoice == VPAdenCampaign::EInput::Interact)
         AdenAtlasZoom = FMath::Max(AdenAtlasZoom - 1, 0);
 }
 
 VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& Player) const
 {
+    VPAdenCampaign::FProgress Preview;
+    if (GetAdenRoutePreview(State, Preview))
+    {
+        VPAdenAtlas::FExtent Bounds{Player.X, Player.Y, Player.X, Player.Y};
+        for (const FVector& Point : State.Source->CampaignLeg(Preview)) Bounds.Include({Point.X, Point.Y});
+        return VPAdenAtlas::FitRoute(VPAdenAtlas::Playable, Bounds, VPAdenAtlas::MaxZoomLevel);
+    }
     const bool bFitRoute = IsAdenAtlasRouteOverview();
     if (bFitRoute || !AdenAtlasCentre.IsSet()) return State.AtlasCrop(Player, AdenAtlasZoom, bFitRoute);
     const auto Focus = AdenAtlasCentre.GetValue();
@@ -466,6 +479,7 @@ void AVPPlayerController::PanAdenAtlas(double X, double Y)
     if (bDesktopMenuOpen || AdenAtlasPage != 1 || IsAdenAtlasRouteOverview() || !GetWorld() || !GetPawn()) return;
     const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
     if (!State) return;
+    AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
     const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
     const auto Focus = VPAdenAtlas::Centre(VPAdenAtlas::Pan(VPAdenAtlas::Playable, View, {X, Y}));
     AdenAtlasCentre.Emplace(Focus.X, Focus.Y);
@@ -476,6 +490,30 @@ void AVPPlayerController::RecenterAdenAtlas()
     if (bDesktopMenuOpen || AdenAtlasPage != 1) return;
     AdenAtlasCentre.Reset();
     bAdenAtlasRouteOverview = false;
+    AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
+}
+
+bool AVPPlayerController::GetAdenRoutePreview(const AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const
+{
+    Result = State.Progress;
+    return AdenAtlasPage == 1 && State.Source.IsValid() && State.bChoosing
+        && VPAdenCampaign::Decide(Result, AdenPreviewChoice, true, true);
+}
+
+bool AVPPlayerController::PreviewAdenRoute(VPAdenCampaign::EInput Choice)
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld()) return false;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!State) return false;
+    AdenPreviewChoice = Choice;
+    VPAdenCampaign::FProgress Confirmed;
+    if (GetAdenRoutePreview(*State, Confirmed))
+    {
+        bAdenAtlasRouteOverview = false;
+        return true;
+    }
+    AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
+    return false;
 }
 
 void AVPPlayerController::ToggleAdenJournal()
@@ -489,7 +527,12 @@ void AVPPlayerController::ChooseAdenSecond() { SendAdenChoice(VPAdenCampaign::EI
 
 void AVPPlayerController::SendAdenChoice(VPAdenCampaign::EInput Choice)
 {
-    if (bDesktopMenuOpen || AdenAtlasPage || !IsLocalController() || !GetWorld()) return;
+    if (bDesktopMenuOpen || !IsLocalController() || !GetWorld()) return;
+    if (AdenAtlasPage != 0)
+    {
+        PreviewAdenRoute(Choice);
+        return;
+    }
     if (auto* Aden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>(); Aden && Aden->IsChoosing())
         Aden->TryInteraction(Cast<AVPCharacter>(GetPawn()), Choice);
 }
@@ -555,8 +598,15 @@ void AVPPlayerController::ToggleRoundReady()
 {
     if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone) return;
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
-    if (!State || !State->bReadyRequired || State->bRoundStarted) return;
-    ServerSetRoundReady(!bRoundReady);
+    if (!State || !State->bReadyRequired || State->bRoundStarted || IsRoundReadyPending()) return;
+    bRequestedRoundReady = !bRoundReady;
+    RoundReadyRequestExpiresAt = FPlatformTime::Seconds() + 2.;
+    ServerSetRoundReady(bRequestedRoundReady);
+}
+
+bool AVPPlayerController::IsRoundReadyPending() const
+{
+    return bRequestedRoundReady != bRoundReady && FPlatformTime::Seconds() < RoundReadyRequestExpiresAt;
 }
 
 void AVPPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

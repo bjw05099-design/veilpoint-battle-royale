@@ -34,6 +34,7 @@ AVPCharacter::AVPCharacter()
     BodyCamera->SetRelativeLocation(FVector(11.f, 12.f, 53.f));
     BodyCamera->bUsePawnControlRotation = true;
     BodyCamera->FieldOfView = 92.f;
+    BuildWeaponView();
     FieldLight = CreateDefaultSubobject<USpotLightComponent>(TEXT("HelmetFieldLight"));
     FieldLight->SetupAttachment(BodyCamera);
     // Player-mounted lighting must be truly movable in a native 3D world.
@@ -212,6 +213,7 @@ void AVPCharacter::Tick(float DeltaSeconds)
             bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();
         }
     }
+    UpdateWeaponView();
     if (!IsAlive()) return;
     auto* Movement = GetCharacterMovement();
     const auto& Floor = Movement->CurrentFloor;

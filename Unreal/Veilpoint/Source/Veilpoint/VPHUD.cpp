@@ -575,7 +575,9 @@ void AVPHUD::DrawHUD()
                 RoundState->JoinedPlayers, RoundState->ReadyPlayers);
             DrawText(Lobby, FLinearColor(.84f,.94f,.87f), X, Y + 144.f * Scale, nullptr, .92f * Scale);
             const bool bReady = Desktop && Desktop->IsRoundReady();
-            DrawText(bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
+            const bool bPendingReady = Desktop && Desktop->IsRoundReadyPending();
+            DrawText(bPendingReady ? TEXT("Confirming ready status...")
+                : bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
                 FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
             const auto LobbyStage = VPBRLobby::Stage(RoundState->JoinedPlayers, RoundState->ReadyPlayers,
                 RoundState->LobbyCountdownEndsAt);
