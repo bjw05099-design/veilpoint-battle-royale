@@ -36,7 +36,9 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
-    $report.firstPersonWeaponRigVerified -ne $true -or $report.routeChoicePreviewVerified -ne $true -or
+    $report.fieldPinVerified -ne $true -or
+    $report.firstPersonWeaponRigVerified -ne $true -or $report.firstPersonSightVerified -ne $true -or
+    $report.routeChoicePreviewVerified -ne $true -or
     $report.relayChoicePreviewVerified -ne $true -or
     $report.partialAndEmptyReloadVerified -ne $true -or $report.weaponShotHeatVerified -ne $true -or
     $report.duplicateSaveBackupVerified -ne $true -or
@@ -96,7 +98,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-$frames = @('aden-world','aden-field-map','aden-field-pan','aden-regional-map','aden-regional-terrain','aden-regional-seam',
+$frames = @('aden-world','aden-field-map','aden-field-pan','aden-field-pin','aden-regional-map','aden-regional-terrain','aden-regional-seam',
     'aden-opening-old-port','aden-opening-government-news','aden-opening-front-news',
     'aden-opening-fighting','aden-opening-aftermath','aden-opening-closed-door','aden-opening-hostages',
     'aden-opening-council','aden-opening-corridor','aden-opening-briefing','aden-opening-embark',

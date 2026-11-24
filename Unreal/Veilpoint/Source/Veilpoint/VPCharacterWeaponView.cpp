@@ -5,6 +5,7 @@
 #include "VPStoryGameState.h"
 #include "VPWeaponRules.h"
 #include "VPWeaponViewPose.h"
+#include "CollisionQueryParams.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -14,6 +15,7 @@
 namespace
 {
 const FVector Rest(40., 19., -17.);
+const FVector RaisedSight(36., 0., -5.);
 const FVector MagazineRest(-7., 0., -8.);
 const FVector BoltRest(-7., 3., 1.);
 }
@@ -43,7 +45,9 @@ void AVPCharacter::BuildWeaponView()
     WeaponReceiver = Part(TEXT("FirstPersonReceiver"), {0., 0., 0.}, {23., 6., 6.});
     Part(TEXT("FirstPersonForeEnd"), {20., 0., 0.}, {19., 5., 4.5});
     Part(TEXT("FirstPersonBarrel"), {33., 0., 1.}, {12., 2.2, 2.2});
-    Part(TEXT("FirstPersonSight"), {5., 0., 4.}, {6., 2.8, 2.});
+    Part(TEXT("FirstPersonRearSightLeft"), {-10., -1.7, 4.}, {3., 1.1, 2.5});
+    Part(TEXT("FirstPersonRearSightRight"), {-10., 1.7, 4.}, {3., 1.1, 2.5});
+    Part(TEXT("FirstPersonFrontSight"), {26., 0., 4.}, {2.5, 1.1, 2.5});
     Part(TEXT("FirstPersonGrip"), {-15., 0., -5.}, {5., 3.6, 11.});
     WeaponMagazine = Part(TEXT("FirstPersonMagazine"), MagazineRest, {7., 4., 12.});
     WeaponBolt = Part(TEXT("FirstPersonBolt"), BoltRest, {5., 1.2, 1.2});
@@ -57,7 +61,17 @@ bool AVPCharacter::HasWeaponView() const
         && WeaponBolt && WeaponBolt->GetStaticMesh() && WeaponReceiver->GetCollisionEnabled() == ECollisionEnabled::NoCollision;
 }
 
-void AVPCharacter::UpdateWeaponView()
+void AVPCharacter::BeginSight()
+{
+    if (IsLocallyControlled() && IsAlive() && !IsDesktopInputBlocked()) bSightHeld = true;
+}
+
+void AVPCharacter::EndSight()
+{
+    bSightHeld = false;
+}
+
+void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
 {
     if (!WeaponViewRoot) return;
     bool bShow = false;
@@ -69,6 +83,20 @@ void AVPCharacter::UpdateWeaponView()
             bShow = Cast<AVPStoryGameState>(Match) != nullptr || (Match->bRoundStarted && !Match->bRoundComplete);
     }
     if (WeaponViewRoot->IsVisible() != bShow) WeaponViewRoot->SetVisibility(bShow, true);
+    bool bCloseSurface = false;
+    if (bShow)
+    {
+        const FVector Eye = BodyCamera->GetComponentLocation();
+        const FVector End = Eye + GetControlRotation().Vector() * 75.;
+        const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPWeaponViewClearance), true, this);
+        bCloseSurface = GetWorld()->LineTraceTestByChannel(Eye, End, ECC_Visibility, Query);
+    }
+    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, bCloseSurface);
+    SightBlend = VPWeaponView::Approach(SightBlend, bRaiseSight, DeltaSeconds, 6.);
+    ObstructionBlend = VPWeaponView::Approach(ObstructionBlend, bCloseSurface, DeltaSeconds, 10.);
+    if (IsLocallyControlled())
+        BodyCamera->SetFieldOfView(bShow
+            ? FMath::Lerp(VPWeaponView::HipFov, VPWeaponView::SightFov, float(SightBlend)) : VPWeaponView::HipFov);
     if (!bShow) return;
 
     const bool bEmpty = MagazineRounds == 0;
@@ -77,8 +105,10 @@ void AVPCharacter::UpdateWeaponView()
     float ShotPulse = 0.f;
     GetShotCue(ShotPulse);
     const auto Pose = VPWeaponView::Pose(Phase, bEmpty, bSprinting, ShotPulse);
-    WeaponViewRoot->SetRelativeLocation(Rest + FVector(-1.8 * ShotPulse, 0., -Pose.Lower));
-    WeaponViewRoot->SetRelativeRotation(FRotator(1.5 * ShotPulse, 0., Pose.Roll));
+    const FVector Position = FMath::Lerp(Rest, RaisedSight, SightBlend);
+    WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
+        0., -Pose.Lower - 9. * ObstructionBlend));
+    WeaponViewRoot->SetRelativeRotation(FRotator(1.5 * ShotPulse - 22. * ObstructionBlend, 0., Pose.Roll));
     WeaponMagazine->SetRelativeLocation(MagazineRest - FVector(0., 0., Pose.MagazineDrop));
     WeaponBolt->SetRelativeLocation(BoltRest - FVector(Pose.BoltPull, 0., 0.));
 }

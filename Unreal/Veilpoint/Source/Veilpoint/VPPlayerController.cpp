@@ -403,6 +403,8 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
     InputComponent->BindKey(EKeys::Home, IE_Pressed, this, &AVPPlayerController::RecenterAdenAtlas);
+    InputComponent->BindKey(EKeys::P, IE_Pressed, this, &AVPPlayerController::PlaceAdenPin);
+    InputComponent->BindKey(EKeys::Delete, IE_Pressed, this, &AVPPlayerController::ClearAdenPin);
     InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &AVPPlayerController::QuickSaveAden);
     InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &AVPPlayerController::QuickRecoverAden);
     InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AVPPlayerController::ToggleAdenAudio);
@@ -491,6 +493,22 @@ void AVPPlayerController::RecenterAdenAtlas()
     AdenAtlasCentre.Reset();
     bAdenAtlasRouteOverview = false;
     AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
+}
+
+void AVPPlayerController::PlaceAdenPin()
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld() || !GetPawn()) return;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    const auto* Source = State ? State->Source.Get() : nullptr;
+    if (!Source) return;
+    const auto Point = VPAdenAtlas::Centre(AdenFieldCrop(*State, GetPawn()->GetActorLocation()));
+    FVector Floor;
+    if (Source->TraceAtlasGround(Point, Floor)) AdenPin = Floor;
+}
+
+void AVPPlayerController::ClearAdenPin()
+{
+    if (!bDesktopMenuOpen) AdenPin.Reset();
 }
 
 bool AVPPlayerController::GetAdenRoutePreview(const AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const

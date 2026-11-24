@@ -781,6 +781,18 @@ bool AVPAdenSourceWorld::TraceStoryGround(const FVector& Around, FVector& Ground
     return true;
 }
 
+bool AVPAdenSourceWorld::TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Ground) const
+{
+    if (!TerrainCollision || !VPAdenAtlas::Playable.Contains(Point)) return false;
+    const auto Bounds = TerrainCollision->Bounds.GetBox();
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(AdenAtlasGround), true);
+    FHitResult Hit;
+    if (!TerrainCollision->LineTraceComponent(Hit, FVector(Point.X, Point.Y, Bounds.Max.Z + 500.),
+        FVector(Point.X, Point.Y, Bounds.Min.Z - 500.), Params)) return false;
+    Ground = FVector(Point.X, Point.Y, Hit.ImpactPoint.Z);
+    return true;
+}
+
 FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
 {
     using namespace VPAdenRegionalGrid;

@@ -31,6 +31,9 @@ public:
     VPAdenAtlas::FExtent AdenFieldCrop(const class AVPAdenStoryState& State, const FVector& Player) const;
     void PanAdenAtlas(double X, double Y);
     void RecenterAdenAtlas();
+    void PlaceAdenPin();
+    void ClearAdenPin();
+    const TOptional<FVector>& GetAdenPin() const { return AdenPin; }
     bool PreviewAdenRoute(VPAdenCampaign::EInput Choice);
     bool GetAdenRoutePreview(const class AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const;
     void ToggleAdenJournal();
@@ -96,6 +99,7 @@ private:
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
     TOptional<FVector2D> AdenAtlasCentre;
+    TOptional<FVector> AdenPin;
     VPAdenCampaign::EInput AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;

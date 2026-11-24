@@ -2,7 +2,7 @@
 
 **Production development is Windows PC-only on Unreal Engine 5.8.** Open
 [`Unreal/Veilpoint/Veilpoint.uproject`](Unreal/Veilpoint/Veilpoint.uproject).
-Development is split **50% firearms, physics and maps / 40% story mode / 10% Battle Royale**.
+Development is split **65% firearms, physics and maps / 20% story mode / 15% Battle Royale**.
 The two modes ship separately, with story first. The verified editor authoring command creates
 `CH01_Aden`, then selects it as the native game's startup map.
 [Native Aden workflow](docs/UE5_NATIVE_ADEN_CH01.md)

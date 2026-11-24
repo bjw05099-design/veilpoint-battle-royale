@@ -142,8 +142,12 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     };
     const auto& Leg = bPreview ? Source->CampaignLeg(Preview) : Aden->ActiveLeg;
     const FVector Destination = bPreview && !Leg.IsEmpty() ? Leg.Last() : Aden->Objective;
+    const FLinearColor PinColor(.79f, .58f, .93f);
+    const auto& Pin = Desktop.GetAdenPin();
+    if (Pin.IsSet()) DrawMarker(Pin.GetValue(), PinColor);
     const FLinearColor RouteColor = bPreview ? Accent : FLinearColor(.30f, .77f, .67f);
     const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
+    double PreviewMetres = 0.;
     const bool bHasObjective = !bRegional && Leg.Num() >= 2;
     const bool bHasEscort = !bRegional && Aden->bHasEscort;
     bool bObjectiveAtEdge = false;
@@ -165,6 +169,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         {
             const auto& From = Leg[I - 1];
             const auto& To = Leg[I];
+            if (bPreview) PreviewMetres += FVector::Dist2D(From, To) / 100.;
             if (bShowEarlier && I == Guide.SegmentEnd)
             {
                 DrawRoute(From, Guide.Projected, true);
@@ -254,6 +259,11 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawText(VPAdenCampaign::EscortName(Aden->Progress), Ink,
                 PanelX + 14.f * Scale, PanelY + 103.f * Scale, nullptr, .77f * Scale);
         }
+        if (bPreview)
+            DrawText(FString::Printf(TEXT("%.0f m on this route"), PreviewMetres), Accent,
+                PanelX, PanelY + 103.f * Scale, nullptr, .77f * Scale);
+        if (!bRegional && Pin.IsSet())
+            DrawText(TEXT("P  Pin   Del  Clear"), PinColor, PanelX, PanelY + 120.f * Scale, nullptr, .73f * Scale);
         DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("5.12 x 3.584 km"),
             Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
         DrawText(bRegional ? TEXT("256 m source sampling") : TEXT("32 m terrain sampling"),
@@ -277,10 +287,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     }
     const TCHAR* Controls = bRegional ? TEXT("M  Close map")
-        : bPreview || Aden->bChoosing ? TEXT("1/2  Preview options   Home  Center   M  Next")
-        : bRouteOverview ? TEXT("G  Back to field view   Home  Recenter   M  Next")
-        : Aden->HasAtlasRoute() ? TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   G  Fit route   M  Next")
-        : TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   M  Next");
+        : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   P Pin   Del Clear   Home Center   M Next")
+        : bRouteOverview ? TEXT("G Back   P Pin   Del Clear   Home Center   M Next")
+        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home Center   G Route   P Pin   Del Clear   M Next")
+        : TEXT("Arrows Pan   Wheel Zoom   Home Center   P Pin   Del Clear   M Next");
     DrawText(Controls,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
     if (Aden->WindowSeconds >= 0 && W > 700.f * Scale)

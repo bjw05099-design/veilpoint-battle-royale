@@ -1,6 +1,7 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponRules.h"
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponViewPose.h"
 #include <cassert>
+#include <cmath>
 using namespace VPWeaponRules;
 int main()
 {
@@ -61,4 +62,17 @@ int main()
     assert(Pose(1., true, false, 0.).Lower == 0.);
     assert(Pose(1., true, false, 0.).MagazineDrop == 0.);
     assert(Pose(1., true, false, 0.).BoltPull == 0.);
+
+    using VPWeaponView::Approach;
+    using VPWeaponView::CanRaiseSight;
+    assert(CanRaiseSight(true, true, false, false, false));
+    assert(!CanRaiseSight(true, true, true, false, false));
+    assert(!CanRaiseSight(true, true, false, true, false));
+    assert(!CanRaiseSight(true, true, false, false, true));
+    assert(!CanRaiseSight(true, false, false, false, false));
+    assert(!CanRaiseSight(false, true, false, false, false));
+    assert(std::abs(Approach(Approach(0., true, .05, 6.), true, .05, 6.) - Approach(0., true, .1, 6.)) < 1.e-9);
+    assert(Approach(.9, true, 10., 6.) == 1.);
+    assert(Approach(.1, false, 10., 6.) == 0.);
+    assert(Approach(.4, true, -1., 6.) == .4);
 }

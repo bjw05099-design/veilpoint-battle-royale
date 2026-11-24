@@ -4,6 +4,20 @@
 
 namespace VPWeaponView
 {
+inline constexpr float HipFov = 92.f;
+inline constexpr float SightFov = 70.f;
+
+inline double Approach(double Current, bool Enabled, double Seconds, double Speed)
+{
+    const double Step = std::clamp(Seconds, 0., .1) * Speed;
+    return std::clamp(Current + (Enabled ? Step : -Step), 0., 1.);
+}
+
+inline bool CanRaiseSight(bool Held, bool Visible, bool Reloading, bool Sprinting, bool Obstructed)
+{
+    return Held && Visible && !Reloading && !Sprinting && !Obstructed;
+}
+
 struct FPose
 {
     double Lower, Roll, MagazineDrop, BoltPull;
