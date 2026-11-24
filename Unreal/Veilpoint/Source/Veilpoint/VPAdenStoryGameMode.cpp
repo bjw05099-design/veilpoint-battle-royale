@@ -414,8 +414,8 @@ void AVPAdenStoryGameMode::PrepareEncounter(AVPCharacter* Pawn, double Now)
         Contacts.Add(Contact);
     }
     Pawn->Health = 100.f;
-    const bool bClinicKit = UsesCompactAtEncounter(Progress);
-    Pawn->SetWeaponLoadout(bClinicKit, 18, bClinicKit ? 9 : 12);
+    const bool bUsesAKM = UsesAKMAtEncounter(Progress);
+    Pawn->SetWeaponLoadout(bUsesAKM ? EVPWeaponModel::AKM : EVPWeaponModel::M4A1, 18, bUsesAKM ? 9 : 12);
 }
 
 bool AVPAdenStoryGameMode::UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now)
@@ -1102,25 +1102,27 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         return SweepDiagnosticLeg(Pawn, Start, Near);
     };
     PrepareEncounter(Pawn, Now);
-    const bool bExpectedCompact = Progress.Beat == Pickup && Progress.Route == Clinic;
+    const bool bExpectedAKM = Progress.Beat == Pickup && Progress.Route == Clinic;
     if (StandingContacts() != Expected || !CanFireInEncounter(Pawn) || !Approach()
-        || Pawn->UsesCompactKit() != bExpectedCompact || Pawn->Charges != 18
-        || Pawn->MagazineRounds != (bExpectedCompact ? 9 : 12)) return false;
+        || Pawn->GetWeaponModel() != (bExpectedAKM ? EVPWeaponModel::AKM : EVPWeaponModel::M4A1) || Pawn->Charges != 18
+        || Pawn->MagazineRounds != (bExpectedAKM ? 9 : 12)) return false;
     if (Progress.Beat == Pickup)
     {
-        if (bExpectedCompact && !DiagnosticReport->HasField(TEXT("campaignCompactKitVerified")))
+        if (bExpectedAKM && !DiagnosticReport->HasField(TEXT("campaignAKMVerified")))
         {
             if (!ReturnToCheckpoint(Pawn) || !Contacts.IsEmpty()) return false;
             PrepareEncounter(Pawn, Now);
-            if (!Pawn->UsesCompactKit() || Pawn->MagazineRounds != 9 || StandingContacts() != Expected || !Approach())
+            if (Pawn->GetWeaponModel() != EVPWeaponModel::AKM || Pawn->MagazineRounds != 9 || StandingContacts() != Expected || !Approach())
                 return false;
+            Pawn->UpdateWeaponView(0.f);
+            if (!Pawn->HasWeaponView()) return false;
             Pawn->RequestReload();
             if (!Pawn->bReloading || !FMath::IsNearlyEqual(double(Pawn->ReloadSecondsRemaining()),
-                VPWeaponRules::Compact.PartialReloadSeconds, .01)) return false;
+                VPWeaponRules::AKM.PartialReloadSeconds, .01)) return false;
             Pawn->ResetEncounterWeapon(18, 9);
         }
-        DiagnosticReport->SetBoolField(bExpectedCompact ? TEXT("campaignCompactKitVerified")
-            : TEXT("campaignPatrolKitVerified"), true);
+        DiagnosticReport->SetBoolField(bExpectedAKM ? TEXT("campaignAKMVerified")
+            : TEXT("campaignM4A1Verified"), true);
     }
 
     if (!DiagnosticReport->HasField(TEXT("campaignLiveShotVerified")))
@@ -1129,7 +1131,9 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
             || UpdateEncounter(Pawn, View, Now + 1.8) || Pawn->Health != 100.f - ContactDamage) return false;
         if (!ReturnToCheckpoint(Pawn) || !Contacts.IsEmpty()) return false;
         PrepareEncounter(Pawn, Now);
-        if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach() || !Pawn->HasWeaponView()) return false;
+        if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach()) return false;
+        Pawn->UpdateWeaponView(0.f);
+        if (!Pawn->HasWeaponView()) return false;
         DiagnosticReport->SetBoolField(TEXT("campaignContactRetryVerified"), true);
         DiagnosticReport->SetBoolField(TEXT("firstPersonWeaponRigVerified"), true);
 
@@ -1170,7 +1174,7 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         if (!bCaptured) return false;
         Pawn->RequestPrimaryAction();
         float CueOpacity = 0.f;
-        if (Pawn->MagazineRounds != Loaded - 1 || Pawn->WeaponHeatRatio() < VPWeaponRules::Prototype.HeatPerShot * .99f
+        if (Pawn->MagazineRounds != Loaded - 1 || Pawn->WeaponHeatRatio() < Pawn->GetWeaponProfile().HeatPerShot * .99f
             || Pawn->GetShotCue(CueOpacity) != EVPShotCue::Target || CueOpacity <= 0.f
             || Pawn->IsWeaponCooling() || !Contact->IsStanding()
             || UGameplayStatics::ApplyDamage(Contact, 45.f, Desktop, Pawn, nullptr) != 45.f

@@ -61,7 +61,7 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, Charges);
     DOREPLIFETIME(AVPCharacter, bReloading);
     DOREPLIFETIME_CONDITION(AVPCharacter, MagazineRounds, COND_OwnerOnly);
-    DOREPLIFETIME_CONDITION(AVPCharacter, bCompactKit, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, WeaponModel, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, ReloadEndsAt, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, LastServerTagTime, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, HeatAtLastShot, COND_OwnerOnly);
@@ -385,12 +385,14 @@ void AVPCharacter::ClientShotCue_Implementation(EVPShotCue Cue)
 }
 void AVPCharacter::ResetEncounterWeapon(int32 Total, int32 Loaded)
 {
-    SetWeaponLoadout(bCompactKit, Total, Loaded);
+    SetWeaponLoadout(WeaponModel, Total, Loaded);
 }
-bool AVPCharacter::SetWeaponLoadout(bool bUseCompact, int32 Total, int32 Loaded)
+bool AVPCharacter::SetWeaponLoadout(EVPWeaponModel Model, int32 Total, int32 Loaded)
 {
-    if (!HasAuthority() || !VPWeaponRules::Coherent(VPWeaponRules::Profile(bUseCompact), Total, Loaded)) return false;
-    bCompactKit = bUseCompact;
+    if (!HasAuthority() || !VPWeaponModels::IsSupported(Model)) return false;
+    const auto& Profile = VPWeaponModels::Profile(Model);
+    if (!VPWeaponRules::Coherent(Profile, Total, Loaded)) return false;
+    WeaponModel = Model;
     Charges = Total;
     MagazineRounds = Loaded;
     bReloading = false;

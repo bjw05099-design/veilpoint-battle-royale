@@ -6,6 +6,7 @@ namespace VPWeaponView
 {
 inline constexpr float HipFov = 92.f;
 inline constexpr float SightFov = 70.f;
+inline constexpr double MagazineTravel = 15.;
 
 inline double Approach(double Current, bool Enabled, double Seconds, double Speed)
 {
@@ -38,6 +39,6 @@ inline FPose Pose(double ReloadPhase, bool Empty, bool Sprinting, double ShotPul
     const double Lower = Ramp(ReloadPhase, 0., .22) - Ramp(ReloadPhase, .80, 1.);
     const double MagDrop = Ramp(ReloadPhase, .22, .42) - Ramp(ReloadPhase, .52, .68);
     const double Bolt = Empty ? Ramp(ReloadPhase, .70, .76) - Ramp(ReloadPhase, .76, .83) : 0.;
-    return {10. * Lower, -18. * Lower, 15. * MagDrop, 4. * Bolt};
+    return {10. * Lower, -18. * Lower, MagazineTravel * MagDrop, 4. * Bolt};
 }
 }

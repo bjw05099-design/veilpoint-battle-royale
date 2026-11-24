@@ -225,7 +225,7 @@ void AVPHUD::DrawHUD()
         ? FString::Printf(TEXT("RELOADING %.1fs"),Pawn->ReloadSecondsRemaining())
         : Pawn->IsWeaponCooling()
             ? FString(TEXT("WEAPON HOT | COOLING"))
-            : FString::Printf(TEXT("AMMO %d | RESERVE %d | R RELOAD"),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
+            : FString::Printf(TEXT("%s  %d | RESERVE %d | R RELOAD"),Pawn->WeaponLabel(),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
     DrawText(Ammo,FLinearColor(.9f,.87f,.73f),X+200.f*Scale,Y+69.f*Scale,nullptr,.70f*Scale,false);
     DrawShotCue(*Pawn, Scale);
 
@@ -579,7 +579,7 @@ void AVPHUD::DrawHUD()
             DrawText(bPendingReady ? TEXT("Confirming ready status...")
                 : bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
                 FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
-            const FString Kit = FString::Printf(TEXT("%s KIT  |  %s"), Pawn->WeaponKitLabel(),
+            const FString Kit = FString::Printf(TEXT("%s  |  %s"), Pawn->WeaponLabel(),
                 bReady || bPendingReady ? TEXT("LOCKED") : TEXT("V  SWITCH"));
             DrawText(Kit, FLinearColor(.78f,.86f,.91f), X, Y + 227.f * Scale, nullptr, .76f * Scale);
             const auto LobbyStage = VPBRLobby::Stage(RoundState->JoinedPlayers, RoundState->ReadyPlayers,
@@ -921,7 +921,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 Pawn->ReloadSecondsRemaining(), Pawn->Health);
             else if (Pawn->IsWeaponCooling()) Status = TEXT("WEAPON HOT   |   COOLING");
             else Status = FString::Printf(TEXT("%s   |   %s   |   %.0f HP   |   %02d / %02d%s"),
-                Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->WeaponKitLabel(), Pawn->Health,
+                Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->WeaponLabel(), Pawn->Health,
                 Pawn->MagazineRounds, Pawn->Charges - Pawn->MagazineRounds,
                 Pawn->MagazineRounds == 0 ? TEXT("   R RELOAD") : TEXT(""));
         }

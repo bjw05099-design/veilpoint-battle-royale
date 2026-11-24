@@ -25,6 +25,18 @@ test('UE5 Win64 HUD displays existing finite resources from the replicated pawn'
  assert.doesNotMatch(hud,/localStorage|WebBrowser|ClientEstimatedAmmo/);
 });
 
+test('named native weapons share the owner-only model from server selection through HUD and visuals',()=>{
+ const model=read('VPWeaponModel.h'), view=read('VPCharacterWeaponView.cpp'), controller=read('VPPlayerController.h');
+ assert.match(model,/M4A1 = 0,\s*AKM = 1/);
+ assert.match(character,/DOREPLIFETIME_CONDITION\(AVPCharacter, WeaponModel, COND_OwnerOnly\)/);
+ assert.match(controller,/UFUNCTION\(Server, Reliable\)\s*void ServerSetRoundLoadout\(EVPWeaponModel Model\)/);
+ assert.match(gameMode,/Controller->IsRoundReady\(\) \|\| !VPWeaponModels::IsSupported\(Model\)\) return;/);
+ assert.match(hud,/Pawn->WeaponLabel\(\)/);
+ assert.match(view,/bShow && !View\.Root\) CreateWeaponPresentation\(View, WeaponModel\)/);
+ assert.match(view,/if \(Hidden\.Root && Hidden\.Root->IsVisible\(\)\) Hidden\.Root->SetVisibility\(false, true\)/);
+ assert.match(view,/SetCollisionEnabled\(ECollisionEnabled::NoCollision\)[\s\S]*?SetOnlyOwnerSee\(true\)/);
+});
+
 test('shot feedback originates after authoritative ammunition admission and cover blocks player damage',()=>{
  const character=read('VPCharacter.cpp'), header=read('VPCharacter.h');
  const shot=character.slice(character.indexOf('void AVPCharacter::ServerTryTag_Implementation'),

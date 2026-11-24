@@ -620,14 +620,14 @@ void AVPPlayerController::ToggleRoundLoadout()
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
     const auto* Pawn = Cast<AVPCharacter>(GetPawn());
     if (State && State->bReadyRequired && !State->bRoundStarted && Pawn && Pawn->IsAlive())
-        ServerSetRoundLoadout(!Pawn->UsesCompactKit());
+        ServerSetRoundLoadout(VPWeaponModels::Alternate(Pawn->GetWeaponModel()));
 }
 
-void AVPPlayerController::ServerSetRoundLoadout_Implementation(bool bUseCompact)
+void AVPPlayerController::ServerSetRoundLoadout_Implementation(EVPWeaponModel Model)
 {
     if (GetWorld())
         if (auto* Mode = GetWorld()->GetAuthGameMode<AVPGameMode>())
-            Mode->SetLoadoutFromController(this, bUseCompact);
+            Mode->SetLoadoutFromController(this, Model);
 }
 
 void AVPPlayerController::ToggleRoundReady()
@@ -683,9 +683,9 @@ void AVPPlayerController::TickBRDiagnostic()
         bBRLoadoutTestRequested = true;
         ToggleRoundLoadout();
     }
-    const bool bKitConfirmed = !bTestLoadout || (LocalBRPawn->UsesCompactKit()
-        && LocalBRPawn->MagazineRounds == VPWeaponRules::Compact.MagazineCapacity
-        && LocalBRPawn->Charges == VPWeaponRules::Compact.MagazineCapacity + 18);
+    const bool bKitConfirmed = !bTestLoadout || (LocalBRPawn->GetWeaponModel() == EVPWeaponModel::AKM
+        && LocalBRPawn->MagazineRounds == VPWeaponRules::AKM.MagazineCapacity
+        && LocalBRPawn->Charges == VPWeaponRules::AKM.MagazineCapacity + 18);
     if (bBRObservedLobby && !bBRReadyRequested && !State->bRoundStarted && Now - BRObserveAt >= 1.5 && bKitConfirmed)
     {
         bBRReadyRequested = true;
@@ -694,7 +694,7 @@ void AVPPlayerController::TickBRDiagnostic()
     if (bTestLoadout && bRoundReady && !bBRLoadoutLockTestRequested)
     {
         bBRLoadoutLockTestRequested = true;
-        ServerSetRoundLoadout(false);
+        ServerSetRoundLoadout(EVPWeaponModel::M4A1);
     }
     if (!State->bRoundStarted && State->LobbyCountdownEndsAt > 0. && bRoundReady)
     {
@@ -748,7 +748,7 @@ void AVPPlayerController::TickBRDiagnostic()
             }
             if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 1
                 || !bBRLoadoutLockTestRequested || !bKitConfirmed) return;
-            UE_LOG(LogTemp, Display, TEXT("VPBR_LOADOUT_PASS: owner received the selected kit and kept it after ready"));
+            UE_LOG(LogTemp, Display, TEXT("VPBR_LOADOUT_PASS: owner received AKM and kept it after ready"));
             UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: owner-only place #1 and finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + .25;
         }

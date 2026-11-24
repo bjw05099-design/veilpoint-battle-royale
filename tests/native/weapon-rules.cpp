@@ -10,78 +10,78 @@ int main()
     for(int Total=0;Total<=60;++Total)for(int Magazine=0;Magazine<=30;++Magazine)
     {
         const bool Valid=Magazine<=Total;
-        assert(Coherent(Prototype,Total,Magazine)==Valid);
-        assert(CanShoot(Prototype,true,true,true,false,Total,Magazine)==(Valid && Magazine>0));
-        assert(CanReload(Prototype,true,true,true,false,Total,Magazine)==(Valid && Magazine<30 && Total>Magazine));
-        assert(!CanShoot(Prototype,false,true,true,false,Total,Magazine));
-        assert(!CanShoot(Prototype,true,false,true,false,Total,Magazine));
-        assert(!CanShoot(Prototype,true,true,false,false,Total,Magazine));
-        assert(!CanShoot(Prototype,true,true,true,true,Total,Magazine));
-        assert(!CanReload(Prototype,false,true,true,false,Total,Magazine));
-        assert(!CanReload(Prototype,true,false,true,false,Total,Magazine));
-        assert(!CanReload(Prototype,true,true,false,false,Total,Magazine));
-        assert(!CanReload(Prototype,true,true,true,true,Total,Magazine));
-        const int Filled=FilledMagazine(Prototype,Total,Magazine);
+        assert(Coherent(M4A1,Total,Magazine)==Valid);
+        assert(CanShoot(M4A1,true,true,true,false,Total,Magazine)==(Valid && Magazine>0));
+        assert(CanReload(M4A1,true,true,true,false,Total,Magazine)==(Valid && Magazine<30 && Total>Magazine));
+        assert(!CanShoot(M4A1,false,true,true,false,Total,Magazine));
+        assert(!CanShoot(M4A1,true,false,true,false,Total,Magazine));
+        assert(!CanShoot(M4A1,true,true,false,false,Total,Magazine));
+        assert(!CanShoot(M4A1,true,true,true,true,Total,Magazine));
+        assert(!CanReload(M4A1,false,true,true,false,Total,Magazine));
+        assert(!CanReload(M4A1,true,false,true,false,Total,Magazine));
+        assert(!CanReload(M4A1,true,true,false,false,Total,Magazine));
+        assert(!CanReload(M4A1,true,true,true,true,Total,Magazine));
+        const int Filled=FilledMagazine(M4A1,Total,Magazine);
         if(Valid){assert(Filled>=Magazine && Filled<=30 && Filled<=Total);assert((Total-Filled)+Filled==Total);}
         else assert(Filled==Magazine);
     }
-    assert(!Coherent(Prototype, -1, 0));
-    assert(!Coherent(Prototype, 61, 30));
-    assert(!Coherent(Prototype, 30, 31));
+    assert(!Coherent(M4A1, -1, 0));
+    assert(!Coherent(M4A1, 61, 30));
+    assert(!Coherent(M4A1, 30, 31));
 
-    assert(ReloadDuration(Prototype, 12) < ReloadDuration(Prototype, 0));
-    assert(DamageAtDistance(Prototype, 100.) == Prototype.NearDamage);
-    assert(DamageAtDistance(Prototype, Prototype.FalloffStartCm) == Prototype.NearDamage);
-    assert(DamageAtDistance(Prototype, 7500.) == 37.5f);
-    assert(DamageAtDistance(Prototype, Prototype.RangeCm) == Prototype.FarDamage);
+    assert(ReloadDuration(M4A1, 12) < ReloadDuration(M4A1, 0));
+    assert(DamageAtDistance(M4A1, 100.) == M4A1.NearDamage);
+    assert(DamageAtDistance(M4A1, M4A1.FalloffStartCm) == M4A1.NearDamage);
+    assert(DamageAtDistance(M4A1, 7500.) == 37.5f);
+    assert(DamageAtDistance(M4A1, M4A1.RangeCm) == M4A1.FarDamage);
 
     float Heat = 0.f;
     int Shots = 0;
-    while (Heat < 1.f && Shots < Prototype.MagazineCapacity)
+    while (Heat < 1.f && Shots < M4A1.MagazineCapacity)
     {
-        Heat = AddedShotHeat(Prototype, CooledHeat(Prototype, Heat, Prototype.ShotIntervalSeconds));
+        Heat = AddedShotHeat(M4A1, CooledHeat(M4A1, Heat, M4A1.ShotIntervalSeconds));
         ++Shots;
     }
-    assert(Heat == 1.f && Shots < Prototype.MagazineCapacity);
-    assert(HeatBlocksShot(Prototype, true, CooledHeat(Prototype, Heat, 1.)));
-    assert(!HeatBlocksShot(Prototype, true, CooledHeat(Prototype, Heat, 4.)));
-    assert(CooledHeat(Prototype, Heat, 20.) == 0.f);
-    assert(!HeatBlocksShot(Prototype, false, Heat));
+    assert(Heat == 1.f && Shots < M4A1.MagazineCapacity);
+    assert(HeatBlocksShot(M4A1, true, CooledHeat(M4A1, Heat, 1.)));
+    assert(!HeatBlocksShot(M4A1, true, CooledHeat(M4A1, Heat, 4.)));
+    assert(CooledHeat(M4A1, Heat, 20.) == 0.f);
+    assert(!HeatBlocksShot(M4A1, false, Heat));
 
-    assert(&Profile(false) == &Prototype && &Profile(true) == &Compact);
-    for (int Total = 0; Total <= Compact.AmmunitionLimit; ++Total)
+    static_assert(M4A1.MagazineCapacity == 30 && AKM.MagazineCapacity == 30);
+    for (int Total = 0; Total <= AKM.AmmunitionLimit; ++Total)
     {
-        for (int Magazine = 0; Magazine <= Compact.MagazineCapacity; ++Magazine)
+        for (int Magazine = 0; Magazine <= AKM.MagazineCapacity; ++Magazine)
         {
             const bool Valid = Magazine <= Total;
-            assert(Coherent(Compact, Total, Magazine) == Valid);
-            assert(CanShoot(Compact, true, true, true, false, Total, Magazine) == (Valid && Magazine > 0));
-            assert(CanReload(Compact, true, true, true, false, Total, Magazine)
-                == (Valid && Total > Magazine && Magazine < Compact.MagazineCapacity));
-            if (Valid) assert(FilledMagazine(Compact, Total, Magazine) == std::min(Total, Compact.MagazineCapacity));
+            assert(Coherent(AKM, Total, Magazine) == Valid);
+            assert(CanShoot(AKM, true, true, true, false, Total, Magazine) == (Valid && Magazine > 0));
+            assert(CanReload(AKM, true, true, true, false, Total, Magazine)
+                == (Valid && Total > Magazine && Magazine < AKM.MagazineCapacity));
+            if (Valid) assert(FilledMagazine(AKM, Total, Magazine) == std::min(Total, AKM.MagazineCapacity));
         }
     }
-    assert(!Coherent(Compact, Compact.AmmunitionLimit + 1, 0));
-    assert(!Coherent(Compact, 24, Compact.MagazineCapacity + 1));
-    assert(Coherent(Compact, Compact.MagazineCapacity + 18, Compact.MagazineCapacity));
-    assert(Compact.RangeCm < Prototype.RangeCm);
-    assert(ReloadDuration(Compact, 9) < ReloadDuration(Compact, 0));
-    assert(ReloadDuration(Compact, 0) < ReloadDuration(Prototype, 0));
-    assert(DamageAtDistance(Compact, Compact.RangeCm) == Compact.FarDamage);
-    assert(HeatBlocksShot(Compact, true, CooledHeat(Compact, 1.f, 1.)));
-    assert(!HeatBlocksShot(Compact, true, CooledHeat(Compact, 1.f, 4.)));
+    assert(!Coherent(AKM, AKM.AmmunitionLimit + 1, 0));
+    assert(!Coherent(AKM, 24, AKM.MagazineCapacity + 1));
+    assert(Coherent(AKM, AKM.MagazineCapacity + 18, AKM.MagazineCapacity));
+    assert(AKM.RangeCm < M4A1.RangeCm);
+    assert(ReloadDuration(AKM, 9) < ReloadDuration(AKM, 0));
+    assert(ReloadDuration(AKM, 0) != ReloadDuration(M4A1, 0));
+    assert(DamageAtDistance(AKM, AKM.RangeCm) == AKM.FarDamage);
+    assert(HeatBlocksShot(AKM, true, CooledHeat(AKM, 1.f, 1.)));
+    assert(!HeatBlocksShot(AKM, true, CooledHeat(AKM, 1.f, 4.)));
 
     VPAdenCampaign::FProgress Story;
     Story.Beat = VPAdenCampaign::Pickup;
     Story.Route = VPAdenCampaign::Clinic;
-    assert(VPAdenCampaign::UsesCompactAtEncounter(Story));
+    assert(VPAdenCampaign::UsesAKMAtEncounter(Story));
     Story.Route = VPAdenCampaign::Families;
-    assert(!VPAdenCampaign::UsesCompactAtEncounter(Story));
+    assert(!VPAdenCampaign::UsesAKMAtEncounter(Story));
     Story.Beat = VPAdenCampaign::BreakContact;
     Story.Route = VPAdenCampaign::Clinic;
-    assert(!VPAdenCampaign::UsesCompactAtEncounter(Story));
+    assert(!VPAdenCampaign::UsesAKMAtEncounter(Story));
 
-    auto SmallMagazine = Prototype;
+    auto SmallMagazine = M4A1;
     SmallMagazine.MagazineCapacity = 12;
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);

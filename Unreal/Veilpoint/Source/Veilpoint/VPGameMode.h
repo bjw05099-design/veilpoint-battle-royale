@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "VPWeaponModel.h"
 #include "VPGameMode.generated.h"
 class AVPCharacter;
 class AVPPlayerController;
@@ -19,7 +20,7 @@ public:
         const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
     virtual void PostLogin(APlayerController* NewPlayer) override;
     virtual void Logout(AController* Exiting) override;
-    void SetLoadoutFromController(AVPPlayerController* Controller, bool bUseCompact);
+    void SetLoadoutFromController(AVPPlayerController* Controller, EVPWeaponModel Model);
     void SetReadyFromController(AVPPlayerController* Controller, bool bReady);
     virtual void Tick(float DeltaSeconds) override;
     UPROPERTY(BlueprintReadOnly,Category="Battle Royale")

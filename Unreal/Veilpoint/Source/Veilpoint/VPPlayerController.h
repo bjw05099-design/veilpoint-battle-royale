@@ -3,6 +3,7 @@
 #include "GameFramework/PlayerController.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRules.h"
+#include "VPWeaponModel.h"
 #include "VPPlayerController.generated.h"
 
 // Local desktop presentation. Opening a network menu never pauses the server.
@@ -53,7 +54,7 @@ private:
     void ToggleRoundReady();
     void ToggleRoundLoadout();
     UFUNCTION(Server, Reliable)
-    void ServerSetRoundLoadout(bool bUseCompact);
+    void ServerSetRoundLoadout(EVPWeaponModel Model);
     UFUNCTION(Server, Reliable)
     void ServerSetRoundReady(bool bReady);
     UPROPERTY(Replicated)

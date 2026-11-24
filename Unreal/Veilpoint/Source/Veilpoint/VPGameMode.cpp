@@ -92,14 +92,14 @@ void AVPGameMode::Logout(AController* Exiting)
     Super::Logout(Exiting);
 }
 
-void AVPGameMode::SetLoadoutFromController(AVPPlayerController* Controller, bool bUseCompact)
+void AVPGameMode::SetLoadoutFromController(AVPPlayerController* Controller, EVPWeaponModel Model)
 {
     if (!HasAuthority() || !bRequireReady || GetNetMode() == NM_Standalone || bSeenMultiplePlayers
-        || !Controller || Controller->IsRoundReady()) return;
+        || !Controller || Controller->IsRoundReady() || !VPWeaponModels::IsSupported(Model)) return;
     auto* Pawn = Cast<AVPCharacter>(Controller->GetPawn());
-    if (!Pawn || !Pawn->IsAlive() || Pawn->UsesCompactKit() == bUseCompact) return;
-    const auto& Profile = VPWeaponRules::Profile(bUseCompact);
-    Pawn->SetWeaponLoadout(bUseCompact, Profile.MagazineCapacity + 18, Profile.MagazineCapacity);
+    if (!Pawn || !Pawn->IsAlive() || Pawn->GetWeaponModel() == Model) return;
+    const auto& Profile = VPWeaponModels::Profile(Model);
+    Pawn->SetWeaponLoadout(Model, Profile.MagazineCapacity + 18, Profile.MagazineCapacity);
 }
 
 void AVPGameMode::SetReadyFromController(AVPPlayerController* Controller, bool bReady)
