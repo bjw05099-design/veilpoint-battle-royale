@@ -36,6 +36,7 @@ void AVPCharacter::BuildWeaponView()
         Mesh->SetGenerateOverlapEvents(false);
         Mesh->SetOnlyOwnerSee(true);
         Mesh->SetCastShadow(false);
+        Mesh->SetVisibility(false);
         return Mesh;
     };
     // Fictional blockout for checking first-person pose and timing in Unreal.
