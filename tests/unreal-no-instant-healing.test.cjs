@@ -15,7 +15,7 @@ test('UE5 native world cannot manufacture instant health through a collectible',
  assert.match(pickup,/FName Resource = TEXT\("charges"\)/);
  const collect=character.slice(character.indexOf('bool AVPCharacter::CollectResource'));
  assert.doesNotMatch(collect,/TEXT\("health"\)|Health\s*=|Health\s*\+=/);
- assert.match(collect,/if \(Resource==TEXT\("charges"\)/);
+ assert.match(collect,/if \(Resource\s*==\s*TEXT\("charges"\)/);
  assert.match(character,/if \(!bNeedSupplies\) continue;/);
 });
 test('UE5 still requires a direct physical and visible supply interaction',()=>{
