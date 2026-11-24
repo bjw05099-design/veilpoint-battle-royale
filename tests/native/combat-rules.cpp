@@ -1,9 +1,16 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPCombatRules.h"
+#include "../../Unreal/Veilpoint/Source/Veilpoint/VPRoundReviewPlayback.h"
 #include <cassert>
 #include <initializer_list>
 using VPCombatRules::Phase;
 int main()
 {
+    using VPRoundReview::Playhead;
+    static_assert(VPRoundReview::Rates[VPRoundReview::DefaultRateIndex] == 3);
+    static_assert(Playhead(2000., .5, 1) == 2500.);
+    static_assert(Playhead(2000., .5, 3) == 3500.);
+    static_assert(Playhead(Playhead(2000., .5, 3), .25, 6) == 5000.);
+    static_assert(Playhead(2000., -.5, 6) == 2000.);
     for(Phase p : {Phase::Unavailable,Phase::Waiting,Phase::Complete})
         assert(!VPCombatRules::CanFire(p,true,true,20));
     for(Phase p : {Phase::StoryActive,Phase::RoundActive})

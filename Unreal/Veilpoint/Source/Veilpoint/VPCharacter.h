@@ -61,6 +61,8 @@ public:
     void ResetEncounterWeapon(int32 Total, int32 Loaded);
     EVPShotCue GetShotCue(float& Opacity) const;
     bool HasWeaponView() const;
+    void BeginSight();
+    void EndSight();
     // Client-side movement must stop on the actual server-authoritative
     // elimination transition, not only on the server's damage callback.
     UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
@@ -85,7 +87,7 @@ public:
     bool IsAlive() const { return Health > 0.f && !bEliminated; }
     void RequestInteraction() { TryInteract(); }
     void RequestPrimaryAction() { TryTag(); }
-    void ReleaseDesktopActions() { EndSprint(); }
+    void ReleaseDesktopActions() { EndSprint(); EndSight(); }
     void ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete, int32 Survivors);
     const TArray<FVPRoundReviewSample>& GetRoundReview() const { return OwnRoundReview; }
     int32 GetRoundPlacement() const { return OwnRoundPlacement; }
@@ -125,8 +127,12 @@ protected:
     UFUNCTION(Client, Unreliable)
     void ClientShotCue(EVPShotCue Cue);
 private:
+    friend class AVPAdenStoryGameMode;
     void BuildWeaponView();
-    void UpdateWeaponView();
+    void UpdateWeaponView(float DeltaSeconds);
+    bool bSightHeld = false;
+    double SightBlend = 0.;
+    double ObstructionBlend = 0.;
     UPROPERTY()
     TObjectPtr<USceneComponent> WeaponViewRoot;
     UPROPERTY()

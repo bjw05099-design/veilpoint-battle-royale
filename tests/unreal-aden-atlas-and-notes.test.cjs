@@ -12,6 +12,17 @@ const {inflateSync} = require('node:zlib');
 const root = path.join(__dirname, '../Unreal/Veilpoint');
 const include = path.join(root, 'Source/Veilpoint');
 
+test('Aden field pin is local and samples the sourced playable terrain mesh', () => {
+  const controller = fs.readFileSync(path.join(include, 'VPPlayerController.cpp'), 'utf8');
+  const world = fs.readFileSync(path.join(include, 'VPAdenSourceWorld.cpp'), 'utf8');
+  const pin = controller.slice(controller.indexOf('void AVPPlayerController::PlaceAdenPin()'),
+    controller.indexOf('bool AVPPlayerController::GetAdenRoutePreview'));
+  assert.match(pin, /AdenAtlasPage != 1/);
+  assert.match(pin, /Centre\(AdenFieldCrop[\s\S]*?TraceAtlasGround\(Point, Floor\)\) AdenPin = Floor/);
+  assert.doesNotMatch(pin, /TryInteraction|PersistStoryCheckpoint|Server/);
+  assert.match(world, /TraceAtlasGround[\s\S]*?Playable\.Contains\(Point\)[\s\S]*?TerrainCollision->LineTraceComponent/);
+});
+
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
   const maps = path.join(root, 'ContentSource/Aden');
   const manifest = JSON.parse(fs.readFileSync(path.join(maps, 'aden-atlas.json'), 'utf8'));

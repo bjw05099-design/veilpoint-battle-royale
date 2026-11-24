@@ -62,6 +62,10 @@ server-timed reload lowers the weapon and moves the magazine. The empty
 reload ends with additional visual bolt motion, and accepted shots briefly
 move the rig. The visual parts have no collision. The Windows Aden diagnostic
 checks that the rig is present and attached to the first-person camera.
+Holding the right mouse button raises the sights and narrows the local view.
+Reloading and sprinting lower the rig, and a visibility trace lowers and
+retracts it at close surfaces. These changes are presentation for the
+fictional rig. Firing still uses the existing authoritative hit and cover checks.
 
 Real firearm assets, variant research, hands and final animation, chamber
 state and projectile drop are separate production work.

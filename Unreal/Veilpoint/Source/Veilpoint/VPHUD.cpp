@@ -880,6 +880,14 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     }
     if (Aden->bHasEscort)
         DrawVisibleMarker(Aden->EscortPoint + FVector(0., 0., 96.), Assist, EscortName(Aden->Progress));
+    if (Desktop && Desktop->GetAdenPin().IsSet())
+    {
+        const FVector Pin = Desktop->GetAdenPin().GetValue();
+        const double DistanceMetres = FVector::Dist2D(Position, Pin) / 100.;
+        if (DistanceMetres <= 300.)
+            DrawVisibleMarker(Pin + FVector(0., 0., 100.), FLinearColor(.79f, .58f, .93f),
+                FString::Printf(TEXT("PIN  %.0f m"), DistanceMetres));
+    }
 
     if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bHasEscort || bEncounter)
     {
@@ -1010,9 +1018,20 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
             ReviewPlaybackStartMs = Track[RoundReviewCursor].Milliseconds;
         }
     }
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::T))
+    {
+        if (bRoundReviewPlaying)
+        {
+            ReviewPlaybackStartMs = VPRoundReview::Playhead(ReviewPlaybackStartMs,
+                Now - ReviewPlaybackBeganAt, VPRoundReview::Rates[RoundReviewRateIndex]);
+            ReviewPlaybackBeganAt = Now;
+        }
+        RoundReviewRateIndex = (RoundReviewRateIndex + 1) % VPRoundReview::RateCount;
+    }
+    const int32 Rate = VPRoundReview::Rates[RoundReviewRateIndex];
     if (bRoundReviewPlaying)
     {
-        const double Playhead = ReviewPlaybackStartMs + (Now - ReviewPlaybackBeganAt) * 3000.;
+        const double Playhead = VPRoundReview::Playhead(ReviewPlaybackStartMs, Now - ReviewPlaybackBeganAt, Rate);
         while (RoundReviewCursor < Last && Track[RoundReviewCursor + 1].Milliseconds <= Playhead)
             ++RoundReviewCursor;
         if (RoundReviewCursor == Last) bRoundReviewPlaying = false;
@@ -1055,10 +1074,10 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     const float Ratio = RangeMs > 0 ? float(OffsetMs) / RangeMs : 1.f;
     DrawRect(FLinearColor(.12f, .22f, .24f), RailX, RailY, RailW, 3.f * Scale);
     DrawRect(Progress, RailX, RailY, RailW * Ratio, 3.f * Scale);
-    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s"),
+    DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s %dX"),
         RoundReviewCursor + 1, Track.Num(), Track[RoundReviewCursor].Milliseconds / 1000.,
-        bRoundReviewPlaying ? TEXT("PLAYING 3X") : TEXT("PAUSED")),
+        bRoundReviewPlaying ? TEXT("PLAYING") : TEXT("PAUSED"), Rate),
         Ink, RailX, RailY + 11.f * Scale, nullptr, .8f * Scale);
-    DrawText(TEXT("SPACE  Play / pause     ARROWS  Step     HOME / END     M  Close"),
+    DrawText(TEXT("SPACE Play/Pause   T Speed   ARROWS Step   HOME/END   M Close"),
         Ink, RailX, RailY + 35.f * Scale, nullptr, .74f * Scale);
 }

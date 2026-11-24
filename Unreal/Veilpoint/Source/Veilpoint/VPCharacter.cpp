@@ -1,6 +1,7 @@
 #include "VPCharacter.h"
 #include "VPCombatRules.h"
 #include "VPWeaponRules.h"
+#include "VPWeaponViewPose.h"
 #include "VPPickup.h"
 #include "VPStoryMarker.h"
 #include "VPLastBroadcastMission.h"
@@ -14,12 +15,14 @@
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/InputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
+#include "InputCoreTypes.h"
 
 AVPCharacter::AVPCharacter()
 {
@@ -33,7 +36,7 @@ AVPCharacter::AVPCharacter()
     BodyCamera->SetupAttachment(GetCapsuleComponent());
     BodyCamera->SetRelativeLocation(FVector(11.f, 12.f, 53.f));
     BodyCamera->bUsePawnControlRotation = true;
-    BodyCamera->FieldOfView = 92.f;
+    BodyCamera->FieldOfView = VPWeaponView::HipFov;
     BuildWeaponView();
     FieldLight = CreateDefaultSubobject<USpotLightComponent>(TEXT("HelmetFieldLight"));
     FieldLight->SetupAttachment(BodyCamera);
@@ -117,6 +120,8 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Interact"), IE_Pressed, this, &AVPCharacter::RequestInteraction);
     Input->BindAction(TEXT("FieldLight"), IE_Pressed, this, &AVPCharacter::ToggleFieldLight);
     Input->BindAction(TEXT("Reload"), IE_Pressed, this, &AVPCharacter::RequestReload);
+    Input->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AVPCharacter::BeginSight);
+    Input->BindKey(EKeys::RightMouseButton, IE_Released, this, &AVPCharacter::EndSight);
 }
 void AVPCharacter::MoveForward(float Value)
 {
@@ -213,7 +218,7 @@ void AVPCharacter::Tick(float DeltaSeconds)
             bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();
         }
     }
-    UpdateWeaponView();
+    UpdateWeaponView(DeltaSeconds);
     if (!IsAlive()) return;
     auto* Movement = GetCharacterMovement();
     const auto& Floor = Movement->CurrentFloor;

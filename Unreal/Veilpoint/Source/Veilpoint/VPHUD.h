@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "VPFrameTelemetry.h"
+#include "VPRoundReviewPlayback.h"
 #include "VPHUD.generated.h"
 
 class AVPZone;
@@ -35,7 +36,8 @@ private:
     int32 RoundReviewCursor = INDEX_NONE;
     bool bRoundReviewPlaying = false;
     double ReviewPlaybackBeganAt = 0.;
-    int32 ReviewPlaybackStartMs = 0;
+    double ReviewPlaybackStartMs = 0.;
+    int32 RoundReviewRateIndex = VPRoundReview::DefaultRateIndex;
     TArray<FBox2D> DesktopMenuBounds;
     // Avoid a full actor scan on every render frame (including 165Hz).
     // The zone is a replicated server-owned actor; clients only read its data.

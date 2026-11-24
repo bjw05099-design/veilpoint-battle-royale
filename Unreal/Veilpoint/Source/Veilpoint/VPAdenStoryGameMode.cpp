@@ -2,6 +2,7 @@
 
 #include "VPAdenCampaign.h"
 #include "VPWeaponRules.h"
+#include "VPWeaponViewPose.h"
 #include "VPAdenCampaignMigration.h"
 #include "VPAdenContact.h"
 #include "VPAdenPrologue.h"
@@ -960,6 +961,16 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         const bool bRecentered = Recentered.West == BeforePan.West && Recentered.North == BeforePan.North;
         Report->SetBoolField(TEXT("fieldPanRecenterVerified"), bPan && bRecentered);
         bPassed = bPassed && bRecentered;
+        Desktop->PlaceAdenPin();
+        const auto Pin = Desktop->GetAdenPin();
+        const auto PinCentre = VPAdenAtlas::Centre(Recentered);
+        const bool bPinned = Pin.IsSet() && FMath::IsNearlyEqual(Pin.GetValue().X, PinCentre.X, .01)
+            && FMath::IsNearlyEqual(Pin.GetValue().Y, PinCentre.Y, .01);
+        bPassed = bPassed && bPinned && ReadFrame(TEXT("aden-field-pin"));
+        Desktop->ClearAdenPin();
+        const bool bPinCleared = !Desktop->GetAdenPin().IsSet();
+        Report->SetBoolField(TEXT("fieldPinVerified"), bPinned && bPinCleared);
+        bPassed = bPassed && bPinCleared;
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 2 && ReadFrame(TEXT("aden-regional-map"));
         Desktop->CycleAdenAtlas();
@@ -1110,6 +1121,16 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         const FVector Eye = Pawn->BodyCamera->GetComponentLocation();
         const FRotator Facing = (Target - Eye).Rotation();
         Desktop->SetControlRotation(Facing);
+        Pawn->BeginSight();
+        Pawn->UpdateWeaponView(.1f);
+        Pawn->UpdateWeaponView(.1f);
+        const bool bSightRaised = FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::SightFov);
+        Pawn->EndSight();
+        Pawn->UpdateWeaponView(.1f);
+        Pawn->UpdateWeaponView(.1f);
+        const bool bSightRestored = FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::HipFov);
+        DiagnosticReport->SetBoolField(TEXT("firstPersonSightVerified"), bSightRaised && bSightRestored);
+        if (!bSightRaised || !bSightRestored) return false;
         const FTransform Camera = DiagnosticCapture->GetRelativeTransform();
         DiagnosticCapture->SetWorldLocationAndRotation(Eye, Facing);
         DiagnosticCapture->CaptureScene();

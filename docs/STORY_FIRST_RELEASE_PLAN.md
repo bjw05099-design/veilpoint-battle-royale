@@ -8,9 +8,9 @@ material for regression and migration.
 
 | Development area | Share | Acceptance focus |
 |---|---:|---|
-| Firearms, physics engine and maps | **50%** | Reusable weapon systems and assets, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
-| Single-player story campaign | **40%** | Playable chapters, dialogue and cinematics, authored encounters, chapter integration, solo save/recovery and offline completion |
-| Battle Royale | **10%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
+| Firearms, physics engine and maps | **65%** | Reusable weapon systems and assets, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
+| Single-player story campaign | **20%** | Playable chapters, dialogue and cinematics, authored encounters, chapter integration, solo save/recovery and offline completion |
+| Battle Royale | **15%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
 
 The November 24 allocation applies to ongoing development effort. Select the
 mix of firearms, physics and map work within their combined share according
