@@ -99,7 +99,8 @@ def connect_ground_detail(material, textures):
     scaled.set_editor_property("const_b", 1.0 / 6500.0)
     def link(source, output, target, pin):
         if not graph.connect_material_expressions(source, output, target, pin):
-            raise RuntimeError("Aden ground detail material input could not be connected: " + pin)
+            raise RuntimeError("Aden ground detail could not connect "
+                               + target.get_class().get_name() + " input " + (pin or "(first)"))
 
     def assign(source, output, prop):
         if not graph.connect_material_property(source, output, prop):
@@ -109,8 +110,8 @@ def connect_ground_detail(material, textures):
     falloff = graph.create_material_expression(material, unreal.MaterialExpressionSubtract)
     falloff.set_editor_property("const_a", 1.0)
     link(scaled, "", falloff, "B")
-    clamp = graph.create_material_expression(material, unreal.MaterialExpressionClamp)
-    link(falloff, "", clamp, "Input")
+    clamp = graph.create_material_expression(material, unreal.MaterialExpressionSaturate)
+    link(falloff, "", clamp, "")
     weight = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
     link(clamp, "", weight, "A")
     link(strength, "", weight, "B")
@@ -119,7 +120,7 @@ def connect_ground_detail(material, textures):
     normal.set_editor_property("texture", textures["ground_normal"])
     normal.set_editor_property("parameter_name", "AdenGroundNormal")
     normal.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
-    link(uv, "", normal, "Coordinates")
+    link(uv, "", normal, "")
     flat = graph.create_material_expression(material, unreal.MaterialExpressionConstant3Vector)
     flat.set_editor_property("constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
     normal_blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
@@ -132,7 +133,7 @@ def connect_ground_detail(material, textures):
     rough.set_editor_property("texture", textures["ground_roughness"])
     rough.set_editor_property("parameter_name", "AdenGroundRoughness")
     rough.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
-    link(uv, "", rough, "Coordinates")
+    link(uv, "", rough, "")
     rough_blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
     rough_blend.set_editor_property("const_a", .94)
     link(rough, "R", rough_blend, "B")
