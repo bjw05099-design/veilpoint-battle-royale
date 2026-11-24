@@ -600,8 +600,11 @@ TOptional<VPAdenCampaign::FCheckpoint> AVPAdenStoryGameMode::ReadCheckpoint(bool
 {
     if (bUsedBackup) *bUsedBackup = false;
     const FString Slot = AdenSlot();
-    if (const auto Primary = ReadCheckpointSlot(Slot); Primary.IsSet()) return Primary;
+    const auto Primary = ReadCheckpointSlot(Slot);
+    if (Primary.IsSet() && Primary.GetValue().Progress.Beat != VPAdenCampaign::ReachSignal) return Primary;
     const auto Backup = ReadCheckpointSlot(Slot + TEXT("-backup"));
+    if (Primary.IsSet() && (!Backup.IsSet()
+        || VPAdenCampaign::RecoveryBackup(Primary.GetValue(), Backup.GetValue()) == Primary.GetValue())) return Primary;
     if (bUsedBackup) *bUsedBackup = Backup.IsSet();
     return Backup;
 }
@@ -1318,6 +1321,9 @@ bool AVPAdenStoryGameMode::VerifySavedCampaign(AVPCharacter* Pawn)
     if (!WriteCheckpointSlot(Slot, {Expired.Progress, SignalWindowMs})) return false;
     ApplyCheckpoint(Expired);
     if (!PersistStoryCheckpoint() || !UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0)
+        || !ReturnToCheckpoint(Pawn) || !(CaptureCheckpoint() == Expired)) return false;
+    // Also cover an interrupted write that leaves the previous primary readable.
+    if (!WriteCheckpointSlot(Slot, {Expired.Progress, SignalWindowMs})
         || !ReturnToCheckpoint(Pawn) || !(CaptureCheckpoint() == Expired)) return false;
     DiagnosticReport->SetBoolField(TEXT("duplicateSaveBackupVerified"), true);
     DiagnosticReport->SetBoolField(TEXT("expiredSignalBackupVerified"), true);
