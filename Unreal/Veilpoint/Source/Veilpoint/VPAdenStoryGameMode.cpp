@@ -160,11 +160,13 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
     const auto* Capsule = Pawn->GetCapsuleComponent();
     auto* Movement = Pawn->GetCharacterMovement();
     const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-    const FCollisionShape Shape = FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), HalfHeight);
-    const FName Profile = Capsule->GetCollisionProfileName();
+    const float Radius = Capsule->GetScaledCapsuleRadius();
+    const FCollisionShape Shape = FCollisionShape::MakeCapsule(Radius, HalfHeight);
     // Use the capsule's movement collision semantics for props and terrain.
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenRecovery), false, Pawn);
+    const FCollisionResponseParams Responses(Capsule->GetCollisionResponseToChannels());
     double PreviousOffset = -1.;
+    int32 GroundSamples = 0, WalkableSamples = 0, ClearSamples = 0;
     for (const double Requested : VPAdenCampaign::RecoveryOffsetsCm)
     {
         const double Offset = VPAdenCampaign::RecoveryOffset(Requested, SegmentLength);
@@ -172,19 +174,26 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
         PreviousOffset = Offset;
         const FVector Candidate = Anchor + Along * Offset;
         FVector Ground;
-        if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground)) continue;
         FHitResult Hit;
-        if (!GetWorld()->SweepSingleByProfile(Hit, Ground + FVector(0., 0., HalfHeight + 120.),
-            Ground + FVector(0., 0., HalfHeight - 30.), FQuat::Identity, Profile, Shape, Query)
-            || Hit.bStartPenetrating || !Source->IsPlayableGround(Hit) || !Movement->IsWalkable(Hit)) continue;
-        const FVector Clear = Hit.Location + FVector(0., 0., 3.);
-        if (GetWorld()->OverlapBlockingTestByProfile(Clear, FQuat::Identity, Profile, Shape, Query)
-            || !Pawn->TeleportTo(Clear, Facing, false, true)) continue;
+        if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground, &Hit)) continue;
+        ++GroundSamples;
+        if (!Movement->IsWalkable(Hit)) continue;
+        ++WalkableSamples;
+        // A capsule's rounded foot touches a slope before the point below its centre.
+        const double SlopeClearance = Radius * (1. / Hit.ImpactNormal.Z - 1.);
+        const FVector Clear = Ground + FVector(0., 0., HalfHeight + SlopeClearance + 3.);
+        if (GetWorld()->OverlapBlockingTestByChannel(Clear, FQuat::Identity, Capsule->GetCollisionObjectType(),
+            Shape, Query, Responses)) continue;
+        ++ClearSamples;
+        if (!Pawn->TeleportTo(Clear, Facing, false, true)) continue;
         Pawn->ConsumeMovementInputVector();
         Movement->StopMovementImmediately();
         if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Facing);
         return true;
     }
+    UE_CLOG(IsAdenDiagnostic(), Display, LogVPAdenStory,
+        TEXT("Checkpoint footing at beat %d: %d ground, %d walkable, %d clear"),
+        Beat.Beat, GroundSamples, WalkableSamples, ClearSamples);
     return false;
 }
 
