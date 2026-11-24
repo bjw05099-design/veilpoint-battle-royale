@@ -15,6 +15,26 @@ material for regression and migration.
 The November 22 allocation applies to ongoing development effort. Map production
 has its own share. Stabilization counts under the area being improved.
 
+## Reusable foundations and chapter content
+
+Prioritize reusable UE5.8 foundations within each development share. Build and
+validate reusable Aden terrain, navigation and collision, textures and
+materials, character animation, physics interactions, and gameplay weapon and
+combat systems through representative playable sections. Reuse the systems
+across chapters and in Battle Royale where appropriate.
+
+Keep scene dialogue, cinematic sequences, objectives, branch transitions,
+and encounter placements and triggers in chapter-owned content. Refer to
+reusable world assets and gameplay systems from that content. Keep checkpoint
+identifiers stable and provide migration when a saved state needs to move to
+a different beat.
+
+Use a representative CH01 scene to verify the separation as the foundations
+improve. Change dialogue, a cinematic cue or an objective, then verify that
+the scene can still reuse the map, animations and combat systems and that
+existing checkpoints can resume. Record which content was changed and what
+was verified before applying the pattern to more chapters.
+
 ## Release sequence
 
 1. **First release: Windows PC story mode, single-player.**
