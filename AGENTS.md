@@ -24,6 +24,9 @@
   progression changes. Validate the separation in a playable chapter by
   changing a story beat and checking the reused assets, gameplay and saves.
   See [story-first development plan](docs/STORY_FIRST_RELEASE_PLAN.md#reusable-foundations-and-chapter-content).
+- Develop gameplay firearms against the [native firearm production standard](docs/NATIVE_WEAPON_RELOAD.md#firearm-production-standard).
+  Keep shared weapon behavior separate from each firearm's assets and data so
+  both modes can reuse it and chapter changes can select a different loadout.
 - Use [the model work allocation guide](docs/MODEL_WORK_ALLOCATION.md) when
   choosing or scoping development work. Use the model and reasoning level
   selected for the session when available. Use Sol 6.2 High as the default

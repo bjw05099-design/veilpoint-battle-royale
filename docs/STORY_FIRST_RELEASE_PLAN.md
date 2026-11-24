@@ -23,6 +23,10 @@ materials, character animation, physics interactions, and gameplay weapon and
 combat systems through representative playable sections. Reuse the systems
 across chapters and in Battle Royale where appropriate.
 
+Develop weapons according to the [firearm production standard](NATIVE_WEAPON_RELOAD.md#firearm-production-standard).
+Validate a complete weapon through its playable UE5 assets, weapon profile
+and shared behavior before expanding the roster.
+
 Keep scene dialogue, cinematic sequences, objectives, branch transitions,
 and encounter placements and triggers in chapter-owned content. Refer to
 reusable world assets and gameplay systems from that content. Keep checkpoint
