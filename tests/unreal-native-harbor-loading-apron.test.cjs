@@ -34,6 +34,9 @@ test('native wet footing uses the authored ground hit and restores dry friction'
  const authority=tick.indexOf('if (!HasAuthority() || !IsAlive()) return;');
  assert.ok(position>=0 && authority>position,
    'native Tick must derive wet footing before its authority-only stamina step');
+ const smoke=source('VPLastBroadcastSmoke.cpp');
+ const probe=smoke.slice(smoke.indexOf('bool VerifyApronContact'),smoke.indexOf('bool VerifyPavingSupport'));
+ assert.match(probe,/World->LineTraceSingleByChannel[\s\S]*?Floor\.GetComponent\(\) == Harbor->Ground.Get\(\)[\s\S]*?IsWetApronContact\(Floor\) == bExpectedWet/);
 });
 
 test('wet footing covers the slab boundary and excludes overhead, air and unrelated floors',

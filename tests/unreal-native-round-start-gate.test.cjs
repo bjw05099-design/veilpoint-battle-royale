@@ -40,6 +40,9 @@ test('BR accepts a desired ready state and keeps a duplicate command harmless',(
  assert.match(lobby,/Controller->bRoundReady == bReady\) return;[\s\S]*?Controller->bRoundReady = bReady;/);
  assert.match(lobby,/if \(!Controller->bRoundReady\) CancelReadyCountdown\(\)/);
  assert.match(controller,/if \(bFirstClient\) ServerSetRoundReady\(true\);/);
+ const cancellation=mode.slice(mode.indexOf('void AVPGameMode::CancelReadyCountdown'),
+  mode.indexOf('void AVPGameMode::BeginPlay'));
+ assert.match(cancellation,/bWasCountingDown = ReadyCountdownEndsAt > 0\.[\s\S]*?State->UpdateLobby\(Joined, Ready, true, 0, 0\.\)[\s\S]*?bWasCountingDown && Joined == 2 && Ready == 1[\s\S]*?VPBRVerify[\s\S]*?Host->bBRObservedCancellation = true/);
 });
 
 test('native ready lobby restarts its countdown after readiness changes or a player departs',

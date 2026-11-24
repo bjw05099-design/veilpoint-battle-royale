@@ -114,6 +114,9 @@ void AVPGameMode::SetReadyFromController(AVPPlayerController* Controller, bool b
 
 void AVPGameMode::CancelReadyCountdown(const AController* Exiting)
 {
+#if !UE_BUILD_SHIPPING
+    const bool bWasCountingDown = ReadyCountdownEndsAt > 0.;
+#endif
     ReadyCountdownEndsAt = 0.;
     if (!bRequireReady || bSeenMultiplePlayers || GetNetMode() == NM_Standalone) return;
     auto* State = GetGameState<AVPGameState>();
@@ -128,6 +131,19 @@ void AVPGameMode::CancelReadyCountdown(const AController* Exiting)
         if (Desktop->IsRoundReady()) ++Ready;
     }
     State->UpdateLobby(Joined, Ready, true, 0, 0.);
+#if !UE_BUILD_SHIPPING
+    // The remote client can re-ready before the host's next controller tick.
+    if (bWasCountingDown && Joined == 2 && Ready == 1 && GetNetMode() == NM_ListenServer
+        && FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify")))
+    {
+        auto* Host = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
+        if (Host && Host->IsLocalController() && !Host->bBRObservedCancellation)
+        {
+            Host->bBRObservedCancellation = true;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_COUNTDOWN_CANCELLED"));
+        }
+    }
+#endif
 }
 
 void AVPGameMode::BeginPlay()

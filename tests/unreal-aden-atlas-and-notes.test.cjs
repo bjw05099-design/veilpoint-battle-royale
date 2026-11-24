@@ -51,9 +51,9 @@ test('Aden recovery commits only after a walkable terrain hit and capsule overla
   const source = fs.readFileSync(path.join(include, 'VPAdenSourceWorld.cpp'), 'utf8');
   const trace = source.slice(source.indexOf('bool AVPAdenSourceWorld::TraceAtlasGround'),
     source.indexOf('FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles'));
-  assert.match(trace, /TerrainCollision->LineTraceComponent[\s\S]*?\*Surface = Hit/);
-  assert.match(method, /TraceAtlasGround\(\{Candidate\.X, Candidate\.Y\}, Ground, &Hit\)[\s\S]*?IsWalkable\(Hit\)/);
-  assert.match(method, /OverlapBlockingTestByChannel[\s\S]*?Capsule->GetCollisionObjectType\(\)[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
+  assert.match(trace, /TerrainCollision->LineTraceComponent[\s\S]*?Hit\.ImpactPoint\.Z/);
+  assert.match(method, /TraceAtlasGround\(\{Candidate\.X, Candidate\.Y\}, Ground\)[\s\S]*?LineTraceSingleByChannel\(Hit, Ground \+ FloorProbe, Ground - FloorProbe,[\s\S]*?IsPlayableGround\(Hit\)[\s\S]*?IsWalkable\(Hit\)/);
+  assert.match(method, /MovementChannel = Capsule->GetCollisionObjectType\(\)[\s\S]*?OverlapBlockingTestByChannel\(Clear, FQuat::Identity, MovementChannel,[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
 });
 
 test('Aden bookmarks use their own local slot and reload only against the matching ground revision', () => {

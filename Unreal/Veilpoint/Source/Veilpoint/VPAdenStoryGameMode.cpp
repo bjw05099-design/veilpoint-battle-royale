@@ -164,7 +164,10 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
     const FCollisionShape Shape = FCollisionShape::MakeCapsule(Radius, HalfHeight);
     // Use the capsule's movement collision semantics for props and terrain.
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenRecovery), false, Pawn);
+    const FCollisionQueryParams FloorQuery(SCENE_QUERY_STAT(VPAdenRecoveryFloor), true, Pawn);
     const FCollisionResponseParams Responses(Capsule->GetCollisionResponseToChannels());
+    const ECollisionChannel MovementChannel = Capsule->GetCollisionObjectType();
+    const FVector FloorProbe(0., 0., 8.);
     double PreviousOffset = -1.;
     int32 GroundSamples = 0, WalkableSamples = 0, ClearSamples = 0;
     for (const double Requested : VPAdenCampaign::RecoveryOffsetsCm)
@@ -174,15 +177,18 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
         PreviousOffset = Offset;
         const FVector Candidate = Anchor + Along * Offset;
         FVector Ground;
+        if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground)) continue;
+        // Use a world trace for blocking-hit and surface-normal data.
         FHitResult Hit;
-        if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground, &Hit)) continue;
+        if (!GetWorld()->LineTraceSingleByChannel(Hit, Ground + FloorProbe, Ground - FloorProbe,
+            MovementChannel, FloorQuery, Responses) || !Source->IsPlayableGround(Hit)) continue;
         ++GroundSamples;
         if (!Movement->IsWalkable(Hit)) continue;
         ++WalkableSamples;
         // A capsule's rounded foot touches a slope before the point below its centre.
         const double SlopeClearance = Radius * (1. / Hit.ImpactNormal.Z - 1.);
-        const FVector Clear = Ground + FVector(0., 0., HalfHeight + SlopeClearance + 3.);
-        if (GetWorld()->OverlapBlockingTestByChannel(Clear, FQuat::Identity, Capsule->GetCollisionObjectType(),
+        const FVector Clear = Hit.ImpactPoint + FVector(0., 0., HalfHeight + SlopeClearance + 3.);
+        if (GetWorld()->OverlapBlockingTestByChannel(Clear, FQuat::Identity, MovementChannel,
             Shape, Query, Responses)) continue;
         ++ClearSamples;
         if (!Pawn->TeleportTo(Clear, Facing, false, true)) continue;
