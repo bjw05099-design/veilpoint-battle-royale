@@ -8,12 +8,15 @@ material for regression and migration.
 
 | Development area | Share | Acceptance focus |
 |---|---:|---|
-| Maps | **40%** | Sourced terrain and public geometry, local traversal, collision, atlas controls and packaged rendering |
-| Single-player story campaign | **50%** | Playable chapters, actor motion, grounded interactions, solo save/recovery and offline completion |
+| Firearms, physics engine and maps | **50%** | Reusable weapon systems and assets, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
+| Single-player story campaign | **40%** | Playable chapters, dialogue and cinematics, authored encounters, chapter integration, solo save/recovery and offline completion |
 | Battle Royale | **10%** | Reuse tested environments, validate 6×16 interactions on the server and stabilize the separate multiplayer release |
 
-The November 22 allocation applies to ongoing development effort. Map production
-has its own share. Stabilization counts under the area being improved.
+The November 24 allocation applies to ongoing development effort. Select the
+mix of firearms, physics and map work within their combined share according
+to the next playable milestone. Count shared system work once in that share.
+Count chapter and BR integration under their respective modes. Stabilization
+counts under the area being improved.
 
 ## Reusable foundations and chapter content
 

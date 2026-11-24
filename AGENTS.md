@@ -12,10 +12,12 @@
 
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
   marking. Story and Battle Royale ship separately, with story first. Allocate
-  development effort 40% to maps, 50% to story mode, and 10% to Battle Royale.
-  Count map production separately, including shared terrain and collision.
-  Count stabilization under the area being improved. Follow explicit session
-  scope while keeping this allocation for ongoing development.
+  development effort 50% to firearms, the physics engine and maps as a group,
+  40% to story mode, and 10% to Battle Royale. Count reusable weapon and physics
+  systems, terrain and map collision under the combined 50%. Count chapter
+  integration under story mode and mode-specific integration under Battle
+  Royale. Count stabilization under the area being improved. Follow explicit
+  session scope while keeping this allocation for ongoing development.
 - Prioritize reusable Unreal foundations within that allocation: maps, textures
   and materials, character animation, physics and collision, and gameplay
   weapon and combat systems. Author dialogue, cinematics, objectives, branches
