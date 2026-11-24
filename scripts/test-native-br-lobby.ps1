@@ -83,7 +83,7 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
             }
         } elseif ($hostEvidence -notmatch 'VPBR_HOST_PASS: authoritative place #2' -or
                   $clientEvidence -notmatch 'VPBR_CLIENT_PASS: owner-only place #1' -or
-                  $clientEvidence -notmatch 'VPBR_LOADOUT_PASS: owner received the selected kit') {
+                  $clientEvidence -notmatch 'VPBR_LOADOUT_PASS: owner received AKM') {
             throw 'Missing actual host/client round or owner privacy evidence.'
         }
     } finally {

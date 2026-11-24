@@ -1,11 +1,13 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "VPWeaponRules.h"
+#include "VPWeaponModel.h"
 #include "VPCharacter.generated.h"
 
 class UCameraComponent;
+class USceneComponent;
 class USpotLightComponent;
+class UStaticMesh;
 class UStaticMeshComponent;
 
 UENUM()
@@ -21,6 +23,23 @@ struct FVPRoundReviewSample
 
     UPROPERTY()
     FIntPoint PositionMetres = FIntPoint::ZeroValue;
+};
+
+USTRUCT()
+struct FVPFirstPersonWeapon
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TObjectPtr<USceneComponent> Root;
+    UPROPERTY()
+    TObjectPtr<USceneComponent> Magazine;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> Receiver;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> Stock;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> Action;
 };
 
 UCLASS()
@@ -60,9 +79,12 @@ public:
     float WeaponHeatRatio() const;
     bool IsWeaponCooling() const;
     void ResetEncounterWeapon(int32 Total, int32 Loaded);
-    bool UsesCompactKit() const { return bCompactKit; }
-    const TCHAR* WeaponKitLabel() const { return bCompactKit ? TEXT("COMPACT") : TEXT("PATROL"); }
-    const VPWeaponRules::FProfile& GetWeaponProfile() const { return VPWeaponRules::Profile(bCompactKit); }
+    EVPWeaponModel GetWeaponModel() const { return WeaponModel; }
+    const TCHAR* WeaponLabel() const { return VPWeaponModels::DisplayName(WeaponModel); }
+    const VPWeaponRules::FProfile& GetWeaponProfile() const
+    {
+        return VPWeaponModels::Profile(WeaponModel);
+    }
     EVPShotCue GetShotCue(float& Opacity) const;
     bool HasWeaponView() const;
     void BeginSight();
@@ -133,11 +155,12 @@ protected:
 private:
     friend class AVPAdenStoryGameMode;
     friend class AVPGameMode;
-    bool SetWeaponLoadout(bool bUseCompact, int32 Total, int32 Loaded);
+    bool SetWeaponLoadout(EVPWeaponModel Model, int32 Total, int32 Loaded);
     UPROPERTY(Replicated)
-    bool bCompactKit = false;
+    EVPWeaponModel WeaponModel = EVPWeaponModel::M4A1;
     float AdenGradeScale = 1.f;
     void BuildWeaponView();
+    void CreateWeaponPresentation(FVPFirstPersonWeapon& View, EVPWeaponModel Model);
     void UpdateWeaponView(float DeltaSeconds);
     bool bSightHeld = false;
     double SightBlend = 0.;
@@ -145,11 +168,13 @@ private:
     UPROPERTY()
     TObjectPtr<USceneComponent> WeaponViewRoot;
     UPROPERTY()
-    TObjectPtr<UStaticMeshComponent> WeaponReceiver;
+    TObjectPtr<UStaticMesh> WeaponViewBox;
     UPROPERTY()
-    TObjectPtr<UStaticMeshComponent> WeaponMagazine;
-    UPROPERTY()
-    TObjectPtr<UStaticMeshComponent> WeaponBolt;
+    TObjectPtr<UStaticMesh> WeaponViewCylinder;
+    UPROPERTY(Transient)
+    FVPFirstPersonWeapon M4A1View;
+    UPROPERTY(Transient)
+    FVPFirstPersonWeapon AKMView;
     bool IsDesktopInputBlocked() const;
     bool IsWeaponPhaseActive() const;
     double WeaponClock() const;
