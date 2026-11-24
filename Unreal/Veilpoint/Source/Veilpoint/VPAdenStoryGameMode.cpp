@@ -191,7 +191,7 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
         if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Facing);
         return true;
     }
-    UE_CLOG(IsAdenDiagnostic(), Display, LogVPAdenStory,
+    UE_CLOG(IsAdenDiagnostic(), LogVPAdenStory, Display,
         TEXT("Checkpoint footing at beat %d: %d ground, %d walkable, %d clear"),
         Beat.Beat, GroundSamples, WalkableSamples, ClearSamples);
     return false;
