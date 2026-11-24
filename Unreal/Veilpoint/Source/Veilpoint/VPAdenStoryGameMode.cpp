@@ -177,10 +177,12 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
         FHitResult Hit;
         if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground, &Hit)) continue;
         ++GroundSamples;
-        if (!Movement->IsWalkable(Hit)) continue;
+        // A direct trace of the heightfield describes its slope without a world blocking-hit flag.
+        const double FloorNormalZ = FMath::Abs(Hit.ImpactNormal.Z);
+        if (FloorNormalZ <= 0. || FloorNormalZ < Movement->GetWalkableFloorZ()) continue;
         ++WalkableSamples;
         // A capsule's rounded foot touches a slope before the point below its centre.
-        const double SlopeClearance = Radius * (1. / Hit.ImpactNormal.Z - 1.);
+        const double SlopeClearance = Radius * (1. / FloorNormalZ - 1.);
         const FVector Clear = Ground + FVector(0., 0., HalfHeight + SlopeClearance + 3.);
         if (GetWorld()->OverlapBlockingTestByChannel(Clear, FQuat::Identity, Capsule->GetCollisionObjectType(),
             Shape, Query, Responses)) continue;

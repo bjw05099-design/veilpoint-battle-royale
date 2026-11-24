@@ -52,7 +52,7 @@ test('Aden recovery commits only after a walkable terrain hit and capsule overla
   const trace = source.slice(source.indexOf('bool AVPAdenSourceWorld::TraceAtlasGround'),
     source.indexOf('FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles'));
   assert.match(trace, /TerrainCollision->LineTraceComponent[\s\S]*?\*Surface = Hit/);
-  assert.match(method, /TraceAtlasGround\(\{Candidate\.X, Candidate\.Y\}, Ground, &Hit\)[\s\S]*?IsWalkable\(Hit\)/);
+  assert.match(method, /TraceAtlasGround\(\{Candidate\.X, Candidate\.Y\}, Ground, &Hit\)[\s\S]*?FloorNormalZ < Movement->GetWalkableFloorZ\(\)/);
   assert.match(method, /OverlapBlockingTestByChannel[\s\S]*?Capsule->GetCollisionObjectType\(\)[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
 });
 

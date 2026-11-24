@@ -861,9 +861,10 @@ void AVPPlayerController::TickBRDiagnostic()
     }
     if (FParse::Param(FCommandLine::Get(), TEXT("VPBRDepart")))
     {
-        if (bBRObservedCancellation && State->bRoundStarted && !bBRProofPrinted)
+        if (State->bRoundStarted && !bBRProofPrinted)
         {
-            if (GetNetMode() == NM_Client && !State->bRoundComplete && State->RoundElapsedMs >= 4500)
+            if (GetNetMode() == NM_Client && bBRObservedCancellation && !State->bRoundComplete
+                && State->RoundElapsedMs >= 4500)
             {
                 UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_DEPARTED: leaving an active round"));
                 BRQuitAt = Now;
