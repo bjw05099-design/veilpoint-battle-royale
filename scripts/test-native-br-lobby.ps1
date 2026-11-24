@@ -72,16 +72,16 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
             }
             return
         }
-        if ($hostEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED' -or $clientEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED') {
-            throw 'Missing host/client countdown cancellation evidence.'
-        }
         if ($Departure) {
             if ($hostEvidence -notmatch 'VPBR_DEPARTURE_PASS: one departure, one survivor, winner record finalized' -or
+                $clientEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED' -or
                 $clientEvidence -notmatch 'VPBR_CLIENT_DEPARTED: leaving an active round' -or
                 $hostEvidence -match 'VPBR_QA_ROUND_RESOLVED') {
                 throw 'Missing actual host/client departure and round finalization evidence.'
             }
-        } elseif ($hostEvidence -notmatch 'VPBR_HOST_PASS: authoritative place #2' -or
+        } elseif ($hostEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED' -or
+                  $clientEvidence -notmatch 'VPBR_COUNTDOWN_CANCELLED' -or
+                  $hostEvidence -notmatch 'VPBR_HOST_PASS: authoritative place #2' -or
                   $clientEvidence -notmatch 'VPBR_CLIENT_PASS: owner-only place #1' -or
                   $clientEvidence -notmatch 'VPBR_LOADOUT_PASS: owner received AKM' -or
                   $hostEvidence -notmatch 'VPBR_FIELD_MAP_PASS: local public geometry and replicated zone' -or
@@ -98,7 +98,13 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
     }
 }
 
-Invoke-BRVerification -Case br-local
-Invoke-BRVerification -Case br-departure -Departure
-Invoke-BRVerification -Case br-lobby-rejoin -Rejoin
+$failures=@()
+foreach ($case in @('br-local','br-departure','br-lobby-rejoin')) {
+    try {
+        Invoke-BRVerification -Case $case -Departure:($case -eq 'br-departure') -Rejoin:($case -eq 'br-lobby-rejoin')
+    } catch {
+        $failures+="$($case): $($_.Exception.Message)"
+    }
+}
+if ($failures.Count -gt 0) { throw ($failures -join [Environment]::NewLine) }
 Write-Host 'BR local network proof passed: placements, owner records, active-round departure, and countdown rejoin.'

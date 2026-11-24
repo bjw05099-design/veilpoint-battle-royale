@@ -27,8 +27,10 @@ bool VerifyApronContact(UWorld* World)
         const FVector Point(X, VPFooting::ApronY, 0.);
         const FVector Up(0., 0., 30.);
         FHitResult Floor;
-        return Harbor->Ground->LineTraceComponent(Floor, Map.TransformPosition(Point + Up),
-            Map.TransformPosition(Point - Up), Query) && AVPWorldBootstrap::IsWetApronContact(Floor) == bExpectedWet;
+        return World->LineTraceSingleByChannel(Floor, Map.TransformPosition(Point + Up),
+            Map.TransformPosition(Point - Up), ECC_Visibility, Query)
+            && Floor.GetComponent() == Harbor->Ground.Get()
+            && AVPWorldBootstrap::IsWetApronContact(Floor) == bExpectedWet;
     };
     return Sample(VPFooting::ApronX, true)
         && Sample(VPFooting::ApronX + VPFooting::HalfWidth + 100., false)
