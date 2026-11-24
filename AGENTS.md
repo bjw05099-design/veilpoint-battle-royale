@@ -16,6 +16,14 @@
   Count map production separately, including shared terrain and collision.
   Count stabilization under the area being improved. Follow explicit session
   scope while keeping this allocation for ongoing development.
+- Prioritize reusable Unreal foundations within that allocation: maps, textures
+  and materials, character animation, physics and collision, and gameplay
+  weapon and combat systems. Author dialogue, cinematics, objectives, branches
+  and encounter placements as chapter content layered on those foundations.
+  Keep checkpoint identifiers stable and preserve or migrate old saves when
+  progression changes. Validate the separation in a playable chapter by
+  changing a story beat and checking the reused assets, gameplay and saves.
+  See [story-first development plan](docs/STORY_FIRST_RELEASE_PLAN.md#reusable-foundations-and-chapter-content).
 - Use [the model work allocation guide](docs/MODEL_WORK_ALLOCATION.md) when
   choosing or scoping development work. Use the model and reasoning level
   selected for the session when available. Use Sol 6.2 High as the default
