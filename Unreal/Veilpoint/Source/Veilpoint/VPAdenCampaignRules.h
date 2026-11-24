@@ -39,6 +39,12 @@ constexpr EReach ReachWithoutTrace(double HorizontalSq, double HeightDelta, doub
     return EReach::Ready;
 }
 
+constexpr double AdvanceOperation(double Progress, double Delta, double Duration)
+{
+    const double Next = Progress + (Delta > 0. ? Delta : 0.);
+    return Next < Duration ? Next : Duration;
+}
+
 constexpr double RecoveryOffset(double Requested, double SegmentLength)
 {
     return Requested < SegmentLength ? Requested : SegmentLength;

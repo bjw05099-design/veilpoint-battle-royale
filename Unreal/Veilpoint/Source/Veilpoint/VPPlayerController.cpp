@@ -2,11 +2,14 @@
 #include "VPCharacter.h"
 #include "VPGameMode.h"
 #include "VPGameState.h"
+#include "VPWorldBootstrap.h"
+#include "VPZone.h"
 #include "EngineUtils.h"
 #include "VPStoryGameState.h"
 #include "VPStoryGameMode.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenAtlasProjection.h"
+#include "VPAdenMapBookmarks.h"
 #include "VPAdenSourceWorld.h"
 #include "VPFootingRules.h"
 #include "VPHUD.h"
@@ -73,6 +76,7 @@ void AVPPlayerController::Tick(float DeltaSeconds)
     TickVisualSmoke();
     TickStoryFeedback();
     TickAdenAudio();
+    if (!bAdenPinsLoaded && IsLocalController() && GetNetMode() == NM_Standalone) LoadAdenPins();
     TickBRDiagnostic();
 }
 
@@ -404,6 +408,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
     InputComponent->BindKey(EKeys::Home, IE_Pressed, this, &AVPPlayerController::RecenterAdenAtlas);
     InputComponent->BindKey(EKeys::P, IE_Pressed, this, &AVPPlayerController::PlaceAdenPin);
+    InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AVPPlayerController::CycleAdenPin);
     InputComponent->BindKey(EKeys::Delete, IE_Pressed, this, &AVPPlayerController::ClearAdenPin);
     InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &AVPPlayerController::QuickSaveAden);
     InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &AVPPlayerController::QuickRecoverAden);
@@ -523,7 +528,7 @@ void AVPPlayerController::PlaceAdenPin()
     if (!Source) return;
     const auto Point = VPAdenAtlas::Centre(AdenFieldCrop(*State, GetPawn()->GetActorLocation()));
     FVector Floor;
-    if (Source->TraceAtlasGround(Point, Floor)) AdenPin = Floor;
+    if (Source->TraceAtlasGround(Point, Floor)) SetAdenPin(TOptional<FVector>(Floor));
 }
 
 bool AVPPlayerController::PlaceAdenPinAtPixel(FVector2D Pixel, int32 Width, int32 Height)
@@ -537,13 +542,110 @@ bool AVPPlayerController::PlaceAdenPinAtPixel(FVector2D Pixel, int32 Width, int3
     FVector Floor;
     if (!VPAdenAtlas::PointAtPixel(VPAdenAtlas::ScreenMap(View, Width, Height), View, {Pixel.X, Pixel.Y}, Point)
         || !Source->TraceAtlasGround(Point, Floor)) return false;
-    AdenPin = Floor;
+    return SetAdenPin(TOptional<FVector>(Floor));
+}
+
+namespace
+{
+FString LocalAdenBookmarkSlot(int64 Generation)
+{
+    const TCHAR* Name = TEXT("aden-field-bookmarks");
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("VPAdenSmoke"))) Name = UVPAdenMapBookmarks::DiagnosticSlot;
+#endif
+    return FString(Name) + (Generation % 2 == 0 ? TEXT("-a") : TEXT("-b"));
+}
+}
+
+void AVPPlayerController::LoadAdenPins()
+{
+    if (!GetWorld()) return;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    const auto* Source = State ? State->Source.Get() : nullptr;
+    if (!Source || !IsLocalController() || GetNetMode() != NM_Standalone) return;
+    bAdenPinsLoaded = true;
+    for (auto& Pin : AdenPins) Pin.Reset();
+    SelectedAdenPin = 0;
+    AdenPinGeneration = 0;
+    const UVPAdenMapBookmarks* Best = nullptr;
+    for (int32 Candidate = 0; Candidate < 2; ++Candidate)
+    {
+        const FString Slot = LocalAdenBookmarkSlot(Candidate);
+        if (!UGameplayStatics::DoesSaveGameExist(Slot, 0)) continue;
+        const auto* Bookmarks = Cast<UVPAdenMapBookmarks>(UGameplayStatics::LoadGameFromSlot(Slot, 0));
+        if (!Bookmarks || Bookmarks->Version != UVPAdenMapBookmarks::CurrentVersion
+            || Bookmarks->SourceRevision != Source->Revision() || Bookmarks->Pins.Num() > VPAdenAtlas::BookmarkLimit
+            || Bookmarks->Generation <= 0 || Bookmarks->Generation % 2 != Candidate) continue;
+        if (!Best || Bookmarks->Generation > Best->Generation) Best = Bookmarks;
+    }
+    if (!Best) return;
+    AdenPinGeneration = Best->Generation;
+    for (const auto& Pin : Best->Pins)
+    {
+        const auto Point = VPAdenAtlas::FPoint{Pin.Position.X, Pin.Position.Y};
+        if (!VPAdenAtlas::IsBookmarkSlot(Pin.Slot) || AdenPins[Pin.Slot].IsSet()) continue;
+        FVector Ground;
+        if (Source->TraceAtlasGround(Point, Ground)) AdenPins[Pin.Slot] = Ground;
+    }
+    if (VPAdenAtlas::IsBookmarkSlot(Best->SelectedSlot)) SelectedAdenPin = Best->SelectedSlot;
+}
+
+bool AVPPlayerController::SaveAdenPins()
+{
+    const auto* State = GetWorld() ? GetWorld()->GetGameState<AVPAdenStoryState>() : nullptr;
+    const auto* Source = State ? State->Source.Get() : nullptr;
+    if (!Source || !IsLocalController() || GetNetMode() != NM_Standalone || AdenPinGeneration == MAX_int64) return false;
+    auto* Bookmarks = NewObject<UVPAdenMapBookmarks>();
+    Bookmarks->Generation = AdenPinGeneration + 1;
+    Bookmarks->SourceRevision = Source->Revision();
+    Bookmarks->SelectedSlot = SelectedAdenPin;
+    for (int32 Id = 0; Id < VPAdenAtlas::BookmarkLimit; ++Id)
+    {
+        const auto& Pin = AdenPins[Id];
+        if (!Pin.IsSet()) continue;
+        auto& Entry = Bookmarks->Pins.AddDefaulted_GetRef();
+        Entry.Slot = Id;
+        Entry.Position = FVector2D(Pin->X, Pin->Y);
+    }
+
+    // Write the alternate slot first, keeping the last verified pins available
+    // if the write is interrupted or the disk later returns a damaged entry.
+    const FString Slot = LocalAdenBookmarkSlot(Bookmarks->Generation);
+    TArray<uint8> Bytes, Checked;
+    if (!UGameplayStatics::SaveGameToMemory(Bookmarks, Bytes) || !UGameplayStatics::SaveDataToSlot(Bytes, Slot, 0)
+        || !UGameplayStatics::LoadDataFromSlot(Checked, Slot, 0) || Bytes != Checked) return false;
+    AdenPinGeneration = Bookmarks->Generation;
     return true;
+}
+
+bool AVPPlayerController::SetAdenPin(const TOptional<FVector>& Pin)
+{
+    if (!bAdenPinsLoaded) LoadAdenPins();
+    if (!bAdenPinsLoaded) return false;
+    auto& Value = AdenPins[SelectedAdenPin];
+    const auto Previous = Value;
+    Value = Pin;
+    if (SaveAdenPins()) return true;
+    Value = Previous;
+    ShowLocalNotice(TEXT("Could not save the map pin."));
+    return false;
+}
+
+void AVPPlayerController::CycleAdenPin()
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1) return;
+    if (!bAdenPinsLoaded) LoadAdenPins();
+    if (!bAdenPinsLoaded) return;
+    const int32 Previous = SelectedAdenPin;
+    SelectedAdenPin = (SelectedAdenPin + 1) % VPAdenAtlas::BookmarkLimit;
+    if (SaveAdenPins()) return;
+    SelectedAdenPin = Previous;
+    ShowLocalNotice(TEXT("Could not save the selected pin slot."));
 }
 
 void AVPPlayerController::ClearAdenPin()
 {
-    if (!bDesktopMenuOpen) AdenPin.Reset();
+    if (!bDesktopMenuOpen && GetAdenPin().IsSet()) SetAdenPin({});
 }
 
 bool AVPPlayerController::GetAdenRoutePreview(const AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const
@@ -780,6 +882,13 @@ void AVPPlayerController::TickBRDiagnostic()
     else if (State->bRoundComplete && State->JoinedPlayers == 2 && State->ReadyPlayers == 2
         && bBRObservedCancellation && bRoundReady && !bBRProofPrinted && LocalBRPawn->GetRoundReview().Num() >= 2)
     {
+        FBox2D Bounds(ForceInit);
+        TArray<FBox2D> Buildings;
+        TActorIterator<AVPWorldBootstrap> Overview(GetWorld());
+        TActorIterator<AVPZone> Zone(GetWorld());
+        if (!Overview || !Zone || !Overview->GetPublicOverview(Bounds, Buildings)
+            || !Bounds.GetSize().Equals(FVector2D(35000., 35000.), 1.) || Zone->Radius <= 0.f) return;
+        UE_LOG(LogTemp, Display, TEXT("VPBR_FIELD_MAP_PASS: local public geometry and replicated zone (%d blocks)"), Buildings.Num());
         if (GetNetMode() == NM_Client)
         {
             int32 Others = 0;

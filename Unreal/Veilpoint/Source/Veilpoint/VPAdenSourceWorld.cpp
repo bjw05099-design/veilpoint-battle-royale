@@ -1,6 +1,8 @@
 #include "VPAdenSourceWorld.h"
 
 #include "Components/BoxComponent.h"
+#include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -1133,19 +1135,73 @@ void AVPAdenSourceWorld::CreateRescueProps()
     CrossingLight->RegisterComponent();
 }
 
-void AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised)
+bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised)
 {
-    if (!RescueBarriers.IsValidIndex(Slot)) return;
+    if (!RescueBarriers.IsValidIndex(Slot)) return false;
     auto* Bar = RescueBarriers[Slot].Get();
-    if (bVisible)
+    if (!bVisible)
+    {
+        Bar->SetVisibility(false);
+        Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        return true;
+    }
+
+    auto& Anchor = BarrierAnchors[Slot];
+    const bool bSameAnchor = Anchor.bValid && Anchor.Start == Start && Anchor.Next == Next;
+    if (!bSameAnchor)
     {
         const FVector Direction = (Next - Start).GetSafeNormal2D();
-        FVector Pivot = Start + Direction * 85.;
-        TraceStoryGround(Pivot, Pivot);
-        Bar->SetWorldLocationAndRotation(Pivot + FVector(0., 0., 58. + 244. * Raised), Direction.Rotation());
+        FVector Ground;
+        if (Direction.IsNearlyZero() || !TraceStoryGround(Start + Direction * 85., Ground)) return false;
+        Anchor = {Start, Next, Ground, Direction.Rotation(), true};
     }
-    Bar->SetVisibility(bVisible);
-    Bar->SetCollisionEnabled(bVisible && Raised < 1.f ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+    const FVector Destination = Anchor.Floor + FVector(0., 0., 58. + 244. * FMath::Clamp(Raised, 0.f, 1.f));
+    const auto Collision = Raised < 1.f ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision;
+    const bool bContinuous = bSameAnchor && Bar->IsVisible();
+    const bool bMoves = !Bar->GetComponentLocation().Equals(Destination, .01);
+    if (bContinuous && !bMoves && Bar->GetCollisionEnabled() == Collision) return true;
+    const FCollisionShape Shape = FCollisionShape::MakeBox(StationMesh->GetBounds().BoxExtent * Bar->GetComponentTransform().GetScale3D().GetAbs());
+    const FQuat Rotation = Anchor.Facing.Quaternion();
+    const FCollisionObjectQueryParams Bodies(ECC_Pawn);
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenLiftClearance), false, this);
+    if (GetWorld()->OverlapAnyTestByObjectType(Destination, Rotation, Bodies, Shape, Query)) return false;
+    FHitResult BlockingBody;
+    if (bContinuous && bMoves && GetWorld()->SweepSingleByObjectType(BlockingBody,
+        Bar->GetComponentLocation(), Destination, Rotation, Bodies, Shape, Query)) return false;
+    Bar->SetWorldLocationAndRotation(Destination, Anchor.Facing);
+    Bar->SetVisibility(true);
+    Bar->SetCollisionEnabled(Collision);
+    return true;
+}
+
+bool AVPAdenSourceWorld::VerifyRescueBarrierClearance(const FVector& Start, const FVector& Next)
+{
+#if !UE_BUILD_SHIPPING
+    if (!SetRescueBarrier(0, true, Start, Next, 0.f)) return false;
+    const auto* Bar = RescueBarriers[0].Get();
+    const FVector Closed = Bar->GetComponentLocation();
+    auto* Obstacle = GetWorld()->SpawnActor<AActor>();
+    if (!Obstacle) return false;
+    auto* Body = NewObject<UBoxComponent>(Obstacle);
+    Obstacle->AddInstanceComponent(Body);
+    Obstacle->SetRootComponent(Body);
+    Body->SetMobility(EComponentMobility::Movable);
+    Body->SetBoxExtent(FVector(16., 16., 16.));
+    Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    Body->SetCollisionObjectType(ECC_Pawn);
+    Body->SetCollisionResponseToAllChannels(ECR_Block);
+    Body->RegisterComponent();
+    Body->SetWorldLocation(Closed + FVector(0., 0., 122.));
+    const bool bHeld = !SetRescueBarrier(0, true, Start, Next, 1.f) && Bar->GetComponentLocation() == Closed
+        && IsRescueBarrierBlocking(0);
+    Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Obstacle->Destroy();
+    const bool bReleased = SetRescueBarrier(0, true, Start, Next, 1.f) && !IsRescueBarrierBlocking(0);
+    const bool bClosed = SetRescueBarrier(0, true, Start, Next, 0.f) && IsRescueBarrierBlocking(0);
+    return bHeld && bReleased && bClosed;
+#else
+    return false;
+#endif
 }
 
 void AVPAdenSourceWorld::SetCrossingLight(const FVector& Signal, bool bOn, bool bFading)

@@ -6,6 +6,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
+#include "Engine/StaticMesh.h"
 #include "Math/RandomStream.h"
 #include "Materials/MaterialInterface.h"
 
@@ -49,6 +50,27 @@ void AVPWorldBootstrap::AddBlock(UInstancedStaticMeshComponent* Comp,FVector Pos
 {
     if(Comp)Comp->AddInstance(FTransform(FRotator::ZeroRotator,Position,Scale));
 }
+bool AVPWorldBootstrap::GetPublicOverview(FBox2D& Bounds, TArray<FBox2D>& Footprints) const
+{
+    FTransform Terrain, Block;
+    if (!Ground || !Buildings || !Ground->GetStaticMesh() || !Buildings->GetStaticMesh()
+        || Buildings->GetInstanceCount() == 0 || !Ground->GetInstanceTransform(0, Terrain, true)) return false;
+    const FBox GroundBox = Ground->GetStaticMesh()->GetBounds().GetBox().TransformBy(Terrain);
+    if (GroundBox.GetSize().X <= 0. || GroundBox.GetSize().Y <= 0.) return false;
+    Bounds = FBox2D(FVector2D(GroundBox.Min), FVector2D(GroundBox.Max));
+    const FBox BuildingBox = Buildings->GetStaticMesh()->GetBounds().GetBox();
+    Footprints.Reset(Buildings->GetInstanceCount());
+    for (int32 Id = 0; Id < Buildings->GetInstanceCount(); ++Id)
+    {
+        if (!Buildings->GetInstanceTransform(Id, Block, true)) continue;
+        const FBox WorldBox = BuildingBox.TransformBy(Block);
+        const FVector2D Min(FMath::Max(WorldBox.Min.X, Bounds.Min.X), FMath::Max(WorldBox.Min.Y, Bounds.Min.Y));
+        const FVector2D Max(FMath::Min(WorldBox.Max.X, Bounds.Max.X), FMath::Min(WorldBox.Max.Y, Bounds.Max.Y));
+        if (Max.X > Min.X && Max.Y > Min.Y) Footprints.Emplace(Min, Max);
+    }
+    return !Footprints.IsEmpty();
+}
+
 bool AVPWorldBootstrap::IsWetApronContact(const FHitResult& Hit)
 {
     const auto* Harbor = Cast<AVPWorldBootstrap>(Hit.GetActor());

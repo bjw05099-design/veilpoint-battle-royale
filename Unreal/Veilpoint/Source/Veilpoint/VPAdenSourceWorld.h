@@ -62,9 +62,10 @@ public:
     bool TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Ground) const;
     FVector Station(int32 Index) const;
     const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
-    void SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);
+    bool SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);
     void SetCrossingLight(const FVector& Signal, bool bOn, bool bFading);
     bool IsRescueBarrierBlocking(int32 Slot) const;
+    bool VerifyRescueBarrierClearance(const FVector& Start, const FVector& Next);
     UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
     int32 VisitAtlasLines(VPAdenAtlas::FExtent View, TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const;
     void ShowFieldStation(int32 Slot, bool bVisible, const FVector& Point, const FVector& Direction);
@@ -130,6 +131,15 @@ private:
     TArray<TObjectPtr<UStaticMeshComponent>> FieldStationParts;
     UPROPERTY(Transient)
     TArray<TObjectPtr<UStaticMeshComponent>> RescueBarriers;
+    struct FBarrierAnchor
+    {
+        FVector Start = FVector::ZeroVector;
+        FVector Next = FVector::ZeroVector;
+        FVector Floor = FVector::ZeroVector;
+        FRotator Facing = FRotator::ZeroRotator;
+        bool bValid = false;
+    };
+    FBarrierAnchor BarrierAnchors[4];
     UPROPERTY(Transient)
     TObjectPtr<UPointLightComponent> CrossingLight;
     UPROPERTY(Transient)

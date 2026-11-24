@@ -87,6 +87,9 @@ int main()
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);
 
+    static_assert(VPAdenCampaign::AdvanceOperation(1., .25, 2.) == 1.25);
+    static_assert(VPAdenCampaign::AdvanceOperation(1., 2., 2.) == 2.);
+    static_assert(VPAdenCampaign::AdvanceOperation(1., -.5, 2.) == 1.);
     static_assert(VPAdenCampaign::RecoveryOffset(300., 225.) == 225.);
     static_assert(VPAdenCampaign::RecoveryOffset(150., 900.) == 150.);
     using VPAdenCampaign::EReach;

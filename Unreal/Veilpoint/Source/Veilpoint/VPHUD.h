@@ -33,6 +33,12 @@ private:
     float DrawAdenSubtitle(const FString& Line, float Bottom, float Left, float Width, float Scale,
         const FLinearColor& Plate, const FLinearColor& Ink);
     void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
+    void DrawBRFieldMap(const class AVPCharacter& Pawn, const AVPZone& Zone, float Scale);
+    bool bBRFieldMapOpen = false;
+    TWeakObjectPtr<class AVPWorldBootstrap> BRPublicWorld;
+    FBox2D BRMapBounds{ForceInit};
+    TArray<FBox2D> BRMapBuildings;
+    double NextBRWorldSearch = 0.;
     TWeakObjectPtr<class AVPAdenSourceWorld> AdenStrokeSource;
     VPAdenAtlas::FExtent AdenStrokeExtent{};
     TArray<FVPAdenAtlasLine> AdenRoadStrokes;

@@ -527,6 +527,7 @@ void AVPHUD::DrawHUD()
     const bool bReviewAvailable = RoundState && RoundState->bRoundComplete;
     if (bReviewAvailable)
     {
+        bBRFieldMapOpen = false;
         if (PlayerOwner->WasInputKeyJustPressed(EKeys::M))
         {
             bRoundReviewOpen = !bRoundReviewOpen;
@@ -620,6 +621,9 @@ void AVPHUD::DrawHUD()
         return;
     }
 
+    if (PlayerOwner->WasInputKeyJustPressed(EKeys::M))
+        bBRFieldMapOpen = !bBRFieldMapOpen;
+
     AVPZone* Zone = CachedZone.Get();
     if (!Zone && GetWorld())
     {
@@ -655,6 +659,11 @@ void AVPHUD::DrawHUD()
         DrawText(TEXT("OUTSIDE THE SAFE AREA"),
                  FLinearColor(.96f,.58f,.44f,1.f),
                  X, Y + 170.f * Scale, nullptr, Scale, false);
+    if (bBRFieldMapOpen)
+        DrawBRFieldMap(*Pawn, *Zone, Scale);
+    else
+        DrawText(TEXT("M  MAP"), FLinearColor(.78f, .86f, .88f),
+            X + 390.f * Scale, Y + 144.f * Scale, nullptr, .76f * Scale);
 }
 
 void AVPHUD::DrawLiveFrameTelemetry(float Scale, float X)
@@ -887,7 +896,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     };
     if (bPending)
     {
-        const bool bPromptAvailable = *SceneBeat.Prompt && !Aden->bOperating && !Aden->bChoosing
+        const bool bPromptAvailable = *SceneBeat.Prompt && !Aden->bOperating && !Aden->bOperationObstructed && !Aden->bChoosing
             && (!bEncounter || Aden->ContactsRemaining == 0);
         const auto Reach = bPromptAvailable ? AVPAdenStoryState::InspectReach(Pawn, Aden->Objective) : EReach::Unavailable;
         const FString Prompt = Reach == EReach::Ready ? FString::Printf(TEXT("[F] %s"), SceneBeat.Prompt) : FString();
@@ -924,7 +933,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 FString::Printf(TEXT("PIN  %.0f m"), DistanceMetres));
     }
 
-    if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bHasEscort || bEncounter)
+    if (Aden->WindowSeconds >= 0 || Aden->bOperating || Aden->bOperationObstructed || Aden->bHasEscort || bEncounter)
     {
         const float StatusY = Top + (bStatusOpen ? 164.f : 100.f) * Scale;
         const float StatusWidth = 350.f * Scale;
@@ -932,11 +941,13 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         FString Status;
         if (Aden->bOperating)
         {
-            Status = TEXT("Keep facing the mechanism");
+            Status = Aden->bOperationObstructed ? TEXT("Step clear of the lifting path") : TEXT("Keep facing the mechanism");
             DrawRect(FLinearColor(.13f, .19f, .20f), Left + 12.f * Scale, StatusY + 33.f * Scale, StatusWidth - 24.f * Scale, 4.f * Scale);
             DrawRect(Assist, Left + 12.f * Scale, StatusY + 33.f * Scale,
                 (StatusWidth - 24.f * Scale) * Aden->OperationFraction, 4.f * Scale);
         }
+        else if (Aden->bOperationObstructed)
+            Status = TEXT("Keep the space under the barrier clear");
         else if (Aden->WindowSeconds >= 0)
             Status = Aden->WindowSeconds > 0 ? FString::Printf(
                 Aden->WindowSeconds <= SignalWarningMs / 1000 ? TEXT("LIGHT FADING  %02d s") : TEXT("CROSSING LIGHT  %02d s"),

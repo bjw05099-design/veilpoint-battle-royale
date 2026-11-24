@@ -40,3 +40,16 @@ test('Unreal match HUD opens the review only after authoritative round completio
   assert.match(review, /bSkip[\s\S]*?VPRoundReview::SkipMs/);
   assert.doesNotMatch(review, /TActorIterator|GetAllActors/);
 });
+
+
+test('native Battle Royale overview displays public world geometry, its zone and only the local player', () => {
+  const body = source('VPBRFieldMap.cpp');
+  const world = source('VPWorldBootstrap.cpp');
+  const controls = source('VPHUD.cpp');
+  assert.match(world, /Ground->GetInstanceTransform\(0, Terrain, true\)[\s\S]*?Buildings->GetInstanceTransform\(Id, Block, true\)/);
+  assert.match(body, /GetPublicOverview\(BRMapBounds, BRMapBuildings\)/);
+  assert.match(body, /Zone\.ZoneCenter[\s\S]*?Zone\.Radius/);
+  assert.match(body, /GetLocalFieldMark[\s\S]*?Pawn\.GetActorLocation\(\)/);
+  assert.doesNotMatch(body, /PlayerArray|TActorIterator<AVPCharacter>|VPPickup/);
+  assert.match(controls, /WasInputKeyJustPressed\(EKeys::M\)[\s\S]*?bBRFieldMapOpen = !bBRFieldMapOpen/);
+});

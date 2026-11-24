@@ -18,7 +18,7 @@ test('Aden field pin is local and samples the sourced playable terrain mesh', ()
   const pin = controller.slice(controller.indexOf('void AVPPlayerController::PlaceAdenPin()'),
     controller.indexOf('bool AVPPlayerController::GetAdenRoutePreview'));
   assert.match(pin, /AdenAtlasPage != 1/);
-  assert.match(pin, /Centre\(AdenFieldCrop[\s\S]*?TraceAtlasGround\(Point, Floor\)\) AdenPin = Floor/);
+  assert.match(pin, /Centre\(AdenFieldCrop[\s\S]*?TraceAtlasGround\(Point, Floor\)\) SetAdenPin\(TOptional<FVector>\(Floor\)\)/);
   assert.doesNotMatch(pin, /TryInteraction|PersistStoryCheckpoint|Server/);
   assert.match(world, /TraceAtlasGround[\s\S]*?Playable\.Contains\(Point\)[\s\S]*?TerrainCollision->LineTraceComponent/);
 });
@@ -50,6 +50,25 @@ test('Aden recovery commits only after a walkable floor sweep and overlap reject
     mode.indexOf('FVector AVPAdenStoryGameMode::GetObjective'));
   assert.match(method, /TraceAtlasGround[\s\S]*?SweepSingleByProfile[\s\S]*?IsPlayableGround[\s\S]*?IsWalkable/);
   assert.match(method, /OverlapBlockingTestByProfile[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
+});
+
+test('Aden bookmarks use their own local slot and reload only against the matching ground revision', () => {
+  const controller = fs.readFileSync(path.join(include, 'VPPlayerController.cpp'), 'utf8');
+  const bookmark = fs.readFileSync(path.join(include, 'VPAdenMapBookmarks.h'), 'utf8');
+  const hud = fs.readFileSync(path.join(include, 'VPAdenHUD.cpp'), 'utf8');
+  assert.match(bookmark, /class UVPAdenMapBookmarks : public USaveGame/);
+  assert.match(controller, /GetNetMode\(\) != NM_Standalone[\s\S]*?Bookmarks->SourceRevision != Source->Revision\(\)/);
+  assert.match(controller, /LoadGameFromSlot\(Slot, 0[\s\S]*?TraceAtlasGround\(Point, Ground\)/);
+  assert.match(controller, /LocalAdenBookmarkSlot\(Bookmarks->Generation\)[\s\S]*?SaveDataToSlot\(Bytes, Slot, 0\)[\s\S]*?Bytes != Checked/);
+  assert.match(controller, /if \(SaveAdenPins\(\)\) return true;[\s\S]*?Value = Previous/);
+  assert.match(hud, /GetAdenPinAt\(Id\)[\s\S]*?GetSelectedAdenPin\(\)/);
+});
+
+test('Aden lift rejects an occupied swept path before moving and pauses story progress', () => {
+  const world = fs.readFileSync(path.join(include, 'VPAdenSourceWorld.cpp'), 'utf8');
+  const mode = fs.readFileSync(path.join(include, 'VPAdenStoryGameMode.cpp'), 'utf8');
+  assert.match(world, /OverlapAnyTestByObjectType[\s\S]*?SweepSingleByObjectType[\s\S]*?Destination, Rotation, Bodies, Shape, Query\)\) return false;[\s\S]*?SetWorldLocationAndRotation/);
+  assert.match(mode, /bOperationObstructed = !UpdateRescueProps\(Fraction\);[\s\S]*?if \(!View->bOperationObstructed\)[\s\S]*?OperationProgress = Requested/);
 });
 
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
@@ -114,6 +133,8 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         using namespace VPAdenAtlas;
         assert(Local.Width() == 358400 && Region.Width() == 4096000 && Region.Height() == 3584000);
         assert(Playable.Width() == 512000 && Playable.Height() == 358400);
+        static_assert(BookmarkLimit == 3 && IsBookmarkSlot(0) && IsBookmarkSlot(2));
+        static_assert(!IsBookmarkSlot(-1) && !IsBookmarkSlot(3));
         {
           const auto view = Crop(Playable, Centre(Playable), 2);
           const auto hd = ScreenMap(view, 1440, 900);

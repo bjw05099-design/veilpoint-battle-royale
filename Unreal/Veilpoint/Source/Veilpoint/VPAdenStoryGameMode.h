@@ -35,6 +35,7 @@ public:
     VPAdenPrologue::FFrame OpeningFrame;
     bool bChoosing = false;
     bool bOperating = false;
+    bool bOperationObstructed = false;
     bool bEscortWaiting = false;
     bool bEscortArrived = false;
     bool bHasEscort = false;
@@ -118,7 +119,7 @@ private:
     void ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoint);
     void EnterBeat(VPAdenCampaign::FProgress Next);
     void PublishScene();
-    void UpdateRescueProps(float OperationFraction);
+    bool UpdateRescueProps(float OperationFraction);
     void SetDialogue(const TCHAR* Line);
     void EnsureEscort(AVPCharacter* Pawn);
     void UpdateOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn, float DeltaSeconds);
@@ -174,6 +175,10 @@ private:
     double DialogueUntil = -1.;
     double DialogueStarted = -1.;
     double OperationStarted = -1.;
+    double OperationLastTick = -1.;
+    double OperationProgress = 0.;
+    bool bResettingOperation = false;
+    bool bRescuePlacementPending = false;
     double WindowEndsAt = -1.;
     double NextEscortAttempt = 0.;
     double NextContactAttempt = 0.;
