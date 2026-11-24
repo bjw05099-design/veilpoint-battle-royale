@@ -51,6 +51,9 @@ private:
     void TickBRDiagnostic();
     void TickBRRejoinDiagnostic(const class AVPGameState& State, double Now);
     void ToggleRoundReady();
+    void ToggleRoundLoadout();
+    UFUNCTION(Server, Reliable)
+    void ServerSetRoundLoadout(bool bUseCompact);
     UFUNCTION(Server, Reliable)
     void ServerSetRoundReady(bool bReady);
     UPROPERTY(Replicated)
@@ -58,6 +61,8 @@ private:
     bool bRequestedRoundReady = false;
     double RoundReadyRequestExpiresAt = 0.;
     bool bBRObservedLobby = false;
+    bool bBRLoadoutTestRequested = false;
+    bool bBRLoadoutLockTestRequested = false;
     bool bBRReadyRequested = false;
     bool bBRObservedCountdown = false;
     bool bBRRequestedCancel = false;

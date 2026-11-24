@@ -506,8 +506,8 @@ void AVPHUD::DrawHUD()
     // Finite supplies stay visible without opening a menu; this is the
     // currently replicated pawn inventory, not an inferred client cache.
     const FString SupplyLabel = FString::Printf(
-        TEXT("SUPPLIES  %d / %d"), FMath::Clamp(Pawn->Charges, 0, VPWeaponRules::Prototype.AmmunitionLimit),
-        VPWeaponRules::Prototype.AmmunitionLimit);
+        TEXT("SUPPLIES  %d / %d"), FMath::Clamp(Pawn->Charges, 0, Pawn->GetWeaponProfile().AmmunitionLimit),
+        Pawn->GetWeaponProfile().AmmunitionLimit);
     DrawText(SupplyLabel, FLinearColor::White,
              X, Y + 91.f * Scale, nullptr, .8f * Scale, false);
 
@@ -579,6 +579,9 @@ void AVPHUD::DrawHUD()
             DrawText(bPendingReady ? TEXT("Confirming ready status...")
                 : bReady ? TEXT("ENTER  Cancel ready") : TEXT("ENTER  Ready"),
                 FLinearColor(.73f,.89f,.84f), X, Y + 175.f * Scale, nullptr, .78f * Scale);
+            const FString Kit = FString::Printf(TEXT("%s KIT  |  %s"), Pawn->WeaponKitLabel(),
+                bReady || bPendingReady ? TEXT("LOCKED") : TEXT("V  SWITCH"));
+            DrawText(Kit, FLinearColor(.78f,.86f,.91f), X, Y + 227.f * Scale, nullptr, .76f * Scale);
             const auto LobbyStage = VPBRLobby::Stage(RoundState->JoinedPlayers, RoundState->ReadyPlayers,
                 RoundState->LobbyCountdownEndsAt);
             FString LobbyMessage;
@@ -838,8 +841,11 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(SceneBeat.Objective, Ink, Left + 12.f * Scale, Top + 29.f * Scale, nullptr, 1.07f * Scale);
 
     const FString Distance = bPending
-        ? FString::Printf(TEXT("%.0f m to go   |   M  Route   |   J  Journal   |   F7  Checkpoint"),
-            Guide.SegmentEnd > 0 ? Guide.RemainingCm / 100. : FVector::Dist2D(Position, Aden->Objective) / 100.)
+        ? FString::Printf(Guide.NeedsRejoin()
+            ? TEXT("%.0f m back to route   |   M  Route   |   J  Journal   |   F7  Checkpoint")
+            : TEXT("%.0f m to go   |   M  Route   |   J  Journal   |   F7  Checkpoint"),
+            (Guide.NeedsRejoin() ? Guide.OffsetCm : Guide.SegmentEnd > 0 ? Guide.RemainingCm
+                : FVector::Dist2D(Position, Aden->Objective)) / 100.)
         : FString(TEXT("Campaign complete"));
     DrawText(Distance, Assist, Left + 12.f * Scale, Top + 60.f * Scale, nullptr, .77f * Scale);
     if (bStatusOpen)
@@ -914,8 +920,8 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             else if (Pawn->bReloading) Status = FString::Printf(TEXT("RELOADING %.1f s   |   %.0f HP"),
                 Pawn->ReloadSecondsRemaining(), Pawn->Health);
             else if (Pawn->IsWeaponCooling()) Status = TEXT("WEAPON HOT   |   COOLING");
-            else Status = FString::Printf(TEXT("%s   |   %.0f HP   |   %02d / %02d%s"),
-                Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->Health,
+            else Status = FString::Printf(TEXT("%s   |   %s   |   %.0f HP   |   %02d / %02d%s"),
+                Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->WeaponKitLabel(), Pawn->Health,
                 Pawn->MagazineRounds, Pawn->Charges - Pawn->MagazineRounds,
                 Pawn->MagazineRounds == 0 ? TEXT("   R RELOAD") : TEXT(""));
         }

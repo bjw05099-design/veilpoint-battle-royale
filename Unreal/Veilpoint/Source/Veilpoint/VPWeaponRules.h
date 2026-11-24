@@ -20,6 +20,13 @@ struct FProfile
 // Current fictional test weapon. Each value is gameplay tuning.
 inline constexpr FProfile Prototype{30, 60, 2.15, 2.6, .22, 11000., 4000., 45.f, 30.f, .125f, .18f, .45f};
 
+inline constexpr FProfile Compact{18, 48, 1.65, 2.05, .25, 8500., 2800., 42.f, 24.f, .15f, .23f, .40f};
+
+constexpr const FProfile& Profile(bool CompactKit)
+{
+    return CompactKit ? Compact : Prototype;
+}
+
 constexpr bool Coherent(const FProfile& Profile, int Total, int Magazine)
 {
     return Total >= 0 && Total <= Profile.AmmunitionLimit

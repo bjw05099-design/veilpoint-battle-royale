@@ -101,11 +101,14 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
 
     const bool bEmpty = MagazineRounds == 0;
     const double Phase = bReloading ? 1. - double(ReloadSecondsRemaining()) /
-        VPWeaponRules::ReloadDuration(VPWeaponRules::Prototype, MagazineRounds) : -1.;
+        VPWeaponRules::ReloadDuration(GetWeaponProfile(), MagazineRounds) : -1.;
     float ShotPulse = 0.f;
     GetShotCue(ShotPulse);
     const auto Pose = VPWeaponView::Pose(Phase, bEmpty, bSprinting, ShotPulse);
     const FVector Position = FMath::Lerp(Rest, RaisedSight, SightBlend);
+    const FVector KitScale = bCompactKit ? FVector(.82, 1., 1.) : FVector::OneVector;
+    if (WeaponViewRoot->GetRelativeScale3D() != KitScale)
+        WeaponViewRoot->SetRelativeScale3D(KitScale);
     WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
         0., -Pose.Lower - 9. * ObstructionBlend));
     WeaponViewRoot->SetRelativeRotation(FRotator(1.5 * ShotPulse - 22. * ObstructionBlend, 0., Pose.Roll));

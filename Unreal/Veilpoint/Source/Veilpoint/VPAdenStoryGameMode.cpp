@@ -7,6 +7,8 @@
 #include "VPAdenContact.h"
 #include "VPAdenPrologue.h"
 #include "VPAdenSourceWorld.h"
+#include "VPAdenDispatch.h"
+#include "VPFootingRules.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
 #include "VPLastBroadcastEscort.h"
@@ -412,7 +414,8 @@ void AVPAdenStoryGameMode::PrepareEncounter(AVPCharacter* Pawn, double Now)
         Contacts.Add(Contact);
     }
     Pawn->Health = 100.f;
-    Pawn->ResetEncounterWeapon(18, 12);
+    const bool bClinicKit = UsesCompactAtEncounter(Progress);
+    Pawn->SetWeaponLoadout(bClinicKit, 18, bClinicKit ? 9 : 12);
 }
 
 bool AVPAdenStoryGameMode::UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now)
@@ -812,12 +815,20 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
     const FVector Up(0., 0., 60000.);
     double MaxRise = 0., PreviousHeight = 0.;
     int32 Checked = 0;
+    bool bGradeDirectionsVerified = true;
     for (int32 Step = 0; Step <= Steps; ++Step)
     {
         const FVector P = Start - FVector(Step * 100., 0., 0.);
         FHitResult Ground;
         if (!GetWorld()->LineTraceSingleByChannel(Ground, P + Up, P - Up, ECC_Visibility, Query)
             || !Source->IsPlayableGround(Ground) || !Pawn->GetCharacterMovement()->IsWalkable(Ground)) break;
+        const FVector Normal = Ground.ImpactNormal;
+        const float Westbound = VPFooting::AdenGradeScale(true, Normal.X, Normal.Y, Normal.Z, -1., 0.);
+        const float Eastbound = VPFooting::AdenGradeScale(true, Normal.X, Normal.Y, Normal.Z, 1., 0.);
+        bGradeDirectionsVerified &= Westbound >= .78f && Westbound <= 1.06f
+            && Eastbound >= .78f && Eastbound <= 1.06f
+            && (Westbound == 1.f) == (Eastbound == 1.f)
+            && (Westbound == 1.f || ((Westbound < 1.f) != (Eastbound < 1.f)));
         const double Above = Pawn->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 14.;
         const FVector Position = Ground.ImpactPoint + FVector(0., 0., Above);
         if (Step == 0)
@@ -872,7 +883,8 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
     DiagnosticReport->SetNumberField(TEXT("westCapsuleSweepMetres"), FMath::Max(0, Checked - 1));
     DiagnosticReport->SetNumberField(TEXT("westMaxRiseCmPerMetre"), MaxRise);
     DiagnosticReport->SetBoolField(TEXT("westFieldMapVerified"), bMapVerified);
-    return Checked == Steps + 1 && bRendered && bMapVerified && bRestored;
+    DiagnosticReport->SetBoolField(TEXT("westGradeDirectionsVerified"), bGradeDirectionsVerified && Checked == Steps + 1);
+    return Checked == Steps + 1 && bRendered && bMapVerified && bRestored && bGradeDirectionsVerified;
 }
 
 void AVPAdenStoryGameMode::RunDiagnostic()
@@ -1090,7 +1102,26 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         return SweepDiagnosticLeg(Pawn, Start, Near);
     };
     PrepareEncounter(Pawn, Now);
-    if (StandingContacts() != Expected || !CanFireInEncounter(Pawn) || !Approach()) return false;
+    const bool bExpectedCompact = Progress.Beat == Pickup && Progress.Route == Clinic;
+    if (StandingContacts() != Expected || !CanFireInEncounter(Pawn) || !Approach()
+        || Pawn->UsesCompactKit() != bExpectedCompact || Pawn->Charges != 18
+        || Pawn->MagazineRounds != (bExpectedCompact ? 9 : 12)) return false;
+    if (Progress.Beat == Pickup)
+    {
+        if (bExpectedCompact && !DiagnosticReport->HasField(TEXT("campaignCompactKitVerified")))
+        {
+            if (!ReturnToCheckpoint(Pawn) || !Contacts.IsEmpty()) return false;
+            PrepareEncounter(Pawn, Now);
+            if (!Pawn->UsesCompactKit() || Pawn->MagazineRounds != 9 || StandingContacts() != Expected || !Approach())
+                return false;
+            Pawn->RequestReload();
+            if (!Pawn->bReloading || !FMath::IsNearlyEqual(double(Pawn->ReloadSecondsRemaining()),
+                VPWeaponRules::Compact.PartialReloadSeconds, .01)) return false;
+            Pawn->ResetEncounterWeapon(18, 9);
+        }
+        DiagnosticReport->SetBoolField(bExpectedCompact ? TEXT("campaignCompactKitVerified")
+            : TEXT("campaignPatrolKitVerified"), true);
+    }
 
     if (!DiagnosticReport->HasField(TEXT("campaignLiveShotVerified")))
     {
@@ -1106,7 +1137,7 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         const int32 Loaded = Pawn->MagazineRounds;
         const auto ReloadMatches = [&]()
         {
-            const double Duration = VPWeaponRules::ReloadDuration(VPWeaponRules::Prototype, Pawn->MagazineRounds);
+            const double Duration = VPWeaponRules::ReloadDuration(Pawn->GetWeaponProfile(), Pawn->MagazineRounds);
             Pawn->RequestReload();
             return Pawn->bReloading && FMath::IsNearlyEqual(double(Pawn->ReloadSecondsRemaining()), Duration, .01);
         };
@@ -1283,6 +1314,16 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                     const FVector FirstEnd = Source->CampaignLeg(First).Last(), SecondEnd = Source->CampaignLeg(Second).Last();
                     const auto Crop = Desktop->AdenFieldCrop(*View, Pawn->GetActorLocation());
                     if (FirstEnd.Equals(SecondEnd) || !Crop.Contains({SecondEnd.X, SecondEnd.Y})) return false;
+                    if (Beat == Junction)
+                    {
+                        const auto& RouteLeg = Source->CampaignLeg(Second);
+                        const auto AtStart = VPAdenDispatch::Guide(RouteLeg, RouteLeg[0]);
+                        const auto AtEnd = VPAdenDispatch::Guide(RouteLeg, RouteLeg.Last());
+                        const auto Away = VPAdenDispatch::Guide(RouteLeg, RouteLeg[0] + FVector(0., 60000., 0.));
+                        if (AtStart.NeedsRejoin() || AtStart.RemainingCm <= 0. || AtEnd.RemainingCm > 1.e-3
+                            || !Away.NeedsRejoin()) return false;
+                        DiagnosticReport->SetBoolField(TEXT("fieldRouteDistanceVerified"), true);
+                    }
                     if (Beat == Junction && !CaptureFrame(Desktop, TEXT("aden-route-preview-second"))) return false;
                     Desktop->CycleAdenAtlas();
                     Desktop->CycleAdenAtlas();

@@ -395,6 +395,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AVPPlayerController::MenuActivate).bExecuteWhenPaused = true;
     // Consume the controller click: menu clicks must never also fire the pawn.
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AVPPlayerController::MenuClick).bExecuteWhenPaused = true;
+    InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AVPPlayerController::ToggleRoundLoadout);
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ChooseAdenFirst);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ChooseAdenSecond);
@@ -612,6 +613,23 @@ void AVPPlayerController::MenuRight()
     if (bDesktopMenuOpen) ChangeMenuValue(1);
     else PanAdenAtlas(1., 0.);
 }
+void AVPPlayerController::ToggleRoundLoadout()
+{
+    if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone
+        || bDesktopMenuOpen || IsRoundReady() || IsRoundReadyPending()) return;
+    const auto* State = GetWorld()->GetGameState<AVPGameState>();
+    const auto* Pawn = Cast<AVPCharacter>(GetPawn());
+    if (State && State->bReadyRequired && !State->bRoundStarted && Pawn && Pawn->IsAlive())
+        ServerSetRoundLoadout(!Pawn->UsesCompactKit());
+}
+
+void AVPPlayerController::ServerSetRoundLoadout_Implementation(bool bUseCompact)
+{
+    if (GetWorld())
+        if (auto* Mode = GetWorld()->GetAuthGameMode<AVPGameMode>())
+            Mode->SetLoadoutFromController(this, bUseCompact);
+}
+
 void AVPPlayerController::ToggleRoundReady()
 {
     if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone) return;
@@ -658,10 +676,25 @@ void AVPPlayerController::TickBRDiagnostic()
         bBRObservedLobby = true;
         BRObserveAt = Now;
     }
-    if (bBRObservedLobby && !bBRReadyRequested && !State->bRoundStarted && Now - BRObserveAt >= 1.5)
+    const bool bTestLoadout = GetNetMode() == NM_Client
+        && !FParse::Param(FCommandLine::Get(), TEXT("VPBRDepart"));
+    if (bTestLoadout && bBRObservedLobby && !bBRLoadoutTestRequested)
+    {
+        bBRLoadoutTestRequested = true;
+        ToggleRoundLoadout();
+    }
+    const bool bKitConfirmed = !bTestLoadout || (LocalBRPawn->UsesCompactKit()
+        && LocalBRPawn->MagazineRounds == VPWeaponRules::Compact.MagazineCapacity
+        && LocalBRPawn->Charges == VPWeaponRules::Compact.MagazineCapacity + 18);
+    if (bBRObservedLobby && !bBRReadyRequested && !State->bRoundStarted && Now - BRObserveAt >= 1.5 && bKitConfirmed)
     {
         bBRReadyRequested = true;
         ToggleRoundReady();
+    }
+    if (bTestLoadout && bRoundReady && !bBRLoadoutLockTestRequested)
+    {
+        bBRLoadoutLockTestRequested = true;
+        ServerSetRoundLoadout(false);
     }
     if (!State->bRoundStarted && State->LobbyCountdownEndsAt > 0. && bRoundReady)
     {
@@ -713,7 +746,9 @@ void AVPPlayerController::TickBRDiagnostic()
                 if (!It->GetRoundReview().IsEmpty() || It->GetRoundPlacement() != 0) return;
                 ++Others;
             }
-            if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 1) return;
+            if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 1
+                || !bBRLoadoutLockTestRequested || !bKitConfirmed) return;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_LOADOUT_PASS: owner received the selected kit and kept it after ready"));
             UE_LOG(LogTemp, Display, TEXT("VPBR_CLIENT_PASS: owner-only place #1 and finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + .25;
         }

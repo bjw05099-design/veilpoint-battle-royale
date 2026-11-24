@@ -16,7 +16,8 @@ const interaction=character.slice(character.indexOf('void AVPCharacter::ServerTr
 test('UE5 finite item selection ignores full inventories and unknown legacy resources',()=>{
  assert.match(interaction,/if \(It->bConsumed\) continue/);
  assert.doesNotMatch(interaction,/It->Resource==TEXT\("health"\)/);
- assert.match(interaction,/It->Resource == TEXT\("charges"\) && Charges < VPWeaponRules::Prototype\.AmmunitionLimit/);
+ assert.match(interaction,/GetNetMode\(\) != NM_Standalone[\s\S]*?!Match->bRoundStarted \|\| Match->bRoundComplete[\s\S]*?AVPPickup\* Nearest/);
+ assert.match(interaction,/It->Resource == TEXT\("charges"\) && Charges < GetWeaponProfile\(\)\.AmmunitionLimit/);
  assert.match(interaction,/if \(!bNeedSupplies\) continue/);
  assert.match(interaction,/const float d=FVector::DistSquared/);
  assert.match(interaction,/if \(d>=BestSq\) continue/);

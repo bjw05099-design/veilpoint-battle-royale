@@ -50,6 +50,16 @@ test('wet footing covers the slab boundary and excludes overhead, air and unrela
     'static_assert(!IsWetApron(true, 3500., -4000., 235.));',
     'static_assert(!IsWetApron(true, 3500., -4000., -20.));',
     'static_assert(!IsWetApron(false, 3500., -4000., -5.));',
+    'static_assert(AdenGradeScale(false, -.32, 0., .95, 1., 0.) == 1.f);',
+    'static_assert(AdenGradeScale(true, -.75, 0., .50, 1., 0.) == 1.f);',
+    'static_assert(AdenGradeScale(true, 0., 0., 1., 1., 0.) == 1.f);',
+    'static_assert(AdenGradeScale(true, -.02, 0., .99, 1., 0.) == 1.f);',
+    'static_assert(AdenGradeScale(true, -.32, 0., .95, 0., 1.) == 1.f);',
+    'static_assert(AdenGradeScale(true, -.32, 0., .95, 0., 0.) == 1.f);',
+    'static_assert(AdenGradeScale(true, -.32, 0., .95, 1., 0.) < 1.f);',
+    'static_assert(AdenGradeScale(true, -.32, 0., .95, -1., 0.) > 1.f);',
+    'static_assert(AdenGradeScale(true, -.86, 0., .51, 1., 0.) == .78f);',
+    'static_assert(AdenGradeScale(true, -.86, 0., .51, -1., 0.) == 1.06f);',
     'int main() {}'
    ].join('\n'),encoding:'utf8',timeout:15000
   });

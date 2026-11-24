@@ -27,7 +27,7 @@ test('native finite supplies are consumed only if physical transfer succeeds',()
  assert.match(character,/bool AVPCharacter::CollectResource\(FName Resource\)/);
  assert.match(character,/if \(!HasAuthority\(\) \|\| !IsAlive\(\)\) return false/);
  assert.doesNotMatch(character,/Resource==TEXT\("health"\)/);
- assert.match(character,/Resource == TEXT\("charges"\) && Charges < VPWeaponRules::Prototype\.AmmunitionLimit/);
+ assert.match(character,/Resource == TEXT\("charges"\) && Charges < GetWeaponProfile\(\)\.AmmunitionLimit/);
  assert.match(character,/return false;\s*\}/);
  assert.match(pickup,/if \(!Character->CollectResource\(Resource\)\) return;\s*bConsumed=true;\s*Destroy\(\)/);
  assert.doesNotMatch(pickup,/bConsumed\s*=\s*true;\s*Character->CollectResource\(/);
@@ -37,7 +37,7 @@ test('native world generates valid resource types only with consistent finite di
  assert.match(world,/for\(int32 i=0;i<18;\+\+i\)/);
  assert.match(world,/if\(P\)P->Resource=TEXT\("charges"\)/);
  assert.doesNotMatch(character,/Health=FMath::Min\(100\.f,Health\+45\.f\)/);
- assert.match(character,/Charges = FMath::Min\(VPWeaponRules::Prototype\.AmmunitionLimit, Charges \+ 24\)/);
+ assert.match(character,/Charges = FMath::Min\(GetWeaponProfile\(\)\.AmmunitionLimit, Charges \+ 24\)/);
  assert.match(pickup,/HasAuthority\(\) \|\| bConsumed/);
  assert.match(pickup,/FVector::DistSquared/);
 });

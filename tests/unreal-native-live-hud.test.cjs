@@ -17,8 +17,8 @@ const gameMode=read('VPGameMode.cpp');
 test('UE5 Win64 HUD displays existing finite resources from the replicated pawn',()=>{
  assert.match(character,/DOREPLIFETIME\(AVPCharacter, Charges\)/);
  assert.match(hud,/Pawn->Charges/);
- assert.match(hud,/SUPPLIES  %d \/ %d[\s\S]*?VPWeaponRules::Prototype\.AmmunitionLimit/);
- assert.match(hud,/FMath::Clamp\(Pawn->Charges, 0, VPWeaponRules::Prototype\.AmmunitionLimit\)/);
+ assert.match(hud,/SUPPLIES  %d \/ %d[\s\S]*?Pawn->GetWeaponProfile\(\)\.AmmunitionLimit/);
+ assert.match(hud,/FMath::Clamp\(Pawn->Charges, 0, Pawn->GetWeaponProfile\(\)\.AmmunitionLimit\)/);
  assert.match(hud,/Pawn->GetStaminaRatio\(\)/);
  assert.match(hud,/Pawn->Health/);
  assert.match(gameMode,/HUDClass=AVPHUD::StaticClass\(\)/);

@@ -36,7 +36,8 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
-    $report.fieldPinVerified -ne $true -or
+    $report.fieldPinVerified -ne $true -or $report.fieldRouteDistanceVerified -ne $true -or
+    $report.campaignCompactKitVerified -ne $true -or $report.campaignPatrolKitVerified -ne $true -or
     $report.firstPersonWeaponRigVerified -ne $true -or $report.firstPersonSightVerified -ne $true -or
     $report.routeChoicePreviewVerified -ne $true -or
     $report.relayChoicePreviewVerified -ne $true -or
@@ -66,7 +67,7 @@ if ($report.terrainRenderSectors -ne 70 -or $report.terrainRenderTriangles -ne 3
 }
 if ($report.westGroundSamples -ne 1025 -or $report.westCapsuleSweepMetres -ne 1024 -or
     $report.westMaxRiseCmPerMetre -le 0 -or $report.westMaxRiseCmPerMetre -gt 30 -or
-    $report.westFieldMapVerified -ne $true) {
+    $report.westFieldMapVerified -ne $true -or $report.westGradeDirectionsVerified -ne $true) {
     throw 'Aden west terrain failed the capsule crossing or atlas verification.'
 }
 if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -lt 4865 -or
