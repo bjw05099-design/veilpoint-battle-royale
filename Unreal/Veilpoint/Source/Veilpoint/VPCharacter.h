@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "VPWeaponRules.h"
 #include "VPCharacter.generated.h"
 
 class UCameraComponent;
@@ -59,6 +60,9 @@ public:
     float WeaponHeatRatio() const;
     bool IsWeaponCooling() const;
     void ResetEncounterWeapon(int32 Total, int32 Loaded);
+    bool UsesCompactKit() const { return bCompactKit; }
+    const TCHAR* WeaponKitLabel() const { return bCompactKit ? TEXT("COMPACT") : TEXT("PATROL"); }
+    const VPWeaponRules::FProfile& GetWeaponProfile() const { return VPWeaponRules::Profile(bCompactKit); }
     EVPShotCue GetShotCue(float& Opacity) const;
     bool HasWeaponView() const;
     void BeginSight();
@@ -128,6 +132,11 @@ protected:
     void ClientShotCue(EVPShotCue Cue);
 private:
     friend class AVPAdenStoryGameMode;
+    friend class AVPGameMode;
+    bool SetWeaponLoadout(bool bUseCompact, int32 Total, int32 Loaded);
+    UPROPERTY(Replicated)
+    bool bCompactKit = false;
+    float AdenGradeScale = 1.f;
     void BuildWeaponView();
     void UpdateWeaponView(float DeltaSeconds);
     bool bSightHeld = false;

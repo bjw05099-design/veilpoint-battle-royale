@@ -1,5 +1,7 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponRules.h"
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponViewPose.h"
+#include "../../Unreal/Veilpoint/Source/Veilpoint/VPAdenCampaignRules.h"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 using namespace VPWeaponRules;
@@ -45,6 +47,39 @@ int main()
     assert(!HeatBlocksShot(Prototype, true, CooledHeat(Prototype, Heat, 4.)));
     assert(CooledHeat(Prototype, Heat, 20.) == 0.f);
     assert(!HeatBlocksShot(Prototype, false, Heat));
+
+    assert(&Profile(false) == &Prototype && &Profile(true) == &Compact);
+    for (int Total = 0; Total <= Compact.AmmunitionLimit; ++Total)
+    {
+        for (int Magazine = 0; Magazine <= Compact.MagazineCapacity; ++Magazine)
+        {
+            const bool Valid = Magazine <= Total;
+            assert(Coherent(Compact, Total, Magazine) == Valid);
+            assert(CanShoot(Compact, true, true, true, false, Total, Magazine) == (Valid && Magazine > 0));
+            assert(CanReload(Compact, true, true, true, false, Total, Magazine)
+                == (Valid && Total > Magazine && Magazine < Compact.MagazineCapacity));
+            if (Valid) assert(FilledMagazine(Compact, Total, Magazine) == std::min(Total, Compact.MagazineCapacity));
+        }
+    }
+    assert(!Coherent(Compact, Compact.AmmunitionLimit + 1, 0));
+    assert(!Coherent(Compact, 24, Compact.MagazineCapacity + 1));
+    assert(Coherent(Compact, Compact.MagazineCapacity + 18, Compact.MagazineCapacity));
+    assert(Compact.RangeCm < Prototype.RangeCm);
+    assert(ReloadDuration(Compact, 9) < ReloadDuration(Compact, 0));
+    assert(ReloadDuration(Compact, 0) < ReloadDuration(Prototype, 0));
+    assert(DamageAtDistance(Compact, Compact.RangeCm) == Compact.FarDamage);
+    assert(HeatBlocksShot(Compact, true, CooledHeat(Compact, 1.f, 1.)));
+    assert(!HeatBlocksShot(Compact, true, CooledHeat(Compact, 1.f, 4.)));
+
+    VPAdenCampaign::FProgress Story;
+    Story.Beat = VPAdenCampaign::Pickup;
+    Story.Route = VPAdenCampaign::Clinic;
+    assert(VPAdenCampaign::UsesCompactAtEncounter(Story));
+    Story.Route = VPAdenCampaign::Families;
+    assert(!VPAdenCampaign::UsesCompactAtEncounter(Story));
+    Story.Beat = VPAdenCampaign::BreakContact;
+    Story.Route = VPAdenCampaign::Clinic;
+    assert(!VPAdenCampaign::UsesCompactAtEncounter(Story));
 
     auto SmallMagazine = Prototype;
     SmallMagazine.MagazineCapacity = 12;

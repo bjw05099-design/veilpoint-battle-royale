@@ -147,14 +147,14 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     if (Pin.IsSet()) DrawMarker(Pin.GetValue(), PinColor);
     const FLinearColor RouteColor = bPreview ? Accent : FLinearColor(.30f, .77f, .67f);
     const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
+    const auto Guide = bRegional || bPreview ? VPAdenDispatch::FGuide{} : VPAdenDispatch::Guide(Leg, World);
     double PreviewMetres = 0.;
     const bool bHasObjective = !bRegional && Leg.Num() >= 2;
     const bool bHasEscort = !bRegional && Aden->bHasEscort;
     bool bObjectiveAtEdge = false;
     if (!bRegional)
     {
-        const auto Guide = VPAdenDispatch::Guide(Leg, World);
-        const bool bShowEarlier = !bPreview && Guide.SegmentEnd > 0 && Guide.OffsetCm <= 2400.;
+        const bool bShowEarlier = Guide.SegmentEnd > 0 && !Guide.NeedsRejoin();
         const auto DrawRoute = [&](const FVector& From, const FVector& To, bool bEarlier)
         {
             if (From.Equals(To, .01)) return;
@@ -176,6 +176,21 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 DrawRoute(Guide.Projected, To, false);
             }
             else DrawRoute(From, To, bShowEarlier && I < Guide.SegmentEnd);
+        }
+        if (Guide.NeedsRejoin())
+        {
+            VPAdenAtlas::FPoint From{World.X, World.Y}, To{Guide.Projected.X, Guide.Projected.Y};
+            if (VPAdenAtlas::Clip(Crop, From, To))
+            {
+                const auto A = Pixel(From), B = Pixel(To);
+                for (int32 I = 0; I < 8; I += 2)
+                {
+                    const auto Start = FMath::Lerp(A, B, I / 8.);
+                    const auto End = FMath::Lerp(A, B, (I + 1) / 8.);
+                    DrawLine(Start.X, Start.Y, End.X, End.Y, Accent, 1.6f);
+                }
+            }
+            DrawMarker(Guide.Projected, Accent);
         }
         if (bHasEscort) DrawMarker(Aden->EscortPoint, FLinearColor(.57f, .82f, .82f));
         if (bHasObjective)
@@ -250,8 +265,11 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (!bRegional && !Leg.IsEmpty())
         {
             DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
-            DrawText(bPreview ? TEXT("Proposed walking route") : TEXT("Walking route ahead"),
-                Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
+            const FString RouteStatus = bPreview ? FString(TEXT("Proposed walking route"))
+                : Guide.NeedsRejoin() ? FString::Printf(TEXT("%.0f m back to route"), Guide.OffsetCm / 100.)
+                : FString::Printf(TEXT("%.0f m on route ahead"), Guide.RemainingCm / 100.);
+            DrawText(RouteStatus, Guide.NeedsRejoin() ? Accent : Ink,
+                PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
         }
         if (bHasEscort)
         {

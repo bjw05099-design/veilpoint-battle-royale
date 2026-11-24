@@ -59,11 +59,11 @@ FScene Scene(FProgress P)
     case Pickup:
         return bFamily
             ? FScene{TEXT("Clear the approach to Amina's post"), TEXT("Link up at Amina's post"),
-                TEXT("아미나: 옆집 사람이 아니에요. 반군이 골목을 막았어요. 저는 문 안에 있어요."),
-                TEXT("수혁: 아미나 씨, 나오지 마십시오. 길 열면 제가 부르겠습니다.")}
+                TEXT("아미나: 조금 전엔 군인들이 제 이름을 불렀어요. 라미 소령님 사람인 줄 알고 문을 열 뻔했어요."),
+                TEXT("수혁: 문 걸어 잠그십시오. 밖에서 누가 이름을 불러도, 제가 무전으로 말씀드릴 때까지 기다리세요.")}
             : FScene{TEXT("Clear the approach to Yusuf's post"), TEXT("Link up at Yusuf's post"),
-                TEXT("유수프: 진료소 앞에 반군이 와 있어요. 라미 소령 쪽 사람은 문 안에 있어요."),
-                TEXT("수혁: 유수프 씨, 문에서 떨어져 계세요. 정리되면 부르겠습니다.")};
+                TEXT("유수프: 소령님 부하가 진료소 안에 있어요. 조금 전부터 밖에 있는 사람들이 그 사람을 내놓으래요."),
+                TEXT("수혁: 유수프 씨, 무전기 소리부터 줄이세요. 그분한테는 제가 왔다고 전해 주십시오.")};
     case LeadPassenger:
         return bFamily
             ? FScene{TEXT("Follow Amina to the rendezvous"), TEXT(""),

@@ -107,6 +107,11 @@ constexpr EMode Mode(int Beat)
     }
 }
 
+constexpr bool UsesCompactAtEncounter(const FProgress& P)
+{
+    return P.Beat == Pickup && P.Route == Clinic;
+}
+
 constexpr int EncounterSize(FProgress P)
 {
     if (P.Beat == Pickup || P.Beat == BreakContact) return 1;
