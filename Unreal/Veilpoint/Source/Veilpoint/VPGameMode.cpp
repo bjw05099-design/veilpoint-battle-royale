@@ -114,6 +114,9 @@ void AVPGameMode::SetReadyFromController(AVPPlayerController* Controller, bool b
 
 void AVPGameMode::CancelReadyCountdown(const AController* Exiting)
 {
+#if !UE_BUILD_SHIPPING
+    const double PreviousDeadline = ReadyCountdownEndsAt;
+#endif
     ReadyCountdownEndsAt = 0.;
     if (!bRequireReady || bSeenMultiplePlayers || GetNetMode() == NM_Standalone) return;
     auto* State = GetGameState<AVPGameState>();
@@ -128,6 +131,21 @@ void AVPGameMode::CancelReadyCountdown(const AController* Exiting)
         if (Desktop->IsRoundReady()) ++Ready;
     }
     State->UpdateLobby(Joined, Ready, true, 0, 0.);
+#if !UE_BUILD_SHIPPING
+    if (Exiting && PreviousDeadline > 0. && Joined == 1 && Ready == 1 && GetNetMode() == NM_ListenServer
+        && FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify"))
+        && FParse::Param(FCommandLine::Get(), TEXT("VPBRRejoin")))
+    {
+        auto* Host = Cast<AVPPlayerController>(GetWorld()->GetFirstPlayerController());
+        if (Host && Host->IsLocalController() && !Host->bBRObservedCancellation)
+        {
+            Host->BRFirstCountdownEnd = PreviousDeadline;
+            Host->bBRObservedCountdown = true;
+            Host->bBRObservedCancellation = true;
+            UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_HOST_CANCELLED"));
+        }
+    }
+#endif
 }
 
 void AVPGameMode::BeginPlay()
