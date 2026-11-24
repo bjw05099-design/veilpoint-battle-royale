@@ -813,7 +813,7 @@ bool AVPAdenStoryGameMode::VerifyOpening(AVPPlayerController* Desktop, AVPCharac
     DiagnosticReport->SetBoolField(TEXT("openingInputLocked"), true);
     DiagnosticReport->SetBoolField(TEXT("openingAudioStaged"), true);
 
-    struct FShotCapture { FFrame Frame; const TCHAR* Name; };
+    struct FShotCapture { VPAdenPrologue::FFrame Frame; const TCHAR* Name; };
     constexpr FShotCapture ShotsToCapture[] = {
         {{OldPort, 4.}, TEXT("aden-opening-old-port")},
         {{Government, 7.}, TEXT("aden-opening-government-news")},
@@ -1709,9 +1709,13 @@ void AVPAdenStoryGameMode::FinishDiagnostic(bool bPassed)
     DiagnosticReport->SetBoolField(TEXT("allChaptersVerified"), bPassed);
     bPassed = VPWriteVisualSmokeReport(DiagnosticReport.ToSharedRef()) && bPassed;
     if (bPassed)
+    {
         UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_NATIVE_SMOKE_PASSED: 12 chapters, paired endings, contacts, escorts, atlas and checkpoint recovery"));
+    }
     else
+    {
         UE_LOG(LogVPAdenStory, Error, TEXT("ADEN_NATIVE_SMOKE_FAILED at campaign beat %d"), Progress.Beat);
+    }
     if (Desktop)
         UKismetSystemLibrary::QuitGame(this, Desktop, EQuitPreference::Quit, false);
     else

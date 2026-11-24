@@ -29,7 +29,7 @@ public:
     void CycleAdenAtlas();
     void ZoomAdenAtlasIn();
     void ZoomAdenAtlasOut();
-    VPAdenAtlas::FExtent AdenFieldCrop(const class AVPAdenStoryState& State, const FVector& Player) const;
+    VPAdenAtlas::FExtent AdenFieldCrop(const class AVPAdenStoryState& State, const FVector& PlayerLocation) const;
     void PanAdenAtlas(double X, double Y);
     void RecenterAdenAtlas();
     void PlaceAdenPin();
