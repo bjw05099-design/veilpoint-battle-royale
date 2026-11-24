@@ -342,16 +342,20 @@ void AVPPlayerController::TickAdenAudio()
             UGameplayStatics::PlaySoundAtLocation(this, Source->GetDossierSound(), State->Objective, .28f);
     }
     const FVector Position = ControlledCharacter->GetActorLocation();
-    const double Moved = bHasAdenAudioPosition ? FVector::Dist2D(Position, PreviousAdenAudioPosition) : 0.;
+    const FVector Travel = bHasAdenAudioPosition ? Position - PreviousAdenAudioPosition : FVector::ZeroVector;
     PreviousAdenAudioPosition = Position;
     bHasAdenAudioPosition = true;
-    if (bDesktopMenuOpen || !ControlledCharacter->GetCharacterMovement()->IsMovingOnGround() || Moved > 300.)
+    const auto* Movement = ControlledCharacter->GetCharacterMovement();
+    const auto& Floor = Movement->CurrentFloor;
+    if (bDesktopMenuOpen || AdenAtlasPage != 0 || !Movement->IsMovingOnGround() || !Floor.IsWalkableFloor()
+        || !Source->IsPlayableGround(Floor.HitResult) || Travel.SizeSquared() > FMath::Square(300.))
     {
         AdenStepDistance = 0.;
         return;
     }
-    AdenStepDistance += Moved;
-    const bool bCrouched = ControlledCharacter->GetCharacterMovement()->IsCrouching();
+    if (Travel.SizeSquared2D() <= .01) return;
+    AdenStepDistance += Travel.Size();
+    const bool bCrouched = Movement->IsCrouching();
     const double Stride = bCrouched ? 105. : ControlledCharacter->bSprinting ? 165. : 139.;
     if (AdenStepDistance >= Stride)
     {
@@ -398,6 +402,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::G, IE_Pressed, this, &AVPPlayerController::ToggleAdenAtlasRouteOverview).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::Home, IE_Pressed, this, &AVPPlayerController::RecenterAdenAtlas);
     InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &AVPPlayerController::QuickSaveAden);
     InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &AVPPlayerController::QuickRecoverAden);
     InputComponent->BindKey(EKeys::K, IE_Pressed, this, &AVPPlayerController::ToggleAdenAudio);
@@ -410,6 +415,16 @@ void AVPPlayerController::CycleAdenAtlas()
     {
         AdenAtlasPage = (AdenAtlasPage + 1) % 3;
         bAdenAtlasRouteOverview = false;
+        AdenAtlasCentre.Reset();
+        if (AdenAtlasPage == 1)
+        {
+            if (auto* Character = Cast<AVPCharacter>(GetPawn()))
+            {
+                Character->ReleaseDesktopActions();
+                Character->ConsumeMovementInputVector();
+                Character->GetCharacterMovement()->StopMovementImmediately();
+            }
+        }
     }
 }
 
@@ -436,6 +451,31 @@ void AVPPlayerController::ZoomAdenAtlasOut()
 {
     if (!bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview())
         AdenAtlasZoom = FMath::Max(AdenAtlasZoom - 1, 0);
+}
+
+VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& Player) const
+{
+    const bool bFitRoute = IsAdenAtlasRouteOverview();
+    if (bFitRoute || !AdenAtlasCentre.IsSet()) return State.AtlasCrop(Player, AdenAtlasZoom, bFitRoute);
+    const auto Focus = AdenAtlasCentre.GetValue();
+    return VPAdenAtlas::Crop(VPAdenAtlas::Playable, {Focus.X, Focus.Y}, AdenAtlasZoom);
+}
+
+void AVPPlayerController::PanAdenAtlas(double X, double Y)
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1 || IsAdenAtlasRouteOverview() || !GetWorld() || !GetPawn()) return;
+    const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!State) return;
+    const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
+    const auto Focus = VPAdenAtlas::Centre(VPAdenAtlas::Pan(VPAdenAtlas::Playable, View, {X, Y}));
+    AdenAtlasCentre.Emplace(Focus.X, Focus.Y);
+}
+
+void AVPPlayerController::RecenterAdenAtlas()
+{
+    if (bDesktopMenuOpen || AdenAtlasPage != 1) return;
+    AdenAtlasCentre.Reset();
+    bAdenAtlasRouteOverview = false;
 }
 
 void AVPPlayerController::ToggleAdenJournal()
@@ -491,16 +531,32 @@ void AVPPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
     Super::EndPlay(EndPlayReason);
 }
 
-void AVPPlayerController::MenuUp() { if (bDesktopMenuOpen) MenuRow = (MenuRow + MenuRowCount - 1) % MenuRowCount; }
-void AVPPlayerController::MenuDown() { if (bDesktopMenuOpen) MenuRow = (MenuRow + 1) % MenuRowCount; }
-void AVPPlayerController::MenuLeft() { if (bDesktopMenuOpen) ChangeMenuValue(-1); }
-void AVPPlayerController::MenuRight() { if (bDesktopMenuOpen) ChangeMenuValue(1); }
+void AVPPlayerController::MenuUp()
+{
+    if (bDesktopMenuOpen) MenuRow = (MenuRow + MenuRowCount - 1) % MenuRowCount;
+    else PanAdenAtlas(0., -1.);
+}
+void AVPPlayerController::MenuDown()
+{
+    if (bDesktopMenuOpen) MenuRow = (MenuRow + 1) % MenuRowCount;
+    else PanAdenAtlas(0., 1.);
+}
+void AVPPlayerController::MenuLeft()
+{
+    if (bDesktopMenuOpen) ChangeMenuValue(-1);
+    else PanAdenAtlas(-1., 0.);
+}
+void AVPPlayerController::MenuRight()
+{
+    if (bDesktopMenuOpen) ChangeMenuValue(1);
+    else PanAdenAtlas(1., 0.);
+}
 void AVPPlayerController::ToggleRoundReady()
 {
     if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone) return;
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
     if (!State || !State->bReadyRequired || State->bRoundStarted) return;
-    ServerToggleRoundReady();
+    ServerSetRoundReady(!bRoundReady);
 }
 
 void AVPPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -509,11 +565,11 @@ void AVPPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
     DOREPLIFETIME_CONDITION(AVPPlayerController, bRoundReady, COND_OwnerOnly);
 }
 
-void AVPPlayerController::ServerToggleRoundReady_Implementation()
+void AVPPlayerController::ServerSetRoundReady_Implementation(bool bReady)
 {
     if (GetWorld())
         if (auto* Mode = GetWorld()->GetAuthGameMode<AVPGameMode>())
-            Mode->ToggleReadyFromController(this);
+            Mode->SetReadyFromController(this, bReady);
 }
 
 void AVPPlayerController::TickBRDiagnostic()
@@ -625,6 +681,7 @@ void AVPPlayerController::TickBRRejoinDiagnostic(const AVPGameState& State, doub
     {
         bBRReadyRequested = true;
         ToggleRoundReady();
+        if (bFirstClient) ServerSetRoundReady(true);
     }
     if (bBRReadyRequested && !State.bRoundStarted && bCountdown && State.JoinedPlayers == 2 && State.ReadyPlayers == 2)
     {
@@ -638,6 +695,7 @@ void AVPPlayerController::TickBRRejoinDiagnostic(const AVPGameState& State, doub
         }
         if (bFirstClient && !bBRProofPrinted)
         {
+            UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_DUPLICATE_READY_OK"));
             UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_FIRST_CLIENT_LEFT"));
             bBRProofPrinted = true;
             BRQuitAt = Now;

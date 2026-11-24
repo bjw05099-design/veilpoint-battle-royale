@@ -38,8 +38,8 @@ test('native crouch, sprint, camera and movement inputs reject eliminated pawns'
  assert.match(source,/void AVPCharacter::EndCrouch\(\) \{ if \(IsAlive\(\)\) UnCrouch\(\); \}/);
  assert.match(source,/void AVPCharacter::BeginSprint\(\)[\s\S]*?if \(!IsAlive\(\) \|\| IsDesktopInputBlocked\(\)\) return;/);
  assert.match(source,/void AVPCharacter::ServerSetSprintHeld_Implementation\(bool bHeld\)[\s\S]*?bSprintHeld = bHeld && IsAlive\(\)/);
- assert.match(source,/void AVPCharacter::MoveForward\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller\)/);
- assert.match(source,/void AVPCharacter::MoveRight\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller\)/);
- assert.match(source,/void AVPCharacter::LookUp\(float Value\) \{ if \(IsAlive\(\)\)/);
+ assert.match(source,/void AVPCharacter::MoveForward\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller && !IsDesktopInputBlocked\(\)\)/);
+ assert.match(source,/void AVPCharacter::MoveRight\(float Value\)[\s\S]*?if \(IsAlive\(\) && Controller && !IsDesktopInputBlocked\(\)\)/);
+ assert.match(source,/void AVPCharacter::LookUp\(float Value\) \{ if \(IsAlive\(\) && !IsDesktopInputBlocked\(\)\)/);
  assert.match(hud,/Pawn->bEliminated/);
 });

@@ -67,6 +67,18 @@ inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
     return CentredCrop(Full, Centre, 1. / (1 << std::clamp(ZoomLevel, 0, MaxZoomLevel)));
 }
 
+inline FPoint Centre(FExtent View)
+{
+    return {View.West + View.Width() * .5, View.North + View.Height() * .5};
+}
+
+inline FExtent Pan(FExtent Full, FExtent View, FPoint Direction)
+{
+    const auto Point = Centre(View);
+    return CentredCrop(Full, {Point.X + Direction.X * View.Width() * .25,
+        Point.Y + Direction.Y * View.Height() * .25}, View.Width() / Full.Width());
+}
+
 inline FExtent FitRoute(FExtent Full, FExtent Bounds, int ZoomLevel)
 {
     // Leave room for the player arrow and objective marker while preserving the atlas aspect ratio.

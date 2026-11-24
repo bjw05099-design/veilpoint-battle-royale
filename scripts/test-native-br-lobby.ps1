@@ -52,7 +52,9 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
         if ($Rejoin) {
             $first=Start-BRVerification ("127.0.0.1:"+$port) $firstLog '-VPBRLeaveDuringCountdown'
             if (!$first.WaitForExit(48000) -or $first.ExitCode -ne 0) { throw 'The first BR client did not leave cleanly.' }
-            if ((Get-Content -LiteralPath $firstLog -Raw) -notmatch 'VPBR_REJOIN_FIRST_CLIENT_LEFT') {
+            $firstEvidence=Get-Content -LiteralPath $firstLog -Raw
+            if ($firstEvidence -notmatch 'VPBR_REJOIN_FIRST_CLIENT_LEFT' -or
+                $firstEvidence -notmatch 'VPBR_REJOIN_DUPLICATE_READY_OK') {
                 throw 'Missing evidence that the first client left during the countdown.'
             }
             Wait-BRHostLog 'VPBR_REJOIN_HOST_CANCELLED' 25

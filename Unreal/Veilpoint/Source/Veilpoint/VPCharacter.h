@@ -6,6 +6,9 @@
 class UCameraComponent;
 class USpotLightComponent;
 
+UENUM()
+enum class EVPShotCue : uint8 { None, Fired, Surface, Target };
+
 USTRUCT()
 struct FVPRoundReviewSample
 {
@@ -55,6 +58,7 @@ public:
     float WeaponHeatRatio() const;
     bool IsWeaponCooling() const;
     void ResetEncounterWeapon(int32 Total, int32 Loaded);
+    EVPShotCue GetShotCue(float& Opacity) const;
     // Client-side movement must stop on the actual server-authoritative
     // elimination transition, not only on the server's damage callback.
     UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
@@ -116,6 +120,8 @@ protected:
     void ServerTryInteract();
     UFUNCTION(Server, Reliable)
     void ServerRequestReload();
+    UFUNCTION(Client, Unreliable)
+    void ClientShotCue(EVPShotCue Cue);
 private:
     bool IsDesktopInputBlocked() const;
     bool IsWeaponPhaseActive() const;
@@ -126,6 +132,9 @@ private:
     float HeatAtLastShot = 0.f;
     UPROPERTY(Replicated)
     bool bWeaponHeatLocked = false;
+    EVPShotCue LastShotCue = EVPShotCue::None;
+    double ShotCueUntil = 0.;
+    static constexpr double ShotCueSeconds = .19;
     float DryGroundFriction = 0.f;
     bool bSprintHeld = false;
 

@@ -29,6 +29,18 @@ test('native lobby becomes active only after physical server player-count thresh
  assert.doesNotMatch(mode,/ClientStartRound|ClientDecideStart|Server, Reliable/);
 });
 
+test('BR accepts a desired ready state and keeps a duplicate command harmless',()=>{
+ const controller=read('VPPlayerController.cpp');
+ const request=read('VPPlayerController.h');
+ const lobby=mode.slice(mode.indexOf('void AVPGameMode::SetReadyFromController'),
+  mode.indexOf('void AVPGameMode::CancelReadyCountdown'));
+ assert.match(request,/UFUNCTION\(Server, Reliable\)\s*void ServerSetRoundReady\(bool bReady\)/);
+ assert.match(controller,/ServerSetRoundReady\(!bRoundReady\)/);
+ assert.match(lobby,/Controller->bRoundReady == bReady\) return;[\s\S]*?Controller->bRoundReady = bReady;/);
+ assert.match(lobby,/if \(!Controller->bRoundReady\) CancelReadyCountdown\(\)/);
+ assert.match(controller,/if \(bFirstClient\) ServerSetRoundReady\(true\);/);
+});
+
 test('native ready lobby restarts its countdown after readiness changes or a player departs',
  {skip: process.platform === 'win32'}, () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-ready-lobby-'));

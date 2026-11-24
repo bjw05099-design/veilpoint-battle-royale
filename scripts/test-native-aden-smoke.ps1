@@ -34,6 +34,8 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignChapters -ne 12 -or $report.koreanFontStaged -ne $true -or
     $report.campaignHandoffs -ne 3 -or $report.campaignEscorts -ne 4 -or $report.campaignEncounters -ne 3 -or
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
+    $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
+    $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
     $report.partialAndEmptyReloadVerified -ne $true -or $report.weaponShotHeatVerified -ne $true -or
     $report.duplicateSaveBackupVerified -ne $true -or
     $report.expiredSignalBackupVerified -ne $true -or
@@ -92,7 +94,7 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-$frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-terrain','aden-regional-seam',
+$frames = @('aden-world','aden-field-map','aden-field-pan','aden-regional-map','aden-regional-terrain','aden-regional-seam',
     'aden-opening-old-port','aden-opening-government-news','aden-opening-front-news',
     'aden-opening-fighting','aden-opening-aftermath','aden-opening-closed-door','aden-opening-hostages',
     'aden-opening-council','aden-opening-corridor','aden-opening-briefing','aden-opening-embark',
@@ -100,7 +102,7 @@ $frames = @('aden-world','aden-field-map','aden-regional-map','aden-regional-ter
     'aden-opening-quay','aden-opening-street',
     'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
-    'aden-campaign-contact',
+    'aden-campaign-contact','aden-campaign-shot-feedback','aden-campaign-journal',
     'aden-campaign-crossing-route','aden-campaign-back-street-route',
     'aden-campaign-ending-crossing','aden-campaign-ending-back-street')
 foreach ($name in $frames) {
