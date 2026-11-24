@@ -17,6 +17,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const bool bRouteOverview = Desktop.IsAdenAtlasRouteOverview();
     const FVector World = Pawn->GetActorLocation();
     const VPAdenAtlas::FPoint Player{World.X, World.Y};
+    VPAdenCampaign::FProgress Preview;
+    const bool bPreview = Desktop.GetAdenRoutePreview(*Aden, Preview);
     const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Playable;
     const auto Crop = bRegional ? Full : Desktop.AdenFieldCrop(*Aden, World);
     const auto* Source = Aden->Source.Get();
@@ -40,8 +42,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawRect(FLinearColor(.014f, .032f, .039f, .98f), X, Y, W, H);
     DrawLine(X, Y, X + W, Y, Edge, 2.f);
     DrawLine(X, Y + Head - 11.f * Scale, X + W, Y + Head - 11.f * Scale, Edge);
-    DrawText(VPAdenCampaign::Title(Aden->Progress.Beat), Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
+    DrawText(bPreview ? VPAdenCampaign::Scene(Preview).Objective : VPAdenCampaign::Title(Aden->Progress.Beat),
+        Accent, X + Inset, Y + 10.f * Scale, nullptr, .77f * Scale);
     DrawText(bRegional ? TEXT("ADEN  /  REGIONAL RELIEF")
+        : bPreview ? TEXT("ADEN  /  ROUTE PREVIEW")
         : bRouteOverview ? TEXT("ADEN  /  ROUTE OVERVIEW") : TEXT("ADEN  /  FIELD MAP"),
         Ink, X + Inset, Y + 28.f * Scale, nullptr, 1.27f * Scale);
 
@@ -136,15 +140,17 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawRect(Color, P.X - 4. * Scale, P.Y - 4. * Scale, 8.f * Scale, 8.f * Scale);
         }
     };
-    const FLinearColor RouteColor(.30f, .77f, .67f);
+    const auto& Leg = bPreview ? Source->CampaignLeg(Preview) : Aden->ActiveLeg;
+    const FVector Destination = bPreview && !Leg.IsEmpty() ? Leg.Last() : Aden->Objective;
+    const FLinearColor RouteColor = bPreview ? Accent : FLinearColor(.30f, .77f, .67f);
     const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
-    const bool bHasObjective = !bRegional && Aden->HasAtlasRoute();
+    const bool bHasObjective = !bRegional && Leg.Num() >= 2;
     const bool bHasEscort = !bRegional && Aden->bHasEscort;
     bool bObjectiveAtEdge = false;
     if (!bRegional)
     {
-        const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, World);
-        const bool bShowEarlier = Guide.SegmentEnd > 0 && Guide.OffsetCm <= 2400.;
+        const auto Guide = VPAdenDispatch::Guide(Leg, World);
+        const bool bShowEarlier = !bPreview && Guide.SegmentEnd > 0 && Guide.OffsetCm <= 2400.;
         const auto DrawRoute = [&](const FVector& From, const FVector& To, bool bEarlier)
         {
             if (From.Equals(To, .01)) return;
@@ -155,10 +161,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 DrawLine(Start.X, Start.Y, End.X, End.Y, FLinearColor(.023f, .075f, .072f), 5.f);
             DrawLine(Start.X, Start.Y, End.X, End.Y, bEarlier ? EarlierRouteColor : RouteColor, bEarlier ? 1.8f : 2.8f);
         };
-        for (int32 I = 1; I < Aden->ActiveLeg.Num(); ++I)
+        for (int32 I = 1; I < Leg.Num(); ++I)
         {
-            const auto& From = Aden->ActiveLeg[I - 1];
-            const auto& To = Aden->ActiveLeg[I];
+            const auto& From = Leg[I - 1];
+            const auto& To = Leg[I];
             if (bShowEarlier && I == Guide.SegmentEnd)
             {
                 DrawRoute(From, Guide.Projected, true);
@@ -169,7 +175,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (bHasEscort) DrawMarker(Aden->EscortPoint, FLinearColor(.57f, .82f, .82f));
         if (bHasObjective)
         {
-            const VPAdenAtlas::FPoint Objective{Aden->Objective.X, Aden->Objective.Y};
+            const VPAdenAtlas::FPoint Objective{Destination.X, Destination.Y};
             auto EdgePoint = Objective;
             bObjectiveAtEdge = VPAdenAtlas::ObjectiveAtEdge(Crop, Player, EdgePoint, 43. * Scale * Crop.Width() / MapW);
             if (bObjectiveAtEdge)
@@ -187,7 +193,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             }
             else
             {
-                DrawMarker(Aden->Objective, Accent);
+                DrawMarker(Destination, Accent);
             }
         }
     }
@@ -232,13 +238,15 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         {
             DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
             const TCHAR* Label = bRegional ? TEXT("Playable terrain")
+                : bPreview ? TEXT("Preview destination")
                 : bObjectiveAtEdge ? TEXT("Objective beyond view") : TEXT("Current objective");
             DrawText(Label, Ink, PanelX + 14.f * Scale, PanelY + 55.f * Scale, nullptr, .77f * Scale);
         }
-        if (!bRegional && !Aden->ActiveLeg.IsEmpty())
+        if (!bRegional && !Leg.IsEmpty())
         {
             DrawLine(PanelX, PanelY + 85.f * Scale, PanelX + 10.f * Scale, PanelY + 85.f * Scale, RouteColor, 2.f);
-            DrawText(TEXT("Walking route ahead"), Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
+            DrawText(bPreview ? TEXT("Proposed walking route") : TEXT("Walking route ahead"),
+                Ink, PanelX + 14.f * Scale, PanelY + 79.f * Scale, nullptr, .77f * Scale);
         }
         if (bHasEscort)
         {
@@ -269,6 +277,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     }
     const TCHAR* Controls = bRegional ? TEXT("M  Close map")
+        : bPreview || Aden->bChoosing ? TEXT("1/2  Preview options   Home  Center   M  Next")
         : bRouteOverview ? TEXT("G  Back to field view   Home  Recenter   M  Next")
         : Aden->HasAtlasRoute() ? TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   G  Fit route   M  Next")
         : TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   M  Next");

@@ -35,7 +35,8 @@ test('BR accepts a desired ready state and keeps a duplicate command harmless',(
  const lobby=mode.slice(mode.indexOf('void AVPGameMode::SetReadyFromController'),
   mode.indexOf('void AVPGameMode::CancelReadyCountdown'));
  assert.match(request,/UFUNCTION\(Server, Reliable\)\s*void ServerSetRoundReady\(bool bReady\)/);
- assert.match(controller,/ServerSetRoundReady\(!bRoundReady\)/);
+ assert.match(controller,/IsRoundReadyPending\(\)\) return;[\s\S]*?bRequestedRoundReady = !bRoundReady;[\s\S]*?ServerSetRoundReady\(bRequestedRoundReady\)/);
+ assert.match(controller,/bRequestedRoundReady != bRoundReady && FPlatformTime::Seconds\(\) < RoundReadyRequestExpiresAt/);
  assert.match(lobby,/Controller->bRoundReady == bReady\) return;[\s\S]*?Controller->bRoundReady = bReady;/);
  assert.match(lobby,/if \(!Controller->bRoundReady\) CancelReadyCountdown\(\)/);
  assert.match(controller,/if \(bFirstClient\) ServerSetRoundReady\(true\);/);

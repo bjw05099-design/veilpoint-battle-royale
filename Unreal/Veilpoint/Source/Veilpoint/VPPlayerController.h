@@ -18,6 +18,7 @@ public:
     virtual void SetupInputComponent() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     bool IsRoundReady() const { return bRoundReady; }
+    bool IsRoundReadyPending() const;
     bool IsDesktopMenuOpen() const { return bDesktopMenuOpen; }
     bool IsAdenOpening() const;
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
@@ -30,6 +31,8 @@ public:
     VPAdenAtlas::FExtent AdenFieldCrop(const class AVPAdenStoryState& State, const FVector& Player) const;
     void PanAdenAtlas(double X, double Y);
     void RecenterAdenAtlas();
+    bool PreviewAdenRoute(VPAdenCampaign::EInput Choice);
+    bool GetAdenRoutePreview(const class AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const;
     void ToggleAdenJournal();
     bool IsAdenJournalOpen() const { return bAdenJournalOpen; }
     int32 GetMenuRow() const { return MenuRow; }
@@ -49,6 +52,8 @@ private:
     void ServerSetRoundReady(bool bReady);
     UPROPERTY(Replicated)
     bool bRoundReady = false;
+    bool bRequestedRoundReady = false;
+    double RoundReadyRequestExpiresAt = 0.;
     bool bBRObservedLobby = false;
     bool bBRReadyRequested = false;
     bool bBRObservedCountdown = false;
@@ -91,6 +96,7 @@ private:
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
     TOptional<FVector2D> AdenAtlasCentre;
+    VPAdenCampaign::EInput AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;
     int32 VisualSmokeStep = -1;

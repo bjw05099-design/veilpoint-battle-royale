@@ -45,6 +45,13 @@ test('the native Aden rules reach the finale through all eight choices with cont
               }
               const auto type = Mode(beat);
               if (type == EMode::Decide) {
+                const auto original = progress;
+                auto first = original, second = original;
+                assert(Decide(first, EInput::OptionOne, true, true));
+                assert(Decide(second, EInput::OptionTwo, true, true));
+                const auto a = leg(first), b = leg(second);
+                assert(!same(a.Points[a.Length - 1], b.Points[b.Length - 1]));
+                assert(progress == original);
                 const auto option = (beat == Junction ? people == Families : signal == RadioOnce)
                   ? EInput::OptionOne : EInput::OptionTwo;
                 assert(!Decide(progress, option, false, true));

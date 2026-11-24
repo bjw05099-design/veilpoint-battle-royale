@@ -36,6 +36,8 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
+    $report.firstPersonWeaponRigVerified -ne $true -or $report.routeChoicePreviewVerified -ne $true -or
+    $report.relayChoicePreviewVerified -ne $true -or
     $report.partialAndEmptyReloadVerified -ne $true -or $report.weaponShotHeatVerified -ne $true -or
     $report.duplicateSaveBackupVerified -ne $true -or
     $report.expiredSignalBackupVerified -ne $true -or
@@ -103,6 +105,7 @@ $frames = @('aden-world','aden-field-map','aden-field-pan','aden-regional-map','
     'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
     'aden-campaign-contact','aden-campaign-shot-feedback','aden-campaign-journal',
+    'aden-route-preview-first','aden-route-preview-second',
     'aden-campaign-crossing-route','aden-campaign-back-street-route',
     'aden-campaign-ending-crossing','aden-campaign-ending-back-street')
 foreach ($name in $frames) {

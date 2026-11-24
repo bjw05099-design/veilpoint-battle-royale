@@ -1,4 +1,5 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponRules.h"
+#include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponViewPose.h"
 #include <cassert>
 using namespace VPWeaponRules;
 int main()
@@ -48,4 +49,16 @@ int main()
     SmallMagazine.MagazineCapacity = 12;
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);
+
+    using VPWeaponView::Pose;
+    assert(Pose(-1., false, false, 0.).Lower == 0.);
+    assert(Pose(-1., false, true, 0.).Lower > 0.);
+    assert(Pose(-1., false, false, 1.).BoltPull > 0.);
+    assert(Pose(0., false, false, 0.).MagazineDrop == 0.);
+    assert(Pose(.45, false, false, 0.).MagazineDrop > 10.);
+    assert(Pose(.76, false, false, 0.).BoltPull == 0.);
+    assert(Pose(.76, true, false, 0.).BoltPull == 4.);
+    assert(Pose(1., true, false, 0.).Lower == 0.);
+    assert(Pose(1., true, false, 0.).MagazineDrop == 0.);
+    assert(Pose(1., true, false, 0.).BoltPull == 0.);
 }

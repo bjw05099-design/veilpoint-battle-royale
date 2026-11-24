@@ -57,5 +57,11 @@ and resume, and distance falloff. The Windows Aden diagnostic checks both R
 timers and a live shot's ammo and heat. The Coast diagnostic starts and repeats
 reload through R, rejects a shot during reload and waits for the timer to finish.
 
-Real firearm assets, variant research, reload animation, chamber state and
-projectile drop are separate production work.
+The playable prototype has an owner-only first-person blockout rig. A
+server-timed reload lowers the weapon and moves the magazine. The empty
+reload ends with additional visual bolt motion, and accepted shots briefly
+move the rig. The visual parts have no collision. The Windows Aden diagnostic
+checks that the rig is present and attached to the first-person camera.
+
+Real firearm assets, variant research, hands and final animation, chamber
+state and projectile drop are separate production work.

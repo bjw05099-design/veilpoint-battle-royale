@@ -5,6 +5,7 @@
 
 class UCameraComponent;
 class USpotLightComponent;
+class UStaticMeshComponent;
 
 UENUM()
 enum class EVPShotCue : uint8 { None, Fired, Surface, Target };
@@ -59,6 +60,7 @@ public:
     bool IsWeaponCooling() const;
     void ResetEncounterWeapon(int32 Total, int32 Loaded);
     EVPShotCue GetShotCue(float& Opacity) const;
+    bool HasWeaponView() const;
     // Client-side movement must stop on the actual server-authoritative
     // elimination transition, not only on the server's damage callback.
     UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
@@ -123,6 +125,16 @@ protected:
     UFUNCTION(Client, Unreliable)
     void ClientShotCue(EVPShotCue Cue);
 private:
+    void BuildWeaponView();
+    void UpdateWeaponView();
+    UPROPERTY()
+    TObjectPtr<USceneComponent> WeaponViewRoot;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> WeaponReceiver;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> WeaponMagazine;
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> WeaponBolt;
     bool IsDesktopInputBlocked() const;
     bool IsWeaponPhaseActive() const;
     double WeaponClock() const;

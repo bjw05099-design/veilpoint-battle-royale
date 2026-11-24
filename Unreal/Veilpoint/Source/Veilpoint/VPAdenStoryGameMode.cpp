@@ -1087,8 +1087,9 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
             || UpdateEncounter(Pawn, View, Now + 1.8) || Pawn->Health != 100.f - ContactDamage) return false;
         if (!ReturnToCheckpoint(Pawn) || !Contacts.IsEmpty()) return false;
         PrepareEncounter(Pawn, Now);
-        if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach()) return false;
+        if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach() || !Pawn->HasWeaponView()) return false;
         DiagnosticReport->SetBoolField(TEXT("campaignContactRetryVerified"), true);
+        DiagnosticReport->SetBoolField(TEXT("firstPersonWeaponRigVerified"), true);
 
         const int32 Total = Pawn->Charges;
         const int32 Loaded = Pawn->MagazineRounds;
@@ -1246,6 +1247,30 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                 Pawn->RequestInteraction();
                 if (!bChoosing) return false;
                 if (bCapture && Beat == Junction && !CaptureFrame(Desktop, TEXT("aden-campaign-choice"))) return false;
+                if (bCapture)
+                {
+                    const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+                    const auto Before = CaptureCheckpoint();
+                    Desktop->CycleAdenAtlas();
+                    VPAdenCampaign::FProgress First, Second;
+                    if (!View || !Desktop->PreviewAdenRoute(EInput::OptionOne)
+                        || !Desktop->GetAdenRoutePreview(*View, First)
+                        || !(CaptureCheckpoint() == Before)) return false;
+                    if (Beat == Junction && !CaptureFrame(Desktop, TEXT("aden-route-preview-first"))) return false;
+                    if (!Desktop->PreviewAdenRoute(EInput::OptionTwo)
+                        || !Desktop->GetAdenRoutePreview(*View, Second) || !(CaptureCheckpoint() == Before)) return false;
+                    const FVector FirstEnd = Source->CampaignLeg(First).Last(), SecondEnd = Source->CampaignLeg(Second).Last();
+                    const auto Crop = Desktop->AdenFieldCrop(*View, Pawn->GetActorLocation());
+                    if (FirstEnd.Equals(SecondEnd) || !Crop.Contains({SecondEnd.X, SecondEnd.Y})) return false;
+                    if (Beat == Junction && !CaptureFrame(Desktop, TEXT("aden-route-preview-second"))) return false;
+                    Desktop->CycleAdenAtlas();
+                    Desktop->CycleAdenAtlas();
+                    const auto Saved = ReadCheckpoint();
+                    if (Desktop->GetAdenAtlasPage() != 0 || Desktop->GetAdenRoutePreview(*View, First)
+                        || !Saved.IsSet() || !(Saved.GetValue() == Before) || !bChoosing) return false;
+                    DiagnosticReport->SetBoolField(Beat == Junction
+                        ? TEXT("routeChoicePreviewVerified") : TEXT("relayChoicePreviewVerified"), true);
+                }
                 TryInteraction(Pawn, Pick);
             }
             else if (Action == EMode::Operate)
