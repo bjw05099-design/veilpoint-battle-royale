@@ -162,7 +162,8 @@ bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::F
     const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
     const FCollisionShape Shape = FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), HalfHeight);
     const FName Profile = Capsule->GetCollisionProfileName();
-    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenRecovery), true, Pawn);
+    // Use the capsule's movement collision semantics for props and terrain.
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenRecovery), false, Pawn);
     double PreviousOffset = -1.;
     for (const double Requested : VPAdenCampaign::RecoveryOffsetsCm)
     {
@@ -988,16 +989,19 @@ bool AVPAdenStoryGameMode::VerifyCheckpointFooting(AVPPlayerController* Desktop,
 #if !UE_BUILD_SHIPPING
     const FTransform Original = Pawn->GetActorTransform();
     const FRotator OriginalView = Desktop->GetControlRotation();
-    if (!RestorePosition(Pawn, Progress)) return false;
+    const bool bInitialFooting = RestorePosition(Pawn, Progress);
+    DiagnosticReport->SetBoolField(TEXT("checkpointInitialFootingVerified"), bInitialFooting);
+    if (!bInitialFooting) return false;
     const FVector Anchor = Pawn->GetActorLocation();
     auto* Fixture = NewObject<UBoxComponent>(Source.Get());
     Source->AddInstanceComponent(Fixture);
     Fixture->SetupAttachment(Source->GetRootComponent());
     Fixture->SetMobility(EComponentMobility::Movable);
     Fixture->SetBoxExtent(FVector(28., 28., 52.));
-    Fixture->SetCollisionProfileName(TEXT("BlockAll"));
+    Fixture->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+    Fixture->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    Fixture->SetRelativeLocation(Anchor);
     Fixture->RegisterComponent();
-    Fixture->SetWorldLocation(Anchor);
     const bool bRestoredBesideBlock = RestorePosition(Pawn, Progress);
     const FVector Recovered = Pawn->GetActorLocation();
     Fixture->DestroyComponent();
@@ -1007,11 +1011,21 @@ bool AVPAdenStoryGameMode::VerifyCheckpointFooting(AVPPlayerController* Desktop,
     const FVector Delta = Recovered - Anchor;
     const double DistanceAlong = FVector::DotProduct(Delta, Along);
     const bool bOnLeg = FMath::Abs(FVector::DotProduct(Delta, FVector(-Along.Y, Along.X, 0.))) < .05;
-    const auto Above = AVPAdenStoryState::InspectReach(Pawn, Pawn->GetPawnViewLocation() + FVector(0., 0., 350.), false);
-    const bool bRestored = Pawn->TeleportTo(Original.GetLocation(), Original.Rotator());
+    const FVector Eye = Pawn->GetPawnViewLocation();
+    const FVector HeightTest(0., 0., 350.);
+    const auto Above = AVPAdenStoryState::InspectReach(Pawn, Eye + HeightTest, false);
+    const auto Below = AVPAdenStoryState::InspectReach(Pawn, Eye - HeightTest, false);
+    const bool bSeparateLevel = Above == VPAdenCampaign::EReach::DifferentLevel
+        && Below == VPAdenCampaign::EReach::DifferentLevel;
+    const bool bRestored = Pawn->TeleportTo(Original.GetLocation(), Original.Rotator(), false, true);
     Desktop->SetControlRotation(OriginalView);
+    DiagnosticReport->SetBoolField(TEXT("checkpointRestoredBesideBlock"), bRestoredBesideBlock);
+    DiagnosticReport->SetBoolField(TEXT("checkpointFallbackStayedOnLeg"), bOnLeg);
+    DiagnosticReport->SetNumberField(TEXT("checkpointFallbackCentimetres"), DistanceAlong);
+    DiagnosticReport->SetBoolField(TEXT("checkpointRejectsOtherLevel"), bSeparateLevel);
+    DiagnosticReport->SetBoolField(TEXT("checkpointDiagnosticPoseRestored"), bRestored);
     return bRestoredBesideBlock && bOnLeg && DistanceAlong > 0. && DistanceAlong <= 300.05
-        && Above == VPAdenCampaign::EReach::DifferentLevel && bRestored;
+        && bSeparateLevel && bRestored;
 #else
     return false;
 #endif
