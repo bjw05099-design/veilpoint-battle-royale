@@ -6,6 +6,7 @@
 #include "VPWeaponRules.h"
 #include "VPWeaponViewPose.h"
 #include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -167,17 +168,24 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     if (Hidden.Root && Hidden.Root->IsVisible()) Hidden.Root->SetVisibility(false, true);
     if (bShow && !View.Root) CreateWeaponPresentation(View, WeaponModel);
     if (View.Root && View.Root->IsVisible() != bShow) View.Root->SetVisibility(bShow, true);
-    bool bCloseSurface = false;
+    double SurfaceBlend = 0.;
     if (bShow)
     {
-        const FVector Eye = BodyCamera->GetComponentLocation();
-        const FVector End = Eye + GetControlRotation().Vector() * 75.;
+        const FRotator Rotation = GetControlRotation();
+        const bool bAimingPose = bSightHeld && !bReloading && !bSprinting;
+        const FVector& PoseOffset = bAimingPose ? RaisedSight : Rest;
+        // Probe the presentation's shoulder offset so a door jamb can lower the rig.
+        const FVector Origin = BodyCamera->GetComponentLocation() + Rotation.RotateVector({0., PoseOffset.Y, PoseOffset.Z});
+        const FVector End = Origin + Rotation.Vector() * VPWeaponView::ClearanceProbeLength;
         const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPWeaponViewClearance), true, this);
-        bCloseSurface = GetWorld()->LineTraceTestByChannel(Eye, End, ECC_Visibility, Query);
+        FHitResult Hit;
+        if (GetWorld()->SweepSingleByChannel(Hit, Origin, End, FQuat::Identity, ECC_Visibility,
+            FCollisionShape::MakeSphere(5.f), Query))
+            SurfaceBlend = VPWeaponView::ClearanceBlend(Hit.bStartPenetrating ? 0. : Hit.Distance);
     }
-    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, bCloseSurface);
+    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, SurfaceBlend >= .25);
     SightBlend = VPWeaponView::Approach(SightBlend, bRaiseSight, DeltaSeconds, 6.);
-    ObstructionBlend = VPWeaponView::Approach(ObstructionBlend, bCloseSurface, DeltaSeconds, 10.);
+    ObstructionBlend = VPWeaponView::ApproachClearance(ObstructionBlend, SurfaceBlend, DeltaSeconds);
     if (IsLocallyControlled())
         BodyCamera->SetFieldOfView(bShow
             ? FMath::Lerp(VPWeaponView::HipFov, VPWeaponView::SightFov, float(SightBlend)) : VPWeaponView::HipFov);

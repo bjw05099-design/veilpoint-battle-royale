@@ -7,7 +7,7 @@ const os = require('node:os');
 const test = require('node:test');
 const {spawnSync} = require('node:child_process');
 const {createHash} = require('node:crypto');
-const {inflateSync} = require('node:zlib');
+const {gunzipSync, inflateSync} = require('node:zlib');
 
 const root = path.join(__dirname, '../Unreal/Veilpoint');
 const include = path.join(root, 'Source/Veilpoint');
@@ -29,6 +29,27 @@ test('atlas drawing and pointer pins share projection and reuse unchanged road a
   assert.match(controller, /PointAtPixel\(VPAdenAtlas::ScreenMap[\s\S]*?TraceAtlasGround\(Point, Floor\)/);
   assert.match(hud, /ScreenMap\(Crop, Canvas->ClipX, Canvas->ClipY\)/);
   assert.match(hud, /AdenStrokeSource\.Get\(\) != Source \|\| !\(AdenStrokeExtent == Strokes\)[\s\S]*?VisitAtlasLines/);
+});
+
+test('native road classes retain the complete order and values of the archived civilian centre lines', () => {
+  const raw = gunzipSync(fs.readFileSync(path.join(root, 'ContentSource/Aden/aden-civilian-pilot.geojson.gz')));
+  const roads = JSON.parse(raw).features.filter(({geometry, properties}) =>
+    geometry.type === 'LineString' && properties.layer === 'street');
+  const header = fs.readFileSync(path.join(include, 'VPAdenRoadClassData.h'), 'utf8');
+  assert.ok(header.includes(createHash('sha256').update(raw).digest('hex')));
+  const native = [...header.matchAll(/EHighway::(\w+)/g)].map(([, name]) => name);
+  const pascal = value => value.split('_').map(part => part[0].toUpperCase() + part.slice(1)).join('');
+  assert.equal(roads.length, 183);
+  assert.equal(new Set(native).size, 7);
+  assert.deepEqual(native, roads.map(road => pascal(road.properties.class)));
+});
+
+test('Aden recovery commits only after a walkable floor sweep and overlap rejection', () => {
+  const mode = fs.readFileSync(path.join(include, 'VPAdenStoryGameMode.cpp'), 'utf8');
+  const method = mode.slice(mode.indexOf('bool AVPAdenStoryGameMode::RestorePosition'),
+    mode.indexOf('FVector AVPAdenStoryGameMode::GetObjective'));
+  assert.match(method, /TraceAtlasGround[\s\S]*?SweepSingleByProfile[\s\S]*?IsPlayableGround[\s\S]*?IsWalkable/);
+  assert.match(method, /OverlapBlockingTestByProfile[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
 });
 
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {

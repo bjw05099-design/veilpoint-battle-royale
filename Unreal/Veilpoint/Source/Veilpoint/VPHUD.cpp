@@ -646,6 +646,9 @@ void AVPHUD::DrawHUD()
     DrawText(ZoneLabel, FLinearColor(.81f,.90f,.93f,1.f),
              X, Y + 144.f * Scale, nullptr, .8f * Scale, false);
 
+    const int32 RoundSeconds = RoundState->RoundElapsedMs / 1000;
+    DrawText(FString::Printf(TEXT("ROUND  %02d:%02d"), RoundSeconds / 60, RoundSeconds % 60),
+        FLinearColor(.81f,.90f,.93f,1.f), X + 262.f * Scale, Y + 144.f * Scale, nullptr, .78f * Scale);
     const FVector Location = Pawn->GetActorLocation();
     const FVector2D PlayerPosition(Location.X,Location.Y);
     if (FVector2D::Distance(PlayerPosition,Zone->ZoneCenter)>RadiusCm)
@@ -884,9 +887,28 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     };
     if (bPending)
     {
-        const bool bPrompt = *SceneBeat.Prompt && !Aden->bOperating && (!bEncounter || Aden->ContactsRemaining == 0)
-            && AVPAdenStoryState::CanReach(Pawn, Aden->Objective);
-        const FString Prompt = bPrompt ? FString::Printf(TEXT("[F] %s"), SceneBeat.Prompt) : FString();
+        const bool bPromptAvailable = *SceneBeat.Prompt && !Aden->bOperating && !Aden->bChoosing
+            && (!bEncounter || Aden->ContactsRemaining == 0);
+        const auto Reach = bPromptAvailable ? AVPAdenStoryState::InspectReach(Pawn, Aden->Objective) : EReach::Unavailable;
+        const FString Prompt = Reach == EReach::Ready ? FString::Printf(TEXT("[F] %s"), SceneBeat.Prompt) : FString();
+        if (bPromptAvailable && FVector::DistSquared2D(Position, Aden->Objective) <= FMath::Square(625.))
+        {
+            const TCHAR* Hint = TEXT("");
+            switch (Reach)
+            {
+            case EReach::TooFar: Hint = TEXT("Move closer to the marker"); break;
+            case EReach::DifferentLevel: Hint = TEXT("Reach the marker's level"); break;
+            case EReach::FaceObjective: Hint = TEXT("Face the marker to interact"); break;
+            case EReach::Occluded: Hint = TEXT("The approach is blocked"); break;
+            default: break;
+            }
+            if (*Hint)
+            {
+                const float Y = Top + (bStatusOpen ? 162.f : 98.f) * Scale;
+                DrawRect(Plate, Left, Y, Width * .68f, 24.f * Scale);
+                DrawText(Hint, Accent, Left + 12.f * Scale, Y + 4.f * Scale, nullptr, .72f * Scale);
+            }
+        }
         DrawVisibleMarker(Aden->Objective, Accent, Prompt);
         if (Aden->ActiveLeg.Num() > 2 && FVector::Dist2D(Guide.Waypoint, Aden->Objective) > 100.)
             DrawVisibleMarker(Guide.Waypoint + FVector(0., 0., 120.), Assist, FString());
@@ -1082,8 +1104,8 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
                 SampledDistance += FVector2D(double(Position.X) - Previous.X, double(Position.Y) - Previous.Y).Size();
         }
     }
-    DrawText(FString::Printf(TEXT("%d observations  |  ~%.0f m sampled  |  %.1f s observed"),
-        Track.Num(), SampledDistance, (Track.Last().Milliseconds - Track[0].Milliseconds) / 1000.),
+    DrawText(FString::Printf(TEXT("SURVIVED %.1fs  |  %d OBSERVATIONS  |  ~%.0f m SAMPLED"),
+        Track.Last().Milliseconds / 1000., Track.Num(), SampledDistance),
         Ink, Left + 18.f * Scale, Top + 64.f * Scale, nullptr, .75f * Scale);
     const FVector2D Range = Bounds.GetSize();
     const double UnitsToPixels = FMath::Min((Width - 86. * Scale) / FMath::Max(1., Range.X),

@@ -17,6 +17,7 @@
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRoutes.h"
 #include "VPAdenDrape.h"
+#include "VPAdenRoadClassData.h"
 #include "VPAdenFootprint.h"
 #include "VPAdenRegionalData.h"
 #include "VPAdenRegionalGrid.h"
@@ -44,6 +45,7 @@ constexpr int32 GroundSectors = GroundSectorsX * GroundSectorsY;
 static_assert(VPAdenWestData::Columns == WestCells && VPAdenWestData::Rows == Side);
 static_assert(WestCells % SectorCells == 0 && (GroundColumns - 1) * Spacing == VPAdenAtlas::Playable.Width());
 constexpr uint32 RoadCount = 183;
+static_assert(UE_ARRAY_COUNT(VPAdenRoads::SourceClasses) == RoadCount);
 constexpr uint32 FootprintCount = 4865;
 constexpr int32 SegmentSize = 480;
 using FShapes = TArray<TArray<FVector2D>>;
@@ -501,11 +503,15 @@ int32 AddShapeOutlines(const FGeometry& Geometry, const FShapes& Shapes, bool bF
 {
     const double HalfWidth = bFootprints ? 14. : 21.;
     const double Lift = bFootprints ? 8. : 10.;
-    const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f) : FLinearColor(.91f, .79f, .46f, 0.f);
     const auto Point = [](const FVector2D& P) { return VPAdenAtlas::FPoint{P.X, P.Y}; };
     int32 Added = 0;
-    for (const auto& Shape : Shapes)
+    for (int32 ShapeIndex = 0; ShapeIndex < Shapes.Num(); ++ShapeIndex)
     {
+        const auto& Shape = Shapes[ShapeIndex];
+        const auto Highway = bFootprints ? VPAdenRoads::EHighway::None : VPAdenRoads::SourceClasses[ShapeIndex];
+        const auto Stroke = VPAdenRoads::Stroke(VPAdenRoads::Group(Highway));
+        const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f)
+            : FLinearColor(Stroke.Red, Stroke.Green, Stroke.Blue, 0.f);
         const int32 Segments = Shape.Num() - (bFootprints ? 0 : 1);
         for (int32 I = 0; I < Segments; ++I)
         {
@@ -709,15 +715,17 @@ bool AVPAdenSourceWorld::BuildSource()
     AtlasLineSectors.SetNum(SurfaceSectors);
     const auto IndexAtlasShapes = [&](const FShapes& Shapes, bool bRoad)
     {
-        for (const auto& Shape : Shapes)
+        for (int32 ShapeIndex = 0; ShapeIndex < Shapes.Num(); ++ShapeIndex)
         {
+            const auto& Shape = Shapes[ShapeIndex];
+            const auto Highway = bRoad ? VPAdenRoads::SourceClasses[ShapeIndex] : VPAdenRoads::EHighway::None;
             const int32 Count = Shape.Num() - (bRoad ? 1 : 0);
             for (int32 I = 0; I < Count; ++I)
             {
                 const FVector2D& A = Shape[I];
                 const FVector2D& B = Shape[(I + 1) % Shape.Num()];
                 if (A == B) continue;
-                const int32 Index = AtlasLines.Add({{A.X, A.Y}, {B.X, B.Y}, bRoad});
+                const int32 Index = AtlasLines.Add({{A.X, A.Y}, {B.X, B.Y}, Highway});
                 const auto Range = VPAdenDrape::LocalAtlasSectors({FMath::Min(A.X, B.X), FMath::Min(A.Y, B.Y),
                     FMath::Max(A.X, B.X), FMath::Max(A.Y, B.Y)});
                 for (int32 Y = Range.North; Y <= Range.South; ++Y)

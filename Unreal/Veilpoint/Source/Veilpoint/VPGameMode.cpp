@@ -200,10 +200,12 @@ void AVPGameMode::Tick(float DeltaSeconds)
     if(bSeenMultiplePlayers) NativeState->MarkRoundStarted();
     const int32 ElapsedMs = ReviewStartedAt < 0. ? 0
         : FMath::RoundToInt(FMath::Min(Now - ReviewStartedAt, 36000.) * 1000.);
+    // Publish a bounded live clock while retaining the precise server stamp for results and observations.
+    const int32 PublishedMs = VPBRLobby::PublishedElapsed(ElapsedMs, bRoundComplete);
     if (!bAlreadyStarted)
-        NativeState->UpdateLobby(Joined, Ready, bOnlineReadyLobby, ElapsedMs, ReadyCountdownEndsAt);
+        NativeState->UpdateLobby(Joined, Ready, bOnlineReadyLobby, PublishedMs, ReadyCountdownEndsAt);
     else
-        NativeState->UpdateLobby(NativeState->JoinedPlayers, NativeState->ReadyPlayers, bOnlineReadyLobby, ElapsedMs, 0.);
+        NativeState->UpdateLobby(NativeState->JoinedPlayers, NativeState->ReadyPlayers, bOnlineReadyLobby, PublishedMs, 0.);
     if (bSeenMultiplePlayers)
     {
         if (ReviewStartedAt < 0.)

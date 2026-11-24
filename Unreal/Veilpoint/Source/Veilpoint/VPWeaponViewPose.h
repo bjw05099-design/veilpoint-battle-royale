@@ -30,6 +30,19 @@ inline double Ramp(double Phase, double Start, double End)
     return T * T * (3. - 2. * T);
 }
 
+inline constexpr double ClearanceProbeLength = 84.;
+
+inline double ClearanceBlend(double Distance)
+{
+    return 1. - Ramp(Distance, 24., ClearanceProbeLength);
+}
+
+inline double ApproachClearance(double Current, double Target, double Time)
+{
+    const double Step = std::clamp(Time, 0., .1) * (Target > Current ? 13. : 7.);
+    return Current + std::clamp(Target - Current, -Step, Step);
+}
+
 inline double LandingStrength(double DownwardVelocity)
 {
     return std::clamp((DownwardVelocity - 160.) / 650., 0., 1.);

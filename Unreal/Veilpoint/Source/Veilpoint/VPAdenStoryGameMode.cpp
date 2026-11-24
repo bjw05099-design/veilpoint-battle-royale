@@ -20,6 +20,8 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
+#include "CollisionShape.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -143,11 +145,41 @@ bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
 
 bool AVPAdenStoryGameMode::RestorePosition(AVPCharacter* Pawn, VPAdenCampaign::FProgress Beat) const
 {
-    const FTransform Place = RecoveryTransform(Beat);
-    if (!Pawn->TeleportTo(Place.GetLocation(), Place.Rotator())) return false;
-    Pawn->GetCharacterMovement()->StopMovementImmediately();
-    if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Place.Rotator());
-    return true;
+    const auto& Leg = Source->CampaignLeg(Beat);
+    const bool bDone = Beat.Beat == VPAdenCampaign::Complete;
+    const FVector Anchor = bDone ? Leg.Last() : Leg[0];
+    const FVector Next = bDone ? Leg[Leg.Num() - 2] : Leg[1];
+    const FVector Along = (Next - Anchor).GetSafeNormal2D();
+    const double SegmentLength = FVector::Dist2D(Anchor, Next);
+    const FRotator Facing = RecoveryTransform(Beat).Rotator();
+    const auto* Capsule = Pawn->GetCapsuleComponent();
+    auto* Movement = Pawn->GetCharacterMovement();
+    const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+    const FCollisionShape Shape = FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), HalfHeight);
+    const FName Profile = Capsule->GetCollisionProfileName();
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenRecovery), true, Pawn);
+    double PreviousOffset = -1.;
+    for (const double Requested : VPAdenCampaign::RecoveryOffsetsCm)
+    {
+        const double Offset = VPAdenCampaign::RecoveryOffset(Requested, SegmentLength);
+        if (Offset <= PreviousOffset) break;
+        PreviousOffset = Offset;
+        const FVector Candidate = Anchor + Along * Offset;
+        FVector Ground;
+        if (!Source->TraceAtlasGround({Candidate.X, Candidate.Y}, Ground)) continue;
+        FHitResult Hit;
+        if (!GetWorld()->SweepSingleByProfile(Hit, Ground + FVector(0., 0., HalfHeight + 120.),
+            Ground + FVector(0., 0., HalfHeight - 30.), FQuat::Identity, Profile, Shape, Query)
+            || Hit.bStartPenetrating || !Source->IsPlayableGround(Hit) || !Movement->IsWalkable(Hit)) continue;
+        const FVector Clear = Hit.Location + FVector(0., 0., 3.);
+        if (GetWorld()->OverlapBlockingTestByProfile(Clear, FQuat::Identity, Profile, Shape, Query)
+            || !Pawn->TeleportTo(Clear, Facing, false, true)) continue;
+        Pawn->ConsumeMovementInputVector();
+        Movement->StopMovementImmediately();
+        if (AController* Controller = Pawn->GetController()) Controller->SetControlRotation(Facing);
+        return true;
+    }
+    return false;
 }
 
 FVector AVPAdenStoryGameMode::GetObjective() const
@@ -172,15 +204,22 @@ VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Z
     return FitRoute(Playable, Bounds, MaxZoomLevel);
 }
 
+VPAdenCampaign::EReach AVPAdenStoryState::InspectReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing)
+{
+    using namespace VPAdenCampaign;
+    if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld()) return EReach::Unavailable;
+    const FVector Eye = Pawn->GetPawnViewLocation();
+    const double Facing = FVector::DotProduct(Pawn->GetViewRotation().Vector(), (Point - Eye).GetSafeNormal());
+    const auto Reach = ReachWithoutTrace(FVector::DistSquared2D(Pawn->GetActorLocation(), Point),
+        Point.Z - Eye.Z, Facing, bRequireFacing);
+    if (Reach != EReach::Ready) return Reach;
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
+    return Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query) ? EReach::Occluded : EReach::Ready;
+}
+
 bool AVPAdenStoryState::CanReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing)
 {
-    if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld()
-        || FVector::DistSquared2D(Pawn->GetActorLocation(), Point) > FMath::Square(VPAdenCampaign::ReachCm)) return false;
-    const FVector Eye = Pawn->GetPawnViewLocation();
-    if (bRequireFacing && FVector::DotProduct(Pawn->GetViewRotation().Vector(), (Point - Eye).GetSafeNormal()) < .5)
-        return false;
-    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
-    return !Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query);
+    return InspectReach(Pawn, Point, bRequireFacing) == VPAdenCampaign::EReach::Ready;
 }
 
 void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampaign::EInput Input)
@@ -898,6 +937,40 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
     return Checked == Steps + 1 && bRendered && bMapVerified && bRestored && bGradeDirectionsVerified;
 }
 
+bool AVPAdenStoryGameMode::VerifyCheckpointFooting(AVPPlayerController* Desktop, AVPCharacter* Pawn)
+{
+#if !UE_BUILD_SHIPPING
+    const FTransform Original = Pawn->GetActorTransform();
+    const FRotator OriginalView = Desktop->GetControlRotation();
+    if (!RestorePosition(Pawn, Progress)) return false;
+    const FVector Anchor = Pawn->GetActorLocation();
+    auto* Fixture = NewObject<UBoxComponent>(Source.Get());
+    Source->AddInstanceComponent(Fixture);
+    Fixture->SetupAttachment(Source->GetRootComponent());
+    Fixture->SetMobility(EComponentMobility::Movable);
+    Fixture->SetBoxExtent(FVector(28., 28., 52.));
+    Fixture->SetCollisionProfileName(TEXT("BlockAll"));
+    Fixture->RegisterComponent();
+    Fixture->SetWorldLocation(Anchor);
+    const bool bRestoredBesideBlock = RestorePosition(Pawn, Progress);
+    const FVector Recovered = Pawn->GetActorLocation();
+    Fixture->DestroyComponent();
+
+    const auto& Leg = Source->CampaignLeg(Progress);
+    const FVector Along = (Leg[1] - Leg[0]).GetSafeNormal2D();
+    const FVector Delta = Recovered - Anchor;
+    const double DistanceAlong = FVector::DotProduct(Delta, Along);
+    const bool bOnLeg = FMath::Abs(FVector::DotProduct(Delta, FVector(-Along.Y, Along.X, 0.))) < .05;
+    const auto Above = AVPAdenStoryState::InspectReach(Pawn, Pawn->GetPawnViewLocation() + FVector(0., 0., 350.), false);
+    const bool bRestored = Pawn->TeleportTo(Original.GetLocation(), Original.Rotator());
+    Desktop->SetControlRotation(OriginalView);
+    return bRestoredBesideBlock && bOnLeg && DistanceAlong > 0. && DistanceAlong <= 300.05
+        && Above == VPAdenCampaign::EReach::DifferentLevel && bRestored;
+#else
+    return false;
+#endif
+}
+
 void AVPAdenStoryGameMode::RunDiagnostic()
 {
 #if !UE_BUILD_SHIPPING
@@ -916,6 +989,16 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         const auto Backdrop = Source->VerifyRegionalTiles();
         const int32 RoadTriangles = Source->RoadOverlayTriangles();
         const int32 FootprintTriangles = Source->FootprintOverlayTriangles();
+        uint32 StreetClasses = 0;
+        Source->VisitAtlasLines(VPAdenAtlas::Local, [&](const FVPAdenAtlasLine& Line)
+        {
+            if (Line.IsRoad()) StreetClasses |= 1u << static_cast<uint32>(Line.Highway);
+        });
+        const bool bRoadClasses = StreetClasses == 0xfeu;
+        const bool bRecovery = VerifyCheckpointFooting(Desktop, Pawn);
+        Report->SetBoolField(TEXT("sourcedRoadClassesVerified"), bRoadClasses);
+        Report->SetBoolField(TEXT("safeCheckpointFootingVerified"), bRecovery);
+        bPassed = bPassed && bRoadClasses && bRecovery;
         Report->SetNumberField(TEXT("regionalBackdropTriangles"), Backdrop.Triangles);
         Report->SetNumberField(TEXT("regionalRenderTiles"), Backdrop.Tiles);
         Report->SetNumberField(TEXT("regionalCoarsenedTiles"), Backdrop.CoarsenedTiles);
@@ -1183,6 +1266,25 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         Pawn->UpdateWeaponView(.1f);
         Pawn->UpdateWeaponView(.1f);
         const bool bSightRaised = FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::SightFov);
+        auto* ClearanceFixture = NewObject<UBoxComponent>(Source.Get());
+        Source->AddInstanceComponent(ClearanceFixture);
+        ClearanceFixture->SetupAttachment(Source->GetRootComponent());
+        ClearanceFixture->SetMobility(EComponentMobility::Movable);
+        ClearanceFixture->SetBoxExtent(FVector(12., 12., 12.));
+        ClearanceFixture->SetCollisionProfileName(TEXT("BlockAll"));
+        ClearanceFixture->RegisterComponent();
+        ClearanceFixture->SetWorldLocation(Eye + Facing.Vector() * 21.);
+        Pawn->UpdateWeaponView(.1f);
+        Pawn->UpdateWeaponView(.1f);
+        const bool bRigLowered = Pawn->ObstructionBlend > .85
+            && FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::HipFov);
+        ClearanceFixture->DestroyComponent();
+        Pawn->UpdateWeaponView(.1f);
+        Pawn->UpdateWeaponView(.1f);
+        const bool bClearanceRestored = Pawn->ObstructionBlend < .05
+            && FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::SightFov);
+        DiagnosticReport->SetBoolField(TEXT("weaponPhysicalClearanceVerified"), bRigLowered && bClearanceRestored);
+        if (!bRigLowered || !bClearanceRestored) return false;
         Pawn->EndSight();
         Pawn->UpdateWeaponView(.1f);
         Pawn->UpdateWeaponView(.1f);
@@ -1287,7 +1389,7 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                         const auto UV = View.Normalized(Point);
                         bClipped &= UV.X >= -1.e-9 && UV.X <= 1. + 1.e-9 && UV.Y >= -1.e-9 && UV.Y <= 1. + 1.e-9;
                     }
-                    if (Line.bRoad) ++Roads;
+                    if (Line.IsRoad()) ++Roads;
                     else ++Footprints;
                 });
                 Source->VisitAtlasLines(VPAdenAtlas::Local, [&](const FVPAdenAtlasLine&) { ++Total; });
