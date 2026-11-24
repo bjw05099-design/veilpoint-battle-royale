@@ -768,7 +768,7 @@ float AVPHUD::DrawAdenSubtitle(const FString& Line, float Bottom, float Left, fl
 void AVPHUD::DrawAdenOpening(const AVPAdenStoryState* Aden)
 {
     using namespace VPAdenPrologue;
-    const FFrame Frame = Aden->OpeningFrame;
+    const VPAdenPrologue::FFrame Frame = Aden->OpeningFrame;
     const float Scale = FMath::Clamp(FMath::Min(Canvas->ClipX / 1280.f, Canvas->ClipY / 720.f), .55f, 1.65f);
     const float Reveal = Frame.Shot == Street ? float(FMath::Clamp((Frame.Position - 2.9) / 2.9, 0., 1.)) : 0.f;
     const float Mat = Canvas->ClipY * .102f * (1.f - Reveal);
@@ -877,11 +877,10 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     }
 
     const FString Distance = bPending
-        ? FString::Printf(Guide.NeedsRejoin()
-            ? TEXT("%.0f m back to route   |   M  Route   |   J  Journal   |   F7  Checkpoint")
-            : TEXT("%.0f m to go   |   M  Route   |   J  Journal   |   F7  Checkpoint"),
+        ? FString::Printf(TEXT("%.0f m %s   |   M  Route   |   J  Journal   |   F7  Checkpoint"),
             (Guide.NeedsRejoin() ? Guide.OffsetCm : Guide.SegmentEnd > 0 ? Guide.RemainingCm
-                : FVector::Dist2D(Position, Aden->Objective)) / 100.)
+                : FVector::Dist2D(Position, Aden->Objective)) / 100.,
+            Guide.NeedsRejoin() ? TEXT("back to route") : TEXT("to go"))
         : FString(TEXT("Campaign complete"));
     DrawText(Distance, Assist, Left + 12.f * Scale, Top + 60.f * Scale, nullptr, .77f * Scale);
     if (bStatusOpen)
@@ -966,8 +965,8 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         else if (Aden->bOperationObstructed)
             Status = TEXT("Keep the space under the barrier clear");
         else if (Aden->WindowSeconds >= 0)
-            Status = Aden->WindowSeconds > 0 ? FString::Printf(
-                Aden->WindowSeconds <= SignalWarningMs / 1000 ? TEXT("LIGHT FADING  %02d s") : TEXT("CROSSING LIGHT  %02d s"),
+            Status = Aden->WindowSeconds > 0 ? FString::Printf(TEXT("%s  %02d s"),
+                Aden->WindowSeconds <= SignalWarningMs / 1000 ? TEXT("LIGHT FADING") : TEXT("CROSSING LIGHT"),
                 Aden->WindowSeconds)
                 : FString(TEXT("LIGHT OUT   |   CALL THE DRIVER"));
         else if (bEncounter)

@@ -427,11 +427,11 @@ void AVPPlayerController::CycleAdenAtlas()
         AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
         if (AdenAtlasPage == 1)
         {
-            if (auto* Character = Cast<AVPCharacter>(GetPawn()))
+            if (auto* ControlledPawn = Cast<AVPCharacter>(GetPawn()))
             {
-                Character->ReleaseDesktopActions();
-                Character->ConsumeMovementInputVector();
-                Character->GetCharacterMovement()->StopMovementImmediately();
+                ControlledPawn->ReleaseDesktopActions();
+                ControlledPawn->ConsumeMovementInputVector();
+                ControlledPawn->GetCharacterMovement()->StopMovementImmediately();
             }
         }
     }
@@ -486,17 +486,17 @@ void AVPPlayerController::ZoomAdenAtlas(int32 Direction)
     AdenAtlasZoom = Next;
 }
 
-VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& Player) const
+VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& PlayerLocation) const
 {
     VPAdenCampaign::FProgress Preview;
     if (GetAdenRoutePreview(State, Preview))
     {
-        VPAdenAtlas::FExtent Bounds{Player.X, Player.Y, Player.X, Player.Y};
+        VPAdenAtlas::FExtent Bounds{PlayerLocation.X, PlayerLocation.Y, PlayerLocation.X, PlayerLocation.Y};
         for (const FVector& Point : State.Source->CampaignLeg(Preview)) Bounds.Include({Point.X, Point.Y});
         return VPAdenAtlas::FitRoute(VPAdenAtlas::Playable, Bounds, VPAdenAtlas::MaxZoomLevel);
     }
     const bool bFitRoute = IsAdenAtlasRouteOverview();
-    if (bFitRoute || !AdenAtlasCentre.IsSet()) return State.AtlasCrop(Player, AdenAtlasZoom, bFitRoute);
+    if (bFitRoute || !AdenAtlasCentre.IsSet()) return State.AtlasCrop(PlayerLocation, AdenAtlasZoom, bFitRoute);
     const auto Focus = AdenAtlasCentre.GetValue();
     return VPAdenAtlas::Crop(VPAdenAtlas::Playable, {Focus.X, Focus.Y}, AdenAtlasZoom);
 }
@@ -763,9 +763,9 @@ void AVPPlayerController::ToggleRoundLoadout()
     if (!IsLocalController() || !GetWorld() || GetNetMode() == NM_Standalone
         || bDesktopMenuOpen || IsRoundReady() || IsRoundReadyPending()) return;
     const auto* State = GetWorld()->GetGameState<AVPGameState>();
-    const auto* Pawn = Cast<AVPCharacter>(GetPawn());
-    if (State && State->bReadyRequired && !State->bRoundStarted && Pawn && Pawn->IsAlive())
-        ServerSetRoundLoadout(VPWeaponModels::Alternate(Pawn->GetWeaponModel()));
+    const auto* ControlledPawn = Cast<AVPCharacter>(GetPawn());
+    if (State && State->bReadyRequired && !State->bRoundStarted && ControlledPawn && ControlledPawn->IsAlive())
+        ServerSetRoundLoadout(VPWeaponModels::Alternate(ControlledPawn->GetWeaponModel()));
 }
 
 void AVPPlayerController::ServerSetRoundLoadout_Implementation(EVPWeaponModel Model)
