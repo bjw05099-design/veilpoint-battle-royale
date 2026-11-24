@@ -65,6 +65,7 @@ public:
     const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
     bool SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);
     void SetCrossingLight(const FVector& Signal, bool bOn, bool bFading);
+    const UPrimitiveComponent* GetRescueBarrier(int32 Slot) const;
     bool IsRescueBarrierBlocking(int32 Slot) const;
     bool VerifyRescueBarrierClearance(const FVector& Start, const FVector& Next);
     UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
