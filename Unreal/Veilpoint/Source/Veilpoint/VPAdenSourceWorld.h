@@ -60,7 +60,7 @@ public:
     bool BuildSource();
     bool IsPlayableGround(const FHitResult& Hit) const;
     bool TraceStoryGround(const FVector& Around, FVector& Ground) const;
-    bool TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Ground) const;
+    bool TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Ground, FHitResult* Surface = nullptr) const;
     FVector Station(int32 Index) const;
     const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
     bool SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);

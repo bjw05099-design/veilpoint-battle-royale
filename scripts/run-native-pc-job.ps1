@@ -41,6 +41,15 @@ try {
     } elseif ($Operation -eq 'author-package') {
         & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PackageNative
         $report.status='PACKAGED_NOT_RUNTIME_TESTED'
+        $infoPath=Join-Path $repo 'dist/native-win64/Windows/BUILD_INFO.json'
+        $buildInfo=Get-Content -LiteralPath $infoPath -Raw | ConvertFrom-Json
+        if ($buildInfo.schema -ne 'veilpoint-packaged-build-v1' -or $buildInfo.sourceSha -cne $report.sourceSha -or
+            $buildInfo.map -ne '/Game/Maps/CH01_Aden' -or $buildInfo.engine -ne '5.8') {
+            throw 'Packaged BUILD_INFO.json does not match the requested Aden build.'
+        }
+        Copy-Item -LiteralPath $infoPath -Destination $logs
+        $report.packagedBuildInfoVerified=$true
+        $failures=[ordered]@{}
         try {
             & (Join-Path $PSScriptRoot 'test-native-aden-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.adenGameplaySmokePassed=$true
@@ -62,15 +71,44 @@ try {
                     ConvertTo-Json | Set-Content -LiteralPath $candidateTemp -Encoding UTF8
                 Move-Item -LiteralPath $candidateTemp -Destination (Join-Path $retainedRoot 'latest-aden-candidate.json') -Force
             }
+        } catch {
+            $failures['Aden']=$_.Exception.Message
+        }
+        try {
             & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
-            $report.status='PACKAGED_OFFSCREEN_SMOKE_PASSED'
             $report.offscreenRenderVerified=$true
+        } catch {
+            $failures['Offscreen']=$_.Exception.Message
+        }
+        try {
             & (Join-Path $PSScriptRoot 'test-native-visual-smoke.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs -Windowed
             $report.windowRenderVerified=$true
+        } catch {
+            $failures['Window']=$_.Exception.Message
+        }
+        try {
             & (Join-Path $PSScriptRoot 'test-native-br-lobby.ps1') -ArchiveDirectory (Join-Path $repo 'dist/native-win64') -EvidenceDirectory $logs
             $report.brLocalNetworkVerified=$true
             $report.brDepartureVerified=$true
             $report.brLobbyRejoinVerified=$true
+        } catch {
+            $failures['BattleRoyale']=$_.Exception.Message
+        }
+        if ($failures.Count -gt 0) {
+            $report.validationFailures=$failures
+            $report.status=if (!$report.nativeRuntimeVerified) {
+                'PACKAGED_ADEN_SMOKE_FAILED'
+            } elseif ($failures.Contains('Aden') -or $failures.Contains('Offscreen')) {
+                'PACKAGED_ADEN_PASSED_COAST_OR_RETENTION_FAILED'
+            } elseif ($failures.Contains('Window')) {
+                'PACKAGED_WINDOW_SMOKE_FAILED'
+            } else {
+                'PACKAGED_BR_NETWORK_SMOKE_FAILED'
+            }
+            $errors=$failures.GetEnumerator() | ForEach-Object { "$($_.Key): $($_.Value)" }
+            throw ($errors -join [Environment]::NewLine)
+        }
+        try {
             $report.status='PACKAGED_WINDOW_SMOKE_PASSED'
             $report.humanInputVerified=$false
             $report.gpuPerformanceVerified=$false
@@ -83,7 +121,7 @@ try {
                 Move-Item -LiteralPath $pointerTemp -Destination (Join-Path $retainedRoot 'latest-verified.json') -Force
             }
         } catch {
-            $report.status=if ($report.windowRenderVerified -and !$report.Contains('brLocalNetworkVerified')) { 'PACKAGED_BR_NETWORK_SMOKE_FAILED' } elseif ($report.windowRenderVerified) { 'PACKAGED_RETENTION_FAILED' } elseif ($report.offscreenRenderVerified) { 'PACKAGED_WINDOW_SMOKE_FAILED' } elseif ($report.nativeRuntimeVerified) { 'PACKAGED_ADEN_PASSED_COAST_OR_RETENTION_FAILED' } else { 'PACKAGED_ADEN_SMOKE_FAILED' }
+            $report.status='PACKAGED_RETENTION_FAILED'
             throw
         }
     } else { $report.status='PREFLIGHT_ONLY_NO_BUILD' }

@@ -44,12 +44,16 @@ test('native road classes retain the complete order and values of the archived c
   assert.deepEqual(native, roads.map(road => pascal(road.properties.class)));
 });
 
-test('Aden recovery commits only after a walkable floor sweep and overlap rejection', () => {
+test('Aden recovery commits only after a walkable terrain hit and capsule overlap rejection', () => {
   const mode = fs.readFileSync(path.join(include, 'VPAdenStoryGameMode.cpp'), 'utf8');
   const method = mode.slice(mode.indexOf('bool AVPAdenStoryGameMode::RestorePosition'),
     mode.indexOf('FVector AVPAdenStoryGameMode::GetObjective'));
-  assert.match(method, /TraceAtlasGround[\s\S]*?SweepSingleByProfile[\s\S]*?IsPlayableGround[\s\S]*?IsWalkable/);
-  assert.match(method, /OverlapBlockingTestByProfile[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
+  const source = fs.readFileSync(path.join(include, 'VPAdenSourceWorld.cpp'), 'utf8');
+  const trace = source.slice(source.indexOf('bool AVPAdenSourceWorld::TraceAtlasGround'),
+    source.indexOf('FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles'));
+  assert.match(trace, /TerrainCollision->LineTraceComponent[\s\S]*?\*Surface = Hit/);
+  assert.match(method, /TraceAtlasGround\(\{Candidate\.X, Candidate\.Y\}, Ground, &Hit\)[\s\S]*?IsWalkable\(Hit\)/);
+  assert.match(method, /OverlapBlockingTestByChannel[\s\S]*?Capsule->GetCollisionObjectType\(\)[\s\S]*?TeleportTo\(Clear, Facing, false, true\)/);
 });
 
 test('Aden bookmarks use their own local slot and reload only against the matching ground revision', () => {
