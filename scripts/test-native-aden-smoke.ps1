@@ -33,10 +33,11 @@ $report=Get-Content -LiteralPath (Join-Path $captures 'visual-smoke.json') -Raw 
 if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChaptersVerified -ne $true -or
     $report.campaignChapters -ne 12 -or $report.koreanFontStaged -ne $true -or
     $report.campaignHandoffs -ne 3 -or $report.campaignEscorts -ne 4 -or $report.campaignEncounters -ne 3 -or
+    $report.subtitleWindowPreserved -ne $true -or $report.encounterResolutionCallVerified -ne $true -or
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
-    $report.fieldPinVerified -ne $true -or $report.fieldRouteDistanceVerified -ne $true -or
+    $report.fieldPointerPinVerified -ne $true -or $report.fieldPinVerified -ne $true -or $report.fieldRouteDistanceVerified -ne $true -or
     $report.campaignAKMVerified -ne $true -or $report.campaignM4A1Verified -ne $true -or
     $report.firstPersonWeaponRigVerified -ne $true -or $report.firstPersonSightVerified -ne $true -or
     $report.routeChoicePreviewVerified -ne $true -or

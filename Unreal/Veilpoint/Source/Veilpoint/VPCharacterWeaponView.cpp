@@ -10,6 +10,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -130,6 +131,16 @@ bool AVPCharacter::HasWeaponView() const
         && Active.Receiver->GetCollisionEnabled() == ECollisionEnabled::NoCollision;
 }
 
+void AVPCharacter::Landed(const FHitResult& Hit)
+{
+    if (IsLocallyControlled() && IsAlive() && GetWorld())
+    {
+        LandedAt = GetWorld()->GetTimeSeconds();
+        LandedStrength = VPWeaponView::LandingStrength(-GetCharacterMovement()->Velocity.Z);
+    }
+    Super::Landed(Hit);
+}
+
 void AVPCharacter::BeginSight()
 {
     if (IsLocallyControlled() && IsAlive() && !IsDesktopInputBlocked()) bSightHeld = true;
@@ -179,8 +190,9 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     GetShotCue(ShotPulse);
     const auto Pose = VPWeaponView::Pose(Phase, bEmpty, bSprinting, ShotPulse);
     const FVector Position = FMath::Lerp(Rest, RaisedSight, SightBlend);
+    const double Landing = VPWeaponView::LandingDip(GetWorld()->GetTimeSeconds() - LandedAt, LandedStrength);
     WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
-        0., -Pose.Lower - 9. * ObstructionBlend));
+        0., -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)));
     WeaponViewRoot->SetRelativeRotation(FRotator(1.5 * ShotPulse - 22. * ObstructionBlend, 0., Pose.Roll));
     View.Magazine->SetRelativeLocation(MagazineRest - FVector(0., 0., Pose.MagazineDrop));
     const double Bias = WeaponModel == EVPWeaponModel::AKM ? 19. : 7.;

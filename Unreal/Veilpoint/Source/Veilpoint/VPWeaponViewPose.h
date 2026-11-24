@@ -30,6 +30,16 @@ inline double Ramp(double Phase, double Start, double End)
     return T * T * (3. - 2. * T);
 }
 
+inline double LandingStrength(double DownwardVelocity)
+{
+    return std::clamp((DownwardVelocity - 160.) / 650., 0., 1.);
+}
+
+inline double LandingDip(double Age, double Strength)
+{
+    return Strength * 5. * (Ramp(Age, 0., .08) - Ramp(Age, .08, .30));
+}
+
 inline FPose Pose(double ReloadPhase, bool Empty, bool Sprinting, double ShotPulse)
 {
     const double Kick = 2. * std::clamp(ShotPulse, 0., 1.);

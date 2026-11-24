@@ -34,7 +34,9 @@ test('Unreal match HUD opens the review only after authoritative round completio
   assert.match(hud, /if \(bReviewAvailable\)[\s\S]+?DrawRoundReview\(Pawn, Scale\)/);
   const review = hud.slice(hud.indexOf('void AVPHUD::DrawRoundReview'));
   assert.match(review, /Pawn->GetRoundReview\(\)/);
-  assert.match(review, /Milliseconds \/ 1000\./);
-  assert.match(review, /WasInputKeyJustPressed\(EKeys::T\)[\s\S]*?ReviewPlaybackStartMs = VPRoundReview::Playhead[\s\S]*?RoundReviewRateIndex =/);
-  assert.doesNotMatch(review, /TActorIterator|GetAllActors|Lerp\(/);
+  assert.match(review, /ReviewPlayheadMs \/ 1000\./);
+  assert.match(review, /WasInputKeyJustPressed\(EKeys::T\)[\s\S]*?ReviewPlaybackStartMs = ReviewPlayheadMs[\s\S]*?RoundReviewRateIndex =/);
+  assert.match(review, /if \(Cursor < Last && !bGap\)[\s\S]*?VPRoundReview::Fraction\(ReviewPlayheadMs/);
+  assert.match(review, /bSkip[\s\S]*?VPRoundReview::SkipMs/);
+  assert.doesNotMatch(review, /TActorIterator|GetAllActors/);
 });

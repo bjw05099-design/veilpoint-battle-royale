@@ -237,6 +237,7 @@ void AVPAdenStoryGameMode::ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoin
     OperationStarted = -1.;
     bChoosing = false;
     bSignalFading = Progress.Beat == ReachSignal && Checkpoint.WindowMs > 0 && Checkpoint.WindowMs <= SignalWarningMs;
+    bEncounterResolvedCall = false;
     bMovingLinePlayed = bSignalFading || (Progress.Beat == ReachSignal && Checkpoint.WindowMs == 0);
     bSaveFailed = false;
     NextEscortAttempt = 0.;
@@ -425,6 +426,16 @@ bool AVPAdenStoryGameMode::UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState
     if (Contacts.IsEmpty()) return false;
     View->ContactsRemaining = StandingContacts();
     View->bContactAiming = false;
+    if (View->ContactsRemaining == 0)
+    {
+        if (!bEncounterResolvedCall)
+        {
+            bEncounterResolvedCall = true;
+            bMovingLinePlayed = true;
+            SetDialogue(EncounterClearedCall(Progress));
+        }
+        return false;
+    }
     for (const auto& Contact : Contacts)
     {
         if (!IsValid(Contact.Get())) continue;
@@ -590,8 +601,8 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
 
     const auto& Leg = Source->CampaignLeg(Progress);
     const auto* Moving = Scene(Progress).Moving;
-    const bool bCueReady = Progress.Beat == Complete ? Now - DialogueStarted >= 7.
-        : Now - DialogueStarted >= 3. && FVector::DistSquared2D(Pawn->GetActorLocation(), Leg[0]) >= FMath::Square(650.);
+    const bool bCueReady = MovingCueReady(Progress.Beat == Complete, Now - DialogueStarted,
+        !Dialogue.IsEmpty() && Now < DialogueUntil, FVector::DistSquared2D(Pawn->GetActorLocation(), Leg[0]));
     if (!bMovingLinePlayed && *Moving && bCueReady)
     {
         bMovingLinePlayed = true;
@@ -979,6 +990,18 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         const bool bPinned = Pin.IsSet() && FMath::IsNearlyEqual(Pin.GetValue().X, PinCentre.X, .01)
             && FMath::IsNearlyEqual(Pin.GetValue().Y, PinCentre.Y, .01);
         bPassed = bPassed && bPinned && ReadFrame(TEXT("aden-field-pin"));
+        constexpr int32 Width = 1440, Height = 900;
+        const auto Screen = VPAdenAtlas::ScreenMap(Recentered, Width, Height);
+        const FVector2D Click(Screen.Map.West + Screen.Map.Width() * .68, Screen.Map.North + Screen.Map.Height() * .32);
+        const bool bClicked = Desktop->PlaceAdenPinAtPixel(Click, Width, Height);
+        const auto ClickPin = Desktop->GetAdenPin();
+        const bool bExactClick = bClicked && ClickPin.IsSet()
+            && FMath::IsNearlyEqual(ClickPin->X, Recentered.West + Recentered.Width() * .68, .01)
+            && FMath::IsNearlyEqual(ClickPin->Y, Recentered.North + Recentered.Height() * .32, .01);
+        const bool bOutsideIgnored = !Desktop->PlaceAdenPinAtPixel({-1., -1.}, Width, Height)
+            && Desktop->GetAdenPin() == ClickPin;
+        Report->SetBoolField(TEXT("fieldPointerPinVerified"), bExactClick && bOutsideIgnored);
+        bPassed = bPassed && bExactClick && bOutsideIgnored;
         Desktop->ClearAdenPin();
         const bool bPinCleared = !Desktop->GetAdenPin().IsSet();
         Report->SetBoolField(TEXT("fieldPinVerified"), bPinned && bPinCleared);
@@ -1191,7 +1214,12 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
 
     for (const auto& Contact : Contacts)
         if (Contact->IsStanding()) UGameplayStatics::ApplyDamage(Contact.Get(), 90.f, Desktop, Pawn, nullptr);
-    if (CanFireInEncounter(Pawn) || !SweepDiagnosticLeg(Pawn, Near, Leg.Last())) return false;
+    if (CanFireInEncounter(Pawn) || UpdateEncounter(Pawn, View, Now)
+        || !bEncounterResolvedCall || Dialogue != EncounterClearedCall(Progress)) return false;
+    const double ClearCallAt = DialogueStarted;
+    if (UpdateEncounter(Pawn, View, Now) || DialogueStarted != ClearCallAt
+        || !SweepDiagnosticLeg(Pawn, Near, Leg.Last())) return false;
+    DiagnosticReport->SetBoolField(TEXT("encounterResolutionCallVerified"), true);
     if (Progress.Beat == SecureLane)
         DiagnosticReport->SetNumberField(Progress.Relay == RadioOnce ? TEXT("radioRelayContacts") : TEXT("runnerRelayContacts"),
             Expected);
@@ -1400,7 +1428,13 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
     const TCHAR* Name = bOnTime ? TEXT("aden-campaign-ending-crossing") : TEXT("aden-campaign-ending-back-street");
     if (!(Progress == End) || CompletedChapters != 12 || CompletedHandoffs != 3 || CompletedEscorts != 4
         || CompletedEncounters != 3) return false;
-    UpdateBeat(Pawn, DialogueStarted + 7.1);
+    if (DialogueUntil > DialogueStarted + 3.)
+    {
+        UpdateBeat(Pawn, DialogueUntil - .1);
+        if (bMovingLinePlayed) return false;
+    }
+    UpdateBeat(Pawn, FMath::Max(DialogueUntil, DialogueStarted + 7.) + .1);
+    DiagnosticReport->SetBoolField(TEXT("subtitleWindowPreserved"), bMovingLinePlayed);
     if (bOnTime)
     {
         auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();

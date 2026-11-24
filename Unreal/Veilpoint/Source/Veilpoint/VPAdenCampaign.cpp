@@ -34,6 +34,25 @@ const TCHAR* EscortName(FProgress P)
     }
 }
 
+const TCHAR* EncounterClearedCall(FProgress P)
+{
+    switch (P.Beat)
+    {
+    case Pickup:
+        return P.Route == Families
+            ? TEXT("수혁: 아미나 씨, 이수혁입니다. 제가 문 앞으로 가겠습니다. 제 무전만 들으세요.")
+            : TEXT("유수프: 대위님, 여기입니다. 소령님 부하는 계단 밑에 있습니다. 아직 걸을 수 있습니다.");
+    case BreakContact:
+        return TEXT("도겸: 대위님, 여기는 조용합니다. 정류장에 남은 사람들도 이제 움직이고 있습니다.");
+    case SecureLane:
+        return P.Relay == RadioOnce
+            ? TEXT("현지: 이 대위님, 라미 소령 쪽에서 응답했습니다. 방금 전한 명령대로 정차했답니다.")
+            : TEXT("라미: 전달받았습니다. 뛰어온 두 사람은 저희 쪽에 있습니다. 이제 제가 책임지겠습니다.");
+    default:
+        return TEXT("");
+    }
+}
+
 FScene Scene(FProgress P)
 {
     const bool bFamily = P.Route == Families;

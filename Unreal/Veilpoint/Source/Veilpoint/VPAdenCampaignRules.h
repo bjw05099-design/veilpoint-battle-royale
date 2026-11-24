@@ -107,6 +107,12 @@ constexpr EMode Mode(int Beat)
     }
 }
 
+constexpr bool MovingCueReady(bool Finished, double Waited, bool SubtitleVisible, double DisplacementSqCm)
+{
+    return !SubtitleVisible && (Finished ? Waited >= 7.
+        : Waited >= 3. && DisplacementSqCm >= 650. * 650.);
+}
+
 constexpr bool UsesAKMAtEncounter(const FProgress& P)
 {
     return P.Beat == Pickup && P.Route == Clinic;

@@ -8,6 +8,10 @@ struct FPoint { double X, Y; };
 struct FExtent
 {
     double West, North, East, South;
+    constexpr bool operator==(const FExtent& Other) const
+    {
+        return West == Other.West && North == Other.North && East == Other.East && South == Other.South;
+    }
     constexpr double Width() const { return East - West; }
     constexpr double Height() const { return South - North; }
     constexpr bool Contains(FPoint Point) const
@@ -26,6 +30,41 @@ struct FExtent
         return {(Point.X - West) / Width(), (Point.Y - North) / Height()};
     }
 };
+
+struct FScreenMap
+{
+    float Scale, X, Y, W, H;
+    bool Side;
+    FExtent Map;
+
+    bool IsValid() const { return Map.Width() > 0. && Map.Height() > 0.; }
+};
+
+inline FScreenMap ScreenMap(FExtent View, float Width, float Height)
+{
+    const float Scale = std::clamp(Width / 1440.f, .70f, 1.55f);
+    const float W = std::min(1130.f * Scale, Width - 35.f * Scale);
+    const float H = std::min(740.f * Scale, Height - 36.f * Scale);
+    const float X = (Width - W) * .5f, Y = (Height - H) * .5f;
+    const bool Side = W > 750.f * Scale;
+    if (W < 380.f * Scale || H < 280.f * Scale || View.Width() <= 0. || View.Height() <= 0.)
+        return {Scale, X, Y, W, H, Side, {}};
+    const float AreaW = W - (Side ? 270.f : 40.f) * Scale;
+    const float AreaH = H - 106.f * Scale;
+    const float MapW = std::min(AreaW, float(AreaH * View.Width() / View.Height()));
+    const float MapH = float(MapW * View.Height() / View.Width());
+    const float MapX = X + 20.f * Scale + (AreaW - MapW) * .5f;
+    const float MapY = Y + 72.f * Scale + (AreaH - MapH) * .5f;
+    return {Scale, X, Y, W, H, Side, {MapX, MapY, MapX + MapW, MapY + MapH}};
+}
+
+inline bool PointAtPixel(FScreenMap Screen, FExtent View, FPoint Pixel, FPoint& World)
+{
+    if (!Screen.IsValid() || !Screen.Map.Contains(Pixel)) return false;
+    const auto UV = Screen.Map.Normalized(Pixel);
+    World = {View.West + UV.X * View.Width(), View.North + UV.Y * View.Height()};
+    return true;
+}
 
 inline constexpr FExtent Local{153600., -153600., 512000., 204800.};
 inline constexpr FExtent West{0., Local.North, Local.West, Local.South};
@@ -70,6 +109,14 @@ inline FExtent Crop(FExtent Full, FPoint Centre, int ZoomLevel)
 inline FPoint Centre(FExtent View)
 {
     return {View.West + View.Width() * .5, View.North + View.Height() * .5};
+}
+
+inline FExtent ZoomAt(FExtent Full, FExtent View, FPoint Anchor, int ZoomLevel)
+{
+    const auto UV = View.Normalized(Anchor);
+    const auto Target = Crop(Full, Anchor, ZoomLevel);
+    return CentredCrop(Full, {Anchor.X + (.5 - UV.X) * Target.Width(),
+        Anchor.Y + (.5 - UV.Y) * Target.Height()}, Target.Width() / Full.Width());
 }
 
 inline FExtent Pan(FExtent Full, FExtent View, FPoint Direction)
@@ -121,3 +168,9 @@ inline bool ObjectiveAtEdge(FExtent View, FPoint Player, FPoint& Objective, doub
 }
 
 }
+
+struct FVPAdenAtlasLine
+{
+    VPAdenAtlas::FPoint A, B;
+    bool bRoad;
+};

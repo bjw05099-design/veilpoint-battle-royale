@@ -34,12 +34,6 @@ struct FVPAdenRegionalCheck
     double GridFitErrorCm = 0.;
 };
 
-struct FVPAdenAtlasLine
-{
-    VPAdenAtlas::FPoint A, B;
-    bool bRoad;
-};
-
 struct FVPAdenBlockerSeamProbe
 {
     int32 Sectors[2];

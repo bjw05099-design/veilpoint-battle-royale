@@ -1,5 +1,6 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponRules.h"
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPWeaponViewPose.h"
+#include "../../Unreal/Veilpoint/Source/Veilpoint/VPFootingRules.h"
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPAdenCampaignRules.h"
 #include <algorithm>
 #include <cassert>
@@ -85,6 +86,26 @@ int main()
     SmallMagazine.MagazineCapacity = 12;
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);
+
+    double StepPhase = 0.;
+    assert(!VPFooting::AdvanceStep(StepPhase, 69.5, 139.) && StepPhase == .5);
+    assert(!VPFooting::AdvanceStep(StepPhase, 0., 105.) && StepPhase == .5);
+    assert(VPFooting::AdvanceStep(StepPhase, 52.5, 105.) && StepPhase == 0.);
+    assert(VPFooting::AdvanceStep(StepPhase, 247.5, 165.) && StepPhase == .5);
+
+    using VPWeaponView::LandingDip;
+    using VPWeaponView::LandingStrength;
+    assert(LandingStrength(0.) == 0. && LandingStrength(160.) == 0.);
+    assert(LandingStrength(1000.) == 1.);
+    assert(LandingDip(0., 1.) == 0. && LandingDip(.08, 1.) == 5.);
+    assert(LandingDip(.16, .4) > 0. && LandingDip(.16, .4) < 2.);
+    assert(LandingDip(.30, 1.) == 0. && LandingDip(.5, 1.) == 0.);
+    using VPAdenCampaign::MovingCueReady;
+    static_assert(!MovingCueReady(false, 8., true, 500000.));
+    static_assert(!MovingCueReady(false, 8., false, 420000.));
+    static_assert(MovingCueReady(false, 8., false, 500000.));
+    static_assert(!MovingCueReady(true, 6.9, false, 0.));
+    static_assert(MovingCueReady(true, 7., false, 0.));
 
     using VPWeaponView::Pose;
     assert(Pose(-1., false, false, 0.).Lower == 0.);

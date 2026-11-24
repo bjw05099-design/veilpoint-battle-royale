@@ -15,6 +15,7 @@ struct FScene
 
 const TCHAR* Title(int Beat);
 FScene Scene(FProgress P);
+const TCHAR* EncounterClearedCall(FProgress P);
 const TCHAR* EscortName(FProgress P);
 const FString& DialogueFontPath();
 }
