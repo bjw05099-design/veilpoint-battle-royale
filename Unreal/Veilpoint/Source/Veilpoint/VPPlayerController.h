@@ -35,7 +35,10 @@ public:
     void PlaceAdenPin();
     bool PlaceAdenPinAtPixel(FVector2D Pixel, int32 Width, int32 Height);
     void ClearAdenPin();
-    const TOptional<FVector>& GetAdenPin() const { return AdenPin; }
+    const TOptional<FVector>& GetAdenPin() const { return AdenPins[SelectedAdenPin]; }
+    const TOptional<FVector>& GetAdenPinAt(int32 Slot) const { return AdenPins[Slot]; }
+    int32 GetSelectedAdenPin() const { return SelectedAdenPin; }
+    void CycleAdenPin();
     bool PreviewAdenRoute(VPAdenCampaign::EInput Choice);
     bool GetAdenRoutePreview(const class AVPAdenStoryState& State, VPAdenCampaign::FProgress& Result) const;
     void ToggleAdenJournal();
@@ -49,6 +52,10 @@ public:
     bool ReadWindowScreenshot(TArray<FColor>& Pixels,FIntPoint& Size);
 private:
     friend class AVPGameMode;
+    friend class AVPAdenStoryGameMode;
+    void LoadAdenPins();
+    bool SaveAdenPins();
+    bool SetAdenPin(const TOptional<FVector>& Pin);
     void TickVisualSmoke();
     void TickBRDiagnostic();
     void TickBRRejoinDiagnostic(const class AVPGameState& State, double Now);
@@ -106,7 +113,10 @@ private:
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
     TOptional<FVector2D> AdenAtlasCentre;
-    TOptional<FVector> AdenPin;
+    TOptional<FVector> AdenPins[VPAdenAtlas::BookmarkLimit];
+    int32 SelectedAdenPin = 0;
+    int64 AdenPinGeneration = 0;
+    bool bAdenPinsLoaded = false;
     VPAdenCampaign::EInput AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;

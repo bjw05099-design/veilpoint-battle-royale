@@ -14,6 +14,7 @@ public:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
     static bool IsWetApronContact(const FHitResult& Hit);
+    bool GetPublicOverview(FBox2D& Bounds, TArray<FBox2D>& Footprints) const;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="World")
     TObjectPtr<UInstancedStaticMeshComponent> Ground;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="World")

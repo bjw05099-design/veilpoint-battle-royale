@@ -71,6 +71,9 @@ inline constexpr FExtent Local{153600., -153600., 512000., 204800.};
 inline constexpr FExtent West{0., Local.North, Local.West, Local.South};
 inline constexpr FExtent Playable{West.West, Local.North, Local.East, Local.South};
 inline constexpr FExtent Region{-2662400., -2150400., 1433600., 1433600.};
+inline constexpr int BookmarkLimit = 3;
+constexpr bool IsBookmarkSlot(int Slot) { return Slot >= 0 && Slot < BookmarkLimit; }
+
 inline constexpr int MaxZoomLevel = 5;
 inline constexpr int DetailZoomLevel = 3;
 

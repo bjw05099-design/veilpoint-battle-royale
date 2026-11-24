@@ -8,6 +8,7 @@
 #include "VPAdenPrologue.h"
 #include "VPAdenSourceWorld.h"
 #include "VPAdenDispatch.h"
+#include "VPAdenMapBookmarks.h"
 #include "VPFootingRules.h"
 #include "VPCharacter.h"
 #include "VPHUD.h"
@@ -90,6 +91,8 @@ bool AVPAdenStoryGameMode::PrepareSource()
     if (IsAdenDiagnostic())
     {
         UGameplayStatics::DeleteGameInSlot(AdenSlot(), 0);
+        UGameplayStatics::DeleteGameInSlot(FString(UVPAdenMapBookmarks::DiagnosticSlot) + TEXT("-a"), 0);
+        UGameplayStatics::DeleteGameInSlot(FString(UVPAdenMapBookmarks::DiagnosticSlot) + TEXT("-b"), 0);
         UGameplayStatics::DeleteGameInSlot(FString(AdenSlot()) + TEXT("-backup"), 0);
     }
     const auto Saved = ReadCheckpoint();
@@ -246,9 +249,10 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampai
         bChoosing = true;
         if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bChoosing = true;
     }
-    else if (Action == EMode::Operate && OperationStarted < 0.)
+    else if (Action == EMode::Operate && OperationStarted < 0. && !bResettingOperation)
     {
-        OperationStarted = GetWorld()->GetTimeSeconds();
+        OperationLastTick = OperationStarted = GetWorld()->GetTimeSeconds();
+        OperationProgress = 0.;
         if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bOperating = true;
     }
     else if (Action == EMode::Encounter && Contacts.Num() == EncounterSize(Progress)
@@ -274,6 +278,7 @@ void AVPAdenStoryGameMode::ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoin
     ClearContacts();
     Progress = Checkpoint.Progress;
     OperationStarted = -1.;
+    OperationProgress = 0.;
     bChoosing = false;
     bSignalFading = Progress.Beat == ReachSignal && Checkpoint.WindowMs > 0 && Checkpoint.WindowMs <= SignalWarningMs;
     bEncounterResolvedCall = false;
@@ -285,7 +290,7 @@ void AVPAdenStoryGameMode::ApplyCheckpoint(VPAdenCampaign::FCheckpoint Checkpoin
     SetDialogue(Progress.Beat == ReachSignal && Checkpoint.WindowMs == 0
         ? TEXT("현지: 불이 꺼졌습니다. 이 대위님, 기사에게 건널목은 닫혔다고 알려 주세요.")
         : bSignalFading ? SignalWarning() : Scene(Progress).Opening);
-    UpdateRescueProps(0.f);
+    bResettingOperation = !UpdateRescueProps(0.f);
     PublishScene();
 }
 
@@ -299,6 +304,7 @@ void AVPAdenStoryGameMode::PublishScene()
     View->Progress = Progress;
     View->bChoosing = false;
     View->bOperating = false;
+    View->bOperationObstructed = bResettingOperation;
     View->bHasEscort = false;
     View->bEscortWaiting = false;
     View->bEscortArrived = false;
@@ -337,9 +343,11 @@ void AVPAdenStoryState::RememberCall(const FString& Line)
     RecentCalls.Add(Line);
 }
 
-void AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
+bool AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
 {
-    if (!Source) return;
+    if (!Source) return false;
+    bool bActiveClear = true;
+    bRescuePlacementPending = false;
     using namespace VPAdenCampaign;
     constexpr int32 BarrierBeats[] = {Barrier, OpenShelter, OpenRelay, OpenYard};
     for (int32 Slot = 0; Slot < UE_ARRAY_COUNT(BarrierBeats); ++Slot)
@@ -348,11 +356,15 @@ void AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
         Pose.Beat = BarrierBeats[Slot] + 1;
         const bool bVisible = Progress.Beat >= BarrierBeats[Slot];
         const auto& Leg = Source->CampaignLeg(Pose);
-        Source->SetRescueBarrier(Slot, bVisible, Leg[0], Leg[1], Progress.Beat > BarrierBeats[Slot] ? 1.f : Fraction);
+        const bool bPlaced = Source->SetRescueBarrier(Slot, bVisible, Leg[0], Leg[1],
+            Progress.Beat > BarrierBeats[Slot] ? 1.f : Fraction);
+        if (Progress.Beat == BarrierBeats[Slot]) bActiveClear = bPlaced;
+        else if (!bPlaced) bRescuePlacementPending = true;
     }
     auto Signal = Progress;
     Signal.Beat = ReachSignal;
     Source->SetCrossingLight(Source->CampaignLeg(Signal).Last(), WindowEndsAt >= 0., bSignalFading);
+    return bActiveClear;
 }
 
 void AVPAdenStoryGameMode::EnsureEscort(AVPCharacter* Pawn)
@@ -574,27 +586,43 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
             return;
         }
     }
+    if (bResettingOperation)
+    {
+        bResettingOperation = !UpdateRescueProps(0.f);
+        View->bOperationObstructed = bResettingOperation;
+        if (!bResettingOperation) View->OperationFraction = 0.f;
+    }
+    else if (bRescuePlacementPending && OperationStarted < 0.)
+        UpdateRescueProps(0.f);
     if (OperationStarted >= 0.)
     {
-        const double Elapsed = Now - OperationStarted;
-        auto Next = Progress;
         if (!CanReach(Pawn))
         {
             OperationStarted = -1.;
             View->bOperating = false;
-            View->OperationFraction = 0.f;
-            UpdateRescueProps(0.f);
+            bResettingOperation = !UpdateRescueProps(0.f);
+            View->bOperationObstructed = bResettingOperation;
+            if (!bResettingOperation) View->OperationFraction = 0.f;
             SetDialogue(TEXT("수혁: 잠깐. 다시 잡고 올리겠습니다."));
-        }
-        else if (FinishOperation(Next, Elapsed, true))
-        {
-            EnterBeat(Next);
-            return;
         }
         else
         {
-            View->OperationFraction = float(FMath::Clamp(Elapsed / OperationSeconds(Progress.Beat), 0., 1.));
-            UpdateRescueProps(View->OperationFraction);
+            const double Duration = OperationSeconds(Progress.Beat);
+            const double Requested = AdvanceOperation(OperationProgress, Now - OperationLastTick, Duration);
+            OperationLastTick = Now;
+            const float Fraction = float(Requested / Duration);
+            View->bOperationObstructed = !UpdateRescueProps(Fraction);
+            if (!View->bOperationObstructed)
+            {
+                OperationProgress = Requested;
+                View->OperationFraction = Fraction;
+                auto Next = Progress;
+                if (FinishOperation(Next, OperationProgress, true))
+                {
+                    EnterBeat(Next);
+                    return;
+                }
+            }
         }
     }
 
@@ -1085,6 +1113,31 @@ void AVPAdenStoryGameMode::RunDiagnostic()
             && Desktop->GetAdenPin() == ClickPin;
         Report->SetBoolField(TEXT("fieldPointerPinVerified"), bExactClick && bOutsideIgnored);
         bPassed = bPassed && bExactClick && bOutsideIgnored;
+        Desktop->CycleAdenPin();
+        Desktop->PlaceAdenPin();
+        Desktop->CycleAdenPin();
+        const FVector2D ThirdClick(Screen.Map.West + Screen.Map.Width() * .22, Screen.Map.North + Screen.Map.Height() * .76);
+        const bool bThirdPlaced = Desktop->PlaceAdenPinAtPixel(ThirdClick, Width, Height);
+        const auto ThirdPin = Desktop->GetAdenPin();
+        Desktop->LoadAdenPins();
+        const bool bPinsReloaded = bThirdPlaced && ThirdPin.IsSet() && Desktop->GetSelectedAdenPin() == 2
+            && Desktop->GetAdenPinAt(0) == ClickPin && Desktop->GetAdenPinAt(1) == Pin && Desktop->GetAdenPinAt(2) == ThirdPin;
+        Desktop->ClearAdenPin();
+        Desktop->LoadAdenPins();
+        const bool bOnlySelectedCleared = !Desktop->GetAdenPinAt(2).IsSet()
+            && Desktop->GetAdenPinAt(0) == ClickPin && Desktop->GetAdenPinAt(1) == Pin;
+        const FString Latest = FString(UVPAdenMapBookmarks::DiagnosticSlot)
+            + (Desktop->AdenPinGeneration % 2 == 0 ? TEXT("-a") : TEXT("-b"));
+        auto* Mismatched = NewObject<UVPAdenMapBookmarks>();
+        Mismatched->Generation = Desktop->AdenPinGeneration;
+        Mismatched->SourceRevision = TEXT("different-map-source");
+        const bool bDamaged = UGameplayStatics::SaveGameToSlot(Mismatched, Latest, 0);
+        Desktop->LoadAdenPins();
+        const bool bBackupRestored = bDamaged && Desktop->GetSelectedAdenPin() == 2 && Desktop->GetAdenPin() == ThirdPin;
+        Desktop->ClearAdenPin();
+        Desktop->CycleAdenPin();
+        Report->SetBoolField(TEXT("persistentFieldPinsVerified"), bPinsReloaded && bOnlySelectedCleared && bBackupRestored);
+        bPassed = bPassed && bPinsReloaded && bOnlySelectedCleared && bBackupRestored && Desktop->GetSelectedAdenPin() == 0;
         Desktop->ClearAdenPin();
         const bool bPinCleared = !Desktop->GetAdenPin().IsSet();
         Report->SetBoolField(TEXT("fieldPinVerified"), bPinned && bPinCleared);
@@ -1474,6 +1527,11 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                 if (Beat == Barrier)
                 {
                     const FRotator Facing = Desktop->GetControlRotation();
+                    auto Lead = Progress;
+                    Lead.Beat = LeadMara;
+                    const auto& LeadLeg = Source->CampaignLeg(Lead);
+                    if (!Source->VerifyRescueBarrierClearance(LeadLeg[0], LeadLeg[1])) return false;
+                    DiagnosticReport->SetBoolField(TEXT("rescueBarrierClearanceVerified"), true);
                     if (!Source->IsRescueBarrierBlocking(0)) return false;
                     Pawn->RequestInteraction();
                     if (OperationStarted < 0.) return false;

@@ -138,7 +138,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawStroke(Road, FLinearColor(Style.Red, Style.Green, Style.Blue), Style.CanvasWidth);
         }
     }
-    const auto DrawMarker = [&](const FVector& Position, FLinearColor Color)
+    const auto DrawMarker = [&](const FVector& Position, FLinearColor Color, int32 Number = 0)
     {
         FVector2D P = Pixel({Position.X, Position.Y});
         if (P.X >= MapX && P.X <= MapX + MapW && P.Y >= MapY && P.Y <= MapY + MapH)
@@ -148,13 +148,21 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             P.Y = FMath::Clamp(P.Y, MapY + Pad, MapY + MapH - Pad);
             DrawRect(FLinearColor(.01f, .025f, .03f), P.X - 7. * Scale, P.Y - 7. * Scale, 14.f * Scale, 14.f * Scale);
             DrawRect(Color, P.X - 4. * Scale, P.Y - 4. * Scale, 8.f * Scale, 8.f * Scale);
+            if (Number > 0)
+                DrawText(FString::FromInt(Number), Color, P.X + 8. * Scale, P.Y - 7. * Scale, nullptr, .65f * Scale);
         }
     };
     const auto& Leg = bPreview ? Source->CampaignLeg(Preview) : Aden->ActiveLeg;
     const FVector Destination = bPreview && !Leg.IsEmpty() ? Leg.Last() : Aden->Objective;
     const FLinearColor PinColor(.79f, .58f, .93f);
     const auto& Pin = Desktop.GetAdenPin();
-    if (Pin.IsSet()) DrawMarker(Pin.GetValue(), PinColor);
+    for (int32 Id = 0; Id < VPAdenAtlas::BookmarkLimit; ++Id)
+    {
+        const auto& Saved = Desktop.GetAdenPinAt(Id);
+        if (Saved.IsSet())
+            DrawMarker(Saved.GetValue(), Id == Desktop.GetSelectedAdenPin() ? PinColor : FLinearColor(.58f, .47f, .68f),
+                Id + 1);
+    }
     const FLinearColor RouteColor = bPreview ? Accent : FLinearColor(.30f, .77f, .67f);
     const FLinearColor EarlierRouteColor(.24f, .38f, .36f);
     const auto Guide = bRegional || bPreview ? VPAdenDispatch::FGuide{} : VPAdenDispatch::Guide(Leg, World);
@@ -290,8 +298,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (bPreview)
             DrawText(FString::Printf(TEXT("%.0f m on this route"), PreviewMetres), Accent,
                 PanelX, PanelY + 103.f * Scale, nullptr, .77f * Scale);
-        if (!bRegional && Pin.IsSet())
-            DrawText(TEXT("P  Pin   Del  Clear"), PinColor, PanelX, PanelY + 120.f * Scale, nullptr, .73f * Scale);
+        if (!bRegional)
+            DrawText(FString::Printf(TEXT("PIN %d  |  %s"), Desktop.GetSelectedAdenPin() + 1,
+                Pin.IsSet() ? TEXT("SAVED") : TEXT("EMPTY")), PinColor,
+                PanelX, PanelY + 120.f * Scale, nullptr, .73f * Scale);
         DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("5.12 x 3.584 km"),
             Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
         DrawText(bRegional ? TEXT("256 m source sampling") : TEXT("32 m terrain sampling"),
@@ -323,13 +333,14 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             Legend(295.f, EGroup::Footprint, TEXT("Building footprint"));
         }
     }
-    const TCHAR* Controls = bRegional ? TEXT("M  Close map")
-        : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   Click/P Pin   Del Clear   Home Center   M Next")
-        : bRouteOverview ? TEXT("G Back   Click/P Pin   Del Clear   Home Center   M Next")
-        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home Center   G Route   Click/P Pin   Del Clear   M Next")
-        : TEXT("Arrows Pan   Wheel Zoom   Home Center   Click/P Pin   Del Clear   M Next");
-    DrawText(Controls,
-        Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
+    const TCHAR* Controls = bRegional ? TEXT("M Close map")
+        : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   B Select pin   Click/P Set   Del Clear   M Next")
+        : bRouteOverview ? TEXT("G Back   B Select pin   Click/P Set   Del Clear   M Next")
+        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home   G Route   B Pin slot   Click/P Set   Del Clear   M Next")
+        : TEXT("Arrows Pan   Wheel Zoom   Home   B Pin slot   Click/P Set   Del Clear   M Next");
+    const FString Notice = Desktop.GetLocalNotice();
+    DrawText(Notice.IsEmpty() ? FString(Controls) : Notice,
+        Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .76f * Scale);
     if (Aden->WindowSeconds >= 0 && W > 700.f * Scale)
     {
         const FString Signal = Aden->WindowSeconds > 0
