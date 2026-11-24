@@ -118,6 +118,7 @@ void AVPAdenStoryGameMode::StartPlay()
     PrepareSource();
     PublishScene();
     Super::StartPlay();
+    if (Source && !bOpeningActive) ShowChapterCard(VPAdenCampaign::EChapterCard::Resumed);
     if (IsAdenDiagnostic())
     {
         FTimerHandle Timer;
@@ -142,6 +143,7 @@ bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
     if (!Saved.IsSet() || !RestorePosition(Pawn, Saved.GetValue().Progress)) return false;
     if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->RecentCalls.Reset();
     ApplyCheckpoint(Saved.GetValue());
+    ShowChapterCard(VPAdenCampaign::EChapterCard::Resumed);
     if (bUsedBackup) SetDialogue(TEXT("백업 지점에서 계속합니다."));
     return true;
 }
@@ -264,7 +266,9 @@ void AVPAdenStoryGameMode::TryInteraction(const AVPCharacter* Pawn, VPAdenCampai
 
 void AVPAdenStoryGameMode::EnterBeat(VPAdenCampaign::FProgress Next)
 {
+    const auto Card = VPAdenCampaign::ChapterTransition(Progress.Beat, Next.Beat);
     ApplyCheckpoint({Next, Next.Beat == VPAdenCampaign::ReachSignal ? VPAdenCampaign::SignalWindowMs : 0});
+    ShowChapterCard(Card);
     PersistStoryCheckpoint();
 }
 
@@ -322,6 +326,17 @@ void AVPAdenStoryGameMode::PublishScene()
     View->Objective = GetObjective();
     const auto& Leg = Source->CampaignLeg(Progress);
     Source->ShowFieldStation(0, bActive, View->Objective, Leg.Last() - Leg[Leg.Num() - 2]);
+}
+
+void AVPAdenStoryGameMode::ShowChapterCard(VPAdenCampaign::EChapterCard Card)
+{
+    if (Card == VPAdenCampaign::EChapterCard::None || bOpeningActive) return;
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
+        View->ChapterCard = Card;
+        View->ChapterCardBeat = Progress.Beat;
+        View->ChapterCardEndsAt = GetWorld()->GetTimeSeconds() + 4.;
+    }
 }
 
 void AVPAdenStoryGameMode::SetDialogue(const TCHAR* Line)
@@ -532,6 +547,7 @@ void AVPAdenStoryGameMode::UpdateOpening(AVPPlayerController* Desktop, AVPCharac
             bOpeningActive = false;
             SetDialogue(VPAdenCampaign::Scene(Progress).Opening);
             PublishScene();
+            ShowChapterCard(VPAdenCampaign::EChapterCard::Entered);
             return;
         }
         Desktop->SetIgnoreMoveInput(true);
@@ -564,6 +580,7 @@ void AVPAdenStoryGameMode::FinishOpening(AVPPlayerController* Desktop, AVPCharac
     bOpeningActive = false;
     SetDialogue(VPAdenCampaign::Scene(Progress).Opening);
     PublishScene();
+    ShowChapterCard(VPAdenCampaign::EChapterCard::Entered);
     PersistStoryCheckpoint();
 }
 
@@ -849,7 +866,8 @@ bool AVPAdenStoryGameMode::VerifyOpening(AVPPlayerController* Desktop, AVPCharac
     const bool bPassed = !bOpeningActive && !View->bOpeningActive && !Opening
         && Desktop->GetViewTarget() == Pawn && !Desktop->IsMoveInputIgnored() && !Desktop->IsLookInputIgnored()
         && Pawn->GetActorLocation().Equals(Start, 1.) && View->HasAtlasRoute() && !View->Dialogue.IsEmpty()
-        && Saved.IsSet() && Saved.GetValue().Progress.Beat == VPAdenCampaign::Radio;
+        && Saved.IsSet() && Saved.GetValue().Progress.Beat == VPAdenCampaign::Radio
+        && View->ChapterCard == VPAdenCampaign::EChapterCard::Entered && View->ChapterCardBeat == VPAdenCampaign::Radio;
     DiagnosticReport->SetBoolField(TEXT("openingHandoffVerified"), bPassed);
     return bPassed;
 #else
@@ -1039,6 +1057,8 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("terrainSharedEdges"), Terrain.SharedEdges);
         Report->SetNumberField(TEXT("terrainWestJoinEdges"), Terrain.WestJoinEdges);
         Report->SetNumberField(TEXT("terrainCollisionHits"), Terrain.CollisionHits);
+        Report->SetNumberField(TEXT("terrainMetricUvSeams"), Terrain.DetailUvSeams);
+        Report->SetBoolField(TEXT("terrainDetailAssetsStaged"), Source->GroundNormal && Source->GroundRoughness);
         Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
         Report->SetNumberField(TEXT("footprintOverlayTriangles"), FootprintTriangles);
@@ -1065,7 +1085,11 @@ void AVPAdenStoryGameMode::RunDiagnostic()
             DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(1) + FVector(0., 0., 9800.),
                 FRotator(-70., Street.Rotation().Yaw, 0.));
             DiagnosticCapture->CaptureScene();
-            bPassed = ReadFrame(TEXT("aden-sourced-street"));
+            bPassed = ReadFrame(TEXT("aden-sourced-street")) && bPassed;
+            DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(0) + FVector(0., 0., 185.),
+                FRotator(-61., Street.Rotation().Yaw, 0.));
+            DiagnosticCapture->CaptureScene();
+            bPassed = ReadFrame(TEXT("aden-ground-detail")) && bPassed;
             DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(0) + FVector(0., 0., 72000.),
                 FRotator(-14., 180., 0.));
             DiagnosticCapture->CaptureScene();
@@ -1578,7 +1602,12 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
             UE_LOG(LogVPAdenStory, Error, TEXT("Campaign diagnostic did not complete beat %d"), Beat);
             return false;
         }
-        if (Chapter(Beat) != Chapter(Progress.Beat) || Progress.Beat == Complete) ++CompletedChapters;
+        if (const auto Card = ChapterTransition(Beat, Progress.Beat); Card != EChapterCard::None)
+        {
+            const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+            if (!View || View->ChapterCard != Card || View->ChapterCardBeat != Progress.Beat) return false;
+            ++CompletedChapters;
+        }
     }
     const FProgress End{Complete, Route, bOnTime ? Crossing : BackStreet, Relay};
     DiagnosticReport->SetNumberField(TEXT("campaignChapters"), CompletedChapters);
@@ -1637,7 +1666,9 @@ bool AVPAdenStoryGameMode::VerifySavedCampaign(AVPCharacter* Pawn)
     if (!UGameplayStatics::SaveGameToSlot(Legacy, Slot, 0) || !ReturnToCheckpoint(Pawn)
         || !(Progress == FProgress{LastStop, Families, BackStreet, NoRelay})) return false;
     const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
-    if (!View || View->RecentCalls.Num() != 1 || View->RecentCalls[0] != Dialogue) return false;
+    if (!View || View->RecentCalls.Num() != 1 || View->RecentCalls[0] != Dialogue
+        || View->ChapterCard != EChapterCard::Resumed || View->ChapterCardBeat != Progress.Beat) return false;
+    DiagnosticReport->SetBoolField(TEXT("chapterCardsVerified"), true);
     DiagnosticReport->SetBoolField(TEXT("callJournalRecoveryVerified"), true);
     if (!PersistStoryCheckpoint() || !WriteCheckpointSlot(Backup, Ending.GetValue())) return false;
     const TArray<uint8> Damaged{0, 0, 0, 0, 0, 0, 0, 0};

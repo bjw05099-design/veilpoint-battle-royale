@@ -12,6 +12,7 @@
 #include "VPAdenSourceWorld.h"
 #include "VPAdenContact.h"
 #include "VPFootingRules.h"
+#include "VPRoundReviewPlayback.h"
 #include "VPWorldBootstrap.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
@@ -75,7 +76,21 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     // finite battery telemetry. Keep 96-player replication bounded.
     DOREPLIFETIME_CONDITION(AVPCharacter, FieldLightSecondsRemaining, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundReview, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundEvents, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundPlacement, COND_OwnerOnly);
+}
+
+void AVPCharacter::RecordRoundZonePresence(bool bOutside)
+{
+    if (!HasAuthority() || !IsAlive() || bRoundReviewClosed || RoundRecordingBeganAt < 0. || !GetWorld()) return;
+    if (VPRoundReview::CanRecordZoneEvent(PendingRoundEvents.Num(), bRoundReviewOutside, bOutside))
+    {
+        const double ElapsedMs = (GetWorld()->GetTimeSeconds() - RoundRecordingBeganAt) * 1000.;
+        auto& Event = PendingRoundEvents.AddDefaulted_GetRef();
+        Event.Milliseconds = FMath::RoundToInt(FMath::Clamp(ElapsedMs, 0., double(VPRoundReview::MaxRecordedMs)));
+        Event.Kind = bOutside ? EVPRoundEventKind::OutsideZone : EVPRoundEventKind::BackInside;
+    }
+    bRoundReviewOutside = bOutside;
 }
 
 void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete, int32 Survivors)
@@ -83,10 +98,22 @@ void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bCompl
     if (!HasAuthority() || !GetController() || !GetController()->IsPlayerController()) return;
     if (!bRoundReviewClosed)
     {
+        if (PendingRoundEvents.IsEmpty())
+        {
+            RoundRecordingBeganAt = GetWorld()->GetTimeSeconds() - ElapsedMs * .001;
+            auto& Started = PendingRoundEvents.AddDefaulted_GetRef();
+            Started.Milliseconds = ElapsedMs;
+            Started.Kind = EVPRoundEventKind::Started;
+        }
         const bool bFinalPoint = !IsAlive() || bComplete;
         // Eliminations observed in the same server update share a placement.
         if (bFinalPoint)
+        {
             PendingRoundPlacement = IsAlive() ? 1 : Survivors + 1;
+            auto& Result = PendingRoundEvents.AddDefaulted_GetRef();
+            Result.Milliseconds = ElapsedMs;
+            Result.Kind = IsAlive() ? EVPRoundEventKind::Finished : EVPRoundEventKind::Eliminated;
+        }
         constexpr int32 MaxSamples = 601;
         if (bFinalPoint || (bSample && PendingRoundReview.Num() < MaxSamples - 1))
         {
@@ -100,6 +127,7 @@ void AVPCharacter::ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bCompl
     if (bComplete)
     {
         OwnRoundReview = MoveTemp(PendingRoundReview);
+        OwnRoundEvents = MoveTemp(PendingRoundEvents);
         OwnRoundPlacement = PendingRoundPlacement;
         ForceNetUpdate();
     }

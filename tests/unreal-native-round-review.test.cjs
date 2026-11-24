@@ -53,3 +53,15 @@ test('native Battle Royale overview displays public world geometry, its zone and
   assert.doesNotMatch(body, /PlayerArray|TActorIterator<AVPCharacter>|VPPickup/);
   assert.match(controls, /WasInputKeyJustPressed\(EKeys::M\)[\s\S]*?bBRFieldMapOpen = !bBRFieldMapOpen/);
 });
+
+
+test('native Battle Royale event rail only publishes finalized personal timing', () => {
+  const character = source('VPCharacter.cpp');
+  const zone = source('VPZone.cpp');
+  const hud = source('VPHUD.cpp');
+  assert.match(character, /DOREPLIFETIME_CONDITION\(AVPCharacter, OwnRoundEvents, COND_OwnerOnly\)/);
+  assert.match(character, /RecordRoundZonePresence\(bool bOutside\)[\s\S]*?!HasAuthority\(\)[\s\S]*?CanRecordZoneEvent/);
+  assert.match(character, /if \(bComplete\)[\s\S]*?OwnRoundEvents = MoveTemp\(PendingRoundEvents\)/);
+  assert.match(zone, /P->RecordRoundZonePresence\(bOutside\)/);
+  assert.match(hud, /GetRoundReviewEvents\(\)[\s\S]*?AdjacentEvent\(Events\.Num\(\), ReviewPlayheadMs/);
+});

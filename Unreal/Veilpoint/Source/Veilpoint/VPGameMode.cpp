@@ -225,8 +225,27 @@ void AVPGameMode::TickRoundDiagnostic(const TArray<AVPCharacter*, TInlineAllocat
 #if !UE_BUILD_SHIPPING
     if (!FParse::Param(FCommandLine::Get(), TEXT("VPBRVerify")) || GetNetMode() != NM_ListenServer
         || FParse::Param(FCommandLine::Get(), TEXT("VPBRDepart"))
-        || !bRequireReady || Now - ReviewStartedAt < 5. || Participants.Num() != 2)
+        || !bRequireReady || Participants.Num() != 2)
         return;
+    const double ReviewAge = Now - ReviewStartedAt;
+    if (!FParse::Param(FCommandLine::Get(), TEXT("VPBRRejoin"))
+        && ((DiagnosticZoneStep == 0 && ReviewAge >= 1.) || (DiagnosticZoneStep == 1 && ReviewAge >= 2.6)))
+    {
+        for (TActorIterator<AVPZone> Zone(GetWorld()); Zone; ++Zone)
+        {
+            if (DiagnosticZoneStep == 0)
+            {
+                DiagnosticZoneOriginal = Zone->ZoneCenter;
+                Zone->ZoneCenter = FVector2D(100000., 100000.);
+            }
+            else
+                Zone->ZoneCenter = DiagnosticZoneOriginal;
+            ++DiagnosticZoneStep;
+            Zone->ForceNetUpdate();
+            break;
+        }
+    }
+    if (ReviewAge < 5.) return;
     for (AVPCharacter* Pawn : Participants)
         if (Pawn->IsAlive() && Pawn->IsLocallyControlled())
         {

@@ -87,6 +87,12 @@ int main()
     assert(!Coherent(SmallMagazine, 18, 13));
     assert(FilledMagazine(SmallMagazine, 18, 8) == 12);
 
+    using VPAdenCampaign::ChapterTransition;
+    using VPAdenCampaign::EChapterCard;
+    static_assert(ChapterTransition(VPAdenCampaign::Radio, VPAdenCampaign::Barrier) == EChapterCard::None);
+    static_assert(ChapterTransition(VPAdenCampaign::LeadMara, VPAdenCampaign::Junction) == EChapterCard::Entered);
+    static_assert(ChapterTransition(VPAdenCampaign::FinalCall, VPAdenCampaign::Complete) == EChapterCard::Completed);
+    static_assert(ChapterTransition(VPAdenCampaign::Complete, VPAdenCampaign::Complete) == EChapterCard::None);
     static_assert(VPAdenCampaign::AdvanceOperation(1., .25, 2.) == 1.25);
     static_assert(VPAdenCampaign::AdvanceOperation(1., 2., 2.) == 2.);
     static_assert(VPAdenCampaign::AdvanceOperation(1., -.5, 2.) == 1.);

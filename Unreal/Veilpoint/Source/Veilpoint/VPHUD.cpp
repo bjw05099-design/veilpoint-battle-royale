@@ -859,6 +859,23 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(Title(Beat), Accent, Left + 12.f * Scale, Top + 8.f * Scale, nullptr, .77f * Scale);
     DrawText(SceneBeat.Objective, Ink, Left + 12.f * Scale, Top + 29.f * Scale, nullptr, 1.07f * Scale);
 
+    const double CardLeftSeconds = Aden->ChapterCardEndsAt - GetWorld()->GetTimeSeconds();
+    if (Aden->ChapterCard != EChapterCard::None && CardLeftSeconds > 0.)
+    {
+        const float CardWidth = FMath::Min(350.f * Scale, Canvas->ClipX * .38f);
+        const float CardX = Canvas->ClipX - CardWidth - Left;
+        const float Fade = float(FMath::Clamp(CardLeftSeconds * 2., 0., 1.));
+        const TCHAR* TitleLine = Aden->ChapterCard == EChapterCard::Completed ? TEXT("CAMPAIGN COMPLETE")
+            : Aden->ChapterCard == EChapterCard::Resumed ? TEXT("CHECKPOINT RESUMED") : TEXT("NEW CHAPTER");
+        DrawRect(FLinearColor(Plate.R, Plate.G, Plate.B, Plate.A * Fade),
+            CardX, Top, CardWidth, 59.f * Scale);
+        DrawRect(FLinearColor(Accent.R, Accent.G, Accent.B, Fade), CardX, Top, 3.f * Scale, 59.f * Scale);
+        DrawText(TitleLine, FLinearColor(Accent.R, Accent.G, Accent.B, Fade),
+            CardX + 13.f * Scale, Top + 9.f * Scale, nullptr, .73f * Scale);
+        DrawText(Title(Aden->ChapterCardBeat), FLinearColor(Ink.R, Ink.G, Ink.B, Fade),
+            CardX + 13.f * Scale, Top + 30.f * Scale, nullptr, .8f * Scale);
+    }
+
     const FString Distance = bPending
         ? FString::Printf(Guide.NeedsRejoin()
             ? TEXT("%.0f m back to route   |   M  Route   |   J  Journal   |   F7  Checkpoint")
@@ -1035,6 +1052,7 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
             Top + 39.f * Scale, nullptr, .75f * Scale);
     }
     const auto& Track = Pawn->GetRoundReview();
+    const auto& Events = Pawn->GetRoundReviewEvents();
     if (Track.IsEmpty() || Pawn->GetRoundPlacement() <= 0)
     {
         DrawText(TEXT("Waiting for your verified movement record.  |  M close"), Ink,
@@ -1078,6 +1096,18 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
             const int32 Base = ObservationAt(ReviewPlayheadMs);
             const int32 Target = Step < 0 && ReviewPlayheadMs > Track[Base].Milliseconds ? Base : Base + Step;
             ReviewPlayheadMs = Track[FMath::Clamp(Target, 0, Last)].Milliseconds;
+        }
+    }
+    const int32 EventDirection = int32(PlayerOwner->WasInputKeyJustPressed(EKeys::PageDown))
+        - int32(PlayerOwner->WasInputKeyJustPressed(EKeys::PageUp));
+    if (EventDirection)
+    {
+        const int32 Event = VPRoundReview::AdjacentEvent(Events.Num(), ReviewPlayheadMs, EventDirection,
+            [&](int32 Index) { return Events[Index].Milliseconds; });
+        if (Event != INDEX_NONE)
+        {
+            bRoundReviewPlaying = false;
+            ReviewPlayheadMs = FMath::Clamp(double(Events[Event].Milliseconds), BeginMs, EndMs);
         }
     }
     if (PlayerOwner->WasInputKeyJustPressed(EKeys::SpaceBar) && EndMs > BeginMs)
@@ -1153,15 +1183,40 @@ void AVPHUD::DrawRoundReview(const AVPCharacter* Pawn, float Scale)
     }
     DrawRect(FLinearColor(.99f, .76f, .32f), Marker.X - 5.f * Scale, Marker.Y - 5.f * Scale,
         10.f * Scale, 10.f * Scale);
+    const auto EventLabel = [](EVPRoundEventKind Kind)
+    {
+        switch (Kind)
+        {
+        case EVPRoundEventKind::OutsideZone: return TEXT("Left the safe zone");
+        case EVPRoundEventKind::BackInside: return TEXT("Re-entered the safe zone");
+        case EVPRoundEventKind::Eliminated: return TEXT("Eliminated");
+        case EVPRoundEventKind::Finished: return TEXT("Survived to the finish");
+        default: return TEXT("Round started");
+        }
+    };
+    for (int32 Index = Events.Num() - 1; Index >= 0; --Index)
+    {
+        if (Events[Index].Milliseconds > ReviewPlayheadMs) continue;
+        DrawText(FString::Printf(TEXT("%.1fs  |  %s"), Events[Index].Milliseconds / 1000., EventLabel(Events[Index].Kind)),
+            FLinearColor(.95f, .76f, .42f), Left + 18.f * Scale, Top + 83.f * Scale, nullptr, .74f * Scale);
+        break;
+    }
     const FLinearColor Progress(.39f, .80f, .74f);
     const float RailX = Left + 18.f * Scale, RailY = Top + Height - 67.f * Scale, RailW = Width - 36.f * Scale;
     const float Ratio = EndMs > BeginMs ? float((ReviewPlayheadMs - BeginMs) / (EndMs - BeginMs)) : 1.f;
     DrawRect(FLinearColor(.12f, .22f, .24f), RailX, RailY, RailW, 3.f * Scale);
     DrawRect(Progress, RailX, RailY, RailW * Ratio, 3.f * Scale);
+    for (const auto& Event : Events)
+    {
+        const double RatioAt = EndMs > BeginMs ? FMath::Clamp((Event.Milliseconds - BeginMs) / (EndMs - BeginMs), 0., 1.) : 0.;
+        const bool bWarning = Event.Kind == EVPRoundEventKind::OutsideZone || Event.Kind == EVPRoundEventKind::Eliminated;
+        DrawRect(bWarning ? FLinearColor(.97f, .54f, .43f) : FLinearColor(.79f, .88f, .84f),
+            RailX + RailW * RatioAt - Scale, RailY - 4.f * Scale, 2.f * Scale, 11.f * Scale);
+    }
     DrawText(FString::Printf(TEXT("%d / %d  |  %.1fs elapsed  |  %s %dX%s"),
         Cursor + 1, Track.Num(), ReviewPlayheadMs / 1000.,
         bRoundReviewPlaying ? TEXT("PLAYING") : TEXT("PAUSED"), Rate, bGap ? TEXT("  |  SAMPLE GAP") : TEXT("")),
         Ink, RailX, RailY + 11.f * Scale, nullptr, .8f * Scale);
-    DrawText(TEXT("SPACE Play/Pause   T Speed   ARROWS Step   SHIFT+ARROW 15s   M Close"),
+    DrawText(TEXT("SPACE Play/Pause   T Speed   PgUp/PgDn Event   ARROWS Step   M Close"),
         Ink, RailX, RailY + 35.f * Scale, nullptr, .74f * Scale);
 }

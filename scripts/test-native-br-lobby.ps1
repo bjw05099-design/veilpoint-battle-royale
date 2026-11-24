@@ -85,7 +85,9 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
                   $clientEvidence -notmatch 'VPBR_CLIENT_PASS: owner-only place #1' -or
                   $clientEvidence -notmatch 'VPBR_LOADOUT_PASS: owner received AKM' -or
                   $hostEvidence -notmatch 'VPBR_FIELD_MAP_PASS: local public geometry and replicated zone' -or
-                  $clientEvidence -notmatch 'VPBR_FIELD_MAP_PASS: local public geometry and replicated zone') {
+                  $clientEvidence -notmatch 'VPBR_FIELD_MAP_PASS: local public geometry and replicated zone' -or
+                  $hostEvidence -notmatch 'VPBR_EVENT_TIMELINE_PASS: owner-only start, exit, return and result' -or
+                  $clientEvidence -notmatch 'VPBR_EVENT_TIMELINE_PASS: owner-only start, exit, return and result') {
             throw 'Missing actual host/client round or owner privacy evidence.'
         }
     } finally {

@@ -68,7 +68,9 @@ void AVPZone::UpdateZone()
         AVPCharacter* P=*It;
         if(!P->IsAlive()) continue;
         const FVector2D Pos(P->GetActorLocation().X,P->GetActorLocation().Y);
-        if(FVector2D::Distance(Pos,ZoneCenter)>Radius)
+        const bool bOutside = FVector2D::Distance(Pos, ZoneCenter) > Radius;
+        P->RecordRoundZonePresence(bOutside);
+        if (bOutside)
             UGameplayStatics::ApplyDamage(P,(1.8f+Phase*1.2f)*.25f,nullptr,this,nullptr);
     }
 }

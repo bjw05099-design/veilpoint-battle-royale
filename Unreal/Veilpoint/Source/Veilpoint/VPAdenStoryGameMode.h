@@ -50,6 +50,9 @@ public:
     FVector EscortPoint = FVector::ZeroVector;
     TWeakObjectPtr<AVPAdenSourceWorld> Source;
     FString Dialogue;
+    VPAdenCampaign::EChapterCard ChapterCard = VPAdenCampaign::EChapterCard::None;
+    int32 ChapterCardBeat = VPAdenCampaign::Radio;
+    double ChapterCardEndsAt = -1.;
     static constexpr int32 RecentCallLimit = 3;
     TArray<FString, TInlineAllocator<RecentCallLimit>> RecentCalls;
     void RememberCall(const FString& Line);
@@ -121,6 +124,7 @@ private:
     void PublishScene();
     bool UpdateRescueProps(float OperationFraction);
     void SetDialogue(const TCHAR* Line);
+    void ShowChapterCard(VPAdenCampaign::EChapterCard Card);
     void EnsureEscort(AVPCharacter* Pawn);
     void UpdateOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn, float DeltaSeconds);
     void FinishOpening(AVPPlayerController* Desktop, AVPCharacter* Pawn);

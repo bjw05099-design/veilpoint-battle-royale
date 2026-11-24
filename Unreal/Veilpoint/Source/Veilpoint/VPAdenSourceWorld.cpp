@@ -30,6 +30,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
 namespace VPAdenWorld
 {
 constexpr int32 Side = 113;
+constexpr double GroundDetailTileCm = 256.;
 constexpr int32 Spacing = VPAdenRegionalGrid::LocalSpacing;
 constexpr int32 OriginX = int32(VPAdenAtlas::Local.West);
 constexpr int32 OriginY = int32(VPAdenAtlas::Local.North);
@@ -186,6 +187,15 @@ struct FMesh
     {
         for (int32 I = 0; I < Triangles.Num(); I += 3)
             Swap(Triangles[I + 1], Triangles[I + 2]);
+    }
+
+    TArray<FVector2D> DetailUVs() const
+    {
+        TArray<FVector2D> UVs;
+        UVs.Reserve(Vertices.Num());
+        for (const FVector& Point : Vertices)
+            UVs.Emplace(Point.X / GroundDetailTileCm, Point.Y / GroundDetailTileCm);
+        return UVs;
     }
 
     TArray<FVector2D> SourceUVs(const VPAdenAtlas::FExtent& Extent) const
@@ -645,7 +655,8 @@ bool AVPAdenSourceWorld::BuildSource()
         return false;
     }
     const auto AddMesh = [this](const FMesh& Buffer, bool bSolid, bool bVisible,
-        const VPAdenAtlas::FExtent& Extent = VPAdenAtlas::Local, UMaterialInterface* Material = nullptr)
+        const VPAdenAtlas::FExtent& Extent = VPAdenAtlas::Local, UMaterialInterface* Material = nullptr,
+        bool bGroundDetail = false)
     {
         auto* Mesh = NewObject<UProceduralMeshComponent>(this);
         AddInstanceComponent(Mesh);
@@ -654,18 +665,38 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->bUseAsyncCooking = false;
         Mesh->RegisterComponent();
         const TArray<FVector2D> UV0 = bVisible ? Buffer.SourceUVs(Extent) : TArray<FVector2D>();
+        const TArray<FVector2D> UV1 = bGroundDetail ? Buffer.DetailUVs() : TArray<FVector2D>();
         const TArray<FVector2D> EmptyUV;
-        const TArray<FProcMeshTangent> EmptyTangents;
+        TArray<FProcMeshTangent> Tangents;
+        if (bGroundDetail)
+        {
+            Tangents.Reserve(Buffer.Normals.Num());
+            for (const FVector& Normal : Buffer.Normals)
+            {
+                const FVector Direction(1., 0., -Normal.X / Normal.Z);
+                Tangents.Emplace(Direction.GetSafeNormal(), false);
+            }
+        }
         Mesh->CreateMeshSection_LinearColor(0, Buffer.Vertices, Buffer.Triangles, Buffer.Normals,
-            UV0, EmptyUV, EmptyUV, EmptyUV, Buffer.Colors, EmptyTangents, bSolid, false);
+            UV0, UV1, EmptyUV, EmptyUV, Buffer.Colors, Tangents, bSolid, false);
         Mesh->SetMaterial(0, Material ? Material : VertexColorMaterial.Get());
         Mesh->SetCastShadow(bVisible);
         Mesh->SetVisibility(bVisible);
         return Mesh;
     };
+    auto* LocalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
     auto* WestMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
     auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
-    if (!WestMaterial || !RegionalMaterial) return false;
+    if (!LocalMaterial || !WestMaterial || !RegionalMaterial) return false;
+    if (GroundNormal && GroundRoughness)
+    {
+        for (auto* Material : {LocalMaterial, WestMaterial})
+        {
+            Material->SetTextureParameterValue(TEXT("AdenGroundNormal"), GroundNormal);
+            Material->SetTextureParameterValue(TEXT("AdenGroundRoughness"), GroundRoughness);
+            Material->SetScalarParameterValue(TEXT("AdenGroundDetailStrength"), .74f);
+        }
+    }
     WestMaterial->SetTextureParameterValue(TEXT("AdenRelief"), WestAtlas);
     RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
     const FMesh Terrain = TerrainMesh(Geometry, WestHeights);
@@ -678,7 +709,7 @@ bool AVPAdenSourceWorld::BuildSource()
         {
             const bool bWest = X < WestCells / SectorCells;
             TerrainSectors.Add(AddMesh(TerrainRenderSector(Terrain, X, Y), false, true,
-                bWest ? VPAdenAtlas::West : VPAdenAtlas::Local, bWest ? WestMaterial : nullptr));
+                bWest ? VPAdenAtlas::West : VPAdenAtlas::Local, bWest ? WestMaterial : LocalMaterial, true));
         }
     }
     VPAdenRegionalGrid::FSteps RegionalSteps{};
@@ -913,14 +944,17 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
             const auto& Next = Sections[I + (bVertical ? 1 : GroundSectorsX)]->ProcVertexBuffer;
             const int32 Edge = bVertical ? SectorCells : SectorCells * SectorSide;
             const int32 Stride = bVertical ? SectorSide : 1;
-            bool bShared = true;
+            bool bShared = true, bMetric = true;
             for (int32 V = 0; V < SectorSide; ++V)
             {
                 const auto& A = First[Edge + V * Stride];
                 const auto& B = Next[V * Stride];
                 const bool bUV = bWestJoin ? A.UV0.X == 1. && B.UV0.X == 0. && A.UV0.Y == B.UV0.Y : A.UV0 == B.UV0;
                 bShared &= A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color && bUV;
+                bMetric &= A.UV1 == B.UV1 && A.UV1.X == A.Position.X / GroundDetailTileCm
+                    && A.UV1.Y == A.Position.Y / GroundDetailTileCm && A.Tangent.TangentX == B.Tangent.TangentX;
             }
+            if (bMetric) ++Result.DetailUvSeams;
             if (bShared) ++Result.SharedEdges;
             if (bShared && bWestJoin) ++Result.WestJoinEdges;
 
