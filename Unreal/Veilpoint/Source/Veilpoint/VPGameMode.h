@@ -26,6 +26,7 @@ public:
     UPROPERTY(BlueprintReadOnly,Category="Battle Royale")
     bool bRoundComplete=false;
 private:
+    void CancelReadyCountdown(const AController* Exiting = nullptr);
     void TickRoundDiagnostic(const TArray<AVPCharacter*, TInlineAllocator<96>>& Participants, double Now);
     bool bRequireReady = false;
     TMap<TWeakObjectPtr<AVPPlayerController>, TWeakObjectPtr<AVPCharacter>> RoundEntrants;

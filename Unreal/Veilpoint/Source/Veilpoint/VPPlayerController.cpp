@@ -628,8 +628,14 @@ void AVPPlayerController::TickBRRejoinDiagnostic(const AVPGameState& State, doub
     }
     if (bBRReadyRequested && !State.bRoundStarted && bCountdown && State.JoinedPlayers == 2 && State.ReadyPlayers == 2)
     {
+        if (bHost && !bBRObservedCountdown) BRFirstCountdownEnd = State.LobbyCountdownEndsAt;
         bBRObservedCountdown = true;
-        if (!bFirstClient && (!bHost || bBRObservedCancellation)) bBRRestartObserved = true;
+        if (!bBRRestartObserved && !bFirstClient
+            && (!bHost || (bBRObservedCancellation && State.LobbyCountdownEndsAt > BRFirstCountdownEnd)))
+        {
+            bBRRestartObserved = true;
+            if (bHost) UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_FRESH_DEADLINE"));
+        }
         if (bFirstClient && !bBRProofPrinted)
         {
             UE_LOG(LogTemp, Display, TEXT("VPBR_REJOIN_FIRST_CLIENT_LEFT"));

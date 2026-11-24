@@ -3,7 +3,10 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const source=file=>fs.readFileSync(path.resolve(__dirname,'../Unreal/Veilpoint/Source/Veilpoint',file),'utf8');
+const os=require('node:os');
+const {spawnSync}=require('node:child_process');
+const runtime=path.resolve(__dirname,'../Unreal/Veilpoint/Source/Veilpoint');
+const source=file=>fs.readFileSync(path.join(runtime,file),'utf8');
 
 test('native harbor contains east-dock warehouse and cargo corridor geometry',()=>{
  const world=source('VPWorldBootstrap.cpp');
@@ -15,19 +18,43 @@ test('native harbor contains east-dock warehouse and cargo corridor geometry',()
  const centralLane=-12100;
  assert.ok(centralLane < -10700 && centralLane > -13200,
   'the 14m access corridor for native fixed supply stores stays unobstructed');
- assert.match(world,/AddBlock\(Vegetation,FVector\(3500\.f,-4000\.f,1\.f\),FVector\(14\.f,18\.f,\.02f\)\)/);
+ assert.match(world,/AddBlock\(Vegetation, FVector\(VPFooting::ApronX, VPFooting::ApronY, 1\.\)/);
 });
-test('native Windows actor derives wet footing from physical coordinates, including crouch',()=>{
- const character=source('VPCharacter.cpp'), header=source('VPCharacter.h');
+test('native wet footing uses the authored ground hit and restores dry friction',()=>{
+ const character=source('VPCharacter.cpp'), header=source('VPCharacter.h'), world=source('VPWorldBootstrap.cpp');
  assert.match(header,/bool bOnWetLoadingApron = false;/);
- assert.match(character,/Position\.X - 3500\.f/);
- assert.match(character,/Position\.Y \+ 4000\.f/);
- assert.match(character,/bOnWetLoadingApron \? \.86f : 1\.f/);
+ assert.match(world,/Hit.GetComponent\(\) != Harbor->Ground.Get\(\)/);
+ assert.match(world,/InverseTransformPosition\(Hit.ImpactPoint\)/);
+ assert.match(character,/bOnWetLoadingApron \? VPFooting::WetSpeedScale : 1\.f/);
+ assert.match(character,/bWet \? DryGroundFriction \* VPFooting::WetGripScale : DryGroundFriction/);
  assert.match(character,/MaxWalkSpeedCrouched/);
  const tick=character.slice(character.indexOf('void AVPCharacter::Tick'),
   character.indexOf('void AVPCharacter::UpdateSprintFixedStep'));
- const position=tick.indexOf('const FVector Position = GetActorLocation()');
+ const position=tick.indexOf('AVPWorldBootstrap::IsWetApronContact(Floor.HitResult)');
  const authority=tick.indexOf('if (!HasAuthority() || !IsAlive()) return;');
  assert.ok(position>=0 && authority>position,
    'native Tick must derive wet footing before its authority-only stamina step');
+});
+
+test('wet footing covers the slab boundary and excludes overhead, air and unrelated floors',
+ {skip:process.platform==='win32'},()=>{
+ const scratch=fs.mkdtempSync(path.join(os.tmpdir(),'vp-footing-'));
+ try {
+  const compiled=spawnSync('c++',['-std=c++17','-Werror','-I',runtime,'-x','c++','-','-o',path.join(scratch,'check')],{
+   input:[
+    '#include "VPFootingRules.h"',
+    'using namespace VPFooting;',
+    'static_assert(IsWetApron(true, 3500., -4000., -5.));',
+    'static_assert(IsWetApron(true, 2800., -4900., -5.));',
+    'static_assert(!IsWetApron(true, 2799., -4900., -5.));',
+    'static_assert(!IsWetApron(true, 3500., -4000., 235.));',
+    'static_assert(!IsWetApron(true, 3500., -4000., -20.));',
+    'static_assert(!IsWetApron(false, 3500., -4000., -5.));',
+    'int main() {}'
+   ].join('\n'),encoding:'utf8',timeout:15000
+  });
+  assert.equal(compiled.status,0,compiled.stderr);
+ } finally {
+  fs.rmSync(scratch,{recursive:true,force:true});
+ }
 });

@@ -13,6 +13,7 @@ public:
     AVPWorldBootstrap();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
+    static bool IsWetApronContact(const FHitResult& Hit);
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="World")
     TObjectPtr<UInstancedStaticMeshComponent> Ground;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="World")

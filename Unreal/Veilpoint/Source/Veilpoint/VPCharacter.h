@@ -52,6 +52,9 @@ public:
     double ReloadEndsAt = -1;
     void RequestReload();
     float ReloadSecondsRemaining() const;
+    float WeaponHeatRatio() const;
+    bool IsWeaponCooling() const;
+    void ResetEncounterWeapon(int32 Total, int32 Loaded);
     // Client-side movement must stop on the actual server-authoritative
     // elimination transition, not only on the server's damage callback.
     UPROPERTY(ReplicatedUsing=OnRep_Eliminated, BlueprintReadOnly, Category="Survival")
@@ -82,8 +85,7 @@ public:
     int32 GetRoundPlacement() const { return OwnRoundPlacement; }
 
 protected:
-    // Derived from physical world position on both client and server;
-    // no extra network ownership or client-supplied wet-surface flag.
+    // Derived from the movement floor on both client and server.
     bool bOnWetLoadingApron = false;
     void MoveForward(float Value);
     void MoveRight(float Value);
@@ -117,7 +119,14 @@ protected:
 private:
     bool IsDesktopInputBlocked() const;
     bool IsWeaponPhaseActive() const;
+    double WeaponClock() const;
+    UPROPERTY(Replicated)
     double LastServerTagTime = -1000.0;
+    UPROPERTY(Replicated)
+    float HeatAtLastShot = 0.f;
+    UPROPERTY(Replicated)
+    bool bWeaponHeatLocked = false;
+    float DryGroundFriction = 0.f;
     bool bSprintHeld = false;
 
     float SprintAccumulator = 0.f;

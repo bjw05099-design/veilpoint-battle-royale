@@ -17,6 +17,7 @@
 #include "VPStoryPedestrian.h"
 #include "VPStoryPublicVan.h"
 #include "VPGameUserSettings.h"
+#include "VPWeaponRules.h"
 #include "Misc/App.h"
 #include "HAL/PlatformTime.h"
 #include "EngineUtils.h"
@@ -222,7 +223,9 @@ void AVPHUD::DrawHUD()
 
     const FString Ammo=Pawn->bReloading
         ? FString::Printf(TEXT("RELOADING %.1fs"),Pawn->ReloadSecondsRemaining())
-        : FString::Printf(TEXT("AMMO %d | RESERVE %d | R RELOAD"),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
+        : Pawn->IsWeaponCooling()
+            ? FString(TEXT("WEAPON HOT | COOLING"))
+            : FString::Printf(TEXT("AMMO %d | RESERVE %d | R RELOAD"),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
     DrawText(Ammo,FLinearColor(.9f,.87f,.73f),X+200.f*Scale,Y+69.f*Scale,nullptr,.70f*Scale,false);
 
     // Story and BR are deliberately different native modes. Do not render
@@ -502,7 +505,8 @@ void AVPHUD::DrawHUD()
     // Finite supplies stay visible without opening a menu; this is the
     // currently replicated pawn inventory, not an inferred client cache.
     const FString SupplyLabel = FString::Printf(
-        TEXT("SUPPLIES  %d / 60"), FMath::Clamp(Pawn->Charges,0,60));
+        TEXT("SUPPLIES  %d / %d"), FMath::Clamp(Pawn->Charges, 0, VPWeaponRules::Prototype.AmmunitionLimit),
+        VPWeaponRules::Prototype.AmmunitionLimit);
     DrawText(SupplyLabel, FLinearColor::White,
              X, Y + 91.f * Scale, nullptr, .8f * Scale, false);
 
@@ -872,11 +876,17 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 Aden->WindowSeconds)
                 : FString(TEXT("LIGHT OUT   |   CALL THE DRIVER"));
         else if (bEncounter)
-            Status = Aden->ContactsRemaining == 0 ? FString(TEXT("CONTACT CLEAR   |   MOVE TO THE POST"))
-                : Pawn->Charges == 0 ? FString(TEXT("OUT OF AMMO   |   F7  RESTART CONTACT"))
-                : FString::Printf(TEXT("%s   |   %.0f HP   |   %02d / %02d"),
-                    Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->Health,
-                    Pawn->MagazineRounds, Pawn->Charges - Pawn->MagazineRounds);
+        {
+            if (Aden->ContactsRemaining == 0) Status = TEXT("CONTACT CLEAR   |   MOVE TO THE POST");
+            else if (Pawn->Charges == 0) Status = TEXT("OUT OF AMMO   |   F7  RESTART CONTACT");
+            else if (Pawn->bReloading) Status = FString::Printf(TEXT("RELOADING %.1f s   |   %.0f HP"),
+                Pawn->ReloadSecondsRemaining(), Pawn->Health);
+            else if (Pawn->IsWeaponCooling()) Status = TEXT("WEAPON HOT   |   COOLING");
+            else Status = FString::Printf(TEXT("%s   |   %.0f HP   |   %02d / %02d%s"),
+                Aden->bContactAiming ? TEXT("IN SIGHT") : TEXT("CONTACT"), Pawn->Health,
+                Pawn->MagazineRounds, Pawn->Charges - Pawn->MagazineRounds,
+                Pawn->MagazineRounds == 0 ? TEXT("   R RELOAD") : TEXT(""));
+        }
         else
             Status = FString::Printf(TEXT("%s   |   %s"), EscortName(Aden->Progress),
                 Aden->bEscortWaiting ? TEXT("WAITING FOR YOU")

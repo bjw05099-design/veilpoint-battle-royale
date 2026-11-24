@@ -9,6 +9,8 @@
 #include "VPStoryGameState.h"
 #include "VPAdenStoryGameMode.h"
 #include "VPAdenContact.h"
+#include "VPFootingRules.h"
+#include "VPWorldBootstrap.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -55,6 +57,9 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AVPCharacter, bReloading);
     DOREPLIFETIME_CONDITION(AVPCharacter, MagazineRounds, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AVPCharacter, ReloadEndsAt, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, LastServerTagTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, HeatAtLastShot, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AVPCharacter, bWeaponHeatLocked, COND_OwnerOnly);
     DOREPLIFETIME(AVPCharacter, bEliminated);
     DOREPLIFETIME(AVPCharacter, Stamina);
     DOREPLIFETIME(AVPCharacter, bSprinting);
@@ -184,7 +189,7 @@ void AVPCharacter::OnRep_Eliminated()
 }
 void AVPCharacter::ApplySprintSpeed()
 {
-    const float Footing = bOnWetLoadingApron ? .86f : 1.f;
+    const float Footing = bOnWetLoadingApron ? VPFooting::WetSpeedScale : 1.f;
     // Preserve the original finite sprint speed before applying local
     // surface traction; existing stamina and exhaustion rules are unchanged.
     GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
@@ -201,19 +206,19 @@ void AVPCharacter::Tick(float DeltaSeconds)
         {bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();}
         else if(GetWorld() && GetWorld()->GetTimeSeconds()>=ReloadEndsAt)
         {
-            MagazineRounds=VPWeaponRules::FilledMagazine(Charges,MagazineRounds);
+            MagazineRounds = VPWeaponRules::FilledMagazine(VPWeaponRules::Prototype, Charges, MagazineRounds);
             bReloading=false;ReloadEndsAt=-1;ForceNetUpdate();
         }
     }
     if (!IsAlive()) return;
-    // The actual cargo apron is visible at X=35m, Y=-40m. Update locally
-    // for responsive PC movement prediction, while the server independently
-    // authorizes the same movement speed from its own actor position.
-    const FVector Position = GetActorLocation();
-    const bool bWet = FMath::Abs(Position.X - 3500.f) <= 700.f &&
-                      FMath::Abs(Position.Y + 4000.f) <= 900.f;
+    auto* Movement = GetCharacterMovement();
+    const auto& Floor = Movement->CurrentFloor;
+    const bool bWet = Movement->IsMovingOnGround() && Floor.IsWalkableFloor()
+        && AVPWorldBootstrap::IsWetApronContact(Floor.HitResult);
     if (bWet != bOnWetLoadingApron)
     {
+        if (bWet) DryGroundFriction = Movement->GroundFriction;
+        Movement->GroundFriction = bWet ? DryGroundFriction * VPFooting::WetGripScale : DryGroundFriction;
         bOnWetLoadingApron = bWet;
         ApplySprintSpeed();
     }
@@ -308,16 +313,42 @@ void AVPCharacter::RequestReload()
 }
 void AVPCharacter::ServerRequestReload_Implementation()
 {
-    if(!GetWorld() || !VPWeaponRules::CanReload(IsWeaponPhaseActive(),HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
-    bReloading=true;ReloadEndsAt=GetWorld()->GetTimeSeconds()+VPWeaponRules::ReloadSeconds;
+    using namespace VPWeaponRules;
+    if (!GetWorld() || !CanReload(Prototype, IsWeaponPhaseActive(), HasAuthority(), IsAlive(), bReloading,
+        Charges, MagazineRounds)) return;
+    bReloading = true;
+    ReloadEndsAt = GetWorld()->GetTimeSeconds() + ReloadDuration(Prototype, MagazineRounds);
     bSprintHeld=false;bSprinting=false;ApplySprintSpeed();ForceNetUpdate();
+}
+double AVPCharacter::WeaponClock() const
+{
+    if (!GetWorld()) return 0.;
+    if (const auto* State = GetWorld()->GetGameState<AVPGameState>()) return State->GetServerWorldTimeSeconds();
+    return GetWorld()->GetTimeSeconds();
 }
 float AVPCharacter::ReloadSecondsRemaining() const
 {
-    if(!bReloading || !GetWorld())return 0;
-    const auto* State=GetWorld()->GetGameState<AVPGameState>();
-    const double Now=State?State->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
-    return float(FMath::Max(0.0,ReloadEndsAt-Now));
+    return bReloading ? float(FMath::Max(0., ReloadEndsAt - WeaponClock())) : 0.f;
+}
+float AVPCharacter::WeaponHeatRatio() const
+{
+    return VPWeaponRules::CooledHeat(VPWeaponRules::Prototype, HeatAtLastShot, WeaponClock() - LastServerTagTime);
+}
+bool AVPCharacter::IsWeaponCooling() const
+{
+    return VPWeaponRules::HeatBlocksShot(VPWeaponRules::Prototype, bWeaponHeatLocked, WeaponHeatRatio());
+}
+void AVPCharacter::ResetEncounterWeapon(int32 Total, int32 Loaded)
+{
+    if (!HasAuthority() || !VPWeaponRules::Coherent(VPWeaponRules::Prototype, Total, Loaded)) return;
+    Charges = Total;
+    MagazineRounds = Loaded;
+    bReloading = false;
+    ReloadEndsAt = -1.;
+    HeatAtLastShot = 0.f;
+    bWeaponHeatLocked = false;
+    LastServerTagTime = -1000.;
+    ForceNetUpdate();
 }
 void AVPCharacter::TryTag()
 {
@@ -326,33 +357,40 @@ void AVPCharacter::TryTag()
 }
 void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVector_NetQuantizeNormal Direction)
 {
-    if(!GetWorld()) return;
+    using namespace VPWeaponRules;
+    if (!GetWorld()) return;
     // Waiting players and finished rounds neither spend ammunition nor damage.
-    if(!VPWeaponRules::CanShoot(IsWeaponPhaseActive(),HasAuthority(),IsAlive(),bReloading,Charges,MagazineRounds))return;
+    if (!CanShoot(Prototype, IsWeaponPhaseActive(), HasAuthority(), IsAlive(), bReloading, Charges, MagazineRounds)) return;
     const double Time = GetWorld()->GetTimeSeconds();
-    if (Time - LastServerTagTime < .22) return;
+    const double Elapsed = Time - LastServerTagTime;
+    const float Heat = CooledHeat(Prototype, HeatAtLastShot, Elapsed);
+    if (Elapsed < Prototype.ShotIntervalSeconds || HeatBlocksShot(Prototype, bWeaponHeatLocked, Heat)) return;
     // Authoritative start location and aiming direction: ignore untrusted client vectors.
     const FVector Origin = BodyCamera ? BodyCamera->GetComponentLocation() : GetPawnViewLocation();
     const FVector RayDir = GetControlRotation().Vector();
     LastServerTagTime = Time;
+    HeatAtLastShot = AddedShotHeat(Prototype, Heat);
+    bWeaponHeatLocked = HeatAtLastShot >= 1.f;
     --Charges;
     --MagazineRounds;
     ForceNetUpdate();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(VPTag), true, this);
     FHitResult Hit;
     const bool bAden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>() != nullptr;
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir*11000.f, bAden ? ECC_Visibility : ECC_Pawn, Params))
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir * Prototype.RangeCm,
+        bAden ? ECC_Visibility : ECC_Pawn, Params))
     {
+        const float Damage = DamageAtDistance(Prototype, Hit.Distance);
         if (bAden)
         {
             if (auto* Contact = Cast<AVPAdenContact>(Hit.GetActor()))
-                UGameplayStatics::ApplyDamage(Contact, 45.f, Controller, this, nullptr);
+                UGameplayStatics::ApplyDamage(Contact, Damage, Controller, this, nullptr);
             return;
         }
         if (AVPCharacter* Target = Cast<AVPCharacter>(Hit.GetActor()))
         {
             if (Target != this && Target->IsAlive())
-                UGameplayStatics::ApplyDamage(Target, 45.f, Controller, this, nullptr);
+                UGameplayStatics::ApplyDamage(Target, Damage, Controller, this, nullptr);
         }
     }
 }
@@ -416,7 +454,7 @@ void AVPCharacter::ServerTryInteract_Implementation()
         // player from collecting another usable one within reach.
         // Native BR has finite physical supplies only. A map object cannot
         // instantly restore health or erase an existing injury.
-        const bool bNeedSupplies=It->Resource==TEXT("charges") && Charges<60;
+        const bool bNeedSupplies = It->Resource == TEXT("charges") && Charges < VPWeaponRules::Prototype.AmmunitionLimit;
         if (!bNeedSupplies) continue;
         const float d=FVector::DistSquared(GetActorLocation(),It->GetActorLocation());
         if (d>=BestSq) continue;
@@ -435,9 +473,9 @@ bool AVPCharacter::CollectResource(FName Resource)
 {
     if (!HasAuthority() || !IsAlive()) return false;
     // A supply must not disappear when the character is already at capacity.
-    if (Resource==TEXT("charges") && Charges < 60)
+    if (Resource == TEXT("charges") && Charges < VPWeaponRules::Prototype.AmmunitionLimit)
     {
-        Charges=FMath::Min(60,Charges+24);
+        Charges = FMath::Min(VPWeaponRules::Prototype.AmmunitionLimit, Charges + 24);
         return true;
     }
     // Includes obsolete arcade armor pickups from older test scenes.
