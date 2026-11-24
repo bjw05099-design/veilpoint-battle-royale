@@ -24,6 +24,9 @@
   progression changes. Validate the separation in a playable chapter by
   changing a story beat and checking the reused assets, gameplay and saves.
   See [story-first development plan](docs/STORY_FIRST_RELEASE_PLAN.md#reusable-foundations-and-chapter-content).
+- Develop shared world and gameplay physics to the [native physics production standard](docs/NATIVE_PHYSICS_STANDARD.md).
+  Use measured physical references where available and verify representative
+  motion and collisions in the playable Unreal project.
 - Develop gameplay firearms against the [native firearm production standard](docs/NATIVE_WEAPON_RELOAD.md#firearm-production-standard).
   Keep shared weapon behavior separate from each firearm's assets and data so
   both modes can reuse it and chapter changes can select a different loadout.
