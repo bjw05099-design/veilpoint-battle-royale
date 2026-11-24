@@ -34,6 +34,9 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignChapters -ne 12 -or $report.koreanFontStaged -ne $true -or
     $report.campaignHandoffs -ne 3 -or $report.campaignEscorts -ne 4 -or $report.campaignEncounters -ne 3 -or
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
+    $report.partialAndEmptyReloadVerified -ne $true -or $report.weaponShotHeatVerified -ne $true -or
+    $report.duplicateSaveBackupVerified -ne $true -or
+    $report.expiredSignalBackupVerified -ne $true -or
     $report.campaignSignalWarningVerified -ne $true -or $report.radioRelayContacts -ne 2 -or $report.runnerRelayContacts -ne 1 -or
     $report.familiesCrossingRadioEnding -ne $true -or $report.clinicBackStreetRunnersEnding -ne $true -or
     $report.escortLeashVerified -ne $true -or $report.finalPairVerified -ne $true -or $report.operationAbortVerified -ne $true -or

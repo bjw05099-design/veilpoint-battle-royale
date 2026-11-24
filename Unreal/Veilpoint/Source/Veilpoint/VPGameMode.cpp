@@ -77,7 +77,7 @@ void AVPGameMode::PostLogin(APlayerController* NewPlayer)
     if (auto* Desktop = Cast<AVPPlayerController>(NewPlayer))
     {
         Desktop->bRoundReady = false;
-        ReadyCountdownEndsAt = 0.;
+        CancelReadyCountdown();
     }
 }
 
@@ -85,7 +85,7 @@ void AVPGameMode::Logout(AController* Exiting)
 {
     if (auto* Desktop = Cast<AVPPlayerController>(Exiting))
     {
-        ReadyCountdownEndsAt = 0.;
+        CancelReadyCountdown(Exiting);
         if (RoundEntrants.Remove(Desktop) > 0)
             if (auto* Match = GetGameState<AVPGameState>()) Match->RecordDeparture();
     }
@@ -99,8 +99,25 @@ void AVPGameMode::ToggleReadyFromController(AVPPlayerController* Controller)
     if (!Pawn || !Pawn->IsAlive()) return;
     Controller->bRoundReady = !Controller->bRoundReady;
     Controller->ForceNetUpdate();
-    if (!Controller->bRoundReady)
-        ReadyCountdownEndsAt = 0.;
+    if (!Controller->bRoundReady) CancelReadyCountdown();
+}
+
+void AVPGameMode::CancelReadyCountdown(const AController* Exiting)
+{
+    ReadyCountdownEndsAt = 0.;
+    if (!bRequireReady || bSeenMultiplePlayers || GetNetMode() == NM_Standalone) return;
+    auto* State = GetGameState<AVPGameState>();
+    if (!State) return;
+
+    int32 Joined = 0, Ready = 0;
+    for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
+    {
+        const auto* Desktop = Cast<AVPPlayerController>(It->GetController());
+        if (!Desktop || Desktop == Exiting || !It->IsAlive()) continue;
+        ++Joined;
+        if (Desktop->IsRoundReady()) ++Ready;
+    }
+    State->UpdateLobby(Joined, Ready, true, 0, 0.);
 }
 
 void AVPGameMode::BeginPlay()

@@ -1,4 +1,5 @@
 #include "VPWorldBootstrap.h"
+#include "VPFootingRules.h"
 #include "VPPickup.h"
 #include "VPStoryGameState.h"
 #include "Components/PointLightComponent.h"
@@ -47,6 +48,13 @@ AVPWorldBootstrap::AVPWorldBootstrap()
 void AVPWorldBootstrap::AddBlock(UInstancedStaticMeshComponent* Comp,FVector Position,FVector Scale)
 {
     if(Comp)Comp->AddInstance(FTransform(FRotator::ZeroRotator,Position,Scale));
+}
+bool AVPWorldBootstrap::IsWetApronContact(const FHitResult& Hit)
+{
+    const auto* Harbor = Cast<AVPWorldBootstrap>(Hit.GetActor());
+    if (!Harbor || !Harbor->Ground || Hit.GetComponent() != Harbor->Ground.Get()) return false;
+    const FVector Local = Harbor->GetActorTransform().InverseTransformPosition(Hit.ImpactPoint);
+    return VPFooting::IsWetApron(Hit.bBlockingHit, Local.X, Local.Y, Local.Z);
 }
 void AVPWorldBootstrap::CreateStoryHarborLamps()
 {
@@ -629,10 +637,9 @@ void AVPWorldBootstrap::BeginPlay()
     AddBlock(Buildings,FVector(14300.f,-13700.f,130.f),FVector(9.f,5.f,2.6f));
     AddBlock(Buildings,FVector(14300.f,-10300.f,130.f),FVector(9.f,5.f,2.6f));
     AddBlock(Buildings,FVector(13200.f,-15400.f,600.f),FVector(5.f,5.f,12.f));
-    // This shallow waterlogged pad has no collision volume. The character's
-    // location-based footing (also used by browser BR) determines traversal;
-    // the visual slab itself must never form an invisible gameplay wall.
-    AddBlock(Vegetation,FVector(3500.f,-4000.f,1.f),FVector(14.f,18.f,.02f));
+    // The water surface is visual. Feet contact the authored ground below it.
+    AddBlock(Vegetation, FVector(VPFooting::ApronX, VPFooting::ApronY, 1.),
+        FVector(VPFooting::HalfWidth / 50., VPFooting::HalfLength / 50., .02));
     // Stable seed and loop order keep instance transforms identical on all
     // machines without transmitting 250 per-instance transforms every tick.
     FRandomStream Random(19771);

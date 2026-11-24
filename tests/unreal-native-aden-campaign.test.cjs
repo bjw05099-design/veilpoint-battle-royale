@@ -125,6 +125,14 @@ test('the native Aden rules reach the finale through all eight choices with cont
           assert(!Valid({Radio, Families, NoPassage, NoRelay}));
           assert(!Valid({FinalCall, Families, Crossing, NoRelay}));
           assert(!ValidCheckpoint({{FinalCall, Clinic, BackStreet, Runners}, 1}));
+          const FProgress timed{ReachSignal, Clinic, NoPassage, NoRelay};
+          const FCheckpoint fresh{timed, SignalWindowMs}, fading{timed, SignalWarningMs}, expired{timed, 0};
+          assert(RecoveryBackup(fresh, fading) == fading);
+          assert(RecoveryBackup(fading, expired) == expired);
+          assert(RecoveryBackup(expired, fresh) == expired);
+          assert(RecoveryBackup(expired, {{OpenShelter, Clinic, BackStreet, NoRelay}, 0}) == expired);
+          const FCheckpoint prior{{RestorePower, Clinic, NoPassage, NoRelay}, 0};
+          assert(RecoveryBackup(prior, fresh) == prior);
         }
       `;
       const compile = spawnSync('c++', ['-std=c++17', '-Wshadow', '-Werror', '-I', include, '-x', 'c++', '-', '-o', exe],

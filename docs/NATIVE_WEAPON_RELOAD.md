@@ -28,30 +28,34 @@ host/client behavior where each weapon is supported.
 
 ## Current prototype implementation
 
-The native prototype keeps its existing total-ammunition field (`Charges`,
-initially 48, pickup cap 60). Thirty rounds start loaded; eighteen are reserve.
-One accepted shot decrements both total and loaded rounds. An empty magazine
-cannot fire even if reserve ammunition remains.
+The shared native code uses one fictional prototype weapon profile. It keeps
+the existing total-ammunition field (`Charges`, initially 48) and gets the
+pickup cap and magazine capacity from that profile. Thirty rounds start loaded
+and eighteen are reserve. One accepted shot decrements both total and loaded
+rounds. An empty magazine requires a reload even with reserve ammunition.
 
 R requests a reload without sending client counts, amounts or deadlines. The
 server checks the current story/BR phase, life state, magazine invariant and
-available reserve. A 2.6-second prototype timer fills up to thirty rounds from
-the existing total. Reloading creates no ammunition and repeated R does not
-extend/restart an active timer. Waiting/completed rounds, death, full magazines,
+available reserve. The prototype timer distinguishes partial and empty
+magazines. Reloading fills the magazine from the existing total. Repeated R
+leaves an active timer intact. Waiting/completed rounds, death, full magazines,
 empty reserve and an open local PC menu reject a reload. Death/round end cancel
 an in-progress reload without crediting rounds. An offline pause freezes world
 time; an online menu does not pause the server.
 
-The HUD displays the actual loaded/reserve counts or remaining reload time in
-both modes. Owner-only telemetry uses synchronized server time. New checkpoint
-formats still do not claim to preserve player ammunition/health/position.
+Accepted shots also accumulate heat and use hit distance to look up gameplay
+damage. The server blocks shots during overheating until the weapon has cooled
+to the profile's resume threshold. The HUD shows magazine and reserve counts,
+reload time or the cooling state. Heat telemetry is owner-only and cools
+according to synchronized server time from the last shot. Retrying an Aden
+encounter resets the weapon state with the encounter loadout.
 
 `VPWeaponRules.h` is the production numeric gate compiled in host CI. Tests
-cover every magazine/total combination from 0–30/0–60, malformed counts,
-authority, life, phase and reload restrictions, bounds and conservation. The
-private gameplay diagnostic fires once through the real primary-action entry,
-starts/repeats reload through the public R entry, rejects a shot during reload
-and waits for the real server timer before checking ammunition conservation.
+cover every prototype magazine/total combination from 0–30/0–60, malformed counts,
+authority, life, phase, reload differences, ammunition conservation, heat lock
+and resume, and distance falloff. The Windows Aden diagnostic checks both R
+timers and a live shot's ammo and heat. The Coast diagnostic starts and repeats
+reload through R, rejects a shot during reload and waits for the timer to finish.
 
-These are prototype mechanics, not a researched real-weapon capacity, magazine
-animation, chamber model, ballistics model, sound recording or recoil proof.
+Real firearm assets, variant research, reload animation, chamber state and
+projectile drop are separate production work.

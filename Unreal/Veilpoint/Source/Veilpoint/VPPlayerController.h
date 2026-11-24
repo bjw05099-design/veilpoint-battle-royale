@@ -52,6 +52,7 @@ private:
     bool bBRProofPrinted = false;
     bool bBRRestartObserved = false;
     double BRObserveAt = -1.;
+    double BRFirstCountdownEnd = 0.;
     double BRQuitAt = -1.;
     bool PrepareWindowScreenshot();
     void OnWindowScreenshotCaptured(int32 Width,int32 Height,const TArray<FColor>& Pixels);

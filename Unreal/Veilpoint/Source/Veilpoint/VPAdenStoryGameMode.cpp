@@ -1,6 +1,7 @@
 #include "VPAdenStoryGameMode.h"
 
 #include "VPAdenCampaign.h"
+#include "VPWeaponRules.h"
 #include "VPAdenCampaignMigration.h"
 #include "VPAdenContact.h"
 #include "VPAdenPrologue.h"
@@ -398,11 +399,7 @@ void AVPAdenStoryGameMode::PrepareEncounter(AVPCharacter* Pawn, double Now)
         Contacts.Add(Contact);
     }
     Pawn->Health = 100.f;
-    Pawn->Charges = 18;
-    Pawn->MagazineRounds = 12;
-    Pawn->bReloading = false;
-    Pawn->ReloadEndsAt = -1.;
-    Pawn->ForceNetUpdate();
+    Pawn->ResetEncounterWeapon(18, 12);
 }
 
 bool AVPAdenStoryGameMode::UpdateEncounter(AVPCharacter* Pawn, AVPAdenStoryState* View, double Now)
@@ -603,8 +600,11 @@ TOptional<VPAdenCampaign::FCheckpoint> AVPAdenStoryGameMode::ReadCheckpoint(bool
 {
     if (bUsedBackup) *bUsedBackup = false;
     const FString Slot = AdenSlot();
-    if (const auto Primary = ReadCheckpointSlot(Slot); Primary.IsSet()) return Primary;
+    const auto Primary = ReadCheckpointSlot(Slot);
+    if (Primary.IsSet() && Primary.GetValue().Progress.Beat != VPAdenCampaign::ReachSignal) return Primary;
     const auto Backup = ReadCheckpointSlot(Slot + TEXT("-backup"));
+    if (Primary.IsSet() && (!Backup.IsSet()
+        || VPAdenCampaign::RecoveryBackup(Primary.GetValue(), Backup.GetValue()) == Primary.GetValue())) return Primary;
     if (bUsedBackup) *bUsedBackup = Backup.IsSet();
     return Backup;
 }
@@ -648,9 +648,14 @@ bool AVPAdenStoryGameMode::PersistStoryCheckpoint()
 {
     if (bOpeningActive || !Source || GetNetMode() != NM_Standalone || !HasAuthority()) return false;
     const FString Slot = AdenSlot();
+    const FString Backup = Slot + TEXT("-backup");
     const auto Primary = ReadCheckpointSlot(Slot);
-    const bool bRotated = !Primary.IsSet() || WriteCheckpointSlot(Slot + TEXT("-backup"), Primary.GetValue());
-    const bool bSaved = bRotated && WriteCheckpointSlot(Slot, CaptureCheckpoint());
+    const auto Current = CaptureCheckpoint();
+    const bool bUnchanged = Primary.IsSet() && Primary.GetValue() == Current;
+    const bool bRotated = bUnchanged
+        ? ReadCheckpointSlot(Backup).IsSet() || WriteCheckpointSlot(Backup, Current)
+        : !Primary.IsSet() || WriteCheckpointSlot(Backup, VPAdenCampaign::RecoveryBackup(Primary.GetValue(), Current));
+    const bool bSaved = bRotated && (bUnchanged || WriteCheckpointSlot(Slot, Current));
     bSaveFailed = !bSaved;
     if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->bSaveFailed = bSaveFailed;
     return bSaved;
@@ -1059,6 +1064,20 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         if (Pawn->Health != 100.f || StandingContacts() != Expected || !Approach()) return false;
         DiagnosticReport->SetBoolField(TEXT("campaignContactRetryVerified"), true);
 
+        const int32 Total = Pawn->Charges;
+        const int32 Loaded = Pawn->MagazineRounds;
+        const auto ReloadMatches = [&]()
+        {
+            const double Duration = VPWeaponRules::ReloadDuration(VPWeaponRules::Prototype, Pawn->MagazineRounds);
+            Pawn->RequestReload();
+            return Pawn->bReloading && FMath::IsNearlyEqual(double(Pawn->ReloadSecondsRemaining()), Duration, .01);
+        };
+        if (!ReloadMatches()) return false;
+        Pawn->ResetEncounterWeapon(Total, 0);
+        if (!ReloadMatches()) return false;
+        Pawn->ResetEncounterWeapon(Total, Loaded);
+        DiagnosticReport->SetBoolField(TEXT("partialAndEmptyReloadVerified"), true);
+
         auto* Contact = Contacts[0].Get();
         const FVector Target = Contact->GetActorLocation() + FVector(0., 0., 20.);
         const FVector Eye = Pawn->BodyCamera->GetComponentLocation();
@@ -1070,11 +1089,12 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         const bool bCaptured = CaptureFrame(Desktop, TEXT("aden-campaign-contact"));
         DiagnosticCapture->SetRelativeTransform(Camera);
         if (!bCaptured) return false;
-        const int32 Loaded = Pawn->MagazineRounds;
         Pawn->RequestPrimaryAction();
-        if (Pawn->MagazineRounds != Loaded - 1 || !Contact->IsStanding()
+        if (Pawn->MagazineRounds != Loaded - 1 || Pawn->WeaponHeatRatio() < VPWeaponRules::Prototype.HeatPerShot * .99f
+            || Pawn->IsWeaponCooling() || !Contact->IsStanding()
             || UGameplayStatics::ApplyDamage(Contact, 45.f, Desktop, Pawn, nullptr) != 45.f
             || Contact->IsStanding()) return false;
+        DiagnosticReport->SetBoolField(TEXT("weaponShotHeatVerified"), true);
         DiagnosticReport->SetBoolField(TEXT("campaignLiveShotVerified"), true);
     }
 
@@ -1290,6 +1310,24 @@ bool AVPAdenStoryGameMode::VerifySavedCampaign(AVPCharacter* Pawn)
     const FTransform Before = Pawn->GetActorTransform();
     if (!UGameplayStatics::SaveDataToSlot(Damaged, Backup, 0) || ReturnToCheckpoint(Pawn)
         || !Pawn->GetActorTransform().Equals(Before) || !(Progress == Ending.GetValue().Progress)) return false;
+    auto Prior = Ending.GetValue();
+    Prior.Progress.Beat = FinalCall;
+    if (!WriteCheckpointSlot(Slot, Ending.GetValue()) || !WriteCheckpointSlot(Backup, Prior)
+        || !PersistStoryCheckpoint()) return false;
+    const auto Preserved = ReadCheckpointSlot(Backup);
+    if (!Preserved.IsSet() || !(Preserved.GetValue() == Prior)) return false;
+
+    const FCheckpoint Expired{{ReachSignal, Families, NoPassage, NoRelay}, 0};
+    if (!WriteCheckpointSlot(Slot, {Expired.Progress, SignalWindowMs})) return false;
+    ApplyCheckpoint(Expired);
+    if (!PersistStoryCheckpoint() || !UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0)
+        || !ReturnToCheckpoint(Pawn) || !(CaptureCheckpoint() == Expired)) return false;
+    // Also cover an interrupted write that leaves the previous primary readable.
+    if (!WriteCheckpointSlot(Slot, {Expired.Progress, SignalWindowMs})
+        || !ReturnToCheckpoint(Pawn) || !(CaptureCheckpoint() == Expired)) return false;
+    DiagnosticReport->SetBoolField(TEXT("duplicateSaveBackupVerified"), true);
+    DiagnosticReport->SetBoolField(TEXT("expiredSignalBackupVerified"), true);
+
     return WriteCheckpointSlot(Slot, Ending.GetValue()) && ReturnToCheckpoint(Pawn)
         && Progress == Ending.GetValue().Progress;
 #else

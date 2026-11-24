@@ -68,6 +68,15 @@ constexpr bool ValidCheckpoint(FCheckpoint C)
         && C.WindowMs <= (C.Progress.Beat == ReachSignal ? SignalWindowMs : 0);
 }
 
+constexpr FCheckpoint RecoveryBackup(FCheckpoint Previous, FCheckpoint Current)
+{
+    // A fallback at the same crossing should never grant time already spent.
+    if (Previous.Progress == Current.Progress && Current.Progress.Beat == ReachSignal
+        && Current.WindowMs < Previous.WindowMs)
+        return Current;
+    return Previous;
+}
+
 constexpr int Chapter(int Beat)
 {
     if (Beat < Junction) return 1;

@@ -4,6 +4,9 @@
 #include "VPStoryMarker.h"
 #include "VPCharacter.h"
 #include "VPPlayerController.h"
+#include "VPFootingRules.h"
+#include "VPWorldBootstrap.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "CollisionShape.h"
 #include "VPLastBroadcastPaths.h"
 #include "Components/PrimitiveComponent.h"
@@ -13,6 +16,25 @@
 
 namespace
 {
+bool VerifyApronContact(UWorld* World)
+{
+    const TActorIterator<AVPWorldBootstrap> Harbor(World);
+    if (!Harbor || !Harbor->Ground) return false;
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPApronContact), false);
+    const FTransform& Map = Harbor->GetActorTransform();
+    const auto Sample = [&](double X, bool bExpectedWet)
+    {
+        const FVector Point(X, VPFooting::ApronY, 0.);
+        const FVector Up(0., 0., 30.);
+        FHitResult Floor;
+        return Harbor->Ground->LineTraceComponent(Floor, Map.TransformPosition(Point + Up),
+            Map.TransformPosition(Point - Up), Query) && AVPWorldBootstrap::IsWetApronContact(Floor) == bExpectedWet;
+    };
+    return Sample(VPFooting::ApronX, true)
+        && Sample(VPFooting::ApronX + VPFooting::HalfWidth + 100., false)
+        && !AVPWorldBootstrap::IsWetApronContact(FHitResult{});
+}
+
 bool VerifyPavingSupport(UWorld* World,APawn* ControlledPawn,FString& Failure)
 {
     FCollisionQueryParams Query(SCENE_QUERY_STAT(VPPavingSupport),false,ControlledPawn);
@@ -93,6 +115,7 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         FString PavingFailure;
         const bool PavingOK=VerifyPavingSupport(World,Desktop->GetPawn(),PavingFailure);
         Report->SetBoolField(TEXT("pavingSurfaceDoesNotBlockMovement"),PavingOK);
+        Report->SetBoolField(TEXT("wetApronGroundContactVerified"),VerifyApronContact(World));
         Report->SetStringField(TEXT("pavingSupportFailure"),PavingFailure);
         Report->SetBoolField(TEXT("shelterOpeningsAndWallsVerified"),VerifyShelterPassages(World,Desktop->GetPawn()));
     }

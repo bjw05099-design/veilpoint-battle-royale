@@ -63,7 +63,8 @@ function Invoke-BRVerification([string]$Case, [switch]$Departure, [switch]$Rejoi
         $hostEvidence=Get-Content -LiteralPath $hostLog -Raw
         $clientEvidence=Get-Content -LiteralPath $joinLog -Raw
         if ($Rejoin) {
-            if ($hostEvidence -notmatch 'VPBR_REJOIN_HOST_PASS' -or $clientEvidence -notmatch 'VPBR_REJOIN_CLIENT_PASS' -or
+            if ($hostEvidence -notmatch 'VPBR_REJOIN_HOST_PASS' -or $hostEvidence -notmatch 'VPBR_REJOIN_FRESH_DEADLINE' -or
+                $clientEvidence -notmatch 'VPBR_REJOIN_CLIENT_PASS' -or
                 $clientEvidence -notmatch 'VPBR_REJOIN_UNREADY_CONFIRMED') {
                 throw 'The rejoining client did not restart readiness and reach the next round.'
             }
