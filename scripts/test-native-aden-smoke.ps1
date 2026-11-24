@@ -37,7 +37,7 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
-    $report.sourcedRoadClassesVerified -ne $true -or $report.safeCheckpointFootingVerified -ne $true -or
+    $report.chapterCardsVerified -ne $true -or $report.sourcedRoadClassesVerified -ne $true -or $report.safeCheckpointFootingVerified -ne $true -or
     $report.persistentFieldPinsVerified -ne $true -or $report.rescueBarrierClearanceVerified -ne $true -or
     $report.fieldPointerPinVerified -ne $true -or $report.fieldPinVerified -ne $true -or $report.fieldRouteDistanceVerified -ne $true -or
     $report.campaignAKMVerified -ne $true -or $report.campaignM4A1Verified -ne $true -or
@@ -64,6 +64,7 @@ if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 
     throw 'Aden regional terrain failed the elevation fit or shared edge validation.'
 }
 if ($report.terrainRenderSectors -ne 70 -or $report.terrainRenderTriangles -ne 35840 -or
+    $report.terrainMetricUvSeams -ne 123 -or $report.terrainDetailAssetsStaged -ne $true -or
     $report.terrainSharedEdges -ne 123 -or $report.terrainWestJoinEdges -ne 7 -or $report.terrainCollisionHits -ne 246 -or
     $null -eq $report.terrainMaxCollisionErrorCm -or $report.terrainMaxCollisionErrorCm -gt 1.0) {
     throw 'Aden playable terrain sector edges or continuous ground collision failed.'
@@ -108,7 +109,7 @@ $frames = @('aden-world','aden-field-map','aden-field-pan','aden-field-pin','ade
     'aden-opening-council','aden-opening-corridor','aden-opening-briefing','aden-opening-embark',
     'aden-opening-first-person','aden-opening-deck','aden-opening-approach','aden-opening-landfall',
     'aden-opening-quay','aden-opening-street',
-    'aden-sourced-street','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
+    'aden-sourced-street','aden-ground-detail','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
     'aden-campaign-contact','aden-campaign-shot-feedback','aden-campaign-journal',
     'aden-route-preview-first','aden-route-preview-second',

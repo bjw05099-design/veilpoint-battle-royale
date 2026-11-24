@@ -11,6 +11,18 @@ int main()
     static_assert(Playhead(2000., .5, 3) == 3500.);
     static_assert(Playhead(Playhead(2000., .5, 3), .25, 6) == 5000.);
     static_assert(Playhead(2000., -.5, 6) == 2000.);
+    using VPRoundReview::AdjacentEvent;
+    static_assert(!VPRoundReview::CanRecordZoneEvent(0, false, true));
+    static_assert(VPRoundReview::CanRecordZoneEvent(1, false, true));
+    static_assert(!VPRoundReview::CanRecordZoneEvent(2, true, true));
+    static_assert(!VPRoundReview::CanRecordZoneEvent(VPRoundReview::MaxEvents - 1, true, false));
+    const int Events[] = {0, 2000, 4200, 6500};
+    const auto Timestamp = [&](int index) { return Events[index]; };
+    assert(AdjacentEvent(4, 2000., -1, Timestamp) == 0);
+    assert(AdjacentEvent(4, 2000., 1, Timestamp) == 2);
+    assert(AdjacentEvent(4, 5000., -1, Timestamp) == 2);
+    assert(AdjacentEvent(4, 6500., 1, Timestamp) == -1);
+    assert(AdjacentEvent(0, 0., -1, Timestamp) == -1);
     static_assert(VPRoundReview::Fraction(2500., 1000, 4000) == .5);
     static_assert(VPRoundReview::Fraction(999., 1000, 4000) == 0.);
     static_assert(VPRoundReview::Fraction(5000., 1000, 4000) == 1.);

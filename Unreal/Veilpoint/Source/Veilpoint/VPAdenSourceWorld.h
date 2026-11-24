@@ -22,6 +22,7 @@ struct FVPAdenTerrainCheck
     int32 CollisionHits = 0;
     int32 WestJoinEdges = 0;
     double MaxCollisionError = 0.;
+    int32 DetailUvSeams = 0;
 };
 
 struct FVPAdenRegionalCheck
@@ -90,6 +91,12 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UTexture2D> GroundNormal;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UTexture2D> GroundRoughness;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UTexture2D> LocalAtlas;

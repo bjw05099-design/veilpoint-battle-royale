@@ -13,6 +13,21 @@ class UStaticMeshComponent;
 UENUM()
 enum class EVPShotCue : uint8 { None, Fired, Surface, Target };
 
+UENUM()
+enum class EVPRoundEventKind : uint8 { Started, OutsideZone, BackInside, Eliminated, Finished };
+
+USTRUCT()
+struct FVPRoundReviewEvent
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    int32 Milliseconds = 0;
+
+    UPROPERTY()
+    EVPRoundEventKind Kind = EVPRoundEventKind::Started;
+};
+
 USTRUCT()
 struct FVPRoundReviewSample
 {
@@ -115,6 +130,8 @@ public:
     void RequestInteraction() { TryInteract(); }
     void RequestPrimaryAction() { TryTag(); }
     void ReleaseDesktopActions() { EndSprint(); EndSight(); }
+    void RecordRoundZonePresence(bool bOutside);
+    const TArray<FVPRoundReviewEvent>& GetRoundReviewEvents() const { return OwnRoundEvents; }
     void ObserveRoundReview(int32 ElapsedMs, bool bSample, bool bComplete, int32 Survivors);
     const TArray<FVPRoundReviewSample>& GetRoundReview() const { return OwnRoundReview; }
     int32 GetRoundPlacement() const { return OwnRoundPlacement; }
@@ -199,8 +216,13 @@ private:
     UPROPERTY(Replicated)
     TArray<FVPRoundReviewSample> OwnRoundReview;
     UPROPERTY(Replicated)
+    TArray<FVPRoundReviewEvent> OwnRoundEvents;
+    UPROPERTY(Replicated)
     int32 OwnRoundPlacement = 0;
     int32 PendingRoundPlacement = 0;
     TArray<FVPRoundReviewSample> PendingRoundReview;
+    TArray<FVPRoundReviewEvent> PendingRoundEvents;
+    double RoundRecordingBeganAt = -1.;
+    bool bRoundReviewOutside = false;
     bool bRoundReviewClosed = false;
 };

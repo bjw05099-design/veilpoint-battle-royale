@@ -36,4 +36,8 @@ private:
     bool bSeenMultiplePlayers=false;
     double ReviewStartedAt = -1.;
     double ReviewNextSampleAt = -1.;
+#if !UE_BUILD_SHIPPING
+    int32 DiagnosticZoneStep = 0;
+    FVector2D DiagnosticZoneOriginal = FVector2D::ZeroVector;
+#endif
 };

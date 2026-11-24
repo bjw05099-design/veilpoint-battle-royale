@@ -71,6 +71,55 @@ test('Aden lift rejects an occupied swept path before moving and pauses story pr
   assert.match(mode, /bOperationObstructed = !UpdateRescueProps\(Fraction\);[\s\S]*?if \(!View->bOperationObstructed\)[\s\S]*?OperationProgress = Requested/);
 });
 
+test('Aden detail art is repeatable, has bounded roughness and connects to the separate terrain UVs', {
+  skip: process.platform === 'win32',
+}, () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-ground-detail-'));
+  try {
+    const script = path.join(__dirname, '../scripts/build-aden-ground-detail.py');
+    const build = name => {
+      const out = path.join(temp, name);
+      const result = spawnSync('python3', [script, out], {encoding: 'utf8', timeout: 12000});
+      assert.equal(result.status, 0, result.stderr);
+      return ['T_AdenGroundNormal.png', 'T_AdenGroundRoughness.png'].map(file => fs.readFileSync(path.join(out, file)));
+    };
+    const art = build('first');
+    assert.deepEqual(art, build('repeat'));
+    for (const [index, png] of art.entries()) {
+      const channels = index ? 1 : 3;
+      assert.equal(png.readUInt32BE(16), 256);
+      assert.equal(png.readUInt32BE(20), 256);
+      assert.equal(png[25], index ? 0 : 2);
+      const data = inflateSync(png.subarray(41, 41 + png.readUInt32BE(33)));
+      const stride = 1 + 256 * channels;
+      assert.equal(data.length, 256 * stride);
+      let seam = 0, adjacent = 0;
+      const diversity = new Set();
+      for (let y = 0; y < 256; y++) {
+        const row = y * stride;
+        assert.equal(data[row], 0);
+        seam += Math.abs(data[row + 1] - data[row + 1 + 255 * channels]);
+        adjacent += Math.abs(data[row + 1] - data[row + 1 + channels]);
+        for (let x = 0; x < 256; x++) {
+          const at = row + 1 + x * channels;
+          diversity.add(data[at]);
+          if (index) assert.ok(data[at] >= 194 && data[at] <= 253);
+          else assert.ok(data[at + 2] >= 200, 'the artistic surface normals always point outward');
+        }
+      }
+      assert.ok(seam < adjacent * 2 + 256);
+      assert.ok(diversity.size > 16);
+    }
+  } finally {
+    fs.rmSync(temp, {recursive: true, force: true});
+  }
+  const world = fs.readFileSync(path.join(include, 'VPAdenSourceWorld.cpp'), 'utf8');
+  const author = fs.readFileSync(path.join(__dirname, '../scripts/ue5-author-aden-ch01.py'), 'utf8');
+  assert.match(world, /GroundDetailTileCm = 256\.[\s\S]*?UVs\.Emplace\(Point\.X \/ GroundDetailTileCm, Point\.Y \/ GroundDetailTileCm\)/);
+  assert.match(world, /A\.UV1 == B\.UV1[\s\S]*?A\.Tangent\.TangentX == B\.Tangent\.TangentX/);
+  assert.match(author, /coordinate_index", 1[\s\S]*?MP_NORMAL[\s\S]*?MP_ROUGHNESS/);
+});
+
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
   const maps = path.join(root, 'ContentSource/Aden');
   const manifest = JSON.parse(fs.readFileSync(path.join(maps, 'aden-atlas.json'), 'utf8'));

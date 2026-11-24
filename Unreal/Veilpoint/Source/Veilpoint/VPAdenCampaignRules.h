@@ -116,6 +116,15 @@ constexpr int Chapter(int Beat)
     return 12;
 }
 
+enum class EChapterCard { None, Entered, Resumed, Completed };
+
+constexpr EChapterCard ChapterTransition(int Previous, int Next)
+{
+    if (Previous == Next) return EChapterCard::None;
+    if (Next == Complete) return EChapterCard::Completed;
+    return Chapter(Previous) != Chapter(Next) ? EChapterCard::Entered : EChapterCard::None;
+}
+
 constexpr EMode Mode(int Beat)
 {
     switch (Beat)

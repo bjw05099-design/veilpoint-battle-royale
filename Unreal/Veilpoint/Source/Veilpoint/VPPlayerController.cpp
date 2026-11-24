@@ -888,6 +888,19 @@ void AVPPlayerController::TickBRDiagnostic()
         TActorIterator<AVPZone> Zone(GetWorld());
         if (!Overview || !Zone || !Overview->GetPublicOverview(Bounds, Buildings)
             || !Bounds.GetSize().Equals(FVector2D(35000., 35000.), 1.) || Zone->Radius <= 0.f) return;
+        const auto& Events = LocalBRPawn->GetRoundReviewEvents();
+        const auto Result = LocalBRPawn->IsAlive() ? EVPRoundEventKind::Finished : EVPRoundEventKind::Eliminated;
+        if (Events.Num() < 4 || Events[0].Kind != EVPRoundEventKind::Started || Events[0].Milliseconds != 0
+            || Events.Last().Kind != Result || Events.Last().Milliseconds != LocalBRPawn->GetRoundReview().Last().Milliseconds)
+            return;
+        bool bLeftZone = false, bCameBack = false;
+        for (int32 I = 1; I < Events.Num(); ++I)
+        {
+            if (Events[I].Milliseconds < Events[I - 1].Milliseconds) return;
+            bLeftZone |= Events[I].Kind == EVPRoundEventKind::OutsideZone;
+            bCameBack |= bLeftZone && Events[I].Kind == EVPRoundEventKind::BackInside;
+        }
+        if (!bCameBack) return;
         UE_LOG(LogTemp, Display, TEXT("VPBR_FIELD_MAP_PASS: local public geometry and replicated zone (%d blocks)"), Buildings.Num());
         if (GetNetMode() == NM_Client)
         {
@@ -895,7 +908,7 @@ void AVPPlayerController::TickBRDiagnostic()
             for (TActorIterator<AVPCharacter> It(GetWorld()); It; ++It)
             {
                 if (*It == LocalBRPawn) continue;
-                if (!It->GetRoundReview().IsEmpty() || It->GetRoundPlacement() != 0) return;
+                if (!It->GetRoundReview().IsEmpty() || !It->GetRoundReviewEvents().IsEmpty() || It->GetRoundPlacement() != 0) return;
                 ++Others;
             }
             if (Others != 1 || !LocalBRPawn->IsAlive() || State->ActiveSurvivors != 1 || LocalBRPawn->GetRoundPlacement() != 1
@@ -910,6 +923,7 @@ void AVPPlayerController::TickBRDiagnostic()
             UE_LOG(LogTemp, Display, TEXT("VPBR_HOST_PASS: authoritative place #2 and finished record (%d samples)"), LocalBRPawn->GetRoundReview().Num());
             BRQuitAt = Now + 4.;
         }
+        UE_LOG(LogTemp, Display, TEXT("VPBR_EVENT_TIMELINE_PASS: owner-only start, exit, return and result"));
         bBRProofPrinted = true;
     }
     if (BRQuitAt >= 0. && Now >= BRQuitAt)
