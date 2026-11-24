@@ -19,7 +19,7 @@ public:
         const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
     virtual void PostLogin(APlayerController* NewPlayer) override;
     virtual void Logout(AController* Exiting) override;
-    void ToggleReadyFromController(AVPPlayerController* Controller);
+    void SetReadyFromController(AVPPlayerController* Controller, bool bReady);
     virtual void Tick(float DeltaSeconds) override;
     UPROPERTY(BlueprintReadOnly,Category="Battle Royale")
     int32 ActiveSurvivors=0;

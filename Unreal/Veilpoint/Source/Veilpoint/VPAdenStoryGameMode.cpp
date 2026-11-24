@@ -132,6 +132,7 @@ bool AVPAdenStoryGameMode::ReturnToCheckpoint(AVPCharacter* Pawn)
     bool bUsedBackup = false;
     const auto Saved = ReadCheckpoint(&bUsedBackup);
     if (!Saved.IsSet() || !RestorePosition(Pawn, Saved.GetValue().Progress)) return false;
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->RecentCalls.Reset();
     ApplyCheckpoint(Saved.GetValue());
     if (bUsedBackup) SetDialogue(TEXT("백업 지점에서 계속합니다."));
     return true;
@@ -279,7 +280,18 @@ void AVPAdenStoryGameMode::SetDialogue(const TCHAR* Line)
     Dialogue = Line;
     DialogueStarted = GetWorld()->GetTimeSeconds();
     DialogueUntil = DialogueStarted + FMath::Clamp(3. + Dialogue.Len() * .085, 5., 11.);
-    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>()) View->Dialogue = Dialogue;
+    if (auto* View = GetWorld()->GetGameState<AVPAdenStoryState>())
+    {
+        View->Dialogue = Dialogue;
+        if (!bOpeningActive) View->RememberCall(Dialogue);
+    }
+}
+
+void AVPAdenStoryState::RememberCall(const FString& Line)
+{
+    if (Line.IsEmpty() || (!RecentCalls.IsEmpty() && RecentCalls.Last() == Line)) return;
+    if (RecentCalls.Num() == RecentCallLimit) RecentCalls.RemoveAt(0);
+    RecentCalls.Add(Line);
 }
 
 void AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
@@ -872,7 +884,8 @@ void AVPAdenStoryGameMode::RunDiagnostic()
     const auto ReadFrame = [&](const TCHAR* Name) { return CaptureFrame(Desktop, Name); };
     const bool bKoreanFont = IFileManager::Get().FileExists(*DialogueFontPath());
     Report->SetBoolField(TEXT("koreanFontStaged"), bKoreanFont);
-    bool bPassed = Pawn && Source && Progress.Beat == Radio && DiagnosticCapture && bKoreanFont;
+    const auto* AtlasState = GetWorld()->GetGameState<AVPAdenStoryState>();
+    bool bPassed = Pawn && AtlasState && Source && Progress.Beat == Radio && DiagnosticCapture && bKoreanFont;
     if (bPassed)
     {
         bPassed = ReadFrame(TEXT("aden-world"));
@@ -934,6 +947,19 @@ void AVPAdenStoryGameMode::RunDiagnostic()
             bPassed = false;
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 1 && ReadFrame(TEXT("aden-field-map"));
+        const FVector Foot = Pawn->GetActorLocation();
+        const auto BeforePan = Desktop->AdenFieldCrop(*AtlasState, Foot);
+        const double Direction = VPAdenAtlas::Centre(BeforePan).X > VPAdenAtlas::Centre(VPAdenAtlas::Playable).X ? -1. : 1.;
+        Desktop->PanAdenAtlas(Direction, 0.);
+        const auto AfterPan = Desktop->AdenFieldCrop(*AtlasState, Foot);
+        const bool bPan = (AfterPan.West - BeforePan.West) * Direction > 0.
+            && AfterPan.Width() == BeforePan.Width() && Pawn->GetActorLocation().Equals(Foot);
+        bPassed = bPassed && bPan && ReadFrame(TEXT("aden-field-pan"));
+        Desktop->RecenterAdenAtlas();
+        const auto Recentered = Desktop->AdenFieldCrop(*AtlasState, Foot);
+        const bool bRecentered = Recentered.West == BeforePan.West && Recentered.North == BeforePan.North;
+        Report->SetBoolField(TEXT("fieldPanRecenterVerified"), bPan && bRecentered);
+        bPassed = bPassed && bRecentered;
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 2 && ReadFrame(TEXT("aden-regional-map"));
         Desktop->CycleAdenAtlas();
@@ -1090,11 +1116,19 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         DiagnosticCapture->SetRelativeTransform(Camera);
         if (!bCaptured) return false;
         Pawn->RequestPrimaryAction();
+        float CueOpacity = 0.f;
         if (Pawn->MagazineRounds != Loaded - 1 || Pawn->WeaponHeatRatio() < VPWeaponRules::Prototype.HeatPerShot * .99f
+            || Pawn->GetShotCue(CueOpacity) != EVPShotCue::Target || CueOpacity <= 0.f
             || Pawn->IsWeaponCooling() || !Contact->IsStanding()
             || UGameplayStatics::ApplyDamage(Contact, 45.f, Desktop, Pawn, nullptr) != 45.f
             || Contact->IsStanding()) return false;
+        DiagnosticCapture->SetWorldLocationAndRotation(Eye, Facing);
+        DiagnosticCapture->CaptureScene();
+        const bool bShotCaptured = CaptureFrame(Desktop, TEXT("aden-campaign-shot-feedback"));
+        DiagnosticCapture->SetRelativeTransform(Camera);
+        if (!bShotCaptured) return false;
         DiagnosticReport->SetBoolField(TEXT("weaponShotHeatVerified"), true);
+        DiagnosticReport->SetBoolField(TEXT("acceptedShotFeedbackVerified"), true);
         DiagnosticReport->SetBoolField(TEXT("campaignLiveShotVerified"), true);
     }
 
@@ -1276,6 +1310,20 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
     if (!(Progress == End) || CompletedChapters != 12 || CompletedHandoffs != 3 || CompletedEscorts != 4
         || CompletedEncounters != 3) return false;
     UpdateBeat(Pawn, DialogueStarted + 7.1);
+    if (bOnTime)
+    {
+        auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+        if (!View || View->RecentCalls.Num() != AVPAdenStoryState::RecentCallLimit
+            || View->RecentCalls.Last() != Dialogue) return false;
+        const int32 Count = View->RecentCalls.Num();
+        View->RememberCall(Dialogue);
+        if (View->RecentCalls.Num() != Count) return false;
+        Desktop->ToggleAdenJournal();
+        const bool bJournal = Desktop->IsAdenJournalOpen() && CaptureFrame(Desktop, TEXT("aden-campaign-journal"));
+        Desktop->ToggleAdenJournal();
+        if (!bJournal || Desktop->IsAdenJournalOpen()) return false;
+        DiagnosticReport->SetBoolField(TEXT("callJournalVerified"), true);
+    }
     return Dialogue == Scene(End).Moving && CaptureFrame(Desktop, Name);
 #else
     return false;
@@ -1303,6 +1351,9 @@ bool AVPAdenStoryGameMode::VerifySavedCampaign(AVPCharacter* Pawn)
     Legacy->DispatchReply = VPAdenDispatch::ReplyComplete;
     if (!UGameplayStatics::SaveGameToSlot(Legacy, Slot, 0) || !ReturnToCheckpoint(Pawn)
         || !(Progress == FProgress{LastStop, Families, BackStreet, NoRelay})) return false;
+    const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+    if (!View || View->RecentCalls.Num() != 1 || View->RecentCalls[0] != Dialogue) return false;
+    DiagnosticReport->SetBoolField(TEXT("callJournalRecoveryVerified"), true);
     if (!PersistStoryCheckpoint() || !WriteCheckpointSlot(Backup, Ending.GetValue())) return false;
     const TArray<uint8> Damaged{0, 0, 0, 0, 0, 0, 0, 0};
     if (!UGameplayStatics::SaveDataToSlot(Damaged, Slot, 0) || !ReturnToCheckpoint(Pawn)

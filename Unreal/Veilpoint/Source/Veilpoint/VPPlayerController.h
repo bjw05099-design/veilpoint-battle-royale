@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRules.h"
 #include "VPPlayerController.generated.h"
 
@@ -26,6 +27,10 @@ public:
     void CycleAdenAtlas();
     void ZoomAdenAtlasIn();
     void ZoomAdenAtlasOut();
+    VPAdenAtlas::FExtent AdenFieldCrop(const class AVPAdenStoryState& State, const FVector& Player) const;
+    void PanAdenAtlas(double X, double Y);
+    void RecenterAdenAtlas();
+    void ToggleAdenJournal();
     bool IsAdenJournalOpen() const { return bAdenJournalOpen; }
     int32 GetMenuRow() const { return MenuRow; }
     FString GetMenuLabel(int32 Row) const;
@@ -41,7 +46,7 @@ private:
     void TickBRRejoinDiagnostic(const class AVPGameState& State, double Now);
     void ToggleRoundReady();
     UFUNCTION(Server, Reliable)
-    void ServerToggleRoundReady();
+    void ServerSetRoundReady(bool bReady);
     UPROPERTY(Replicated)
     bool bRoundReady = false;
     bool bBRObservedLobby = false;
@@ -83,9 +88,9 @@ private:
     void ChooseAdenFirst();
     void ChooseAdenSecond();
     void SendAdenChoice(VPAdenCampaign::EInput Choice);
-    void ToggleAdenJournal();
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
+    TOptional<FVector2D> AdenAtlasCentre;
     int32 AdenAtlasPage = 0;
     int32 AdenAtlasZoom = 2;
     int32 VisualSmokeStep = -1;

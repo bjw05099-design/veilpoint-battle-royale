@@ -48,6 +48,9 @@ public:
     FVector EscortPoint = FVector::ZeroVector;
     TWeakObjectPtr<AVPAdenSourceWorld> Source;
     FString Dialogue;
+    static constexpr int32 RecentCallLimit = 3;
+    TArray<FString, TInlineAllocator<RecentCallLimit>> RecentCalls;
+    void RememberCall(const FString& Line);
 };
 
 UCLASS()

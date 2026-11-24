@@ -119,14 +119,16 @@ void AVPCharacter::SetupPlayerInputComponent(UInputComponent* Input)
 }
 void AVPCharacter::MoveForward(float Value)
 {
-    if (IsAlive() && Controller) AddMovementInput(FRotationMatrix(FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f)).GetUnitAxis(EAxis::X), Value);
+    if (IsAlive() && Controller && !IsDesktopInputBlocked())
+        AddMovementInput(FRotationMatrix(FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f)).GetUnitAxis(EAxis::X), Value);
 }
 void AVPCharacter::MoveRight(float Value)
 {
-    if (IsAlive() && Controller) AddMovementInput(FRotationMatrix(FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f)).GetUnitAxis(EAxis::Y), Value);
+    if (IsAlive() && Controller && !IsDesktopInputBlocked())
+        AddMovementInput(FRotationMatrix(FRotator(0.f, Controller->GetControlRotation().Yaw, 0.f)).GetUnitAxis(EAxis::Y), Value);
 }
-void AVPCharacter::LookUp(float Value) { if (IsAlive()) AddControllerPitchInput(Value); }
-void AVPCharacter::Turn(float Value) { if (IsAlive()) AddControllerYawInput(Value); }
+void AVPCharacter::LookUp(float Value) { if (IsAlive() && !IsDesktopInputBlocked()) AddControllerPitchInput(Value); }
+void AVPCharacter::Turn(float Value) { if (IsAlive() && !IsDesktopInputBlocked()) AddControllerYawInput(Value); }
 bool AVPCharacter::IsDesktopInputBlocked() const
 {
     const AVPPlayerController* Desktop = Cast<AVPPlayerController>(Controller);
@@ -338,6 +340,17 @@ bool AVPCharacter::IsWeaponCooling() const
 {
     return VPWeaponRules::HeatBlocksShot(VPWeaponRules::Prototype, bWeaponHeatLocked, WeaponHeatRatio());
 }
+EVPShotCue AVPCharacter::GetShotCue(float& Opacity) const
+{
+    Opacity = GetWorld() ? FMath::Clamp(float((ShotCueUntil - GetWorld()->GetTimeSeconds()) / ShotCueSeconds), 0.f, 1.f) : 0.f;
+    return Opacity > 0.f ? LastShotCue : EVPShotCue::None;
+}
+void AVPCharacter::ClientShotCue_Implementation(EVPShotCue Cue)
+{
+    if (!IsLocallyControlled() || !GetWorld()) return;
+    LastShotCue = Cue;
+    ShotCueUntil = GetWorld()->GetTimeSeconds() + ShotCueSeconds;
+}
 void AVPCharacter::ResetEncounterWeapon(int32 Total, int32 Loaded)
 {
     if (!HasAuthority() || !VPWeaponRules::Coherent(VPWeaponRules::Prototype, Total, Loaded)) return;
@@ -348,6 +361,8 @@ void AVPCharacter::ResetEncounterWeapon(int32 Total, int32 Loaded)
     HeatAtLastShot = 0.f;
     bWeaponHeatLocked = false;
     LastServerTagTime = -1000.;
+    LastShotCue = EVPShotCue::None;
+    ShotCueUntil = 0.;
     ForceNetUpdate();
 }
 void AVPCharacter::TryTag()
@@ -376,23 +391,33 @@ void AVPCharacter::ServerTryTag_Implementation(FVector_NetQuantize Start, FVecto
     ForceNetUpdate();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(VPTag), true, this);
     FHitResult Hit;
+    EVPShotCue Cue = EVPShotCue::Fired;
     const bool bAden = GetWorld()->GetAuthGameMode<AVPAdenStoryGameMode>() != nullptr;
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, Origin + RayDir * Prototype.RangeCm,
-        bAden ? ECC_Visibility : ECC_Pawn, Params))
+    const FVector End = Origin + RayDir * Prototype.RangeCm;
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, bAden ? ECC_Visibility : ECC_Pawn, Params))
     {
+        Cue = EVPShotCue::Surface;
         const float Damage = DamageAtDistance(Prototype, Hit.Distance);
         if (bAden)
         {
-            if (auto* Contact = Cast<AVPAdenContact>(Hit.GetActor()))
-                UGameplayStatics::ApplyDamage(Contact, Damage, Controller, this, nullptr);
-            return;
+            auto* Contact = Cast<AVPAdenContact>(Hit.GetActor());
+            if (Contact && UGameplayStatics::ApplyDamage(Contact, Damage, Controller, this, nullptr) > 0.f)
+                Cue = EVPShotCue::Target;
         }
-        if (AVPCharacter* Target = Cast<AVPCharacter>(Hit.GetActor()))
+        else if (auto* Target = Cast<AVPCharacter>(Hit.GetActor()); Target && Target->IsAlive())
         {
-            if (Target != this && Target->IsAlive())
-                UGameplayStatics::ApplyDamage(Target, Damage, Controller, this, nullptr);
+            // Some cover only blocks visibility. Verify the path to the actual impact
+            // with the target ignored before applying the server's damage result.
+            Params.AddIgnoredActor(Target);
+            if (!GetWorld()->LineTraceTestByChannel(Origin, Hit.ImpactPoint, ECC_Visibility, Params)
+                && UGameplayStatics::ApplyDamage(Target, Damage, Controller, this, nullptr) > 0.f)
+                Cue = EVPShotCue::Target;
         }
     }
+    else if (!bAden && GetWorld()->LineTraceTestByChannel(Origin, End, ECC_Visibility, Params))
+        Cue = EVPShotCue::Surface;
+    if (IsLocallyControlled()) ClientShotCue_Implementation(Cue);
+    else if (IsPlayerControlled()) ClientShotCue(Cue);
 }
 void AVPCharacter::TryInteract() { if (IsLocallyControlled() && IsAlive() && !IsDesktopInputBlocked()) ServerTryInteract(); }
 void AVPCharacter::ServerTryInteract_Implementation()

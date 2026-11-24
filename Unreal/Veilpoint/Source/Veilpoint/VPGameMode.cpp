@@ -92,12 +92,12 @@ void AVPGameMode::Logout(AController* Exiting)
     Super::Logout(Exiting);
 }
 
-void AVPGameMode::ToggleReadyFromController(AVPPlayerController* Controller)
+void AVPGameMode::SetReadyFromController(AVPPlayerController* Controller, bool bReady)
 {
     if (!HasAuthority() || !bRequireReady || bSeenMultiplePlayers || !Controller) return;
     const auto* Pawn = Cast<AVPCharacter>(Controller->GetPawn());
-    if (!Pawn || !Pawn->IsAlive()) return;
-    Controller->bRoundReady = !Controller->bRoundReady;
+    if (!Pawn || !Pawn->IsAlive() || Controller->bRoundReady == bReady) return;
+    Controller->bRoundReady = bReady;
     Controller->ForceNetUpdate();
     if (!Controller->bRoundReady) CancelReadyCountdown();
 }

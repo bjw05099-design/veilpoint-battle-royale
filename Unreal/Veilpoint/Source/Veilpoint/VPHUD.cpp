@@ -227,6 +227,7 @@ void AVPHUD::DrawHUD()
             ? FString(TEXT("WEAPON HOT | COOLING"))
             : FString::Printf(TEXT("AMMO %d | RESERVE %d | R RELOAD"),Pawn->MagazineRounds,FMath::Max(0,Pawn->Charges-Pawn->MagazineRounds));
     DrawText(Ammo,FLinearColor(.9f,.87f,.73f),X+200.f*Scale,Y+69.f*Scale,nullptr,.70f*Scale,false);
+    DrawShotCue(*Pawn, Scale);
 
     // Story and BR are deliberately different native modes. Do not render
     // a BR zone timer or BR supply counter on the CH01 story screen.
@@ -773,6 +774,26 @@ void AVPHUD::DrawAdenOpening(const AVPAdenStoryState* Aden)
         FLinearColor(.96f, .96f, .93f));
 }
 
+void AVPHUD::DrawShotCue(const AVPCharacter& Pawn, float Scale)
+{
+    float Alpha = 0.f;
+    const auto Cue = Pawn.GetShotCue(Alpha);
+    if (Cue == EVPShotCue::None) return;
+    const float X = Canvas->ClipX * .5f, Y = Canvas->ClipY * .5f;
+    if (Cue == EVPShotCue::Target)
+    {
+        const FLinearColor Hit(.87f, .95f, .88f, Alpha);
+        for (int32 SideX : {-1, 1})
+        for (int32 SideY : {-1, 1})
+            DrawLine(X + SideX * 4.f * Scale, Y + SideY * 4.f * Scale,
+                X + SideX * 10.f * Scale, Y + SideY * 10.f * Scale, Hit, 1.6f * Scale);
+        return;
+    }
+    const FLinearColor Ink = Cue == EVPShotCue::Surface ? FLinearColor(.89f, .71f, .47f, Alpha)
+        : FLinearColor(.82f, .88f, .86f, Alpha * .7f);
+    DrawLine(X - 5.f * Scale, Y + 9.f * Scale, X + 5.f * Scale, Y + 9.f * Scale, Ink, 1.5f * Scale);
+}
+
 void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn)
 {
     using namespace VPAdenCampaign;
@@ -797,7 +818,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             LastNativeBenchmarkStatus = TEXT("CAPTURE CANCELLED BY MAP | F9 TO START AGAIN");
         }
         FrameTelemetry.Reset();
-        DrawAdenAtlas(Aden, Pawn, Desktop->GetAdenAtlasPage(), Desktop->GetAdenAtlasZoom(), Desktop->IsAdenAtlasRouteOverview());
+        DrawAdenAtlas(Aden, Pawn, *Desktop);
         return;
     }
 
@@ -806,6 +827,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const auto Action = Mode(Beat);
     const bool bPending = Action != EMode::Finished;
     const bool bEncounter = Action == EMode::Encounter;
+    if (bEncounter) DrawShotCue(*Pawn, Scale);
     const FVector Position = Pawn->GetActorLocation();
     const auto Guide = VPAdenDispatch::Guide(Aden->ActiveLeg, Position);
     const bool bStatusOpen = Desktop && Desktop->IsAdenJournalOpen();
@@ -814,7 +836,7 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     DrawText(SceneBeat.Objective, Ink, Left + 12.f * Scale, Top + 29.f * Scale, nullptr, 1.07f * Scale);
 
     const FString Distance = bPending
-        ? FString::Printf(TEXT("%.0f m to go   |   M  Route   |   F7  Checkpoint"),
+        ? FString::Printf(TEXT("%.0f m to go   |   M  Route   |   J  Journal   |   F7  Checkpoint"),
             Guide.SegmentEnd > 0 ? Guide.RemainingCm / 100. : FVector::Dist2D(Position, Aden->Objective) / 100.)
         : FString(TEXT("Campaign complete"));
     DrawText(Distance, Assist, Left + 12.f * Scale, Top + 60.f * Scale, nullptr, .77f * Scale);
@@ -916,6 +938,21 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     {
         DrawRect(Plate, SubtitleLeft, DialogueBottom - 24.f * Scale, SubtitleWidth, 23.f * Scale);
         DrawText(Feedback, Assist, SubtitleLeft + 16.f * Scale, DialogueBottom - 21.f * Scale, nullptr, .76f * Scale);
+        DialogueBottom -= 27.f * Scale;
+    }
+    if (bStatusOpen)
+    {
+        const float JournalBottom = DialogueBottom;
+        for (int32 I = Aden->RecentCalls.Num() - 1; I >= 0; --I)
+        {
+            const auto& Call = Aden->RecentCalls[I];
+            if (Call == Aden->Dialogue || DialogueBottom < Top + 249.f * Scale) continue;
+            DialogueBottom = DrawAdenSubtitle(Call, DialogueBottom, SubtitleLeft, SubtitleWidth,
+                Scale * .85f, Plate, FLinearColor(.67f, .81f, .80f));
+        }
+        if (DialogueBottom < JournalBottom)
+            DrawText(TEXT("RECENT CALLS   |   J CLOSE"), Assist, SubtitleLeft + 12.f * Scale,
+                DialogueBottom - 16.f * Scale, nullptr, .70f * Scale);
     }
     DrawLiveFrameTelemetry(Scale, Left);
 }

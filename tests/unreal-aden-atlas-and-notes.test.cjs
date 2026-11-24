@@ -92,6 +92,22 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         assert(ScaleBarMetres(Local) == 500);
         assert(ScaleBarMetres(Crop(Local, {0., 0.}, MaxZoomLevel)) == 20);
         {
+          const auto centred = Crop(Playable, Centre(Playable), 2);
+          const auto east = Pan(Playable, centred, {1., 0.});
+          assert(east.West - centred.West == centred.Width() / 4. && east.North == centred.North);
+          const auto south = Pan(Playable, east, {0., 1.});
+          assert(south.North - east.North == centred.Height() / 4. && south.West == east.West);
+          assert(south.Width() == centred.Width() && south.Height() == centred.Height());
+          auto northwest = centred;
+          for (int i = 0; i < 64; ++i) northwest = Pan(Playable, northwest, {-1., -1.});
+          assert(northwest.West == Playable.West && northwest.North == Playable.North);
+          assert(northwest.Width() == centred.Width() && northwest.Height() == centred.Height());
+          const auto recentered = Crop(Playable, Centre(Playable), 2);
+          assert(recentered.West == centred.West && recentered.North == centred.North);
+          const auto still = Pan(Playable, Playable, {1., 1.});
+          assert(still.West == Playable.West && still.South == Playable.South);
+        }
+        {
           constexpr FPoint start{Local.East - 300., Local.North + 600.};
           constexpr FPoint goal{Local.East - 18000., Local.North + 15000.};
           FExtent bounds{start.X, start.Y, start.X, start.Y};
@@ -115,6 +131,9 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           objective = {100., 40.};
           assert(!ObjectiveAtEdge(view, {30., 40.}, objective, 10.));
           assert(objective.X == 100. && objective.Y == 40.);
+          objective = {120., 50.};
+          assert(ObjectiveAtEdge(view, {160., 20.}, objective, 10.));
+          assert(objective.X == 90. && objective.Y == 20.);
         }
         {
           using namespace VPAdenDrape;

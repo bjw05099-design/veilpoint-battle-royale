@@ -6,17 +6,19 @@
 #include "VPAdenDispatch.h"
 #include "VPAdenSourceWorld.h"
 #include "VPCharacter.h"
+#include "VPPlayerController.h"
 #include "Engine/Canvas.h"
 #include "Engine/Texture2D.h"
 #include <cmath>
 
-void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn, int32 Page, int32 Zoom, bool bRouteOverview)
+void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pawn, const AVPPlayerController& Desktop)
 {
-    const bool bRegional = Page == 2;
+    const bool bRegional = Desktop.GetAdenAtlasPage() == 2;
+    const bool bRouteOverview = Desktop.IsAdenAtlasRouteOverview();
     const FVector World = Pawn->GetActorLocation();
     const VPAdenAtlas::FPoint Player{World.X, World.Y};
     const auto Full = bRegional ? VPAdenAtlas::Region : VPAdenAtlas::Playable;
-    const auto Crop = bRegional ? Full : Aden->AtlasCrop(World, Zoom, bRouteOverview);
+    const auto Crop = bRegional ? Full : Desktop.AdenFieldCrop(*Aden, World);
     const auto* Source = Aden->Source.Get();
     const bool bDetailed = !bRegional && Crop.Width() <= Full.Width() / (1 << VPAdenAtlas::DetailZoomLevel)
         && Source && Source->DetailReliefAtlas;
@@ -173,7 +175,7 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             if (bObjectiveAtEdge)
             {
                 const FVector2D Tip = Pixel(EdgePoint);
-                const FVector2D Direction = (Pixel(Objective) - Pixel(Player)).GetSafeNormal();
+                const FVector2D Direction = (Pixel(Objective) - Tip).GetSafeNormal();
                 const FVector2D Cross(-Direction.Y, Direction.X);
                 const FVector2D Back = Tip - Direction * (12. * Scale);
                 const FVector2D Left = Back + Cross * (6. * Scale), Right = Back - Cross * (6. * Scale);
@@ -267,9 +269,9 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         }
     }
     const TCHAR* Controls = bRegional ? TEXT("M  Close map")
-        : bRouteOverview ? TEXT("G  Follow player      M  Regional relief")
-        : Aden->HasAtlasRoute() ? TEXT("Wheel  Zoom      G  Fit route      M  Regional relief")
-        : TEXT("Wheel  Zoom      M  Regional relief");
+        : bRouteOverview ? TEXT("G  Back to field view   Home  Recenter   M  Next")
+        : Aden->HasAtlasRoute() ? TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   G  Fit route   M  Next")
+        : TEXT("Arrows  Pan   Home  Center   Wheel  Zoom   M  Next");
     DrawText(Controls,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .78f * Scale);
     if (Aden->WindowSeconds >= 0 && W > 700.f * Scale)

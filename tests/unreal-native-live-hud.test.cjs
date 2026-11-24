@@ -25,6 +25,16 @@ test('UE5 Win64 HUD displays existing finite resources from the replicated pawn'
  assert.doesNotMatch(hud,/localStorage|WebBrowser|ClientEstimatedAmmo/);
 });
 
+test('shot feedback originates after authoritative ammunition admission and cover blocks player damage',()=>{
+ const character=read('VPCharacter.cpp'), header=read('VPCharacter.h');
+ const shot=character.slice(character.indexOf('void AVPCharacter::ServerTryTag_Implementation'),
+  character.indexOf('void AVPCharacter::TryInteract'));
+ assert.match(header,/UFUNCTION\(Client, Unreliable\)\s*void ClientShotCue\(EVPShotCue Cue\)/);
+ assert.match(shot,/if \(!CanShoot[\s\S]*?return;[\s\S]*?--MagazineRounds;[\s\S]*?ClientShotCue\(Cue\)/);
+ assert.match(shot,/Params\.AddIgnoredActor\(Target\);[\s\S]*?!GetWorld\(\)->LineTraceTestByChannel\(Origin, Hit\.ImpactPoint, ECC_Visibility, Params\)[\s\S]*?ApplyDamage\(Target/);
+ assert.match(hud,/DrawShotCue\(\*Pawn, Scale\)/);
+});
+
 test('UE5 replicated zone is a client-readable local actor, not a magic HUD prediction',()=>{
  for(const name of ['Radius','Phase','ZoneCenter','Remaining']){
   assert.match(zoneHeader,new RegExp('UPROPERTY\\(Replicated, BlueprintReadOnly, Category="Safe Zone"\\)[\\s\\S]*?\\b'+name+'\\b'));

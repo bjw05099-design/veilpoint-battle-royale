@@ -23,9 +23,11 @@ public:
 private:
     void DrawDesktopMenu(class AVPPlayerController* Desktop);
     void DrawLiveFrameTelemetry(float Scale, float X);
-    void DrawAdenAtlas(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn, int32 Page, int32 Zoom, bool bRouteOverview);
+    void DrawAdenAtlas(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn,
+        const class AVPPlayerController& Desktop);
     void DrawAdenStory(const class AVPAdenStoryState* Aden, const class AVPCharacter* Pawn);
     void DrawAdenOpening(const class AVPAdenStoryState* Aden);
+    void DrawShotCue(const class AVPCharacter& Pawn, float Scale);
     float DrawAdenSubtitle(const FString& Line, float Bottom, float Left, float Width, float Scale,
         const FLinearColor& Plate, const FLinearColor& Ink);
     void DrawRoundReview(const class AVPCharacter* Pawn, float Scale);
