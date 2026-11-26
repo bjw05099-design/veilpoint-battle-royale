@@ -105,7 +105,12 @@
   }
   // Caller must prove line of sight + <=20m for the guide; this module
   // separately rejects any escort outside this camera rectangle.
-  if(escort&&contains(f,escort.x,escort.z)){
+  // A stale UI reference must never show a civilian across the entire
+  // minimap: require a finite, nearby, currently visible guide coordinate.
+  // The caller still owns the stricter wall/line-of-sight verification.
+  if(escort&&[escort.x,escort.z].every(Number.isFinite)&&
+     Math.hypot(escort.x-player.x,escort.z-player.z)<=20&&
+     contains(f,escort.x,escort.z)){
    const p=point(f,escort.x,escort.z);
    ctx.fillStyle='#c6d4de';ctx.beginPath();ctx.arc(p.x,p.y,3.6,0,Math.PI*2);ctx.fill();
   }
