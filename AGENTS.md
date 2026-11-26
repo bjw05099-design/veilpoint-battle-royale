@@ -1,5 +1,18 @@
 # VEILPOINT development continuity
 
+## Codex and Work
+
+- Allocate about 90% of project effort to Codex and 10% to Work. Use Codex for
+  source changes, Unreal implementation, code review, tests, and build
+  verification. Use Work for planning and reference research.
+- Carry planning decisions into Codex with their scope, source links, and
+  acceptance criteria. Start implementation from the latest `main`, review open
+  pull requests for overlapping work, and use GitHub to record the changes and
+  validation results. For an existing fix, verify its current branch before
+  opening a new pull request.
+
+## Production development
+
 - Unreal Engine 5.8 in `Unreal/Veilpoint` is the only production runtime and
   development target for the game, maps, Story and Battle Royale. Add playable
   features and release builds through Unreal. Browser and WebView2 prototypes
