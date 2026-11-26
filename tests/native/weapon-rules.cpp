@@ -132,20 +132,22 @@ int main()
     {
         VPWeaponView::FMotion Motion;
         for (int Frame = 0; Frame < Rate; ++Frame)
-            VPWeaponView::AdvanceMotion(Motion, 270., -60. / Rate, 120. / Rate, 1. / Rate);
+            VPWeaponView::AdvanceMotion(Motion, 270., -180., -60. / Rate, 120. / Rate, 1. / Rate);
         return Motion;
     };
     auto Motion = WalkAndTurn(60);
     const auto FasterUpdate = WalkAndTurn(120);
     assert(std::abs(Motion.Phase - .5) < 1.e-9 && std::abs(Motion.Phase - FasterUpdate.Phase) < 1.e-9);
     assert(std::abs(Motion.Pace - FasterUpdate.Pace) < 1.e-9);
+    assert(std::abs(Motion.Strafe - FasterUpdate.Strafe) < 1.e-9 && Motion.Strafe < 0.);
     assert(std::abs(Motion.PitchLag - FasterUpdate.PitchLag) < 1.e-9 && Motion.PitchLag > 0.);
     assert(std::abs(Motion.YawLag - FasterUpdate.YawLag) < 1.e-9 && Motion.YawLag < 0.);
     const double StoppedPhase = Motion.Phase;
     for (int Frame = 0; Frame < 60; ++Frame)
-        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 1. / 60.);
-    assert(Motion.Phase == StoppedPhase && Motion.Pace < .001 && std::abs(Motion.YawLag) < .001);
-    VPWeaponView::AdvanceMotion(Motion, 0., 90., 90., .5);
+        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., 1. / 60.);
+    assert(Motion.Phase == StoppedPhase && Motion.Pace < .001);
+    assert(std::abs(Motion.Strafe) < .001 && std::abs(Motion.YawLag) < .001);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 90., 90., .5);
     assert(std::abs(Motion.PitchLag) < .001 && std::abs(Motion.YawLag) < .001);
     using VPAdenCampaign::MovingCueReady;
     static_assert(!MovingCueReady(false, 8., true, 500000.));
@@ -155,16 +157,19 @@ int main()
     static_assert(MovingCueReady(true, 7., false, 0.));
 
     using VPWeaponView::Pose;
-    assert(Pose(-1., false, false, 0.).Lower == 0.);
-    assert(Pose(-1., false, true, 0.).Lower > 0.);
-    assert(Pose(-1., false, false, 1.).BoltPull > 0.);
-    assert(Pose(0., false, false, 0.).MagazineDrop == 0.);
-    assert(Pose(.45, false, false, 0.).MagazineDrop > 10.);
-    assert(Pose(.76, false, false, 0.).BoltPull == 0.);
-    assert(Pose(.76, true, false, 0.).BoltPull == 4.);
-    assert(Pose(1., true, false, 0.).Lower == 0.);
-    assert(Pose(1., true, false, 0.).MagazineDrop == 0.);
-    assert(Pose(1., true, false, 0.).BoltPull == 0.);
+    assert(Pose(-1., false, 0., 0.).Lower == 0.);
+    assert(Pose(-1., false, .5, 0.).Lower == 4.5);
+    assert(Pose(-1., false, 1., 0.).Lower == 9.);
+    assert(Pose(-1., false, .5, 1.).BoltPull > 0.);
+    assert(Pose(0., false, .5, 0.).Lower == Pose(-1., false, .5, 0.).Lower);
+    assert(Pose(0., false, .5, 0.).Roll == Pose(-1., false, .5, 0.).Roll);
+    assert(Pose(0., false, 0., 0.).MagazineDrop == 0.);
+    assert(Pose(.45, false, 0., 0.).MagazineDrop > 10.);
+    assert(Pose(.76, false, 0., 0.).BoltPull == 0.);
+    assert(Pose(.76, true, 0., 0.).BoltPull == 4.);
+    assert(Pose(1., true, 0., 0.).Lower == 0.);
+    assert(Pose(1., true, 0., 0.).MagazineDrop == 0.);
+    assert(Pose(1., true, 0., 0.).BoltPull == 0.);
 
     using VPWeaponView::Approach;
     using VPWeaponView::CanRaiseSight;

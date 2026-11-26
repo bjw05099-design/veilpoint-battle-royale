@@ -185,6 +185,7 @@ private:
     double LandedAt = -1000.;
     double LandedStrength = 0.;
     double SightBlend = 0.;
+    double SprintWeaponBlend = 0.;
     double ObstructionBlend = 0.;
     VPWeaponView::FMotion WeaponViewMotion;
     TOptional<FRotator> PreviousWeaponViewRotation;

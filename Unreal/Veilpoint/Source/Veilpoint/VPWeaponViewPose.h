@@ -58,11 +58,13 @@ struct FMotion
 {
     double Phase = 0.;
     double Pace = 0.;
+    double Strafe = 0.;
     double PitchLag = 0.;
     double YawLag = 0.;
 };
 
-inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double PitchDelta, double YawDelta, double Seconds)
+inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpeed,
+    double PitchDelta, double YawDelta, double Seconds)
 {
     if (Seconds <= 0.) return;
     const double Step = std::min(Seconds, .1);
@@ -73,19 +75,22 @@ inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double PitchDelta
     // Advance the cycle with travelled distance. Stopping leaves its phase intact.
     Motion.Phase = std::fmod(Motion.Phase + Speed * Step / 180., 1.);
     Motion.Pace += (Speed / 720. - Motion.Pace) * Weight;
+    Motion.Strafe += (std::clamp(LateralSpeed / 490., -1., 1.) - Motion.Strafe) * Weight;
     Motion.PitchLag += (std::clamp(-PitchDelta * TurnScale, -2.5, 2.5) - Motion.PitchLag) * Weight;
     Motion.YawLag += (std::clamp(-YawDelta * TurnScale, -3.5, 3.5) - Motion.YawLag) * Weight;
 }
 
-inline FPose Pose(double ReloadPhase, bool Empty, bool Sprinting, double ShotPulse)
+inline FPose Pose(double ReloadPhase, bool Empty, double SprintBlend, double ShotPulse)
 {
     const double Kick = 2. * std::clamp(ShotPulse, 0., 1.);
+    const double Sprint = std::clamp(SprintBlend, 0., 1.);
     if (ReloadPhase < 0.)
-        return {Sprinting ? 9. : 0., Sprinting ? -11. : 0., 0., Kick};
+        return {9. * Sprint, -11. * Sprint, 0., Kick};
 
     const double Lower = Ramp(ReloadPhase, 0., .22) - Ramp(ReloadPhase, .80, 1.);
     const double MagDrop = Ramp(ReloadPhase, .22, .42) - Ramp(ReloadPhase, .52, .68);
     const double Bolt = Empty ? Ramp(ReloadPhase, .70, .76) - Ramp(ReloadPhase, .76, .83) : 0.;
-    return {10. * Lower, -18. * Lower, MagazineTravel * MagDrop, 4. * Bolt};
+    return {10. * Lower + 9. * Sprint * (1. - Lower),
+        -18. * Lower - 11. * Sprint * (1. - Lower), MagazineTravel * MagDrop, 4. * Bolt};
 }
 }
