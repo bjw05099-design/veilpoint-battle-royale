@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..');
 const layout=require('../scripts/ch01-last-broadcast-layout.json');
 const court=require('../scripts/ch01-original-public-court.json');
 test('native path header exactly follows the authored map source',()=>{
- assert.equal(fs.readFileSync(path.join(root,'Unreal/Veilpoint/Source/Veilpoint/VPLastBroadcastPaths.h'),'utf8'),require('../scripts/generate-ch01-native-paths.cjs').render());
+ assert.equal(fs.readFileSync(path.join(root,'Unreal/Veilpoint/Source/Veilpoint/VPLastBroadcastPaths.h'),'utf8').replaceAll('\r\n','\n'),require('../scripts/generate-ch01-native-paths.cjs').render());
  assert.equal(layout.stationsCm.length,11);assert.equal(layout.actualAdenCoverageVerified,false);
 });
 test('both physical escort paths leave capsule clearance against all new and existing court geometry',()=>{

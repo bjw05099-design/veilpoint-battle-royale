@@ -647,7 +647,9 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
             bResettingOperation = !UpdateRescueProps(0.f);
             View->bOperationObstructed = bResettingOperation;
             if (!bResettingOperation) View->OperationFraction = 0.f;
-            SetDialogue(TEXT("수혁: 잠깐. 다시 잡고 올리겠습니다."));
+            SetDialogue(Progress.Beat == RestorePower
+                ? TEXT("수혁: 잠깐. 전원 장치를 다시 확인하겠습니다.")
+                : TEXT("수혁: 잠깐. 다시 잡고 올리겠습니다."));
         }
         else
         {
@@ -1645,6 +1647,19 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
                 Beat, Progress.Beat, OperationProgress, View && View->bOperationObstructed ? 1 : 0,
                 Saved.IsSet() ? Saved.GetValue().Progress.Beat : INDEX_NONE);
             return false;
+        }
+        if (Beat == OpenRelay)
+        {
+            const int32 Slot = RescueBarrierSlot(Beat);
+            if (!Source->GetRescueBarrier(Slot) || Source->IsRescueBarrierBlocking(Slot))
+            {
+                UE_LOG(LogVPAdenStory, Error, TEXT("Relay shutter is still blocking after checkpoint at beat %d"), Progress.Beat);
+                return false;
+            }
+            const bool bRadio = Relay == RadioOnce;
+            DiagnosticReport->SetBoolField(bRadio ? TEXT("radioRelayShutterVerified") : TEXT("runnerCourtyardShutterVerified"), true);
+            UE_LOG(LogVPAdenStory, Display, TEXT("ADEN_RELAY_SHUTTER_PASSED: route=%s checkpoint=%d"),
+                bRadio ? TEXT("radio") : TEXT("runners"), Saved.GetValue().Progress.Beat);
         }
         if (const auto Card = ChapterTransition(Beat, Progress.Beat); Card != EChapterCard::None)
         {

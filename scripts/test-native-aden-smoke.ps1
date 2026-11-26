@@ -25,6 +25,8 @@ try {
 if ($code -ne 0 -or !(Test-Path -LiteralPath $log -PathType Leaf)) { throw 'Packaged Aden runtime did not finish.' }
 $content=Get-Content -LiteralPath $log -Raw
 if ($content -notmatch 'Aden native source loaded: 70 tiles, 183 roads, 4865 footprints' -or
+    $content -notmatch 'ADEN_RELAY_SHUTTER_PASSED: route=radio checkpoint=16' -or
+    $content -notmatch 'ADEN_RELAY_SHUTTER_PASSED: route=runners checkpoint=16' -or
     $content -notmatch 'ADEN_NATIVE_SMOKE_PASSED' -or
     $content -match 'ADEN_NATIVE_SMOKE_FAILED|Ensure condition failed|Fatal error:|Unhandled Exception:') {
     throw 'Packaged Aden collision, progression or SaveGame validation failed.'
@@ -49,6 +51,7 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.expiredSignalBackupVerified -ne $true -or
     $report.campaignSignalWarningVerified -ne $true -or $report.radioRelayContacts -ne 2 -or $report.runnerRelayContacts -ne 1 -or
     $report.familiesCrossingRadioEnding -ne $true -or $report.clinicBackStreetRunnersEnding -ne $true -or
+    $report.radioRelayShutterVerified -ne $true -or $report.runnerCourtyardShutterVerified -ne $true -or
     $report.escortLeashVerified -ne $true -or $report.finalPairVerified -ne $true -or $report.operationAbortVerified -ne $true -or
     $report.legacyAndBackupVerified -ne $true) {
     throw 'Aden campaign, alternate endings, Korean subtitles or checkpoint recovery failed.'

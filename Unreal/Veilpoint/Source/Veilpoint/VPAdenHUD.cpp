@@ -152,6 +152,23 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                 DrawText(FString::FromInt(Number), Color, P.X + 8. * Scale, P.Y - 7. * Scale, nullptr, .65f * Scale);
         }
     };
+    const auto DrawEdgeArrow = [&](VPAdenAtlas::FPoint Origin, VPAdenAtlas::FPoint Point,
+        double Padding, FLinearColor Color)
+    {
+        auto EdgePoint = Point;
+        if (!VPAdenAtlas::PointAtEdge(Crop, Origin, EdgePoint, Padding * Scale * Crop.Width() / MapW)) return false;
+        const FVector2D Tip = Pixel(EdgePoint);
+        const FVector2D Direction = (Pixel(Point) - Tip).GetSafeNormal();
+        const FVector2D Cross(-Direction.Y, Direction.X);
+        const FVector2D Back = Tip - Direction * (12. * Scale);
+        const FVector2D Left = Back + Cross * (6. * Scale), Right = Back - Cross * (6. * Scale);
+        const FLinearColor Outline(.023f, .048f, .047f);
+        DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Outline, 6.f * Scale);
+        DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Outline, 6.f * Scale);
+        DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Color, 3.f * Scale);
+        DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Color, 3.f * Scale);
+        return true;
+    };
     const auto& Leg = bPreview ? Source->CampaignLeg(Preview) : Aden->ActiveLeg;
     const FVector Destination = bPreview && !Leg.IsEmpty() ? Leg.Last() : Aden->Objective;
     const FLinearColor PinColor(.79f, .58f, .93f);
@@ -213,29 +230,12 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         if (bHasEscort) DrawMarker(Aden->EscortPoint, FLinearColor(.57f, .82f, .82f));
         if (bHasObjective)
         {
-            const VPAdenAtlas::FPoint Objective{Destination.X, Destination.Y};
-            auto EdgePoint = Objective;
-            bObjectiveAtEdge = VPAdenAtlas::ObjectiveAtEdge(Crop, Player, EdgePoint, 43. * Scale * Crop.Width() / MapW);
-            if (bObjectiveAtEdge)
-            {
-                const FVector2D Tip = Pixel(EdgePoint);
-                const FVector2D Direction = (Pixel(Objective) - Tip).GetSafeNormal();
-                const FVector2D Cross(-Direction.Y, Direction.X);
-                const FVector2D Back = Tip - Direction * (12. * Scale);
-                const FVector2D Left = Back + Cross * (6. * Scale), Right = Back - Cross * (6. * Scale);
-                const FLinearColor Outline(.023f, .048f, .047f);
-                DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Outline, 6.f * Scale);
-                DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Outline, 6.f * Scale);
-                DrawLine(Left.X, Left.Y, Tip.X, Tip.Y, Accent, 3.f * Scale);
-                DrawLine(Tip.X, Tip.Y, Right.X, Right.Y, Accent, 3.f * Scale);
-            }
-            else
-            {
-                DrawMarker(Destination, Accent);
-            }
+            bObjectiveAtEdge = DrawEdgeArrow(Player, {Destination.X, Destination.Y}, 43., Accent);
+            if (!bObjectiveAtEdge) DrawMarker(Destination, Accent);
         }
     }
-    if (Crop.Contains(Player))
+    const bool bPlayerInView = Crop.Contains(Player);
+    if (bPlayerInView)
     {
         const auto P = Pixel(Player);
         const double Pad = 14. * Scale;
@@ -250,6 +250,10 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         DrawLine(A.X, A.Y, Tip.X, Tip.Y, PlayerColor, 2.5f);
         DrawLine(Tip.X, Tip.Y, B.X, B.Y, PlayerColor, 2.5f);
         DrawLine(B.X, B.Y, A.X, A.Y, PlayerColor, 2.5f);
+    }
+    else if (!bRegional)
+    {
+        DrawEdgeArrow(VPAdenAtlas::Centre(Crop), Player, 20., PlayerColor);
     }
     const float CompassX = MapX + MapW - 22.f * Scale, CompassY = MapY + 12.f * Scale;
     DrawRect(FLinearColor(.018f, .047f, .055f), CompassX - 6.f * Scale, CompassY, 22.f * Scale, 26.f * Scale);
@@ -271,7 +275,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         const float PanelY = Y + Head + 12.f * Scale;
         DrawText(TEXT("FIELD LEGEND"), Accent, PanelX, PanelY, nullptr, .76f * Scale);
         DrawRect(PlayerColor, PanelX, PanelY + 34.f * Scale, 7.f * Scale, 7.f * Scale);
-        DrawText(TEXT("Your position"), Ink, PanelX + 14.f * Scale, PanelY + 31.f * Scale, nullptr, .77f * Scale);
+        DrawText(bPlayerInView ? TEXT("Your position") : TEXT("You are beyond view"),
+            Ink, PanelX + 14.f * Scale, PanelY + 31.f * Scale, nullptr, .77f * Scale);
         if (bRegional || bHasObjective)
         {
             DrawRect(Accent, PanelX, PanelY + 58.f * Scale, 7.f * Scale, 7.f * Scale);
