@@ -8,7 +8,16 @@ function readJson(req, maxBytes = 2048, timeoutMs = 5000) {
   // Fail before buffering a declared oversized request. A stalled peer must not
   // keep a handler pending just because it never finishes uploading the body.
   const declared = req.headers?.['content-length'];
-  if (declared !== undefined && Number(declared) > maxBytes) {
+  // HTTP body lengths are ASCII decimal byte counts, never hex, fractions,
+  // negative numbers or floating-point conversions. Validate before reading.
+  if (declared !== undefined &&
+      (typeof declared !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(declared) ||
+       !Number.isSafeInteger(Number(declared)))) {
+    if (typeof req.resume === 'function') req.resume();
+    return Promise.reject(new RangeError('invalid_content_length'));
+  }
+  const expectedBytes = declared === undefined ? null : Number(declared);
+  if (expectedBytes !== null && expectedBytes > maxBytes) {
     if (typeof req.resume === 'function') req.resume();
     return Promise.reject(new RangeError('body_too_large'));
   }
@@ -47,6 +56,10 @@ function readJson(req, maxBytes = 2048, timeoutMs = 5000) {
     req.on('end', () => {
       ended = true;
       if (tooLarge || settled) return;
+      // A truncated or surplus declared body is never valid JSON, even when
+      // the available bytes happen to parse. No partial gameplay command.
+      if (expectedBytes !== null && bytes !== expectedBytes)
+        return finish(new RangeError('content_length_mismatch'));
       try {
         const text = new TextDecoder('utf-8', {fatal: true}).decode(Buffer.concat(chunks, bytes));
         finish(null, JSON.parse(text));
