@@ -212,6 +212,8 @@ private:
     double ShotCueUntil = 0.;
     static constexpr double ShotCueSeconds = .19;
     float DryGroundFriction = 0.f;
+    float DryBrakingFriction = 0.f;
+    float DryBrakingDeceleration = 0.f;
     bool bSprintHeld = false;
 
     float SprintAccumulator = 0.f;

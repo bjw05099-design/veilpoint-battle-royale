@@ -256,8 +256,16 @@ void AVPCharacter::Tick(float DeltaSeconds)
         && AVPWorldBootstrap::IsWetApronContact(Floor.HitResult);
     if (bWet != bOnWetLoadingApron)
     {
-        if (bWet) DryGroundFriction = Movement->GroundFriction;
-        Movement->GroundFriction = bWet ? DryGroundFriction * VPFooting::WetGripScale : DryGroundFriction;
+        if (bWet)
+        {
+            DryGroundFriction = Movement->GroundFriction;
+            DryBrakingFriction = Movement->BrakingFriction;
+            DryBrakingDeceleration = Movement->BrakingDecelerationWalking;
+        }
+        const float Grip = bWet ? VPFooting::WetGripScale : 1.f;
+        Movement->GroundFriction = DryGroundFriction * Grip;
+        Movement->BrakingFriction = DryBrakingFriction * Grip;
+        Movement->BrakingDecelerationWalking = DryBrakingDeceleration * Grip;
         bOnWetLoadingApron = bWet;
         ApplySprintSpeed();
     }

@@ -20,13 +20,16 @@ test('native harbor contains east-dock warehouse and cargo corridor geometry',()
   'the 14m access corridor for native fixed supply stores stays unobstructed');
  assert.match(world,/AddBlock\(Vegetation, FVector\(VPFooting::ApronX, VPFooting::ApronY, 1\.\)/);
 });
-test('native wet footing uses the authored ground hit and restores dry friction',()=>{
+test('native wet footing uses the authored ground hit and restores dry grip and braking',()=>{
  const character=source('VPCharacter.cpp'), header=source('VPCharacter.h'), world=source('VPWorldBootstrap.cpp');
  assert.match(header,/bool bOnWetLoadingApron = false;/);
  assert.match(world,/Hit.GetComponent\(\) != Harbor->Ground.Get\(\)/);
  assert.match(world,/InverseTransformPosition\(Hit.ImpactPoint\)/);
  assert.match(character,/bOnWetLoadingApron \? VPFooting::WetSpeedScale : 1\.f/);
- assert.match(character,/bWet \? DryGroundFriction \* VPFooting::WetGripScale : DryGroundFriction/);
+ assert.match(character,/bWet \? VPFooting::WetGripScale : 1\.f/);
+ assert.match(character,/GroundFriction = DryGroundFriction \* Grip/);
+ assert.match(character,/BrakingFriction = DryBrakingFriction \* Grip/);
+ assert.match(character,/BrakingDecelerationWalking = DryBrakingDeceleration \* Grip/);
  assert.match(character,/MaxWalkSpeedCrouched/);
  const tick=character.slice(character.indexOf('void AVPCharacter::Tick'),
   character.indexOf('void AVPCharacter::UpdateSprintFixedStep'));
