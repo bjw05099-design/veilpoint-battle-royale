@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "VPWeaponModel.h"
+#include "VPWeaponViewPose.h"
 #include "VPCharacter.generated.h"
 
 class UCameraComponent;
@@ -185,6 +186,8 @@ private:
     double LandedStrength = 0.;
     double SightBlend = 0.;
     double ObstructionBlend = 0.;
+    VPWeaponView::FMotion WeaponViewMotion;
+    TOptional<FRotator> PreviousWeaponViewRotation;
     UPROPERTY()
     TObjectPtr<USceneComponent> WeaponViewRoot;
     UPROPERTY()

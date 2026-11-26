@@ -137,7 +137,8 @@ void AVPCharacter::Landed(const FHitResult& Hit)
     if (IsLocallyControlled() && IsAlive() && GetWorld())
     {
         LandedAt = GetWorld()->GetTimeSeconds();
-        LandedStrength = VPWeaponView::LandingStrength(-GetCharacterMovement()->Velocity.Z);
+        const FVector Velocity = GetCharacterMovement()->Velocity;
+        LandedStrength = VPWeaponView::LandingStrength(-FVector::DotProduct(Velocity, Hit.ImpactNormal));
     }
     Super::Landed(Hit);
 }
@@ -189,7 +190,12 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     if (IsLocallyControlled())
         BodyCamera->SetFieldOfView(bShow
             ? FMath::Lerp(VPWeaponView::HipFov, VPWeaponView::SightFov, float(SightBlend)) : VPWeaponView::HipFov);
-    if (!bShow || !View.Root) return;
+    if (!bShow || !View.Root)
+    {
+        WeaponViewMotion = {};
+        PreviousWeaponViewRotation.Reset();
+        return;
+    }
 
     const bool bEmpty = MagazineRounds == 0;
     const double Phase = bReloading ? 1. - double(ReloadSecondsRemaining()) /
@@ -199,9 +205,22 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const auto Pose = VPWeaponView::Pose(Phase, bEmpty, bSprinting, ShotPulse);
     const FVector Position = FMath::Lerp(Rest, RaisedSight, SightBlend);
     const double Landing = VPWeaponView::LandingDip(GetWorld()->GetTimeSeconds() - LandedAt, LandedStrength);
+    const FRotator Rotation = GetControlRotation();
+    const FRotator Turn = (Rotation - PreviousWeaponViewRotation.Get(Rotation)).GetNormalized();
+    const auto* Movement = GetCharacterMovement();
+    const double GroundSpeed = Movement->IsMovingOnGround() ? Movement->Velocity.Size2D() : 0.;
+    VPWeaponView::AdvanceMotion(WeaponViewMotion, GroundSpeed, Turn.Pitch, Turn.Yaw, DeltaSeconds);
+    PreviousWeaponViewRotation = Rotation;
+    const double Cycle = WeaponViewMotion.Phase * 2. * UE_DOUBLE_PI;
+    const double MotionBlend = (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
+    const double StepSide = FMath::Sin(Cycle) * WeaponViewMotion.Pace;
+    const double StepRise = FMath::Cos(2. * Cycle) * WeaponViewMotion.Pace;
     WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
-        0., -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)));
-    WeaponViewRoot->SetRelativeRotation(FRotator(1.5 * ShotPulse - 22. * ObstructionBlend, 0., Pose.Roll));
+        1.4 * StepSide * MotionBlend,
+        -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend) + StepRise * MotionBlend));
+    WeaponViewRoot->SetRelativeRotation(FRotator(
+        1.5 * ShotPulse - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend,
+        WeaponViewMotion.YawLag * MotionBlend, Pose.Roll + 1.8 * StepSide * MotionBlend));
     View.Magazine->SetRelativeLocation(MagazineRest - FVector(0., 0., Pose.MagazineDrop));
     const double Bias = WeaponModel == EVPWeaponModel::AKM ? 19. : 7.;
     View.Magazine->SetRelativeRotation(FRotator(-Bias * Pose.MagazineDrop / VPWeaponView::MagazineTravel, 0., 0.));
