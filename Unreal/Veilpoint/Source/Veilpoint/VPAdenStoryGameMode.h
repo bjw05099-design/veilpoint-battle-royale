@@ -16,6 +16,7 @@ class AVPAdenPrologue;
 class AVPLastBroadcastEscort;
 class AVPCharacter;
 class AVPPlayerController;
+class UPrimitiveComponent;
 class USceneCaptureComponent2D;
 class FJsonObject;
 
@@ -25,7 +26,8 @@ class AVPAdenStoryState : public AGameStateBase
     GENERATED_BODY()
 
 public:
-    static VPAdenCampaign::EReach InspectReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing = true);
+    static VPAdenCampaign::EReach InspectReach(const AVPCharacter* Pawn, const FVector& Point,
+        bool bRequireFacing = true, const UPrimitiveComponent* OperatingBarrier = nullptr);
     static bool CanReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing = true);
     bool HasAtlasRoute() const { return ActiveLeg.Num() >= 2; }
     VPAdenAtlas::FExtent AtlasCrop(const FVector& Player, int32 Zoom, bool bRouteOverview) const;

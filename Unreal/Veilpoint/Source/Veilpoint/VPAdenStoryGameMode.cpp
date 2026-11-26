@@ -37,6 +37,16 @@ DEFINE_LOG_CATEGORY_STATIC(LogVPAdenStory, Log, All);
 
 namespace
 {
+constexpr int32 RescueBarrierBeats[] = {VPAdenCampaign::Barrier, VPAdenCampaign::OpenShelter,
+    VPAdenCampaign::OpenRelay, VPAdenCampaign::OpenYard};
+
+int32 RescueBarrierSlot(int32 Beat)
+{
+    for (int32 Slot = 0; Slot < UE_ARRAY_COUNT(RescueBarrierBeats); ++Slot)
+        if (RescueBarrierBeats[Slot] == Beat) return Slot;
+    return INDEX_NONE;
+}
+
 bool IsAdenDiagnostic()
 {
 #if UE_BUILD_SHIPPING
@@ -223,7 +233,8 @@ VPAdenAtlas::FExtent AVPAdenStoryState::AtlasCrop(const FVector& Player, int32 Z
     return FitRoute(Playable, Bounds, MaxZoomLevel);
 }
 
-VPAdenCampaign::EReach AVPAdenStoryState::InspectReach(const AVPCharacter* Pawn, const FVector& Point, bool bRequireFacing)
+VPAdenCampaign::EReach AVPAdenStoryState::InspectReach(const AVPCharacter* Pawn, const FVector& Point,
+    bool bRequireFacing, const UPrimitiveComponent* OperatingBarrier)
 {
     using namespace VPAdenCampaign;
     if (!IsValid(Pawn) || !Pawn->IsAlive() || !Pawn->GetWorld()) return EReach::Unavailable;
@@ -232,7 +243,8 @@ VPAdenCampaign::EReach AVPAdenStoryState::InspectReach(const AVPCharacter* Pawn,
     const auto Reach = ReachWithoutTrace(FVector::DistSquared2D(Pawn->GetActorLocation(), Point),
         Point.Z - Eye.Z, Facing, bRequireFacing);
     if (Reach != EReach::Ready) return Reach;
-    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenStorySight), true, Pawn);
+    if (OperatingBarrier) Query.AddIgnoredComponent(OperatingBarrier);
     return Pawn->GetWorld()->LineTraceTestByChannel(Eye, Point, ECC_Visibility, Query) ? EReach::Occluded : EReach::Ready;
 }
 
@@ -378,16 +390,15 @@ bool AVPAdenStoryGameMode::UpdateRescueProps(float Fraction)
     bool bActiveClear = true;
     bRescuePlacementPending = false;
     using namespace VPAdenCampaign;
-    constexpr int32 BarrierBeats[] = {Barrier, OpenShelter, OpenRelay, OpenYard};
-    for (int32 Slot = 0; Slot < UE_ARRAY_COUNT(BarrierBeats); ++Slot)
+    for (int32 Slot = 0; Slot < UE_ARRAY_COUNT(RescueBarrierBeats); ++Slot)
     {
         auto Pose = Progress;
-        Pose.Beat = BarrierBeats[Slot] + 1;
-        const bool bVisible = Progress.Beat >= BarrierBeats[Slot];
+        Pose.Beat = RescueBarrierBeats[Slot] + 1;
+        const bool bVisible = Progress.Beat >= RescueBarrierBeats[Slot];
         const auto& Leg = Source->CampaignLeg(Pose);
         const bool bPlaced = Source->SetRescueBarrier(Slot, bVisible, Leg[0], Leg[1],
-            Progress.Beat > BarrierBeats[Slot] ? 1.f : Fraction);
-        if (Progress.Beat == BarrierBeats[Slot]) bActiveClear = bPlaced;
+            Progress.Beat > RescueBarrierBeats[Slot] ? 1.f : Fraction);
+        if (Progress.Beat == RescueBarrierBeats[Slot]) bActiveClear = bPlaced;
         else if (!bPlaced) bRescuePlacementPending = true;
     }
     auto Signal = Progress;
@@ -627,7 +638,9 @@ void AVPAdenStoryGameMode::UpdateBeat(AVPCharacter* Pawn, double Now)
         UpdateRescueProps(0.f);
     if (OperationStarted >= 0.)
     {
-        if (!CanReach(Pawn))
+        // The moving panel can cross the sightline to its own control point.
+        const auto* OperatingBarrier = Source->GetRescueBarrier(RescueBarrierSlot(Progress.Beat));
+        if (AVPAdenStoryState::InspectReach(Pawn, GetObjective(), true, OperatingBarrier) != EReach::Ready)
         {
             OperationStarted = -1.;
             View->bOperating = false;
@@ -1626,7 +1639,11 @@ bool AVPAdenStoryGameMode::VerifyCampaign(AVPPlayerController* Desktop, AVPChara
         const auto Saved = ReadCheckpoint();
         if (Progress.Beat != Beat + 1 || !Saved.IsSet() || !(Saved.GetValue().Progress == Progress))
         {
-            UE_LOG(LogVPAdenStory, Error, TEXT("Campaign diagnostic did not complete beat %d"), Beat);
+            const auto* View = GetWorld()->GetGameState<AVPAdenStoryState>();
+            UE_LOG(LogVPAdenStory, Error,
+                TEXT("Campaign diagnostic did not complete beat %d: now %d, operation %.2fs, obstructed %d, saved %d"),
+                Beat, Progress.Beat, OperationProgress, View && View->bOperationObstructed ? 1 : 0,
+                Saved.IsSet() ? Saved.GetValue().Progress.Beat : INDEX_NONE);
             return false;
         }
         if (const auto Card = ChapterTransition(Beat, Progress.Beat); Card != EChapterCard::None)

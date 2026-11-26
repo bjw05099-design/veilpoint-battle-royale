@@ -73,6 +73,8 @@ test('Aden lift rejects an occupied swept path before moving and pauses story pr
   const mode = fs.readFileSync(path.join(include, 'VPAdenStoryGameMode.cpp'), 'utf8');
   assert.match(world, /OverlapAnyTestByObjectType[\s\S]*?SweepSingleByObjectType[\s\S]*?Destination, Rotation, Bodies, Shape, Query\)\) return false;[\s\S]*?SetWorldLocationAndRotation/);
   assert.match(mode, /bOperationObstructed = !UpdateRescueProps\(Fraction\);[\s\S]*?if \(!View->bOperationObstructed\)[\s\S]*?OperationProgress = Requested/);
+  assert.match(mode, /if \(OperationStarted >= 0\.\)[\s\S]*?GetRescueBarrier\(RescueBarrierSlot\(Progress\.Beat\)\)[\s\S]*?InspectReach\(Pawn, GetObjective\(\), true, OperatingBarrier\) != EReach::Ready/);
+  assert.match(mode, /if \(Reach != EReach::Ready\) return Reach;[\s\S]*?Query\.AddIgnoredComponent\(OperatingBarrier\)[\s\S]*?LineTraceTestByChannel\(Eye, Point, ECC_Visibility, Query\)/);
 });
 
 test('Aden detail art is repeatable, has bounded roughness and connects to the separate terrain UVs', {

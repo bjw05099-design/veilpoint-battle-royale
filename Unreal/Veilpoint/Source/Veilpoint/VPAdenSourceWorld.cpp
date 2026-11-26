@@ -1250,9 +1250,15 @@ void AVPAdenSourceWorld::SetCrossingLight(const FVector& Signal, bool bOn, bool 
     CrossingLight->SetVisibility(bOn);
 }
 
+const UPrimitiveComponent* AVPAdenSourceWorld::GetRescueBarrier(int32 Slot) const
+{
+    return RescueBarriers.IsValidIndex(Slot) ? RescueBarriers[Slot].Get() : nullptr;
+}
+
 bool AVPAdenSourceWorld::IsRescueBarrierBlocking(int32 Slot) const
 {
-    return RescueBarriers.IsValidIndex(Slot) && RescueBarriers[Slot]->GetCollisionEnabled() != ECollisionEnabled::NoCollision;
+    const auto* Bar = GetRescueBarrier(Slot);
+    return Bar && Bar->GetCollisionEnabled() != ECollisionEnabled::NoCollision;
 }
 
 USoundBase* AVPAdenSourceWorld::GetWindSound() const { return WindSound.Get(); }
