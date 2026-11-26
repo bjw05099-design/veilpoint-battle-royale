@@ -162,7 +162,8 @@ test('the native Aden rules reach the finale through all eight choices with cont
   });
 
 test('the 720-minute screenplay budgets the new activity mix, sets up the alliance, and resolves it in CH12', () => {
-  const screenplay = fs.readFileSync(path.resolve(__dirname, '../docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md'), 'utf8');
+  const screenplay = fs.readFileSync(path.resolve(__dirname, '../docs/ADEN_CAMPAIGN_SCREENPLAY_KO.md'), 'utf8')
+    .replaceAll('\r\n', '\n');
   const scenes = [...screenplay.matchAll(/^### CH(\d{2}) · .* — (\d+)분\n([\s\S]*?)(?=^### CH|^## 플레이로|$(?![\s\S]))/gm)];
   assert.deepEqual(scenes.map(scene => +scene[1]), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   assert.equal(scenes.reduce((sum, scene) => sum + +scene[2], 0), 720);

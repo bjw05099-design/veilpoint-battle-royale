@@ -957,13 +957,13 @@ void AVPHUD::DrawAdenStory(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
         FString Status;
         if (Aden->bOperating)
         {
-            Status = Aden->bOperationObstructed ? TEXT("Step clear of the lifting path") : TEXT("Keep facing the mechanism");
+            Status = Aden->bOperationObstructed ? TEXT("Clear the shutter path to continue") : TEXT("Keep facing the mechanism");
             DrawRect(FLinearColor(.13f, .19f, .20f), Left + 12.f * Scale, StatusY + 33.f * Scale, StatusWidth - 24.f * Scale, 4.f * Scale);
             DrawRect(Assist, Left + 12.f * Scale, StatusY + 33.f * Scale,
                 (StatusWidth - 24.f * Scale) * Aden->OperationFraction, 4.f * Scale);
         }
         else if (Aden->bOperationObstructed)
-            Status = TEXT("Keep the space under the barrier clear");
+            Status = TEXT("Clear the shutter path to reset");
         else if (Aden->WindowSeconds >= 0)
             Status = Aden->WindowSeconds > 0 ? FString::Printf(TEXT("%s  %02d s"),
                 Aden->WindowSeconds <= SignalWarningMs / 1000 ? TEXT("LIGHT FADING") : TEXT("CROSSING LIGHT"),

@@ -161,14 +161,13 @@ inline bool Clip(FExtent Bounds, FPoint& A, FPoint& B)
     return true;
 }
 
-inline bool ObjectiveAtEdge(FExtent View, FPoint Player, FPoint& Objective, double Inset)
+inline bool PointAtEdge(FExtent View, FPoint Origin, FPoint& Point, double Inset)
 {
-    const FPoint UV = View.Normalized(Objective);
-    if (UV.X >= 0. && UV.X <= 1. && UV.Y >= 0. && UV.Y <= 1.) return false;
+    if (View.Contains(Point)) return false;
     const double Pad = std::clamp(Inset, 0., std::min(View.Width(), View.Height()) * .25);
     const FExtent Inner{View.West + Pad, View.North + Pad, View.East - Pad, View.South - Pad};
-    FPoint Start{std::clamp(Player.X, Inner.West, Inner.East), std::clamp(Player.Y, Inner.North, Inner.South)};
-    return Clip(Inner, Start, Objective);
+    FPoint Start{std::clamp(Origin.X, Inner.West, Inner.East), std::clamp(Origin.Y, Inner.North, Inner.South)};
+    return Clip(Inner, Start, Point);
 }
 
 }

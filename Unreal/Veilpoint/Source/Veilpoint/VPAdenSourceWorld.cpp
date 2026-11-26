@@ -1181,7 +1181,8 @@ bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVect
         return true;
     }
 
-    auto& Anchor = BarrierAnchors[Slot];
+    auto& PlacedAnchor = BarrierAnchors[Slot];
+    auto Anchor = PlacedAnchor;
     const bool bSameAnchor = Anchor.bValid && Anchor.Start == Start && Anchor.Next == Next;
     if (!bSameAnchor)
     {
@@ -1197,7 +1198,8 @@ bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVect
     if (bContinuous && !bMoves && Bar->GetCollisionEnabled() == Collision) return true;
     const FCollisionShape Shape = FCollisionShape::MakeBox(StationMesh->GetBounds().BoxExtent * Bar->GetComponentTransform().GetScale3D().GetAbs());
     const FQuat Rotation = Anchor.Facing.Quaternion();
-    const FCollisionObjectQueryParams Bodies(ECC_Pawn);
+    FCollisionObjectQueryParams Bodies(ECC_Pawn);
+    Bodies.AddObjectTypesToQuery(ECC_PhysicsBody);
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPAdenLiftClearance), false, this);
     if (GetWorld()->OverlapAnyTestByObjectType(Destination, Rotation, Bodies, Shape, Query)) return false;
     FHitResult BlockingBody;
@@ -1206,6 +1208,7 @@ bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVect
     Bar->SetWorldLocationAndRotation(Destination, Anchor.Facing);
     Bar->SetVisibility(true);
     Bar->SetCollisionEnabled(Collision);
+    PlacedAnchor = Anchor;
     return true;
 }
 
@@ -1222,18 +1225,34 @@ bool AVPAdenSourceWorld::VerifyRescueBarrierClearance(const FVector& Start, cons
     Obstacle->SetRootComponent(Body);
     Body->SetMobility(EComponentMobility::Movable);
     Body->SetBoxExtent(FVector(16., 16., 16.));
-    Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    Body->SetCollisionObjectType(ECC_Pawn);
+    Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Body->SetCollisionResponseToAllChannels(ECR_Block);
     Body->RegisterComponent();
     Body->SetWorldLocation(Closed + FVector(0., 0., 122.));
-    const bool bHeld = !SetRescueBarrier(0, true, Start, Next, 1.f) && Bar->GetComponentLocation() == Closed
-        && IsRescueBarrierBlocking(0);
-    Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    const ECollisionChannel ObstacleTypes[] = {ECC_Pawn, ECC_PhysicsBody};
+    bool bVerified = true;
+    for (const ECollisionChannel Type : ObstacleTypes)
+    {
+        Body->SetCollisionObjectType(Type);
+        Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        const bool bOpeningHeld = !SetRescueBarrier(0, true, Start, Next, 1.f)
+            && Bar->GetComponentLocation() == Closed && IsRescueBarrierBlocking(0);
+
+        Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        const bool bOpened = SetRescueBarrier(0, true, Start, Next, 1.f) && !IsRescueBarrierBlocking(0);
+        const FVector Open = Bar->GetComponentLocation();
+
+        Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        const bool bClosingHeld = !SetRescueBarrier(0, true, Start, Next, 0.f)
+            && Bar->GetComponentLocation() == Open && !IsRescueBarrierBlocking(0);
+
+        Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        const bool bClosed = SetRescueBarrier(0, true, Start, Next, 0.f)
+            && Bar->GetComponentLocation() == Closed && IsRescueBarrierBlocking(0);
+        bVerified = bVerified && bOpeningHeld && bOpened && bClosingHeld && bClosed;
+    }
     Obstacle->Destroy();
-    const bool bReleased = SetRescueBarrier(0, true, Start, Next, 1.f) && !IsRescueBarrierBlocking(0);
-    const bool bClosed = SetRescueBarrier(0, true, Start, Next, 0.f) && IsRescueBarrierBlocking(0);
-    return bHeld && bReleased && bClosed;
+    return bVerified;
 #else
     return false;
 #endif

@@ -261,17 +261,20 @@ test('compile and exercise the real Unreal atlas projection and save migration r
         {
           constexpr FExtent view{0., 0., 100., 100.};
           FPoint objective{135., 70.};
-          assert(ObjectiveAtEdge(view, {30., 40.}, objective, 10.));
+          assert(PointAtEdge(view, {30., 40.}, objective, 10.));
           assert(objective.X == 90. && std::abs(objective.Y - (40. + 120. / 7.)) < 1.e-9);
           objective = {-10., -10.};
-          assert(ObjectiveAtEdge(view, {0., 0.}, objective, 10.));
+          assert(PointAtEdge(view, {0., 0.}, objective, 10.));
           assert(objective.X == 10. && objective.Y == 10.);
           objective = {100., 40.};
-          assert(!ObjectiveAtEdge(view, {30., 40.}, objective, 10.));
+          assert(!PointAtEdge(view, {30., 40.}, objective, 10.));
           assert(objective.X == 100. && objective.Y == 40.);
           objective = {120., 50.};
-          assert(ObjectiveAtEdge(view, {160., 20.}, objective, 10.));
+          assert(PointAtEdge(view, {160., 20.}, objective, 10.));
           assert(objective.X == 90. && objective.Y == 20.);
+          FPoint player{-40., 50.};
+          assert(PointAtEdge(view, Centre(view), player, 20.));
+          assert(player.X == 20. && player.Y == 50.);
         }
         {
           using namespace VPAdenDrape;
