@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 
 namespace VPWeaponView
 {
@@ -51,6 +52,29 @@ inline double LandingStrength(double DownwardVelocity)
 inline double LandingDip(double Age, double Strength)
 {
     return Strength * 5. * (Ramp(Age, 0., .08) - Ramp(Age, .08, .30));
+}
+
+struct FMotion
+{
+    double Phase = 0.;
+    double Pace = 0.;
+    double PitchLag = 0.;
+    double YawLag = 0.;
+};
+
+inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double PitchDelta, double YawDelta, double Seconds)
+{
+    if (Seconds <= 0.) return;
+    const double Step = std::min(Seconds, .1);
+    const double Speed = std::clamp(GroundSpeed, 0., 720.);
+    const double Weight = 1. - std::exp(-12. * Step);
+    const double TurnScale = Seconds <= .1 ? .012 / Seconds : 0.;
+
+    // Advance the cycle with travelled distance. Stopping leaves its phase intact.
+    Motion.Phase = std::fmod(Motion.Phase + Speed * Step / 180., 1.);
+    Motion.Pace += (Speed / 720. - Motion.Pace) * Weight;
+    Motion.PitchLag += (std::clamp(-PitchDelta * TurnScale, -2.5, 2.5) - Motion.PitchLag) * Weight;
+    Motion.YawLag += (std::clamp(-YawDelta * TurnScale, -3.5, 3.5) - Motion.YawLag) * Weight;
 }
 
 inline FPose Pose(double ReloadPhase, bool Empty, bool Sprinting, double ShotPulse)

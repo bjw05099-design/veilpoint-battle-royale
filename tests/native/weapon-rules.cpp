@@ -128,6 +128,25 @@ int main()
     assert(LandingDip(0., 1.) == 0. && LandingDip(.08, 1.) == 5.);
     assert(LandingDip(.16, .4) > 0. && LandingDip(.16, .4) < 2.);
     assert(LandingDip(.30, 1.) == 0. && LandingDip(.5, 1.) == 0.);
+    const auto WalkAndTurn = [](int Rate)
+    {
+        VPWeaponView::FMotion Motion;
+        for (int Frame = 0; Frame < Rate; ++Frame)
+            VPWeaponView::AdvanceMotion(Motion, 270., -60. / Rate, 120. / Rate, 1. / Rate);
+        return Motion;
+    };
+    auto Motion = WalkAndTurn(60);
+    const auto FasterUpdate = WalkAndTurn(120);
+    assert(std::abs(Motion.Phase - .5) < 1.e-9 && std::abs(Motion.Phase - FasterUpdate.Phase) < 1.e-9);
+    assert(std::abs(Motion.Pace - FasterUpdate.Pace) < 1.e-9);
+    assert(std::abs(Motion.PitchLag - FasterUpdate.PitchLag) < 1.e-9 && Motion.PitchLag > 0.);
+    assert(std::abs(Motion.YawLag - FasterUpdate.YawLag) < 1.e-9 && Motion.YawLag < 0.);
+    const double StoppedPhase = Motion.Phase;
+    for (int Frame = 0; Frame < 60; ++Frame)
+        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 1. / 60.);
+    assert(Motion.Phase == StoppedPhase && Motion.Pace < .001 && std::abs(Motion.YawLag) < .001);
+    VPWeaponView::AdvanceMotion(Motion, 0., 90., 90., .5);
+    assert(std::abs(Motion.PitchLag) < .001 && std::abs(Motion.YawLag) < .001);
     using VPAdenCampaign::MovingCueReady;
     static_assert(!MovingCueReady(false, 8., true, 500000.));
     static_assert(!MovingCueReady(false, 8., false, 420000.));
