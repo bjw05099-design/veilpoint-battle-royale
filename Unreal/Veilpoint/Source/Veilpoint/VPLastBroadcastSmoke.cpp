@@ -13,28 +13,68 @@
 #include "Engine/World.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 namespace
 {
-bool VerifyApronContact(UWorld* World)
+bool VerifyApronContact(UWorld* World, bool& bBrakingVerified)
 {
     const TActorIterator<AVPWorldBootstrap> Harbor(World);
     if (!Harbor || !Harbor->Ground) return false;
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPApronContact), false);
     const FTransform& Map = Harbor->GetActorTransform();
-    const auto Sample = [&](double X, bool bExpectedWet)
+    const auto Sample = [&](double X, bool bExpectedWet, FHitResult& Floor)
     {
         const FVector Point(X, VPFooting::ApronY, 0.);
         const FVector Up(0., 0., 30.);
-        FHitResult Floor;
         return World->LineTraceSingleByChannel(Floor, Map.TransformPosition(Point + Up),
             Map.TransformPosition(Point - Up), ECC_Visibility, Query)
             && Floor.GetComponent() == Harbor->Ground.Get()
             && AVPWorldBootstrap::IsWetApronContact(Floor) == bExpectedWet;
     };
-    return Sample(VPFooting::ApronX, true)
-        && Sample(VPFooting::ApronX + VPFooting::HalfWidth + 100., false)
-        && !AVPWorldBootstrap::IsWetApronContact(FHitResult{});
+    FHitResult Wet, Dry;
+    if (!Sample(VPFooting::ApronX, true, Wet)
+        || !Sample(VPFooting::ApronX + VPFooting::HalfWidth + 100., false, Dry)
+        || AVPWorldBootstrap::IsWetApronContact(FHitResult{})) return false;
+
+    FActorSpawnParameters Spawn;
+    Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    auto* Probe = World->SpawnActor<AVPCharacter>(AVPCharacter::StaticClass(),
+        Dry.ImpactPoint + FVector(0., 0., 120.), FRotator::ZeroRotator, Spawn);
+    if (!Probe) return true;
+
+    auto* Movement = Probe->GetCharacterMovement();
+    Movement->SetMovementMode(MOVE_Walking);
+    const float DryFriction = Movement->GroundFriction;
+    constexpr float DryBrakeFriction = 3.f;
+    constexpr float DryDeceleration = 1600.f;
+    Movement->bUseSeparateBrakingFriction = true;
+    Movement->BrakingFriction = DryBrakeFriction;
+    Movement->BrakingDecelerationWalking = DryDeceleration;
+
+    const auto Matches = [&](float Scale)
+    {
+        return FMath::IsNearlyEqual(Movement->GroundFriction, DryFriction * Scale)
+            && FMath::IsNearlyEqual(Movement->BrakingFriction, DryBrakeFriction * Scale)
+            && FMath::IsNearlyEqual(Movement->BrakingDecelerationWalking, DryDeceleration * Scale);
+    };
+    const auto Apply = [&](const FHitResult& Floor)
+    {
+        Movement->CurrentFloor.SetFromSweep(Floor, 0.f, Movement->IsWalkable(Floor));
+        Probe->Tick(0.f);
+    };
+    Apply(Wet);
+    const bool bWetGrip = Matches(VPFooting::WetGripScale)
+        && FMath::IsNearlyEqual(Movement->GetMaxBrakingDeceleration(), DryDeceleration * VPFooting::WetGripScale);
+    Apply(Dry);
+    const bool bDryGrip = Matches(1.f);
+    Apply(Wet);
+    const bool bWetAgain = Matches(VPFooting::WetGripScale);
+    Movement->SetMovementMode(MOVE_Falling);
+    Probe->Tick(0.f);
+    bBrakingVerified = bWetGrip && bDryGrip && bWetAgain && Matches(1.f);
+    Probe->Destroy();
+    return true;
 }
 
 bool VerifyPavingSupport(UWorld* World,APawn* ControlledPawn,FString& Failure)
@@ -117,7 +157,9 @@ int32 VPTickLastBroadcastSmoke(AVPPlayerController* Desktop,const TSharedRef<FJs
         FString PavingFailure;
         const bool PavingOK=VerifyPavingSupport(World,Desktop->GetPawn(),PavingFailure);
         Report->SetBoolField(TEXT("pavingSurfaceDoesNotBlockMovement"),PavingOK);
-        Report->SetBoolField(TEXT("wetApronGroundContactVerified"),VerifyApronContact(World));
+        bool bBrakingVerified = false;
+        Report->SetBoolField(TEXT("wetApronGroundContactVerified"), VerifyApronContact(World, bBrakingVerified));
+        Report->SetBoolField(TEXT("wetApronBrakingVerified"), bBrakingVerified);
         Report->SetStringField(TEXT("pavingSupportFailure"),PavingFailure);
         Report->SetBoolField(TEXT("shelterOpeningsAndWallsVerified"),VerifyShelterPassages(World,Desktop->GetPawn()));
     }
