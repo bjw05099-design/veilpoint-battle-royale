@@ -92,8 +92,8 @@ test('Windows one-command CH01 native preparation is fail-closed and only sets s
   'VeilpointEditor','Engine/Binaries/Win64/UnrealEditor-Cmd.exe',
   'Engine/Build/BatchFiles/Build.bat','Engine/Build/Build.version',
   'EngineAssociation','-ExecutePythonScript=','CH01_MAP_READY.json',
-  'Get-FileHash -LiteralPath $map -Algorithm SHA256',
-  'Get-FileHash -LiteralPath $layout -Algorithm SHA256',
+  'Get-NativeBuildSha256 $map',
+  'Get-NativeBuildSha256 $layout',
   'actualAdenCoverageVerified','Native Editor C++ build failed',
   'Editor exited without BOTH a real CH01 .umap',
   'Saved','GameDefaultMap=/Game/Maps/CH01_Aden','$PreflightOnly','$PackageNative'

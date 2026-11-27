@@ -5,6 +5,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'build-pc-native-file-hash.ps1')
 if ($env:OS -ne 'Windows_NT') { throw 'Native builds require the connected Windows PC.' }
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $engine=[IO.Path]::GetFullPath($EngineRoot)
@@ -36,7 +37,7 @@ try {
         if ($code -ne 0) { throw "Unreal C++ compile failed: $code" }
         $module=Join-Path $repo 'Unreal/Veilpoint/Binaries/Win64/UnrealEditor-Veilpoint.dll'
         if (!(Test-Path -LiteralPath $module -PathType Leaf) -or (Get-Item -LiteralPath $module).Length -lt 4096) { throw 'Build returned success without the native Veilpoint Editor module.' }
-        $report.moduleSha256=(Get-FileHash -LiteralPath $module -Algorithm SHA256).Hash.ToLowerInvariant()
+        $report.moduleSha256=Get-NativeBuildSha256 $module
         $report.status='EDITOR_COMPILED_NOT_RUNTIME_TESTED'
     } elseif ($Operation -eq 'author-package') {
         & (Join-Path $PSScriptRoot 'prepare-native-ch01-win64.ps1') -EngineRoot $engine -PackageNative
