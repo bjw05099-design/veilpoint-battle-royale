@@ -11,7 +11,6 @@
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenMapBookmarks.h"
 #include "VPAdenSourceWorld.h"
-#include "VPFootingRules.h"
 #include "VPHUD.h"
 #include "VPGameUserSettings.h"
 #include "Engine/World.h"
@@ -313,7 +312,7 @@ void AVPPlayerController::TickAdenAudio()
     if (!IsLocalController() || !GetWorld()) return;
     const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
     const auto* Source = State ? State->Source.Get() : nullptr;
-    const auto* ControlledCharacter = Cast<AVPCharacter>(GetPawn());
+    auto* ControlledCharacter = Cast<AVPCharacter>(GetPawn());
     const auto* Settings = UVPGameUserSettings::GetVeilpointSettings();
     const bool bAudible = Source && !State->bOpeningActive && ControlledCharacter && !FApp::IsUnattended() &&
         (!Settings || Settings->bFieldAudioEnabled);
@@ -325,8 +324,7 @@ void AVPPlayerController::TickAdenAudio()
             AdenWind = nullptr;
             bAdenAudioPaused = false;
         }
-        bHasAdenAudioPosition = false;
-        AdenStepPhase = 0.;
+        AdenFootstepPawn.Reset();
         if (State) LastAdenBeat = State->Progress.Beat;
         return;
     }
@@ -347,27 +345,18 @@ void AVPPlayerController::TickAdenAudio()
         if (!bDesktopMenuOpen && (LastAdenBeat == VPAdenCampaign::Barrier || LastAdenBeat == VPAdenCampaign::ReachSignal))
             UGameplayStatics::PlaySoundAtLocation(this, Source->GetDossierSound(), State->Objective, .28f);
     }
-    const FVector Position = ControlledCharacter->GetActorLocation();
-    const FVector Travel = bHasAdenAudioPosition ? Position - PreviousAdenAudioPosition : FVector::ZeroVector;
-    PreviousAdenAudioPosition = Position;
-    bHasAdenAudioPosition = true;
+    const uint32 Footstep = ControlledCharacter->GetFootstepSequence();
+    const bool bNewStep = AdenFootstepPawn.Get() == ControlledCharacter && Footstep != LastAdenFootstep;
+    AdenFootstepPawn = ControlledCharacter;
+    LastAdenFootstep = Footstep;
     const auto* Movement = ControlledCharacter->GetCharacterMovement();
     const auto& Floor = Movement->CurrentFloor;
-    if (bDesktopMenuOpen || AdenAtlasPage != 0 || !Movement->IsMovingOnGround() || !Floor.IsWalkableFloor()
-        || !Source->IsPlayableGround(Floor.HitResult) || Travel.SizeSquared() > FMath::Square(300.))
-    {
-        AdenStepPhase = 0.;
-        return;
-    }
-    if (Travel.SizeSquared2D() <= .01) return;
-    const bool bCrouched = Movement->IsCrouching();
-    const double Stride = VPFooting::StepLengthCm(bCrouched, ControlledCharacter->bSprinting);
-    if (VPFooting::AdvanceStep(AdenStepPhase, Travel.Size(), Stride))
-    {
-        USoundBase* Clip = Source->GetStepSound(AdenStepIndex++ % 3);
-        if (Clip)
-            UGameplayStatics::PlaySoundAtLocation(this, Clip, Floor.HitResult.ImpactPoint, bCrouched ? .11f : .23f);
-    }
+    if (!bNewStep || bDesktopMenuOpen || AdenAtlasPage != 0 || !Movement->IsMovingOnGround()
+        || !Floor.IsWalkableFloor() || !Source->IsPlayableGround(Floor.HitResult)) return;
+    USoundBase* Clip = Source->GetStepSound(AdenStepIndex);
+    AdenStepIndex = (AdenStepIndex + 1) % 3;
+    if (Clip)
+        UGameplayStatics::PlaySoundAtLocation(this, Clip, Floor.HitResult.ImpactPoint, Movement->IsCrouching() ? .11f : .23f);
 }
 
 void AVPPlayerController::TickStoryFeedback()

@@ -1,7 +1,6 @@
 #include "VPCharacter.h"
 
 #include "VPAdenStoryGameMode.h"
-#include "VPFootingRules.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPWeaponRules.h"
@@ -218,11 +217,10 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const FVector GroundVelocity = Movement->IsMovingOnGround() ? Movement->Velocity : FVector::ZeroVector;
     const FVector Right = FRotator(0., Rotation.Yaw, 0.).RotateVector(FVector::RightVector);
     const bool bCrouching = Movement->IsCrouching();
-    const double StepLength = VPFooting::StepLengthCm(bCrouching, bSprinting);
     VPWeaponView::AdvanceMotion(WeaponViewMotion, GroundVelocity.Size2D(), FVector::DotProduct(GroundVelocity, Right),
-        Turn.Pitch, Turn.Yaw, DeltaSeconds, StepLength, bCrouching, Movement->IsFalling());
+        Turn.Pitch, Turn.Yaw, DeltaSeconds, bCrouching, Movement->IsFalling());
     PreviousWeaponViewRotation = Rotation;
-    const double Cycle = WeaponViewMotion.Phase * 2. * UE_DOUBLE_PI;
+    const double Cycle = LocomotionCadence.Cycle() * 2. * UE_DOUBLE_PI;
     const double MotionBlend = (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
     const double Gait = WeaponViewMotion.Pace * (1. - .5 * WeaponViewMotion.Crouch) * (1. - WeaponViewMotion.Air);
     const double StepSide = FMath::Sin(Cycle) * Gait;

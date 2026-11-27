@@ -80,6 +80,27 @@ void AVPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME_CONDITION(AVPCharacter, OwnRoundPlacement, COND_OwnerOnly);
 }
 
+void AVPCharacter::BeginPlay()
+{
+    Super::BeginPlay();
+    OnCharacterMovementUpdated.AddDynamic(this, &AVPCharacter::OnLocomotionUpdated);
+}
+
+void AVPCharacter::OnLocomotionUpdated(float DeltaSeconds, FVector OldLocation, FVector)
+{
+    if (!IsLocallyControlled() || bClientUpdating || DeltaSeconds <= 0.f) return;
+    const auto* Movement = GetCharacterMovement();
+    if (!IsAlive() || Movement->bJustTeleported || !Movement->IsMovingOnGround()
+        || !Movement->CurrentFloor.IsWalkableFloor())
+    {
+        LocomotionCadence.ResetContact();
+        return;
+    }
+    const FVector Travel = GetActorLocation() - OldLocation;
+    if (Travel.SizeSquared2D() > .01)
+        LocomotionCadence.Advance(Travel.Size(), Movement->IsCrouching(), bSprinting);
+}
+
 void AVPCharacter::RecordRoundZonePresence(bool bOutside)
 {
     if (!HasAuthority() || !IsAlive() || bRoundReviewClosed || RoundRecordingBeganAt < 0. || !GetWorld()) return;
