@@ -13,7 +13,7 @@ public:
     AVPWorldBootstrap();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
-    static bool IsWetApronContact(const FHitResult& Hit);
+    static float GetWetApronCoverage(const FHitResult& Hit, double ContactRadius);
     bool GetPublicOverview(FBox2D& Bounds, TArray<FBox2D>& Footprints) const;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="World")
     TObjectPtr<UInstancedStaticMeshComponent> Ground;

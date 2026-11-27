@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 
 namespace VPFooting
@@ -68,10 +69,18 @@ constexpr float AdenGradeScale(bool OnSourceGround, double NormalX, double Norma
     return 1.f;
 }
 
-constexpr bool IsWetApron(bool TouchingHarborGround, double X, double Y, double Z)
+constexpr double ContactSpanCoverage(double Centre, double HalfExtent, double Radius)
 {
-    return TouchingHarborGround && Z >= -10. && Z <= 3.
-        && X >= ApronX - HalfWidth && X <= ApronX + HalfWidth
-        && Y >= ApronY - HalfLength && Y <= ApronY + HalfLength;
+    if (Radius <= 0.) return Centre >= -HalfExtent && Centre <= HalfExtent ? 1. : 0.;
+    const double Inside = std::min(Centre + Radius, HalfExtent) - std::max(Centre - Radius, -HalfExtent);
+    return std::clamp(Inside / (2. * Radius), 0., 1.);
+}
+
+constexpr float ApronCoverage(bool TouchingHarborGround, double X, double Y, double Z, double RadiusX, double RadiusY)
+{
+    if (!TouchingHarborGround || Z < -10. || Z > 3.) return 0.f;
+    // Approximate the contact patch by the capsule's projected bounds.
+    return float(ContactSpanCoverage(X - ApronX, HalfWidth, RadiusX)
+        * ContactSpanCoverage(Y - ApronY, HalfLength, RadiusY));
 }
 }

@@ -142,7 +142,7 @@ public:
 
 protected:
     // Derived from the movement floor on both client and server.
-    bool bOnWetLoadingApron = false;
+    float WetApronCoverage = 0.f;
     void MoveForward(float Value);
     void MoveRight(float Value);
     void LookUp(float Value);

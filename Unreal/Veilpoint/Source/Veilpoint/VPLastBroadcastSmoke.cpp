@@ -23,19 +23,20 @@ bool VerifyApronContact(UWorld* World, bool& bBrakingVerified)
     if (!Harbor || !Harbor->Ground) return false;
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPApronContact), false);
     const FTransform& Map = Harbor->GetActorTransform();
-    const auto Sample = [&](double X, bool bExpectedWet, FHitResult& Floor)
+    const auto Sample = [&](double X, float ExpectedCoverage, FHitResult& Floor)
     {
         const FVector Point(X, VPFooting::ApronY, 0.);
         const FVector Up(0., 0., 30.);
         return World->LineTraceSingleByChannel(Floor, Map.TransformPosition(Point + Up),
             Map.TransformPosition(Point - Up), ECC_Visibility, Query)
             && Floor.GetComponent() == Harbor->Ground.Get()
-            && AVPWorldBootstrap::IsWetApronContact(Floor) == bExpectedWet;
+            && FMath::IsNearlyEqual(AVPWorldBootstrap::GetWetApronCoverage(Floor, 42.), ExpectedCoverage);
     };
-    FHitResult Wet, Dry;
-    if (!Sample(VPFooting::ApronX, true, Wet)
-        || !Sample(VPFooting::ApronX + VPFooting::HalfWidth + 100., false, Dry)
-        || AVPWorldBootstrap::IsWetApronContact(FHitResult{})) return false;
+    FHitResult Wet, Edge, Dry;
+    const double EastEdge = VPFooting::ApronX + VPFooting::HalfWidth;
+    if (!Sample(VPFooting::ApronX, 1.f, Wet) || !Sample(EastEdge, .5f, Edge)
+        || !Sample(EastEdge + 100., 0.f, Dry)
+        || AVPWorldBootstrap::GetWetApronCoverage(FHitResult{}, 42.) != 0.f) return false;
 
     FActorSpawnParameters Spawn;
     Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -46,6 +47,7 @@ bool VerifyApronContact(UWorld* World, bool& bBrakingVerified)
     auto* Movement = Probe->GetCharacterMovement();
     Movement->SetMovementMode(MOVE_Walking);
     const float DryFriction = Movement->GroundFriction;
+    const float DrySpeed = Movement->MaxWalkSpeed;
     constexpr float DryBrakeFriction = 3.f;
     constexpr float DryDeceleration = 1600.f;
     Movement->bUseSeparateBrakingFriction = true;
@@ -66,13 +68,16 @@ bool VerifyApronContact(UWorld* World, bool& bBrakingVerified)
     Apply(Wet);
     const bool bWetGrip = Matches(VPFooting::WetGripScale)
         && FMath::IsNearlyEqual(Movement->GetMaxBrakingDeceleration(), DryDeceleration * VPFooting::WetGripScale);
+    Apply(Edge);
+    const bool bEdgeGrip = Matches(FMath::Lerp(1.f, VPFooting::WetGripScale, .5f))
+        && FMath::IsNearlyEqual(Movement->MaxWalkSpeed, DrySpeed * FMath::Lerp(1.f, VPFooting::WetSpeedScale, .5f), .01f);
     Apply(Dry);
     const bool bDryGrip = Matches(1.f);
     Apply(Wet);
     const bool bWetAgain = Matches(VPFooting::WetGripScale);
     Movement->SetMovementMode(MOVE_Falling);
     Probe->Tick(0.f);
-    bBrakingVerified = bWetGrip && bDryGrip && bWetAgain && Matches(1.f);
+    bBrakingVerified = bWetGrip && bEdgeGrip && bDryGrip && bWetAgain && Matches(1.f);
     Probe->Destroy();
     return true;
 }

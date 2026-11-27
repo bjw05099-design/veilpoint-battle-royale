@@ -22,18 +22,18 @@ test('native harbor contains east-dock warehouse and cargo corridor geometry',()
 });
 test('native wet footing uses the authored ground hit and restores dry grip and braking',()=>{
  const character=source('VPCharacter.cpp'), header=source('VPCharacter.h'), world=source('VPWorldBootstrap.cpp');
- assert.match(header,/bool bOnWetLoadingApron = false;/);
+ assert.match(header,/float WetApronCoverage = 0\.f;/);
  assert.match(world,/Hit.GetComponent\(\) != Harbor->Ground.Get\(\)/);
  assert.match(world,/InverseTransformPosition\(Hit.ImpactPoint\)/);
- assert.match(character,/bOnWetLoadingApron \? VPFooting::WetSpeedScale : 1\.f/);
- assert.match(character,/bWet \? VPFooting::WetGripScale : 1\.f/);
+ assert.match(character,/FMath::Lerp\(1\.f, VPFooting::WetSpeedScale, WetApronCoverage\)/);
+ assert.match(character,/FMath::Lerp\(1\.f, VPFooting::WetGripScale, Coverage\)/);
  assert.match(character,/GroundFriction = DryGroundFriction \* Grip/);
  assert.match(character,/BrakingFriction = DryBrakingFriction \* Grip/);
  assert.match(character,/BrakingDecelerationWalking = DryBrakingDeceleration \* Grip/);
  assert.match(character,/MaxWalkSpeedCrouched/);
  const tick=character.slice(character.indexOf('void AVPCharacter::Tick'),
   character.indexOf('void AVPCharacter::UpdateSprintFixedStep'));
- const position=tick.indexOf('AVPWorldBootstrap::IsWetApronContact(Floor.HitResult)');
+ const position=tick.indexOf('AVPWorldBootstrap::GetWetApronCoverage(Floor.HitResult, GetCapsuleComponent()->GetScaledCapsuleRadius())');
  const authority=tick.indexOf('if (!HasAuthority() || !IsAlive()) return;');
  assert.ok(position>=0 && authority>position,
    'native Tick must derive wet footing before its authority-only stamina step');
@@ -47,12 +47,14 @@ test('wet footing covers the slab boundary and excludes overhead, air and unrela
    input:[
     '#include "VPFootingRules.h"',
     'using namespace VPFooting;',
-    'static_assert(IsWetApron(true, 3500., -4000., -5.));',
-    'static_assert(IsWetApron(true, 2800., -4900., -5.));',
-    'static_assert(!IsWetApron(true, 2799., -4900., -5.));',
-    'static_assert(!IsWetApron(true, 3500., -4000., 235.));',
-    'static_assert(!IsWetApron(true, 3500., -4000., -20.));',
-    'static_assert(!IsWetApron(false, 3500., -4000., -5.));',
+    'static_assert(ApronCoverage(true, ApronX, ApronY, -5., 42., 42.) == 1.f);',
+    'static_assert(ApronCoverage(true, ApronX + HalfWidth, ApronY, -5., 42., 42.) == .5f);',
+    'static_assert(ApronCoverage(true, ApronX + HalfWidth - 21., ApronY, -5., 42., 42.) == .75f);',
+    'static_assert(ApronCoverage(true, ApronX - HalfWidth, ApronY - HalfLength, -5., 42., 42.) == .25f);',
+    'static_assert(ApronCoverage(true, ApronX + HalfWidth + 42., ApronY, -5., 42., 42.) == 0.f);',
+    'static_assert(ApronCoverage(true, ApronX, ApronY, 235., 42., 42.) == 0.f);',
+    'static_assert(ApronCoverage(true, ApronX, ApronY, -20., 42., 42.) == 0.f);',
+    'static_assert(ApronCoverage(false, ApronX, ApronY, -5., 42., 42.) == 0.f);',
     'static_assert(AdenGradeScale(false, -.32, 0., .95, 1., 0.) == 1.f);',
     'static_assert(AdenGradeScale(true, -.75, 0., .50, 1., 0.) == 1.f);',
     'static_assert(AdenGradeScale(true, 0., 0., 1., 1., 0.) == 1.f);',

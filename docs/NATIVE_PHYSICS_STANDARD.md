@@ -31,3 +31,7 @@ The local character uses displacement after a grounded movement update to
 advance its walking cycle. The first-person rig and Aden footstep audio read
 the same cycle. Verify steady walking, a stance change mid-step, a jump and a
 teleport or checkpoint recovery at multiple frame rates.
+
+At the coastal apron's wet boundary, the fraction of the capsule footprint
+over the slab blends the authored dry and wet grip and speed values. The
+diagnostic samples the center, edge, dry side and airborne state.

@@ -71,12 +71,15 @@ bool AVPWorldBootstrap::GetPublicOverview(FBox2D& Bounds, TArray<FBox2D>& Footpr
     return !Footprints.IsEmpty();
 }
 
-bool AVPWorldBootstrap::IsWetApronContact(const FHitResult& Hit)
+float AVPWorldBootstrap::GetWetApronCoverage(const FHitResult& Hit, double ContactRadius)
 {
     const auto* Harbor = Cast<AVPWorldBootstrap>(Hit.GetActor());
-    if (!Harbor || !Harbor->Ground || Hit.GetComponent() != Harbor->Ground.Get()) return false;
+    if (!Harbor || !Harbor->Ground || Hit.GetComponent() != Harbor->Ground.Get()) return 0.f;
     const FVector Local = Harbor->GetActorTransform().InverseTransformPosition(Hit.ImpactPoint);
-    return VPFooting::IsWetApron(Hit.bBlockingHit, Local.X, Local.Y, Local.Z);
+    const FVector Scale = Harbor->GetActorScale3D().GetAbs();
+    if (Scale.X <= UE_DOUBLE_SMALL_NUMBER || Scale.Y <= UE_DOUBLE_SMALL_NUMBER) return 0.f;
+    return VPFooting::ApronCoverage(Hit.bBlockingHit, Local.X, Local.Y, Local.Z,
+        ContactRadius / Scale.X, ContactRadius / Scale.Y);
 }
 void AVPWorldBootstrap::CreateStoryHarborLamps()
 {
