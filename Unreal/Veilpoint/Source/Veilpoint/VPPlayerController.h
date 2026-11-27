@@ -113,6 +113,12 @@ private:
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
     TOptional<FVector2D> AdenAtlasCentre;
+    struct FAdenAtlasDrag
+    {
+        FVector2D Pixel;
+        FIntPoint Viewport;
+    };
+    TOptional<FAdenAtlasDrag> AdenAtlasDrag;
     TOptional<FVector> AdenPins[VPAdenAtlas::BookmarkLimit];
     int32 SelectedAdenPin = 0;
     int64 AdenPinGeneration = 0;
@@ -140,7 +146,12 @@ private:
     void MenuActivate();
     void MenuClick();
     void ApplyDesktopCursorMode();
+    bool CanAdjustAdenFieldView() const;
     void ZoomAdenAtlas(int32 Direction);
+    void BeginAdenAtlasDrag();
+    void EndAdenAtlasDrag();
+    void TickAdenAtlasDrag();
+    bool DragAdenAtlasAtPixel(FVector2D Pixel, FIntPoint Viewport, bool bBegin);
     void ChangeMenuValue(int32 Direction);
     void PlaceLocalFieldMark();
 };

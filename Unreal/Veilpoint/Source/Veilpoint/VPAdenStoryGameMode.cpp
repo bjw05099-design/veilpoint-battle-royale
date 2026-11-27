@@ -1163,14 +1163,33 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         const bool bRecentered = Recentered.West == BeforePan.West && Recentered.North == BeforePan.North;
         Report->SetBoolField(TEXT("fieldPanRecenterVerified"), bPan && bRecentered);
         bPassed = bPassed && bRecentered;
+        constexpr int32 Width = 1440, Height = 900;
+        const FIntPoint Viewport(Width, Height);
+        const auto Screen = VPAdenAtlas::ScreenMap(Recentered, Width, Height);
+        const auto Grip = VPAdenAtlas::Centre(Screen.Map);
+        const FVector2D DragStart(Grip.X, Grip.Y);
+        const FVector2D DragEnd(Grip.X - Direction * Screen.Map.Width() / 8., Grip.Y);
+        const auto PinBeforeDrag = Desktop->GetAdenPin();
+        const bool bDrag = Desktop->DragAdenAtlasAtPixel(DragStart, Viewport, true)
+            && Desktop->DragAdenAtlasAtPixel(DragEnd, Viewport, false);
+        const auto AfterDrag = Desktop->AdenFieldCrop(*AtlasState, Foot);
+        const bool bDragMoved = bDrag && AfterDrag.Width() == Recentered.Width()
+            && FMath::IsNearlyEqual(AfterDrag.West - Recentered.West, Direction * Recentered.Width() / 8., .01)
+            && Desktop->GetAdenPin() == PinBeforeDrag && Pawn->GetActorLocation().Equals(Foot);
+        const bool bResizeEndsDrag = !Desktop->DragAdenAtlasAtPixel(DragEnd, {Width + 1, Height}, false)
+            && !Desktop->DragAdenAtlasAtPixel(DragEnd, Viewport, false);
+        const bool bMarginIgnored = !Desktop->DragAdenAtlasAtPixel({-1., -1.}, Viewport, true);
+        Desktop->RecenterAdenAtlas();
+        const bool bDragVerified = bDragMoved && bResizeEndsDrag && bMarginIgnored
+            && Desktop->AdenFieldCrop(*AtlasState, Foot) == Recentered;
+        Report->SetBoolField(TEXT("fieldPointerPanVerified"), bDragVerified);
+        bPassed = bPassed && bDragVerified;
         Desktop->PlaceAdenPin();
         const auto Pin = Desktop->GetAdenPin();
         const auto PinCentre = VPAdenAtlas::Centre(Recentered);
         const bool bPinned = Pin.IsSet() && FMath::IsNearlyEqual(Pin.GetValue().X, PinCentre.X, .01)
             && FMath::IsNearlyEqual(Pin.GetValue().Y, PinCentre.Y, .01);
         bPassed = bPassed && bPinned && ReadFrame(TEXT("aden-field-pin"));
-        constexpr int32 Width = 1440, Height = 900;
-        const auto Screen = VPAdenAtlas::ScreenMap(Recentered, Width, Height);
         const FVector2D Click(Screen.Map.West + Screen.Map.Width() * .68, Screen.Map.North + Screen.Map.Height() * .32);
         const bool bClicked = Desktop->PlaceAdenPinAtPixel(Click, Width, Height);
         const auto ClickPin = Desktop->GetAdenPin();

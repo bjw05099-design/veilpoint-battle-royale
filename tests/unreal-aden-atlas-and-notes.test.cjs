@@ -249,6 +249,22 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           assert(recentered.West == centred.West && recentered.North == centred.North);
           const auto still = Pan(Playable, Playable, {1., 1.});
           assert(still.West == Playable.West && still.South == Playable.South);
+          for (const auto screen : {ScreenMap(centred, 1440, 900), ScreenMap(centred, 500, 480)}) {
+            const auto grip = Centre(screen.Map);
+            const FPoint delta{screen.Map.Width() * .3, -screen.Map.Height() * .2};
+            const auto dragged = Drag(Playable, centred, screen, delta);
+            assert(dragged.Width() == centred.Width() && dragged.Height() == centred.Height());
+            FPoint initial, carried;
+            assert(PointAtPixel(screen, centred, grip, initial));
+            assert(PointAtPixel(screen, dragged, {grip.X + delta.X, grip.Y + delta.Y}, carried));
+            assert(std::abs(initial.X - carried.X) < 1.e-6 && std::abs(initial.Y - carried.Y) < 1.e-6);
+            const auto limited = Drag(Playable, centred, screen, {10000., -10000.});
+            assert(limited.West == Playable.West && limited.South == Playable.South);
+            const auto reversed = Drag(Playable, limited, screen, {-1., 1.});
+            assert(reversed.West > limited.West && reversed.South < limited.South);
+          }
+          assert(Drag(Playable, centred, ScreenMap(centred, 200, 150), {50., 25.}) == centred);
+          assert(Drag(Playable, Playable, ScreenMap(Playable, 1440, 900), {50., 25.}) == Playable);
         }
         {
           constexpr FPoint start{Local.East - 300., Local.North + 600.};

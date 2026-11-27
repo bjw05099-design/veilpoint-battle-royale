@@ -130,6 +130,14 @@ inline FExtent Pan(FExtent Full, FExtent View, FPoint Direction)
         Point.Y + Direction.Y * View.Height() * .25}, View.Width() / Full.Width());
 }
 
+inline FExtent Drag(FExtent Full, FExtent View, FScreenMap Screen, FPoint PixelDelta)
+{
+    if (!Screen.IsValid()) return View;
+    const auto Point = Centre(View);
+    return CentredCrop(Full, {Point.X - PixelDelta.X * View.Width() / Screen.Map.Width(),
+        Point.Y - PixelDelta.Y * View.Height() / Screen.Map.Height()}, View.Width() / Full.Width());
+}
+
 inline FExtent FitRoute(FExtent Full, FExtent Bounds, int ZoomLevel)
 {
     // Leave room for the player arrow and objective marker while preserving the atlas aspect ratio.
