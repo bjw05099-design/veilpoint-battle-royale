@@ -12,6 +12,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'build-pc-native-file-hash.ps1')
 function Fail([string]$Reason) { throw "[VEILPOINT UE5 Win64] $Reason" }
 
 if ($env:OS -ne 'Windows_NT') {
@@ -67,8 +68,8 @@ elseif ($map -match '^/Game/([A-Za-z0-9_/]+)$') {
             Fail 'CH01 map is missing its UE5 editor authoring receipt and original geometry.'
         }
         $proof=Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
-        $mapDigest=(Get-FileHash -LiteralPath $mapFile -Algorithm SHA256).Hash.ToLowerInvariant()
-        $layoutDigest=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
+        $mapDigest=Get-NativeBuildSha256 $mapFile
+        $layoutDigest=Get-NativeBuildSha256 $layout
         if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
             $proof.mapPackage -ne $map -or
             $proof.mapSha256 -cne $mapDigest -or
@@ -85,7 +86,7 @@ elseif ($map -match '^/Game/([A-Za-z0-9_/]+)$') {
         $proofPath=Join-Path $repo 'Unreal/Veilpoint/Saved/Veilpoint/ch01-aden-map-receipt.json'
         if (!(Test-Path -LiteralPath $proofPath -PathType Leaf)) { Fail 'Missing native Aden authoring receipt.' }
         $proof=Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
-        $mapDigest=(Get-FileHash -LiteralPath $mapFile -Algorithm SHA256).Hash.ToLowerInvariant()
+        $mapDigest=Get-NativeBuildSha256 $mapFile
         if ($proof.schema -ne 'veilpoint-native-aden-authoring-v1' -or $proof.map -ne $map -or
             $proof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or $proof.savedReloadVerified -ne $true -or
             $proof.sourceActorCount -ne 1 -or $proof.atlasTextureCount -ne 4 -or $proof.groundDetailTextures -ne 3 -or $proof.fieldAudioCount -ne 5 -or
@@ -180,12 +181,11 @@ $packed=@(Get-ChildItem -LiteralPath $archive -File -Recurse | Where-Object {
     $_.Extension -in @('.exe','.pak','.utoc','.ucas')
 } | Sort-Object FullName)
 foreach ($file in $packed) {
-    $hash=Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
     $relative=$file.FullName.Substring($archive.Length).TrimStart('\','/')
     $manifest+= [pscustomobject]@{
         path=$relative.Replace('\','/')
         bytes=$file.Length
-        sha256=$hash.Hash.ToLowerInvariant()
+        sha256=Get-NativeBuildSha256 $file.FullName
     }
 }
 if ($manifest.Count -eq 0) { Fail 'No packaged executable/content file was found.' }

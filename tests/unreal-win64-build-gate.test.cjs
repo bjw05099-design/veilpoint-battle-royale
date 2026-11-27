@@ -49,7 +49,7 @@ test('UE5 Win64 packaging stages and archive integrity are explicitly checked',(
  }
  assert.match(script,/"-clientconfig=\$Configuration"/);
  assert.match(script,/Get-ChildItem -LiteralPath \$archive -Recurse -File -Filter 'Veilpoint\.exe'/);
- assert.match(script,/Get-FileHash -LiteralPath \$file\.FullName -Algorithm SHA256/);
+ assert.match(script,/sha256=Get-NativeBuildSha256 \$file\.FullName/);
  assert.match(script,/manifest\.json/);
  assert.match(script,/status='PACKAGED_NOT_RUNTIME_TESTED'/);
 });

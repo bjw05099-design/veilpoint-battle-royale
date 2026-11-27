@@ -14,6 +14,7 @@ if ($env:OS -ne 'Windows_NT') {
     Fail 'Native authoring requires installed Unreal 5.8 on Windows. No map was generated.'
 }
 . (Join-Path $PSScriptRoot 'build-pc-native-prerequisites.ps1')
+. (Join-Path $PSScriptRoot 'build-pc-native-file-hash.ps1')
 
 $repo=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $project=Join-Path $repo 'Unreal/Veilpoint/Veilpoint.uproject'
@@ -122,13 +123,13 @@ if (!(Test-Path -LiteralPath $map -PathType Leaf) -or
 $proof=Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 Copy-Item -LiteralPath $receipt -Destination (Join-Path $logFolder 'ch01-map-receipt.json')
 $observedMapBytes=(Get-Item -LiteralPath $map).Length
-$mapSha=(Get-FileHash -LiteralPath $map -Algorithm SHA256).Hash.ToLowerInvariant()
-$layoutSha=(Get-FileHash -LiteralPath $layout -Algorithm SHA256).Hash.ToLowerInvariant()
-$broadcastLayoutSha=(Get-FileHash -LiteralPath $broadcastLayout -Algorithm SHA256).Hash.ToLowerInvariant()
+$mapSha=Get-NativeBuildSha256 $map
+$layoutSha=Get-NativeBuildSha256 $layout
+$broadcastLayoutSha=Get-NativeBuildSha256 $broadcastLayout
 if ($proof.lastBroadcast.savedReloadVerified -ne $true -or $proof.lastBroadcast.savedCollisionProfilesVerified -ne $true -or
     $proof.lastBroadcast.layoutSha256 -cne $broadcastLayoutSha -or
     $proof.lastBroadcast.radioVisualMeshes -ne 9 -or $proof.lastBroadcast.radioConvexColliders -ne 9 -or
-    $proof.lastBroadcast.radioSourceSha256 -cne (Get-FileHash -LiteralPath $radioSource -Algorithm SHA256).Hash.ToLowerInvariant()) {
+    $proof.lastBroadcast.radioSourceSha256 -cne (Get-NativeBuildSha256 $radioSource)) {
     Fail 'Last Broadcast map/radio authoring receipt is incomplete or stale.'
 }
 if ($proof.format -ne 'veilpoint-ch01-map-authoring-proof-v1' -or
@@ -154,7 +155,7 @@ if (!(Test-Path -LiteralPath $adenMap -PathType Leaf) -or !(Test-Path -LiteralPa
 }
 Copy-Item -LiteralPath $adenReceipt -Destination (Join-Path $logFolder 'ch01-aden-map-receipt.json')
 $adenProof=Get-Content -LiteralPath $adenReceipt -Raw | ConvertFrom-Json
-$adenSha=(Get-FileHash -LiteralPath $adenMap -Algorithm SHA256).Hash.ToLowerInvariant()
+$adenSha=Get-NativeBuildSha256 $adenMap
 if ($adenProof.schema -ne 'veilpoint-native-aden-authoring-v1' -or
     $adenProof.map -ne '/Game/Maps/CH01_Aden' -or $adenProof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or
     $adenProof.savedReloadVerified -ne $true -or $adenProof.sourceActorCount -ne 1 -or $adenProof.atlasTextureCount -ne 4 -or $adenProof.fieldAudioCount -ne 5 -or

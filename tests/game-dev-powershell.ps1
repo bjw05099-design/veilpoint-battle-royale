@@ -2,7 +2,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$names=@('setup-game-dev.ps1','connect-build-pc.ps1','start-build-pc.ps1','run-native-pc-job.ps1','build-pc-helpers.ps1','build-pc-native-prerequisites.ps1','prepare-native-ch01-win64.ps1')
+$names=@('setup-game-dev.ps1','connect-build-pc.ps1','start-build-pc.ps1','run-native-pc-job.ps1','build-pc-helpers.ps1','build-pc-native-prerequisites.ps1','build-pc-native-file-hash.ps1','prepare-native-ch01-win64.ps1','build-native-win64.ps1')
 foreach ($name in $names) {
     $tokens=$null; $errors=$null
     [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repo "scripts/$name"),[ref]$tokens,[ref]$errors)
@@ -14,6 +14,13 @@ $before=$env:VEILPOINT_TOOL_ROOT
 if ($env:VEILPOINT_TOOL_ROOT -cne $before) { throw 'Plan-only setup changed the tool environment.' }
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('veilpoint-tools-test-'+[Guid]::NewGuid().ToString('N'))
 try {
+    . (Join-Path $repo 'scripts/build-pc-native-file-hash.ps1')
+    New-Item -ItemType Directory -Force $temporary | Out-Null
+    $sample=Join-Path $temporary 'native [file].txt'
+    [IO.File]::WriteAllBytes($sample,[byte[]](97,98,99))
+    if ((Get-NativeBuildSha256 $sample) -cne 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') {
+        throw 'Native receipt hashing failed for a literal path containing spaces and brackets.'
+    }
     . (Join-Path $repo 'scripts/build-pc-native-prerequisites.ps1')
     $readSdk=(Get-Item Function:Get-BuildPcNetFxSdkInstallations).ScriptBlock
     try {
@@ -67,7 +74,7 @@ try {
     $engine=Join-Path $temporary 'engine'
     foreach ($directory in @('scripts','Unreal/Veilpoint/Config')) { New-Item -ItemType Directory -Force (Join-Path $fixture $directory) | Out-Null }
     foreach ($directory in @('Engine/Build/BatchFiles','Engine/Binaries/Win64')) { New-Item -ItemType Directory -Force (Join-Path $engine $directory) | Out-Null }
-    foreach ($name in @('run-native-pc-job.ps1','prepare-native-ch01-win64.ps1','build-pc-native-prerequisites.ps1','ue5-author-ch01-map.py','ch01-original-public-court.json')) {
+    foreach ($name in @('run-native-pc-job.ps1','prepare-native-ch01-win64.ps1','build-pc-native-prerequisites.ps1','build-pc-native-file-hash.ps1','ue5-author-ch01-map.py','ch01-original-public-court.json')) {
         Copy-Item -LiteralPath (Join-Path $repo "scripts/$name") -Destination (Join-Path $fixture "scripts/$name")
     }
     # The fake engine must use its own SDK fixture, not the hosted machine's SDK.
