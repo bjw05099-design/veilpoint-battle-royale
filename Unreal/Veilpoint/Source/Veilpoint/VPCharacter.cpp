@@ -248,7 +248,7 @@ void AVPCharacter::OnRep_Eliminated()
 }
 void AVPCharacter::ApplySprintSpeed()
 {
-    const float Footing = (bOnWetLoadingApron ? VPFooting::WetSpeedScale : 1.f) * AdenGradeScale;
+    const float Footing = FMath::Lerp(1.f, VPFooting::WetSpeedScale, WetApronCoverage) * AdenGradeScale;
     // Preserve the original finite sprint speed before applying local
     // surface traction; existing stamina and exhaustion rules are unchanged.
     GetCharacterMovement()->MaxWalkSpeed = IsAlive() && bSprinting ? 720.f : 490.f;
@@ -273,21 +273,21 @@ void AVPCharacter::Tick(float DeltaSeconds)
     if (!IsAlive()) return;
     auto* Movement = GetCharacterMovement();
     const auto& Floor = Movement->CurrentFloor;
-    const bool bWet = Movement->IsMovingOnGround() && Floor.IsWalkableFloor()
-        && AVPWorldBootstrap::IsWetApronContact(Floor.HitResult);
-    if (bWet != bOnWetLoadingApron)
+    const float Coverage = Movement->IsMovingOnGround() && Floor.IsWalkableFloor()
+        ? AVPWorldBootstrap::GetWetApronCoverage(Floor.HitResult, GetCapsuleComponent()->GetScaledCapsuleRadius()) : 0.f;
+    if (Coverage != WetApronCoverage)
     {
-        if (bWet)
+        if (WetApronCoverage == 0.f)
         {
             DryGroundFriction = Movement->GroundFriction;
             DryBrakingFriction = Movement->BrakingFriction;
             DryBrakingDeceleration = Movement->BrakingDecelerationWalking;
         }
-        const float Grip = bWet ? VPFooting::WetGripScale : 1.f;
+        const float Grip = FMath::Lerp(1.f, VPFooting::WetGripScale, Coverage);
         Movement->GroundFriction = DryGroundFriction * Grip;
         Movement->BrakingFriction = DryBrakingFriction * Grip;
         Movement->BrakingDecelerationWalking = DryBrakingDeceleration * Grip;
-        bOnWetLoadingApron = bWet;
+        WetApronCoverage = Coverage;
         ApplySprintSpeed();
     }
     if (HasAuthority() || IsLocallyControlled())
