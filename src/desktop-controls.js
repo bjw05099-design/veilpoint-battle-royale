@@ -276,8 +276,13 @@
  }
  function mouseDelta(dx,dy,value){
   const x=Number.isFinite(dx)?dx:0,y=Number.isFinite(dy)?dy:0;
-  const sensitivity=value.sensitivity;
-  return {yaw:x===0?0:x*.0023*sensitivity,pitch:y===0?0:-y*.00165*sensitivity*(value.invertY?-1:1)};
+  // A damaged or partially restored PC profile must not inject NaN into
+  // the 60Hz camera or stop pointer-lock gameplay. Use the same bounded
+  // sensitivity contract as saved profiles, without resetting valid remaps.
+  const sensitivity=Number.isFinite(value?.sensitivity)&&value.sensitivity>=.25&&value.sensitivity<=3
+   ?value.sensitivity:DEFAULT.sensitivity;
+  const invertY=value?.invertY===true;
+  return {yaw:x===0?0:x*.0023*sensitivity,pitch:y===0?0:-y*.00165*sensitivity*(invertY?-1:1)};
  }
  // A hidden menu button can retain keyboard focus after Start/Resume on some
  // desktop browsers. Move focus to the actual gameplay canvas before asking
