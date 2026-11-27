@@ -205,7 +205,7 @@ def import_prologue_audio():
     return import_sounds(samples, [name for name, _ in takes], output), import_sounds(samples, beds, output)
 
 
-def create_station_material():
+def create_station_material(grain_texture):
     name = "M_AdenFieldStation"
     material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         name, "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
@@ -215,7 +215,34 @@ def create_station_material():
     tint = graph.create_material_expression(material, unreal.MaterialExpressionVectorParameter)
     tint.set_editor_property("parameter_name", "Tint")
     tint.set_editor_property("default_value", unreal.LinearColor(.55, .34, .13, 1))
-    graph.connect_material_property(tint, "", unreal.MaterialProperty.MP_BASE_COLOR)
+
+    def scalar(name, default):
+        node = graph.create_material_expression(material, unreal.MaterialExpressionScalarParameter)
+        node.set_editor_property("parameter_name", name)
+        node.set_editor_property("default_value", default)
+        return node
+
+    grain = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
+    grain.set_editor_property("parameter_name", "PropGrain")
+    grain.set_editor_property("texture", grain_texture)
+    grain.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
+    remap = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    remap.set_editor_property("const_a", .70)
+    remap.set_editor_property("const_b", 1.30)
+    grain_blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    grain_blend.set_editor_property("const_a", 1.0)
+    color = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
+    inputs = ((grain, "R", remap, "Alpha"), (remap, "", grain_blend, "B"),
+              (scalar("FinishGrain", .25), "", grain_blend, "Alpha"),
+              (tint, "RGB", color, "A"), (grain_blend, "", color, "B"))
+    if not all(graph.connect_material_expressions(*connection) for connection in inputs):
+        raise RuntimeError("Aden prop material could not connect its texture and tint")
+    outputs = ((color, unreal.MaterialProperty.MP_BASE_COLOR),
+               (scalar("FinishRoughness", .62), unreal.MaterialProperty.MP_ROUGHNESS),
+               (scalar("FinishMetallic", 0.0), unreal.MaterialProperty.MP_METALLIC))
+    if not all(graph.connect_material_property(node, "", prop) for node, prop in outputs):
+        raise RuntimeError("Aden prop material could not connect its surface properties")
+    graph.layout_material_expressions(material)
     graph.recompile_material(material)
     if not unreal.EditorAssetLibrary.save_loaded_asset(material):
         raise RuntimeError("Field station material did not save")
@@ -239,7 +266,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     ground_detail = import_ground_detail()
     ambience, *cues = import_field_audio()
     voice, beds = import_prologue_audio()
-    station_material = create_station_material()
+    station_material = create_station_material(ground_detail["ground_color_variation"])
     station_mesh = assets.load_asset("/Engine/BasicShapes/Cube")
     if not station_mesh:
         raise RuntimeError("Native station mesh is missing")
@@ -307,8 +334,12 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
         if not observed or observed.get_path_name() != texture.get_path_name():
             raise RuntimeError("Reloaded Aden map lost a ground or atlas texture: " + prop)
     station = reloaded[0]
-    if not station.get_editor_property("station_mesh") or not station.get_editor_property("station_material"):
+    saved_station_material = station.get_editor_property("station_material")
+    if not station.get_editor_property("station_mesh") or not saved_station_material:
         raise RuntimeError("Reloaded map lost field station references")
+    saved_grain = graph.get_material_default_texture_parameter_value(saved_station_material, "PropGrain")
+    if not saved_grain or saved_grain.get_path_name() != ground_detail["ground_color_variation"].get_path_name():
+        raise RuntimeError("Reloaded map lost the shared Aden prop texture")
     if not station.get_editor_property("wind_sound") or not station.get_editor_property("dossier_sound")             or len(station.get_editor_property("step_sounds")) != 3:
         raise RuntimeError("Reloaded map lost field audio references")
     for prop, expected in (("prologue_voice", voice), ("prologue_beds", beds)):

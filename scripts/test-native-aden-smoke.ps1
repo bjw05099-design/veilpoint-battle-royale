@@ -74,6 +74,9 @@ if ($report.terrainRenderSectors -ne 70 -or $report.terrainRenderTriangles -ne 3
     $null -eq $report.terrainMaxCollisionErrorCm -or $report.terrainMaxCollisionErrorCm -gt 1.0) {
     throw 'Aden playable terrain sector edges or continuous ground collision failed.'
 }
+if ($report.propFinishesVerified -ne $true) {
+    throw 'Aden map props are missing their painted, exposed metal or weathered material values.'
+}
 if ($report.westGroundSamples -ne 1025 -or $report.westCapsuleSweepMetres -ne 1024 -or
     $report.westMaxRiseCmPerMetre -le 0 -or $report.westMaxRiseCmPerMetre -gt 30 -or
     $report.westFieldMapVerified -ne $true -or $report.westGradeDirectionsVerified -ne $true) {

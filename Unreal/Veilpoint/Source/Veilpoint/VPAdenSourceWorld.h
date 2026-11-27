@@ -77,6 +77,7 @@ public:
     const FString& Revision() const { return SourceRevision; }
     FVPAdenRegionalCheck VerifyRegionalTiles() const;
     FVPAdenTerrainCheck VerifyTerrainSectors() const;
+    bool VerifyPropFinishes() const;
     int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
     int32 RoadJoinTriangleCount() const { return RoadJoinTriangles; }
     int32 FootprintOverlayTriangles() const { return FootprintTriangleCount; }
