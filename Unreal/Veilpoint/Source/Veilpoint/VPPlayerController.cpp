@@ -73,6 +73,7 @@ void AVPPlayerController::BeginPlay()
 void AVPPlayerController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    TickAdenAtlasDrag();
     TickVisualSmoke();
     TickStoryFeedback();
     TickAdenAudio();
@@ -398,6 +399,8 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AVPPlayerController::MenuActivate).bExecuteWhenPaused = true;
     // Consume the controller click: menu clicks must never also fire the pawn.
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AVPPlayerController::MenuClick).bExecuteWhenPaused = true;
+    InputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AVPPlayerController::BeginAdenAtlasDrag).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::RightMouseButton, IE_Released, this, &AVPPlayerController::EndAdenAtlasDrag).bConsumeInput = false;
     InputComponent->BindKey(EKeys::V, IE_Pressed, this, &AVPPlayerController::ToggleRoundLoadout);
     InputComponent->BindKey(EKeys::MiddleMouseButton, IE_Pressed, this, &AVPPlayerController::PlaceLocalFieldMark);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AVPPlayerController::ChooseAdenFirst);
@@ -448,6 +451,7 @@ void AVPPlayerController::ToggleAdenAtlasRouteOverview()
     if (bDesktopMenuOpen || AdenAtlasPage != 1 || !GetWorld()) return;
     if (const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>(); State && State->HasAtlasRoute())
     {
+        EndAdenAtlasDrag();
         AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
         bAdenAtlasRouteOverview = !bAdenAtlasRouteOverview;
     }
@@ -465,10 +469,10 @@ void AVPPlayerController::ZoomAdenAtlasOut()
 
 void AVPPlayerController::ZoomAdenAtlas(int32 Direction)
 {
-    if (bDesktopMenuOpen || AdenAtlasPage != 1 || IsAdenAtlasRouteOverview()
-        || AdenPreviewChoice != VPAdenCampaign::EInput::Interact || !GetWorld() || !GetPawn()) return;
+    if (!CanAdjustAdenFieldView()) return;
     const int32 Next = FMath::Clamp(AdenAtlasZoom + Direction, 0, VPAdenAtlas::MaxZoomLevel);
     if (Next == AdenAtlasZoom) return;
+    EndAdenAtlasDrag();
     if (const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>())
     {
         const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
@@ -484,6 +488,67 @@ void AVPPlayerController::ZoomAdenAtlas(int32 Direction)
         }
     }
     AdenAtlasZoom = Next;
+}
+
+bool AVPPlayerController::CanAdjustAdenFieldView() const
+{
+    return !bDesktopMenuOpen && AdenAtlasPage == 1 && !IsAdenAtlasRouteOverview()
+        && AdenPreviewChoice == VPAdenCampaign::EInput::Interact && GetWorld() && GetPawn();
+}
+
+void AVPPlayerController::BeginAdenAtlasDrag()
+{
+    if (!CanAdjustAdenFieldView()) return;
+    FIntPoint Viewport = FIntPoint::ZeroValue;
+    GetViewportSize(Viewport.X, Viewport.Y);
+    float X = 0.f, Y = 0.f;
+    if (GetMousePosition(X, Y)) DragAdenAtlasAtPixel({X, Y}, Viewport, true);
+}
+
+void AVPPlayerController::EndAdenAtlasDrag()
+{
+    AdenAtlasDrag.Reset();
+}
+
+void AVPPlayerController::TickAdenAtlasDrag()
+{
+    if (!AdenAtlasDrag.IsSet()) return;
+    float X = 0.f, Y = 0.f;
+    if (!IsInputKeyDown(EKeys::RightMouseButton) || !GetMousePosition(X, Y))
+    {
+        EndAdenAtlasDrag();
+        return;
+    }
+    FIntPoint Viewport = FIntPoint::ZeroValue;
+    GetViewportSize(Viewport.X, Viewport.Y);
+    DragAdenAtlasAtPixel({X, Y}, Viewport, false);
+}
+
+bool AVPPlayerController::DragAdenAtlasAtPixel(FVector2D Pixel, FIntPoint Viewport, bool bBegin)
+{
+    const auto* State = CanAdjustAdenFieldView() ? GetWorld()->GetGameState<AVPAdenStoryState>() : nullptr;
+    if (!State || !FMath::IsFinite(Pixel.X) || !FMath::IsFinite(Pixel.Y)
+        || (!bBegin && (!AdenAtlasDrag.IsSet() || AdenAtlasDrag->Viewport != Viewport)))
+    {
+        EndAdenAtlasDrag();
+        return false;
+    }
+    const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
+    const auto Screen = VPAdenAtlas::ScreenMap(View, Viewport.X, Viewport.Y);
+    if (!Screen.IsValid() || (bBegin && !Screen.Map.Contains({Pixel.X, Pixel.Y})))
+    {
+        EndAdenAtlasDrag();
+        return false;
+    }
+    if (!bBegin)
+    {
+        const FVector2D Delta = Pixel - AdenAtlasDrag->Pixel;
+        if (Delta.IsZero()) return true;
+        const auto Centre = VPAdenAtlas::Centre(VPAdenAtlas::Drag(VPAdenAtlas::Playable, View, Screen, {Delta.X, Delta.Y}));
+        AdenAtlasCentre.Emplace(Centre.X, Centre.Y);
+    }
+    AdenAtlasDrag.Emplace(FAdenAtlasDrag{Pixel, Viewport});
+    return true;
 }
 
 VPAdenAtlas::FExtent AVPPlayerController::AdenFieldCrop(const AVPAdenStoryState& State, const FVector& PlayerLocation) const
@@ -506,6 +571,7 @@ void AVPPlayerController::PanAdenAtlas(double X, double Y)
     if (bDesktopMenuOpen || AdenAtlasPage != 1 || IsAdenAtlasRouteOverview() || !GetWorld() || !GetPawn()) return;
     const auto* State = GetWorld()->GetGameState<AVPAdenStoryState>();
     if (!State) return;
+    EndAdenAtlasDrag();
     AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
     const auto View = AdenFieldCrop(*State, GetPawn()->GetActorLocation());
     const auto Focus = VPAdenAtlas::Centre(VPAdenAtlas::Pan(VPAdenAtlas::Playable, View, {X, Y}));
@@ -515,6 +581,7 @@ void AVPPlayerController::PanAdenAtlas(double X, double Y)
 void AVPPlayerController::RecenterAdenAtlas()
 {
     if (bDesktopMenuOpen || AdenAtlasPage != 1) return;
+    EndAdenAtlasDrag();
     AdenAtlasCentre.Reset();
     bAdenAtlasRouteOverview = false;
     AdenPreviewChoice = VPAdenCampaign::EInput::Interact;
@@ -718,6 +785,7 @@ void AVPPlayerController::CloseDesktopMenu()
 
 void AVPPlayerController::ApplyDesktopCursorMode()
 {
+    EndAdenAtlasDrag();
     bShowMouseCursor = bDesktopMenuOpen || AdenAtlasPage != 0;
     if (bShowMouseCursor)
     {

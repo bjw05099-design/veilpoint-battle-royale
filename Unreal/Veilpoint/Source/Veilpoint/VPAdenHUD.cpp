@@ -341,8 +341,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const TCHAR* Controls = bRegional ? TEXT("M Close map")
         : bPreview || Aden->bChoosing ? TEXT("1/2 Preview   B Select pin   Click/P Set   Del Clear   M Next")
         : bRouteOverview ? TEXT("G Back   B Select pin   Click/P Set   Del Clear   M Next")
-        : Aden->HasAtlasRoute() ? TEXT("Arrows Pan   Wheel Zoom   Home   G Route   B Pin slot   Click/P Set   Del Clear   M Next")
-        : TEXT("Arrows Pan   Wheel Zoom   Home   B Pin slot   Click/P Set   Del Clear   M Next");
+        : Aden->HasAtlasRoute() ? TEXT("Right-drag/Arrows   Wheel Zoom   Home   G Route   B Slot   Click/P Pin   Del   M Next")
+        : TEXT("Right-drag/Arrows   Wheel Zoom   Home   B Slot   Click/P Pin   Del   M Next");
     const FString Notice = Desktop.GetLocalNotice();
     DrawText(Notice.IsEmpty() ? FString(Controls) : Notice,
         Ink, X + Inset, Y + H - 25.f * Scale, nullptr, .76f * Scale);

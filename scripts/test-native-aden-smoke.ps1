@@ -39,6 +39,7 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignLiveShotVerified -ne $true -or $report.campaignContactRetryVerified -ne $true -or
     $report.acceptedShotFeedbackVerified -ne $true -or $report.callJournalVerified -ne $true -or
     $report.callJournalRecoveryVerified -ne $true -or $report.fieldPanRecenterVerified -ne $true -or
+    $report.fieldPointerPanVerified -ne $true -or
     $report.chapterCardsVerified -ne $true -or $report.sourcedRoadClassesVerified -ne $true -or $report.safeCheckpointFootingVerified -ne $true -or
     $report.persistentFieldPinsVerified -ne $true -or $report.rescueBarrierClearanceVerified -ne $true -or
     $report.fieldPointerPinVerified -ne $true -or $report.fieldPinVerified -ne $true -or $report.fieldRouteDistanceVerified -ne $true -or
