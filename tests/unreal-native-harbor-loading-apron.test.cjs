@@ -71,3 +71,12 @@ test('wet footing covers the slab boundary and excludes overhead, air and unrela
   fs.rmSync(scratch,{recursive:true,force:true});
  }
 });
+
+test('the local movement callback drives the first-person cycle and Aden footstep sequence',()=>{
+ const character=source('VPCharacter.cpp'), view=source('VPCharacterWeaponView.cpp');
+ const controller=source('VPPlayerController.cpp');
+ assert.match(character,/OnCharacterMovementUpdated\.AddDynamic\(this, &AVPCharacter::OnLocomotionUpdated\)/);
+ assert.match(character,/bClientUpdating[\s\S]*?Movement->bJustTeleported[\s\S]*?LocomotionCadence\.ResetContact\(\)[\s\S]*?LocomotionCadence\.Advance\(Travel\.Size\(\)/);
+ assert.match(view,/LocomotionCadence\.Cycle\(\)/);
+ assert.match(controller,/GetFootstepSequence\(\)[\s\S]*?Footstep != LastAdenFootstep[\s\S]*?Source->IsPlayableGround\(Floor\.HitResult\)[\s\S]*?PlaySoundAtLocation/);
+});

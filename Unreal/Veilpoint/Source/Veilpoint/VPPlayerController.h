@@ -6,6 +6,8 @@
 #include "VPWeaponModel.h"
 #include "VPPlayerController.generated.h"
 
+class AVPCharacter;
+
 // Local desktop presentation. Opening a network menu never pauses the server.
 UCLASS()
 class VEILPOINT_API AVPPlayerController : public APlayerController
@@ -96,10 +98,9 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<class UAudioComponent> AdenWind;
     int32 LastAdenBeat = INDEX_NONE;
-    FVector PreviousAdenAudioPosition = FVector::ZeroVector;
-    double AdenStepPhase = 0.;
+    TWeakObjectPtr<AVPCharacter> AdenFootstepPawn;
+    uint32 LastAdenFootstep = 0;
     int32 AdenStepIndex = 0;
-    bool bHasAdenAudioPosition = false;
     bool bAdenAudioPaused = false;
     bool CanSaveMissionProgress() const;
     TWeakObjectPtr<class AVPStoryGameState> FeedbackStory;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cmath>
+#include <cstdint>
 
 namespace VPFooting
 {
@@ -23,14 +23,31 @@ constexpr double GradeIntentWeight(double GroundSpeed)
     return GroundSpeed < 45. ? 45. - GroundSpeed : 0.;
 }
 
-// Normalized progress preserves the next footfall when the stance changes.
-inline bool AdvanceStep(double& Phase, double TravelCm, double StrideCm)
+struct FCadence
 {
-    if (TravelCm <= .1 || StrideCm <= 0.) return false;
-    const double Advanced = Phase + TravelCm / StrideCm;
-    Phase = std::fmod(Advanced, 1.);
-    return Advanced >= 1.;
-}
+    double Progress = 0.;
+    std::uint32_t Steps = 0;
+
+    // Alternating feet complete one full cycle every two steps.
+    double Cycle() const { return (double(Steps & 1u) + Progress) * .5; }
+
+    void ResetContact() { Progress = 0.; }
+
+    void Advance(double TravelCm, bool Crouching, bool Sprinting)
+    {
+        if (!(TravelCm > .1)) return;
+        if (TravelCm > 300.)
+        {
+            ResetContact();
+            return;
+        }
+        // Normalized progress preserves the next footfall across stance changes.
+        const double Advanced = Progress + TravelCm / StepLengthCm(Crouching, Sprinting);
+        const auto Completed = std::uint32_t(Advanced);
+        Progress = Advanced - Completed;
+        Steps += Completed;
+    }
+};
 
 // Ignore shallow noise between the sampled triangles of the terrain mesh.
 constexpr float AdenGradeScale(bool OnSourceGround, double NormalX, double NormalY,

@@ -61,7 +61,6 @@ inline double LandingDip(double Age, double Strength)
 
 struct FMotion
 {
-    double Phase = 0.;
     double Pace = 0.;
     double Strafe = 0.;
     double PitchLag = 0.;
@@ -71,7 +70,7 @@ struct FMotion
 };
 
 inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpeed,
-    double PitchDelta, double YawDelta, double Seconds, double StepLengthCm, bool Crouching, bool Falling)
+    double PitchDelta, double YawDelta, double Seconds, bool Crouching, bool Falling)
 {
     if (Seconds <= 0.) return;
     const double Step = std::min(Seconds, .1);
@@ -79,8 +78,6 @@ inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpe
     const double Weight = 1. - std::exp(-12. * Step);
     const double TurnScale = Seconds <= .1 ? .012 / Seconds : 0.;
 
-    // One lateral cycle contains two footsteps. Stopping leaves that phase intact.
-    Motion.Phase = std::fmod(Motion.Phase + Speed * Step / (2. * StepLengthCm), 1.);
     Motion.Pace += (Speed / 720. - Motion.Pace) * Weight;
     Motion.Strafe += (std::clamp(LateralSpeed / 490., -1., 1.) - Motion.Strafe) * Weight;
     Motion.PitchLag += (std::clamp(-PitchDelta * TurnScale, -2.5, 2.5) - Motion.PitchLag) * Weight;

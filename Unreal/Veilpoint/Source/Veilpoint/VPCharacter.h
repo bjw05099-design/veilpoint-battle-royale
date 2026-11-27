@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "VPFootingRules.h"
 #include "VPWeaponModel.h"
 #include "VPWeaponViewPose.h"
 #include "VPCharacter.generated.h"
@@ -64,6 +65,7 @@ class VEILPOINT_API AVPCharacter : public ACharacter
     GENERATED_BODY()
 public:
     AVPCharacter();
+    virtual void BeginPlay() override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void Landed(const FHitResult& Hit) override;
@@ -104,6 +106,7 @@ public:
     }
     EVPShotCue GetShotCue(float& Opacity) const;
     bool HasWeaponView() const;
+    uint32 GetFootstepSequence() const { return LocomotionCadence.Steps; }
     void BeginSight();
     void EndSight();
     // Client-side movement must stop on the actual server-authoritative
@@ -181,6 +184,9 @@ private:
     void BuildWeaponView();
     void CreateWeaponPresentation(FVPFirstPersonWeapon& View, EVPWeaponModel Model);
     void UpdateWeaponView(float DeltaSeconds);
+    UFUNCTION()
+    void OnLocomotionUpdated(float DeltaSeconds, FVector OldLocation, FVector OldVelocity);
+    VPFooting::FCadence LocomotionCadence;
     bool bSightHeld = false;
     bool bSightBlockedBySurface = false;
     double LandedAt = -1000.;

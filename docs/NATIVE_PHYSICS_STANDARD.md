@@ -26,3 +26,8 @@ new interaction in its actual playable context. For shared multiplayer
 interactions, compare authoritative state and what a client sees when joining,
 moving and colliding. Verify persistent physical state when it affects
 resuming a story checkpoint.
+
+The local character uses displacement after a grounded movement update to
+advance its walking cycle. The first-person rig and Aden footstep audio read
+the same cycle. Verify steady walking, a stance change mid-step, a jump and a
+teleport or checkpoint recovery at multiple frame rates.

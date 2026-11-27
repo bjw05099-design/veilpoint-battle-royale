@@ -124,11 +124,33 @@ int main()
     static_assert(VPFooting::GradeIntentWeight(0.) == 45.);
     static_assert(VPFooting::GradeIntentWeight(30.) == 15.);
     static_assert(VPFooting::GradeIntentWeight(45.) == 0. && VPFooting::GradeIntentWeight(120.) == 0.);
-    double StepPhase = 0.;
-    assert(!VPFooting::AdvanceStep(StepPhase, 69.5, 139.) && StepPhase == .5);
-    assert(!VPFooting::AdvanceStep(StepPhase, 0., 105.) && StepPhase == .5);
-    assert(VPFooting::AdvanceStep(StepPhase, 52.5, 105.) && StepPhase == 0.);
-    assert(VPFooting::AdvanceStep(StepPhase, 247.5, 165.) && StepPhase == .5);
+    VPFooting::FCadence Cadence;
+    Cadence.Advance(69.5, false, false);
+    assert(Cadence.Steps == 0 && Cadence.Progress == .5 && Cadence.Cycle() == .25);
+    Cadence.Advance(0., true, false);
+    assert(Cadence.Steps == 0 && Cadence.Progress == .5);
+    Cadence.Advance(52.5, true, false);
+    assert(Cadence.Steps == 1 && Cadence.Progress == 0. && Cadence.Cycle() == .5);
+    Cadence.Advance(247.5, false, true);
+    assert(Cadence.Steps == 2 && Cadence.Progress == .5 && Cadence.Cycle() == .25);
+    Cadence.Advance(310., false, false);
+    assert(Cadence.Steps == 2 && Cadence.Progress == 0.);
+    Cadence.Advance(69.5, false, false);
+    Cadence.ResetContact();
+    assert(Cadence.Steps == 2 && Cadence.Progress == 0.);
+    Cadence.Advance(300., true, false);
+    assert(Cadence.Steps == 4 && Cadence.Progress < 1.);
+    const auto Walk = [](int Rate)
+    {
+        VPFooting::FCadence PoseCadence;
+        for (int Frame = 0; Frame < Rate; ++Frame) PoseCadence.Advance(270. / Rate, false, false);
+        return PoseCadence;
+    };
+    const auto Walked = Walk(60);
+    assert(Walked.Steps == 1 && Walk(30).Steps == 1 && Walk(120).Steps == 1);
+    assert(std::abs(Walked.Cycle() - 270. / (2. * VPFooting::StepLengthCm(false, false))) < 1.e-9);
+    assert(std::abs(Walked.Cycle() - Walk(30).Cycle()) < 1.e-9);
+    assert(std::abs(Walked.Cycle() - Walk(120).Cycle()) < 1.e-9);
 
     using VPWeaponView::LandingDip;
     using VPWeaponView::LandingStrength;
@@ -137,39 +159,32 @@ int main()
     assert(LandingDip(0., 1.) == 0. && LandingDip(.08, 1.) == 5.);
     assert(LandingDip(.16, .4) > 0. && LandingDip(.16, .4) < 2.);
     assert(LandingDip(.30, 1.) == 0. && LandingDip(.5, 1.) == 0.);
-    const double WalkStep = VPFooting::StepLengthCm(false, false);
-    const auto WalkAndTurn = [WalkStep](int Rate)
+    const auto WalkAndTurn = [](int Rate)
     {
         VPWeaponView::FMotion Motion;
         for (int Frame = 0; Frame < Rate; ++Frame)
-            VPWeaponView::AdvanceMotion(Motion, 270., -180., -60. / Rate, 120. / Rate, 1. / Rate,
-                WalkStep, false, false);
+            VPWeaponView::AdvanceMotion(Motion, 270., -180., -60. / Rate, 120. / Rate, 1. / Rate, false, false);
         return Motion;
     };
     auto Motion = WalkAndTurn(60);
     const auto FasterUpdate = WalkAndTurn(120);
-    assert(std::abs(Motion.Phase - 270. / (2. * WalkStep)) < 1.e-9);
-    assert(std::abs(Motion.Phase - FasterUpdate.Phase) < 1.e-9);
     assert(std::abs(Motion.Pace - FasterUpdate.Pace) < 1.e-9);
     assert(std::abs(Motion.Strafe - FasterUpdate.Strafe) < 1.e-9 && Motion.Strafe < 0.);
     assert(std::abs(Motion.PitchLag - FasterUpdate.PitchLag) < 1.e-9 && Motion.PitchLag > 0.);
     assert(std::abs(Motion.YawLag - FasterUpdate.YawLag) < 1.e-9 && Motion.YawLag < 0.);
-    const double StoppedPhase = Motion.Phase;
     for (int Frame = 0; Frame < 60; ++Frame)
-        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., 1. / 60., WalkStep, false, false);
-    assert(Motion.Phase == StoppedPhase && Motion.Pace < .001);
+        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., 1. / 60., false, false);
+    assert(Motion.Pace < .001);
     assert(std::abs(Motion.Strafe) < .001 && std::abs(Motion.YawLag) < .001);
-    VPWeaponView::AdvanceMotion(Motion, 0., 0., 90., 90., .5, WalkStep, false, false);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 90., 90., .5, false, false);
     assert(std::abs(Motion.PitchLag) < .001 && std::abs(Motion.YawLag) < .001);
     const double CrouchStep = VPFooting::StepLengthCm(true, false);
-    VPWeaponView::AdvanceMotion(Motion, CrouchStep, 0., 0., 0., .1, CrouchStep, true, false);
-    assert(std::abs(Motion.Phase - std::fmod(StoppedPhase + .05, 1.)) < 1.e-9);
+    VPWeaponView::AdvanceMotion(Motion, CrouchStep, 0., 0., 0., .1, true, false);
     assert(Motion.Crouch > .6 && Motion.Crouch < .8 && Motion.Air == 0.);
-    const double TakeoffPhase = Motion.Phase;
-    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, WalkStep, false, true);
-    assert(Motion.Phase == TakeoffPhase && Motion.Crouch < .3 && Motion.Air > .6);
-    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, WalkStep, false, false);
-    assert(Motion.Phase == TakeoffPhase && Motion.Air < .3);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, false, true);
+    assert(Motion.Crouch < .3 && Motion.Air > .6);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, false, false);
+    assert(Motion.Air < .3);
     using VPAdenCampaign::MovingCueReady;
     static_assert(!MovingCueReady(false, 8., true, 500000.));
     static_assert(!MovingCueReady(false, 8., false, 420000.));
