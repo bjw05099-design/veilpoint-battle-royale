@@ -38,6 +38,11 @@ inline double ClearanceBlend(double Distance)
     return 1. - Ramp(Distance, 24., ClearanceProbeLength);
 }
 
+inline bool SightBlockedBySurface(double Clearance, bool PreviouslyBlocked)
+{
+    return PreviouslyBlocked ? Clearance > .19 : Clearance >= .29;
+}
+
 inline double ApproachClearance(double Current, double Target, double Time)
 {
     const double Step = std::clamp(Time, 0., .1) * (Target > Current ? 13. : 7.);
@@ -61,10 +66,12 @@ struct FMotion
     double Strafe = 0.;
     double PitchLag = 0.;
     double YawLag = 0.;
+    double Crouch = 0.;
+    double Air = 0.;
 };
 
 inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpeed,
-    double PitchDelta, double YawDelta, double Seconds)
+    double PitchDelta, double YawDelta, double Seconds, double StepLengthCm, bool Crouching, bool Falling)
 {
     if (Seconds <= 0.) return;
     const double Step = std::min(Seconds, .1);
@@ -72,12 +79,14 @@ inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpe
     const double Weight = 1. - std::exp(-12. * Step);
     const double TurnScale = Seconds <= .1 ? .012 / Seconds : 0.;
 
-    // Advance the cycle with travelled distance. Stopping leaves its phase intact.
-    Motion.Phase = std::fmod(Motion.Phase + Speed * Step / 180., 1.);
+    // One lateral cycle contains two footsteps. Stopping leaves that phase intact.
+    Motion.Phase = std::fmod(Motion.Phase + Speed * Step / (2. * StepLengthCm), 1.);
     Motion.Pace += (Speed / 720. - Motion.Pace) * Weight;
     Motion.Strafe += (std::clamp(LateralSpeed / 490., -1., 1.) - Motion.Strafe) * Weight;
     Motion.PitchLag += (std::clamp(-PitchDelta * TurnScale, -2.5, 2.5) - Motion.PitchLag) * Weight;
     Motion.YawLag += (std::clamp(-YawDelta * TurnScale, -3.5, 3.5) - Motion.YawLag) * Weight;
+    Motion.Crouch += (double(Crouching) - Motion.Crouch) * Weight;
+    Motion.Air += (double(Falling) - Motion.Air) * Weight;
 }
 
 inline FPose Pose(double ReloadPhase, bool Empty, double SprintBlend, double ShotPulse)

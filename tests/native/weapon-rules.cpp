@@ -111,10 +111,19 @@ int main()
     using VPWeaponView::ClearanceBlend;
     assert(ClearanceBlend(0.) == 1. && ClearanceBlend(24.) == 1.);
     assert(ClearanceBlend(54.) == .5 && ClearanceBlend(84.) == 0.);
+    using VPWeaponView::SightBlockedBySurface;
+    assert(!SightBlockedBySurface(.24, false) && SightBlockedBySurface(.24, true));
+    assert(SightBlockedBySurface(.29, false) && !SightBlockedBySurface(.19, true));
     assert(ApproachClearance(0., 1., .1) == 1.);
     assert(ApproachClearance(1., 0., .1) > 0. && ApproachClearance(1., 0., .1) < 1.);
     assert(ApproachClearance(ApproachClearance(1., 0., .1), 0., .1) == 0.);
 
+    static_assert(VPFooting::StepLengthCm(false, false) == 139.);
+    static_assert(VPFooting::StepLengthCm(false, true) == 165.);
+    static_assert(VPFooting::StepLengthCm(true, true) == 105.);
+    static_assert(VPFooting::GradeIntentWeight(0.) == 45.);
+    static_assert(VPFooting::GradeIntentWeight(30.) == 15.);
+    static_assert(VPFooting::GradeIntentWeight(45.) == 0. && VPFooting::GradeIntentWeight(120.) == 0.);
     double StepPhase = 0.;
     assert(!VPFooting::AdvanceStep(StepPhase, 69.5, 139.) && StepPhase == .5);
     assert(!VPFooting::AdvanceStep(StepPhase, 0., 105.) && StepPhase == .5);
@@ -128,27 +137,39 @@ int main()
     assert(LandingDip(0., 1.) == 0. && LandingDip(.08, 1.) == 5.);
     assert(LandingDip(.16, .4) > 0. && LandingDip(.16, .4) < 2.);
     assert(LandingDip(.30, 1.) == 0. && LandingDip(.5, 1.) == 0.);
-    const auto WalkAndTurn = [](int Rate)
+    const double WalkStep = VPFooting::StepLengthCm(false, false);
+    const auto WalkAndTurn = [WalkStep](int Rate)
     {
         VPWeaponView::FMotion Motion;
         for (int Frame = 0; Frame < Rate; ++Frame)
-            VPWeaponView::AdvanceMotion(Motion, 270., -180., -60. / Rate, 120. / Rate, 1. / Rate);
+            VPWeaponView::AdvanceMotion(Motion, 270., -180., -60. / Rate, 120. / Rate, 1. / Rate,
+                WalkStep, false, false);
         return Motion;
     };
     auto Motion = WalkAndTurn(60);
     const auto FasterUpdate = WalkAndTurn(120);
-    assert(std::abs(Motion.Phase - .5) < 1.e-9 && std::abs(Motion.Phase - FasterUpdate.Phase) < 1.e-9);
+    assert(std::abs(Motion.Phase - 270. / (2. * WalkStep)) < 1.e-9);
+    assert(std::abs(Motion.Phase - FasterUpdate.Phase) < 1.e-9);
     assert(std::abs(Motion.Pace - FasterUpdate.Pace) < 1.e-9);
     assert(std::abs(Motion.Strafe - FasterUpdate.Strafe) < 1.e-9 && Motion.Strafe < 0.);
     assert(std::abs(Motion.PitchLag - FasterUpdate.PitchLag) < 1.e-9 && Motion.PitchLag > 0.);
     assert(std::abs(Motion.YawLag - FasterUpdate.YawLag) < 1.e-9 && Motion.YawLag < 0.);
     const double StoppedPhase = Motion.Phase;
     for (int Frame = 0; Frame < 60; ++Frame)
-        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., 1. / 60.);
+        VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., 1. / 60., WalkStep, false, false);
     assert(Motion.Phase == StoppedPhase && Motion.Pace < .001);
     assert(std::abs(Motion.Strafe) < .001 && std::abs(Motion.YawLag) < .001);
-    VPWeaponView::AdvanceMotion(Motion, 0., 0., 90., 90., .5);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 90., 90., .5, WalkStep, false, false);
     assert(std::abs(Motion.PitchLag) < .001 && std::abs(Motion.YawLag) < .001);
+    const double CrouchStep = VPFooting::StepLengthCm(true, false);
+    VPWeaponView::AdvanceMotion(Motion, CrouchStep, 0., 0., 0., .1, CrouchStep, true, false);
+    assert(std::abs(Motion.Phase - std::fmod(StoppedPhase + .05, 1.)) < 1.e-9);
+    assert(Motion.Crouch > .6 && Motion.Crouch < .8 && Motion.Air == 0.);
+    const double TakeoffPhase = Motion.Phase;
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, WalkStep, false, true);
+    assert(Motion.Phase == TakeoffPhase && Motion.Crouch < .3 && Motion.Air > .6);
+    VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, WalkStep, false, false);
+    assert(Motion.Phase == TakeoffPhase && Motion.Air < .3);
     using VPAdenCampaign::MovingCueReady;
     static_assert(!MovingCueReady(false, 8., true, 500000.));
     static_assert(!MovingCueReady(false, 8., false, 420000.));

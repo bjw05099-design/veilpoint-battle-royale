@@ -271,20 +271,26 @@ void AVPCharacter::Tick(float DeltaSeconds)
     }
     if (HasAuthority() || IsLocallyControlled())
     {
-        float TargetScale = 1.f;
+        float NextScale = 1.f;
         if (Movement->IsMovingOnGround() && Floor.IsWalkableFloor())
         {
             if (const auto* Aden = GetWorld()->GetGameState<AVPAdenStoryState>())
             {
                 const auto* Source = Aden->Source.Get();
-                const FVector Direction = Movement->Velocity.GetSafeNormal2D();
-                const FVector Normal = Floor.HitResult.ImpactNormal;
-                TargetScale = VPFooting::AdenGradeScale(Source && Source->IsPlayableGround(Floor.HitResult),
-                    Normal.X, Normal.Y, Normal.Z, Direction.X, Direction.Y);
+                if (Source && Source->IsPlayableGround(Floor.HitResult))
+                {
+                    const FVector Velocity = Movement->Velocity;
+                    const FVector Intent = Movement->GetCurrentAcceleration().GetSafeNormal2D();
+                    const FVector Direction = (Velocity + Intent * VPFooting::GradeIntentWeight(Velocity.Size2D()))
+                        .GetSafeNormal2D();
+                    const FVector Normal = Floor.HitResult.ImpactNormal;
+                    const float TargetScale = VPFooting::AdenGradeScale(true,
+                        Normal.X, Normal.Y, Normal.Z, Direction.X, Direction.Y);
+                    NextScale = FMath::FInterpConstantTo(AdenGradeScale, TargetScale,
+                        FMath::Clamp(DeltaSeconds, 0.f, .1f), 1.6f);
+                }
             }
         }
-        const float NextScale = FMath::FInterpConstantTo(AdenGradeScale, TargetScale,
-            FMath::Clamp(DeltaSeconds, 0.f, .1f), 1.6f);
         if (NextScale != AdenGradeScale)
         {
             AdenGradeScale = NextScale;

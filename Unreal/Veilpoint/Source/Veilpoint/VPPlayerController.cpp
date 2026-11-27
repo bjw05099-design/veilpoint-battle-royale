@@ -360,7 +360,7 @@ void AVPPlayerController::TickAdenAudio()
     }
     if (Travel.SizeSquared2D() <= .01) return;
     const bool bCrouched = Movement->IsCrouching();
-    const double Stride = bCrouched ? 105. : ControlledCharacter->bSprinting ? 165. : 139.;
+    const double Stride = VPFooting::StepLengthCm(bCrouched, ControlledCharacter->bSprinting);
     if (VPFooting::AdvanceStep(AdenStepPhase, Travel.Size(), Stride))
     {
         USoundBase* Clip = Source->GetStepSound(AdenStepIndex++ % 3);

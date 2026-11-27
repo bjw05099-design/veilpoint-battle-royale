@@ -77,17 +77,17 @@ test('Aden lift rejects an occupied swept path before moving and pauses story pr
   assert.match(mode, /if \(Reach != EReach::Ready\) return Reach;[\s\S]*?Query\.AddIgnoredComponent\(OperatingBarrier\)[\s\S]*?LineTraceTestByChannel\(Eye, Point, ECC_Visibility, Query\)/);
 });
 
-test('Aden detail art is repeatable, has bounded roughness and connects to the separate terrain UVs', {
-  skip: process.platform === 'win32',
-}, () => {
+test('Aden detail art is repeatable and all three channels use the separate terrain UVs', () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-ground-detail-'));
   try {
     const script = path.join(__dirname, '../scripts/build-aden-ground-detail.py');
     const build = name => {
       const out = path.join(temp, name);
-      const result = spawnSync('python3', [script, out], {encoding: 'utf8', timeout: 12000});
-      assert.equal(result.status, 0, result.stderr);
-      return ['T_AdenGroundNormal.png', 'T_AdenGroundRoughness.png'].map(file => fs.readFileSync(path.join(out, file)));
+      const python = process.platform === 'win32' ? 'python' : 'python3';
+      const result = spawnSync(python, [script, out], {encoding: 'utf8', timeout: 12000});
+      assert.equal(result.status, 0, result.error?.message || result.stderr);
+      return ['T_AdenGroundNormal', 'T_AdenGroundRoughness', 'T_AdenGroundColorVariation']
+        .map(name => fs.readFileSync(path.join(out, name + '.png')));
     };
     const art = build('first');
     assert.deepEqual(art, build('repeat'));
@@ -99,22 +99,27 @@ test('Aden detail art is repeatable, has bounded roughness and connects to the s
       const data = inflateSync(png.subarray(41, 41 + png.readUInt32BE(33)));
       const stride = 1 + 256 * channels;
       assert.equal(data.length, 256 * stride);
-      let seam = 0, adjacent = 0;
+      let seamX = 0, adjacentX = 0, seamY = 0, adjacentY = 0;
       const diversity = new Set();
       for (let y = 0; y < 256; y++) {
         const row = y * stride;
         assert.equal(data[row], 0);
-        seam += Math.abs(data[row + 1] - data[row + 1 + 255 * channels]);
-        adjacent += Math.abs(data[row + 1] - data[row + 1 + channels]);
+        seamX += Math.abs(data[row + 1] - data[row + 1 + 255 * channels]);
+        adjacentX += Math.abs(data[row + 1] - data[row + 1 + channels]);
+        const column = 1 + y * channels;
+        seamY += Math.abs(data[column] - data[255 * stride + column]);
+        adjacentY += Math.abs(data[column] - data[stride + column]);
         for (let x = 0; x < 256; x++) {
           const at = row + 1 + x * channels;
           diversity.add(data[at]);
-          if (index) assert.ok(data[at] >= 194 && data[at] <= 253);
-          else assert.ok(data[at + 2] >= 200, 'the artistic surface normals always point outward');
+          if (index === 0) assert.ok(data[at + 2] >= 200, 'the artistic surface normals always point outward');
+          if (index === 1) assert.ok(data[at] >= 194 && data[at] <= 253);
         }
       }
-      assert.ok(seam < adjacent * 2 + 256);
+      assert.ok(seamX < adjacentX * 2 + 256);
+      assert.ok(seamY < adjacentY * 2 + 256);
       assert.ok(diversity.size > 16);
+      if (index === 2) assert.ok(diversity.has(128) && Math.max(...diversity) - Math.min(...diversity) > 80);
     }
   } finally {
     fs.rmSync(temp, {recursive: true, force: true});
@@ -123,7 +128,7 @@ test('Aden detail art is repeatable, has bounded roughness and connects to the s
   const author = fs.readFileSync(path.join(__dirname, '../scripts/ue5-author-aden-ch01.py'), 'utf8');
   assert.match(world, /GroundDetailTileCm = 256\.[\s\S]*?UVs\.Emplace\(Point\.X \/ GroundDetailTileCm, Point\.Y \/ GroundDetailTileCm\)/);
   assert.match(world, /A\.UV1 == B\.UV1[\s\S]*?A\.Tangent\.TangentX == B\.Tangent\.TangentX/);
-  assert.match(author, /coordinate_index", 1[\s\S]*?MP_NORMAL[\s\S]*?MP_ROUGHNESS/);
+  assert.match(author, /coordinate_index", 1[\s\S]*?MP_NORMAL[\s\S]*?MP_ROUGHNESS[\s\S]*?MP_BASE_COLOR/);
 });
 
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
@@ -300,6 +305,23 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           assert(reversed.size() == breaks.size());
           for (std::size_t i = 0; i < breaks.size(); ++i)
             assert(std::abs(reversed[i] + breaks[breaks.size() - 1 - i] - 1.) < 1.e-9);
+          std::array<FPoint, 3> join;
+          assert(!BevelJoin({50., 50.}, {0., 0.}, {0., 4.}, join));
+          assert(!BevelJoin({50., 50.}, {0., 4.}, {0., 4.}, join));
+          assert(!BevelJoin({50., 50.}, {0., 4.}, {0., -4.}, join));
+          assert(BevelJoin({50., 50.}, {0., 4.}, {-4., 0.}, join));
+          assert(join[1].X == 50. && join[1].Y == 46. && join[2].X == 54. && join[2].Y == 50.);
+          assert(BevelJoin({50., 50.}, {0., 4.}, {4., 0.}, join));
+          assert(join[1].X == 54. && join[1].Y == 50. && join[2].X == 50. && join[2].Y == 54.);
+          double joinArea = 0.;
+          DrapeConvex(join, {0., 0., 100., 100.}, 50., [&](const auto& patch, int col, int row) {
+            assert(col == 1 && row == 1);
+            for (int i = 0; i < patch.Count; ++i) {
+              const auto a = patch.Points[i], b = patch.Points[(i + 1) % patch.Count];
+              joinArea += (a.X * b.Y - b.X * a.Y) / 2.;
+            }
+          });
+          assert(std::abs(joinArea - 8.) < 1.e-9);
         }
         {
           const std::array<FPoint, 4> strip{{{-10., 10.}, {110., 10.}, {110., 40.}, {-10., 40.}}};
