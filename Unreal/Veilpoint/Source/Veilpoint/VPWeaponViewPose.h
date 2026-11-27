@@ -31,6 +31,11 @@ inline double Ramp(double Phase, double Start, double End)
     return T * T * (3. - 2. * T);
 }
 
+inline double EquipWeight(double Progress)
+{
+    return 1. - Ramp(Progress, 0., 1.);
+}
+
 inline constexpr double ClearanceProbeLength = 84.;
 
 inline double ClearanceBlend(double Distance)

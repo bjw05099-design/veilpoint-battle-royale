@@ -192,6 +192,8 @@ private:
     double LandedAt = -1000.;
     double LandedStrength = 0.;
     double SightBlend = 0.;
+    double EquipProgress = 1.;
+    TOptional<EVPWeaponModel> PresentedWeapon;
     double SprintWeaponBlend = 0.;
     double ObstructionBlend = 0.;
     VPWeaponView::FMotion WeaponViewMotion;
