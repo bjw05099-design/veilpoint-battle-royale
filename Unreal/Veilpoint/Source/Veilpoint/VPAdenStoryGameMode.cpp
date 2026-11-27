@@ -1102,6 +1102,7 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("terrainMetricUvSeams"), Terrain.DetailUvSeams);
         Report->SetBoolField(TEXT("terrainDetailAssetsStaged"), Source->GroundNormal && Source->GroundRoughness
             && Source->GroundColorVariation);
+        Report->SetBoolField(TEXT("propFinishesVerified"), Source->VerifyPropFinishes());
         Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
         Report->SetNumberField(TEXT("roadJoinTriangles"), Source->RoadJoinTriangleCount());

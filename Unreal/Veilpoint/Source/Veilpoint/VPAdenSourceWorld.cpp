@@ -1109,17 +1109,35 @@ const FVector StationDimensions[FieldPartCount] = {
     FVector(.39, .38, .055), FVector(.036, .037, 1.21), FVector(.07, .61, .31), FVector(.08, .53, .045)
 };
 const double StationHeight[FieldPartCount] = {3., 61., 121., 113.};
+
+struct FPropFinish
+{
+    float Roughness, Metallic, Grain;
+};
+
+constexpr FPropFinish PaintedFinish{.52f, 0.f, .34f};
+constexpr FPropFinish MetalFinish{.42f, .84f, .18f};
+constexpr FPropFinish WeatheredFinish{.76f, .12f, .58f};
+
+UMaterialInstanceDynamic* PropMaterial(UMaterialInterface* Base, UObject* Owner,
+    const FLinearColor& Tint, const FPropFinish& Finish)
+{
+    auto* Material = UMaterialInstanceDynamic::Create(Base, Owner);
+    Material->SetVectorParameterValue(TEXT("Tint"), Tint);
+    Material->SetScalarParameterValue(TEXT("FinishRoughness"), Finish.Roughness);
+    Material->SetScalarParameterValue(TEXT("FinishMetallic"), Finish.Metallic);
+    Material->SetScalarParameterValue(TEXT("FinishGrain"), Finish.Grain);
+    return Material;
+}
 }
 
 void AVPAdenSourceWorld::CreateFieldStations()
 {
+    auto* Metal = PropMaterial(StationMaterial, this, FLinearColor(.13f, .16f, .16f), MetalFinish);
     for (int32 Slot = 0; Slot < 2; ++Slot)
     {
         const auto Tint = Slot == 0 ? FLinearColor(.73f,.46f,.18f) : FLinearColor(.17f,.52f,.48f);
-        UMaterialInstanceDynamic* Painted = UMaterialInstanceDynamic::Create(StationMaterial, this);
-        Painted->SetVectorParameterValue(TEXT("Tint"), Tint);
-        UMaterialInstanceDynamic* Metal = UMaterialInstanceDynamic::Create(StationMaterial, this);
-        Metal->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.13f,.16f,.16f));
+        auto* Painted = PropMaterial(StationMaterial, this, Tint, PaintedFinish);
         for (int32 Part = 0; Part < FieldPartCount; ++Part)
         {
             auto* Mesh = NewObject<UStaticMeshComponent>(this);
@@ -1155,8 +1173,7 @@ void AVPAdenSourceWorld::ShowFieldStation(int32 Slot, bool bVisible, const FVect
 
 void AVPAdenSourceWorld::CreateRescueProps()
 {
-    auto* Color = UMaterialInstanceDynamic::Create(StationMaterial, this);
-    Color->SetVectorParameterValue(TEXT("Tint"), FLinearColor(.36f, .19f, .09f));
+    auto* Weathered = PropMaterial(StationMaterial, this, FLinearColor(.36f, .19f, .09f), WeatheredFinish);
     for (int32 Slot = 0; Slot < 4; ++Slot)
     {
         auto* Bar = NewObject<UStaticMeshComponent>(this);
@@ -1164,7 +1181,7 @@ void AVPAdenSourceWorld::CreateRescueProps()
         Bar->SetupAttachment(GetRootComponent());
         Bar->SetMobility(EComponentMobility::Movable);
         Bar->SetStaticMesh(StationMesh);
-        Bar->SetMaterial(0, Color);
+        Bar->SetMaterial(0, Weathered);
         Bar->SetCollisionProfileName(TEXT("BlockAllDynamic"));
         Bar->SetGenerateOverlapEvents(false);
         Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1183,6 +1200,25 @@ void AVPAdenSourceWorld::CreateRescueProps()
     CrossingLight->SetCastShadows(false);
     CrossingLight->SetVisibility(false);
     CrossingLight->RegisterComponent();
+}
+
+bool AVPAdenSourceWorld::VerifyPropFinishes() const
+{
+    if (FieldStationParts.Num() != 2 * FieldPartCount || RescueBarriers.Num() != 4) return false;
+    const auto Matches = [](const UStaticMeshComponent* Mesh, const FPropFinish& Finish)
+    {
+        const auto* Material = Mesh ? Mesh->GetMaterial(0) : nullptr;
+        float Roughness = 0.f, Metallic = 0.f, Grain = 0.f;
+        return Material
+            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishRoughness")), Roughness, true)
+            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishMetallic")), Metallic, true)
+            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishGrain")), Grain, true)
+            && FMath::IsNearlyEqual(Roughness, Finish.Roughness)
+            && FMath::IsNearlyEqual(Metallic, Finish.Metallic)
+            && FMath::IsNearlyEqual(Grain, Finish.Grain);
+    };
+    return Matches(FieldStationParts[0], MetalFinish) && Matches(FieldStationParts[2], PaintedFinish)
+        && Matches(FieldStationParts[FieldPartCount + 2], PaintedFinish) && Matches(RescueBarriers[0], WeatheredFinish);
 }
 
 bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised)
