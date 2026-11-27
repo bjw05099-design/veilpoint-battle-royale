@@ -40,6 +40,10 @@ render pieces. The model is created on demand for the local first-person camera
 and the active one alone is shown. Asset materials and poses represent the
 shapes for the game camera.
 
+The first-person view raises a newly presented model over 0.20 seconds.
+The sight view becomes available as the pose settles. Reopening the same view
+after a menu keeps the previous model available immediately.
+
 Reload times, range, distance damage, heat and reserve limits are gameplay
 parameters in `VPWeaponRules.h`. Story encounters assign a partly loaded
 magazine from their scripted supply. In the Battle Royale lobby, both models

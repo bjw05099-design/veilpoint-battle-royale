@@ -208,6 +208,11 @@ int main()
     assert(Pose(1., true, 0., 0.).BoltPull == 0.);
 
     using VPWeaponView::Approach;
+    using VPWeaponView::EquipWeight;
+    assert(EquipWeight(0.) == 1. && EquipWeight(.5) == .5 && EquipWeight(1.) == 0.);
+    double EquipProgress = 0.;
+    for (int Frame = 0; Frame < 12; ++Frame) EquipProgress = Approach(EquipProgress, true, 1. / 60., 5.);
+    assert(EquipWeight(EquipProgress) < 1.e-9);
     using VPWeaponView::CanRaiseSight;
     assert(CanRaiseSight(true, true, false, false, false));
     assert(!CanRaiseSight(true, true, true, false, false));

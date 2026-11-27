@@ -1442,6 +1442,16 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         const bool bSightRestored = FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::HipFov);
         DiagnosticReport->SetBoolField(TEXT("firstPersonSightVerified"), bSightRaised && bSightRestored);
         if (!bSightRaised || !bSightRestored) return false;
+        Pawn->PresentedWeapon.Reset();
+        Pawn->UpdateWeaponView(0.f);
+        const double EquipStartZ = Pawn->WeaponViewRoot->GetRelativeLocation().Z;
+        const bool bEquipStarted = Pawn->EquipProgress == 0.;
+        Pawn->UpdateWeaponView(.1f);
+        Pawn->UpdateWeaponView(.1f);
+        const bool bEquipVerified = bEquipStarted && Pawn->EquipProgress == 1.
+            && Pawn->WeaponViewRoot->GetRelativeLocation().Z > EquipStartZ + 8.;
+        DiagnosticReport->SetBoolField(TEXT("firstPersonEquipVerified"), bEquipVerified);
+        if (!bEquipVerified) return false;
         const FTransform Camera = DiagnosticCapture->GetRelativeTransform();
         DiagnosticCapture->SetWorldLocationAndRotation(Eye, Facing);
         DiagnosticCapture->CaptureScene();

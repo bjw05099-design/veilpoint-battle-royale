@@ -169,37 +169,45 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     if (Hidden.Root && Hidden.Root->IsVisible()) Hidden.Root->SetVisibility(false, true);
     if (bShow && !View.Root) CreateWeaponPresentation(View, WeaponModel);
     if (View.Root && View.Root->IsVisible() != bShow) View.Root->SetVisibility(bShow, true);
-    double SurfaceBlend = 0.;
-    if (bShow)
-    {
-        const FRotator Rotation = GetControlRotation();
-        const bool bAimingPose = bSightHeld && !bReloading && !bSprinting;
-        const FVector& PoseOffset = bAimingPose ? RaisedSight : Rest;
-        // Probe the presentation's shoulder offset so a door jamb can lower the rig.
-        const FVector Origin = BodyCamera->GetComponentLocation() + Rotation.RotateVector({0., PoseOffset.Y, PoseOffset.Z});
-        const FVector End = Origin + Rotation.Vector() * VPWeaponView::ClearanceProbeLength;
-        const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPWeaponViewClearance), true, this);
-        FHitResult Hit;
-        if (GetWorld()->SweepSingleByChannel(Hit, Origin, End, FQuat::Identity, ECC_Visibility,
-            FCollisionShape::MakeSphere(5.f), Query))
-            SurfaceBlend = VPWeaponView::ClearanceBlend(Hit.bStartPenetrating ? 0. : Hit.Distance);
-    }
-    bSightBlockedBySurface = bShow && VPWeaponView::SightBlockedBySurface(SurfaceBlend, bSightBlockedBySurface);
-    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, bSightBlockedBySurface);
-    SightBlend = VPWeaponView::Approach(SightBlend, bRaiseSight, DeltaSeconds, 6.);
-    ObstructionBlend = VPWeaponView::ApproachClearance(ObstructionBlend, SurfaceBlend, DeltaSeconds);
-    if (IsLocallyControlled())
-        BodyCamera->SetFieldOfView(bShow
-            ? FMath::Lerp(VPWeaponView::HipFov, VPWeaponView::SightFov, float(SightBlend)) : VPWeaponView::HipFov);
     if (!bShow || !View.Root)
     {
+        if (IsLocallyControlled()) BodyCamera->SetFieldOfView(VPWeaponView::HipFov);
         WeaponViewMotion = {};
         PreviousWeaponViewRotation.Reset();
         ObstructionBlend = 0.;
+        bSightBlockedBySurface = false;
         SightBlend = 0.;
+        EquipProgress = 1.;
         SprintWeaponBlend = 0.;
         return;
     }
+    if (!PresentedWeapon.IsSet() || PresentedWeapon.GetValue() != WeaponModel)
+    {
+        PresentedWeapon = WeaponModel;
+        EquipProgress = 0.;
+        SightBlend = 0.;
+    }
+    EquipProgress = VPWeaponView::Approach(EquipProgress, true, DeltaSeconds, 5.);
+    const double Equip = VPWeaponView::EquipWeight(EquipProgress);
+    const bool bReadyForSight = Equip <= .01;
+
+    const FRotator Rotation = GetControlRotation();
+    const bool bAimingPose = bSightHeld && bReadyForSight && !bReloading && !bSprinting;
+    const FVector& PoseOffset = bAimingPose ? RaisedSight : Rest;
+    // Probe the presentation's shoulder offset so a door jamb can lower the rig.
+    const FVector Origin = BodyCamera->GetComponentLocation() + Rotation.RotateVector({0., PoseOffset.Y, PoseOffset.Z});
+    const FVector End = Origin + Rotation.Vector() * VPWeaponView::ClearanceProbeLength;
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(VPWeaponViewClearance), true, this);
+    FHitResult Hit;
+    double SurfaceBlend = 0.;
+    if (GetWorld()->SweepSingleByChannel(Hit, Origin, End, FQuat::Identity, ECC_Visibility,
+        FCollisionShape::MakeSphere(5.f), Query))
+        SurfaceBlend = VPWeaponView::ClearanceBlend(Hit.bStartPenetrating ? 0. : Hit.Distance);
+    bSightBlockedBySurface = VPWeaponView::SightBlockedBySurface(SurfaceBlend, bSightBlockedBySurface);
+    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bReadyForSight, bReloading, bSprinting, bSightBlockedBySurface);
+    SightBlend = VPWeaponView::Approach(SightBlend, bRaiseSight, DeltaSeconds, 6.);
+    ObstructionBlend = VPWeaponView::ApproachClearance(ObstructionBlend, SurfaceBlend, DeltaSeconds);
+    BodyCamera->SetFieldOfView(FMath::Lerp(VPWeaponView::HipFov, VPWeaponView::SightFov, float(SightBlend)));
 
     const bool bEmpty = MagazineRounds == 0;
     const double Phase = bReloading ? 1. - double(ReloadSecondsRemaining()) /
@@ -211,7 +219,6 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const auto Pose = VPWeaponView::Pose(Phase, bEmpty, SprintWeaponBlend, ShotPulse);
     const FVector Position = FMath::Lerp(Rest, RaisedSight, SightBlend);
     const double Landing = VPWeaponView::LandingDip(GetWorld()->GetTimeSeconds() - LandedAt, LandedStrength);
-    const FRotator Rotation = GetControlRotation();
     const FRotator Turn = (Rotation - PreviousWeaponViewRotation.Get(Rotation)).GetNormalized();
     const auto* Movement = GetCharacterMovement();
     const FVector GroundVelocity = Movement->IsMovingOnGround() ? Movement->Velocity : FVector::ZeroVector;
@@ -221,19 +228,19 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
         Turn.Pitch, Turn.Yaw, DeltaSeconds, bCrouching, Movement->IsFalling());
     PreviousWeaponViewRotation = Rotation;
     const double Cycle = LocomotionCadence.Cycle() * 2. * UE_DOUBLE_PI;
-    const double MotionBlend = (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
+    const double MotionBlend = (1. - Equip) * (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
     const double Gait = WeaponViewMotion.Pace * (1. - .5 * WeaponViewMotion.Crouch) * (1. - WeaponViewMotion.Air);
     const double StepSide = FMath::Sin(Cycle) * Gait;
     const double StepRise = -FMath::Cos(2. * Cycle) * Gait;
     const double StanceLower = 2.2 * WeaponViewMotion.Crouch + 3. * WeaponViewMotion.Air;
     WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
         (1.4 * StepSide + 1.2 * WeaponViewMotion.Strafe) * MotionBlend,
-        -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)
+        -Pose.Lower - 12. * Equip - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)
             + (StepRise - StanceLower) * MotionBlend));
     WeaponViewRoot->SetRelativeRotation(FRotator(
-        1.5 * ShotPulse - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend,
+        1.5 * ShotPulse - 10. * Equip - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend,
         WeaponViewMotion.YawLag * MotionBlend,
-        Pose.Roll + (1.8 * StepSide - 3. * WeaponViewMotion.Strafe) * MotionBlend));
+        Pose.Roll - 8. * Equip + (1.8 * StepSide - 3. * WeaponViewMotion.Strafe) * MotionBlend));
     View.Magazine->SetRelativeLocation(MagazineRest - FVector(0., 0., Pose.MagazineDrop));
     const double Bias = WeaponModel == EVPWeaponModel::AKM ? 19. : 7.;
     View.Magazine->SetRelativeRotation(FRotator(-Bias * Pose.MagazineDrop / VPWeaponView::MagazineTravel, 0., 0.));
