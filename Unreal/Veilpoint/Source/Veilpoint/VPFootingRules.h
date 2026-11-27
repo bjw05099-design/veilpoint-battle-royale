@@ -12,6 +12,17 @@ inline constexpr double HalfLength = 900.;
 inline constexpr float WetSpeedScale = .86f;
 inline constexpr float WetGripScale = .68f;
 
+constexpr double StepLengthCm(bool Crouching, bool Sprinting)
+{
+    return Crouching ? 105. : Sprinting ? 165. : 139.;
+}
+
+// Give near-stationary starts and reversals a grade before velocity builds.
+constexpr double GradeIntentWeight(double GroundSpeed)
+{
+    return GroundSpeed < 45. ? 45. - GroundSpeed : 0.;
+}
+
 // Normalized progress preserves the next footfall when the stance changes.
 inline bool AdvanceStep(double& Phase, double TravelCm, double StrideCm)
 {

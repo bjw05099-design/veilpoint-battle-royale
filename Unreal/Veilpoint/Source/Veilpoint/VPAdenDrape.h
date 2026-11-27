@@ -18,6 +18,25 @@ constexpr int SectorIndex(int X, int Y)
     return (Y / CellsPerSector) * SectorsPerAxis + X / CellsPerSector;
 }
 
+// Close the outside of a turn without extending the source centerline.
+// Both offsets point to the left of their respective segments.
+inline bool BevelJoin(FPoint Centre, FPoint IncomingLeft, FPoint OutgoingLeft, std::array<FPoint, 3>& Join)
+{
+    const double Turn = IncomingLeft.X * OutgoingLeft.Y - IncomingLeft.Y * OutgoingLeft.X;
+    if (std::abs(Turn) < 1.e-6) return false;
+    if (Turn > 0.)
+    {
+        Join = {Centre, {Centre.X - IncomingLeft.X, Centre.Y - IncomingLeft.Y},
+            {Centre.X - OutgoingLeft.X, Centre.Y - OutgoingLeft.Y}};
+    }
+    else
+    {
+        Join = {Centre, {Centre.X + OutgoingLeft.X, Centre.Y + OutgoingLeft.Y},
+            {Centre.X + IncomingLeft.X, Centre.Y + IncomingLeft.Y}};
+    }
+    return true;
+}
+
 struct FSectorRange { int West, North, East, South; };
 
 inline FSectorRange LocalAtlasSectors(FExtent View)

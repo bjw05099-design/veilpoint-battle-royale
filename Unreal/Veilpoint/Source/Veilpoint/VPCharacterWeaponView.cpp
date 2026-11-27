@@ -1,6 +1,7 @@
 #include "VPCharacter.h"
 
 #include "VPAdenStoryGameMode.h"
+#include "VPFootingRules.h"
 #include "VPGameState.h"
 #include "VPStoryGameState.h"
 #include "VPWeaponRules.h"
@@ -184,7 +185,8 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
             FCollisionShape::MakeSphere(5.f), Query))
             SurfaceBlend = VPWeaponView::ClearanceBlend(Hit.bStartPenetrating ? 0. : Hit.Distance);
     }
-    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, SurfaceBlend >= .25);
+    bSightBlockedBySurface = bShow && VPWeaponView::SightBlockedBySurface(SurfaceBlend, bSightBlockedBySurface);
+    const bool bRaiseSight = VPWeaponView::CanRaiseSight(bSightHeld, bShow, bReloading, bSprinting, bSightBlockedBySurface);
     SightBlend = VPWeaponView::Approach(SightBlend, bRaiseSight, DeltaSeconds, 6.);
     ObstructionBlend = VPWeaponView::ApproachClearance(ObstructionBlend, SurfaceBlend, DeltaSeconds);
     if (IsLocallyControlled())
@@ -194,6 +196,8 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     {
         WeaponViewMotion = {};
         PreviousWeaponViewRotation.Reset();
+        ObstructionBlend = 0.;
+        SightBlend = 0.;
         SprintWeaponBlend = 0.;
         return;
     }
@@ -213,16 +217,21 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const auto* Movement = GetCharacterMovement();
     const FVector GroundVelocity = Movement->IsMovingOnGround() ? Movement->Velocity : FVector::ZeroVector;
     const FVector Right = FRotator(0., Rotation.Yaw, 0.).RotateVector(FVector::RightVector);
+    const bool bCrouching = Movement->IsCrouching();
+    const double StepLength = VPFooting::StepLengthCm(bCrouching, bSprinting);
     VPWeaponView::AdvanceMotion(WeaponViewMotion, GroundVelocity.Size2D(), FVector::DotProduct(GroundVelocity, Right),
-        Turn.Pitch, Turn.Yaw, DeltaSeconds);
+        Turn.Pitch, Turn.Yaw, DeltaSeconds, StepLength, bCrouching, Movement->IsFalling());
     PreviousWeaponViewRotation = Rotation;
     const double Cycle = WeaponViewMotion.Phase * 2. * UE_DOUBLE_PI;
     const double MotionBlend = (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
-    const double StepSide = FMath::Sin(Cycle) * WeaponViewMotion.Pace;
-    const double StepRise = FMath::Cos(2. * Cycle) * WeaponViewMotion.Pace;
+    const double Gait = WeaponViewMotion.Pace * (1. - .5 * WeaponViewMotion.Crouch) * (1. - WeaponViewMotion.Air);
+    const double StepSide = FMath::Sin(Cycle) * Gait;
+    const double StepRise = -FMath::Cos(2. * Cycle) * Gait;
+    const double StanceLower = 2.2 * WeaponViewMotion.Crouch + 3. * WeaponViewMotion.Air;
     WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
         (1.4 * StepSide + 1.2 * WeaponViewMotion.Strafe) * MotionBlend,
-        -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend) + StepRise * MotionBlend));
+        -Pose.Lower - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)
+            + (StepRise - StanceLower) * MotionBlend));
     WeaponViewRoot->SetRelativeRotation(FRotator(
         1.5 * ShotPulse - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend,
         WeaponViewMotion.YawLag * MotionBlend,

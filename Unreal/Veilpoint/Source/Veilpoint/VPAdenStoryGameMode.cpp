@@ -1100,9 +1100,11 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("terrainWestJoinEdges"), Terrain.WestJoinEdges);
         Report->SetNumberField(TEXT("terrainCollisionHits"), Terrain.CollisionHits);
         Report->SetNumberField(TEXT("terrainMetricUvSeams"), Terrain.DetailUvSeams);
-        Report->SetBoolField(TEXT("terrainDetailAssetsStaged"), Source->GroundNormal && Source->GroundRoughness);
+        Report->SetBoolField(TEXT("terrainDetailAssetsStaged"), Source->GroundNormal && Source->GroundRoughness
+            && Source->GroundColorVariation);
         Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
+        Report->SetNumberField(TEXT("roadJoinTriangles"), Source->RoadJoinTriangleCount());
         Report->SetNumberField(TEXT("footprintOverlayTriangles"), FootprintTriangles);
         Report->SetNumberField(TEXT("filledFootprints"), Source->FilledFootprints());
         Report->SetNumberField(TEXT("footprintFillTriangles"), Source->FootprintFillTriangles());

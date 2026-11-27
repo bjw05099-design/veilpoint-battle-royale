@@ -8,7 +8,7 @@ import zlib
 from pathlib import Path
 
 SIZE = 256
-OUTPUTS = ("T_AdenGroundNormal", "T_AdenGroundRoughness")
+OUTPUTS = ("T_AdenGroundNormal", "T_AdenGroundRoughness", "T_AdenGroundColorVariation")
 
 
 def png(rows, color_type):
@@ -47,19 +47,23 @@ def create(output):
     def at(x, y):
         return heights[(y % SIZE) * SIZE + (x % SIZE)]
 
-    normals, roughness = [], []
+    normals, roughness, colors = [], [], []
     for y in range(SIZE):
-        nrow, rrow = bytearray(), bytearray()
+        nrow, rrow, crow = bytearray(), bytearray(), bytearray()
         for x in range(SIZE):
             dx, dy = (at(x + 1, y) - at(x - 1, y)) * 1.8, (at(x, y + 1) - at(x, y - 1)) * 1.8
             length = math.sqrt(1.0 + dx * dx + dy * dy)
             nrow.extend(round(127.5 * (1 + value / length)) for value in (-dx, -dy, 1.0))
-            rrow.append(round(255 * max(.76, min(.99, .88 + .13 * at(x, y)))))
+            height = at(x, y)
+            rrow.append(round(255 * max(.76, min(.99, .88 + .13 * height))))
+            crow.append(round(255 * max(0., min(1., .5 + .56 * height))))
         normals.append(nrow)
         roughness.append(rrow)
+        colors.append(crow)
     paths = [output / (name + ".png") for name in OUTPUTS]
     paths[0].write_bytes(png(normals, 2))
     paths[1].write_bytes(png(roughness, 0))
+    paths[2].write_bytes(png(colors, 0))
     return paths
 
 

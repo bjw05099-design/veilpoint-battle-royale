@@ -78,7 +78,8 @@ if ($report.westGroundSamples -ne 1025 -or $report.westCapsuleSweepMetres -ne 10
     $report.westFieldMapVerified -ne $true -or $report.westGradeDirectionsVerified -ne $true) {
     throw 'Aden west terrain failed the capsule crossing or atlas verification.'
 }
-if ($report.roadOverlayTriangles -lt 183 -or $report.footprintOverlayTriangles -lt 4865 -or
+if ($report.roadOverlayTriangles -lt 183 -or $report.roadJoinTriangles -le 0 -or
+    $report.roadJoinTriangles -ge $report.roadOverlayTriangles -or $report.footprintOverlayTriangles -lt 4865 -or
     $null -eq $report.overlayMaxGapErrorCm -or $report.overlayMaxGapErrorCm -gt 0.02) {
     throw 'Aden road and footprint overlays do not conform to the playable surface.'
 }

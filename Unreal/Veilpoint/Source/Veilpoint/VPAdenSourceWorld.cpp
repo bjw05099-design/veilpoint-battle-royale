@@ -511,7 +511,7 @@ int32 AddDrapedSurface(const FGeometry& Geometry, const std::array<VPAdenAtlas::
 }
 
 int32 AddShapeOutlines(const FGeometry& Geometry, const FShapes& Shapes, bool bFootprints,
-    TArray<FMesh>& Surfaces, double& MaxGapError)
+    TArray<FMesh>& Surfaces, double& MaxGapError, int32* JoinTriangles = nullptr)
 {
     const double HalfWidth = bFootprints ? 14. : 21.;
     const double Lift = bFootprints ? 8. : 10.;
@@ -525,11 +525,24 @@ int32 AddShapeOutlines(const FGeometry& Geometry, const FShapes& Shapes, bool bF
         const FLinearColor Color = bFootprints ? FLinearColor(.49f, .15f, .06f, 0.f)
             : FLinearColor(Stroke.Red, Stroke.Green, Stroke.Blue, 0.f);
         const int32 Segments = Shape.Num() - (bFootprints ? 0 : 1);
+        FVector2D PreviousLeft = FVector2D::ZeroVector;
         for (int32 I = 0; I < Segments; ++I)
         {
             const FVector2D A = Shape[I], B = Shape[(I + 1) % Shape.Num()];
             const FVector2D Direction = B - A;
             const FVector2D Left = FVector2D(-Direction.Y, Direction.X).GetSafeNormal() * HalfWidth;
+            if (Left.IsZero()) continue;
+            if (JoinTriangles)
+            {
+                std::array<VPAdenAtlas::FPoint, 3> Join;
+                if (VPAdenDrape::BevelJoin(Point(A), Point(PreviousLeft), Point(Left), Join))
+                {
+                    const int32 Count = AddDrapedSurface(Geometry, Join, Lift, Color, Surfaces, MaxGapError);
+                    *JoinTriangles += Count;
+                    Added += Count;
+                }
+                PreviousLeft = Left;
+            }
             const int32 Pieces = FMath::Max(1, int32(FMath::CeilToInt(Direction.Size() / SegmentSize)));
             for (int32 Piece = 0; Piece < Pieces; ++Piece)
             {
@@ -694,6 +707,8 @@ bool AVPAdenSourceWorld::BuildSource()
         {
             Material->SetTextureParameterValue(TEXT("AdenGroundNormal"), GroundNormal);
             Material->SetTextureParameterValue(TEXT("AdenGroundRoughness"), GroundRoughness);
+            if (GroundColorVariation)
+                Material->SetTextureParameterValue(TEXT("AdenGroundColorVariation"), GroundColorVariation);
             Material->SetScalarParameterValue(TEXT("AdenGroundDetailStrength"), .74f);
         }
     }
@@ -724,7 +739,7 @@ bool AVPAdenSourceWorld::BuildSource()
     }
     TArray<FMesh> Surfaces;
     Surfaces.SetNum(SurfaceSectors);
-    RoadTriangleCount = AddShapeOutlines(Geometry, Geometry.Roads, false, Surfaces, MaxOverlayGapError);
+    RoadTriangleCount = AddShapeOutlines(Geometry, Geometry.Roads, false, Surfaces, MaxOverlayGapError, &RoadJoinTriangles);
     FootprintTriangleCount = AddShapeOutlines(Geometry, Geometry.Footprints, true, Surfaces, MaxOverlayGapError);
     FilledFootprintCount = AddFootprintFill(Geometry, Surfaces, MaxOverlayGapError, FootprintFillTriangleCount);
     for (auto& Surface : Surfaces)

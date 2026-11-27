@@ -60,10 +60,11 @@ def import_ground_detail():
     project = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
     generator = runpy.run_path(str(Path(__file__).with_name("build-aden-ground-detail.py")))
     paths = generator["create"](project / "Saved" / "Veilpoint" / "GroundDetailSource")
-    compression = (unreal.TextureCompressionSettings.TC_NORMALMAP,
-                   unreal.TextureCompressionSettings.TC_GRAYSCALE)
+    specs = (("ground_normal", unreal.TextureCompressionSettings.TC_NORMALMAP),
+             ("ground_roughness", unreal.TextureCompressionSettings.TC_GRAYSCALE),
+             ("ground_color_variation", unreal.TextureCompressionSettings.TC_GRAYSCALE))
     textures = {}
-    for prop, path, settings in zip(("ground_normal", "ground_roughness"), paths, compression):
+    for path, (prop, settings) in zip(paths, specs, strict=True):
         target = GROUND_PACKAGE + "/" + path.stem
         if unreal.EditorAssetLibrary.does_asset_exist(target):
             raise RuntimeError("Refusing to overwrite existing Aden ground art: " + target)
@@ -87,7 +88,7 @@ def import_ground_detail():
     return textures
 
 
-def connect_ground_detail(material, textures):
+def connect_ground_detail(material, textures, atlas_blend):
     graph = unreal.MaterialEditingLibrary
     uv = graph.create_material_expression(material, unreal.MaterialExpressionTextureCoordinate)
     uv.set_editor_property("coordinate_index", 1)
@@ -139,6 +140,24 @@ def connect_ground_detail(material, textures):
     link(rough, "R", rough_blend, "B")
     link(weight, "", rough_blend, "Alpha")
     assign(rough_blend, "", unreal.MaterialProperty.MP_ROUGHNESS)
+
+    variation = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
+    variation.set_editor_property("texture", textures["ground_color_variation"])
+    variation.set_editor_property("parameter_name", "AdenGroundColorVariation")
+    variation.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
+    link(uv, "", variation, "")
+    remap = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    remap.set_editor_property("const_a", .74)
+    remap.set_editor_property("const_b", 1.26)
+    link(variation, "R", remap, "Alpha")
+    tint = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    tint.set_editor_property("const_a", 1.0)
+    link(remap, "", tint, "B")
+    link(weight, "", tint, "Alpha")
+    albedo = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
+    link(atlas_blend, "", albedo, "A")
+    link(tint, "", albedo, "B")
+    assign(albedo, "", unreal.MaterialProperty.MP_BASE_COLOR)
 
 
 def import_sounds(samples, names, output):
@@ -241,8 +260,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     graph.connect_material_expressions(atlas_weight, "", blend, "Alpha")
     graph.connect_material_expressions(color, "", blend, "A")
     graph.connect_material_expressions(source_color, "RGB", blend, "B")
-    graph.connect_material_property(blend, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    connect_ground_detail(material, ground_detail)
+    connect_ground_detail(material, ground_detail, blend)
     graph.recompile_material(material)
     if not assets.save_loaded_asset(material):
         raise RuntimeError("Aden vertex-color material did not save")

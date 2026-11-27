@@ -182,6 +182,7 @@ private:
     void CreateWeaponPresentation(FVPFirstPersonWeapon& View, EVPWeaponModel Model);
     void UpdateWeaponView(float DeltaSeconds);
     bool bSightHeld = false;
+    bool bSightBlockedBySurface = false;
     double LandedAt = -1000.;
     double LandedStrength = 0.;
     double SightBlend = 0.;
