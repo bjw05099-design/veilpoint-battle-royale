@@ -10,6 +10,11 @@
   pull requests for overlapping work, and use GitHub to record the changes and
   validation results. For an existing fix, verify its current branch before
   opening a new pull request.
+- Use available Codex capacity for development. When limits are visible,
+  check the remaining five-hour and weekly allowance before a large increment
+  and at validation milestones. Leave enough allowance to complete the
+  current increment, verify it and record a clear handoff before starting
+  another large one.
 
 ## Production development
 
