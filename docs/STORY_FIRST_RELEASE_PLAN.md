@@ -8,18 +8,17 @@ material for regression and migration.
 
 | Development area | Share | Acceptance focus |
 |---|---:|---|
-| Firearms, weapon engine, physics engine and maps | **80%** | Firearm assets, reusable weapon systems, physical behavior, sourced terrain and public geometry, collision, traversal and atlas controls |
-| Single-player story campaign | **20%** | Playable chapters, dialogue and cinematics, authored encounters, chapter integration, solo save/recovery and offline completion |
-| Battle Royale | **0%** | Mode-specific development is paused pending a new allocation from the user |
+| Gameplay firearms, weapon engine, physics engine, map implementation, animation and textures | **100%** | Shared UE5.8 assets and gameplay systems, collision and traversal, sourced terrain and public geometry, character and view animation, textures and materials |
+| Single-player story campaign | **0%** | Chapter authoring and integration are paused |
+| Battle Royale | **0%** | Mode-specific development is paused |
 
-The November 25 allocation applies to ongoing development effort. Select
-the mix within the combined 80% according to the next playable milestone.
-Count shared system work once in that share and chapter integration under
-story mode. Count stabilization under the area being improved.
+The November 28 allocation applies until the user changes it. Select the mix
+within the shared group according to the next playable milestone. Count each
+shared change and its stabilization once.
 
 ## Reusable foundations and chapter content
 
-Prioritize reusable UE5.8 foundations within each development share. Build and
+Prioritize reusable UE5.8 foundations. Build and
 validate reusable Aden terrain, navigation and collision, textures and
 materials, character animation, physics interactions, and gameplay weapon and
 combat systems through representative playable sections. Reuse the systems
@@ -41,11 +40,10 @@ reusable world assets and gameplay systems from that content. Keep checkpoint
 identifiers stable and provide migration when a saved state needs to move to
 a different beat.
 
-Use a representative CH01 scene to verify the separation as the foundations
-improve. Change dialogue, a cinematic cue or an objective, then verify that
-the scene can still reuse the map, animations and combat systems and that
-existing checkpoints can resume. Record which content was changed and what
-was verified before applying the pattern to more chapters.
+Use an existing playable scene to verify affected shared assets and gameplay
+as the foundations improve. When a change affects save recovery, verify that
+existing checkpoints still resume. Record the shared change and what the
+playable regression covered.
 
 ## Release sequence
 

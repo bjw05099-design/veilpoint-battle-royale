@@ -25,20 +25,17 @@
 
 - Preserve Windows PC keyboard/mouse controls, F interaction, and middle-click
   marking. Story and Battle Royale ship separately, with story first.
-- Allocate ongoing development effort 80% to firearms, the weapon engine,
-  the physics engine and maps as a group, 20% to story mode, and 0% to Battle
-  Royale. Pause Battle Royale-specific development until the user assigns it
-  a new share. Count shared weapon and physics systems, terrain and map
-  collision once in the 80% group. Count chapter integration under story
-  mode and stabilization under the area being improved. Follow explicit
-  user instructions for individual sessions.
-- Prioritize reusable Unreal foundations within that allocation: maps, textures
-  and materials, character animation, physics and collision, and gameplay
-  weapon and combat systems. Author dialogue, cinematics, objectives, branches
-  and encounter placements as chapter content layered on those foundations.
-  Keep checkpoint identifiers stable and preserve or migrate old saves when
-  progression changes. Validate the separation in a playable chapter by
-  changing a story beat and checking the reused assets, gameplay and saves.
+- Allocate 100% of ongoing development to the shared Unreal foundations:
+  gameplay firearms, the weapon engine, the physics engine, map implementation,
+  animation, and textures and their materials. Story mode and Battle Royale
+  each have a 0% share. Keep this allocation until the user changes it.
+  Count shared work and its stabilization once. Choose the mix within the
+  shared group for the next playable increment.
+- Keep dialogue, cinematics, objectives, branches and encounter placement
+  in chapter-owned content. Existing playable scenes can serve as regression
+  fixtures for shared work. Check reused assets, gameplay and save recovery
+  when a foundation change affects them. Preserve checkpoint identifiers and
+  save compatibility.
   See [story-first development plan](docs/STORY_FIRST_RELEASE_PLAN.md#reusable-foundations-and-chapter-content).
 - Develop shared world and gameplay physics to the [native physics production standard](docs/NATIVE_PHYSICS_STANDARD.md).
   Use measured physical references where available and verify representative
