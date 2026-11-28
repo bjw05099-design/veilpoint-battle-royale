@@ -10,6 +10,7 @@ import unreal
 
 ADEN_PACKAGE = "/Game/Maps/CH01_Aden"
 ADEN_MATERIAL = "/Game/Materials/M_AdenSourceVertex"
+ADEN_BACKDROP_MATERIAL = "/Game/Materials/M_AdenSourceBackdrop"
 ADEN_MODE = "/Script/Veilpoint.VPAdenStoryGameMode"
 ADEN_ACTOR = "/Script/Veilpoint.VPAdenSourceWorld"
 ATLAS_PACKAGE = "/Game/Maps/AdenAtlas"
@@ -278,9 +279,46 @@ def create_station_material(grain_texture):
     return material
 
 
+def create_terrain_material(path, relief, detail=None):
+    package, name = path.rsplit("/", 1)
+    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, package, unreal.Material, unreal.MaterialFactoryNew())
+    if not material:
+        raise RuntimeError("Cannot create native Aden terrain material: " + path)
+
+    graph = unreal.MaterialEditingLibrary
+    color = graph.create_material_expression(material, unreal.MaterialExpressionVertexColor)
+    material.set_editor_property("two_sided", True)
+    source_color = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
+    source_color.set_editor_property("parameter_name", "AdenRelief")
+    source_color.set_editor_property("texture", relief)
+    blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+    atlas_weight = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
+    atlas_weight.set_editor_property("const_b", 0.28)
+    inputs = ((color, "A", atlas_weight, "A"), (atlas_weight, "", blend, "Alpha"),
+              (color, "", blend, "A"), (source_color, "RGB", blend, "B"))
+    if not all(graph.connect_material_expressions(*connection) for connection in inputs):
+        raise RuntimeError("Aden terrain material could not connect its sourced color: " + path)
+
+    if detail is not None:
+        connect_ground_detail(material, detail, blend)
+    else:
+        roughness = graph.create_material_expression(material, unreal.MaterialExpressionConstant)
+        roughness.set_editor_property("r", .94)
+        if not all(graph.connect_material_property(node, "", prop) for node, prop in
+                   ((blend, unreal.MaterialProperty.MP_BASE_COLOR), (roughness, unreal.MaterialProperty.MP_ROUGHNESS))):
+            raise RuntimeError("Aden backdrop material could not connect its surface properties")
+
+    graph.layout_material_expressions(material)
+    graph.recompile_material(material)
+    if not unreal.EditorAssetLibrary.save_loaded_asset(material):
+        raise RuntimeError("Aden terrain material did not save: " + path)
+    return material
+
+
 def author_aden_ch01(configure_daylight, verify_saved_daylight):
     assets = unreal.EditorAssetLibrary
-    if assets.does_asset_exist(ADEN_PACKAGE) or assets.does_asset_exist(ADEN_MATERIAL):
+    if any(assets.does_asset_exist(path) for path in (ADEN_PACKAGE, ADEN_MATERIAL, ADEN_BACKDROP_MATERIAL)):
         raise RuntimeError("Aden map or material exists; use a clean authoring checkout")
     mode, source_class = unreal.load_class(None, ADEN_MODE), unreal.load_class(None, ADEN_ACTOR)
     if not mode or not source_class:
@@ -299,27 +337,9 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     station_mesh = assets.load_asset("/Engine/BasicShapes/Cube")
     if not station_mesh:
         raise RuntimeError("Native station mesh is missing")
-    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
-        "M_AdenSourceVertex", "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
-    if not material:
-        raise RuntimeError("Cannot create native Aden vertex-color material")
+    material = create_terrain_material(ADEN_MATERIAL, atlas["local_atlas"], ground_detail)
+    backdrop = create_terrain_material(ADEN_BACKDROP_MATERIAL, atlas["local_atlas"])
     graph = unreal.MaterialEditingLibrary
-    color = graph.create_material_expression(material, unreal.MaterialExpressionVertexColor)
-    material.set_editor_property("two_sided", True)
-    source_color = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
-    source_color.set_editor_property("parameter_name", "AdenRelief")
-    source_color.set_editor_property("texture", atlas["local_atlas"])
-    blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
-    atlas_weight = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
-    atlas_weight.set_editor_property("const_b", 0.28)
-    graph.connect_material_expressions(color, "A", atlas_weight, "A")
-    graph.connect_material_expressions(atlas_weight, "", blend, "Alpha")
-    graph.connect_material_expressions(color, "", blend, "A")
-    graph.connect_material_expressions(source_color, "RGB", blend, "B")
-    connect_ground_detail(material, ground_detail, blend)
-    graph.recompile_material(material)
-    if not assets.save_loaded_asset(material):
-        raise RuntimeError("Aden vertex-color material did not save")
 
     world = editor.get_editor_world()
     world.get_world_settings().set_editor_property("default_game_mode", mode)
@@ -328,6 +348,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     if not source:
         raise RuntimeError("Cannot place native Aden source actor")
     source.set_editor_property("vertex_color_material", material)
+    source.set_editor_property("backdrop_material", backdrop)
     source.set_editor_property("station_mesh", station_mesh)
     source.set_editor_property("station_material", station_material)
     source.set_editor_property("wind_sound", ambience)
@@ -351,13 +372,14 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     reloaded = [actor for actor in actors.get_all_level_actors() if actor.get_class() == source_class]
     if len(reloaded) != 1:
         raise RuntimeError("Reloaded Aden map must reference one registered source")
-    saved_material = reloaded[0].get_editor_property("vertex_color_material")
-    if not saved_material or saved_material.get_path_name() != ADEN_MATERIAL + ".M_AdenSourceVertex":
-        raise RuntimeError("Reloaded Aden map lost its cooked material reference")
+    for prop, expected in (("vertex_color_material", material), ("backdrop_material", backdrop)):
+        saved_material = reloaded[0].get_editor_property(prop)
+        if not saved_material or saved_material.get_path_name() != expected.get_path_name():
+            raise RuntimeError("Reloaded Aden map lost its cooked material reference: " + prop)
+        if not saved_material.get_editor_property("two_sided"):
+            raise RuntimeError("Reloaded Aden material lost two-sided terrain rendering: " + prop)
     if editor.get_editor_world().get_world_settings().get_editor_property("default_game_mode") != mode:
         raise RuntimeError("Reloaded Aden map lost its story GameMode")
-    if not saved_material.get_editor_property("two_sided"):
-        raise RuntimeError("Reloaded Aden material lost two-sided terrain rendering")
     for prop, texture in {**atlas, **ground_detail}.items():
         observed = reloaded[0].get_editor_property(prop)
         if not observed or observed.get_path_name() != texture.get_path_name():
@@ -385,6 +407,7 @@ def author_aden_ch01(configure_daylight, verify_saved_daylight):
     receipt = {"schema": "veilpoint-native-aden-authoring-v1", "map": ADEN_PACKAGE, "gameMode": ADEN_MODE,
                "mapSha256": hashlib.sha256(binary).hexdigest(), "mapBytes": len(binary),
                "sourceActorCount": len(reloaded), "atlasTextureCount": len(atlas), "groundDetailTextures": len(ground_detail),
+               "terrainMaterialsSaved": True,
                "fieldAudioCount": 5,
                "prologueVoiceCount": len(voice), "prologueBedCount": len(beds),
                "fieldStationSaved": True, "savedReloadVerified": True, "daylight": daylight}

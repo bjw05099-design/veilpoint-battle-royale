@@ -93,6 +93,7 @@ public:
     const FString& Revision() const { return SourceRevision; }
     FVPAdenRegionalCheck VerifyRegionalTiles() const;
     FVPAdenTerrainCheck VerifyTerrainSectors() const;
+    bool VerifyTerrainMaterials() const;
     bool VerifyPropFinishes() const;
     int32 RoadOverlayTriangles() const { return RoadTriangleCount; }
     int32 RoadJoinTriangleCount() const { return RoadJoinTriangles; }
@@ -110,6 +111,9 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UMaterialInterface> VertexColorMaterial;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UMaterialInterface> BackdropMaterial;
 
     UPROPERTY(EditAnywhere, Category="Aden surface")
     TObjectPtr<UTexture2D> GroundNormal;
