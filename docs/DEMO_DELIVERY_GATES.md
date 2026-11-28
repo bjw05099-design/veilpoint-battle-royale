@@ -8,6 +8,9 @@ physics engine, map implementation, animation, and textures and their
 materials. Story mode and Battle Royale each have a 0% share until the user
 changes the allocation. November 27 was the demo candidate target.
 
+Map implementation covers playable Unreal levels, terrain, geometry and
+collision. Work on in-game map interfaces is paused.
+
 ## Native story demo gate
 
 - [ ] Compile the exact project revision with UnrealBuildTool on Windows.

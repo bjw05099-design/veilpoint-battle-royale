@@ -36,6 +36,10 @@
   each have a 0% share. Keep this allocation until the user changes it.
   Count shared work and its stabilization once. Choose the mix within the
   shared group for the next playable increment.
+- Map implementation covers playable Unreal levels, sourced terrain and
+  geometry, traversal and collision. Pause development on the field map,
+  regional atlas, minimap and their controls, pins and display layers until
+  the user resumes map interface work.
 - Keep dialogue, cinematics, objectives, branches and encounter placement
   in chapter-owned content. Existing playable scenes can serve as regression
   fixtures for shared work. Check reused assets, gameplay and save recovery
