@@ -78,7 +78,7 @@ test('Aden lift rejects an occupied swept path before moving and pauses story pr
   assert.match(mode, /if \(Reach != EReach::Ready\) return Reach;[\s\S]*?Query\.AddIgnoredComponent\(OperatingBarrier\)[\s\S]*?LineTraceTestByChannel\(Eye, Point, ECC_Visibility, Query\)/);
 });
 
-test('Aden detail art is repeatable and all three channels use the separate terrain UVs', () => {
+test('Aden soil and rock detail tiles are distinct, deterministic and seamless', () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-ground-detail-'));
   try {
     const script = path.join(__dirname, '../scripts/build-aden-ground-detail.py');
@@ -87,16 +87,19 @@ test('Aden detail art is repeatable and all three channels use the separate terr
       const python = process.platform === 'win32' ? 'python' : 'python3';
       const result = spawnSync(python, [script, out], {encoding: 'utf8', timeout: 12000});
       assert.equal(result.status, 0, result.error?.message || result.stderr);
-      return ['T_AdenGroundNormal', 'T_AdenGroundRoughness', 'T_AdenGroundColorVariation']
+      return ['T_AdenGroundNormal', 'T_AdenGroundRoughness', 'T_AdenGroundColorVariation',
+        'T_AdenRockNormal', 'T_AdenRockRoughness', 'T_AdenRockColorVariation']
         .map(name => fs.readFileSync(path.join(out, name + '.png')));
     };
     const art = build('first');
     assert.deepEqual(art, build('repeat'));
+    for (let i = 0; i < 3; ++i) assert.notDeepEqual(art[i], art[i + 3]);
     for (const [index, png] of art.entries()) {
-      const channels = index ? 1 : 3;
+      const kind = index % 3;
+      const channels = kind ? 1 : 3;
       assert.equal(png.readUInt32BE(16), 256);
       assert.equal(png.readUInt32BE(20), 256);
-      assert.equal(png[25], index ? 0 : 2);
+      assert.equal(png[25], kind ? 0 : 2);
       const data = inflateSync(png.subarray(41, 41 + png.readUInt32BE(33)));
       const stride = 1 + 256 * channels;
       assert.equal(data.length, 256 * stride);
@@ -113,14 +116,14 @@ test('Aden detail art is repeatable and all three channels use the separate terr
         for (let x = 0; x < 256; x++) {
           const at = row + 1 + x * channels;
           diversity.add(data[at]);
-          if (index === 0) assert.ok(data[at + 2] >= 200, 'the artistic surface normals always point outward');
-          if (index === 1) assert.ok(data[at] >= 194 && data[at] <= 253);
+          if (kind === 0) assert.ok(data[at + 2] >= (index < 3 ? 200 : 165), 'surface normals retain an upward component');
+          if (kind === 1) assert.ok(data[at] >= (index < 3 ? 194 : 148) && data[at] <= 253);
         }
       }
       assert.ok(seamX < adjacentX * 2 + 256);
       assert.ok(seamY < adjacentY * 2 + 256);
       assert.ok(diversity.size > 16);
-      if (index === 2) assert.ok(diversity.has(128) && Math.max(...diversity) - Math.min(...diversity) > 80);
+      if (kind === 2) assert.ok(diversity.has(128) && Math.max(...diversity) - Math.min(...diversity) > 80);
     }
   } finally {
     fs.rmSync(temp, {recursive: true, force: true});
@@ -130,6 +133,8 @@ test('Aden detail art is repeatable and all three channels use the separate terr
   assert.match(world, /GroundDetailTileCm = 256\.[\s\S]*?UVs\.Emplace\(Point\.X \/ GroundDetailTileCm, Point\.Y \/ GroundDetailTileCm\)/);
   assert.match(world, /A\.UV1 == B\.UV1[\s\S]*?A\.Tangent\.TangentX == B\.Tangent\.TangentX/);
   assert.match(author, /coordinate_index", 1[\s\S]*?MP_NORMAL[\s\S]*?MP_ROUGHNESS[\s\S]*?MP_BASE_COLOR/);
+  assert.match(author, /coordinate_index", 2[\s\S]*?AdenRockNormal[\s\S]*?AdenRockRoughness/);
+  assert.match(world, /UV0, UV1, UV2, EmptyUV[\s\S]*?A\.UV2 == B\.UV2/);
 });
 
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
@@ -184,6 +189,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
     const cpp = `
       #include "VPAdenAtlasProjection.h"
       #include "VPAdenContours.h"
+      #include "VPAdenTerrainSurface.h"
       #include "VPAdenDrape.h"
       #include "VPAdenFootprint.h"
       #include "VPAdenRegionalGrid.h"
@@ -242,6 +248,14 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           assert(lines.empty());
         }
         const auto split = Crop(Playable, {West.East, 0.}, 3);
+        {
+          using namespace VPAdenTerrainSurface;
+          assert(RockWeight(1.) == 0. && RockWeight(.80) == 1.);
+          assert(RockWeight(.95) > 0. && RockWeight(.95) < 1.);
+          static_assert(EdgeWeight({Playable.West, 0.}, Playable, 3200.) == 0.);
+          static_assert(EdgeWeight({Playable.West + 1600., 0.}, Playable, 3200.) == .5);
+          static_assert(EdgeWeight({West.East, 0.}, Playable, 3200.) == 1.);
+        }
         const auto left = Intersection(split, West), right = Intersection(split, Local);
         assert(left.East == right.West && left.Width() + right.Width() == split.Width());
         assert(Intersection(Crop(Playable, {West.West, 0.}, 3), Local).Width() < 0.);

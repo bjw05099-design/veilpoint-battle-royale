@@ -1100,8 +1100,13 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Report->SetNumberField(TEXT("terrainWestJoinEdges"), Terrain.WestJoinEdges);
         Report->SetNumberField(TEXT("terrainCollisionHits"), Terrain.CollisionHits);
         Report->SetNumberField(TEXT("terrainMetricUvSeams"), Terrain.DetailUvSeams);
+        Report->SetNumberField(TEXT("terrainSurfaceUvSeams"), Terrain.SurfaceUvSeams);
+        Report->SetNumberField(TEXT("terrainSoilVertices"), Terrain.SoilVertices);
+        Report->SetNumberField(TEXT("terrainRockVertices"), Terrain.RockVertices);
+        Report->SetNumberField(TEXT("terrainTransitionVertices"), Terrain.TransitionVertices);
+        Report->SetNumberField(TEXT("terrainDetailFadeVertices"), Terrain.DetailFadeVertices);
         Report->SetBoolField(TEXT("terrainDetailAssetsStaged"), Source->GroundNormal && Source->GroundRoughness
-            && Source->GroundColorVariation);
+            && Source->GroundColorVariation && Source->RockNormal && Source->RockRoughness && Source->RockColorVariation);
         Report->SetBoolField(TEXT("propFinishesVerified"), Source->VerifyPropFinishes());
         Report->SetNumberField(TEXT("terrainMaxCollisionErrorCm"), Terrain.MaxCollisionError);
         Report->SetNumberField(TEXT("roadOverlayTriangles"), RoadTriangles);
@@ -1135,6 +1140,14 @@ void AVPAdenStoryGameMode::RunDiagnostic()
                 FRotator(-61., Street.Rotation().Yaw, 0.));
             DiagnosticCapture->CaptureScene();
             bPassed = ReadFrame(TEXT("aden-ground-detail")) && bPassed;
+            if (Terrain.bHasRockSample)
+            {
+                DiagnosticCapture->SetWorldLocationAndRotation(Terrain.RockSample + FVector(0., 0., 350.),
+                    FRotator(-86., 0., 0.));
+                DiagnosticCapture->CaptureScene();
+                bPassed = ReadFrame(TEXT("aden-rock-detail")) && bPassed;
+            }
+            else bPassed = false;
             DiagnosticCapture->SetWorldLocationAndRotation(Source->Station(0) + FVector(0., 0., 72000.),
                 FRotator(-14., 180., 0.));
             DiagnosticCapture->CaptureScene();

@@ -62,7 +62,10 @@ def import_ground_detail():
     paths = generator["create"](project / "Saved" / "Veilpoint" / "GroundDetailSource")
     specs = (("ground_normal", unreal.TextureCompressionSettings.TC_NORMALMAP),
              ("ground_roughness", unreal.TextureCompressionSettings.TC_GRAYSCALE),
-             ("ground_color_variation", unreal.TextureCompressionSettings.TC_GRAYSCALE))
+             ("ground_color_variation", unreal.TextureCompressionSettings.TC_GRAYSCALE),
+             ("rock_normal", unreal.TextureCompressionSettings.TC_NORMALMAP),
+             ("rock_roughness", unreal.TextureCompressionSettings.TC_GRAYSCALE),
+             ("rock_color_variation", unreal.TextureCompressionSettings.TC_GRAYSCALE))
     textures = {}
     for path, (prop, settings) in zip(paths, specs, strict=True):
         target = GROUND_PACKAGE + "/" + path.stem
@@ -92,6 +95,8 @@ def connect_ground_detail(material, textures, atlas_blend):
     graph = unreal.MaterialEditingLibrary
     uv = graph.create_material_expression(material, unreal.MaterialExpressionTextureCoordinate)
     uv.set_editor_property("coordinate_index", 1)
+    surface_uv = graph.create_material_expression(material, unreal.MaterialExpressionTextureCoordinate)
+    surface_uv.set_editor_property("coordinate_index", 2)
     strength = graph.create_material_expression(material, unreal.MaterialExpressionScalarParameter)
     strength.set_editor_property("parameter_name", "AdenGroundDetailStrength")
     strength.set_editor_property("default_value", 0.0)
@@ -107,49 +112,73 @@ def connect_ground_detail(material, textures, atlas_blend):
         if not graph.connect_material_property(source, output, prop):
             raise RuntimeError("Aden ground detail material output could not be connected: " + str(prop))
 
+    def sample(key, parameter, sampler):
+        node = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
+        node.set_editor_property("texture", textures[key])
+        node.set_editor_property("parameter_name", parameter)
+        node.set_editor_property("sampler_type", sampler)
+        link(uv, "", node, "")
+        return node
+
+    def mix(low, high, channel, alpha):
+        node = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
+        link(low, channel, node, "A")
+        link(high, channel, node, "B")
+        link(alpha, "", node, "Alpha")
+        return node
+
+    rock_weight = graph.create_material_expression(material, unreal.MaterialExpressionComponentMask)
+    rock_weight.set_editor_property("r", True)
+    rock_weight.set_editor_property("g", False)
+    rock_weight.set_editor_property("b", False)
+    rock_weight.set_editor_property("a", False)
+    link(surface_uv, "", rock_weight, "")
+    edge_weight = graph.create_material_expression(material, unreal.MaterialExpressionComponentMask)
+    edge_weight.set_editor_property("r", False)
+    edge_weight.set_editor_property("g", True)
+    edge_weight.set_editor_property("b", False)
+    edge_weight.set_editor_property("a", False)
+    link(surface_uv, "", edge_weight, "")
+
     link(depth, "", scaled, "A")
     falloff = graph.create_material_expression(material, unreal.MaterialExpressionSubtract)
     falloff.set_editor_property("const_a", 1.0)
     link(scaled, "", falloff, "B")
     clamp = graph.create_material_expression(material, unreal.MaterialExpressionSaturate)
     link(falloff, "", clamp, "")
+    distance_weight = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
+    link(clamp, "", distance_weight, "A")
+    link(strength, "", distance_weight, "B")
     weight = graph.create_material_expression(material, unreal.MaterialExpressionMultiply)
-    link(clamp, "", weight, "A")
-    link(strength, "", weight, "B")
+    link(distance_weight, "", weight, "A")
+    link(edge_weight, "", weight, "B")
 
-    normal = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
-    normal.set_editor_property("texture", textures["ground_normal"])
-    normal.set_editor_property("parameter_name", "AdenGroundNormal")
-    normal.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
-    link(uv, "", normal, "")
+    normal_sampler = unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL
+    normal = mix(sample("ground_normal", "AdenGroundNormal", normal_sampler),
+                 sample("rock_normal", "AdenRockNormal", normal_sampler), "RGB", rock_weight)
     flat = graph.create_material_expression(material, unreal.MaterialExpressionConstant3Vector)
     flat.set_editor_property("constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
     normal_blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
     link(flat, "", normal_blend, "A")
-    link(normal, "RGB", normal_blend, "B")
+    link(normal, "", normal_blend, "B")
     link(weight, "", normal_blend, "Alpha")
     assign(normal_blend, "", unreal.MaterialProperty.MP_NORMAL)
 
-    rough = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
-    rough.set_editor_property("texture", textures["ground_roughness"])
-    rough.set_editor_property("parameter_name", "AdenGroundRoughness")
-    rough.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
-    link(uv, "", rough, "")
+    grayscale = unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE
+    rough = mix(sample("ground_roughness", "AdenGroundRoughness", grayscale),
+                sample("rock_roughness", "AdenRockRoughness", grayscale), "R", rock_weight)
     rough_blend = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
     rough_blend.set_editor_property("const_a", .94)
-    link(rough, "R", rough_blend, "B")
+    link(rough, "", rough_blend, "B")
     link(weight, "", rough_blend, "Alpha")
     assign(rough_blend, "", unreal.MaterialProperty.MP_ROUGHNESS)
 
-    variation = graph.create_material_expression(material, unreal.MaterialExpressionTextureSampleParameter2D)
-    variation.set_editor_property("texture", textures["ground_color_variation"])
-    variation.set_editor_property("parameter_name", "AdenGroundColorVariation")
-    variation.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
-    link(uv, "", variation, "")
+    variation = mix(sample("ground_color_variation", "AdenGroundColorVariation", grayscale),
+                    sample("rock_color_variation", "AdenRockColorVariation", grayscale), "R", rock_weight)
     remap = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
     remap.set_editor_property("const_a", .74)
     remap.set_editor_property("const_b", 1.26)
-    link(variation, "R", remap, "Alpha")
+    link(variation, "", remap, "Alpha")
     tint = graph.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate)
     tint.set_editor_property("const_a", 1.0)
     link(remap, "", tint, "B")
