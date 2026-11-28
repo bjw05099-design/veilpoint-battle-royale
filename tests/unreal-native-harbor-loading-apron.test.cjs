@@ -78,7 +78,8 @@ test('the local movement callback drives the first-person cycle and Aden footste
  const character=source('VPCharacter.cpp'), view=source('VPCharacterWeaponView.cpp');
  const controller=source('VPPlayerController.cpp');
  assert.match(character,/OnCharacterMovementUpdated\.AddDynamic\(this, &AVPCharacter::OnLocomotionUpdated\)/);
- assert.match(character,/bClientUpdating[\s\S]*?Movement->bJustTeleported[\s\S]*?LocomotionCadence\.ResetContact\(\)[\s\S]*?LocomotionCadence\.Advance\(Travel\.Size\(\)/);
+ assert.match(character,/bClientUpdating[\s\S]*?Movement->bJustTeleported[\s\S]*?LocomotionCadence\.ResetContact\(\)/);
+ assert.match(character,/CurrentFloor\.HitResult\.ImpactNormal;\s*const double ContactDistance = VPFooting::GroundedTravelCm\(Travel\.X, Travel\.Y, Travel\.Z, Normal\.X, Normal\.Y, Normal\.Z\);\s*LocomotionCadence\.Advance\(ContactDistance,/);
  assert.match(view,/LocomotionCadence\.Cycle\(\)/);
  assert.match(controller,/GetFootstepSequence\(\)[\s\S]*?Footstep != LastAdenFootstep[\s\S]*?Source->IsPlayableGround\(Floor\.HitResult\)[\s\S]*?PlaySoundAtLocation/);
 });
