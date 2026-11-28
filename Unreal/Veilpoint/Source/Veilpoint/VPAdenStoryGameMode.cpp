@@ -1258,6 +1258,18 @@ void AVPAdenStoryGameMode::RunDiagnostic()
             && Desktop->GetAdenPin() == ClickPin;
         Report->SetBoolField(TEXT("fieldPointerPinVerified"), bExactClick && bOutsideIgnored);
         bPassed = bPassed && bExactClick && bOutsideIgnored;
+        VPAdenAtlas::FPoint PointerWorld;
+        FVector PointerGround;
+        FHitResult PointerSurface;
+        FVPAdenGroundReading Reading;
+        const bool bGroundReading = VPAdenAtlas::PointAtPixel(Screen, Recentered, {Click.X, Click.Y}, PointerWorld)
+            && Source->ReadAtlasGround(PointerWorld, Reading)
+            && Source->TraceAtlasGround(PointerWorld, PointerGround, &PointerSurface)
+            && ClickPin.IsSet() && FMath::IsNearlyEqual(Reading.ElevationMetres * 100., ClickPin->Z, .01)
+            && FMath::IsNearlyEqual(FMath::Cos(FMath::DegreesToRadians(Reading.SlopeDegrees)), PointerSurface.ImpactNormal.Z, .0001)
+            && !Source->ReadAtlasGround({Playable.West - 1., Playable.North - 1.}, Reading);
+        Report->SetBoolField(TEXT("atlasGroundReadingVerified"), bGroundReading);
+        bPassed = bPassed && bGroundReading;
         Desktop->CycleAdenPin();
         Desktop->PlaceAdenPin();
         Desktop->CycleAdenPin();

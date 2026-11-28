@@ -52,6 +52,12 @@ struct FVPAdenBlockerCheck
     int32 SeamsPassed = 0;
 };
 
+struct FVPAdenGroundReading
+{
+    double ElevationMetres = 0.;
+    double SlopeDegrees = 0.;
+};
+
 UCLASS()
 class VEILPOINT_API AVPAdenSourceWorld : public AActor
 {
@@ -62,6 +68,7 @@ public:
     bool IsPlayableGround(const FHitResult& Hit) const;
     bool TraceStoryGround(const FVector& Around, FVector& Ground) const;
     bool TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Ground, FHitResult* Surface = nullptr) const;
+    bool ReadAtlasGround(VPAdenAtlas::FPoint Point, FVPAdenGroundReading& Reading) const;
     FVector Station(int32 Index) const;
     const TArray<FVector>& CampaignLeg(VPAdenCampaign::FProgress Progress) const;
     bool SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised);

@@ -112,7 +112,8 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-if ($report.atlasContoursVerified -ne $true -or $report.atlasContourMajorSegments -le 0 -or
+if ($report.atlasContoursVerified -ne $true -or $report.atlasGroundReadingVerified -ne $true -or
+    $report.atlasContourMajorSegments -le 0 -or
     $report.atlasContourDetailSegments -le $report.atlasContourMajorSegments -or
     $report.atlasContourWestProbes -ne 8 -or $report.atlasContourEastProbes -ne 8 -or
     $null -eq $report.atlasContourMaxHeightErrorCm -or $report.atlasContourMaxHeightErrorCm -gt 1) {

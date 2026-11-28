@@ -889,6 +889,16 @@ bool AVPAdenSourceWorld::TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Gr
     return true;
 }
 
+bool AVPAdenSourceWorld::ReadAtlasGround(VPAdenAtlas::FPoint Point, FVPAdenGroundReading& Reading) const
+{
+    FHitResult Surface;
+    FVector Ground;
+    if (!TraceAtlasGround(Point, Ground, &Surface)) return false;
+    Reading = {Ground.Z / 100.,
+        FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Surface.ImpactNormal.Z, 0., 1.)))};
+    return true;
+}
+
 FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
 {
     using namespace VPAdenRegionalGrid;
