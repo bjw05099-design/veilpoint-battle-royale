@@ -24,6 +24,13 @@ struct FVPAdenTerrainCheck
     int32 WestJoinEdges = 0;
     double MaxCollisionError = 0.;
     int32 DetailUvSeams = 0;
+    int32 SurfaceUvSeams = 0;
+    int32 SoilVertices = 0;
+    int32 RockVertices = 0;
+    int32 TransitionVertices = 0;
+    int32 DetailFadeVertices = 0;
+    FVector RockSample = FVector::ZeroVector;
+    bool bHasRockSample = false;
 };
 
 struct FVPAdenRegionalCheck
@@ -111,6 +118,15 @@ public:
     TObjectPtr<UTexture2D> GroundRoughness;
     UPROPERTY(EditAnywhere)
     TObjectPtr<UTexture2D> GroundColorVariation;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UTexture2D> RockNormal;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UTexture2D> RockRoughness;
+
+    UPROPERTY(EditAnywhere, Category="Aden surface")
+    TObjectPtr<UTexture2D> RockColorVariation;
 
     UPROPERTY(EditAnywhere, Category="Aden source")
     TObjectPtr<UTexture2D> LocalAtlas;

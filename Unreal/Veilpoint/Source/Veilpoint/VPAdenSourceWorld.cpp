@@ -23,6 +23,7 @@
 #include "VPAdenFootprint.h"
 #include "VPAdenRegionalData.h"
 #include "VPAdenRegionalGrid.h"
+#include "VPAdenTerrainSurface.h"
 #include "VPAdenWestData.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVPAdenSource, Log, All);
@@ -195,6 +196,19 @@ struct FMesh
         UVs.Reserve(Vertices.Num());
         for (const FVector& Point : Vertices)
             UVs.Emplace(Point.X / GroundDetailTileCm, Point.Y / GroundDetailTileCm);
+        return UVs;
+    }
+
+    TArray<FVector2D> SurfaceUVs() const
+    {
+        TArray<FVector2D> UVs;
+        UVs.Reserve(Vertices.Num());
+        for (int32 I = 0; I < Vertices.Num(); ++I)
+        {
+            const auto& Point = Vertices[I];
+            UVs.Emplace(VPAdenTerrainSurface::RockWeight(Normals[I].Z),
+                VPAdenTerrainSurface::EdgeWeight({Point.X, Point.Y}, VPAdenAtlas::Playable, Spacing));
+        }
         return UVs;
     }
 
@@ -717,6 +731,7 @@ bool AVPAdenSourceWorld::BuildSource()
         Mesh->RegisterComponent();
         const TArray<FVector2D> UV0 = bVisible ? Buffer.SourceUVs(Extent) : TArray<FVector2D>();
         const TArray<FVector2D> UV1 = bGroundDetail ? Buffer.DetailUVs() : TArray<FVector2D>();
+        const TArray<FVector2D> UV2 = bGroundDetail ? Buffer.SurfaceUVs() : TArray<FVector2D>();
         const TArray<FVector2D> EmptyUV;
         TArray<FProcMeshTangent> Tangents;
         if (bGroundDetail)
@@ -729,7 +744,7 @@ bool AVPAdenSourceWorld::BuildSource()
             }
         }
         Mesh->CreateMeshSection_LinearColor(0, Buffer.Vertices, Buffer.Triangles, Buffer.Normals,
-            UV0, UV1, EmptyUV, EmptyUV, Buffer.Colors, Tangents, bSolid, false);
+            UV0, UV1, UV2, EmptyUV, Buffer.Colors, Tangents, bSolid, false);
         Mesh->SetMaterial(0, Material ? Material : VertexColorMaterial.Get());
         Mesh->SetCastShadow(bVisible);
         Mesh->SetVisibility(bVisible);
@@ -747,6 +762,12 @@ bool AVPAdenSourceWorld::BuildSource()
             Material->SetTextureParameterValue(TEXT("AdenGroundRoughness"), GroundRoughness);
             if (GroundColorVariation)
                 Material->SetTextureParameterValue(TEXT("AdenGroundColorVariation"), GroundColorVariation);
+            if (RockNormal && RockRoughness && RockColorVariation)
+            {
+                Material->SetTextureParameterValue(TEXT("AdenRockNormal"), RockNormal);
+                Material->SetTextureParameterValue(TEXT("AdenRockRoughness"), RockRoughness);
+                Material->SetTextureParameterValue(TEXT("AdenRockColorVariation"), RockColorVariation);
+            }
             Material->SetScalarParameterValue(TEXT("AdenGroundDetailStrength"), .74f);
         }
     }
@@ -993,6 +1014,21 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
         const FVector Size = Section->SectionLocalBox.GetSize();
         if (Size.X != SectorCells * Spacing || Size.Y != SectorCells * Spacing) return Result;
         Sections[I] = Section;
+        for (const auto& Vertex : Section->ProcVertexBuffer)
+        {
+            if (Vertex.UV2.Y == 0.) ++Result.DetailFadeVertices;
+            else if (Vertex.UV2.X <= .01) ++Result.SoilVertices;
+            else if (Vertex.UV2.X >= .99)
+            {
+                ++Result.RockVertices;
+                if (!Result.bHasRockSample && Vertex.Normal.Z >= .76)
+                {
+                    Result.RockSample = Vertex.Position;
+                    Result.bHasRockSample = true;
+                }
+            }
+            else ++Result.TransitionVertices;
+        }
         ++Result.Sectors;
         Result.Triangles += Section->ProcIndexBuffer.Num() / 3;
     }
@@ -1009,7 +1045,7 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
             const auto& Next = Sections[I + (bVertical ? 1 : GroundSectorsX)]->ProcVertexBuffer;
             const int32 Edge = bVertical ? SectorCells : SectorCells * SectorSide;
             const int32 Stride = bVertical ? SectorSide : 1;
-            bool bShared = true, bMetric = true;
+            bool bShared = true, bMetric = true, bSurface = true;
             for (int32 V = 0; V < SectorSide; ++V)
             {
                 const auto& A = First[Edge + V * Stride];
@@ -1018,8 +1054,10 @@ FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
                 bShared &= A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color && bUV;
                 bMetric &= A.UV1 == B.UV1 && A.UV1.X == A.Position.X / GroundDetailTileCm
                     && A.UV1.Y == A.Position.Y / GroundDetailTileCm && A.Tangent.TangentX == B.Tangent.TangentX;
+                bSurface &= A.UV2 == B.UV2;
             }
             if (bMetric) ++Result.DetailUvSeams;
+            if (bSurface) ++Result.SurfaceUvSeams;
             if (bShared) ++Result.SharedEdges;
             if (bShared && bWestJoin) ++Result.WestJoinEdges;
 
