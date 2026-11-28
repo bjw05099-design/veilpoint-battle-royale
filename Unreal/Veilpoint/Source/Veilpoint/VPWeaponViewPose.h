@@ -74,6 +74,30 @@ struct FMotion
     double Air = 0.;
 };
 
+struct FTranslationLag
+{
+    double Forward = 0.;
+    double PreviousX = 0.;
+    double PreviousY = 0.;
+    bool GroundedSample = false;
+
+    void Advance(double VelocityX, double VelocityY, double ForwardX, double ForwardY, double Seconds, bool Grounded)
+    {
+        if (Seconds <= 0.) return;
+        double Target = 0.;
+        if (Grounded && GroundedSample && Seconds <= .1)
+        {
+            // Compare world velocity before projecting so turning in place cannot add translation.
+            const double ForwardChange = (VelocityX - PreviousX) * ForwardX + (VelocityY - PreviousY) * ForwardY;
+            Target = std::clamp(ForwardChange / (Seconds * 1500.), -1., 1.);
+        }
+        Forward += (Target - Forward) * (1. - std::exp(-12. * std::min(Seconds, .1)));
+        PreviousX = VelocityX;
+        PreviousY = VelocityY;
+        GroundedSample = Grounded;
+    }
+};
+
 inline void AdvanceMotion(FMotion& Motion, double GroundSpeed, double LateralSpeed,
     double PitchDelta, double YawDelta, double Seconds, bool Crouching, bool Falling)
 {

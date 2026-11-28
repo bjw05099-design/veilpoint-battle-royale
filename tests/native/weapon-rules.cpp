@@ -3,6 +3,7 @@
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPFootingRules.h"
 #include "../../Unreal/Veilpoint/Source/Veilpoint/VPAdenCampaignRules.h"
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 using namespace VPWeaponRules;
@@ -185,6 +186,38 @@ int main()
     assert(Motion.Crouch < .3 && Motion.Air > .6);
     VPWeaponView::AdvanceMotion(Motion, 0., 0., 0., 0., .1, false, false);
     assert(Motion.Air < .3);
+
+    const auto StartAndStop = [](int Rate)
+    {
+        VPWeaponView::FTranslationLag Lag;
+        const double Dt = 1. / Rate;
+        Lag.Advance(0., 0., 1., 0., Dt, true);
+        for (int Frame = 1; Frame <= Rate / 5; ++Frame)
+            Lag.Advance(1500. * Frame * Dt, 0., 1., 0., Dt, true);
+        const double Start = Lag.Forward;
+        for (int Frame = 1; Frame <= Rate / 5; ++Frame)
+            Lag.Advance(300. - 1500. * Frame * Dt, 0., 1., 0., Dt, true);
+        const double Stop = Lag.Forward;
+        for (int Frame = 0; Frame < Rate; ++Frame) Lag.Advance(0., 0., 1., 0., Dt, true);
+        assert(std::abs(Lag.Forward) < .001);
+        return std::array<double, 2>{Start, Stop};
+    };
+    const auto At60 = StartAndStop(60);
+    assert(At60[0] > .9 && At60[0] <= 1. && At60[1] < -.8 && At60[1] >= -1.);
+    for (int Rate : {30, 120})
+    {
+        const auto Other = StartAndStop(Rate);
+        assert(std::abs(Other[0] - At60[0]) < 1.e-9 && std::abs(Other[1] - At60[1]) < 1.e-9);
+    }
+    VPWeaponView::FTranslationLag Lag;
+    Lag.Advance(200., 0., 1., 0., .016, true);
+    Lag.Advance(200., 0., 0., 1., .016, true);
+    Lag.Advance(380., 0., 0., 1., .016, true);
+    Lag.Advance(0., 0., 0., 1., .016, false);
+    Lag.Advance(0., 600., 0., 1., .016, true);
+    Lag.Advance(0., 0., 0., 1., .5, true);
+    assert(Lag.Forward == 0.);
+
     using VPAdenCampaign::MovingCueReady;
     static_assert(!MovingCueReady(false, 8., true, 500000.));
     static_assert(!MovingCueReady(false, 8., false, 420000.));

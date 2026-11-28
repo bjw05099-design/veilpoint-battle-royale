@@ -35,3 +35,10 @@ teleport or checkpoint recovery at multiple frame rates.
 At the coastal apron's wet boundary, the fraction of the capsule footprint
 over the slab blends the authored dry and wet grip and speed values. The
 diagnostic samples the center, edge, dry side and airborne state.
+
+`VPPhysicsProp` is a reusable Chaos rigid body for level props with a static
+mesh and simple collision. Set its authored mass and physical material in
+Unreal. The packaged diagnostic moves identical 12 kg artistic fixtures
+across low- and high-friction laboratory pads, reads their supported position
+after settling, and checks contact with a thin stop. The fixtures are
+created in the separate diagnostic world during the test.

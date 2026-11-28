@@ -44,6 +44,11 @@ The first-person view raises a newly presented model over 0.20 seconds.
 The sight view becomes available as the pose settles. Reopening the same view
 after a menu keeps the previous model available immediately.
 
+Starting and stopping adds a small amount of inertia to the visible
+first-person model. The pose uses the character's resolved ground velocity
+and settles at a steady pace. Landing uses its own pose, and the forward
+motion fades as the model raises or clears an obstruction.
+
 Reload times, range, distance damage, heat and reserve limits are gameplay
 parameters in `VPWeaponRules.h`. Story encounters assign a partly loaded
 magazine from their scripted supply. In the Battle Royale lobby, both models

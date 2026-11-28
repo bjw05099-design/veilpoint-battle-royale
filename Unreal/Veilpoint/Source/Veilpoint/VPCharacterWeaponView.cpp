@@ -173,6 +173,7 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     {
         if (IsLocallyControlled()) BodyCamera->SetFieldOfView(VPWeaponView::HipFov);
         WeaponViewMotion = {};
+        WeaponViewTranslationLag = {};
         PreviousWeaponViewRotation.Reset();
         ObstructionBlend = 0.;
         bSightBlockedBySurface = false;
@@ -221,11 +222,15 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const double Landing = VPWeaponView::LandingDip(GetWorld()->GetTimeSeconds() - LandedAt, LandedStrength);
     const FRotator Turn = (Rotation - PreviousWeaponViewRotation.Get(Rotation)).GetNormalized();
     const auto* Movement = GetCharacterMovement();
-    const FVector GroundVelocity = Movement->IsMovingOnGround() ? Movement->Velocity : FVector::ZeroVector;
-    const FVector Right = FRotator(0., Rotation.Yaw, 0.).RotateVector(FVector::RightVector);
+    const bool bGrounded = Movement->IsMovingOnGround();
+    const FVector GroundVelocity = bGrounded ? Movement->Velocity : FVector::ZeroVector;
+    const FRotator GroundRotation(0., Rotation.Yaw, 0.);
+    const FVector Right = GroundRotation.RotateVector(FVector::RightVector);
+    const FVector Forward = GroundRotation.Vector();
     const bool bCrouching = Movement->IsCrouching();
     VPWeaponView::AdvanceMotion(WeaponViewMotion, GroundVelocity.Size2D(), FVector::DotProduct(GroundVelocity, Right),
         Turn.Pitch, Turn.Yaw, DeltaSeconds, bCrouching, Movement->IsFalling());
+    WeaponViewTranslationLag.Advance(GroundVelocity.X, GroundVelocity.Y, Forward.X, Forward.Y, DeltaSeconds, bGrounded);
     PreviousWeaponViewRotation = Rotation;
     const double Cycle = LocomotionCadence.Cycle() * 2. * UE_DOUBLE_PI;
     const double MotionBlend = (1. - Equip) * (1. - SightBlend) * (1. - ObstructionBlend) * (bReloading ? .35 : 1.);
@@ -233,12 +238,13 @@ void AVPCharacter::UpdateWeaponView(float DeltaSeconds)
     const double StepSide = FMath::Sin(Cycle) * Gait;
     const double StepRise = -FMath::Cos(2. * Cycle) * Gait;
     const double StanceLower = 2.2 * WeaponViewMotion.Crouch + 3. * WeaponViewMotion.Air;
-    WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend,
+    const double ForwardLag = WeaponViewTranslationLag.Forward * MotionBlend;
+    WeaponViewRoot->SetRelativeLocation(Position + FVector(-1.8 * ShotPulse - 10. * ObstructionBlend - 2.5 * ForwardLag,
         (1.4 * StepSide + 1.2 * WeaponViewMotion.Strafe) * MotionBlend,
         -Pose.Lower - 12. * Equip - 9. * ObstructionBlend - Landing * (1. - .65 * SightBlend)
             + (StepRise - StanceLower) * MotionBlend));
     WeaponViewRoot->SetRelativeRotation(FRotator(
-        1.5 * ShotPulse - 10. * Equip - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend,
+        1.5 * ShotPulse - 10. * Equip - 22. * ObstructionBlend + WeaponViewMotion.PitchLag * MotionBlend - 2. * ForwardLag,
         WeaponViewMotion.YawLag * MotionBlend,
         Pose.Roll - 8. * Equip + (1.8 * StepSide - 3. * WeaponViewMotion.Strafe) * MotionBlend));
     View.Magazine->SetRelativeLocation(MagazineRest - FVector(0., 0., Pose.MagazineDrop));

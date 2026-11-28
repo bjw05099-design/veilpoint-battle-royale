@@ -197,6 +197,7 @@ private:
     double SprintWeaponBlend = 0.;
     double ObstructionBlend = 0.;
     VPWeaponView::FMotion WeaponViewMotion;
+    VPWeaponView::FTranslationLag WeaponViewTranslationLag;
     TOptional<FRotator> PreviousWeaponViewRotation;
     UPROPERTY()
     TObjectPtr<USceneComponent> WeaponViewRoot;

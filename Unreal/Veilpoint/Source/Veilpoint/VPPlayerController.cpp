@@ -94,6 +94,7 @@ void AVPPlayerController::TickVisualSmoke()
     if (FPlatformTime::Seconds() < NextVisualSmokeAt) return;
     if (VisualSmokeStep == 4)
     {
+        PhysicsSmoke.Start(GetWorld());
         VPBeginGameplaySmoke(this,VisualSmokeReport.ToSharedRef());
         VisualSmokeStep=5;
         NextVisualSmokeAt=FPlatformTime::Seconds()+5.0;
@@ -101,6 +102,7 @@ void AVPPlayerController::TickVisualSmoke()
     }
     if (VisualSmokeStep == 5)
     {
+        PhysicsSmoke.Finish(GetWorld(), *VisualSmokeReport);
         VPFinishGameplaySmoke(this,VisualSmokeReport.ToSharedRef());
         VisualSmokeStep=6;
         NextVisualSmokeAt=FPlatformTime::Seconds()+.25;

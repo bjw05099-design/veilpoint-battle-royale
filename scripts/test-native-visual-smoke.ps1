@@ -34,6 +34,7 @@ if ($proof.schema -ne 'veilpoint-native-visual-smoke-v1' -or
     $proof.lastBroadcastGameplayPassed -ne $true -or $proof.lastBroadcastReadbackSucceeded -ne $true -or
     $proof.wetApronGroundContactVerified -ne $true -or
     $proof.wetApronBrakingVerified -ne $true -or
+    $proof.physicsPropsVerified -ne $true -or
     $proof.nativeGameplayDiagnosticPassed -ne $true -or $proof.manualMissionSaveVerified -ne $true -or
     $proof.readbackSucceeded -ne $true -or $proof.menuOpened -ne $true -or
     $proof.offlinePaused -ne $true -or $proof.menuResumed -ne $true -or
