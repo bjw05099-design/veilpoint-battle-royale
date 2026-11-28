@@ -1152,6 +1152,63 @@ void AVPAdenStoryGameMode::RunDiagnostic()
         Desktop->CycleAdenAtlas();
         bPassed = bPassed && Desktop->GetAdenAtlasPage() == 1 && ReadFrame(TEXT("aden-field-map"));
         const FVector Foot = Pawn->GetActorLocation();
+        using VPAdenAtlas::Playable;
+        TOptional<VPAdenAtlas::FPoint> ContourFocus;
+        bool bMajorLevels = true;
+        const int32 MajorLines = Source->VisitAtlasContours(Playable, [&](const VPAdenContours::FLine& Line)
+        {
+            bMajorLevels &= Line.HeightCm % VPAdenContours::MajorIntervalCm == 0;
+            if (!ContourFocus.IsSet())
+                ContourFocus.Emplace(VPAdenAtlas::FPoint{(Line.A.X + Line.B.X) * .5, (Line.A.Y + Line.B.Y) * .5});
+        });
+        int32 DetailLines = 0, WestProbes = 0, EastProbes = 0;
+        double HeightError = 0.;
+        bool bClippedContours = true;
+        constexpr double StripWidth = Playable.Width() / 4.;
+        for (int32 Strip = 0; Strip < 4; ++Strip)
+        {
+            const VPAdenAtlas::FExtent Bounds{Playable.West + Strip * StripWidth, Playable.North,
+                Playable.West + (Strip + 1) * StripWidth, Playable.South};
+            constexpr double ClipEpsilon = .00001;
+            const VPAdenAtlas::FExtent ClipBounds{Bounds.West - ClipEpsilon, Bounds.North - ClipEpsilon,
+                Bounds.East + ClipEpsilon, Bounds.South + ClipEpsilon};
+            DetailLines += Source->VisitAtlasContours(Bounds, [&](const VPAdenContours::FLine& Line)
+            {
+                bClippedContours &= ClipBounds.Contains(Line.A) && ClipBounds.Contains(Line.B);
+                const VPAdenAtlas::FPoint Point{(Line.A.X + Line.B.X) * .5, (Line.A.Y + Line.B.Y) * .5};
+                int32& Probes = Point.X < VPAdenAtlas::West.East ? WestProbes : EastProbes;
+                if (Probes >= 8) return;
+                FVector Ground;
+                if (!Source->TraceAtlasGround(Point, Ground))
+                {
+                    bClippedContours = false;
+                    return;
+                }
+                HeightError = FMath::Max(HeightError, FMath::Abs(Ground.Z - Line.HeightCm));
+                ++Probes;
+            });
+        }
+        const bool bContourGeometry = bMajorLevels && bClippedContours && MajorLines > 0 && DetailLines > MajorLines
+            && WestProbes == 8 && EastProbes == 8 && HeightError <= 1.;
+        const int32 DefaultZoom = Desktop->AdenAtlasZoom;
+        Desktop->ToggleAdenAtlasContours();
+        bool bContourFrame = false;
+        if (bContourGeometry && ContourFocus.IsSet() && Desktop->AreAdenContoursVisible())
+        {
+            Desktop->AdenAtlasCentre.Emplace(ContourFocus->X, ContourFocus->Y);
+            Desktop->AdenAtlasZoom = 4;
+            bContourFrame = ReadFrame(TEXT("aden-field-contours"));
+        }
+        Desktop->ToggleAdenAtlasContours();
+        Desktop->AdenAtlasZoom = DefaultZoom;
+        Desktop->RecenterAdenAtlas();
+        Report->SetBoolField(TEXT("atlasContoursVerified"), bContourGeometry && bContourFrame && !Desktop->AreAdenContoursVisible());
+        Report->SetNumberField(TEXT("atlasContourMajorSegments"), MajorLines);
+        Report->SetNumberField(TEXT("atlasContourDetailSegments"), DetailLines);
+        Report->SetNumberField(TEXT("atlasContourWestProbes"), WestProbes);
+        Report->SetNumberField(TEXT("atlasContourEastProbes"), EastProbes);
+        Report->SetNumberField(TEXT("atlasContourMaxHeightErrorCm"), HeightError);
+        bPassed = bPassed && bContourGeometry && bContourFrame && !Desktop->AreAdenContoursVisible();
         const auto BeforePan = Desktop->AdenFieldCrop(*AtlasState, Foot);
         const double Direction = VPAdenAtlas::Centre(BeforePan).X > VPAdenAtlas::Centre(VPAdenAtlas::Playable).X ? -1. : 1.;
         Desktop->PanAdenAtlas(Direction, 0.);

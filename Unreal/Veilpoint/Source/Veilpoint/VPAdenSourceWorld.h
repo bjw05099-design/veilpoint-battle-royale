@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRules.h"
+#include "VPAdenContours.h"
 #include "VPAdenSourceWorld.generated.h"
 
 class UMaterialInterface;
@@ -70,6 +71,7 @@ public:
     bool VerifyRescueBarrierClearance(const FVector& Start, const FVector& Next);
     UTexture2D* AtlasTexture(bool bRegional, bool bDetailed) const;
     int32 VisitAtlasLines(VPAdenAtlas::FExtent View, TFunctionRef<void(const FVPAdenAtlasLine&)> Visit) const;
+    int32 VisitAtlasContours(VPAdenAtlas::FExtent View, TFunctionRef<void(const VPAdenContours::FLine&)> Visit) const;
     void ShowFieldStation(int32 Slot, bool bVisible, const FVector& Point, const FVector& Direction);
     USoundBase* GetWindSound() const;
     USoundBase* GetDossierSound() const;
@@ -168,6 +170,7 @@ private:
     TArray<FVPAdenBlockerSeamProbe> BlockerSeamProbes;
     TArray<FVPAdenAtlasLine> AtlasLines;
     TArray<TArray<int32>> AtlasLineSectors;
+    TArray<TArray<VPAdenContours::FLine>> AtlasContourSectors;
     FString SourceRevision;
     TArray<FVector> Stations;
     TArray<TArray<FVector>> CampaignLegs;

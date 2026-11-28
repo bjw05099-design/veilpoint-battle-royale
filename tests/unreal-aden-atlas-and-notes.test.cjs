@@ -182,6 +182,7 @@ test('compile and exercise the real Unreal atlas projection and save migration r
     const exe = path.join(temp, 'verify');
     const cpp = `
       #include "VPAdenAtlasProjection.h"
+      #include "VPAdenContours.h"
       #include "VPAdenDrape.h"
       #include "VPAdenFootprint.h"
       #include "VPAdenRegionalGrid.h"
@@ -215,6 +216,29 @@ test('compile and exercise the real Unreal atlas projection and save migration r
           const auto edgeZoom = ZoomAt(Playable, Crop(Playable, {Playable.West, Playable.North}, 5),
               {Playable.West, Playable.North}, 2);
           assert(edgeZoom.West == Playable.West && edgeZoom.North == Playable.North);
+        }
+        {
+          using namespace VPAdenContours;
+          static_assert(IntervalForWidth(Playable.Width()) == 10000);
+          static_assert(IntervalForWidth(Playable.Width() / 4.) == 2000);
+          std::vector<FLine> lines;
+          const auto record = [&](const FLine& line) { lines.push_back(line); };
+          TraceTriangle({{{{0., 0.}, 0}, {{32., 0.}, 4000}, {{0., 32.}, 0}}}, record);
+          assert(lines.size() == 1 && lines[0].HeightCm == 2000);
+          assert(lines[0].A.X == 16. && lines[0].A.Y == 0.);
+          assert(lines[0].B.X == 16. && lines[0].B.Y == 16.);
+          const auto sharedPoint = lines[0].B;
+          lines.clear();
+          TraceTriangle({{{{0., 32.}, 0}, {{32., 0.}, 4000}, {{32., 32.}, 0}}}, record);
+          assert(lines.size() == 1 && lines[0].A.X == sharedPoint.X && lines[0].A.Y == sharedPoint.Y);
+          lines.clear();
+          TraceTriangle({{{{0., 0.}, -100}, {{32., 0.}, 2000}, {{0., 32.}, 2000}}}, record);
+          assert(lines.size() == 1 && lines[0].A.X == 32. && lines[0].B.Y == 32.);
+          lines.clear();
+          TraceTriangle({{{{0., 0.}, 2000}, {{32., 0.}, 2000}, {{0., 32.}, 2000}}}, record);
+          assert(lines.empty());
+          TraceTriangle({{{{0., 0.}, 0}, {{32., 0.}, -100}, {{0., 32.}, -200}}}, record);
+          assert(lines.empty());
         }
         const auto split = Crop(Playable, {West.East, 0.}, 3);
         const auto left = Intersection(split, West), right = Intersection(split, Local);

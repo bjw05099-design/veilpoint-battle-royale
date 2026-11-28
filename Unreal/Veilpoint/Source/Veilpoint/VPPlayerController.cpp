@@ -396,6 +396,7 @@ void AVPPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AVPPlayerController::ChooseAdenSecond);
     InputComponent->BindKey(EKeys::M, IE_Pressed, this, &AVPPlayerController::CycleAdenAtlas).bConsumeInput = false;
     InputComponent->BindKey(EKeys::G, IE_Pressed, this, &AVPPlayerController::ToggleAdenAtlasRouteOverview).bConsumeInput = false;
+    InputComponent->BindKey(EKeys::H, IE_Pressed, this, &AVPPlayerController::ToggleAdenAtlasContours).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasIn).bConsumeInput = false;
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AVPPlayerController::ZoomAdenAtlasOut).bConsumeInput = false;
     InputComponent->BindKey(EKeys::Home, IE_Pressed, this, &AVPPlayerController::RecenterAdenAtlas);
@@ -433,6 +434,11 @@ bool AVPPlayerController::IsAdenAtlasRouteOverview() const
 {
     const auto* State = GetWorld() ? GetWorld()->GetGameState<AVPAdenStoryState>() : nullptr;
     return AdenAtlasPage == 1 && bAdenAtlasRouteOverview && State && State->HasAtlasRoute();
+}
+
+void AVPPlayerController::ToggleAdenAtlasContours()
+{
+    if (!bDesktopMenuOpen && AdenAtlasPage == 1) bAdenContoursVisible = !bAdenContoursVisible;
 }
 
 void AVPPlayerController::ToggleAdenAtlasRouteOverview()

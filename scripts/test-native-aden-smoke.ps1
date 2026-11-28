@@ -112,7 +112,13 @@ if ($report.atlasSourceLines -ne 22975 -or $report.atlasDetailRoadLines -le 0 -o
     $report.atlasDetailCandidates -lt ($report.atlasDetailRoadLines + $report.atlasDetailFootprintLines)) {
     throw 'The detailed Aden atlas failed public geometry culling or crop clipping.'
 }
-$frames = @('aden-world','aden-field-map','aden-field-pan','aden-field-pin','aden-regional-map','aden-regional-terrain','aden-regional-seam',
+if ($report.atlasContoursVerified -ne $true -or $report.atlasContourMajorSegments -le 0 -or
+    $report.atlasContourDetailSegments -le $report.atlasContourMajorSegments -or
+    $report.atlasContourWestProbes -ne 8 -or $report.atlasContourEastProbes -ne 8 -or
+    $null -eq $report.atlasContourMaxHeightErrorCm -or $report.atlasContourMaxHeightErrorCm -gt 1) {
+    throw 'Aden terrain contours differ from the playable ground or atlas crop.'
+}
+$frames = @('aden-world','aden-field-map','aden-field-contours','aden-field-pan','aden-field-pin','aden-regional-map','aden-regional-terrain','aden-regional-seam',
     'aden-opening-old-port','aden-opening-government-news','aden-opening-front-news',
     'aden-opening-fighting','aden-opening-aftermath','aden-opening-closed-door','aden-opening-hostages',
     'aden-opening-council','aden-opening-corridor','aden-opening-briefing','aden-opening-embark',

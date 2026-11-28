@@ -3,6 +3,7 @@
 #include "GameFramework/HUD.h"
 #include "VPFrameTelemetry.h"
 #include "VPAdenAtlasProjection.h"
+#include "VPAdenContours.h"
 #include "VPRoundReviewPlayback.h"
 #include "VPHUD.generated.h"
 
@@ -43,6 +44,9 @@ private:
     VPAdenAtlas::FExtent AdenStrokeExtent{};
     TArray<FVPAdenAtlasLine> AdenRoadStrokes;
     TArray<FVPAdenAtlasLine> AdenFootprintStrokes;
+    TWeakObjectPtr<class AVPAdenSourceWorld> AdenContourSource;
+    VPAdenAtlas::FExtent AdenContourExtent{};
+    TArray<VPAdenContours::FLine> AdenContourStrokes;
     bool bRoundReviewOpen = false;
     double ReviewPlayheadMs = -1.;
     bool bRoundReviewPlaying = false;

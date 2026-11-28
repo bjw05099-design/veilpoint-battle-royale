@@ -26,6 +26,7 @@ public:
     bool IsAdenOpening() const;
     int32 GetAdenAtlasPage() const { return AdenAtlasPage; }
     int32 GetAdenAtlasZoom() const { return AdenAtlasZoom; }
+    bool AreAdenContoursVisible() const { return AdenAtlasPage == 1 && bAdenContoursVisible; }
     bool IsAdenAtlasRouteOverview() const;
     void ToggleAdenAtlasRouteOverview();
     void CycleAdenAtlas();
@@ -113,6 +114,7 @@ private:
     void SendAdenChoice(VPAdenCampaign::EInput Choice);
     bool bAdenJournalOpen = false;
     bool bAdenAtlasRouteOverview = false;
+    bool bAdenContoursVisible = false;
     TOptional<FVector2D> AdenAtlasCentre;
     struct FAdenAtlasDrag
     {
@@ -147,6 +149,7 @@ private:
     void MenuActivate();
     void MenuClick();
     void ApplyDesktopCursorMode();
+    void ToggleAdenAtlasContours();
     bool CanAdjustAdenFieldView() const;
     void ZoomAdenAtlas(int32 Direction);
     void BeginAdenAtlasDrag();
