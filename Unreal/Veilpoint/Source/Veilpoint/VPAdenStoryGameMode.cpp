@@ -939,7 +939,7 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
     const FVector Start(VPAdenAtlas::West.East + 1200., -83040., 0.);
     const FVector Up(0., 0., 60000.);
     double MaxRise = 0., PreviousHeight = 0.;
-    int32 Checked = 0;
+    int32 Checked = 0, CadenceSlopeSamples = 0;
     bool bGradeDirectionsVerified = true;
     for (int32 Step = 0; Step <= Steps; ++Step)
     {
@@ -954,6 +954,14 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
             && Eastbound >= .78f && Eastbound <= 1.06f
             && (Westbound == 1.f) == (Eastbound == 1.f)
             && (Westbound == 1.f || ((Westbound < 1.f) != (Eastbound < 1.f)));
+        const double PlaneRise = 100. * Normal.X / Normal.Z;
+        if (FMath::Abs(PlaneRise) >= 4.)
+        {
+            const double OnPlane = VPFooting::GroundedTravelCm(-100., 0., PlaneRise, Normal.X, Normal.Y, Normal.Z);
+            const double Adjusted = VPFooting::GroundedTravelCm(-100., 0., PlaneRise * 2., Normal.X, Normal.Y, Normal.Z);
+            const double Opposite = VPFooting::GroundedTravelCm(-100., 0., -PlaneRise, Normal.X, Normal.Y, Normal.Z);
+            if (OnPlane > 100. && FMath::IsNearlyEqual(OnPlane, Adjusted, .001) && Opposite == 100.) ++CadenceSlopeSamples;
+        }
         const double Above = Pawn->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 14.;
         const FVector Position = Ground.ImpactPoint + FVector(0., 0., Above);
         if (Step == 0)
@@ -1009,6 +1017,7 @@ bool AVPAdenStoryGameMode::VerifyWestTerrain(AVPPlayerController* Desktop, AVPCh
     DiagnosticReport->SetNumberField(TEXT("westMaxRiseCmPerMetre"), MaxRise);
     DiagnosticReport->SetBoolField(TEXT("westFieldMapVerified"), bMapVerified);
     DiagnosticReport->SetBoolField(TEXT("westGradeDirectionsVerified"), bGradeDirectionsVerified && Checked == Steps + 1);
+    DiagnosticReport->SetNumberField(TEXT("groundedCadenceSlopeSamples"), CadenceSlopeSamples);
     return Checked == Steps + 1 && bRendered && bMapVerified && bRestored && bGradeDirectionsVerified;
 }
 

@@ -97,8 +97,9 @@ void AVPCharacter::OnLocomotionUpdated(float DeltaSeconds, FVector OldLocation, 
         return;
     }
     const FVector Travel = GetActorLocation() - OldLocation;
-    if (Travel.SizeSquared2D() > .01)
-        LocomotionCadence.Advance(Travel.Size(), Movement->IsCrouching(), bSprinting);
+    const FVector Normal = Movement->CurrentFloor.HitResult.ImpactNormal;
+    const double ContactDistance = VPFooting::GroundedTravelCm(Travel.X, Travel.Y, Travel.Z, Normal.X, Normal.Y, Normal.Z);
+    LocomotionCadence.Advance(ContactDistance, Movement->IsCrouching(), bSprinting);
 }
 
 void AVPCharacter::RecordRoundZonePresence(bool bOutside)

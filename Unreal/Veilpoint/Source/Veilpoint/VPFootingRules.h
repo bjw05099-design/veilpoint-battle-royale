@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace VPFooting
@@ -22,6 +23,17 @@ constexpr double StepLengthCm(bool Crouching, bool Sprinting)
 constexpr double GradeIntentWeight(double GroundSpeed)
 {
     return GroundSpeed < 45. ? 45. - GroundSpeed : 0.;
+}
+
+inline double GroundedTravelCm(double X, double Y, double Z, double NormalX, double NormalY, double NormalZ)
+{
+    const double Horizontal = std::sqrt(X * X + Y * Y);
+    if (Horizontal <= .1 || NormalZ <= .5) return Horizontal;
+
+    // Only count vertical displacement the supporting plane can explain.
+    const double FloorRise = -(NormalX * X + NormalY * Y) / NormalZ;
+    const double Rise = std::clamp(Z, std::min(0., FloorRise), std::max(0., FloorRise));
+    return std::sqrt(Horizontal * Horizontal + Rise * Rise);
 }
 
 struct FCadence
