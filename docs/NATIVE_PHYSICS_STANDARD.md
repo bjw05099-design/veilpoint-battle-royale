@@ -42,3 +42,8 @@ Unreal. The packaged diagnostic moves identical 12 kg artistic fixtures
 across low- and high-friction laboratory pads, reads their supported position
 after settling, and checks contact with a thin stop. The fixtures are
 created in the separate diagnostic world during the test.
+The optional centre-of-mass offset is authored in component-axis centimetres
+after mesh scale. Use the body's Unreal linear and angular damping settings
+to tune the rate at which it settles. The diagnostic checks the actual
+centre of mass on nonuniformly scaled, rotating props and measures the effect
+of each damping setting independently of gravity and contact.

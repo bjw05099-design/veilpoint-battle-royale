@@ -12,6 +12,7 @@ struct FVPPhysicsSmoke
 {
     TArray<TWeakObjectPtr<AActor>> Actors;
     TWeakObjectPtr<AVPPhysicsProp> Props[2];
+    TWeakObjectPtr<AVPPhysicsProp> DampingProps[2];
     TWeakObjectPtr<AStaticMeshActor> Pads[2];
 
     void Start(UWorld* World);

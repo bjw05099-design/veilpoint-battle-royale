@@ -24,6 +24,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Physics prop", meta=(ClampMin="0.1", ClampMax="5000.0"))
     float MassKg = 18.f;
 
+    // Offset from the collision-derived centre, in centimetres after mesh scale.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Physics prop", meta=(Units="cm"))
+    FVector CentreOfMassOffset = FVector::ZeroVector;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Physics prop")
     bool bUseContinuousCollision = false;
 };

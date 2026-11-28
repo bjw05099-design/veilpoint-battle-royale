@@ -1141,6 +1141,13 @@ void AVPAdenStoryGameMode::RunDiagnostic()
                 FRotator(-61., Street.Rotation().Yaw, 0.));
             DiagnosticCapture->CaptureScene();
             bPassed = ReadFrame(TEXT("aden-ground-detail")) && bPassed;
+            const auto& ActiveLeg = Source->CampaignLeg(Progress);
+            const FVector StationFront = (ActiveLeg.Last() - ActiveLeg[ActiveLeg.Num() - 2]).GetSafeNormal2D();
+            const FVector StationFace = AtlasState->Objective + FVector(0., 0., -9.);
+            const FVector StationEye = StationFace - StationFront * 88. + FVector(0., 0., 14.);
+            DiagnosticCapture->SetWorldLocationAndRotation(StationEye, (StationFace - StationEye).Rotation());
+            DiagnosticCapture->CaptureScene();
+            bPassed = ReadFrame(TEXT("aden-prop-finish")) && bPassed;
             if (Terrain.bHasRockSample)
             {
                 DiagnosticCapture->SetWorldLocationAndRotation(Terrain.RockSample + FVector(0., 0., 350.),

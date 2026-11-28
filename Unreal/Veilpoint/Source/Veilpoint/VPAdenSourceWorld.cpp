@@ -15,6 +15,7 @@
 #include "Misc/Base64.h"
 #include "Misc/Compression.h"
 #include "ProceduralMeshComponent.h"
+#include "SceneTypes.h"
 #include "VPAdenEmbedded.h"
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRoutes.h"
@@ -1261,12 +1262,12 @@ const double StationHeight[FieldPartCount] = {3., 61., 121., 113.};
 
 struct FPropFinish
 {
-    float Roughness, Metallic, Grain;
+    float Roughness, Metallic, Grain, Wear, TileCm;
 };
 
-constexpr FPropFinish PaintedFinish{.52f, 0.f, .34f};
-constexpr FPropFinish MetalFinish{.42f, .84f, .18f};
-constexpr FPropFinish WeatheredFinish{.76f, .12f, .58f};
+constexpr FPropFinish PaintedFinish{.52f, 0.f, .44f, .58f, 48.f};
+constexpr FPropFinish MetalFinish{.42f, .84f, .30f, 0.f, 32.f};
+constexpr FPropFinish WeatheredFinish{.76f, .12f, .68f, .80f, 66.f};
 
 UMaterialInstanceDynamic* PropMaterial(UMaterialInterface* Base, UObject* Owner,
     const FLinearColor& Tint, const FPropFinish& Finish)
@@ -1276,6 +1277,8 @@ UMaterialInstanceDynamic* PropMaterial(UMaterialInterface* Base, UObject* Owner,
     Material->SetScalarParameterValue(TEXT("FinishRoughness"), Finish.Roughness);
     Material->SetScalarParameterValue(TEXT("FinishMetallic"), Finish.Metallic);
     Material->SetScalarParameterValue(TEXT("FinishGrain"), Finish.Grain);
+    Material->SetScalarParameterValue(TEXT("FinishWear"), Finish.Wear);
+    Material->SetScalarParameterValue(TEXT("PropTileCm"), Finish.TileCm);
     return Material;
 }
 }
@@ -1298,6 +1301,7 @@ void AVPAdenSourceWorld::CreateFieldStations()
             Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
             Mesh->SetGenerateOverlapEvents(false);
             Mesh->SetRelativeScale3D(StationDimensions[Part]);
+            Mesh->SetCustomPrimitiveDataVector3(0, Mesh->GetComponentScale().GetAbs());
             Mesh->SetVisibility(false);
             Mesh->RegisterComponent();
             FieldStationParts.Add(Mesh);
@@ -1336,6 +1340,7 @@ void AVPAdenSourceWorld::CreateRescueProps()
         Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Bar->SetVisibility(false);
         Bar->SetRelativeScale3D(FVector(.16, 1.42, 1.16));
+        Bar->SetCustomPrimitiveDataVector3(0, Bar->GetComponentScale().GetAbs());
         Bar->RegisterComponent();
         RescueBarriers.Add(Bar);
     }
@@ -1356,18 +1361,31 @@ bool AVPAdenSourceWorld::VerifyPropFinishes() const
     if (FieldStationParts.Num() != 2 * FieldPartCount || RescueBarriers.Num() != 4) return false;
     const auto Matches = [](const UStaticMeshComponent* Mesh, const FPropFinish& Finish)
     {
-        const auto* Material = Mesh ? Mesh->GetMaterial(0) : nullptr;
-        float Roughness = 0.f, Metallic = 0.f, Grain = 0.f;
-        return Material
-            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishRoughness")), Roughness, true)
-            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishMetallic")), Metallic, true)
-            && Material->GetScalarParameterValue(FMaterialParameterInfo(TEXT("FinishGrain")), Grain, true)
-            && FMath::IsNearlyEqual(Roughness, Finish.Roughness)
-            && FMath::IsNearlyEqual(Metallic, Finish.Metallic)
-            && FMath::IsNearlyEqual(Grain, Finish.Grain);
+        if (!Mesh || !Mesh->GetMaterial(0)) return false;
+        const auto* Material = Mesh->GetMaterial(0);
+        const auto ParameterMatches = [Material](const TCHAR* Name, float Expected)
+        {
+            float Value = 0.f;
+            return Material->GetScalarParameterValue(FMaterialParameterInfo(Name), Value, true)
+                && FMath::IsNearlyEqual(Value, Expected);
+        };
+        UTexture* Texture = nullptr;
+        const auto& PrimitiveData = Mesh->GetCustomPrimitiveData().Data;
+        return PrimitiveData.Num() >= 3
+            && FVector(PrimitiveData[0], PrimitiveData[1], PrimitiveData[2]).Equals(Mesh->GetComponentScale().GetAbs(), .0001)
+            && Material->GetTextureParameterValue(FMaterialParameterInfo(TEXT("PropFinish")), Texture)
+            && Texture && Texture->GetName() == TEXT("T_AdenPropFinish")
+            && ParameterMatches(TEXT("FinishRoughness"), Finish.Roughness)
+            && ParameterMatches(TEXT("FinishMetallic"), Finish.Metallic)
+            && ParameterMatches(TEXT("FinishGrain"), Finish.Grain)
+            && ParameterMatches(TEXT("FinishWear"), Finish.Wear)
+            && ParameterMatches(TEXT("PropTileCm"), Finish.TileCm);
     };
-    return Matches(FieldStationParts[0], MetalFinish) && Matches(FieldStationParts[2], PaintedFinish)
-        && Matches(FieldStationParts[FieldPartCount + 2], PaintedFinish) && Matches(RescueBarriers[0], WeatheredFinish);
+    for (int32 I = 0; I < FieldStationParts.Num(); ++I)
+        if (!Matches(FieldStationParts[I], I % FieldPartCount == 2 ? PaintedFinish : MetalFinish)) return false;
+    for (const auto& Barrier : RescueBarriers)
+        if (!Matches(Barrier, WeatheredFinish)) return false;
+    return true;
 }
 
 bool AVPAdenSourceWorld::SetRescueBarrier(int32 Slot, bool bVisible, const FVector& Start, const FVector& Next, float Raised)
