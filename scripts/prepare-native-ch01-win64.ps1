@@ -160,7 +160,7 @@ if ($adenProof.schema -ne 'veilpoint-native-aden-authoring-v1' -or
     $adenProof.map -ne '/Game/Maps/CH01_Aden' -or $adenProof.gameMode -ne '/Script/Veilpoint.VPAdenStoryGameMode' -or
     $adenProof.savedReloadVerified -ne $true -or $adenProof.sourceActorCount -ne 1 -or $adenProof.atlasTextureCount -ne 4 -or $adenProof.fieldAudioCount -ne 5 -or
     $adenProof.groundDetailTextures -ne 6 -or $adenProof.prologueVoiceCount -ne 10 -or $adenProof.prologueBedCount -ne 17 -or
-    $adenProof.terrainMaterialsSaved -ne $true -or $adenProof.fieldStationSaved -ne $true -or
+    $adenProof.terrainMaterialsSaved -ne $true -or $adenProof.fieldStationSaved -ne $true -or $adenProof.propFinishSaved -ne $true -or
     $adenProof.mapSha256 -cne $adenSha -or [int64]$adenProof.mapBytes -ne (Get-Item -LiteralPath $adenMap).Length) {
     Fail 'Sourced Aden map receipt fails byte-level verification.'
 }

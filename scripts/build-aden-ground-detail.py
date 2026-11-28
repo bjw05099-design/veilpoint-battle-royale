@@ -77,8 +77,30 @@ def create(output):
             + write_surface(output, ROCK, rock, 4.4, .77, .24, .58, .82))
 
 
+def create_prop_finish(output):
+    """Pack metal grain, roughness variation and sparse paint wear in RGB."""
+    fine = field(680941, ((32, .40), (64, .42), (128, .20)))
+    cloudy = field(162091, ((4, .48), (16, .37), (32, .17)))
+    rows = []
+    for y in range(SIZE):
+        row = bytearray()
+        for x in range(SIZE):
+            i = y * SIZE + x
+            grain = .50 + fine[i] * .42
+            roughness = .50 + cloudy[i] * .52 + fine[i] * .16
+            wear = max(0., min(1., (cloudy[i] + fine[i] * .43 - .24) * 5.))
+            row.extend(round(255 * max(0., min(1., value))) for value in (grain, roughness, wear))
+        rows.append(row)
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / "T_AdenPropFinish.png"
+    path.write_bytes(png(rows, 2))
+    return path
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    for path in create(parser.parse_args().output):
+    parser.add_argument("--prop-finish", action="store_true", help="Generate the packed prop finish instead of terrain")
+    args = parser.parse_args()
+    for path in ([create_prop_finish(args.output)] if args.prop_finish else create(args.output)):
         print(path)

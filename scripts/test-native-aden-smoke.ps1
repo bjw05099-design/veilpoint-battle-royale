@@ -130,7 +130,7 @@ $frames = @('aden-world','aden-field-map','aden-field-contours','aden-field-pan'
     'aden-opening-council','aden-opening-corridor','aden-opening-briefing','aden-opening-embark',
     'aden-opening-first-person','aden-opening-deck','aden-opening-approach','aden-opening-landfall',
     'aden-opening-quay','aden-opening-street',
-    'aden-sourced-street','aden-ground-detail','aden-rock-detail','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
+    'aden-sourced-street','aden-ground-detail','aden-prop-finish','aden-rock-detail','aden-west-terrain','aden-west-field-map','aden-zoomed-field-map',
     'aden-campaign-shutter','aden-campaign-escort','aden-campaign-choice','aden-campaign-signal',
     'aden-campaign-contact','aden-campaign-shot-feedback','aden-campaign-journal',
     'aden-route-preview-first','aden-route-preview-second',

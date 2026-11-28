@@ -137,6 +137,41 @@ test('Aden soil and rock detail tiles are distinct, deterministic and seamless',
   assert.match(world, /UV0, UV1, UV2, EmptyUV[\s\S]*?A\.UV2 == B\.UV2/);
 });
 
+test('Aden prop finish packs independent grain, roughness and sparse wear masks', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-prop-finish-'));
+  try {
+    const python = process.platform === 'win32' ? 'python' : 'python3';
+    const script = path.join(__dirname, '../scripts/build-aden-ground-detail.py');
+    const result = spawnSync(python, [script, temp, '--prop-finish'], {encoding: 'utf8', timeout: 12000});
+    assert.equal(result.status, 0, result.error?.message || result.stderr);
+    const png = fs.readFileSync(path.join(temp, 'T_AdenPropFinish.png'));
+    assert.equal(png.readUInt32BE(16), 256);
+    assert.equal(png.readUInt32BE(20), 256);
+    assert.equal(png[25], 2);
+    const data = inflateSync(png.subarray(41, 41 + png.readUInt32BE(33)));
+    const stride = 1 + 256 * 3;
+    assert.equal(data.length, 256 * stride);
+    const grain = new Set(), roughness = new Set();
+    let worn = 0, fullyWorn = 0;
+    for (let y = 0; y < 256; y++) {
+      assert.equal(data[y * stride], 0);
+      for (let x = 0; x < 256; x++) {
+        const offset = y * stride + 1 + 3 * x;
+        grain.add(data[offset]);
+        roughness.add(data[offset + 1]);
+        worn += data[offset + 2] > 0;
+        fullyWorn += data[offset + 2] === 255;
+      }
+    }
+    assert.ok(grain.size > 100 && roughness.size > 100);
+    assert.notDeepEqual(grain, roughness);
+    assert.ok(worn > .14 * 65536 && worn < .25 * 65536);
+    assert.ok(fullyWorn > 0 && fullyWorn < worn);
+  } finally {
+    fs.rmSync(temp, {recursive: true, force: true});
+  }
+});
+
 test('Unreal atlas textures carry verified extents and pinned original bytes', () => {
   const maps = path.join(root, 'ContentSource/Aden');
   const manifest = JSON.parse(fs.readFileSync(path.join(maps, 'aden-atlas.json'), 'utf8'));
