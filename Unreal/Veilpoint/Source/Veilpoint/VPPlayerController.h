@@ -4,6 +4,7 @@
 #include "VPAdenAtlasProjection.h"
 #include "VPAdenCampaignRules.h"
 #include "VPWeaponModel.h"
+#include "VPPhysicsSmoke.h"
 #include "VPPlayerController.generated.h"
 
 class AVPCharacter;
@@ -133,6 +134,7 @@ private:
     bool bVisualMarkRequested = false;
     double NextVisualSmokeAt = 0.0;
     TSharedPtr<class FJsonObject> VisualSmokeReport;
+    FVPPhysicsSmoke PhysicsSmoke;
     UPROPERTY(Transient)
     TObjectPtr<class USceneCaptureComponent2D> VisualSmokeCapture;
     bool bDesktopMenuOpen = false;

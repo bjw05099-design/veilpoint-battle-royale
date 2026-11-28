@@ -46,6 +46,7 @@ if ($report.schema -ne 'veilpoint-native-aden-visual-v2' -or $report.allChapters
     $report.campaignAKMVerified -ne $true -or $report.campaignM4A1Verified -ne $true -or
     $report.weaponPhysicalClearanceVerified -ne $true -or $report.firstPersonWeaponRigVerified -ne $true -or $report.firstPersonSightVerified -ne $true -or
     $report.firstPersonWeaponMotionVerified -ne $true -or $report.firstPersonEquipVerified -ne $true -or
+    $report.firstPersonTranslationLagVerified -ne $true -or
     $report.routeChoicePreviewVerified -ne $true -or
     $report.relayChoicePreviewVerified -ne $true -or
     $report.partialAndEmptyReloadVerified -ne $true -or $report.weaponShotHeatVerified -ne $true -or

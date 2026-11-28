@@ -1524,6 +1524,31 @@ bool AVPAdenStoryGameMode::VerifyEncounter(AVPPlayerController* Desktop, AVPChar
         const bool bSightRestored = FMath::IsNearlyEqual(Pawn->BodyCamera->FieldOfView, VPWeaponView::HipFov);
         DiagnosticReport->SetBoolField(TEXT("firstPersonSightVerified"), bSightRaised && bSightRestored);
         if (!bSightRaised || !bSightRestored) return false;
+
+        auto* Movement = Pawn->GetCharacterMovement();
+        const FVector SavedVelocity = Movement->Velocity;
+        const EMovementMode SavedMode = Movement->MovementMode;
+        const uint8 SavedCustomMode = Movement->CustomMovementMode;
+        Movement->SetMovementMode(MOVE_Walking);
+        Movement->Velocity = FVector::ZeroVector;
+        Pawn->WeaponViewTranslationLag = {};
+        Pawn->UpdateWeaponView(.05f);
+        const double RestX = Pawn->WeaponViewRoot->GetRelativeLocation().X;
+        Movement->Velocity = FRotator(0., Facing.Yaw, 0.).Vector() * 150.;
+        Pawn->UpdateWeaponView(.05f);
+        const double StartX = Pawn->WeaponViewRoot->GetRelativeLocation().X;
+        Movement->Velocity = FVector::ZeroVector;
+        Pawn->UpdateWeaponView(.05f);
+        const double StopX = Pawn->WeaponViewRoot->GetRelativeLocation().X;
+        Movement->SetMovementMode(SavedMode, SavedCustomMode);
+        Movement->Velocity = SavedVelocity;
+        Pawn->WeaponViewTranslationLag = {};
+        const bool bInertiaVerified = StartX < RestX - .8 && StopX > RestX + .3;
+        DiagnosticReport->SetBoolField(TEXT("firstPersonTranslationLagVerified"), bInertiaVerified);
+        DiagnosticReport->SetNumberField(TEXT("firstPersonStartOffsetCm"), StartX - RestX);
+        DiagnosticReport->SetNumberField(TEXT("firstPersonStopOffsetCm"), StopX - RestX);
+        if (!bInertiaVerified) return false;
+
         Pawn->PresentedWeapon.Reset();
         Pawn->UpdateWeaponView(0.f);
         const double EquipStartZ = Pawn->WeaponViewRoot->GetRelativeLocation().Z;
