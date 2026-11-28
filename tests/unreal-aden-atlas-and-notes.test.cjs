@@ -28,6 +28,7 @@ test('atlas drawing and pointer pins share projection and reuse unchanged road a
   const hud = fs.readFileSync(path.join(include, 'VPAdenHUD.cpp'), 'utf8');
   assert.match(controller, /PointAtPixel\(VPAdenAtlas::ScreenMap[\s\S]*?TraceAtlasGround\(Point, Floor\)/);
   assert.match(hud, /ScreenMap\(Crop, Canvas->ClipX, Canvas->ClipY\)/);
+  assert.match(hud, /PointAtPixel\(\s*VPAdenAtlas::ScreenMap\(Crop, DisplayW, DisplayH\)[\s\S]*?Source->ReadAtlasGround\(Point, Reading\)/);
   assert.match(hud, /AdenStrokeSource\.Get\(\) != Source \|\| !\(AdenStrokeExtent == Strokes\)[\s\S]*?VisitAtlasLines/);
 });
 

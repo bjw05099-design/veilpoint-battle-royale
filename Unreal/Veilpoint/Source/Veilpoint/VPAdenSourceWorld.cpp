@@ -889,6 +889,16 @@ bool AVPAdenSourceWorld::TraceAtlasGround(VPAdenAtlas::FPoint Point, FVector& Gr
     return true;
 }
 
+bool AVPAdenSourceWorld::ReadAtlasGround(VPAdenAtlas::FPoint Point, FVPAdenGroundReading& Reading) const
+{
+    FHitResult Surface;
+    FVector Ground;
+    if (!TraceAtlasGround(Point, Ground, &Surface)) return false;
+    Reading = {Ground.Z / 100.,
+        FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(Surface.ImpactNormal.Z, 0., 1.)))};
+    return true;
+}
+
 FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
 {
     using namespace VPAdenRegionalGrid;
@@ -1145,14 +1155,14 @@ int32 AVPAdenSourceWorld::VisitAtlasContours(VPAdenAtlas::FExtent View,
     const int32 Interval = VPAdenContours::IntervalForWidth(View.Width());
     View = VPAdenAtlas::Intersection(View, Playable);
     if (View.Width() <= 0. || View.Height() <= 0.) return 0;
-    constexpr double Width = SectorCells * Spacing;
+    constexpr double ContourSectorWidth = SectorCells * Spacing;
     const auto First = [](double Offset, int32 SectorCount)
     {
-        return FMath::Clamp(int32(FMath::CeilToInt(Offset / Width)) - 1, 0, SectorCount - 1);
+        return FMath::Clamp(int32(FMath::CeilToInt(Offset / ContourSectorWidth)) - 1, 0, SectorCount - 1);
     };
     const auto Last = [](double Offset, int32 SectorCount)
     {
-        return FMath::Clamp(int32(FMath::FloorToInt(Offset / Width)), 0, SectorCount - 1);
+        return FMath::Clamp(int32(FMath::FloorToInt(Offset / ContourSectorWidth)), 0, SectorCount - 1);
     };
     // Include the previous sector when the crop starts exactly on a shared edge.
     const int32 West = First(View.West - Playable.West, GroundSectorsX);

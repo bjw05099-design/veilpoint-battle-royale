@@ -298,6 +298,33 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
                                                   : FString::Printf(TEXT("%d m"), ScaleMetres);
     DrawText(ScaleLabel,
         Ink, BarX, BarY - 19.f * Scale, nullptr, .68f * Scale);
+    if (bContours)
+    {
+        float MouseX = 0.f, MouseY = 0.f;
+        int32 DisplayW = 0, DisplayH = 0;
+        Desktop.GetViewportSize(DisplayW, DisplayH);
+        VPAdenAtlas::FPoint Point;
+        if (Desktop.GetMousePosition(MouseX, MouseY) && VPAdenAtlas::PointAtPixel(
+            VPAdenAtlas::ScreenMap(Crop, DisplayW, DisplayH), Crop, {MouseX, MouseY}, Point))
+        {
+            const FVector2D WorldPoint(Point.X, Point.Y);
+            if (AdenGroundReadingSource.Get() != Source || AdenGroundReadingPoint != WorldPoint)
+            {
+                AdenGroundReadingSource = Aden->Source;
+                AdenGroundReadingPoint = WorldPoint;
+                FVPAdenGroundReading Reading;
+                if (Source->ReadAtlasGround(Point, Reading))
+                    AdenGroundReadingLabel = FString::Printf(TEXT("Ground %.0f m  |  %.0f deg"), Reading.ElevationMetres, Reading.SlopeDegrees);
+                else AdenGroundReadingLabel.Reset();
+            }
+            if (!AdenGroundReadingLabel.IsEmpty())
+            {
+                const float LabelX = MapX + MapW - 151.f * Scale;
+                DrawRect(FLinearColor(.01f, .03f, .038f, .94f), LabelX, BarY - 24.f * Scale, 144.f * Scale, 32.f * Scale);
+                DrawText(AdenGroundReadingLabel, Ink, LabelX + 8.f * Scale, BarY - 19.f * Scale, nullptr, .71f * Scale);
+            }
+        }
+    }
     if (bSide)
     {
         const float PanelX = X + W - Side - Inset + 20.f * Scale;

@@ -47,6 +47,9 @@ private:
     TWeakObjectPtr<class AVPAdenSourceWorld> AdenContourSource;
     VPAdenAtlas::FExtent AdenContourExtent{};
     TArray<VPAdenContours::FLine> AdenContourStrokes;
+    TWeakObjectPtr<class AVPAdenSourceWorld> AdenGroundReadingSource;
+    FVector2D AdenGroundReadingPoint = FVector2D::ZeroVector;
+    FString AdenGroundReadingLabel;
     bool bRoundReviewOpen = false;
     double ReviewPlayheadMs = -1.;
     bool bRoundReviewPlaying = false;
