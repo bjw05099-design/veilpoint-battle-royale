@@ -290,6 +290,44 @@ FMesh TerrainRenderSector(const FMesh& Ground, int32 SectorX, int32 SectorY)
     return Mesh;
 }
 
+TArray<TArray<VPAdenContours::FLine>> BuildAtlasContours(const FMesh& Ground)
+{
+    TArray<TArray<VPAdenContours::FLine>> Sectors;
+    Sectors.SetNum(GroundSectors);
+    TSet<uint64> SharedLevelEdges;
+    constexpr double SectorWidth = SectorCells * Spacing;
+    for (int32 I = 0; I < Ground.Triangles.Num(); I += 3)
+    {
+        std::array<VPAdenContours::FVertex, 3> Vertices;
+        for (int32 K = 0; K < 3; ++K)
+        {
+            const auto& Point = Ground.Vertices[Ground.Triangles[I + K]];
+            Vertices[K] = {{Point.X, Point.Y}, int32(Point.Z)};
+        }
+        const double West = std::min({Vertices[0].Point.X, Vertices[1].Point.X, Vertices[2].Point.X});
+        const double North = std::min({Vertices[0].Point.Y, Vertices[1].Point.Y, Vertices[2].Point.Y});
+        const int32 X = int32((West - VPAdenAtlas::Playable.West) / SectorWidth);
+        const int32 Y = int32((North - VPAdenAtlas::Playable.North) / SectorWidth);
+        auto& Sector = Sectors[Y * GroundSectorsX + X];
+        VPAdenContours::TraceTriangle(Vertices, [&](const VPAdenContours::FLine& Line)
+        {
+            // An exact-height ridge can be emitted by both incident triangles.
+            for (int32 K = 0; K < 3; ++K)
+            {
+                const int32 Next = (K + 1) % 3;
+                if (Vertices[K].HeightCm != Line.HeightCm || Vertices[Next].HeightCm != Line.HeightCm) continue;
+                const int32 A = Ground.Triangles[I + K], B = Ground.Triangles[I + Next];
+                const uint64 Edge = (uint64(FMath::Min(A, B)) << 32) | uint64(FMath::Max(A, B));
+                if (SharedLevelEdges.Contains(Edge)) return;
+                SharedLevelEdges.Add(Edge);
+                break;
+            }
+            Sector.Add(Line);
+        });
+    }
+    return Sectors;
+}
+
 template <std::size_t ChunkCount>
 bool DecodeHeightBytes(const char* const (&Chunks)[ChunkCount], int32 Size, TArray<uint8>& Raw)
 {
@@ -716,6 +754,7 @@ bool AVPAdenSourceWorld::BuildSource()
     RegionalMaterial->SetTextureParameterValue(TEXT("AdenRelief"), RegionalAtlas);
     const FMesh Terrain = TerrainMesh(Geometry, WestHeights);
     TerrainCollision = AddMesh(Terrain, true, false);
+    AtlasContourSectors = BuildAtlasContours(Terrain);
     // Share the global grid's vertex attributes while keeping one continuous physics surface.
     TerrainSectors.Reserve(GroundSectors);
     for (int32 Y = 0; Y < GroundSectorsY; ++Y)
@@ -1095,6 +1134,44 @@ int32 AVPAdenSourceWorld::VisitAtlasLines(VPAdenAtlas::FExtent View,
         }
     }
     return Checked;
+}
+
+int32 AVPAdenSourceWorld::VisitAtlasContours(VPAdenAtlas::FExtent View,
+    TFunctionRef<void(const VPAdenContours::FLine&)> Visit) const
+{
+    using namespace VPAdenWorld;
+    using VPAdenAtlas::Playable;
+    if (AtlasContourSectors.Num() != GroundSectors || View.Width() <= 0. || View.Height() <= 0.) return 0;
+    const int32 Interval = VPAdenContours::IntervalForWidth(View.Width());
+    View = VPAdenAtlas::Intersection(View, Playable);
+    if (View.Width() <= 0. || View.Height() <= 0.) return 0;
+    constexpr double Width = SectorCells * Spacing;
+    const auto First = [](double Offset, int32 SectorCount)
+    {
+        return FMath::Clamp(int32(FMath::CeilToInt(Offset / Width)) - 1, 0, SectorCount - 1);
+    };
+    const auto Last = [](double Offset, int32 SectorCount)
+    {
+        return FMath::Clamp(int32(FMath::FloorToInt(Offset / Width)), 0, SectorCount - 1);
+    };
+    // Include the previous sector when the crop starts exactly on a shared edge.
+    const int32 West = First(View.West - Playable.West, GroundSectorsX);
+    const int32 East = Last(View.East - Playable.West, GroundSectorsX);
+    const int32 North = First(View.North - Playable.North, GroundSectorsY);
+    const int32 South = Last(View.South - Playable.North, GroundSectorsY);
+    int32 Count = 0;
+    for (int32 Y = North; Y <= South; ++Y)
+    for (int32 X = West; X <= East; ++X)
+    {
+        for (auto Line : AtlasContourSectors[Y * GroundSectorsX + X])
+        {
+            if (Line.HeightCm % Interval != 0 || !VPAdenAtlas::Clip(View, Line.A, Line.B)
+                || (Line.A.X == Line.B.X && Line.A.Y == Line.B.Y)) continue;
+            Visit(Line);
+            ++Count;
+        }
+    }
+    return Count;
 }
 
 const TArray<FVector>& AVPAdenSourceWorld::CampaignLeg(VPAdenCampaign::FProgress Progress) const

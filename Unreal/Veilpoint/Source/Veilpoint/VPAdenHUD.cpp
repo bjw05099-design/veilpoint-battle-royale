@@ -50,6 +50,17 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     const float MapW = float(Screen.Map.Width()), MapH = float(Screen.Map.Height());
     const float MapX = float(Screen.Map.West), MapY = float(Screen.Map.North);
     const int32 ScaleMetres = VPAdenAtlas::ScaleBarMetres(Crop);
+    const bool bContours = Desktop.AreAdenContoursVisible();
+    const double ContourInset = Scale * Crop.Width() / MapW;
+    const VPAdenAtlas::FExtent ContourView{Crop.West + ContourInset, Crop.North + ContourInset,
+        Crop.East - ContourInset, Crop.South - ContourInset};
+    if (!bRegional)
+    {
+        const FString ContourLabel = bContours
+            ? FString::Printf(TEXT("H Contours %d m"), VPAdenContours::IntervalForWidth(ContourView.Width()) / 100)
+            : FString(TEXT("H Contours off"));
+        DrawText(ContourLabel, bContours ? Accent : Muted, X + W - 132.f * Scale, Y + 37.f * Scale, nullptr, .73f * Scale);
+    }
 
     const auto Pixel = [&](const VPAdenAtlas::FPoint& Point)
     {
@@ -80,6 +91,24 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
     {
         DrawRelief(Map, VPAdenAtlas::Local);
         DrawRelief(Source->WestAtlas.Get(), VPAdenAtlas::West);
+        if (bContours)
+        {
+            if (AdenContourSource.Get() != Source || !(AdenContourExtent == ContourView))
+            {
+                AdenContourSource = Aden->Source;
+                AdenContourExtent = ContourView;
+                AdenContourStrokes.Reset();
+                Source->VisitAtlasContours(ContourView, [&](const VPAdenContours::FLine& Line) { AdenContourStrokes.Add(Line); });
+            }
+            for (const auto& Line : AdenContourStrokes)
+            {
+                const auto A = Pixel(Line.A), B = Pixel(Line.B);
+                const bool bMajor = Line.HeightCm % VPAdenContours::MajorIntervalCm == 0;
+                const FLinearColor ContourInk = bMajor ? FLinearColor(.16f, .10f, .065f, .88f)
+                    : FLinearColor(.25f, .17f, .11f, .70f);
+                DrawLine(A.X, A.Y, B.X, B.Y, ContourInk, (bMajor ? 1.45f : .85f) * Scale);
+            }
+        }
         const double GridStep = 100. * ScaleMetres;
         const FLinearColor Grid(.63f, .72f, .70f, .19f);
         const float Stroke = FMath::Max(1.f, Scale);
@@ -304,8 +333,8 @@ void AVPHUD::DrawAdenAtlas(const AVPAdenStoryState* Aden, const AVPCharacter* Pa
             DrawText(FString::Printf(TEXT("%.0f m on this route"), PreviewMetres), Accent,
                 PanelX, PanelY + 103.f * Scale, nullptr, .77f * Scale);
         if (!bRegional)
-            DrawText(FString::Printf(TEXT("PIN %d  |  %s"), Desktop.GetSelectedAdenPin() + 1,
-                Pin.IsSet() ? TEXT("SAVED") : TEXT("EMPTY")), PinColor,
+            DrawText(Pin.IsSet() ? FString::Printf(TEXT("PIN %d  |  ELEV %.0f m"), Desktop.GetSelectedAdenPin() + 1, Pin->Z / 100.)
+                : FString::Printf(TEXT("PIN %d  |  EMPTY"), Desktop.GetSelectedAdenPin() + 1), PinColor,
                 PanelX, PanelY + 120.f * Scale, nullptr, .73f * Scale);
         DrawText(bRegional ? TEXT("40.96 x 35.84 km") : TEXT("5.12 x 3.584 km"),
             Muted, PanelX, PanelY + 136.f * Scale, nullptr, .83f * Scale);
