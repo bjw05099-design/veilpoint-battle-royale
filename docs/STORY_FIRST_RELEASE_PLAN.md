@@ -16,6 +16,10 @@ The November 28 allocation applies until the user changes it. Select the mix
 within the shared group according to the next playable milestone. Count each
 shared change and its stabilization once.
 
+Map implementation covers the playable Unreal levels and their terrain,
+geometry, traversal and collision. Field map, regional atlas and minimap
+development is paused until the user resumes it.
+
 ## Reusable foundations and chapter content
 
 Prioritize reusable UE5.8 foundations. Build and
