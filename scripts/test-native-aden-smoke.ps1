@@ -83,6 +83,7 @@ if ($report.propFinishesVerified -ne $true) {
     throw 'Aden map props are missing their painted, exposed metal or weathered material values.'
 }
 if ($report.westGroundSamples -ne 1025 -or $report.westCapsuleSweepMetres -ne 1024 -or
+    $report.groundedCadenceSlopeSamples -le 0 -or
     $report.westMaxRiseCmPerMetre -le 0 -or $report.westMaxRiseCmPerMetre -gt 30 -or
     $report.westFieldMapVerified -ne $true -or $report.westGradeDirectionsVerified -ne $true) {
     throw 'Aden west terrain failed the capsule crossing or atlas verification.'

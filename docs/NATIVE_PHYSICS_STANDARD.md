@@ -31,6 +31,10 @@ The local character uses displacement after a grounded movement update to
 advance its walking cycle. The first-person rig and Aden footstep audio read
 the same cycle. Verify steady walking, a stance change mid-step, a jump and a
 teleport or checkpoint recovery at multiple frame rates.
+On ramps, count the part of the observed rise that follows the supporting
+floor normal. Flat floor steps and capsule height corrections count only the
+horizontal path. The packaged Aden diagnostic samples both directions and
+vertical corrections using normals read from the actual cooked terrain.
 
 At the coastal apron's wet boundary, the fraction of the capsule footprint
 over the slab blends the authored dry and wet grip and speed values. The

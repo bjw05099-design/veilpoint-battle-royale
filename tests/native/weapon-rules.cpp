@@ -153,6 +153,30 @@ int main()
     assert(std::abs(Walked.Cycle() - Walk(30).Cycle()) < 1.e-9);
     assert(std::abs(Walked.Cycle() - Walk(120).Cycle()) < 1.e-9);
 
+    using VPFooting::GroundedTravelCm;
+    assert(GroundedTravelCm(0., 0., 44., 0., 0., 1.) == 0.);
+    assert(GroundedTravelCm(30., 40., 20., 0., 0., 1.) == 50.);
+    assert(GroundedTravelCm(30., 40., -20., 0., 0., 1.) == 50.);
+    assert(GroundedTravelCm(30., 40., 20., 1., 0., 0.) == 50.);
+    assert(GroundedTravelCm(0., 30., 18., -.4472135955, 0., .894427191) == 30.);
+    const auto RampCycle = [](int Rate, double Direction)
+    {
+        VPFooting::FCadence Slope;
+        for (int Frame = 0; Frame < Rate; ++Frame)
+        {
+            const double DX = Direction * 270. / Rate;
+            // Add upward correction in the direction of motion. The ramp alone counts.
+            const double Distance = GroundedTravelCm(DX, 0., .8 * DX, -.4472135955, 0., .894427191);
+            assert(Distance > std::abs(DX));
+            Slope.Advance(Distance, false, false);
+        }
+        return Slope.Cycle();
+    };
+    const double RampExpected = std::fmod(std::hypot(270., 135.) / (2. * VPFooting::StepLengthCm(false, false)), 1.);
+    for (int Rate : {30, 60, 120, 240})
+        assert(std::abs(RampCycle(Rate, 1.) - RampExpected) < 1.e-9
+            && std::abs(RampCycle(Rate, -1.) - RampExpected) < 1.e-9);
+
     using VPWeaponView::LandingDip;
     using VPWeaponView::LandingStrength;
     assert(LandingStrength(0.) == 0. && LandingStrength(160.) == 0.);
