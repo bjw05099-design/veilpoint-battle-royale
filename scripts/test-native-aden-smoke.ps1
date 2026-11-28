@@ -71,6 +71,7 @@ if ($report.regionalRenderTiles -ne 56 -or $report.regionalCoarsenedTiles -le 0 
 }
 if ($report.terrainRenderSectors -ne 70 -or $report.terrainRenderTriangles -ne 35840 -or
     $report.terrainMetricUvSeams -ne 123 -or $report.terrainDetailAssetsStaged -ne $true -or
+    $report.terrainMaterialSplitVerified -ne $true -or
     $report.terrainSurfaceUvSeams -ne 123 -or $report.terrainSoilVertices -le 0 -or
     $report.terrainRockVertices -le 0 -or $report.terrainTransitionVertices -le 0 -or
     $report.terrainDetailFadeVertices -ne 574 -or

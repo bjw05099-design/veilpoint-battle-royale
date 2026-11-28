@@ -719,7 +719,8 @@ bool AVPAdenSourceWorld::BuildSource()
         UE_LOG(LogVPAdenSource, Error, TEXT("Aden public source or its authored material failed validation"));
         return false;
     }
-    const auto AddMesh = [this](const FMesh& Buffer, bool bSolid, bool bVisible,
+    auto* Background = BackdropMaterial ? BackdropMaterial.Get() : VertexColorMaterial.Get();
+    const auto AddMesh = [this, Background](const FMesh& Buffer, bool bSolid, bool bVisible,
         const VPAdenAtlas::FExtent& Extent = VPAdenAtlas::Local, UMaterialInterface* Material = nullptr,
         bool bGroundDetail = false)
     {
@@ -745,14 +746,14 @@ bool AVPAdenSourceWorld::BuildSource()
         }
         Mesh->CreateMeshSection_LinearColor(0, Buffer.Vertices, Buffer.Triangles, Buffer.Normals,
             UV0, UV1, UV2, EmptyUV, Buffer.Colors, Tangents, bSolid, false);
-        Mesh->SetMaterial(0, Material ? Material : VertexColorMaterial.Get());
+        Mesh->SetMaterial(0, Material ? Material : Background);
         Mesh->SetCastShadow(bVisible);
         Mesh->SetVisibility(bVisible);
         return Mesh;
     };
     auto* LocalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
     auto* WestMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
-    auto* RegionalMaterial = UMaterialInstanceDynamic::Create(VertexColorMaterial, this);
+    auto* RegionalMaterial = UMaterialInstanceDynamic::Create(Background, this);
     if (!LocalMaterial || !WestMaterial || !RegionalMaterial) return false;
     if (GroundNormal && GroundRoughness)
     {
@@ -996,6 +997,29 @@ FVPAdenRegionalCheck AVPAdenSourceWorld::VerifyRegionalTiles() const
     }
     Result.PlayableBorderVertices = GroundBorder.Num();
     return Result;
+}
+
+bool AVPAdenSourceWorld::VerifyTerrainMaterials() const
+{
+    if (!VertexColorMaterial || !BackdropMaterial) return false;
+    const auto* Detail = VertexColorMaterial->GetBaseMaterial();
+    const auto* Background = BackdropMaterial->GetBaseMaterial();
+    if (!Detail || !Background || Detail == Background) return false;
+
+    TArray<UProceduralMeshComponent*> Meshes;
+    GetComponents(Meshes);
+    int32 GroundCount = 0, BackgroundCount = 0;
+    for (auto* Mesh : Meshes)
+    {
+        if (!Mesh->IsVisible()) continue;
+        auto* Material = Mesh->GetMaterial(0);
+        const bool bPlayable = TerrainSectors.Contains(Mesh);
+        if (!Material || Material->GetBaseMaterial() != (bPlayable ? Detail : Background)) return false;
+        if (bPlayable) ++GroundCount;
+        else ++BackgroundCount;
+    }
+    return GroundCount == TerrainSectors.Num() && GroundCount > 0
+        && BackgroundCount == RegionalTiles.Num() + OverlaySectorCount && BackgroundCount > 0;
 }
 
 FVPAdenTerrainCheck AVPAdenSourceWorld::VerifyTerrainSectors() const
